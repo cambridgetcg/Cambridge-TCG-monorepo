@@ -14,10 +14,11 @@ import {
   Text,
   Button,
   EmptyState,
-  Thumbnail,
   Icon,
+  ResourceList,
+  ResourceItem,
 } from "@shopify/polaris";
-import { SearchIcon, PersonIcon } from "@shopify/polaris-icons";
+import { SearchIcon } from "@shopify/polaris-icons";
 import { useState, useCallback, useMemo } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -245,23 +246,16 @@ export default function CustomersPage() {
     return "attention";
   };
 
-  // Prepare table rows
+  // Prepare table rows for desktop
   const rows = customers.map((customer) => [
-    <InlineStack gap="300" align="center">
-      <Thumbnail
-        source={PersonIcon}
-        alt={customer.email}
-        size="small"
-      />
-      <BlockStack gap="100">
-        <Text as="span" variant="bodyMd" fontWeight="semibold">
-          {customer.email}
-        </Text>
-        <Text as="span" variant="bodySm" tone="subdued">
-          ID: {customer.shopifyCustomerId}
-        </Text>
-      </BlockStack>
-    </InlineStack>,
+    <BlockStack gap="100">
+      <Text as="span" variant="bodyMd" fontWeight="semibold">
+        {customer.email}
+      </Text>
+      <Text as="span" variant="bodySm" tone="subdued">
+        ID: {customer.shopifyCustomerId}
+      </Text>
+    </BlockStack>,
     customer.currentTier ? (
       <Badge tone={getTierTone(customer.currentTier)}>
         {customer.currentTier.name}
@@ -303,12 +297,12 @@ export default function CustomersPage() {
       }}
     >
       <Layout>
-        <Layout.Section>
+        <Layout.Section variant="fullWidth">
           <Card>
             <BlockStack gap="400">
-              {/* Filters */}
-              <InlineStack gap="300" align="start">
-                <div style={{ flexGrow: 1, maxWidth: "400px" }}>
+              {/* Filters - Responsive */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                <div style={{ flex: "1 1 300px", minWidth: "200px" }}>
                   <TextField
                     label="Search customers"
                     value={searchValue}
@@ -320,15 +314,17 @@ export default function CustomersPage() {
                     onClearButtonClick={() => handleSearch("")}
                   />
                 </div>
-                <Select
-                  label="Filter by tier"
-                  options={tierOptions}
-                  value={selectedTier}
-                  onChange={handleTierFilter}
-                />
-              </InlineStack>
+                <div style={{ flex: "0 1 200px", minWidth: "150px" }}>
+                  <Select
+                    label="Filter by tier"
+                    options={tierOptions}
+                    value={selectedTier}
+                    onChange={handleTierFilter}
+                  />
+                </div>
+              </div>
 
-              {/* Customer table */}
+              {/* Customer table/list - Responsive */}
               {customers.length === 0 ? (
                 <EmptyState
                   heading="No customers found"
@@ -341,27 +337,104 @@ export default function CustomersPage() {
                   </p>
                 </EmptyState>
               ) : (
-                <DataTable
-                  columnContentTypes={["text", "text", "numeric", "numeric", "text", "text"]}
-                  headings={[
-                    "Customer",
-                    "Tier",
-                    "Store Credit",
-                    "Cashback Rate",
-                    "Member Since",
-                    "Actions",
-                  ]}
-                  rows={rows}
-                  sortable={[true, false, true, false, true, false]}
-                />
+                <>
+                  {/* Desktop view - Table */}
+                  <div style={{ display: "block" }} className="desktop-only">
+                    <DataTable
+                      columnContentTypes={["text", "text", "numeric", "numeric", "text", "text"]}
+                      headings={[
+                        "Customer",
+                        "Tier",
+                        "Store Credit",
+                        "Cashback Rate",
+                        "Member Since",
+                        "Actions",
+                      ]}
+                      rows={rows}
+                      sortable={[true, false, true, false, true, false]}
+                    />
+                  </div>
+                  
+                  {/* Mobile view - Resource List */}
+                  <div style={{ display: "none" }} className="mobile-only">
+                    <ResourceList
+                      items={customers}
+                      renderItem={(customer) => {
+                        const { id, email, shopifyCustomerId, currentTier, storeCredit, createdAt } = customer;
+                        
+                        return (
+                          <ResourceItem
+                            id={id}
+                            url={`/app/customers/${id}`}
+                            accessibilityLabel={`View details for ${email}`}
+                          >
+                            <BlockStack gap="200">
+                              <InlineStack align="space-between" blockAlign="start">
+                                <BlockStack gap="100">
+                                  <Text as="h3" variant="bodyMd" fontWeight="semibold">
+                                    {email}
+                                  </Text>
+                                  <Text as="p" variant="bodySm" tone="subdued">
+                                    ID: {shopifyCustomerId}
+                                  </Text>
+                                </BlockStack>
+                                {currentTier ? (
+                                  <Badge tone={getTierTone(currentTier)}>
+                                    {currentTier.name}
+                                  </Badge>
+                                ) : (
+                                  <Badge tone="new">No Tier</Badge>
+                                )}
+                              </InlineStack>
+                              <InlineStack gap="400">
+                                <BlockStack gap="050">
+                                  <Text as="p" variant="bodySm" tone="subdued">Store Credit</Text>
+                                  <Text as="p" variant="bodyMd" fontWeight="semibold">
+                                    {formatCurrency(storeCredit)}
+                                  </Text>
+                                </BlockStack>
+                                {currentTier && (
+                                  <BlockStack gap="050">
+                                    <Text as="p" variant="bodySm" tone="subdued">Cashback</Text>
+                                    <Text as="p" variant="bodyMd">
+                                      {currentTier.cashbackPercent}%
+                                    </Text>
+                                  </BlockStack>
+                                )}
+                                <BlockStack gap="050">
+                                  <Text as="p" variant="bodySm" tone="subdued">Member Since</Text>
+                                  <Text as="p" variant="bodyMd">
+                                    {formatDate(createdAt)}
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </ResourceItem>
+                        );
+                      }}
+                    />
+                  </div>
+                  
+                  {/* CSS for responsive display */}
+                  <style>{`
+                    @media (max-width: 768px) {
+                      .desktop-only { display: none !important; }
+                      .mobile-only { display: block !important; }
+                    }
+                    @media (min-width: 769px) {
+                      .desktop-only { display: block !important; }
+                      .mobile-only { display: none !important; }
+                    }
+                  `}</style>
+                </>
               )}
             </BlockStack>
           </Card>
         </Layout.Section>
 
-        {/* Stats sidebar */}
-        <Layout.Section variant="oneThird">
-          <BlockStack gap="400">
+        {/* Stats sidebar - Responsive */}
+        <Layout.Section>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}>
             <Card>
               <BlockStack gap="200">
                 <Text as="h2" variant="headingMd">Quick Stats</Text>
@@ -441,7 +514,7 @@ export default function CustomersPage() {
                 </BlockStack>
               </BlockStack>
             </Card>
-          </BlockStack>
+          </div>
         </Layout.Section>
       </Layout>
     </Page>
