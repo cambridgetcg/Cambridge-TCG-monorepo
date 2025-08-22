@@ -25,6 +25,10 @@ api_version = "2025-07"
   topics = [ "orders/paid" ]
   uri = "/webhooks/orders/paid"
 
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/webhooks/compliance"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_orders,write_store_credit_account_transactions,read_store_credit_accounts"
