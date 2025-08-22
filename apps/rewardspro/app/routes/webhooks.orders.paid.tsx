@@ -280,7 +280,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     // Authenticate the webhook request
-    const { topic, shop, payload } = await authenticate.webhook(request);
+    const { topic, shop, payload, admin } = await authenticate.webhook(request);
     
     const order = payload as OrderWebhookPayload;
     
@@ -415,13 +415,119 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     await evaluateTierUpgrade(customer, shop);
     
     // ========================================================================
-    // STEP 6: TODO - Sync with Shopify Store Credit API (if available)
+    // STEP 6: Issue Store Credit to Shopify
     // ========================================================================
     
-    // Note: The Shopify Store Credit API requires specific permissions
-    // and may not be available on all plans. This would be implemented
-    // similar to the reference code using admin.graphql() to issue
-    // store credit directly in Shopify.
+    if (admin && cashback.amount > 0) {
+      try {
+        console.log(`[Order Paid] Issuing ${cashback.amount} store credit to Shopify...`);
+        
+        // Format amount to 2 decimal places as required by Shopify
+        const formattedAmount = cashback.amount.toFixed(2);
+        
+        const response = await admin.graphql(
+          `#graphql
+          mutation IssueStoreCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+            storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+              storeCreditAccountTransaction {
+                id
+                amount {
+                  amount
+                  currencyCode
+                }
+                balanceAfterTransaction {
+                  amount
+                  currencyCode
+                }
+              }
+              userErrors {
+                field
+                message
+                code
+              }
+            }
+          }`,
+          {
+            variables: {
+              id: `gid://shopify/Customer/${shopifyCustomerId}`,
+              creditInput: {
+                creditAmount: {
+                  amount: formattedAmount,
+                  currencyCode: order.currency
+                }
+              }
+            }
+          }
+        );
+        
+        const result = await response.json();
+        
+        // Check for errors
+        if (result.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+          const errors = result.data.storeCreditAccountCredit.userErrors;
+          console.error("[Order Paid] Store credit API errors:", errors);
+          
+          // Update ledger entry to note the sync failure
+          await db.storeCreditLedger.updateMany({
+            where: {
+              customerId: customer.id,
+              shopifyOrderId,
+              type: "CASHBACK_EARNED"
+            },
+            data: {
+              metadata: {
+                ...(lastEntry?.metadata as object || {}),
+                shopifySyncStatus: "FAILED",
+                shopifySyncError: errors.map((e: any) => e.message).join(", "),
+                shopifySyncAttemptedAt: new Date().toISOString()
+              }
+            }
+          });
+        } else if (result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction) {
+          // Success!
+          const transaction = result.data.storeCreditAccountCredit.storeCreditAccountTransaction;
+          console.log(`[Order Paid] ✅ Store credit issued to Shopify: ${transaction.id}`);
+          console.log(`[Order Paid] New Shopify balance: ${transaction.balanceAfterTransaction.amount} ${transaction.balanceAfterTransaction.currencyCode}`);
+          
+          // Update ledger entry with Shopify transaction ID
+          await db.storeCreditLedger.updateMany({
+            where: {
+              customerId: customer.id,
+              shopifyOrderId,
+              type: "CASHBACK_EARNED"
+            },
+            data: {
+              metadata: {
+                ...(lastEntry?.metadata as object || {}),
+                shopifySyncStatus: "SUCCESS",
+                shopifyTransactionId: transaction.id,
+                shopifyBalance: transaction.balanceAfterTransaction.amount,
+                shopifySyncedAt: new Date().toISOString()
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error("[Order Paid] Failed to issue store credit to Shopify:", error);
+        
+        // Record the sync failure in metadata
+        await db.storeCreditLedger.updateMany({
+          where: {
+            customerId: customer.id,
+            shopifyOrderId,
+            type: "CASHBACK_EARNED"
+          },
+          data: {
+            metadata: {
+              ...(lastEntry?.metadata as object || {}),
+              shopifySyncStatus: "ERROR",
+              shopifySyncError: error instanceof Error ? error.message : "Unknown error",
+              shopifySyncAttemptedAt: new Date().toISOString()
+            }
+          }
+        });
+      }
+    }
     
     console.log(`[Order Paid] Successfully processed order ${shopifyOrderId}`);
     console.log("=".repeat(60) + "\n");
