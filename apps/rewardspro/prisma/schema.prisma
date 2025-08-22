@@ -30,3 +30,26 @@ model Session {
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
 }
+
+model Tier {
+  id                String @id
+  shop              String
+  name              String
+  minSpend          Int
+  cashbackPercent   Int
+  evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
+  createdAt         DateTime            @default(now())
+
+  // Constraints
+  @@unique([shop, name])  // Combination must be unique
+  @@index([shop])         // Speed up queries by shop
+  @@index([cashbackPercent])    // Speed up sorting by cashback
+}
+
+
+//Enums
+
+enum EvaluationPeriod {
+  ANNUAL         // 12 months rolling (default)
+  LIFETIME       // All-time spending, never expires
+}
