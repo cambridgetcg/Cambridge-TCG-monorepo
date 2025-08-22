@@ -17,7 +17,7 @@ import {
   Text,
   Badge,
 } from "@shopify/polaris";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
@@ -400,6 +400,14 @@ export default function TiersPage() {
 
   // Show success/error messages
   const actionData = fetcher.data as { error?: string; success?: boolean } | undefined;
+  const [showBanner, setShowBanner] = useState(true);
+  
+  // Reset banner visibility when new action data comes in
+  useEffect(() => {
+    if (actionData) {
+      setShowBanner(true);
+    }
+  }, [actionData]);
   
   return (
     <Page
@@ -411,18 +419,19 @@ export default function TiersPage() {
     >
       <Layout>
         <Layout.Section>
-          {actionData?.error && (
-            <Banner tone="critical" onDismiss={() => {}}>
-              <p>{actionData.error}</p>
-            </Banner>
-          )}
-          {actionData?.success && (
-            <Banner tone="success" onDismiss={() => {}}>
-              <p>Tier {editingTier ? "updated" : "created"} successfully!</p>
-            </Banner>
-          )}
-          
-          <Card>
+          <BlockStack gap="400">
+            {actionData?.error && showBanner && (
+              <Banner tone="critical" onDismiss={() => setShowBanner(false)}>
+                <p>{actionData.error}</p>
+              </Banner>
+            )}
+            {actionData?.success && showBanner && (
+              <Banner tone="success" onDismiss={() => setShowBanner(false)}>
+                <p>Tier {editingTier ? "updated" : "created"} successfully!</p>
+              </Banner>
+            )}
+            
+            <Card>
             {tiers.length === 0 ? (
               <BlockStack gap="400">
                 <Text as="p" variant="bodyMd">
@@ -438,6 +447,7 @@ export default function TiersPage() {
               />
             )}
           </Card>
+          </BlockStack>
         </Layout.Section>
 
         <Layout.Section variant="oneThird">
