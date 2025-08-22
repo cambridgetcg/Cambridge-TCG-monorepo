@@ -39,6 +39,9 @@ model Tier {
   cashbackPercent   Int
   evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
   createdAt         DateTime            @default(now())
+  
+  // Relations
+  customers         Customer[]  // Customers currently in this tier
 
   // Constraints
   @@unique([shop, name])  // Combination must be unique
@@ -52,12 +55,17 @@ model Customer {
   shopifyCustomerId String          @db.VarChar(255)
   email             String          @db.VarChar(255)
   storeCredit       Decimal         @default(0) @db.Decimal(10, 2)
+  
+  // Current tier relationship
+  currentTierId     String?
+  currentTier       Tier?           @relation(fields: [currentTierId], references: [id], onDelete: SetNull)
 
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-
-  creditLedger          StoreCreditLedger[]
+  // Relations
+  creditLedger      StoreCreditLedger[]
+  tierChangeLogs    TierChangeLog[]
   
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -90,6 +98,43 @@ model StoreCreditLedger {
   @@index([createdAt])
 }
 
+model TierChangeLog {
+  id                String              @id @default(uuid())
+  customerId        String
+  shop              String
+  
+  // Tier transition details
+  fromTierId        String?             // Null for first tier assignment
+  fromTierName      String?             // Store name for historical reference
+  toTierId          String?             // Null if customer is removed from all tiers
+  toTierName        String?             // Store name for historical reference
+  
+  // Change context
+  changeType        TierChangeType      // Type of change
+  triggerType       TierTriggerType     // What triggered the change
+  
+  // Spending data at time of change
+  totalSpending     Decimal?            @db.Decimal(10, 2)  // Customer's total spending at this point
+  periodSpending    Decimal?            @db.Decimal(10, 2)  // Spending in evaluation period
+  
+  // Additional context
+  orderId           String?             // If triggered by an order
+  note              String?             // Manual notes or system messages
+  metadata          Json?               // Additional data (order details, calculation breakdown, etc.)
+  
+  createdAt         DateTime            @default(now())
+  processedBy       String?             // Admin user ID if manual, "system" if automatic
+  
+  // Relations
+  customer          Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Indexes for common queries
+  @@index([customerId, createdAt(sort: Desc)])  // Customer's tier history
+  @@index([shop, createdAt(sort: Desc)])         // Shop's recent changes
+  @@index([changeType])                          // Filter by change type
+  @@index([triggerType])                         // Filter by trigger type
+}
+
 
 //Enums
 
@@ -104,4 +149,17 @@ enum LedgerEntryType {
   REFUND_CREDIT       
   MANUAL_ADJUSTMENT   
   SHOPIFY_SYNC        
+}
+
+enum TierChangeType {
+  INITIAL_ASSIGNMENT  // First tier assignment
+  UPGRADE             // Moving to a higher tier
+  DOWNGRADE           // Moving to a lower tier  
+}
+
+enum TierTriggerType {
+  ACCOUNT_CREATED     // Initial tier on account creation
+  PERIODIC_REVIEW     // System periodic evaluation
+  SPENDING_MILESTONE  // Hit specific spending threshold
+  MANUAL_ADMIN        // Manual change by admin
 }
