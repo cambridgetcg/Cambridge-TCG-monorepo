@@ -193,9 +193,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           );
         }
 
+        // Extract store name from shop domain (e.g., "mystore.myshopify.com" -> "mystore")
+        const storeName = shop.split('.')[0];
+        
+        // Create tier ID in format: storename-tiername (lowercase, spaces replaced with hyphens)
+        const tierId = `${storeName}-${data.name.toLowerCase().replace(/\s+/g, '-')}`;
+        
         const newTier = await db.tier.create({
           data: {
-            id: `tier_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+            id: tierId,
             shop,
             ...data,
           },
