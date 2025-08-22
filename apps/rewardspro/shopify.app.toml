@@ -1,0 +1,32 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "f04b5854fb022d67ba9dd097767b465a"
+name = "rewardspro-production"
+application_url = "https://calls-pollution-strengths-subsidiaries.trycloudflare.com"
+embedded = true
+handle = "rewardspro-production"
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-07"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products"
+
+[auth]
+redirect_urls = ["https://calls-pollution-strengths-subsidiaries.trycloudflare.com/auth/callback", "https://calls-pollution-strengths-subsidiaries.trycloudflare.com/auth/shopify/callback", "https://calls-pollution-strengths-subsidiaries.trycloudflare.com/api/auth/callback"]
+
+[pos]
+embedded = false
