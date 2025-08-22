@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSearchParams, useSubmit } from "@remix-run/react";
+import { useLoaderData, useSearchParams } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -14,12 +14,10 @@ import {
   Text,
   Button,
   EmptyState,
-  IndexTable,
-  useIndexResourceState,
   Thumbnail,
   Icon,
 } from "@shopify/polaris";
-import { SearchIcon, CustomerIcon } from "@shopify/polaris-icons";
+import { SearchIcon, PersonIcon } from "@shopify/polaris-icons";
 import { useState, useCallback, useMemo } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -176,8 +174,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function CustomersPage() {
   const { customers, tiers, stats } = useLoaderData<LoaderData>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const submit = useSubmit();
-  
+    
   // Search and filter state
   const [searchValue, setSearchValue] = useState(searchParams.get("search") || "");
   const [selectedTier, setSelectedTier] = useState(searchParams.get("tier") || "all");
@@ -245,22 +242,22 @@ export default function CustomersPage() {
     if (!tier) return "new";
     if (tier.cashbackPercent >= 10) return "success";
     if (tier.cashbackPercent >= 5) return "info";
-    return "neutral";
+    return "attention";
   };
 
   // Prepare table rows
   const rows = customers.map((customer) => [
     <InlineStack gap="300" align="center">
       <Thumbnail
-        source={CustomerIcon}
+        source={PersonIcon}
         alt={customer.email}
         size="small"
       />
       <BlockStack gap="100">
-        <Text variant="bodyMd" fontWeight="semibold">
+        <Text as="span" variant="bodyMd" fontWeight="semibold">
           {customer.email}
         </Text>
-        <Text variant="bodySm" tone="subdued">
+        <Text as="span" variant="bodySm" tone="subdued">
           ID: {customer.shopifyCustomerId}
         </Text>
       </BlockStack>
@@ -272,17 +269,17 @@ export default function CustomersPage() {
     ) : (
       <Badge tone="new">No Tier</Badge>
     ),
-    <Text variant="bodyMd" fontWeight="semibold">
+    <Text as="span" variant="bodyMd" fontWeight="semibold">
       {formatCurrency(customer.storeCredit)}
     </Text>,
     customer.currentTier ? (
-      <Text variant="bodyMd">{customer.currentTier.cashbackPercent}%</Text>
+      <Text as="span" variant="bodyMd">{customer.currentTier.cashbackPercent}%</Text>
     ) : (
-      <Text variant="bodyMd" tone="subdued">—</Text>
+      <Text as="span" variant="bodyMd" tone="subdued">—</Text>
     ),
     <BlockStack gap="100">
-      <Text variant="bodySm">{formatDate(customer.createdAt)}</Text>
-      <Text variant="bodySm" tone="subdued">
+      <Text as="span" variant="bodySm">{formatDate(customer.createdAt)}</Text>
+      <Text as="span" variant="bodySm" tone="subdued">
         {customer._count?.creditLedger || 0} transactions
       </Text>
     </BlockStack>,
@@ -367,25 +364,25 @@ export default function CustomersPage() {
           <BlockStack gap="400">
             <Card>
               <BlockStack gap="200">
-                <Text variant="headingMd">Quick Stats</Text>
+                <Text as="h2" variant="headingMd">Quick Stats</Text>
                 <BlockStack gap="300">
                   <BlockStack gap="100">
-                    <Text variant="bodySm" tone="subdued">
+                    <Text as="p" variant="bodySm" tone="subdued">
                       Total Customers
                     </Text>
-                    <Text variant="headingLg">{stats.totalCustomers}</Text>
+                    <Text as="p" variant="headingLg">{stats.totalCustomers}</Text>
                   </BlockStack>
                   <BlockStack gap="100">
-                    <Text variant="bodySm" tone="subdued">
+                    <Text as="p" variant="bodySm" tone="subdued">
                       With Tier Assignment
                     </Text>
-                    <Text variant="headingLg">{stats.customersWithTier}</Text>
+                    <Text as="p" variant="headingLg">{stats.customersWithTier}</Text>
                   </BlockStack>
                   <BlockStack gap="100">
-                    <Text variant="bodySm" tone="subdued">
+                    <Text as="p" variant="bodySm" tone="subdued">
                       Total Store Credit
                     </Text>
-                    <Text variant="headingLg">
+                    <Text as="p" variant="headingLg">
                       {formatCurrency(stats.totalStoreCredit)}
                     </Text>
                   </BlockStack>
@@ -395,7 +392,7 @@ export default function CustomersPage() {
 
             <Card>
               <BlockStack gap="200">
-                <Text variant="headingMd">Tier Distribution</Text>
+                <Text as="h2" variant="headingMd">Tier Distribution</Text>
                 <BlockStack gap="200">
                   {tiers.map((tier) => {
                     const count = customers.filter(
@@ -408,8 +405,8 @@ export default function CustomersPage() {
                     return (
                       <BlockStack key={tier.id} gap="100">
                         <InlineStack align="space-between">
-                          <Text variant="bodySm">{tier.name}</Text>
-                          <Text variant="bodySm" fontWeight="semibold">
+                          <Text as="span" variant="bodySm">{tier.name}</Text>
+                          <Text as="span" variant="bodySm" fontWeight="semibold">
                             {count} ({percentage}%)
                           </Text>
                         </InlineStack>
@@ -435,8 +432,8 @@ export default function CustomersPage() {
                   })}
                   <BlockStack gap="100">
                     <InlineStack align="space-between">
-                      <Text variant="bodySm">No Tier</Text>
-                      <Text variant="bodySm" fontWeight="semibold">
+                      <Text as="span" variant="bodySm">No Tier</Text>
+                      <Text as="span" variant="bodySm" fontWeight="semibold">
                         {stats.totalCustomers - stats.customersWithTier}
                       </Text>
                     </InlineStack>
