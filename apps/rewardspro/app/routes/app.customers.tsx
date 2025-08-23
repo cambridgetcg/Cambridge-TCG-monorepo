@@ -173,7 +173,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 // Component
 export default function CustomersPage() {
-  const { customers, tiers, stats } = useLoaderData<LoaderData>();
+  const { customers, tiers } = useLoaderData<LoaderData>();
   const [searchParams, setSearchParams] = useSearchParams();
     
   // Search and filter state
@@ -229,15 +229,6 @@ export default function CustomersPage() {
     }).format(amount);
   };
 
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   // Get tier badge tone
   const getTierTone = (tier: Customer["currentTier"]) => {
     if (!tier) return "new";
@@ -266,17 +257,6 @@ export default function CustomersPage() {
     <Text as="span" variant="bodyMd" fontWeight="semibold">
       {formatCurrency(customer.storeCredit)}
     </Text>,
-    customer.currentTier ? (
-      <Text as="span" variant="bodyMd">{customer.currentTier.cashbackPercent}%</Text>
-    ) : (
-      <Text as="span" variant="bodyMd" tone="subdued">—</Text>
-    ),
-    <BlockStack gap="100">
-      <Text as="span" variant="bodySm">{formatDate(customer.createdAt)}</Text>
-      <Text as="span" variant="bodySm" tone="subdued">
-        {customer._count?.creditLedger || 0} transactions
-      </Text>
-    </BlockStack>,
     <Button
       url={`/app/customers/${customer.id}`}
       size="slim"
@@ -289,7 +269,6 @@ export default function CustomersPage() {
   return (
     <Page
       title="Customers"
-      subtitle={`${stats.totalCustomers} customers • ${stats.customersWithTier} with tiers • ${formatCurrency(stats.totalStoreCredit)} total store credit`}
       primaryAction={{
         content: "Sync from Shopify",
         onAction: () => console.log("Sync customers"),
@@ -341,17 +320,15 @@ export default function CustomersPage() {
                   {/* Desktop view - Table */}
                   <div style={{ display: "block" }} className="desktop-only">
                     <DataTable
-                      columnContentTypes={["text", "text", "numeric", "numeric", "text", "text"]}
+                      columnContentTypes={["text", "text", "numeric", "text"]}
                       headings={[
                         "Customer",
                         "Tier",
                         "Store Credit",
-                        "Cashback Rate",
-                        "Member Since",
                         "Actions",
                       ]}
                       rows={rows}
-                      sortable={[true, false, true, false, true, false]}
+                      sortable={[true, false, true, false]}
                     />
                   </div>
                   
@@ -360,7 +337,7 @@ export default function CustomersPage() {
                     <ResourceList
                       items={customers}
                       renderItem={(customer) => {
-                        const { id, email, shopifyCustomerId, currentTier, storeCredit, createdAt } = customer;
+                        const { id, email, shopifyCustomerId, currentTier, storeCredit } = customer;
                         
                         return (
                           <ResourceItem
@@ -386,28 +363,12 @@ export default function CustomersPage() {
                                   <Badge tone="new">No Tier</Badge>
                                 )}
                               </InlineStack>
-                              <InlineStack gap="400">
-                                <BlockStack gap="050">
-                                  <Text as="p" variant="bodySm" tone="subdued">Store Credit</Text>
-                                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                                    {formatCurrency(storeCredit)}
-                                  </Text>
-                                </BlockStack>
-                                {currentTier && (
-                                  <BlockStack gap="050">
-                                    <Text as="p" variant="bodySm" tone="subdued">Cashback</Text>
-                                    <Text as="p" variant="bodyMd">
-                                      {currentTier.cashbackPercent}%
-                                    </Text>
-                                  </BlockStack>
-                                )}
-                                <BlockStack gap="050">
-                                  <Text as="p" variant="bodySm" tone="subdued">Member Since</Text>
-                                  <Text as="p" variant="bodyMd">
-                                    {formatDate(createdAt)}
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
+                              <BlockStack gap="050">
+                                <Text as="p" variant="bodySm" tone="subdued">Store Credit</Text>
+                                <Text as="p" variant="bodyMd" fontWeight="semibold">
+                                  {formatCurrency(storeCredit)}
+                                </Text>
+                              </BlockStack>
                             </BlockStack>
                           </ResourceItem>
                         );
@@ -432,90 +393,6 @@ export default function CustomersPage() {
           </Card>
         </Layout.Section>
 
-        {/* Stats sidebar - Responsive */}
-        <Layout.Section>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}>
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">Quick Stats</Text>
-                <BlockStack gap="300">
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Total Customers
-                    </Text>
-                    <Text as="p" variant="headingLg">{stats.totalCustomers}</Text>
-                  </BlockStack>
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      With Tier Assignment
-                    </Text>
-                    <Text as="p" variant="headingLg">{stats.customersWithTier}</Text>
-                  </BlockStack>
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Total Store Credit
-                    </Text>
-                    <Text as="p" variant="headingLg">
-                      {formatCurrency(stats.totalStoreCredit)}
-                    </Text>
-                  </BlockStack>
-                </BlockStack>
-              </BlockStack>
-            </Card>
-
-            <Card>
-              <BlockStack gap="200">
-                <Text as="h2" variant="headingMd">Tier Distribution</Text>
-                <BlockStack gap="200">
-                  {tiers.map((tier) => {
-                    const count = customers.filter(
-                      (c) => c.currentTierId === tier.id
-                    ).length;
-                    const percentage = stats.totalCustomers
-                      ? Math.round((count / stats.totalCustomers) * 100)
-                      : 0;
-                    
-                    return (
-                      <BlockStack key={tier.id} gap="100">
-                        <InlineStack align="space-between">
-                          <Text as="span" variant="bodySm">{tier.name}</Text>
-                          <Text as="span" variant="bodySm" fontWeight="semibold">
-                            {count} ({percentage}%)
-                          </Text>
-                        </InlineStack>
-                        <div
-                          style={{
-                            height: "4px",
-                            background: "#e5e5e5",
-                            borderRadius: "2px",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: "100%",
-                              width: `${percentage}%`,
-                              background: "#00a3e0",
-                              transition: "width 0.3s ease",
-                            }}
-                          />
-                        </div>
-                      </BlockStack>
-                    );
-                  })}
-                  <BlockStack gap="100">
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodySm">No Tier</Text>
-                      <Text as="span" variant="bodySm" fontWeight="semibold">
-                        {stats.totalCustomers - stats.customersWithTier}
-                      </Text>
-                    </InlineStack>
-                  </BlockStack>
-                </BlockStack>
-              </BlockStack>
-            </Card>
-          </div>
-        </Layout.Section>
       </Layout>
     </Page>
   );
