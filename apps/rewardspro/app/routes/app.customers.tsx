@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
+export { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   Page,
   Layout,
@@ -67,6 +68,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
     
     if (!session?.shop) {
+      console.error("[Customers] No shop in session - forcing re-authentication");
       throw new Response("Unauthorized", { status: 401 });
     }
 
