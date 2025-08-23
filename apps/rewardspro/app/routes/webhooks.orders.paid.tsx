@@ -207,13 +207,20 @@ async function evaluateTierUpgrade(
 
   if (tiers.length === 0) return;
 
+  // Get the customer's current tier details BEFORE any changes
+  let currentTier = null;
+  let currentTierName = null;
+  if (customer.currentTierId) {
+    currentTier = await db.tier.findUnique({
+      where: { id: customer.currentTierId }
+    });
+    currentTierName = currentTier?.name || null;
+  }
+
   // Determine evaluation period from current tier or use default
   let evaluationPeriod: "ANNUAL" | "LIFETIME" = "ANNUAL";
-  if (customer.currentTierId) {
-    const currentTier = tiers.find(t => t.id === customer.currentTierId);
-    if (currentTier) {
-      evaluationPeriod = currentTier.evaluationPeriod;
-    }
+  if (currentTier) {
+    evaluationPeriod = currentTier.evaluationPeriod;
   }
 
   // Calculate customer's spending
@@ -232,26 +239,19 @@ async function evaluateTierUpgrade(
   }
 
   // Determine if this is an upgrade or downgrade
-  const currentTier = tiers.find(t => t.id === customer.currentTierId);
   const changeType = !currentTier || eligibleTier.minSpend > (currentTier?.minSpend || 0)
     ? "UPGRADE"
     : "DOWNGRADE";
 
-  // Update customer's tier
-  await db.customer.update({
-    where: { id: customer.id },
-    data: { currentTierId: eligibleTier.id }
-  });
-
-  // Log the tier change
+  // Log the tier change BEFORE updating the customer
   await db.tierChangeLog.create({
     data: {
       customerId: customer.id,
       shop,
-      fromTierId: customer.currentTierId,
-      fromTierName: currentTier?.name || null,
-      toTierId: eligibleTier.id,
-      toTierName: eligibleTier.name,
+      fromTierId: customer.currentTierId || null,  // Current tier (before change)
+      fromTierName: currentTierName,                // Current tier name (before change)
+      toTierId: eligibleTier.id,                    // New tier
+      toTierName: eligibleTier.name,                // New tier name
       changeType,
       triggerType: "SPENDING_MILESTONE",
       totalSpending,
@@ -266,7 +266,13 @@ async function evaluateTierUpgrade(
     }
   });
 
-  console.log(`[Tier Upgrade] Customer ${customer.id} moved from ${currentTier?.name || 'no tier'} to ${eligibleTier.name}`);
+  // NOW update customer's tier
+  await db.customer.update({
+    where: { id: customer.id },
+    data: { currentTierId: eligibleTier.id }
+  });
+
+  console.log(`[Tier Upgrade] Customer ${customer.id} moved from ${currentTierName || 'no tier'} to ${eligibleTier.name}`);
 }
 
 // ============================================================================
