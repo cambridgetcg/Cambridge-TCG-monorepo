@@ -424,7 +424,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // STEP 6: Issue Store Credit to Shopify
     // ========================================================================
     
-    if (admin && cashback.amount > 0) {
+    // Temporarily disable store credit sync to prevent crashes
+    const ENABLE_SHOPIFY_STORE_CREDIT = false; // Set to true when currency issue is resolved
+    
+    if (admin && cashback.amount > 0 && ENABLE_SHOPIFY_STORE_CREDIT) {
       try {
         console.log(`[Order Paid] Issuing ${cashback.amount} store credit to Shopify...`);
         
