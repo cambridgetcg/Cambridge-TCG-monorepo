@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
-export { ErrorBoundary } from "../components/ErrorBoundary";
+// Temporarily disabled: export { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   Page,
   Layout,
@@ -134,7 +134,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
     });
 
-    // Calculate stats
+    // Calculate stats (handle empty results)
     const stats = await db.customer.aggregate({
       where: { shop },
       _count: true,
