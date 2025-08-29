@@ -35,6 +35,28 @@ model Session {
   @@index([shop])  // Add index for faster lookups by shop
 }
 
+model ShopSettings {
+  id                      String              @id @default(uuid())
+  shop                    String              @unique  // Shop domain (e.g., store.myshopify.com)
+  
+  // Store details
+  storeName               String              // Name of store
+  storeUrl                String              // Store URL
+  
+  // Currency settings
+  storeCurrency           Currency            @default(USD)  // Store currency
+  currencyDisplayType     CurrencyDisplayType @default(SYMBOL)  // Currency display type
+  
+  // Localization
+  timezone                String              @default("America/New_York")  // Time zone
+  
+  // Metadata
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  
+  @@index([shop])
+}
+
 model Tier {
   id                String @id
   shop              String
@@ -141,6 +163,46 @@ model TierChangeLog {
 
 
 //Enums
+
+enum Currency {
+  USD  // US Dollar
+  EUR  // Euro
+  GBP  // British Pound
+  CAD  // Canadian Dollar
+  AUD  // Australian Dollar
+  JPY  // Japanese Yen
+  CHF  // Swiss Franc
+  CNY  // Chinese Yuan
+  SEK  // Swedish Krona
+  NZD  // New Zealand Dollar
+  NOK  // Norwegian Krone
+  MXN  // Mexican Peso
+  SGD  // Singapore Dollar
+  HKD  // Hong Kong Dollar
+  KRW  // South Korean Won
+  TRY  // Turkish Lira
+  INR  // Indian Rupee
+  RUB  // Russian Ruble
+  BRL  // Brazilian Real
+  ZAR  // South African Rand
+  AED  // UAE Dirham
+  PLN  // Polish Zloty
+  DKK  // Danish Krone
+  THB  // Thai Baht
+  IDR  // Indonesian Rupiah
+  HUF  // Hungarian Forint
+  CZK  // Czech Koruna
+  ILS  // Israeli Shekel
+  CLP  // Chilean Peso
+  PHP  // Philippine Peso
+  RON  // Romanian Leu
+  MYR  // Malaysian Ringgit
+}
+
+enum CurrencyDisplayType {
+  SYMBOL  // Currency Symbol (£)
+  CODE    // Currency Code (GBP)
+}
 
 enum EvaluationPeriod {
   ANNUAL         // 12 months rolling (default)
