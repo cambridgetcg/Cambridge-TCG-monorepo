@@ -6,8 +6,7 @@
   "functions": {
     "app/**/*.tsx": {
       "maxDuration": 30,
-      "memory": 1024,
-      "runtime": "nodejs20.x"
+      "memory": 1024
     },
     "app/routes/webhooks.*.tsx": {
       "maxDuration": 30,

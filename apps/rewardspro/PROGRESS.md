@@ -152,6 +152,7 @@ Last Updated: 2025-09-01
 ### Critical
 1. **Webhook Incomplete**: `webhooks.orders.paid.tsx` cuts off mid-implementation
 2. **Customer Details 404**: Routes to `/app/customers/[id]` not implemented
+3. **FIXED - Vercel Build Error**: Runtime version format was incorrect (removed runtime field, using package.json engines instead)
 
 ### High Priority
 3. **No Customer Sync**: "Sync from Shopify" button is disabled

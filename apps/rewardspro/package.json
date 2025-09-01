@@ -21,7 +21,7 @@
   },
   "type": "module",
   "engines": {
-    "node": "^18.20 || ^20.10 || >=21.0.0"
+    "node": ">=20.10.0"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.879.0",
