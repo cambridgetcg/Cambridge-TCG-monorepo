@@ -82,5 +82,8 @@
     "minimatch": "9.0.5",
     "vite": "^6.2.2"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "author": "alex"
 }
