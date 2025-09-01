@@ -7,16 +7,14 @@ RewardsPro is a Shopify app that manages customer rewards, loyalty tiers, and st
 
 ### Tech Stack
 - **Framework**: Remix v2.16+ with Vite
-- **Database**: PostgreSQL (AWS Aurora Serverless with Data API)
-- **ORM**: Prisma v6.15+ with custom Data API adapter
+- **Database**: AWS Aurora Serverless PostgreSQL (Data API only)
+- **Database Access**: Custom Aurora Data API adapter (zero connections)
+- **ORM**: Prisma v6.15+ (schema only, operations via Data API)
 - **UI**: Shopify Polaris v12
 - **Authentication**: Shopify App Bridge
-- **Session Storage**: Prisma-based sessions
-- **Deployment**: Vercel with environment-based connection routing
-- **Connection Management**: 
-  - Production: Direct connection (5 max)
-  - Preview: Aurora Data API (0 connections)
-  - Development: Local direct connection
+- **Session Storage**: Aurora Data API
+- **Deployment**: Vercel (serverless)
+- **Connection Management**: All environments use Data API (0 persistent connections)
 
 ### Key Dependencies
 - `@shopify/shopify-app-remix`: Core Shopify app functionality

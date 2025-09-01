@@ -8,6 +8,34 @@
 
 ### September 1, 2025
 
+#### AWS Aurora Data API Migration (Latest)
+- [x] **Migrated to Pure Data API Implementation**
+  - Context: User requested removal of legacy DATABASE_URL approach
+  - Changes Made:
+    1. Updated db.server.ts to use Data API adapter exclusively
+    2. Removed connection strategy complexity (all environments use Data API)
+    3. Prisma schema uses placeholder URL for generation only
+    4. Updated vercel.json with placeholder DATABASE_URL for build
+    5. Created new .env.example with Data API configuration
+  - Benefits:
+    - Zero persistent database connections
+    - No connection pool exhaustion issues
+    - Simplified architecture (one connection method)
+    - True serverless implementation
+  - Duration: 25 minutes
+
+#### Vercel Build Errors (Latest)
+- [x] **Fix Prisma DIRECT_URL Error**
+  - Problem: "Environment variable not found: DIRECT_URL" during build
+  - Root Cause: directUrl field in schema.prisma required DIRECT_URL env var
+  - Context: Preview environments don't have DIRECT_URL (use Data API)
+  - Solutions:
+    1. Removed directUrl from schema.prisma (it's optional)
+    2. Added dummy DATABASE_URL in vercel.json build.env for Prisma client generation
+    3. Changed buildCommand from "npm run build:migrate" to "npm run build"
+  - Impact: Enables successful builds in all environments
+  - Duration: 15 minutes
+
 #### Vercel Deployment Issues (Latest)
 - [x] **Fix @remix-run/route-config Module Error**
   - Problem: "Cannot find module '@remix-run/route-config'" in production build

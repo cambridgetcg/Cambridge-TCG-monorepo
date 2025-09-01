@@ -10,8 +10,10 @@ generator client {
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
   provider = "postgresql"
+  // We use AWS Aurora Data API for all connections
+  // This URL is only for Prisma schema validation and client generation
+  // Actual database operations go through app/utils/aurora-data-api.ts
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model Session {

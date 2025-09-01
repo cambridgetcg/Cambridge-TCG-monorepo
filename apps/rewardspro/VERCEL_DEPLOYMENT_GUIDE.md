@@ -122,6 +122,30 @@ SHOPIFY_API_SECRET=your-api-secret-preview
 SCOPES=read_orders,write_store_credit_account_transactions
 ```
 
+## Important Prisma Configuration Notes
+
+### Build-time vs Runtime DATABASE_URL
+The `vercel.json` includes a dummy DATABASE_URL in the build environment:
+```json
+"build": {
+  "env": {
+    "DATABASE_URL": "postgresql://dummy:dummy@localhost:5432/dummy"
+  }
+}
+```
+
+**Why?** 
+- Prisma requires DATABASE_URL during `prisma generate` at build time
+- The dummy URL is only for generating the Prisma Client types
+- At runtime, the actual DATABASE_URL from environment variables is used
+- Preview environments will use Data API instead (no DATABASE_URL needed at runtime)
+
+### directUrl Field Removed
+The `directUrl` field has been removed from `schema.prisma` because:
+- It's optional and only needed for migrations
+- Preview environments don't have DIRECT_URL
+- Migrations should be run separately, not during build
+
 ## Common Build Errors and Solutions
 
 ### 1. Module Not Found Errors
