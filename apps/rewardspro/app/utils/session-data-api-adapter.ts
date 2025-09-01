@@ -9,13 +9,19 @@ import { Session } from "@shopify/shopify-api";
 import { SessionStorage } from "@shopify/shopify-app-session-storage";
 import { getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
+import { encrypt, decrypt } from "./encryption";
+import { SessionLogger } from "./auth-logger";
 
 export class DataAPISessionStorage implements SessionStorage {
   private client = getAuroraClient();
   private tableName = "Session";
 
   async storeSession(session: Session): Promise<boolean> {
+    const logger = new SessionLogger();
+    const startTime = Date.now();
+    
     try {
+      logger.logCreate(session.shop, session.id, session.isOnline || false);
       console.log(`[Session] Storing session for shop: ${session.shop}, id: ${session.id}`);
       
       const sql = `
@@ -45,6 +51,9 @@ export class DataAPISessionStorage implements SessionStorage {
           "emailVerified" = EXCLUDED."emailVerified"
       `;
 
+      // Encrypt the access token before storing
+      const encryptedAccessToken = session.accessToken ? encrypt(session.accessToken) : "";
+      
       const params: SqlParameter[] = [
         { name: "id", value: { stringValue: session.id } },
         { name: "shop", value: { stringValue: session.shop } },
@@ -52,7 +61,7 @@ export class DataAPISessionStorage implements SessionStorage {
         { name: "isOnline", value: { booleanValue: session.isOnline || false } },
         { name: "scope", value: session.scope ? { stringValue: session.scope } : { isNull: true } },
         { name: "expires", value: session.expires ? { stringValue: session.expires.toISOString() } : { isNull: true } },
-        { name: "accessToken", value: { stringValue: session.accessToken || "" } },
+        { name: "accessToken", value: { stringValue: encryptedAccessToken } },
         { name: "userId", value: session.onlineAccessInfo?.associated_user?.id ? 
           { longValue: BigInt(session.onlineAccessInfo.associated_user.id) } : { isNull: true } },
         { name: "firstName", value: session.onlineAccessInfo?.associated_user?.first_name ? 
@@ -72,12 +81,15 @@ export class DataAPISessionStorage implements SessionStorage {
       console.log(`[Session] Successfully stored session for shop: ${session.shop}`);
       return true;
     } catch (error) {
+      logger.logError('storeSession', error);
       console.error("[Session] Error storing session:", error);
       throw error;
     }
   }
 
   async loadSession(id: string): Promise<Session | undefined> {
+    const logger = new SessionLogger();
+    
     try {
       console.log(`[Session] Loading session: ${id}`);
       
@@ -92,11 +104,17 @@ export class DataAPISessionStorage implements SessionStorage {
       const result = await this.client.executeStatement(sql, params);
 
       if (!result.records || result.records.length === 0) {
+        logger.logLoad(id, false);
         console.log(`[Session] Session not found: ${id}`);
         return undefined;
       }
+      
+      logger.logLoad(id, true);
 
       const record: any = result.records[0];
+      
+      // Decrypt the access token after loading
+      const decryptedAccessToken = record.accessToken ? decrypt(record.accessToken) : undefined;
       
       const session = new Session({
         id: record.id,
@@ -105,7 +123,7 @@ export class DataAPISessionStorage implements SessionStorage {
         isOnline: record.isOnline,
         scope: record.scope || undefined,
         expires: record.expires ? new Date(record.expires) : undefined,
-        accessToken: record.accessToken,
+        accessToken: decryptedAccessToken,
         onlineAccessInfo: record.userId ? {
           associated_user: {
             id: Number(record.userId),
@@ -123,6 +141,7 @@ export class DataAPISessionStorage implements SessionStorage {
       console.log(`[Session] Successfully loaded session for shop: ${session.shop}`);
       return session;
     } catch (error) {
+      logger.logError('loadSession', error);
       console.error("[Session] Error loading session:", error);
       return undefined;
     }
@@ -194,6 +213,9 @@ export class DataAPISessionStorage implements SessionStorage {
       }
 
       const sessions = result.records.map((record: any) => {
+        // Decrypt the access token for each session
+        const decryptedAccessToken = record.accessToken ? decrypt(record.accessToken) : undefined;
+        
         return new Session({
           id: record.id,
           shop: record.shop,
@@ -201,7 +223,7 @@ export class DataAPISessionStorage implements SessionStorage {
           isOnline: record.isOnline,
           scope: record.scope || undefined,
           expires: record.expires ? new Date(record.expires) : undefined,
-          accessToken: record.accessToken,
+          accessToken: decryptedAccessToken,
           onlineAccessInfo: record.userId ? {
             associated_user: {
               id: Number(record.userId),
