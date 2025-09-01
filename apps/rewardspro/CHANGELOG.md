@@ -1,79 +1,95 @@
-# @shopify/shopify-app-template-remix
+# RewardsPro Changelog
 
-## 2025.07.07
-- [#1103](https://github.com/Shopify/shopify-app-template-remix/pull/1086) Remove deprecated .npmrc config values
+All notable changes to the RewardsPro application will be documented in this file.
 
-## 2025.06.12
-- [#1075](https://github.com/Shopify/shopify-app-template-remix/pull/1075) Add Shopify MCP to [VSCode configs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_enable-mcp-support-in-vs-code)
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2025.06.12
--[#1082](https://github.com/Shopify/shopify-app-template-remix/pull/1082) Remove local Shopify CLI from the template. Developers should use the Shopify CLI [installed globally](https://shopify.dev/docs/api/shopify-cli#installation).
-## 2025.03.18
--[#998](https://github.com/Shopify/shopify-app-template-remix/pull/998) Update to Vite 6
+## [Unreleased]
 
-## 2025.03.01
-- [#982](https://github.com/Shopify/shopify-app-template-remix/pull/982) Add Shopify Dev Assistant extension to the VSCode extension recommendations
+### 🚧 In Progress
+- Order processing webhook (webhooks.orders.paid.tsx) - partially implemented
+- AWS Aurora Serverless database migration
 
-## 2025.01.31
-- [#952](https://github.com/Shopify/shopify-app-template-remix/pull/952) Update to Shopify App API v2025-01
+### ✅ Completed (as of 2025-09-01)
 
-## 2025.01.23
+#### Database Layer
+- Complete Prisma schema with all models defined
+- Session management table for Shopify OAuth
+- ShopSettings model for store configuration
+- Tier model for loyalty program levels
+- Customer model with store credit tracking
+- StoreCreditLedger for transaction history
+- TierChangeLog for audit trail
+- All necessary enums (Currency, EvaluationPeriod, LedgerEntryType, etc.)
+- Database indexes for performance optimization
 
-- [#923](https://github.com/Shopify/shopify-app-template-remix/pull/923) Update `@shopify/shopify-app-session-storage-prisma` to v6.0.0
+#### Authentication & Core Setup
+- Shopify OAuth authentication flow
+- Session storage using Prisma
+- Remix app structure with Vite
+- Vercel deployment configuration
+- Environment variable setup
 
-## 2025.01.8
+#### Features Implemented
+- **Tier Management Page (app.tiers.tsx)**
+  - Full CRUD operations for tiers
+  - Create new tiers with name, minimum spend, cashback %, and evaluation period
+  - Edit existing tiers
+  - Delete tiers with confirmation
+  - Input validation and error handling
+  - Rate limiting protection
+  - Unique tier ID generation (format: storename-tiername)
 
-- [#923](https://github.com/Shopify/shopify-app-template-remix/pull/923) Enable GraphQL autocomplete for Javascript
+- **Customer List Page (app.customers.tsx)**
+  - Display all customers with pagination (50 per page)
+  - Show customer email, ID, current tier, and store credit balance
+  - Search by email or customer ID
+  - Filter by tier (All, No Tier, or specific tier)
+  - Responsive design (table for desktop, cards for mobile)
+  - Empty state handling
+  - Tier badge color coding based on cashback percentage
 
-## 2024.12.19
+#### Webhook Infrastructure
+- App uninstalled webhook handler
+- Shop update webhook handler
+- Compliance webhooks (GDPR)
+- Scopes update webhook
+- Orders paid webhook (partially implemented)
 
-- [#904](https://github.com/Shopify/shopify-app-template-remix/pull/904) bump `@shopify/app-bridge-react` to latest
--
-## 2024.12.18
+#### Development Infrastructure
+- Comprehensive CLAUDE.md documentation files
+- Project structure documentation
+- Route documentation
+- Component guidelines
+- Database schema documentation
 
-- [875](https://github.com/Shopify/shopify-app-template-remix/pull/875) Add Scopes Update Webhook
-## 2024.12.05
+### 🐛 Known Issues
+- Orders paid webhook incomplete (cuts off at line 100)
+- No actual Shopify customer data sync
+- Customer detail pages return 404
+- Store settings not accessible via UI
 
-- [#910](https://github.com/Shopify/shopify-app-template-remix/pull/910) Install `openssl` in Docker image to fix Prisma (see [#25817](https://github.com/prisma/prisma/issues/25817#issuecomment-2538544254))
-- [#907](https://github.com/Shopify/shopify-app-template-remix/pull/907) Move `@remix-run/fs-routes` to `dependencies` to fix Docker image build
-- [#899](https://github.com/Shopify/shopify-app-template-remix/pull/899) Disable v3_singleFetch flag
-- [#898](https://github.com/Shopify/shopify-app-template-remix/pull/898) Enable the `removeRest` future flag so new apps aren't tempted to use the REST Admin API.
+---
 
-## 2024.12.04
+## [0.1.0] - 2025-08-29
 
-- [#891](https://github.com/Shopify/shopify-app-template-remix/pull/891) Enable remix future flags.
+### Added
+- Initial project setup from Shopify Remix template
+- Basic project structure
+- Deployment to Vercel
+- Database connection setup
 
-## 2024.11.26
-- [888](https://github.com/Shopify/shopify-app-template-remix/pull/888) Update restResources version to 2024-10
+### Changed
+- Modified template to create RewardsPro application
+- Updated package.json with project name
 
-## 2024.11.06
+### Security
+- Added environment variables for secure configuration
+- Implemented HMAC validation for webhooks
 
-- [881](https://github.com/Shopify/shopify-app-template-remix/pull/881) Update to the productCreate mutation to use the new ProductCreateInput type
+---
 
-## 2024.10.29
+## Template History
 
-- [876](https://github.com/Shopify/shopify-app-template-remix/pull/876) Update shopify-app-remix to v3.4.0 and shopify-app-session-storage-prisma to v5.1.5
-
-## 2024.10.02
-
-- [863](https://github.com/Shopify/shopify-app-template-remix/pull/863) Update to Shopify App API v2024-10 and shopify-app-remix v3.3.2
-
-## 2024.09.18
-
-- [850](https://github.com/Shopify/shopify-app-template-remix/pull/850) Removed "~" import alias
-
-## 2024.09.17
-
-- [842](https://github.com/Shopify/shopify-app-template-remix/pull/842) Move webhook processing to individual routes
-
-## 2024.08.19
-
-Replaced deprecated `productVariantUpdate` with `productVariantsBulkUpdate`
-
-## v2024.08.06
-
-Allow `SHOP_REDACT` webhook to process without admin context
-
-## v2024.07.16
-
-Started tracking changes and releases using calver
+For the original Shopify template changelog, see [CHANGELOG-template.md](./CHANGELOG-template.md)

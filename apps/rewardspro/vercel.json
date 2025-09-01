@@ -1,0 +1,25 @@
+{
+  "framework": "remix",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "regions": ["arn1"],
+  "functions": {
+    "app/**/*.tsx": {
+      "maxDuration": 30,
+      "memory": 1024,
+      "runtime": "nodejs20.x"
+    },
+    "app/routes/webhooks.*.tsx": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  }
+}

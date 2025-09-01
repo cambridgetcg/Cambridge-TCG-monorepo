@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "{\n  \"allowed-tools\": {\n    \"file-edit\": true,\n    \"file-create\": true,\n    \"file-delete\": true,\n    \"file-rename\": true,\n    \"directory-operations\": true,\n    \"read-operations\": true,\n    \"write-operations\": true\n  },\n  \"file-patterns\": {\n    \"allow\": [\"*\"],\n    \"deny\": []\n  }\n}"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

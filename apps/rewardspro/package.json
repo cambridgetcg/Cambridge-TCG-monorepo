@@ -24,6 +24,8 @@
     "node": "^18.20 || ^20.10 || >=21.0.0"
   },
   "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.879.0",
+    "@aws-sdk/client-secrets-manager": "^3.879.0",
     "@prisma/client": "^6.15.0",
     "@remix-run/dev": "^2.16.1",
     "@remix-run/fs-routes": "^2.16.1",
@@ -50,11 +52,15 @@
     "@types/node": "^22.2.0",
     "@types/react": "^18.2.31",
     "@types/react-dom": "^18.2.14",
+    "@vitest/ui": "^3.2.4",
+    "dotenv": "^17.2.1",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^10.0.1",
     "prettier": "^3.2.4",
+    "tsx": "^4.20.5",
     "typescript": "^5.2.2",
-    "vite": "^6.2.2"
+    "vite": "^6.2.2",
+    "vitest": "^3.2.4"
   },
   "workspaces": [
     "extensions/*"

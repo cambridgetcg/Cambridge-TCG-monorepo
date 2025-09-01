@@ -1,0 +1,205 @@
+# Vercel Environment Variables Setup
+
+## 🎯 Overview
+
+This guide explains how to configure environment variables in Vercel for optimal database connection management.
+
+## 📋 Environment Variables by Deployment Type
+
+### 🚀 Production Environment
+
+Add these in Vercel Dashboard → Settings → Environment Variables → Production:
+
+```bash
+# Shopify Configuration
+SHOPIFY_API_KEY=f04b5854fb022d67ba9dd097767b465a
+SHOPIFY_API_SECRET=your-production-secret
+SCOPES=read_orders,write_store_credit_account_transactions,read_store_credit_accounts
+SHOPIFY_APP_URL=https://your-app.vercel.app
+
+# Aurora Direct Connection (for Prisma migrations and production)
+DATABASE_URL=postgresql://postgres:gA8YHoh7YJ0%7CZe2sBi%5B%5BiA%5BXO%24Ce@rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com:5432/rewardspro
+DIRECT_URL=postgresql://postgres:gA8YHoh7YJ0%7CZe2sBi%5B%5BiA%5BXO%24Ce@rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com:5432/rewardspro
+
+# RDS Proxy (when available - recommended)
+# DATABASE_URL_PROXY=postgresql://username:password@proxy-endpoint.proxy-xyz.eu-north-1.rds.amazonaws.com:5432/rewardspro
+
+# Aurora Data API (fallback)
+AURORA_RESOURCE_ARN=arn:aws:rds:eu-north-1:043509841549:cluster:rewardspro-dev
+AURORA_SECRET_ARN=arn:aws:secretsmanager:eu-north-1:043509841549:secret:rds!cluster-65ca2aee-0536-4745-b04d-0eec72e31363-yO7eLo
+AURORA_DATABASE_NAME=rewardspro
+
+# AWS Credentials
+AWS_ACCESS_KEY_ID=AKIAQUILDP2GQ7C3QZEG
+AWS_SECRET_ACCESS_KEY=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
+AWS_REGION=eu-north-1
+
+# Connection Strategy Override (optional)
+# FORCE_DATA_API=false  # Set to true to force Data API even in production
+```
+
+### 🔍 Preview Environment
+
+Add these in Vercel Dashboard → Settings → Environment Variables → Preview:
+
+```bash
+# Shopify Configuration (same as production)
+SHOPIFY_API_KEY=f04b5854fb022d67ba9dd097767b465a
+SHOPIFY_API_SECRET=your-preview-secret
+SCOPES=read_orders,write_store_credit_account_transactions,read_store_credit_accounts
+
+# NO DATABASE_URL for preview! This forces Data API usage
+# DATABASE_URL is intentionally omitted
+
+# Aurora Data API (required for preview)
+AURORA_RESOURCE_ARN=arn:aws:rds:eu-north-1:043509841549:cluster:rewardspro-dev
+AURORA_SECRET_ARN=arn:aws:secretsmanager:eu-north-1:043509841549:secret:rds!cluster-65ca2aee-0536-4745-b04d-0eec72e31363-yO7eLo
+AURORA_DATABASE_NAME=rewardspro
+
+# AWS Credentials (same as production)
+AWS_ACCESS_KEY_ID=AKIAQUILDP2GQ7C3QZEG
+AWS_SECRET_ACCESS_KEY=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
+AWS_REGION=eu-north-1
+
+# Force Data API for all preview deployments
+FORCE_DATA_API=true
+```
+
+### 🛠️ Development Environment
+
+Add these in Vercel Dashboard → Settings → Environment Variables → Development:
+
+```bash
+# Same as Preview environment
+# Uses Data API to prevent connection exhaustion
+```
+
+## 🔧 Setting Up in Vercel Dashboard
+
+### Step 1: Navigate to Environment Variables
+1. Go to your Vercel project
+2. Click "Settings" tab
+3. Click "Environment Variables" in sidebar
+
+### Step 2: Add Variables by Environment
+1. Click "Add New"
+2. Enter variable name (e.g., `DATABASE_URL`)
+3. Enter value
+4. **IMPORTANT**: Select which environments should have this variable:
+   - ✅ Production only for `DATABASE_URL`
+   - ✅ All environments for Aurora Data API variables
+   - ✅ Preview only for `FORCE_DATA_API=true`
+
+### Step 3: Verify Configuration
+```bash
+# Check production
+vercel env pull .env.production --environment=production
+
+# Check preview
+vercel env pull .env.preview --environment=preview
+
+# Verify Data API is forced for preview
+grep FORCE_DATA_API .env.preview  # Should show: FORCE_DATA_API=true
+grep DATABASE_URL .env.preview     # Should be empty or missing
+```
+
+## 🎭 Environment Detection
+
+The application automatically detects the environment using:
+
+```typescript
+process.env.VERCEL_ENV  // "production" | "preview" | "development"
+```
+
+### Connection Strategy by Environment:
+- **Production**: Direct connection (5 connections max)
+- **Preview**: Data API (0 connections)
+- **Development**: Data API (0 connections)
+
+## 🔍 Debugging Connection Strategy
+
+Add this temporary variable to see which connection is being used:
+
+```bash
+DEBUG_CONNECTION=true
+```
+
+This will log:
+```
+🔌 Database Connection Strategy: {
+  environment: 'preview',
+  strategy: 'data-api',
+  description: 'Preview deployment using Data API',
+  maxConnections: 0,
+  useDataAPI: true,
+  deploymentId: 'dpl_abc123',
+  gitCommit: 'def456'
+}
+```
+
+## 🚨 Important Notes
+
+### DO NOT:
+- ❌ Add `DATABASE_URL` to preview environments
+- ❌ Remove `FORCE_DATA_API` from preview environments
+- ❌ Share AWS credentials publicly
+- ❌ Use the same credentials for dev/prod
+
+### DO:
+- ✅ Keep production and preview variables separate
+- ✅ Use Data API for all non-production deployments
+- ✅ Monitor CloudWatch for connection metrics
+- ✅ Rotate AWS credentials regularly
+
+## 📊 Monitoring
+
+### CloudWatch Metrics to Track:
+1. **DatabaseConnections** - Should be ≤5 for production, 0 for preview
+2. **DataAPIRequests** - Should be high for preview, low for production
+3. **ConnectionErrors** - Should be 0
+
+### Vercel Logs:
+```bash
+# View production logs
+vercel logs --environment=production
+
+# View preview logs
+vercel logs --environment=preview
+
+# Filter for connection logs
+vercel logs | grep "Database connection"
+```
+
+## 🔄 Rollback Plan
+
+If connection issues occur:
+
+### Quick Fix (All environments use Data API):
+```bash
+# Add to all environments
+FORCE_DATA_API=true
+```
+
+### Revert to Direct Connections (Emergency):
+```bash
+# Remove from preview
+FORCE_DATA_API=false
+
+# Add to preview (NOT RECOMMENDED)
+DATABASE_URL=postgresql://...
+```
+
+## ✅ Verification Checklist
+
+- [ ] Production has `DATABASE_URL`
+- [ ] Preview does NOT have `DATABASE_URL`
+- [ ] Preview has `FORCE_DATA_API=true`
+- [ ] All environments have Aurora ARNs
+- [ ] All environments have AWS credentials
+- [ ] Connection logs show correct strategy
+- [ ] No connection errors in logs
+- [ ] Aurora metrics show expected pattern
+
+---
+
+*Last Updated: September 1, 2025*
