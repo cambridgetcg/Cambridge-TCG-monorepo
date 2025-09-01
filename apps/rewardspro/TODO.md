@@ -143,6 +143,24 @@
   - Files: Need to create `app.customers.$id.tsx`
   - Features: Transaction history, tier progression, manual adjustments
 
+### 🔴 Security & Authentication Priority
+- [ ] **Add App Bridge 4.x.x CDN Script**
+  - Status: Not implemented
+  - File: `app/root.tsx`
+  - Action: Add CDN script with API key
+  - Impact: Required for proper session token handling
+
+- [ ] **Implement Token Encryption at Rest**
+  - Status: Tokens stored in plain text
+  - Action: Add AES-256 encryption for access tokens
+  - Files: Update session storage adapter
+  - Impact: Critical security requirement
+
+- [ ] **Add Security Headers**
+  - Status: Missing CSP, HSTS, X-Content-Type headers
+  - Action: Configure security headers in responses
+  - Impact: Prevent XSS, clickjacking, MIME attacks
+
 ### 🟡 High Priority
 - [ ] **Enable Customer Sync from Shopify**
   - Status: Button exists but disabled
