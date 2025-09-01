@@ -212,6 +212,35 @@ SCOPES=                # Required OAuth scopes
 - Manual adjustments support
 - Refund handling
 
+## 📝 Development Workflow
+
+### Task Management
+The project uses a structured task management system:
+
+1. **TODO.md** - Active tasks and upcoming work
+   - Current sprint tasks with priority levels
+   - Upcoming sprint planning
+   - Bug fixes and technical debt
+   - Updated regularly as work progresses
+
+2. **COMPLETED_TASKS.md** - Archive of finished work
+   - Tasks moved here when all criteria met
+   - Includes completion date and duration
+   - Lessons learned and impact metrics
+   - Append-only for historical record
+
+3. **PROGRESS.md** - Overall project status
+   - Percentage completion by feature area
+   - Architecture decisions and rationale
+   - Known issues and blockers
+   - Sprint planning and timelines
+
+### Documentation Maintenance
+- Update TODO.md when starting/completing tasks
+- Move completed items to COMPLETED_TASKS.md
+- Update CLAUDE.md for architectural changes
+- Keep PROGRESS.md current with overall status
+
 ## 📝 Development Notes
 
 ### Session Storage

@@ -3,16 +3,6 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
   "regions": ["arn1"],
-  "functions": {
-    "app/**/*.tsx": {
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "app/routes/webhooks.*.tsx": {
-      "maxDuration": 30,
-      "memory": 512
-    }
-  },
   "env": {
     "NODE_ENV": "production"
   },
