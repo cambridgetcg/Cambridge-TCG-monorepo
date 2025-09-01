@@ -9,13 +9,27 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server";
 import { combineHeaders } from "../utils/security-headers";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
+import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
+import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const { startTime, requestId } = await logRequest(request, 'App Route Loader');
+  checkAuthenticationIssues(request);
+  
   try {
     console.log("[App Loader] Authenticating request...");
-    const { session } = await authenticate.admin(request);
+    const { session, admin } = await authenticate.admin(request);
+    
+    // Log Shopify context
+    logShopifyContext({
+      shop: session?.shop,
+      session,
+      admin,
+      apiKey: process.env.SHOPIFY_API_KEY,
+      host: new URL(request.url).searchParams.get("host") || "",
+    });
     
     if (!session) {
       console.error("[App Loader] No session found!");
@@ -24,7 +38,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     console.log(`[App Loader] Authenticated for shop: ${session.shop}`);
     
-    return json(
+    const response = json(
       { 
         apiKey: process.env.SHOPIFY_API_KEY || "",
         shop: session.shop,
@@ -36,7 +50,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
       }
     );
+    
+    logResponse(response, 'App Route Loader', startTime, requestId);
+    return response;
   } catch (error) {
+    logError(error, 'App Route Loader', requestId);
     console.error("[App Loader] Authentication error:", error);
     throw error;
   }
@@ -56,15 +74,17 @@ export default function App() {
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <AppBridgeInitializer />
-      <NavMenu>
-        <Link to="/app" rel="home">
-          Home
-        </Link>
-        <Link to="/app/customers">Customers</Link>
-        <Link to="/app/tiers">Loyalty Tiers</Link>
-        <Link to="/app/additional">Additional page</Link>
-      </NavMenu>
-      <Outlet />
+      <AuthenticatedFetchProvider>
+        <NavMenu>
+          <Link to="/app" rel="home">
+            Home
+          </Link>
+          <Link to="/app/customers">Customers</Link>
+          <Link to="/app/tiers">Loyalty Tiers</Link>
+          <Link to="/app/additional">Additional page</Link>
+        </NavMenu>
+        <Outlet />
+      </AuthenticatedFetchProvider>
     </AppProvider>
   );
 }
