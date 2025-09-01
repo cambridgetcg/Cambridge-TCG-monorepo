@@ -30,6 +30,14 @@ export default function App() {
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
         />
+        {/* App Bridge script must load in head before other scripts */}
+        {apiKey && (
+          <script
+            src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
+            data-api-key={apiKey}
+            defer
+          />
+        )}
         <Meta />
         <Links />
       </head>
@@ -37,13 +45,6 @@ export default function App() {
         <Outlet />
         <ScrollRestoration />
         <Scripts />
-        {/* App Bridge 4.x.x CDN Script for embedded app authentication */}
-        {apiKey && (
-          <script
-            src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
-            data-api-key={apiKey}
-          />
-        )}
       </body>
     </html>
   );

@@ -8,27 +8,54 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 import { authenticate } from "../shopify.server";
 import { combineHeaders } from "../utils/security-headers";
+import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-
-  return json(
-    { apiKey: process.env.SHOPIFY_API_KEY || "" },
-    { 
-      headers: {
-        'X-Shop-Domain': session.shop,
-      }
+  try {
+    console.log("[App Loader] Authenticating request...");
+    const { session } = await authenticate.admin(request);
+    
+    if (!session) {
+      console.error("[App Loader] No session found!");
+      throw new Response("No session found", { status: 401 });
     }
-  );
+    
+    console.log(`[App Loader] Authenticated for shop: ${session.shop}`);
+    
+    return json(
+      { 
+        apiKey: process.env.SHOPIFY_API_KEY || "",
+        shop: session.shop,
+        host: new URL(request.url).searchParams.get("host") || "",
+      },
+      { 
+        headers: {
+          'X-Shop-Domain': session.shop,
+        }
+      }
+    );
+  } catch (error) {
+    console.error("[App Loader] Authentication error:", error);
+    throw error;
+  }
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData<typeof loader>();
+  const { apiKey, shop, host } = useLoaderData<typeof loader>();
+
+  // Log for debugging
+  console.log("[App Component] Rendering with:", { apiKey: apiKey ? "present" : "missing", shop, host });
+
+  if (!apiKey) {
+    console.error("[App Component] No API key available!");
+    return <div>Error: API key not configured</div>;
+  }
 
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey}>
+      <AppBridgeInitializer />
       <NavMenu>
         <Link to="/app" rel="home">
           Home
@@ -44,14 +71,25 @@ export default function App() {
 
 // Shopify needs Remix to catch some thrown responses, so that their headers are included in the response.
 export function ErrorBoundary() {
-  return boundary.error(useRouteError());
+  const error = useRouteError();
+  console.error("[App ErrorBoundary] Error caught:", error);
+  
+  // Provide more detailed error information in development
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <div style={{ padding: '20px', backgroundColor: '#fee', border: '1px solid #f00' }}>
+        <h2>Authentication Error</h2>
+        <pre>{JSON.stringify(error, null, 2)}</pre>
+        <p>Check console for more details</p>
+      </div>
+    );
+  }
+  
+  return boundary.error(error);
 }
 
 export const headers: HeadersFunction = (headersArgs) => {
-  // Get shop domain from loader headers
-  const shopDomain = headersArgs.loaderHeaders.get('X-Shop-Domain') || undefined;
-  
-  // Combine boundary headers with security headers
-  const boundaryHeaders = boundary.headers(headersArgs);
-  return combineHeaders(boundaryHeaders, shopDomain);
+  // For now, only use boundary headers to avoid CSP conflicts
+  // We'll add security headers back once authentication is working
+  return boundary.headers(headersArgs);
 };

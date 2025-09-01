@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher } from "@remix-run/react";
+import { json } from "@remix-run/node";
+import { useFetcher, useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -17,9 +18,25 @@ import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
-
-  return null;
+  try {
+    console.log("[App Index] Starting authentication...");
+    const { session, admin } = await authenticate.admin(request);
+    
+    if (!session) {
+      console.error("[App Index] No session found during authentication");
+      throw new Response("Session not found", { status: 401 });
+    }
+    
+    console.log(`[App Index] Successfully authenticated shop: ${session.shop}`);
+    
+    return json({ 
+      shop: session.shop,
+      authenticated: true 
+    });
+  } catch (error) {
+    console.error("[App Index] Loader error:", error);
+    throw error;
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -92,7 +109,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Index() {
+  const loaderData = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
+
+  // Log component rendering
+  console.log("[App Index Component] Rendering with data:", loaderData);
 
   const shopify = useAppBridge();
   const isLoading =
@@ -104,6 +125,7 @@ export default function Index() {
   );
 
   useEffect(() => {
+    console.log("[App Index Component] App Bridge initialized:", !!shopify);
     if (productId) {
       shopify.toast.show("Product created");
     }
