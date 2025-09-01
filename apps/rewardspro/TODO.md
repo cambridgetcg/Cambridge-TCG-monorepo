@@ -132,6 +132,18 @@
   3. ✅ Fixed configuration - Removed `functions` block from vercel.json
   4. ⏳ Next: Deploy to Vercel to verify fix works
 
+### 🔴 Critical Priority - Playwright Browser Testing
+- [ ] **Set Up Playwright for Browser Feedback**
+  - Status: Not started
+  - Priority: CRITICAL - Need browser feedback for blank page issue
+  - Actions:
+    1. Install Playwright: `npm install -D @playwright/test`
+    2. Create playwright.config.ts for Shopify context
+    3. Write test for blank page debugging
+    4. Capture console errors and network failures
+    5. Test App Bridge initialization
+  - Benefits: Real browser feedback, console error capture, network analysis
+
 ### 🔴 Critical Priority (Existing)
 - [ ] **Fix Order Webhook Implementation** - `webhooks.orders.paid.tsx` cuts off mid-implementation
   - Status: Partially implemented (50%)
