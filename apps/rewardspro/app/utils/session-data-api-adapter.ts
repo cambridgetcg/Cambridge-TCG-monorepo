@@ -24,7 +24,7 @@ export class DataAPISessionStorage implements SessionStorage {
           "userId", "firstName", "lastName", email, "accountOwner",
           locale, collaborator, "emailVerified"
         ) VALUES (
-          :id, :shop, :state, :isOnline, :scope, :expires, :accessToken,
+          :id, :shop, :state, :isOnline, :scope, CAST(:expires AS TIMESTAMP), :accessToken,
           :userId, :firstName, :lastName, :email, :accountOwner,
           :locale, :collaborator, :emailVerified
         )
@@ -96,32 +96,26 @@ export class DataAPISessionStorage implements SessionStorage {
         return undefined;
       }
 
-      const record = result.records[0];
-      
-      // Map fields based on column names from result
-      const fieldMap: any = {};
-      result.columnMetadata?.forEach((col, index) => {
-        fieldMap[col.name!] = record[index];
-      });
+      const record: any = result.records[0];
       
       const session = new Session({
-        id: fieldMap.id,
-        shop: fieldMap.shop,
-        state: fieldMap.state,
-        isOnline: fieldMap.isOnline,
-        scope: fieldMap.scope || undefined,
-        expires: fieldMap.expires ? new Date(fieldMap.expires) : undefined,
-        accessToken: fieldMap.accessToken,
-        onlineAccessInfo: fieldMap.userId ? {
+        id: record.id,
+        shop: record.shop,
+        state: record.state,
+        isOnline: record.isOnline,
+        scope: record.scope || undefined,
+        expires: record.expires ? new Date(record.expires) : undefined,
+        accessToken: record.accessToken,
+        onlineAccessInfo: record.userId ? {
           associated_user: {
-            id: Number(fieldMap.userId),
-            first_name: fieldMap.firstName || "",
-            last_name: fieldMap.lastName || "",
-            email: fieldMap.email || "",
-            account_owner: fieldMap.accountOwner || false,
-            locale: fieldMap.locale || "",
-            collaborator: fieldMap.collaborator || false,
-            email_verified: fieldMap.emailVerified || false,
+            id: Number(record.userId),
+            first_name: record.firstName || "",
+            last_name: record.lastName || "",
+            email: record.email || "",
+            account_owner: record.accountOwner || false,
+            locale: record.locale || "",
+            collaborator: record.collaborator || false,
+            email_verified: record.emailVerified || false,
           },
         } : undefined,
       });
@@ -199,31 +193,25 @@ export class DataAPISessionStorage implements SessionStorage {
         return [];
       }
 
-      const sessions = result.records.map(record => {
-        // Map fields based on column names from result
-        const fieldMap: any = {};
-        result.columnMetadata?.forEach((col, index) => {
-          fieldMap[col.name!] = record[index];
-        });
-        
+      const sessions = result.records.map((record: any) => {
         return new Session({
-          id: fieldMap.id,
-          shop: fieldMap.shop,
-          state: fieldMap.state,
-          isOnline: fieldMap.isOnline,
-          scope: fieldMap.scope || undefined,
-          expires: fieldMap.expires ? new Date(fieldMap.expires) : undefined,
-          accessToken: fieldMap.accessToken,
-          onlineAccessInfo: fieldMap.userId ? {
+          id: record.id,
+          shop: record.shop,
+          state: record.state,
+          isOnline: record.isOnline,
+          scope: record.scope || undefined,
+          expires: record.expires ? new Date(record.expires) : undefined,
+          accessToken: record.accessToken,
+          onlineAccessInfo: record.userId ? {
             associated_user: {
-              id: Number(fieldMap.userId),
-              first_name: fieldMap.firstName || "",
-              last_name: fieldMap.lastName || "",
-              email: fieldMap.email || "",
-              account_owner: fieldMap.accountOwner || false,
-              locale: fieldMap.locale || "",
-              collaborator: fieldMap.collaborator || false,
-              email_verified: fieldMap.emailVerified || false,
+              id: Number(record.userId),
+              first_name: record.firstName || "",
+              last_name: record.lastName || "",
+              email: record.email || "",
+              account_owner: record.accountOwner || false,
+              locale: record.locale || "",
+              collaborator: record.collaborator || false,
+              email_verified: record.emailVerified || false,
             },
           } : undefined,
         });
