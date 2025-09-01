@@ -46,6 +46,7 @@
     "vite-tsconfig-paths": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@remix-run/eslint-config": "^2.16.1",
     "@shopify/api-codegen-preset": "^1.1.1",
     "@types/eslint": "^9.6.1",
@@ -81,9 +82,6 @@
     "@graphql-codegen/typescript-operations": "4.5.0",
     "minimatch": "9.0.5",
     "vite": "^6.2.2"
-  },
-  "engines": {
-    "node": "20.x"
   },
   "author": "alex"
 }
