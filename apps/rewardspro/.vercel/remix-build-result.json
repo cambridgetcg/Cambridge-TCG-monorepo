@@ -11,6 +11,7 @@
     },
     "routeIdToServerBundleId": {
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-data-api-session": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -36,6 +37,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.test-data-api-session": {
+        "id": "routes/api.test-data-api-session",
+        "parentId": "root",
+        "file": "app/routes/api.test-data-api-session.tsx",
+        "path": "api/test-data-api-session",
         "config": {
           "runtime": "nodejs"
         }
@@ -183,6 +193,12 @@
         "parentId": "root",
         "file": "routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update"
+      },
+      "routes/api.test-data-api-session": {
+        "id": "routes/api.test-data-api-session",
+        "parentId": "root",
+        "file": "routes/api.test-data-api-session.tsx",
+        "path": "api/test-data-api-session"
       },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
