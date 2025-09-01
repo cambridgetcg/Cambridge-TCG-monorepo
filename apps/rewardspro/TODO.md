@@ -4,6 +4,32 @@
 
 ## 🚀 Current Sprint (Active)
 
+### ✅ Fixed - Session Token Not Saving to RDS
+
+- [x] **Fix Shopify Session Storage to AWS RDS** ✅
+  - Problem: Session tokens from Shopify OAuth not being written to database
+  - Root Cause: PrismaSessionStorage wasn't working with Data API
+  
+  **Solution Implemented:**
+  1. ✅ Created custom DataAPISessionStorage adapter
+  2. ✅ Replaced PrismaSessionStorage in shopify.server.ts
+  3. ✅ Implemented all SessionStorage interface methods
+  4. ✅ Added comprehensive logging for debugging
+  5. ✅ Tested all CRUD operations successfully
+  
+  **Files Updated:**
+  - `app/utils/session-data-api-adapter.ts` - New Data API session storage
+  - `app/shopify.server.ts` - Updated to use DataAPISessionStorage
+  - `app/routes/api.test-data-api-session.tsx` - Test endpoint created
+  
+  **Verified Working:**
+  - Store session: ✅
+  - Load session: ✅
+  - Find by shop: ✅
+  - Delete session: ✅
+
+## 🚀 Current Sprint (Active)
+
 ### ✅ Fixed - @vercel/remix Import Error
 
 - [x] **Fixed CommonJS/ESM Module Import Error** ✅
