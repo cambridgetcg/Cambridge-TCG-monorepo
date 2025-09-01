@@ -9,6 +9,20 @@
 ### September 1, 2025
 
 #### Vercel Deployment Issues (Latest)
+- [x] **Fix @remix-run/route-config Module Error**
+  - Problem: "Cannot find module '@remix-run/route-config'" in production build
+  - Root Causes: 
+    1. Module was in devDependencies instead of dependencies
+    2. CLAUDE.md was incorrectly placed in app/routes/ directory
+  - Solutions:
+    1. Moved @remix-run/route-config to dependencies in package.json
+    2. Moved CLAUDE.md from app/routes/ to app/
+    3. Updated vercel.json with buildCommand: npm run build:migrate
+    4. Added outputDirectory: build to vercel.json
+  - Impact: Enables successful Vercel deployment with Remix v3 route config
+  - Duration: 20 minutes
+
+#### Vercel Deployment Issues
 - [x] **Fix Vercel Functions Configuration Error**
   - Problem: "The pattern 'app/**/*.tsx' doesn't match any Serverless Functions inside the `api` directory"
   - Root Cause: Remix framework doesn't use API routes pattern; Vercel was looking for `/api` directory

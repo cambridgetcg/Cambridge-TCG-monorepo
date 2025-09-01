@@ -6,6 +6,19 @@
 
 ### 🔴 Critical Priority
 
+- [x] **Fix @remix-run/route-config Module Error** ✅
+  - Error: "Cannot find module '@remix-run/route-config'"
+  - Root Cause: Module was in devDependencies but needed for production build
+  - Additional Issue: CLAUDE.md was incorrectly in routes directory
+  
+  **Action Plan Completed:**
+  1. ✅ Moved @remix-run/route-config from devDependencies to dependencies
+  2. ✅ Fixed CLAUDE.md location (moved from app/routes/ to app/)
+  3. ✅ Updated vercel.json with proper settings:
+     - buildCommand: npm run build:migrate (includes DB migrations)
+     - outputDirectory: build (explicit output dir)
+  4. ✅ Tested build locally - SUCCESS
+
 - [x] **Fix Vercel Functions Configuration Error** ✅
   - Error: "The pattern 'app/**/*.tsx' doesn't match any Serverless Functions inside the `api` directory"
   - Root Cause: Remix apps don't use `api` directory; functions config is incorrect

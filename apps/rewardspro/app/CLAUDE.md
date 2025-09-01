@@ -1,268 +1,305 @@
-# /app Directory - Remix Application Core
+# /app/routes Directory - Application Routes
 
-## 📁 Directory Structure
+## 📁 Route Structure
 
-```
-/app
-├── /routes              # Page routes and API endpoints
-│   ├── /auth.login     # Login flow components
-│   ├── /_index         # Landing page components
-│   ├── app.tsx         # App layout wrapper
-│   ├── app._index.tsx  # App dashboard
-│   ├── app.customers.tsx # Customer management
-│   ├── app.tiers.tsx   # Tier configuration
-│   └── webhooks.*.tsx  # Webhook handlers
-├── /components         # Reusable React components
-│   └── ErrorBoundary.tsx # Global error handling
-├── /utils              # Utility functions and adapters
-│   ├── aurora-data-api.ts # Aurora Data API client wrapper
-│   ├── connection-strategy.ts # Environment-based DB routing
-│   └── prisma-data-api-adapter.ts # Prisma-compatible Data API
-├── shopify.server.ts   # Shopify app configuration
-├── db.server.ts        # Intelligent database client
-├── root.tsx            # Root application component
-├── entry.server.tsx    # Server entry point
-├── routes.ts           # Route configuration
-└── globals.d.ts        # Global TypeScript definitions
-```
+Remix uses file-based routing where the file name determines the URL path:
+- `.` creates nested routes (e.g., `app.customers.tsx` → `/app/customers`)
+- `_` creates pathless routes (e.g., `_index` → `/`)
+- `$` creates dynamic segments (e.g., `auth.$.tsx` → `/auth/*`)
 
-## 🔑 Core Files
+## 🗂️ Route Files
 
-### Connection Management Utilities
+### 🏠 Root Routes
 
-#### utils/connection-strategy.ts
-**Purpose**: Detects deployment environment and routes database connections
-- Checks VERCEL_ENV to determine deployment type
-- Returns appropriate connection configuration
-- Production: 5 connection limit with direct connection
-- Preview: 0 connections using Data API
-- Development: Local direct connection
-- Exports helper functions for configuration
-
-#### utils/aurora-data-api.ts
-**Purpose**: AWS Aurora Data API client wrapper
-- Handles HTTP-based database queries
-- Supports transactions without persistent connections
-- Automatic retry logic for transient failures
-- Parameter building helpers for type safety
-- Used by preview deployments to prevent connection exhaustion
-
-#### utils/prisma-data-api-adapter.ts
-**Purpose**: Prisma-compatible interface for Data API
-- Implements common Prisma methods (findMany, create, update, etc.)
-- Maintains API compatibility with existing code
-- Translates Prisma queries to SQL for Data API
-- Supports transactions and aggregations
-- Enables zero-connection preview deployments
-
-### shopify.server.ts
-**Purpose**: Central Shopify app configuration and authentication setup
-- Initializes Shopify app with API credentials
-- Configures session storage using Prisma
-- Sets up authentication helpers
-- Defines API version (January25)
-- Exports authentication methods for use in routes
-
-**Key Exports**:
-- `authenticate` - Main authentication function
-- `login` - OAuth login flow
-- `sessionStorage` - Session management
-- `registerWebhooks` - Webhook registration
-
-### db.server.ts
-**Purpose**: Intelligent database client with environment-based routing
-- Routes to appropriate connection method based on VERCEL_ENV
-- Production: Direct connection with 5 connection limit
-- Preview: Aurora Data API (zero connections)
-- Development: Local direct connection
-- Prevents connection pool exhaustion
-- Exports both Prisma client and Data API client
-
-### root.tsx
-**Purpose**: Root HTML document structure
-- Sets up HTML shell for entire app
-- Includes Shopify fonts and styles
-- Configures meta tags and viewport
-- Renders Remix `<Outlet/>` for route content
-
-### entry.server.tsx
-**Purpose**: Server-side rendering entry point
-- Handles request/response streaming
-- Configures error handling
-- Sets up server-side rendering
-
-## 📍 Routes
-
-### Authentication Routes
-
-#### /auth/login
-- **route.tsx**: OAuth login initiation
-- **error.server.tsx**: Login error handling
-- Redirects to Shopify OAuth flow
-
-#### /auth/$
-- Catch-all OAuth callback handler
-- Processes OAuth responses
-- Creates/updates sessions
-
-### App Routes
-
-#### /app.tsx
-**Purpose**: Main app layout wrapper
+#### app.tsx
+**Path**: `/app/*`
+**Purpose**: Main authenticated app wrapper
 - Authenticates all child routes
-- Provides app-wide layout
-- Sets up Polaris AppProvider
-- Handles navigation
+- Provides app-wide layout with Polaris
+- Sets up navigation structure
+- Handles loading states
 
-#### /app._index.tsx
-**Purpose**: Main dashboard/home page
-- Shows app overview
-- Quick stats and actions
-- Sample product creation
+**Key Functions**:
+- `loader`: Authenticates admin session
+- Default export: Layout component with Outlet
+
+#### _index/route.tsx
+**Path**: `/`
+**Purpose**: Public landing page
+- Unauthenticated route
+- Marketing/information page
+- Links to app installation
+
+### 📱 App Routes (Protected)
+
+#### app._index.tsx
+**Path**: `/app`
+**Purpose**: Main dashboard after login
+- Welcome screen with quick actions
+- Sample product generator
 - Navigation to main features
+- Store overview
 
-#### /app.customers.tsx
+**Key Functions**:
+- `loader`: Verifies authentication
+- `action`: Creates sample products
+- Uses TitleBar for primary actions
+
+#### app.customers.tsx
+**Path**: `/app/customers`
 **Purpose**: Customer management interface
-- List all customers
-- View store credit balances
-- Manage tier assignments
-- Search and filter customers
+**Features**:
+- List all customers with pagination
+- Display store credit balances
+- Show current tier assignments
+- Search and filter capabilities
+- Bulk actions support
 
-#### /app.tiers.tsx
-**Purpose**: Tier configuration page
-- Create/edit loyalty tiers
+**Data Loading**:
+```typescript
+loader: Fetches customers with tiers
+action: Updates customer data
+```
+
+#### app.tiers.tsx
+**Path**: `/app/tiers`
+**Purpose**: Loyalty tier configuration
+**Features**:
+- Create new tiers
+- Edit existing tiers
 - Set cashback percentages
 - Configure spending thresholds
-- Manage evaluation periods
+- Manage evaluation periods (Annual/Lifetime)
 
-### Webhook Routes
+**Data Structure**:
+```typescript
+{
+  name: string,
+  minSpend: number,
+  cashbackPercent: number,
+  evaluationPeriod: 'ANNUAL' | 'LIFETIME'
+}
+```
 
-#### /webhooks.orders.paid.tsx
-**Purpose**: Process paid orders
-- Calculate cashback amounts
-- Update customer store credit
-- Check tier progression
-- Create ledger entries
+### 🔐 Authentication Routes
 
-#### /webhooks.app.uninstalled.tsx
-**Purpose**: App uninstall cleanup
-- Remove shop sessions
-- Clean up shop data
-- Cancel active subscriptions
+#### auth.login/route.tsx
+**Path**: `/auth/login`
+**Purpose**: OAuth login initiation
+- Redirects to Shopify OAuth
+- Handles login errors
+- Sets up session storage
 
-#### /webhooks.shop.update.tsx
-**Purpose**: Shop data synchronization
-- Update shop settings
-- Sync shop metadata
-- Handle plan changes
+#### auth.login/error.server.tsx
+**Purpose**: Login error handling
+- Displays authentication errors
+- Provides retry mechanisms
+- Logs error details
 
-#### /webhooks.compliance.tsx
-**Purpose**: GDPR compliance
-- Handle data requests
-- Process deletion requests
-- Manage customer data privacy
+#### auth.$.tsx
+**Path**: `/auth/*`
+**Purpose**: OAuth callback handler
+- Catches all OAuth responses
+- Processes access tokens
+- Creates/updates sessions
+- Redirects to app after success
 
-### API Routes
+### 🔔 Webhook Routes
 
-#### /api.test-session.tsx
-**Purpose**: Session testing endpoint
-- Verify session validity
-- Debug authentication issues
-- Test database connectivity
+#### webhooks.orders.paid.tsx
+**Path**: `/webhooks/orders/paid`
+**Purpose**: Process completed orders
+**Flow**:
+1. Receive order webhook
+2. Calculate cashback amount
+3. Update customer store credit
+4. Check tier progression
+5. Create ledger entry
+6. Send confirmation
 
-## 🧩 Components
+**Validation**:
+- HMAC signature verification
+- Order status checking
+- Duplicate prevention
 
-### ErrorBoundary.tsx
-**Purpose**: Global error handling component
-- Catches React errors
-- Displays user-friendly error messages
-- Logs errors for debugging
-- Provides recovery actions
+#### webhooks.app.uninstalled.tsx
+**Path**: `/webhooks/app/uninstalled`
+**Purpose**: Clean up on app uninstall
+**Actions**:
+- Remove all shop sessions
+- Archive shop data
+- Cancel subscriptions
+- Log uninstall reason
 
-## 🔐 Authentication Flow
+#### webhooks.shop.update.tsx
+**Path**: `/webhooks/shop/update`
+**Purpose**: Sync shop data changes
+**Updates**:
+- Shop name/URL
+- Currency settings
+- Timezone
+- Plan changes
 
-1. **Initial Request** → `app.tsx` calls `authenticate.admin()`
-2. **No Session** → Redirect to `/auth/login`
-3. **OAuth Flow** → Shopify OAuth → `/auth/$` callback
-4. **Session Created** → Store in database via Prisma
-5. **Authenticated** → Access granted to app routes
+#### webhooks.app.scopes_update.tsx
+**Path**: `/webhooks/app/scopes_update`
+**Purpose**: Handle scope changes
+- Update session scopes
+- Request re-authentication if needed
+- Log scope changes
 
-## 💾 Data Flow
+#### webhooks.compliance.tsx
+**Path**: `/webhooks/compliance`
+**Purpose**: GDPR compliance webhooks
+**Handles**:
+- Customer data requests
+- Customer redact requests
+- Shop redact requests
 
-1. **Route Loaders** fetch data using `db.server.ts`
-2. **Components** receive data via `useLoaderData()`
-3. **Actions** handle form submissions
-4. **Mutations** update database via Prisma
-5. **Responses** return updated data or redirects
+### 🔌 API Routes
 
-## 🎨 UI Patterns
+#### api.test-session.tsx
+**Path**: `/api/test-session`
+**Purpose**: Debug endpoint
+**Returns**:
+```json
+{
+  "session": "active|inactive",
+  "shop": "shop-domain.myshopify.com",
+  "database": "connected|error"
+}
+```
 
-### Consistent Layout
-- All app routes wrapped in `app.tsx` layout
-- Shopify Polaris components throughout
-- TitleBar with primary actions
-- Page component for content structure
+## 🎯 Route Patterns
 
-### Data Loading
-```tsx
-export const loader = async ({ request }) => {
+### Loader Pattern
+```typescript
+export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  const data = await db.model.findMany();
+  
+  // Fetch data
+  const data = await db.model.findMany({
+    where: { shop: session.shop }
+  });
+  
   return json(data);
 };
 ```
 
-### Form Handling
-```tsx
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const formData = await request.formData();
-  // Process form data
-  return redirect("/app");
-};
-```
-
-## 🔧 Development Tips
-
-### Adding New Routes
-1. Create file in `/routes` directory
-2. Export `loader` for data fetching
-3. Export `action` for mutations
-4. Export default component for UI
-
-### Using Authentication
-```tsx
-import { authenticate } from "~/shopify.server";
-
-export const loader = async ({ request }) => {
+### Action Pattern
+```typescript
+export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
-  // Authenticated code here
+  const formData = await request.formData();
+  
+  // Process form
+  const result = await db.model.create({
+    data: { /* ... */ }
+  });
+  
+  return redirect("/app/success");
 };
 ```
 
-### Database Queries
-```tsx
-import db from "~/db.server";
-
-const customers = await db.customer.findMany({
-  where: { shop: session.shop },
-  include: { currentTier: true }
-});
+### Error Boundary Pattern
+```typescript
+export function ErrorBoundary() {
+  const error = useRouteError();
+  
+  if (isRouteErrorResponse(error)) {
+    return <div>Error: {error.status}</div>;
+  }
+  
+  return <div>Unknown error occurred</div>;
+}
 ```
 
-## 🐛 Common Issues
+## 🔒 Authentication Flow
 
-### Session Errors
-- Check `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET`
-- Verify app URL matches Shopify configuration
-- Ensure database is accessible
+1. **Request to protected route** → `/app/customers`
+2. **app.tsx loader** → Calls `authenticate.admin()`
+3. **No valid session** → Redirect to `/auth/login`
+4. **OAuth flow** → Shopify authorization
+5. **Callback to** → `/auth/$`
+6. **Session created** → Redirect to original route
+7. **Access granted** → Route renders
 
-### Route Not Found
-- File must be in `/routes` directory
-- File name determines route path
-- Use `.` for nested routes, `_` for pathless routes
+## 📊 Data Flow
 
-### Database Connection
-- Verify `DATABASE_URL` is correct
-- Check Prisma client is generated
-- Ensure migrations are applied
+### Read Operations
+1. Route `loader` fetches data
+2. Component receives via `useLoaderData()`
+3. Render with Polaris components
+
+### Write Operations
+1. Form submission to route `action`
+2. Validate and process data
+3. Update database
+4. Return redirect or data
+
+### Real-time Updates
+1. Webhook received
+2. Verify HMAC signature
+3. Process webhook data
+4. Update database
+5. Return 200 OK
+
+## 🚀 Best Practices
+
+### Route Organization
+- Group related routes with dot notation
+- Use folders for complex routes
+- Keep webhook routes separate
+- Prefix API routes with `api.`
+
+### Performance
+- Implement pagination in loaders
+- Use database indexes
+- Cache frequently accessed data
+- Minimize loader data
+
+### Security
+- Always authenticate in loaders/actions
+- Verify webhook signatures
+- Validate all input data
+- Use CSRF protection
+
+### Error Handling
+- Implement ErrorBoundary components
+- Log errors for debugging
+- Provide user-friendly messages
+- Handle edge cases
+
+## 🔧 Adding New Routes
+
+### Step 1: Create Route File
+```bash
+touch app/routes/app.newfeature.tsx
+```
+
+### Step 2: Implement Loader
+```typescript
+export const loader = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  // Fetch and return data
+};
+```
+
+### Step 3: Implement Action (if needed)
+```typescript
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  // Handle form submission
+};
+```
+
+### Step 4: Export Component
+```typescript
+export default function NewFeature() {
+  const data = useLoaderData();
+  return (
+    <Page title="New Feature">
+      {/* Component content */}
+    </Page>
+  );
+}
+```

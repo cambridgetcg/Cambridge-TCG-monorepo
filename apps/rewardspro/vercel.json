@@ -1,7 +1,8 @@
 {
   "framework": "remix",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:migrate",
   "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": "build",
   "regions": ["arn1"],
   "env": {
     "NODE_ENV": "production"
