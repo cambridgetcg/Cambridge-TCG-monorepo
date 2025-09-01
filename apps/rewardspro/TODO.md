@@ -4,6 +4,23 @@
 
 ## 🚀 Current Sprint (Active)
 
+### 🔴 Current Issue - Serverless Function Crash
+
+- [ ] **Fix Runtime Error on Vercel**
+  - Error: "This Serverless Function has crashed" 
+  - Code: FUNCTION_INVOCATION_FAILED
+  - Status: Investigating
+  
+  **Temporary Fix Applied:**
+  1. Simplified db.server.ts to use standard PrismaClient
+  2. Added placeholder DATABASE_URL to prevent crashes
+  3. Data API integration temporarily disabled
+  
+  **Next Steps:**
+  1. Deploy simplified version
+  2. Get app running first
+  3. Re-integrate Data API gradually
+
 ### ✅ Latest Fixes
 
 - [x] **Fixed Vite Import Resolution Error** ✅

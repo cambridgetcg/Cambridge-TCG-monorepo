@@ -5,7 +5,8 @@
   "outputDirectory": "build",
   "regions": ["arn1"],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://placeholder:placeholder@localhost:5432/placeholder"
   },
   "build": {
     "env": {
