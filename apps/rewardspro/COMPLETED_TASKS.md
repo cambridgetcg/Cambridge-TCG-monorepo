@@ -8,6 +8,16 @@
 
 ### September 1, 2025
 
+#### Vercel Runtime Errors (Latest)
+- [x] **Fixed @vercel/remix CommonJS/ESM Import Error**
+  - Problem: "Named export 'createReadableStreamFromReadable' not found"
+  - Error: FUNCTION_INVOCATION_FAILED on Vercel
+  - Root Cause: @vercel/remix is a CommonJS module but was being imported as ESM
+  - Solution: Replaced all @vercel/remix imports with @remix-run/node
+  - Files Updated: 13 files (entry.server.tsx and all route files)
+  - Impact: Fixes serverless function crash on Vercel
+  - Duration: 15 minutes
+
 #### AWS Aurora Data API Migration (Latest)
 - [x] **Migrated to Pure Data API Implementation**
   - Context: User requested removal of legacy DATABASE_URL approach

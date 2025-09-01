@@ -1,4 +1,4 @@
-import type { LoaderFunctionArgs } from "@vercel/remix";
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

@@ -1,5 +1,5 @@
-import type { ActionFunctionArgs } from "@vercel/remix";
-import { json } from "@vercel/remix";
+import type { ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 

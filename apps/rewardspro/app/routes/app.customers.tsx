@@ -1,5 +1,5 @@
-import type { LoaderFunctionArgs } from "@vercel/remix";
-import { json } from "@vercel/remix";
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 // Temporarily disabled: export { ErrorBoundary } from "../components/ErrorBoundary";
 import {

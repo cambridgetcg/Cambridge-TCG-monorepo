@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@vercel/remix";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import {
   AppProvider as PolarisAppProvider,
