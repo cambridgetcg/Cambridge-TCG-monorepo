@@ -201,6 +201,165 @@
   - Next: Deploy to preview and verify Data API routing
   - Monitor: Check CloudWatch for connection metrics
 
+## 🎭 Playwright E2E Testing Implementation
+
+### Phase 1: Setup & Configuration
+- [ ] **Install Playwright and Dependencies**
+  - Install @playwright/test as dev dependency
+  - Configure playwright.config.ts for Shopify context
+  - Set up browser contexts for embedded app testing
+  
+- [ ] **Configure Playwright MCP Server**
+  - Install @playwright/mcp@latest
+  - Add MCP configuration to Claude settings
+  - Set up persistent browser profiles for auth
+  
+- [ ] **Create CLAUDE.md Configuration**
+  - Document project structure and testing requirements
+  - Define testing environments (dev, staging, production)
+  - Specify code style and testing patterns
+
+### Phase 2: Test Infrastructure
+- [ ] **Set Up Test Environment**
+  - Configure test store URLs and credentials
+  - Handle Cloudflare Turnstile with test keys
+  - Set up session storage for authentication
+  
+- [ ] **Implement Page Object Model**
+  - Create base page class for common functionality
+  - Build page objects for each major section:
+    - LoginPage
+    - TiersPage
+    - CustomersPage
+    - DashboardPage
+  
+- [ ] **Create Test Utilities**
+  - Authentication helper functions
+  - Test data generators
+  - API helpers for hybrid testing
+  - Screenshot and reporting utilities
+
+### Phase 3: Core Test Suites
+- [ ] **Authentication & Setup Tests**
+  - Test Shopify OAuth flow
+  - Verify app installation process
+  - Test session persistence
+  
+- [ ] **Tier Management Tests**
+  - Create new tier with all field validations
+  - Edit existing tier
+  - Delete tier with confirmation
+  - Test enum field handling (EvaluationPeriod)
+  - Verify tier listing and sorting
+  
+- [ ] **Customer Management Tests**
+  - View customer list with pagination
+  - Search and filter customers
+  - View customer details
+  - Test store credit operations
+  - Verify tier assignment
+
+- [ ] **Store Credit Ledger Tests**
+  - Test cashback calculations
+  - Verify ledger entry creation
+  - Test manual adjustments
+  - Validate balance calculations
+
+### Phase 4: Advanced Testing
+- [ ] **Visual Regression Testing**
+  - Set up baseline screenshots
+  - Implement visual comparison
+  - Configure threshold tolerance
+  
+- [ ] **Performance Testing**
+  - Monitor page load times
+  - Track API response times
+  - Measure database query performance
+  - Set performance budgets
+  
+- [ ] **Mobile Responsiveness**
+  - Test on different viewport sizes
+  - Verify touch interactions
+  - Test embedded app on mobile
+
+### Phase 5: CI/CD Integration
+- [ ] **GitHub Actions Workflow**
+  - Create .github/workflows/e2e-tests.yml
+  - Configure test execution on PR
+  - Set up test reporting
+  - Upload artifacts (screenshots, traces)
+  
+- [ ] **Test Data Management**
+  - Create test data setup/teardown
+  - Implement test isolation
+  - Handle test data in different environments
+
+### Implementation Code Structure:
+```
+/tests
+  /e2e
+    /fixtures
+      - auth.json (saved auth state)
+      - test-data.ts
+    /pages
+      - base.page.ts
+      - login.page.ts
+      - tiers.page.ts
+      - customers.page.ts
+    /specs
+      - auth.spec.ts
+      - tiers.spec.ts
+      - customers.spec.ts
+    /utils
+      - helpers.ts
+      - api-client.ts
+  playwright.config.ts
+  CLAUDE.md
+```
+
+### Key Configurations Needed:
+
+**playwright.config.ts:**
+- Extended timeouts for Shopify dynamic content (30s action, 60s navigation)
+- Network idle wait strategy
+- Authentication state reuse
+- Parallel execution settings
+- Reporter configuration (HTML, JSON, JUnit)
+
+**Test Environment Variables:**
+- SHOPIFY_TEST_STORE_URL
+- SHOPIFY_TEST_API_KEY
+- SHOPIFY_TEST_API_SECRET
+- TURNSTILE_TEST_SITEKEY (1x00000000000000000000AA)
+- TURNSTILE_TEST_SECRET (1x0000000000000000000000000000000AA)
+
+**CLAUDE.md Content:**
+```markdown
+# RewardsPro Shopify App Testing
+
+## Project Type
+- Shopify Embedded App (Remix + Vite)
+- Database: AWS Aurora PostgreSQL (Data API)
+- Testing Focus: Loyalty tiers, customer management, store credit
+
+## Testing Requirements
+- Test tier CRUD operations with enum handling
+- Verify customer store credit calculations
+- Check authentication flow
+- Validate Data API integration
+
+## Environment Setup
+- Development: http://localhost:3000
+- Test Store: [configure-your-store].myshopify.com
+- Use Turnstile test keys for CI/CD
+
+## Code Style
+- Use Page Object Model
+- Async/await for all operations
+- Group tests by feature
+- Use data-testid attributes
+```
+
 ## 📅 Upcoming Tasks (Next Sprint)
 
 ### Phase 1: Core Functionality
