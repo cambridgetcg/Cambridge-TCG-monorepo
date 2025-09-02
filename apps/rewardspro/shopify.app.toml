@@ -2,7 +2,7 @@
 
 client_id = "f04b5854fb022d67ba9dd097767b465a"
 name = "rewardspro-production"
-application_url = "https://events-lace-aggregate-aim.trycloudflare.com"
+application_url = "https://rewardspro-production-nnwf.vercel.app"
 embedded = true
 handle = "rewardspro-production"
 
@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "read_orders,write_store_credit_account_transactions,read_store_credit_accounts"
 
 [auth]
-redirect_urls = ["https://events-lace-aggregate-aim.trycloudflare.com/auth/callback", "https://events-lace-aggregate-aim.trycloudflare.com/auth/shopify/callback", "https://events-lace-aggregate-aim.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://rewardspro-production-nnwf.vercel.app/auth/callback", "https://rewardspro-production-nnwf.vercel.app/auth/shopify/callback", "https://rewardspro-production-nnwf.vercel.app/api/auth/callback"]
 
 [pos]
 embedded = false
