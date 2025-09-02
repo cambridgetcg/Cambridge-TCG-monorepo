@@ -2,170 +2,11 @@
 
 *Last Updated: September 1, 2025*
 
-## 🚀 Current Sprint (Active)
-
-### ✅ Fixed - Session Token Not Saving to RDS
-
-- [x] **Fix Shopify Session Storage to AWS RDS** ✅
-  - Problem: Session tokens from Shopify OAuth not being written to database
-  - Root Cause: PrismaSessionStorage wasn't working with Data API
-  
-  **Solution Implemented:**
-  1. ✅ Created custom DataAPISessionStorage adapter
-  2. ✅ Replaced PrismaSessionStorage in shopify.server.ts
-  3. ✅ Implemented all SessionStorage interface methods
-  4. ✅ Added comprehensive logging for debugging
-  5. ✅ Tested all CRUD operations successfully
-  
-  **Files Updated:**
-  - `app/utils/session-data-api-adapter.ts` - New Data API session storage
-  - `app/shopify.server.ts` - Updated to use DataAPISessionStorage
-  - `app/routes/api.test-data-api-session.tsx` - Test endpoint created
-  
-  **Verified Working:**
-  - Store session: ✅
-  - Load session: ✅
-  - Find by shop: ✅
-  - Delete session: ✅
-
-### ✅ Fixed - Aurora Data API Enum Type Error
-
-- [x] **Fix PostgreSQL Enum Type Casting in Data API** ✅
-  - Error: "column 'evaluationPeriod' is of type 'EvaluationPeriod' but expression is of type text"
-  - Root Cause: Aurora Data API passes enum values as text strings, but PostgreSQL requires explicit casting
-  
-  **Solution Implemented:**
-  1. ✅ Added enum field detection in DataAPIModelProxy
-  2. ✅ Implemented explicit type casting for enum fields (`:param::text::EnumType`)
-  3. ✅ Updated create, update, and updateMany methods
-  4. ✅ Mapped all enum fields across all tables
-  5. ✅ Created test endpoint to verify enum handling
-  
-  **Files Updated:**
-  - `app/utils/prisma-data-api-adapter.ts` - Added enum casting logic
-  - `app/routes/api.test-enum.tsx` - Test endpoint for enum operations
-  
-  **Enum Fields Fixed:**
-  - Tier: evaluationPeriod (EvaluationPeriod)
-  - ShopSettings: storeCurrency (Currency), currencyDisplayType (CurrencyDisplayType)
-  - StoreCreditLedger: type (LedgerEntryType)
-  - TierChangeLog: changeType (TierChangeType), triggerType (TierTriggerType)
 
 ## 🚀 Current Sprint (Active)
-
-### ✅ Fixed - @vercel/remix Import Error
-
-- [x] **Fixed CommonJS/ESM Module Import Error** ✅
-  - Error: "Named export 'createReadableStreamFromReadable' not found"
-  - Root Cause: @vercel/remix is CommonJS module
-  
-  **Solution Implemented:**
-  1. ✅ Replaced ALL @vercel/remix imports with @remix-run/node
-  2. ✅ Updated 13 files with correct imports
-  3. ✅ Build tested successfully
-  
-  **Files Updated:**
-  - entry.server.tsx
-  - All route files using @vercel/remix
-  - Changed from: `import { ... } from "@vercel/remix"`
-  - Changed to: `import { ... } from "@remix-run/node"`
-
-### ✅ Latest Fixes
-
-- [x] **Fixed Vite Import Resolution Error** ✅
-  - Error: "Rollup failed to resolve import ~/utils/aurora-data-api"
-  - Solution: Added paths configuration to tsconfig.json
-  - Added: `"paths": { "~/*": ["./app/*"] }`
-  - Build now succeeds with health endpoint
-
-### ✅ Completed - AWS Aurora Data API Integration
-
-- [x] **Migrated to Pure Data API Implementation** ✅
-  - Removed legacy DATABASE_URL/DIRECT_URL dependencies
-  - Updated db.server.ts to use Data API adapter exclusively
-  - Prisma schema now uses placeholder URL for generation only
-  - All database operations go through Aurora Data API
-  
-  **Benefits:**
-  - Zero persistent connections (serverless-friendly)
-  - No connection pool exhaustion
-  - Works identically in all environments
-  - Reduced complexity
-
-### 🔴 Critical Build Error - Prisma Schema
-
-- [x] **Fix Prisma DIRECT_URL Error** ✅
-  - Error: "Environment variable not found: DIRECT_URL"
-  - Root Cause: directUrl field requires DIRECT_URL env var
-  
-  **Solution Implemented:**
-  1. ✅ Removed directUrl from schema.prisma (it's optional)
-  2. ✅ Added dummy DATABASE_URL in build env for Prisma generation
-  3. ✅ Changed buildCommand from "build:migrate" to "build"
-  4. ✅ Tested locally - builds successfully
-  
-  **Note**: Runtime will use actual DATABASE_URL from env vars
-
-### 🔴 Current Build Issues (From Vercel Logs)
-
-- [x] **Fix Node.js Version Warning** ✅
-  - Warning: "Detected engines: { node: '>=20.10.0' } will automatically upgrade"
-  - Solution: Changed to "node": "20.x" in package.json
-  - Impact: Prevents unexpected major version upgrades
-
-- [x] **Address Security Vulnerabilities** ✅
-  - Status: 8 moderate severity vulnerabilities (was 5, now showing 8)
-  - Analysis Complete:
-    - Main issue: esbuild vulnerability in dev dependencies
-    - Cannot auto-fix due to peer dependency conflicts
-    - Risk Assessment: LOW - Only affects development server
-    - Action: Accept risk as it's dev-only and moderate severity
-  - Note: Production build not affected by these vulnerabilities
-
-- [ ] **Monitor Build Completion**
-  - Build started successfully in iad1 (Washington DC)
-  - Install completed with warnings (expected)
-  - Next: Check if build and deployment succeed
-  - Action: Monitor Vercel dashboard for completion
 
 ### 🔴 Critical Priority
 
-- [x] **Fix @remix-run/route-config Module Error** ✅
-  - Error: "Cannot find module '@remix-run/route-config'"
-  - Root Cause: Module was in devDependencies but needed for production build
-  - Additional Issue: CLAUDE.md was incorrectly in routes directory
-  
-  **Action Plan Completed:**
-  1. ✅ Moved @remix-run/route-config from devDependencies to dependencies
-  2. ✅ Fixed CLAUDE.md location (moved from app/routes/ to app/)
-  3. ✅ Updated vercel.json with proper settings:
-     - buildCommand: npm run build:migrate (includes DB migrations)
-     - outputDirectory: build (explicit output dir)
-  4. ✅ Tested build locally - SUCCESS
-
-- [x] **Fix Vercel Functions Configuration Error** ✅
-  - Error: "The pattern 'app/**/*.tsx' doesn't match any Serverless Functions inside the `api` directory"
-  - Root Cause: Remix apps don't use `api` directory; functions config is incorrect
-  - Solution: Removed functions configuration from vercel.json
-  - Status: COMPLETED - Remix handles its own routing
-  
-  **Action Plan Completed:**
-  1. ✅ Investigated error - Vercel looking for API routes but this is Remix
-  2. ✅ Analyzed structure - Confirmed no `api` directory, Remix uses `app/routes`
-  3. ✅ Fixed configuration - Removed `functions` block from vercel.json
-  4. ⏳ Next: Deploy to Vercel to verify fix works
-
-### 🔴 Critical Priority - Playwright Browser Testing
-- [ ] **Set Up Playwright for Browser Feedback**
-  - Status: Not started
-  - Priority: CRITICAL - Need browser feedback for blank page issue
-  - Actions:
-    1. Install Playwright: `npm install -D @playwright/test`
-    2. Create playwright.config.ts for Shopify context
-    3. Write test for blank page debugging
-    4. Capture console errors and network failures
-    5. Test App Bridge initialization
-  - Benefits: Real browser feedback, console error capture, network analysis
 
 ### 🔴 Critical Priority (Existing)
 - [ ] **Fix Order Webhook Implementation** - `webhooks.orders.paid.tsx` cuts off mid-implementation
@@ -180,15 +21,115 @@
 
 
 ### 🟡 High Priority
+
+#### 🔧 Store Settings Page Implementation
+
+- [ ] **Create Store Settings Management Interface**
+  - Status: Not started
+  - Priority: HIGH - ShopSettings model exists but no UI
+  - Database: ShopSettings model already defined in Prisma schema
+  
+  **Implementation Plan:**
+  
+  1. [ ] **Create settings route file** (`app.settings.tsx`)
+     - Use standard Remix route pattern
+     - Follow existing tier/customer page structure
+     
+  2. [ ] **Implement loader function**
+     - Fetch existing ShopSettings for shop
+     - Create default settings if none exist
+     - Handle authentication via `authenticate.admin`
+     
+  3. [ ] **Implement action handler**
+     - Process form submissions
+     - Validate all input fields
+     - Update ShopSettings in database
+     - Return success/error responses
+     
+  4. [ ] **Build settings form UI**
+     - Use Polaris Page and Card components
+     - Group related settings in sections
+     - Follow Shopify admin design patterns
+     
+  5. [ ] **Currency configuration**
+     - Select dropdown with all 33 currencies (USD, EUR, GBP, CAD, AUD, JPY, etc.)
+     - Radio button group for display type (Symbol vs Code)
+     - Show preview of currency format (e.g., "$100.00" vs "USD 100.00")
+     
+  6. [ ] **Timezone settings**
+     - Searchable dropdown with common timezones
+     - Default to America/New_York
+     - Group by region for easier selection
+     - Show current time in selected timezone
+     
+  7. [ ] **Store information**
+     - Text field for store name (display name)
+     - URL field with validation (store URL)
+     - Auto-populate from Shopify data if available
+     - Read-only shop domain display
+     
+  8. [ ] **User feedback**
+     - Success banner on save
+     - Error messages for validation failures
+     - Unsaved changes warning
+     - Loading spinner during save
+     
+  9. [ ] **Navigation integration**
+     - Add Settings link to app.tsx navigation
+     - Use SettingsIcon from Polaris icons
+     - Place after Customers in nav order
+     
+  10. [ ] **Form features**
+      - Client-side validation
+      - Loading states during save
+      - Reset to defaults option
+      - Optimistic UI updates
+  
+  **Technical Requirements:**
+  - Rate limiting (reuse pattern from tiers page)
+  - Input sanitization and validation
+  - Proper error boundaries
+  - Responsive design for mobile
+  - Handle timezone conversion for dates
+  
+  **Files to create/modify:**
+  - `app/routes/app.settings.tsx` - Main settings page
+  - `app/routes/app.tsx` - Add navigation link
+  - `app/routes/api.test-settings.tsx` - Test endpoint (optional)
+  
+  **Data structure (from ShopSettings model):**
+  ```typescript
+  {
+    id: string (uuid)
+    shop: string (unique, e.g., "store.myshopify.com")
+    storeName: string
+    storeUrl: string
+    storeCurrency: Currency enum (33 options)
+    currencyDisplayType: "SYMBOL" | "CODE"
+    timezone: string (e.g., "America/New_York")
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+  
+  **Currency Options (33 total):**
+  - Americas: USD, CAD, MXN, BRL, CLP
+  - Europe: EUR, GBP, CHF, SEK, NOK, DKK, PLN, CZK, HUF, RON
+  - Asia-Pacific: JPY, CNY, KRW, SGD, HKD, TWD, THB, MYR, IDR, PHP, INR
+  - Others: AUD, NZD, ZAR, AED, TRY, RUB, ILS
+  
+  **Success Criteria:**
+  - Settings page loads without errors
+  - All fields save correctly to database
+  - Currency preview updates in real-time
+  - Timezone changes reflected immediately
+  - Form validation prevents invalid data
+  - Responsive on mobile devices
+
 - [ ] **Enable Customer Sync from Shopify**
   - Status: Button exists but disabled
   - Next: Implement GraphQL query and bulk import
   - Features: Progress indicator, sync status
-
-- [ ] **Create Store Settings UI**
-  - Status: Model exists, no interface
-  - Files: Need `app.settings.tsx`
-  - Features: Currency config, timezone, display preferences
 
 ### 🟢 Medium Priority
 - [ ] **Configure Vercel Environment Variables**
