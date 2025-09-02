@@ -196,8 +196,36 @@ export class AuroraDataAPI {
     return records.map((record) => {
       const obj: any = {};
       record.forEach((field, index) => {
-        const columnName = columnMetadata[index]?.name || `column${index}`;
-        obj[columnName] = this.getFieldValue(field);
+        const column = columnMetadata[index];
+        const columnName = column?.name || `column${index}`;
+        const columnType = column?.typeName?.toLowerCase();
+        
+        // Get the raw value first
+        let value = this.getFieldValue(field);
+        
+        // Convert timestamp/date strings to Date objects
+        if (value && typeof value === 'string' && 
+            (columnType === 'timestamp' || columnType === 'timestamptz' || 
+             columnType === 'date' || columnType === 'datetime')) {
+          try {
+            value = new Date(value);
+          } catch (e) {
+            console.warn(`Failed to parse date value: ${value}`);
+          }
+        }
+        
+        // Convert numeric/decimal strings to numbers
+        if (value && typeof value === 'string' && 
+            (columnType === 'numeric' || columnType === 'decimal' || 
+             columnType === 'float' || columnType === 'real' || columnType === 'double')) {
+          try {
+            value = parseFloat(value);
+          } catch (e) {
+            console.warn(`Failed to parse numeric value: ${value}`);
+          }
+        }
+        
+        obj[columnName] = value;
       });
       return obj as T;
     });

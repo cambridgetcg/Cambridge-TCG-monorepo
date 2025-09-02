@@ -129,10 +129,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderBy: { minSpend: "asc" },
     });
 
-    // Serialize dates to strings for JSON
+    // Serialize dates to strings for JSON (handle both Date objects and strings)
     const serializedTiers = tiers.map(tier => ({
       ...tier,
-      createdAt: tier.createdAt.toISOString(),
+      createdAt: tier.createdAt instanceof Date 
+        ? tier.createdAt.toISOString() 
+        : tier.createdAt, // Already a string from Data API
     }));
 
     return json<LoaderData>({ tiers: serializedTiers, shop });

@@ -150,12 +150,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
     });
 
-    // Serialize data for JSON
+    // Serialize data for JSON (handle both Date objects and strings from Data API)
     const serializedCustomers = customers.map((customer) => ({
       ...customer,
       storeCredit: Number(customer.storeCredit),
-      createdAt: customer.createdAt.toISOString(),
-      updatedAt: customer.updatedAt.toISOString(),
+      createdAt: customer.createdAt instanceof Date 
+        ? customer.createdAt.toISOString() 
+        : customer.createdAt,
+      updatedAt: customer.updatedAt instanceof Date 
+        ? customer.updatedAt.toISOString() 
+        : customer.updatedAt,
     }));
 
     return json<LoaderData>({
