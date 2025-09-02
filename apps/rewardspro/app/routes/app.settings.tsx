@@ -194,14 +194,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // If no settings exist, create default settings
     if (!settings) {
+      const now = new Date();
       settings = await db.shopSettings.create({
         data: {
+          id: crypto.randomUUID(), // Generate UUID for id
           shop,
           storeName: shop.split('.')[0], // Extract store name from domain
           storeUrl: `https://${shop}`,
           storeCurrency: "USD",
           currencyDisplayType: "SYMBOL",
           timezone: "America/New_York",
+          createdAt: now,
+          updatedAt: now,
         },
       });
     }
@@ -293,6 +297,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         storeCurrency,
         currencyDisplayType,
         timezone,
+        updatedAt: new Date(),
       },
     });
 

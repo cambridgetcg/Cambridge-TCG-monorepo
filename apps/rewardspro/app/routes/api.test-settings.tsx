@@ -39,14 +39,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     switch (action) {
       case "create":
         // Try to create new settings
+        const now = new Date();
         settings = await db.shopSettings.create({
           data: {
+            id: crypto.randomUUID(), // Generate UUID for id
             shop,
             storeName: `${shop.split('.')[0]} Test Store`,
             storeUrl: `https://${shop}`,
             storeCurrency: "USD",
             currencyDisplayType: "SYMBOL",
             timezone: "America/New_York",
+            createdAt: now,
+            updatedAt: now,
           },
         });
         result.tests.operation.data = settings;
@@ -67,6 +71,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               storeCurrency: "EUR",
               currencyDisplayType: "CODE",
               timezone: "Europe/London",
+              updatedAt: new Date(),
             },
           });
           result.tests.operation.data = {
@@ -110,14 +115,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           console.log("✅ Found settings:", settings.id);
         } else {
           // Try to create default settings
+          const now = new Date();
           settings = await db.shopSettings.create({
             data: {
+              id: crypto.randomUUID(), // Generate UUID for id
               shop,
               storeName: shop.split('.')[0],
               storeUrl: `https://${shop}`,
               storeCurrency: "USD",
               currencyDisplayType: "SYMBOL",
               timezone: "America/New_York",
+              createdAt: now,
+              updatedAt: now,
             },
           });
           result.tests.operation.data = {

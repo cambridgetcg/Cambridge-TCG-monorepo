@@ -228,7 +228,7 @@ export class DataAPIModelProxy<T = any> {
     const fields = Object.keys(args.data);
     const params: SqlParameter[] = [];
     
-    // Build values with proper type casting for enums
+    // Build values with proper type casting for enums and timestamps
     const values = fields.map((field, i) => {
       const value = args.data[field];
       params.push(AuroraDataAPI.buildParameter(`param${i}`, value));
@@ -236,6 +236,11 @@ export class DataAPIModelProxy<T = any> {
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
         return `:param${i}::text::${this.getEnumType(field)}`;
+      }
+      
+      // Check if this is a timestamp field
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires') {
+        return `:param${i}::timestamp`;
       }
       
       return `:param${i}`;
@@ -301,13 +306,18 @@ export class DataAPIModelProxy<T = any> {
     const whereFields = Object.keys(args.where);
     const params: SqlParameter[] = [];
 
-    // Build SET clause with enum casting
+    // Build SET clause with enum and timestamp casting
     const setClauses = setFields.map((field, i) => {
       params.push(AuroraDataAPI.buildParameter(`set${i}`, args.data[field]));
       
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
         return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
+      }
+      
+      // Check if this is a timestamp field
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires') {
+        return `"${field}" = :set${i}::timestamp`;
       }
       
       return `"${field}" = :set${i}`;
@@ -346,13 +356,18 @@ export class DataAPIModelProxy<T = any> {
     const setFields = Object.keys(args.data);
     const params: SqlParameter[] = [];
 
-    // Build SET clause with enum casting
+    // Build SET clause with enum and timestamp casting
     const setClauses = setFields.map((field, i) => {
       params.push(AuroraDataAPI.buildParameter(`set${i}`, args.data[field]));
       
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
         return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
+      }
+      
+      // Check if this is a timestamp field
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires') {
+        return `"${field}" = :set${i}::timestamp`;
       }
       
       return `"${field}" = :set${i}`;
