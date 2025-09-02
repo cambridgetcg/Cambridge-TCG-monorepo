@@ -1,31 +1,25 @@
 /**
  * Database Client
  * 
- * This module provides database access with fallback to prevent crashes
+ * Uses AWS Aurora Data API instead of direct database connections
+ * This prevents connection pool exhaustion in serverless environments
  */
 
-import { PrismaClient } from "@prisma/client";
+import { createDataAPIPrismaClient } from "./utils/prisma-data-api-adapter";
 
 declare global {
-  var prisma: PrismaClient | undefined;
+  var prisma: ReturnType<typeof createDataAPIPrismaClient> | undefined;
 }
 
-// For now, create a dummy Prisma client that won't crash
-// The actual Data API implementation will be used later
-const prisma = global.prisma || new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL || "postgresql://placeholder:placeholder@localhost:5432/placeholder"
-    }
-  },
-  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-});
+// Create the Data API client
+const prisma = global.prisma || createDataAPIPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma;
 }
 
 export default prisma;
+export { prisma as db };
 
-// Export helper to indicate we're using Data API (future implementation)
+// Export helper to indicate we're using Data API
 export const isUsingDataAPI = true;

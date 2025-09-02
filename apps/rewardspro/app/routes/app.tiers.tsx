@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher, useSubmit } from "@remix-run/react";
+export { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   Page,
   Layout,

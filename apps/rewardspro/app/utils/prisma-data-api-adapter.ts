@@ -18,14 +18,16 @@ export class DataAPIModelProxy<T = any> {
   ) {}
 
   /**
-   * Find many records
+   * Find many records with error handling
    */
   async findMany(args?: {
     where?: Record<string, any>;
     take?: number;
     skip?: number;
     orderBy?: Record<string, "asc" | "desc">;
-    include?: Record<string, boolean>;
+    include?: Record<string, any>;
+    select?: Record<string, any>;
+    _count?: { select?: Record<string, boolean> };
   }): Promise<T[]> {
     let sql = `SELECT * FROM "${this.tableName}"`;
     const params: SqlParameter[] = [];
@@ -36,11 +38,52 @@ export class DataAPIModelProxy<T = any> {
       Object.entries(args.where).forEach(([key, value], index) => {
         if (value === null) {
           conditions.push(`"${key}" IS NULL`);
-        } else {
+        } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
+          // Handle { not: null }
+          conditions.push(`"${key}" IS NOT NULL`);
+        } else if (value !== undefined && typeof value === 'object' && 'contains' in value) {
+          // Handle { contains: 'text', mode: 'insensitive' }
+          const searchValue = value.contains;
+          const mode = value.mode || 'sensitive';
+          if (mode === 'insensitive') {
+            conditions.push(`LOWER("${key}") LIKE LOWER(:param${index})`);
+          } else {
+            conditions.push(`"${key}" LIKE :param${index}`);
+          }
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, `%${searchValue}%`));
+        } else if (value !== undefined) {
           conditions.push(`"${key}" = :param${index}`);
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });
+
+      // Handle OR conditions
+      if (args.where.OR && Array.isArray(args.where.OR)) {
+        const orConditions = args.where.OR.map((orClause: any, orIndex: number) => {
+          const subConditions: string[] = [];
+          Object.entries(orClause).forEach(([key, value]: [string, any]) => {
+            const paramName = `or${orIndex}_${key}`;
+            if (value && typeof value === 'object' && 'contains' in value) {
+              const searchValue = value.contains;
+              const mode = value.mode || 'sensitive';
+              if (mode === 'insensitive') {
+                subConditions.push(`LOWER("${key}") LIKE LOWER(:${paramName})`);
+              } else {
+                subConditions.push(`"${key}" LIKE :${paramName}`);
+              }
+              params.push(AuroraDataAPI.buildParameter(paramName, `%${searchValue}%`));
+            } else {
+              subConditions.push(`"${key}" = :${paramName}`);
+              params.push(AuroraDataAPI.buildParameter(paramName, value));
+            }
+          });
+          return `(${subConditions.join(' OR ')})`;
+        });
+        
+        if (orConditions.length > 0) {
+          conditions.push(`(${orConditions.join(' OR ')})`);
+        }
+      }
     }
 
     if (conditions.length > 0) {
@@ -63,8 +106,89 @@ export class DataAPIModelProxy<T = any> {
       sql += ` OFFSET ${args.skip}`;
     }
 
-    const result = await this.client.executeStatement(sql, params);
-    return result.records as T[];
+    try {
+      const result = await this.client.executeStatement(sql, params);
+      const records = result.records as T[];
+
+      // Handle includes (fetch related data)
+      if (args?.include && records.length > 0) {
+        for (const record of records) {
+          await this.loadIncludes(record, args.include);
+        }
+      }
+
+      // Handle _count
+      if (args?._count?.select && records.length > 0) {
+        for (const record of records) {
+          await this.loadCounts(record, args._count.select);
+        }
+      }
+
+      return records;
+    } catch (error: any) {
+      console.error(`[DataAPI] Error in findMany for ${this.tableName}:`, error);
+      console.error(`[DataAPI] SQL: ${sql}`);
+      console.error(`[DataAPI] Params:`, params);
+      throw new Error(`Database query failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Load included relations
+   */
+  private async loadIncludes(record: any, include: Record<string, any>) {
+    for (const [relation, includeConfig] of Object.entries(include)) {
+      if (!includeConfig) continue;
+
+      // Handle currentTier relation (many-to-one)
+      if (relation === 'currentTier' && record.currentTierId) {
+        const tierResult = await this.client.executeStatement(
+          `SELECT * FROM "Tier" WHERE id = :tierId`,
+          [AuroraDataAPI.buildParameter('tierId', record.currentTierId)]
+        );
+        
+        if (tierResult.records.length > 0) {
+          const tier = tierResult.records[0];
+          // Handle select if specified
+          if (typeof includeConfig === 'object' && includeConfig.select) {
+            const selected: any = {};
+            for (const field of Object.keys(includeConfig.select)) {
+              if (includeConfig.select[field]) {
+                selected[field] = tier[field];
+              }
+            }
+            record.currentTier = selected;
+          } else {
+            record.currentTier = tier;
+          }
+        } else {
+          record.currentTier = null;
+        }
+      }
+      // Add more relation handlers as needed
+    }
+  }
+
+  /**
+   * Load counts for relations
+   */
+  private async loadCounts(record: any, countSelect: Record<string, boolean>) {
+    record._count = {};
+    
+    for (const [relation, shouldCount] of Object.entries(countSelect)) {
+      if (!shouldCount) continue;
+
+      // Handle creditLedger count
+      if (relation === 'creditLedger' && record.id) {
+        const countResult = await this.client.executeStatement(
+          `SELECT COUNT(*) as count FROM "StoreCreditLedger" WHERE "customerId" = :customerId`,
+          [AuroraDataAPI.buildParameter('customerId', record.id)]
+        );
+        
+        record._count[relation] = countResult.records[0]?.count || 0;
+      }
+      // Add more count handlers as needed
+    }
   }
 
   /**
@@ -257,7 +381,7 @@ export class DataAPIModelProxy<T = any> {
    */
   async aggregate(args: {
     where?: Record<string, any>;
-    _count?: boolean;
+    _count?: boolean | { [key: string]: any };
     _sum?: Record<string, boolean>;
     _avg?: Record<string, boolean>;
     _min?: Record<string, boolean>;
@@ -289,14 +413,60 @@ export class DataAPIModelProxy<T = any> {
     if (args.where) {
       const whereFields = Object.keys(args.where);
       const whereClauses = whereFields.map((field, i) => {
-        params.push(AuroraDataAPI.buildParameter(`param${i}`, args.where![field]));
-        return `"${field}" = :param${i}`;
+        if (args.where![field] !== undefined && typeof args.where![field] === 'object' && 'not' in args.where![field]) {
+          // Handle { not: null }
+          return `"${field}" IS NOT NULL`;
+        } else if (args.where![field] === null) {
+          return `"${field}" IS NULL`;
+        } else {
+          params.push(AuroraDataAPI.buildParameter(`param${i}`, args.where![field]));
+          return `"${field}" = :param${i}`;
+        }
       });
       sql += ` WHERE ${whereClauses.join(" AND ")}`;
     }
 
     const result = await this.client.executeStatement(sql, params);
-    return result.records[0] || {};
+    const record = result.records[0] || {};
+    
+    // Format the response to match Prisma's structure
+    const response: any = {};
+    
+    if (args._count) {
+      response._count = parseInt(record._count || '0');
+    }
+    
+    if (args._sum) {
+      response._sum = {};
+      Object.keys(args._sum).forEach(field => {
+        const value = record[`_sum_${field}`];
+        response._sum[field] = value !== null ? parseFloat(value) : null;
+      });
+    }
+    
+    if (args._avg) {
+      response._avg = {};
+      Object.keys(args._avg).forEach(field => {
+        const value = record[`_avg_${field}`];
+        response._avg[field] = value !== null ? parseFloat(value) : null;
+      });
+    }
+    
+    if (args._min) {
+      response._min = {};
+      Object.keys(args._min).forEach(field => {
+        response._min[field] = record[`_min_${field}`];
+      });
+    }
+    
+    if (args._max) {
+      response._max = {};
+      Object.keys(args._max).forEach(field => {
+        response._max[field] = record[`_max_${field}`];
+      });
+    }
+    
+    return response;
   }
 }
 
