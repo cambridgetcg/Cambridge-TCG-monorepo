@@ -28,6 +28,29 @@
   - Find by shop: ✅
   - Delete session: ✅
 
+### ✅ Fixed - Aurora Data API Enum Type Error
+
+- [x] **Fix PostgreSQL Enum Type Casting in Data API** ✅
+  - Error: "column 'evaluationPeriod' is of type 'EvaluationPeriod' but expression is of type text"
+  - Root Cause: Aurora Data API passes enum values as text strings, but PostgreSQL requires explicit casting
+  
+  **Solution Implemented:**
+  1. ✅ Added enum field detection in DataAPIModelProxy
+  2. ✅ Implemented explicit type casting for enum fields (`:param::text::EnumType`)
+  3. ✅ Updated create, update, and updateMany methods
+  4. ✅ Mapped all enum fields across all tables
+  5. ✅ Created test endpoint to verify enum handling
+  
+  **Files Updated:**
+  - `app/utils/prisma-data-api-adapter.ts` - Added enum casting logic
+  - `app/routes/api.test-enum.tsx` - Test endpoint for enum operations
+  
+  **Enum Fields Fixed:**
+  - Tier: evaluationPeriod (EvaluationPeriod)
+  - ShopSettings: storeCurrency (Currency), currencyDisplayType (CurrencyDisplayType)
+  - StoreCreditLedger: type (LedgerEntryType)
+  - TierChangeLog: changeType (TierChangeType), triggerType (TierTriggerType)
+
 ## 🚀 Current Sprint (Active)
 
 ### ✅ Fixed - @vercel/remix Import Error

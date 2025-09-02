@@ -220,16 +220,26 @@ export class DataAPIModelProxy<T = any> {
   }
 
   /**
-   * Create a record
+   * Create a record with enum handling
    */
   async create(args: {
     data: Record<string, any>;
   }): Promise<T> {
     const fields = Object.keys(args.data);
-    const values = fields.map((_, i) => `:param${i}`);
-    const params = fields.map((field, i) =>
-      AuroraDataAPI.buildParameter(`param${i}`, args.data[field])
-    );
+    const params: SqlParameter[] = [];
+    
+    // Build values with proper type casting for enums
+    const values = fields.map((field, i) => {
+      const value = args.data[field];
+      params.push(AuroraDataAPI.buildParameter(`param${i}`, value));
+      
+      // Check if this field needs enum casting
+      if (this.isEnumField(field)) {
+        return `:param${i}::text::${this.getEnumType(field)}`;
+      }
+      
+      return `:param${i}`;
+    });
 
     const sql = `
       INSERT INTO "${this.tableName}" (${fields.map(f => `"${f}"`).join(", ")})
@@ -237,12 +247,51 @@ export class DataAPIModelProxy<T = any> {
       RETURNING *
     `;
 
-    const result = await this.client.executeStatement(sql, params);
-    return result.records[0] as T;
+    try {
+      const result = await this.client.executeStatement(sql, params);
+      return result.records[0] as T;
+    } catch (error: any) {
+      console.error(`[DataAPI] Error in create for ${this.tableName}:`, error);
+      console.error(`[DataAPI] SQL: ${sql}`);
+      console.error(`[DataAPI] Data:`, args.data);
+      throw new Error(`Failed to create ${this.tableName}: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Check if a field is an enum type
+   */
+  private isEnumField(field: string): boolean {
+    // Map of known enum fields per table
+    const enumFields: Record<string, string[]> = {
+      Tier: ['evaluationPeriod'],
+      ShopSettings: ['storeCurrency', 'currencyDisplayType'],
+      StoreCreditLedger: ['type'],
+      TierChangeLog: ['changeType', 'triggerType'],
+    };
+    
+    return enumFields[this.tableName]?.includes(field) || false;
+  }
+  
+  /**
+   * Get the PostgreSQL enum type name for a field
+   */
+  private getEnumType(field: string): string {
+    // Map field names to PostgreSQL enum type names
+    const enumTypes: Record<string, string> = {
+      evaluationPeriod: '"EvaluationPeriod"',
+      storeCurrency: '"Currency"',
+      currencyDisplayType: '"CurrencyDisplayType"',
+      type: '"LedgerEntryType"',
+      changeType: '"TierChangeType"',
+      triggerType: '"TierTriggerType"',
+    };
+    
+    return enumTypes[field] || field;
   }
 
   /**
-   * Update records
+   * Update records with enum handling
    */
   async update(args: {
     where: Record<string, any>;
@@ -252,9 +301,15 @@ export class DataAPIModelProxy<T = any> {
     const whereFields = Object.keys(args.where);
     const params: SqlParameter[] = [];
 
-    // Build SET clause
+    // Build SET clause with enum casting
     const setClauses = setFields.map((field, i) => {
       params.push(AuroraDataAPI.buildParameter(`set${i}`, args.data[field]));
+      
+      // Check if this field needs enum casting
+      if (this.isEnumField(field)) {
+        return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
+      }
+      
       return `"${field}" = :set${i}`;
     });
 
@@ -271,12 +326,18 @@ export class DataAPIModelProxy<T = any> {
       RETURNING *
     `;
 
-    const result = await this.client.executeStatement(sql, params);
-    return result.records[0] as T;
+    try {
+      const result = await this.client.executeStatement(sql, params);
+      return result.records[0] as T;
+    } catch (error: any) {
+      console.error(`[DataAPI] Error in update for ${this.tableName}:`, error);
+      console.error(`[DataAPI] SQL: ${sql}`);
+      throw new Error(`Failed to update ${this.tableName}: ${error.message}`);
+    }
   }
 
   /**
-   * Update many records
+   * Update many records with enum handling
    */
   async updateMany(args: {
     where?: Record<string, any>;
@@ -285,9 +346,15 @@ export class DataAPIModelProxy<T = any> {
     const setFields = Object.keys(args.data);
     const params: SqlParameter[] = [];
 
-    // Build SET clause
+    // Build SET clause with enum casting
     const setClauses = setFields.map((field, i) => {
       params.push(AuroraDataAPI.buildParameter(`set${i}`, args.data[field]));
+      
+      // Check if this field needs enum casting
+      if (this.isEnumField(field)) {
+        return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
+      }
+      
       return `"${field}" = :set${i}`;
     });
 
@@ -303,8 +370,14 @@ export class DataAPIModelProxy<T = any> {
       sql += ` WHERE ${whereClauses.join(" AND ")}`;
     }
 
-    const result = await this.client.executeStatement(sql, params);
-    return { count: result.numberOfRecordsUpdated || 0 };
+    try {
+      const result = await this.client.executeStatement(sql, params);
+      return { count: result.numberOfRecordsUpdated || 0 };
+    } catch (error: any) {
+      console.error(`[DataAPI] Error in updateMany for ${this.tableName}:`, error);
+      console.error(`[DataAPI] SQL: ${sql}`);
+      throw new Error(`Failed to update ${this.tableName}: ${error.message}`);
+    }
   }
 
   /**
