@@ -22,6 +22,158 @@
 
 ### 🟡 High Priority
 
+#### 💳 Billing Page Implementation
+
+- [ ] **Create Comprehensive Billing Management System**
+  - Status: Not started
+  - Priority: HIGH - Essential for app monetization
+  - Reference: Based on provided billing UI examples
+  
+  **Implementation Plan:**
+  
+  1. [ ] **Create billing route file** (`app.billing.tsx`)
+     - Main billing page with plan details
+     - Usage tracking display
+     - Upgrade/downgrade options
+     
+  2. [ ] **Design pricing tiers structure**
+     ```typescript
+     Free Plan: $0/month
+     - Up to 200 orders/month
+     - Basic features
+     
+     Starter Plan: $49/month  
+     - Up to 500 orders/month
+     - Core loyalty features
+     - Email customization
+     - Basic reports
+     
+     Growth Plan: $199/month
+     - 2,500 orders included
+     - $20 per additional 100 orders
+     - Advanced analytics
+     - VIP tiers
+     - Bonus events
+     
+     Plus Plan: $999/month
+     - 7,500 orders included  
+     - $5 per additional 100 orders
+     - API access
+     - Priority support
+     - Custom reporting
+     ```
+     
+  3. [ ] **Current plan display section**
+     - Plan name and pricing
+     - Current billing period
+     - Usage metrics (orders processed)
+     - Progress bar showing usage vs limit
+     - Days remaining in billing cycle
+     
+  4. [ ] **Usage tracking components**
+     - Order counter for current month
+     - Visual progress bar
+     - Usage percentage display
+     - Alert when approaching limit
+     - Overage cost calculator
+     
+  5. [ ] **Pricing cards grid**
+     - Three-column layout for plans
+     - "Recommended" badge on popular plan
+     - Price display with currency
+     - Monthly/annual toggle (optional)
+     - Feature list for each plan
+     - "Select Plan" buttons
+     
+  6. [ ] **Feature comparison**
+     - Popular features section per plan
+     - Checkmarks for included features
+     - Clear differentiation between tiers
+     - Highlight unique features
+     
+  7. [ ] **Shopify Billing API integration**
+     - Create recurring subscription charges
+     - Handle plan upgrades/downgrades
+     - Process usage-based billing
+     - Webhook handling for billing events
+     
+  8. [ ] **Database schema updates**
+     ```prisma
+     model BillingPlan {
+       id               String   @id
+       shop             String   @unique
+       planName         String   // free, starter, growth, plus
+       status           String   // active, cancelled, past_due
+       currentPeriodEnd DateTime
+       ordersUsed       Int      @default(0)
+       ordersLimit      Int
+       priceMonthly     Decimal
+       overageRate      Decimal? // Cost per 100 extra orders
+       createdAt        DateTime @default(now())
+       updatedAt        DateTime @updatedAt
+     }
+     
+     model UsageRecord {
+       id          String   @id @default(uuid())
+       shop        String
+       orderId     String   @unique
+       processedAt DateTime @default(now())
+       billingPlan BillingPlan @relation(...)
+     }
+     ```
+     
+  9. [ ] **Upgrade/downgrade flow**
+     - Modal or separate page for plan selection
+     - Proration calculation display
+     - Confirmation dialog
+     - Success/error handling
+     - Redirect to Shopify billing acceptance
+     
+  10. [ ] **Navigation integration**
+      - Add "Billing" link to main navigation
+      - Place after Settings in nav order
+      - Use appropriate icon (CreditCardIcon)
+      
+  11. [ ] **Usage notifications**
+      - Alert at 80% usage
+      - Warning at 90% usage
+      - Notification when limit exceeded
+      - Email alerts (optional)
+      
+  12. [ ] **Billing page features**
+      - Invoice history section
+      - Download receipts
+      - Update payment method link
+      - Cancel subscription option
+      - Contact support for billing
+  
+  **Technical Requirements:**
+  - Shopify GraphQL Admin API for billing
+  - Webhook handlers for subscription events
+  - Usage tracking with efficient queries
+  - Real-time usage updates
+  - Responsive design for all devices
+  - Loading states during API calls
+  - Error handling for failed charges
+  
+  **Files to create/modify:**
+  - `app/routes/app.billing.tsx` - Main billing page
+  - `app/routes/app.billing.upgrade.tsx` - Plan selection page
+  - `app/routes/api.webhooks.billing.tsx` - Billing webhooks
+  - `app/utils/billing.server.ts` - Billing logic
+  - `app/utils/shopify-billing.ts` - Shopify billing API wrapper
+  - `prisma/schema.prisma` - Add billing models
+  - `app/routes/app.tsx` - Add navigation link
+  
+  **Success Criteria:**
+  - Users can view current plan and usage
+  - Clear pricing display for all tiers
+  - Smooth upgrade/downgrade process
+  - Accurate usage tracking
+  - Proper billing through Shopify
+  - Mobile-responsive design
+  - Clear feature differentiation
+
 #### 🔧 Store Settings Page Implementation
 
 - [ ] **Create Store Settings Management Interface**
