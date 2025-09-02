@@ -162,6 +162,62 @@ model TierChangeLog {
   @@index([triggerType])                         // Filter by trigger type
 }
 
+model BillingPlan {
+  id                String              @id @default(uuid())
+  shop              String              @unique  // One billing plan per shop
+  
+  // Plan details
+  planName          String              // free, starter, growth, plus
+  status            String              // active, cancelled, past_due
+  
+  // Billing period
+  currentPeriodStart DateTime           // Start of current billing period
+  currentPeriodEnd   DateTime           // End of current billing period
+  
+  // Usage tracking
+  ordersUsed        Int                 @default(0)  // Orders processed this period
+  ordersLimit       Int                 // Maximum orders for this plan
+  
+  // Pricing
+  priceMonthly      Decimal             @db.Decimal(10, 2)  // Monthly subscription price
+  overageRate       Decimal?            @db.Decimal(10, 2)  // Cost per 100 additional orders
+  
+  // Shopify billing reference
+  shopifyChargeId   String?             // Shopify recurring charge ID
+  
+  // Metadata
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  // Relations
+  usageRecords      UsageRecord[]       // Track individual order usage
+  
+  @@index([shop])
+  @@index([status])
+}
+
+model UsageRecord {
+  id                String              @id @default(uuid())
+  shop              String
+  
+  // Order tracking
+  orderId           String              @unique  // Shopify order ID to prevent duplicates
+  orderNumber       String?             // Human-readable order number
+  orderAmount       Decimal?            @db.Decimal(10, 2)  // Order total for analytics
+  
+  // Processing details
+  processedAt       DateTime            @default(now())  // When we counted this order
+  billingPlanId     String              // Link to billing plan
+  
+  // Relations
+  billingPlan       BillingPlan         @relation(fields: [billingPlanId], references: [id])
+  
+  // Indexes for queries
+  @@index([shop, processedAt(sort: Desc)])  // Recent usage by shop
+  @@index([billingPlanId])                  // Usage by billing plan
+  @@unique([shop, orderId])                 // Prevent duplicate order counting
+}
+
 
 //Enums
 

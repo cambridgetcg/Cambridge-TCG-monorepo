@@ -239,7 +239,8 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a timestamp field
-      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires') {
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
+          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
         return `:param${i}::timestamp`;
       }
       
@@ -601,6 +602,8 @@ export function createDataAPIPrismaClient() {
     customer: new DataAPIModelProxy("Customer", client),
     storeCreditLedger: new DataAPIModelProxy("StoreCreditLedger", client),
     tierChangeLog: new DataAPIModelProxy("TierChangeLog", client),
+    billingPlan: new DataAPIModelProxy("BillingPlan", client),
+    usageRecord: new DataAPIModelProxy("UsageRecord", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

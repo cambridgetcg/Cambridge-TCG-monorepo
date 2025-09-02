@@ -2,7 +2,7 @@
 
 client_id = "f04b5854fb022d67ba9dd097767b465a"
 name = "rewardspro-production"
-application_url = "https://rewardspro-production-nnwf.vercel.app"
+application_url = "https://ban-postal-translations-ar.trycloudflare.com"
 embedded = true
 handle = "rewardspro-production"
 
@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "read_orders,write_store_credit_account_transactions,read_store_credit_accounts"
 
 [auth]
-redirect_urls = ["https://rewardspro-production-nnwf.vercel.app/auth/callback", "https://rewardspro-production-nnwf.vercel.app/auth/shopify/callback", "https://rewardspro-production-nnwf.vercel.app/api/auth/callback"]
+redirect_urls = ["https://ban-postal-translations-ar.trycloudflare.com/auth/callback", "https://ban-postal-translations-ar.trycloudflare.com/auth/shopify/callback", "https://ban-postal-translations-ar.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
