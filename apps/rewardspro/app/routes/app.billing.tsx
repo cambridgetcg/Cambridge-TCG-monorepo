@@ -201,29 +201,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       
-      try {
-        billingPlan = await db.billingPlan.create({
-          data: {
-            id: crypto.randomUUID(),
-            shop,
-            planName: "free",
-            status: "active",
-            currentPeriodStart: startOfMonth,
-            currentPeriodEnd: endOfMonth,
-            ordersUsed: 0,
-            ordersLimit: 200,
-            priceMonthly: 0,
-            overageRate: null,
-            createdAt: now,
-            updatedAt: now,
-          },
-        });
-        console.log("Free plan created successfully");
-      } catch (createError: any) {
-        console.error("DATABASE ERROR creating billing plan:", createError);
-        console.error("Error stack:", createError.stack);
-        throw createError;
-      }
+      billingPlan = await db.billingPlan.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          planName: "free",
+          status: "active",
+          currentPeriodStart: startOfMonth,
+          currentPeriodEnd: endOfMonth,
+          ordersUsed: 0,
+          ordersLimit: 200,
+          priceMonthly: 0,
+          overageRate: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      console.log("Free plan created successfully");
     }
 
     // Calculate current month's order usage
