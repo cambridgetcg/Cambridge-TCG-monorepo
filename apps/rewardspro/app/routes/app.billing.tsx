@@ -163,69 +163,114 @@ const getCurrentMonthName = (): string => {
 
 // ============= LOADER =============
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  console.log("=".repeat(80));
+  console.log("💳 BILLING PAGE LOADER START");
+  console.log("=".repeat(80));
+  
   try {
+    console.log("Step 1: Authenticating admin session...");
     const { session } = await authenticate.admin(request);
+    console.log("Session authenticated:", session ? "YES" : "NO");
     
     if (!session?.shop) {
+      console.error("ERROR: No shop in session");
       throw new Response("Unauthorized", { status: 401 });
     }
 
     const shop = session.shop;
+    console.log("Shop:", shop);
 
     // Try to fetch existing billing plan
-    let billingPlan = await db.billingPlan.findUnique({
-      where: { shop },
-    });
+    console.log("Step 2: Fetching billing plan for shop...");
+    let billingPlan;
+    try {
+      billingPlan = await db.billingPlan.findUnique({
+        where: { shop },
+      });
+      console.log("Billing plan found:", billingPlan ? "YES" : "NO");
+    } catch (dbError: any) {
+      console.error("DATABASE ERROR fetching billing plan:", dbError);
+      console.error("Error stack:", dbError.stack);
+      throw dbError;
+    }
 
     // If no billing plan exists, create a free plan
     if (!billingPlan) {
+      console.log("Step 3: Creating new free plan...");
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       
-      billingPlan = await db.billingPlan.create({
-        data: {
-          id: crypto.randomUUID(),
-          shop,
-          planName: "free",
-          status: "active",
-          currentPeriodStart: startOfMonth,
-          currentPeriodEnd: endOfMonth,
-          ordersUsed: 0,
-          ordersLimit: 200,
-          priceMonthly: 0,
-          overageRate: null,
-          createdAt: now,
-          updatedAt: now,
-        },
-      });
+      try {
+        billingPlan = await db.billingPlan.create({
+          data: {
+            id: crypto.randomUUID(),
+            shop,
+            planName: "free",
+            status: "active",
+            currentPeriodStart: startOfMonth,
+            currentPeriodEnd: endOfMonth,
+            ordersUsed: 0,
+            ordersLimit: 200,
+            priceMonthly: 0,
+            overageRate: null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+        console.log("Free plan created successfully");
+      } catch (createError: any) {
+        console.error("DATABASE ERROR creating billing plan:", createError);
+        console.error("Error stack:", createError.stack);
+        throw createError;
+      }
     }
 
     // Calculate current month's order usage
+    console.log("Step 4: Calculating usage records...");
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const ordersThisMonth = await db.usageRecord.count({
-      where: {
-        shop,
-        processedAt: {
-          gte: startOfMonth,
+    let ordersThisMonth = 0;
+    try {
+      ordersThisMonth = await db.usageRecord.count({
+        where: {
+          shop,
+          processedAt: {
+            gte: startOfMonth,
+          },
         },
-      },
-    });
+      });
+      console.log("Orders this month:", ordersThisMonth);
+    } catch (countError: any) {
+      console.error("DATABASE ERROR counting usage records:", countError);
+      console.error("Error stack:", countError.stack);
+      // Continue with 0 if count fails
+    }
 
     // Update orders used if different
     if (ordersThisMonth !== billingPlan.ordersUsed) {
-      billingPlan = await db.billingPlan.update({
-        where: { shop },
-        data: { 
-          ordersUsed: ordersThisMonth,
-          updatedAt: new Date(),
-        },
-      });
+      console.log("Step 5: Updating order count in billing plan...");
+      try {
+        billingPlan = await db.billingPlan.update({
+          where: { shop },
+          data: { 
+            ordersUsed: ordersThisMonth,
+            updatedAt: new Date(),
+          },
+        });
+        console.log("Billing plan updated with new order count");
+      } catch (updateError: any) {
+        console.error("DATABASE ERROR updating billing plan:", updateError);
+        console.error("Error stack:", updateError.stack);
+        // Continue with existing billing plan if update fails
+      }
     }
 
     // Calculate metrics
+    console.log("Step 6: Calculating metrics...");
     const daysRemaining = calculateDaysRemaining(billingPlan.currentPeriodEnd.toString());
     const usagePercentage = calculateUsagePercentage(billingPlan.ordersUsed, billingPlan.ordersLimit);
+    console.log("Days remaining:", daysRemaining);
+    console.log("Usage percentage:", usagePercentage + "%");
 
     // Serialize dates for JSON - handle both Date objects and strings
     const serializedPlan = {
@@ -255,8 +300,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       usagePercentage,
       shop,
     });
-  } catch (error) {
-    console.error("Billing loader error:", error);
+  } catch (error: any) {
+    console.error("=".repeat(80));
+    console.error("❌ BILLING LOADER ERROR");
+    console.error("=".repeat(80));
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Error object:", error);
+    console.error("=".repeat(80));
     throw new Response("Failed to load billing information", { status: 500 });
   }
 };

@@ -573,11 +573,23 @@ export function createDataAPIPrismaClient() {
       return client.executeTransaction(async (execute) => {
         // Create transaction context with execute function
         const txClient = {
-          $executeRaw: async (sql: string, ...params: any[]) => {
+          $executeRaw: async (sql: any, ...params: any[]) => {
+            // Handle Prisma template literal syntax
+            if (typeof sql === 'object' && sql.strings) {
+              const query = sql.strings.join('?');
+              const result = await execute(query, []);
+              return result.numberOfRecordsUpdated || 0;
+            }
             const result = await execute(sql, params);
             return result.numberOfRecordsUpdated || 0;
           },
-          $queryRaw: async (sql: string, ...params: any[]) => {
+          $queryRaw: async (sql: any, ...params: any[]) => {
+            // Handle Prisma template literal syntax
+            if (typeof sql === 'object' && sql.strings) {
+              const query = sql.strings.join('?');
+              const result = await execute(query, []);
+              return result.records;
+            }
             const result = await execute(sql, params);
             return result.records;
           },
@@ -587,12 +599,43 @@ export function createDataAPIPrismaClient() {
     },
 
     // Raw query support
-    $executeRaw: async (sql: string, ...params: any[]) => {
+    $executeRaw: async (sql: any, ...params: any[]) => {
+      console.log("$executeRaw called with:", { sql, params, type: typeof sql });
+      
+      // Handle Prisma template literal syntax
+      if (typeof sql === 'object' && sql !== null) {
+        console.log("SQL object keys:", Object.keys(sql));
+        console.log("SQL object:", JSON.stringify(sql, null, 2));
+        
+        // Check for Prisma's raw query format
+        if (sql.text || sql.sql) {
+          const query = sql.text || sql.sql;
+          const result = await client.executeStatement(query, sql.values || []);
+          return result.numberOfRecordsUpdated || 0;
+        }
+        
+        // Check for template literal format
+        if (sql.strings) {
+          const query = sql.strings.join('?');
+          const result = await client.executeStatement(query, sql.values || []);
+          return result.numberOfRecordsUpdated || 0;
+        }
+        
+        throw new Error("Unsupported SQL format for $executeRaw");
+      }
+      
+      // Regular string query
       const result = await client.executeStatement(sql, params);
       return result.numberOfRecordsUpdated || 0;
     },
 
-    $queryRaw: async (sql: string, ...params: any[]) => {
+    $queryRaw: async (sql: any, ...params: any[]) => {
+      // Handle Prisma template literal syntax
+      if (typeof sql === 'object' && sql.strings) {
+        const query = sql.strings.join('?');
+        const result = await client.executeStatement(query, []);
+        return result.records;
+      }
       const result = await client.executeStatement(sql, params);
       return result.records;
     },

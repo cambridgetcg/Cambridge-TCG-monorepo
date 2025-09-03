@@ -253,10 +253,22 @@ export class AuroraDataAPI {
   /**
    * Handle and format errors
    */
-  private handleError(error: any, sql: string): never {
+  private handleError(error: any, sql: any): never {
     const errorMessage = error.message || "Unknown database error";
+    
+    // Handle different SQL input formats
+    let sqlString = "";
+    if (typeof sql === 'string') {
+      sqlString = sql.substring(0, 200);
+    } else if (typeof sql === 'object' && sql !== null) {
+      // Handle Prisma template literal or object format
+      sqlString = JSON.stringify(sql).substring(0, 200);
+    } else {
+      sqlString = String(sql).substring(0, 200);
+    }
+    
     const enhancedError = new Error(
-      `Aurora Data API Error: ${errorMessage}\nSQL: ${sql.substring(0, 200)}...`
+      `Aurora Data API Error: ${errorMessage}\nSQL: ${sqlString}...`
     );
     
     // Preserve original error properties
