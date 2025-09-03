@@ -317,7 +317,8 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a timestamp field
-      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires') {
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
+          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
         return `"${field}" = :set${i}::timestamp`;
       }
       
@@ -367,7 +368,8 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a timestamp field
-      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires') {
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
+          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
         return `"${field}" = :set${i}::timestamp`;
       }
       

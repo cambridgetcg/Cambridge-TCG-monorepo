@@ -227,23 +227,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const daysRemaining = calculateDaysRemaining(billingPlan.currentPeriodEnd.toString());
     const usagePercentage = calculateUsagePercentage(billingPlan.ordersUsed, billingPlan.ordersLimit);
 
-    // Serialize dates for JSON
+    // Serialize dates for JSON - handle both Date objects and strings
     const serializedPlan = {
       ...billingPlan,
+      planName: String(billingPlan.planName) as PlanName,
+      status: String(billingPlan.status) as "active" | "cancelled" | "past_due",
       priceMonthly: Number(billingPlan.priceMonthly),
       overageRate: billingPlan.overageRate ? Number(billingPlan.overageRate) : null,
       currentPeriodStart: billingPlan.currentPeriodStart instanceof Date
         ? billingPlan.currentPeriodStart.toISOString()
-        : billingPlan.currentPeriodStart,
+        : String(billingPlan.currentPeriodStart),
       currentPeriodEnd: billingPlan.currentPeriodEnd instanceof Date
         ? billingPlan.currentPeriodEnd.toISOString()
-        : billingPlan.currentPeriodEnd,
+        : String(billingPlan.currentPeriodEnd),
       createdAt: billingPlan.createdAt instanceof Date
         ? billingPlan.createdAt.toISOString()
-        : billingPlan.createdAt,
+        : String(billingPlan.createdAt),
       updatedAt: billingPlan.updatedAt instanceof Date
         ? billingPlan.updatedAt.toISOString()
-        : billingPlan.updatedAt,
+        : String(billingPlan.updatedAt),
     };
 
     return json<LoaderData>({
