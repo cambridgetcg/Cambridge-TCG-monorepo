@@ -13,16 +13,25 @@
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-data-api-session": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-billing-direct": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-tier-list": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-session": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-auth": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-enum": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.test-db": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.billing.upgrade": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
@@ -60,6 +69,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.test-billing-direct": {
+        "id": "routes/api.test-billing-direct",
+        "parentId": "root",
+        "file": "app/routes/api.test-billing-direct.tsx",
+        "path": "api/test-billing-direct",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/webhooks.orders.paid": {
         "id": "routes/webhooks.orders.paid",
         "parentId": "root",
@@ -87,6 +105,33 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.test-tier-list": {
+        "id": "routes/api.test-tier-list",
+        "parentId": "root",
+        "file": "app/routes/api.test-tier-list.tsx",
+        "path": "api/test-tier-list",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.test-settings": {
+        "id": "routes/api.test-settings",
+        "parentId": "root",
+        "file": "app/routes/api.test-settings.tsx",
+        "path": "api/test-settings",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.test-billing": {
+        "id": "routes/api.test-billing",
+        "parentId": "root",
+        "file": "app/routes/api.test-billing.tsx",
+        "path": "api/test-billing",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.test-session": {
         "id": "routes/api.test-session",
         "parentId": "root",
@@ -101,6 +146,24 @@
         "parentId": "root",
         "file": "app/routes/api.test-auth.tsx",
         "path": "api/test-auth",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.test-enum": {
+        "id": "routes/api.test-enum",
+        "parentId": "root",
+        "file": "app/routes/api.test-enum.tsx",
+        "path": "api/test-enum",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.test-db": {
+        "id": "routes/api.test-db",
+        "parentId": "root",
+        "file": "app/routes/api.test-db.tsx",
+        "path": "api/test-db",
         "config": {
           "runtime": "nodejs"
         }
@@ -156,6 +219,31 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/app.settings": {
+        "id": "routes/app.settings",
+        "parentId": "routes/app",
+        "file": "app/routes/app.settings.tsx",
+        "path": "settings",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.billing": {
+        "id": "routes/app.billing",
+        "parentId": "routes/app",
+        "file": "app/routes/app.billing.tsx",
+        "path": "billing",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.billing.upgrade": {
+        "id": "routes/app.billing.upgrade",
+        "parentId": "routes/app.billing",
+        "file": "app/routes/app.billing.upgrade.tsx",
+        "path": "upgrade",
+        "config": {}
       },
       "routes/app._index": {
         "id": "routes/app._index",
@@ -216,6 +304,12 @@
         "file": "routes/webhooks.app.uninstalled.tsx",
         "path": "webhooks/app/uninstalled"
       },
+      "routes/api.test-billing-direct": {
+        "id": "routes/api.test-billing-direct",
+        "parentId": "root",
+        "file": "routes/api.test-billing-direct.tsx",
+        "path": "api/test-billing-direct"
+      },
       "routes/webhooks.orders.paid": {
         "id": "routes/webhooks.orders.paid",
         "parentId": "root",
@@ -234,6 +328,24 @@
         "file": "routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance"
       },
+      "routes/api.test-tier-list": {
+        "id": "routes/api.test-tier-list",
+        "parentId": "root",
+        "file": "routes/api.test-tier-list.tsx",
+        "path": "api/test-tier-list"
+      },
+      "routes/api.test-settings": {
+        "id": "routes/api.test-settings",
+        "parentId": "root",
+        "file": "routes/api.test-settings.tsx",
+        "path": "api/test-settings"
+      },
+      "routes/api.test-billing": {
+        "id": "routes/api.test-billing",
+        "parentId": "root",
+        "file": "routes/api.test-billing.tsx",
+        "path": "api/test-billing"
+      },
       "routes/api.test-session": {
         "id": "routes/api.test-session",
         "parentId": "root",
@@ -245,6 +357,18 @@
         "parentId": "root",
         "file": "routes/api.test-auth.tsx",
         "path": "api/test-auth"
+      },
+      "routes/api.test-enum": {
+        "id": "routes/api.test-enum",
+        "parentId": "root",
+        "file": "routes/api.test-enum.tsx",
+        "path": "api/test-enum"
+      },
+      "routes/api.test-db": {
+        "id": "routes/api.test-db",
+        "parentId": "root",
+        "file": "routes/api.test-db.tsx",
+        "path": "api/test-db"
       },
       "routes/api.health": {
         "id": "routes/api.health",
@@ -281,6 +405,24 @@
         "parentId": "routes/app",
         "file": "routes/app.customers.tsx",
         "path": "customers"
+      },
+      "routes/app.settings": {
+        "id": "routes/app.settings",
+        "parentId": "routes/app",
+        "file": "routes/app.settings.tsx",
+        "path": "settings"
+      },
+      "routes/app.billing": {
+        "id": "routes/app.billing",
+        "parentId": "routes/app",
+        "file": "routes/app.billing.tsx",
+        "path": "billing"
+      },
+      "routes/app.billing.upgrade": {
+        "id": "routes/app.billing.upgrade",
+        "parentId": "routes/app.billing",
+        "file": "routes/app.billing.upgrade.tsx",
+        "path": "upgrade"
       },
       "routes/app._index": {
         "id": "routes/app._index",
