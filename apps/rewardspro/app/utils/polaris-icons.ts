@@ -25,7 +25,6 @@ export {
   ArrowsInHorizontalIcon,
   ArrowsOutHorizontalFilledIcon,
   ArrowsOutHorizontalIcon,
-  AtmWithdrawalIcon,
   AttachmentFilledIcon,
   AttachmentIcon,
   AutomationFilledIcon,
@@ -68,7 +67,6 @@ export {
   CashPoundIcon,
   CashRupeeIcon,
   CashYenIcon,
-  CatalogIcon,
   CategoriesIcon,
   ChannelsIcon,
   ChartCohortIcon,
@@ -188,8 +186,6 @@ export {
   FileFilledIcon,
   FileIcon,
   FilterIcon,
-  FinanceFilledIcon,
-  FinanceIcon,
   FlagIcon,
   FlipHorizontalIcon,
   FlipVerticalIcon,
@@ -231,7 +227,6 @@ export {
   ImageWithTextOverlayIcon,
   ImagesIcon,
   ImportIcon,
-  InboundIcon,
   IncentiveIcon,
   IncomingIcon,
   InfoIcon,
@@ -287,7 +282,6 @@ export {
   LogoXIcon,
   LogoYoutubeIcon,
   MagicIcon,
-  MakePaymentIcon,
   MarketsEuroFilledIcon,
   MarketsEuroIcon,
   MarketsFilledIcon,
@@ -337,9 +331,7 @@ export {
   OrderRepeatIcon,
   OrderUnfulfilledIcon,
   OrdersStatusIcon,
-  OrganizationFilledIcon,
   OrganizationIcon,
-  OutboundIcon,
   OutdentIcon,
   OutgoingIcon,
   PackageFilledIcon,
@@ -368,12 +360,6 @@ export {
   PaymentCaptureIcon,
   PaymentFilledIcon,
   PaymentIcon,
-  PayoutDollarIcon,
-  PayoutEuroIcon,
-  PayoutIcon,
-  PayoutPoundIcon,
-  PayoutRupeeIcon,
-  PayoutYenIcon,
   PersonAddIcon,
   PersonExitIcon,
   PersonFilledIcon,
@@ -406,7 +392,6 @@ export {
   ProductReferenceIcon,
   ProductRemoveIcon,
   ProductReturnIcon,
-  ProductUnavailableIcon,
   ProfileIcon,
   QuestionCircleIcon,
   ReceiptDollarFilledIcon,
@@ -543,89 +528,62 @@ export {
 } from '@shopify/polaris-icons';
 
 /**
- * Common icon mappings for quick access
- * These are the most frequently used icons in the application
+ * Type for all available icon names
+ * This type would be used if CommonIcons were implemented
  */
-export const CommonIcons = {
-  // Core App Icons
-  Rewards: RewardIcon,
-  Customers: PersonSegmentIcon,
-  Cash: CashDollarFilledIcon,
-  Analytics: ChartVerticalIcon,
-  Settings: SettingsIcon,
-  Billing: BillFilledIcon,
-  
-  // Navigation
-  ArrowLeft: ArrowLeftIcon,
-  ArrowRight: ArrowRightIcon,
-  ArrowUp: ArrowUpIcon,
-  ArrowDown: ArrowDownIcon,
-  ChevronLeft: ChevronLeftIcon,
-  ChevronRight: ChevronRightIcon,
-  ChevronUp: ChevronUpIcon,
-  ChevronDown: ChevronDownIcon,
-  
-  // Actions
-  Add: PlusIcon,
-  Edit: EditIcon,
-  Delete: DeleteIcon,
-  Save: SaveIcon,
-  Cancel: XIcon,
-  Close: XSmallIcon,
-  Search: SearchIcon,
-  Filter: FilterIcon,
-  Sort: SortIcon,
-  Export: ExportIcon,
-  Import: ImportIcon,
-  Refresh: RefreshIcon,
-  
-  // Status & Feedback
-  Success: CheckCircleIcon,
-  Error: XCircleIcon,
-  Warning: AlertTriangleIcon,
-  Info: InfoIcon,
-  Alert: AlertCircleIcon,
-  Check: CheckIcon,
-  
-  // Common UI Elements
-  Help: QuestionCircleIcon,
-  Menu: MenuIcon,
-  More: MenuHorizontalIcon,
-  External: ExternalIcon,
-  Calendar: CalendarIcon,
-  Clock: ClockIcon,
-  Lock: LockIcon,
-  Unlock: LockIcon, // Using LockIcon as there's no unlock variant
-  
-  // E-commerce specific
-  Orders: OrderIcon,
-  Products: ProductIcon,
-  Cart: CartIcon,
-  Discount: DiscountIcon,
-  Gift: GiftCardIcon,
-  Payment: PaymentIcon,
-  Shipping: DeliveryIcon,
-  Store: StoreIcon,
-  
-  // Data & Content
-  Database: DatabaseIcon,
-  File: FileIcon,
-  Folder: FolderIcon,
-  Document: PageIcon,
-  Image: ImageIcon,
-  Upload: UploadIcon,
-  Download: ExportIcon, // Using ExportIcon for download
-};
-
-/**
- * Helper function to get an icon by name
- * Useful for dynamic icon selection
- */
-export function getIconByName(iconName: keyof typeof CommonIcons) {
-  return CommonIcons[iconName] || QuestionCircleIcon;
-}
-
-/**
- * Export type for all available icon names
- */
-export type IconName = keyof typeof CommonIcons;
+export type IconName = 
+  | 'Rewards'
+  | 'Customers' 
+  | 'Cash'
+  | 'Analytics'
+  | 'Settings'
+  | 'Billing'
+  | 'ArrowLeft'
+  | 'ArrowRight'
+  | 'ArrowUp'
+  | 'ArrowDown'
+  | 'ChevronLeft'
+  | 'ChevronRight'
+  | 'ChevronUp'
+  | 'ChevronDown'
+  | 'Add'
+  | 'Edit'
+  | 'Delete'
+  | 'Save'
+  | 'Cancel'
+  | 'Close'
+  | 'Search'
+  | 'Filter'
+  | 'Sort'
+  | 'Export'
+  | 'Import'
+  | 'Refresh'
+  | 'Success'
+  | 'Error'
+  | 'Warning'
+  | 'Info'
+  | 'Alert'
+  | 'Check'
+  | 'Help'
+  | 'Menu'
+  | 'More'
+  | 'External'
+  | 'Calendar'
+  | 'Clock'
+  | 'Lock'
+  | 'Unlock'
+  | 'Orders'
+  | 'Products'
+  | 'Cart'
+  | 'Discount'
+  | 'Gift'
+  | 'Payment'
+  | 'Shipping'
+  | 'Store'
+  | 'Database'
+  | 'File'
+  | 'Folder'
+  | 'Document'
+  | 'Image'
+  | 'Upload'
+  | 'Download';
