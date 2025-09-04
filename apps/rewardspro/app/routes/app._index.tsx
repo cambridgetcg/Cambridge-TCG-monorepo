@@ -1,89 +1,50 @@
-import { useMemo, useCallback } from "react";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
+  Card,
   BlockStack,
+  Text,
+  Button,
+  InlineStack,
   Banner,
-  EmptyState,
-  SkeletonPage,
-  SkeletonBodyText,
-  SkeletonDisplayText,
+  Badge,
+  Icon,
   Box,
+  EmptyState,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-
-// Import icons
 import {
   PersonSegmentIcon,
   CashDollarFilledIcon,
-  CartIcon,
-  ReplayIcon,
-  SettingsIcon,
   PriceListIcon,
+  SettingsIcon,
+  StarFilledIcon,
+  ArrowRightIcon,
 } from "../utils/polaris-icons";
 
-// Import dashboard components
-import { MetricCard } from "../components/dashboard/MetricCard";
-import { TierCard } from "../components/dashboard/TierCard";
-import { CustomerJourney } from "../components/dashboard/CustomerJourney";
-import { SetupChecklist } from "../components/dashboard/SetupChecklist";
-import { QuickActionCard } from "../components/dashboard/QuickActionCard";
-import { RecentActivityList } from "../components/dashboard/RecentActivityList";
-
-// Types
-interface DashboardData {
+interface LoaderData {
   shop: string;
-  stats: {
-    customers: number;
-    activeCustomers: number;
-    tiers: number;
-    totalRewards: number;
-    monthlyRewards: number;
-    tiersList: Array<{
-      id: string;
-      name: string;
-      minSpend: number;
-      cashbackPercent: number;
-      evaluationPeriod: string;
-      customerCount?: number;
-    }>;
-  };
-  billingPlan: {
-    planName: string;
-    maxCustomers: number;
-  } | null;
-  recentActivity: Array<{
+  customers: number;
+  tiers: number;
+  totalRewards: number;
+  isProgramActive: boolean;
+  recentCustomers: Array<{
     id: string;
-    type: "CASHBACK_EARNED" | "CASHBACK_REDEEMED" | "TIER_UPGRADED" | "CUSTOMER_JOINED";
-    customer: {
-      email: string;
-      name?: string;
-    };
-    amount: number;
-    createdAt: string;
-    description?: string;
+    email: string;
+    storeCredit: number;
   }>;
-  setupTasks: Array<{
+  tiersList: Array<{
     id: string;
-    label: string;
-    description?: string;
-    completed: boolean;
-    action: string;
-    priority?: "high" | "medium" | "low";
+    name: string;
+    minSpend: number;
+    cashbackPercent: number;
   }>;
-  setupProgress: number;
-  isProgramLive: boolean;
-  trends: {
-    customerGrowth: number;
-    rewardGrowth: number;
-  };
 }
 
-// Loader function
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { session } = await authenticate.admin(request);
@@ -94,550 +55,429 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     const shop = session.shop;
     
-    // Calculate date ranges
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-    
-    // Fetch all data in parallel
-    const [
-      customers,
-      activeCustomers,
-      tiers,
-      recentActivity,
-      billingPlan,
-      totalRewards,
-      monthlyRewards,
-      previousMonthRewards,
-      previousCustomers,
-      tierCustomerCounts,
-    ] = await Promise.all([
-      // Total customers
-      db.customer.count({ where: { shop } }),
-      
-      // Active customers (with activity in last 30 days)
-      db.customer.count({
-        where: {
-          shop,
-          OR: [
-            { lastPurchaseDate: { gte: thirtyDaysAgo } },
-            { updatedAt: { gte: thirtyDaysAgo } },
-          ],
-        },
-      }),
-      
-      // Tiers
+    // Fetch basic data with error handling
+    const [customerCount, tierData, totalRewardsData] = await Promise.all([
+      db.customer.count({ where: { shop } }).catch(() => 0),
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: "asc" },
-      }),
-      
-      // Recent activity
-      db.storeCreditLedger.findMany({
-        where: { shop },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        include: { customer: true },
-      }),
-      
-      // Billing plan
-      db.billingPlan.findUnique({ where: { shop } }),
-      
-      // Total rewards all time
+        take: 5,
+      }).catch(() => []),
       db.storeCreditLedger.aggregate({
-        where: {
+        where: { 
           shop,
           type: "CASHBACK_EARNED",
-          amount: { gt: 0 },
         },
         _sum: { amount: true },
-      }),
-      
-      // Monthly rewards
-      db.storeCreditLedger.aggregate({
-        where: {
-          shop,
-          type: "CASHBACK_EARNED",
-          amount: { gt: 0 },
-          createdAt: { gte: thirtyDaysAgo },
-        },
-        _sum: { amount: true },
-      }),
-      
-      // Previous month rewards (for trend)
-      db.storeCreditLedger.aggregate({
-        where: {
-          shop,
-          type: "CASHBACK_EARNED",
-          amount: { gt: 0 },
-          createdAt: {
-            gte: sixtyDaysAgo,
-            lt: thirtyDaysAgo,
-          },
-        },
-        _sum: { amount: true },
-      }),
-      
-      // Previous period customers (for trend)
-      db.customer.count({
-        where: {
-          shop,
-          createdAt: { lt: thirtyDaysAgo },
-        },
-      }),
-      
-      // Customer counts per tier - using findMany instead of groupBy
-      db.customer.findMany({
-        where: { shop },
-        select: {
-          currentTierId: true,
-        },
-      }),
+      }).catch(() => ({ _sum: { amount: null } })),
     ]);
     
-    // Calculate customer counts per tier
-    const tierCountMap = tierCustomerCounts.reduce((acc: Record<string, number>, item: { currentTierId: string | null }) => {
-      if (item.currentTierId) {
-        acc[item.currentTierId] = (acc[item.currentTierId] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    // Fetch recent customers safely
+    const recentCustomers = await db.customer.findMany({
+      where: { shop },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        email: true,
+        storeCredit: true,
+      },
+    }).catch(() => []);
     
-    // Enhance tiers with customer counts
-    const tiersWithCounts = tiers.map((tier: any) => ({
-      ...tier,
-      customerCount: tierCountMap[tier.id] || 0,
+    // Transform data safely
+    const formattedCustomers = recentCustomers.map(customer => ({
+      id: customer.id,
+      email: customer.email,
+      storeCredit: Number(customer.storeCredit || 0),
     }));
     
-    // Calculate trends
-    const customerGrowth = previousCustomers > 0
-      ? ((customers - previousCustomers) / previousCustomers) * 100
-      : 0;
-    
-    const currentMonthTotal = monthlyRewards._sum.amount || 0;
-    const previousMonthTotal = previousMonthRewards._sum.amount || 0;
-    const rewardGrowth = previousMonthTotal > 0
-      ? ((currentMonthTotal - previousMonthTotal) / previousMonthTotal) * 100
-      : 0;
-    
-    // Setup tasks with priority
-    const setupTasks = [
-      {
-        id: "tiers",
-        label: "Create loyalty tiers",
-        description: "Set up at least one tier to start rewarding customers",
-        completed: tiers.length > 0,
-        action: "/app/tiers",
-        priority: "high" as const,
-      },
-      {
-        id: "customers",
-        label: "First customer enrolled",
-        description: "Your first customer will be automatically enrolled on their next purchase",
-        completed: customers > 0,
-        action: "/app/customers",
-        priority: "medium" as const,
-      },
-      {
-        id: "billing",
-        label: "Choose a billing plan",
-        description: "Upgrade to unlock more features and remove limits",
-        completed: billingPlan && billingPlan.planName !== "free",
-        action: "/app/billing",
-        priority: "low" as const,
-      },
-      {
-        id: "settings",
-        label: "Configure program settings",
-        description: "Customize your loyalty program settings",
-        completed: false, // Could be tracked in settings table
-        action: "/app/settings",
-        priority: "low" as const,
-      },
-    ];
-    
-    const setupProgress = Math.round(
-      (setupTasks.filter(t => t.completed).length / setupTasks.length) * 100
-    );
-    const isProgramLive = tiers.length > 0;
-    
-    // Transform activity data with proper typing
-    const transformedActivity = recentActivity.map((activity: any) => {
-      // Map database types to component types
-      let activityType: "CASHBACK_EARNED" | "CASHBACK_REDEEMED" | "TIER_UPGRADED" | "CUSTOMER_JOINED";
-      
-      switch (activity.type) {
-        case "CASHBACK_EARNED":
-          activityType = "CASHBACK_EARNED";
-          break;
-        case "CASHBACK_REDEEMED":
-        case "ORDER_PAYMENT":
-          activityType = "CASHBACK_REDEEMED";
-          break;
-        case "TIER_UPGRADED":
-          activityType = "TIER_UPGRADED";
-          break;
-        default:
-          activityType = "CASHBACK_EARNED"; // Default fallback
-      }
-      
-      return {
-        id: activity.id,
-        type: activityType,
-        customer: {
-          email: activity.customer?.email || "Unknown",
-          name: activity.customer?.name,
-        },
-        amount: Number(activity.amount),
-        createdAt: activity.createdAt.toISOString(),
-        description: activity.description,
-      };
-    });
+    const formattedTiers = tierData.map(tier => ({
+      id: tier.id,
+      name: tier.name,
+      minSpend: tier.minSpend,
+      cashbackPercent: tier.cashbackPercent,
+    }));
     
     return json({
       shop,
-      stats: {
-        customers,
-        activeCustomers,
-        tiers: tiers.length,
-        totalRewards: totalRewards._sum.amount || 0,
-        monthlyRewards: currentMonthTotal,
-        tiersList: tiersWithCounts,
-      },
-      billingPlan,
-      recentActivity: transformedActivity,
-      setupTasks,
-      setupProgress,
-      isProgramLive,
-      trends: {
-        customerGrowth,
-        rewardGrowth,
-      },
+      customers: customerCount,
+      tiers: tierData.length,
+      totalRewards: Number(totalRewardsData._sum.amount || 0),
+      isProgramActive: tierData.length > 0,
+      recentCustomers: formattedCustomers,
+      tiersList: formattedTiers,
     });
+    
   } catch (error) {
-    console.error("[Dashboard] Loader error:", error);
+    console.error("[Dashboard] Error loading data:", error);
+    
+    // Return safe defaults
     return json({
       shop: "unknown",
-      stats: {
-        customers: 0,
-        activeCustomers: 0,
-        tiers: 0,
-        totalRewards: 0,
-        monthlyRewards: 0,
-        tiersList: [],
-      },
-      billingPlan: null,
-      recentActivity: [],
-      setupTasks: [],
-      setupProgress: 0,
-      isProgramLive: false,
-      trends: {
-        customerGrowth: 0,
-        rewardGrowth: 0,
-      },
+      customers: 0,
+      tiers: 0,
+      totalRewards: 0,
+      isProgramActive: false,
+      recentCustomers: [],
+      tiersList: [],
     });
   }
 };
 
-// Main component
 export default function Dashboard() {
-  const data = useLoaderData<DashboardData>();
+  const data = useLoaderData<LoaderData>();
   const navigate = useNavigate();
-  const navigation = useNavigation();
-  const isLoading = navigation.state !== "idle";
   
   const {
-    stats,
-    billingPlan,
-    recentActivity,
-    setupTasks,
-    setupProgress,
-    isProgramLive,
-    trends,
+    customers,
+    tiers,
+    totalRewards,
+    isProgramActive,
+    recentCustomers,
+    tiersList,
   } = data;
-  
-  // Memoized values
-  const journeySteps = useMemo(() => [
-    {
-      icon: PersonSegmentIcon,
-      timeframe: "IN A FEW DAYS",
-      title: "First customer earns",
-      description: "Customers that earn cashback are 1.5x more likely to repeat purchase",
-    },
-    {
-      icon: CartIcon,
-      timeframe: "WITHIN 90 DAYS",
-      title: "First redemption",
-      description: "Customers that redeem spend 3x more on average",
-    },
-    {
-      icon: ReplayIcon,
-      timeframe: "ONGOING",
-      title: "Repeat purchases",
-      description: "Loyalty members place 2.4x more orders annually",
-    },
-  ], []);
-  
-  const currentJourneyStep = useMemo(() => {
-    if (stats.monthlyRewards > 100) return 2;
-    if (stats.activeCustomers > 10) return 1;
-    return 0;
-  }, [stats.monthlyRewards, stats.activeCustomers]);
-  
-  // Callbacks
-  const handleTaskAction = useCallback((action: string | (() => void)) => {
-    if (typeof action === "string") {
-      navigate(action);
-    } else {
-      action();
-    }
-  }, [navigate]);
-  
-  const handleQuickAction = useCallback((path: string) => {
-    navigate(path);
-  }, [navigate]);
-  
-  // Loading state
-  if (isLoading) {
-    return (
-      <SkeletonPage primaryAction>
-        <Layout>
-          <Layout.Section>
-            <BlockStack gap="400">
-              <SkeletonDisplayText size="small" />
-              <SkeletonBodyText lines={3} />
-            </BlockStack>
-          </Layout.Section>
-          <Layout.Section variant="oneThird">
-            <SkeletonBodyText lines={4} />
-          </Layout.Section>
-          <Layout.Section variant="oneThird">
-            <SkeletonBodyText lines={4} />
-          </Layout.Section>
-          <Layout.Section variant="oneThird">
-            <SkeletonBodyText lines={4} />
-          </Layout.Section>
-        </Layout>
-      </SkeletonPage>
-    );
-  }
   
   return (
     <Page title="Dashboard">
-      <BlockStack gap="600">
-        {/* Program Status Banner */}
-        {!isProgramLive && (
+      <BlockStack gap="500">
+        {/* Status Banner */}
+        {!isProgramActive && (
           <Banner
             tone="warning"
-            title="Complete setup to launch your loyalty program"
+            title="Set up your loyalty program"
             action={{
-              content: "View Setup Tasks",
-              onAction: () => {
-                const element = document.getElementById("setup-checklist");
-                element?.scrollIntoView({ behavior: "smooth" });
-              },
+              content: "Create Tiers",
+              onAction: () => navigate("/app/tiers"),
             }}
           >
-            You're {setupProgress}% complete. Finish setup to start rewarding customers.
+            Create loyalty tiers to start rewarding your customers with cashback.
           </Banner>
         )}
         
-        {isProgramLive && stats.customers === 0 && (
-          <Banner
-            tone="info"
-            title="Your loyalty program is ready!"
-          >
+        {isProgramActive && customers === 0 && (
+          <Banner tone="info" title="Your loyalty program is active">
             Customers will automatically earn cashback on their next purchase.
           </Banner>
         )}
         
-        {/* Metrics Cards */}
+        {/* Stats Cards */}
         <Layout>
           <Layout.Section variant="oneThird">
-            <MetricCard
-              title="Total Customers"
-              value={stats.customers}
-              subtitle={`${stats.activeCustomers} active this month`}
-              icon={PersonSegmentIcon}
-              badge={
-                stats.customers > 0
-                  ? { content: "Active", tone: "success" }
-                  : { content: "New", tone: "new" }
-              }
-              trend={
-                trends.customerGrowth !== 0
-                  ? {
-                      value: `${Math.abs(trends.customerGrowth).toFixed(1)}%`,
-                      positive: trends.customerGrowth > 0,
-                    }
-                  : undefined
-              }
-              onClick={() => navigate("/app/customers")}
-            />
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between">
+                    <Icon source={PersonSegmentIcon} tone="base" />
+                    {customers > 0 && (
+                      <Badge tone="success">Active</Badge>
+                    )}
+                  </InlineStack>
+                  <Text as="p" variant="heading2xl" fontWeight="bold">
+                    {customers}
+                  </Text>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    Total Customers
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
           </Layout.Section>
           
           <Layout.Section variant="oneThird">
-            <MetricCard
-              title="Loyalty Tiers"
-              value={stats.tiers}
-              subtitle={stats.tiers > 0 ? "Tiers configured" : "Setup required"}
-              icon={PriceListIcon}
-              badge={
-                stats.tiers > 0
-                  ? { content: "Active", tone: "success" }
-                  : { content: "Setup", tone: "warning" }
-              }
-              onClick={() => navigate("/app/tiers")}
-            />
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between">
+                    <Icon source={PriceListIcon} tone="base" />
+                    <Badge tone={tiers > 0 ? "success" : "warning"}>
+                      {tiers > 0 ? "Active" : "Setup"}
+                    </Badge>
+                  </InlineStack>
+                  <Text as="p" variant="heading2xl" fontWeight="bold">
+                    {tiers}
+                  </Text>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    Loyalty Tiers
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
           </Layout.Section>
           
           <Layout.Section variant="oneThird">
-            <MetricCard
-              title="Total Rewards"
-              value={`$${stats.totalRewards.toFixed(2)}`}
-              subtitle={`$${stats.monthlyRewards.toFixed(2)} this month`}
-              icon={CashDollarFilledIcon}
-              badge={{ content: "All Time", tone: "info" }}
-              trend={
-                trends.rewardGrowth !== 0
-                  ? {
-                      value: `${Math.abs(trends.rewardGrowth).toFixed(1)}%`,
-                      positive: trends.rewardGrowth > 0,
-                    }
-                  : undefined
-              }
-            />
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="300">
+                  <InlineStack align="space-between">
+                    <Icon source={CashDollarFilledIcon} tone="base" />
+                    <Badge>All Time</Badge>
+                  </InlineStack>
+                  <Text as="p" variant="heading2xl" fontWeight="bold">
+                    ${totalRewards.toFixed(2)}
+                  </Text>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    Total Rewards
+                  </Text>
+                </BlockStack>
+              </Box>
+            </Card>
           </Layout.Section>
         </Layout>
         
-        {/* Customer Journey - Only show when program is live */}
-        {isProgramLive && stats.customers > 0 && (
-          <CustomerJourney steps={journeySteps} currentStep={currentJourneyStep} />
-        )}
-        
-        {/* Setup Checklist - Show when not complete */}
-        {setupProgress < 100 && (
-          <Box id="setup-checklist">
-            <SetupChecklist
-              tasks={setupTasks}
-              onTaskAction={handleTaskAction}
-            />
-          </Box>
-        )}
-        
         {/* Quick Actions */}
-        <BlockStack gap="400">
-          <Layout>
-            <Layout.Section variant="oneHalf">
-              <QuickActionCard
-                title="Configure Tiers"
-                description="Set up loyalty tiers and cashback percentages"
-                icon={PriceListIcon}
-                buttonText={stats.tiers > 0 ? "Manage" : "Get Started"}
-                isHighPriority={stats.tiers === 0}
-                badge={stats.tiers === 0 ? "Required" : undefined}
-                onClick={() => handleQuickAction("/app/tiers")}
-              />
-            </Layout.Section>
-            
-            <Layout.Section variant="oneHalf">
-              <QuickActionCard
-                title="View Customers"
-                description="Manage customer rewards and tier assignments"
-                icon={PersonSegmentIcon}
-                buttonText="View"
-                onClick={() => handleQuickAction("/app/customers")}
-              />
-            </Layout.Section>
-            
-            <Layout.Section variant="oneHalf">
-              <QuickActionCard
-                title="Billing & Plans"
-                description={
-                  billingPlan?.planName === "free"
-                    ? "Upgrade for unlimited customers"
-                    : "Manage your subscription"
-                }
-                icon={CashDollarFilledIcon}
-                buttonText={billingPlan?.planName === "free" ? "Upgrade" : "Manage"}
-                isHighPriority={
-                  billingPlan?.planName === "free" && stats.customers > 50
-                }
-                badge={
-                  billingPlan?.planName === "free" && stats.customers > 50
-                    ? "Action Needed"
-                    : undefined
-                }
-                onClick={() => handleQuickAction("/app/billing")}
-              />
-            </Layout.Section>
-            
-            <Layout.Section variant="oneHalf">
-              <QuickActionCard
-                title="Settings"
-                description="Configure program settings and preferences"
-                icon={SettingsIcon}
-                buttonText="Configure"
-                onClick={() => handleQuickAction("/app/settings")}
-              />
-            </Layout.Section>
-          </Layout>
-        </BlockStack>
+        <Layout>
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <Text as="h2" variant="headingMd" fontWeight="semibold">
+                    Quick Actions
+                  </Text>
+                  
+                  <Layout>
+                    <Layout.Section variant="oneHalf">
+                      <Box
+                        padding="400"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack gap="200">
+                            <Icon source={PriceListIcon} tone="base" />
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingSm">
+                                Manage Tiers
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Configure loyalty tiers and cashback rates
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            fullWidth
+                            variant={tiers === 0 ? "primary" : undefined}
+                            onClick={() => navigate("/app/tiers")}
+                            icon={ArrowRightIcon}
+                          >
+                            {tiers === 0 ? "Get Started" : "Manage"}
+                          </Button>
+                        </BlockStack>
+                      </Box>
+                    </Layout.Section>
+                    
+                    <Layout.Section variant="oneHalf">
+                      <Box
+                        padding="400"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack gap="200">
+                            <Icon source={PersonSegmentIcon} tone="base" />
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingSm">
+                                View Customers
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Manage customer rewards and balances
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            fullWidth
+                            onClick={() => navigate("/app/customers")}
+                            icon={ArrowRightIcon}
+                          >
+                            View
+                          </Button>
+                        </BlockStack>
+                      </Box>
+                    </Layout.Section>
+                    
+                    <Layout.Section variant="oneHalf">
+                      <Box
+                        padding="400"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack gap="200">
+                            <Icon source={CashDollarFilledIcon} tone="base" />
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingSm">
+                                Billing
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Manage your subscription
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            fullWidth
+                            onClick={() => navigate("/app/billing")}
+                            icon={ArrowRightIcon}
+                          >
+                            Manage
+                          </Button>
+                        </BlockStack>
+                      </Box>
+                    </Layout.Section>
+                    
+                    <Layout.Section variant="oneHalf">
+                      <Box
+                        padding="400"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack gap="200">
+                            <Icon source={SettingsIcon} tone="base" />
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingSm">
+                                Settings
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Configure program settings
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            fullWidth
+                            onClick={() => navigate("/app/settings")}
+                            icon={ArrowRightIcon}
+                          >
+                            Configure
+                          </Button>
+                        </BlockStack>
+                      </Box>
+                    </Layout.Section>
+                  </Layout>
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+        </Layout>
         
-        {/* Recent Activity */}
-        <RecentActivityList
-          activities={recentActivity}
-          onViewAll={() => navigate("/app/customers")}
-          maxItems={5}
-        />
+        {/* Recent Customers */}
+        {recentCustomers.length > 0 && (
+          <Card>
+            <Box padding="400">
+              <BlockStack gap="400">
+                <InlineStack align="space-between">
+                  <Text as="h2" variant="headingMd" fontWeight="semibold">
+                    Recent Customers
+                  </Text>
+                  <Button variant="plain" onClick={() => navigate("/app/customers")}>
+                    View All
+                  </Button>
+                </InlineStack>
+                
+                <BlockStack gap="200">
+                  {recentCustomers.map((customer) => (
+                    <Box
+                      key={customer.id}
+                      padding="300"
+                      background="bg-surface-secondary"
+                      borderRadius="100"
+                    >
+                      <InlineStack align="space-between">
+                        <Text as="p" variant="bodyMd">
+                          {customer.email}
+                        </Text>
+                        <Badge tone="success">
+                          {`$${customer.storeCredit.toFixed(2)}`}
+                        </Badge>
+                      </InlineStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              </BlockStack>
+            </Box>
+          </Card>
+        )}
         
-        {/* Current Tiers Display */}
-        {stats.tiersList && stats.tiersList.length > 0 && (
-          <BlockStack gap="400">
-            <Layout>
-              {stats.tiersList.map((tier) => (
-                <Layout.Section key={tier.id} variant={stats.tiersList.length > 2 ? "oneThird" : "oneHalf"}>
-                  <TierCard
-                    tier={tier}
-                    isActive={(tier.customerCount || 0) > 0}
-                    onEdit={() => navigate(`/app/tiers?edit=${tier.id}`)}
-                  />
-                </Layout.Section>
-              ))}
-            </Layout>
-          </BlockStack>
+        {/* Current Tiers */}
+        {tiersList.length > 0 && (
+          <Card>
+            <Box padding="400">
+              <BlockStack gap="400">
+                <InlineStack align="space-between">
+                  <Text as="h2" variant="headingMd" fontWeight="semibold">
+                    Loyalty Tiers
+                  </Text>
+                  <Button variant="plain" onClick={() => navigate("/app/tiers")}>
+                    Manage
+                  </Button>
+                </InlineStack>
+                
+                <BlockStack gap="200">
+                  {tiersList.map((tier) => (
+                    <Box
+                      key={tier.id}
+                      padding="300"
+                      background="bg-surface-secondary"
+                      borderRadius="100"
+                    >
+                      <InlineStack align="space-between">
+                        <InlineStack gap="300">
+                          <Icon source={StarFilledIcon} tone="warning" />
+                          <BlockStack gap="050">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              {tier.name}
+                            </Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Min. spend: ${tier.minSpend}
+                            </Text>
+                          </BlockStack>
+                        </InlineStack>
+                        <Badge tone="success">
+                          {`${tier.cashbackPercent}% cashback`}
+                        </Badge>
+                      </InlineStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              </BlockStack>
+            </Box>
+          </Card>
         )}
         
         {/* Empty State */}
-        {!isProgramLive && stats.customers === 0 && setupProgress === 0 && (
-          <EmptyState
-            heading="Start Building Customer Loyalty"
-            action={{
-              content: "Configure Tiers",
-              onAction: () => navigate("/app/tiers"),
-            }}
-            secondaryAction={{
-              content: "Learn More",
-              url: "https://help.shopify.com/manual/promoting-marketing/loyalty-programs",
-              external: true,
-            }}
-            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-          >
-            Set up your first loyalty tiers to start rewarding customers with automatic cashback.
-          </EmptyState>
+        {!isProgramActive && customers === 0 && (
+          <Card>
+            <EmptyState
+              heading="Welcome to RewardsPro"
+              action={{
+                content: "Create Your First Tier",
+                onAction: () => navigate("/app/tiers"),
+              }}
+              secondaryAction={{
+                content: "View Documentation",
+                url: "https://help.shopify.com",
+                external: true,
+              }}
+              image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+            >
+              Set up loyalty tiers to start rewarding your customers with cashback on their purchases.
+            </EmptyState>
+          </Card>
         )}
       </BlockStack>
     </Page>
   );
 }
 
-// Error boundary
+// Error Boundary
 export function ErrorBoundary() {
   return (
     <Page title="Dashboard">
-      <Banner tone="critical">
-        An error occurred while loading the dashboard. Please refresh the page or contact support if the issue persists.
-      </Banner>
+      <Card>
+        <Box padding="400">
+          <Banner tone="critical" title="Something went wrong">
+            Unable to load the dashboard. Please refresh the page or contact support.
+          </Banner>
+        </Box>
+      </Card>
     </Page>
   );
 }
