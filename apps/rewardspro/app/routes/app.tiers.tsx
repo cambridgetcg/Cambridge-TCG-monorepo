@@ -1,117 +1,55 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher, useSubmit } from "@remix-run/react";
-export { ErrorBoundary } from "../components/ErrorBoundary";
+import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
   Card,
-  DataTable,
   Button,
   Modal,
-  FormLayout,
-  TextField,
-  Select,
   Banner,
-  InlineStack,
   BlockStack,
   Text,
+  InlineStack,
+  Box,
+  EmptyState,
+  Tabs,
   Badge,
+  Icon,
 } from "@shopify/polaris";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { TierForm, type TierFormData } from "../components/tiers/TierForm";
+import { TierCard, type TierData } from "../components/tiers/TierCard";
+import { TierList } from "../components/tiers/TierList";
+import {
+  PriceListIcon,
+  StarFilledIcon,
+  PersonSegmentIcon,
+  CashDollarFilledIcon,
+  ChartVerticalFilledIcon,
+} from "../utils/polaris-icons";
 
 // ============= TYPES =============
-type Tier = {
-  id: string;
+interface LoaderData {
+  tiers: TierData[];
   shop: string;
-  name: string;
-  minSpend: number;
-  cashbackPercent: number;
-  evaluationPeriod: "ANNUAL" | "LIFETIME";
-  createdAt: string;
-};
-
-type LoaderData = {
-  tiers: Tier[];
-  shop: string;
-};
-
-// ============= INPUT VALIDATION =============
-const validateTierInput = (formData: FormData) => {
-  const name = formData.get("name") as string;
-  const minSpend = formData.get("minSpend") as string;
-  const cashbackPercent = formData.get("cashbackPercent") as string;
-  const evaluationPeriod = formData.get("evaluationPeriod") as string;
-
-  const errors: string[] = [];
-
-  // Name validation
-  if (!name || name.trim().length === 0) {
-    errors.push("Name is required");
-  } else if (name.length > 50) {
-    errors.push("Name must be less than 50 characters");
-  } else if (!/^[a-zA-Z0-9\s-]+$/.test(name)) {
-    errors.push("Name contains invalid characters");
-  }
-
-  // MinSpend validation
-  const minSpendNum = Number(minSpend);
-  if (isNaN(minSpendNum)) {
-    errors.push("Minimum spend must be a number");
-  } else if (minSpendNum < 0) {
-    errors.push("Minimum spend cannot be negative");
-  } else if (minSpendNum > 1000000) {
-    errors.push("Minimum spend exceeds maximum allowed");
-  }
-
-  // Cashback validation
-  const cashbackNum = Number(cashbackPercent);
-  if (isNaN(cashbackNum)) {
-    errors.push("Cashback percent must be a number");
-  } else if (cashbackNum < 0 || cashbackNum > 100) {
-    errors.push("Cashback percent must be between 0 and 100");
-  }
-
-  // Period validation
-  if (!["ANNUAL", "LIFETIME"].includes(evaluationPeriod)) {
-    errors.push("Invalid evaluation period");
-  }
-
-  if (errors.length > 0) {
-    throw new Error(errors.join(", "));
-  }
-
-  return {
-    name: name.trim(),
-    minSpend: minSpendNum,
-    cashbackPercent: cashbackNum,
-    evaluationPeriod: evaluationPeriod as "ANNUAL" | "LIFETIME",
+  stats: {
+    totalTiers: number;
+    totalCustomers: number;
+    averageCashback: number;
+    totalRewardsDistributed: number;
   };
-};
+  errors?: string[];
+}
 
-// ============= RATE LIMITING =============
-const rateLimitMap = new Map<string, number[]>();
-
-const checkRateLimit = (shop: string) => {
-  const now = Date.now();
-  const windowMs = 60000; // 1 minute window
-  const maxRequests = 20; // 20 requests per minute
-
-  const key = shop;
-  const timestamps = rateLimitMap.get(key) || [];
-  
-  // Remove old timestamps
-  const recentTimestamps = timestamps.filter(t => now - t < windowMs);
-  
-  if (recentTimestamps.length >= maxRequests) {
-    throw new Response("Too many requests. Please wait a moment.", { status: 429 });
-  }
-  
-  recentTimestamps.push(now);
-  rateLimitMap.set(key, recentTimestamps);
-};
+interface ActionData {
+  success?: boolean;
+  error?: string;
+  tier?: TierData;
+  deletedId?: string;
+}
 
 // ============= LOADER =============
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -124,30 +62,83 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const shop = session.shop;
 
-    const tiers = await db.tier.findMany({
-      where: { shop },
-      orderBy: { minSpend: "asc" },
-    });
+    // Fetch tiers with customer counts and rewards
+    const [tiers, customerCounts, totalRewards] = await Promise.all([
+      db.tier.findMany({
+        where: { shop },
+        orderBy: { minSpend: "asc" },
+      }),
+      db.customer.groupBy({
+        by: ["currentTierId"],
+        where: { shop },
+        _count: true,
+      }).catch(() => []),
+      db.storeCreditLedger.aggregate({
+        where: {
+          shop,
+          type: "CASHBACK_EARNED",
+        },
+        _sum: { amount: true },
+      }).catch(() => ({ _sum: { amount: 0 } })),
+    ]);
 
-    // Serialize dates to strings for JSON (handle both Date objects and strings)
-    const serializedTiers = tiers.map(tier => ({
-      ...tier,
+    // Map customer counts to tiers
+    const customerCountMap = customerCounts.reduce((acc: Record<string, number>, item: any) => {
+      if (item.currentTierId) {
+        acc[item.currentTierId] = item._count;
+      }
+      return acc;
+    }, {});
+
+    // Enhance tiers with additional data
+    const enhancedTiers: TierData[] = tiers.map(tier => ({
+      id: tier.id,
+      name: tier.name,
+      minSpend: tier.minSpend,
+      cashbackPercent: tier.cashbackPercent,
+      evaluationPeriod: tier.evaluationPeriod as "ANNUAL" | "LIFETIME",
+      customerCount: customerCountMap[tier.id] || 0,
       createdAt: tier.createdAt instanceof Date 
         ? tier.createdAt.toISOString() 
-        : tier.createdAt, // Already a string from Data API
+        : tier.createdAt,
     }));
 
-    return json<LoaderData>({ tiers: serializedTiers, shop });
+    // Calculate stats
+    const stats = {
+      totalTiers: tiers.length,
+      totalCustomers: Object.values(customerCountMap).reduce((sum: number, count: any) => sum + count, 0),
+      averageCashback: tiers.length > 0 
+        ? tiers.reduce((sum, tier) => sum + tier.cashbackPercent, 0) / tiers.length 
+        : 0,
+      totalRewardsDistributed: Number(totalRewards._sum.amount || 0),
+    };
+
+    return json<LoaderData>({ 
+      tiers: enhancedTiers, 
+      shop,
+      stats,
+    });
   } catch (error) {
-    console.error("Loader error:", error);
-    throw new Response("Failed to load tiers", { status: 500 });
+    console.error("[Tiers] Loader error:", error);
+    
+    // Return empty data with error
+    return json<LoaderData>({
+      tiers: [],
+      shop: "unknown",
+      stats: {
+        totalTiers: 0,
+        totalCustomers: 0,
+        averageCashback: 0,
+        totalRewardsDistributed: 0,
+      },
+      errors: ["Failed to load tiers. Please refresh the page."],
+    });
   }
 };
 
 // ============= ACTION =============
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
-    // Authenticate
     const { session } = await authenticate.admin(request);
     
     if (!session?.shop) {
@@ -155,338 +146,587 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     const shop = session.shop;
-    
-    // Rate limiting
-    checkRateLimit(shop);
-
     const formData = await request.formData();
     const intent = formData.get("intent") as string;
 
     switch (intent) {
       case "create": {
-        const data = validateTierInput(formData);
-        
-        // Check for duplicate name
+        const data: TierFormData = {
+          name: formData.get("name") as string,
+          minSpend: Number(formData.get("minSpend")),
+          cashbackPercent: Number(formData.get("cashbackPercent")),
+          evaluationPeriod: formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME",
+          description: formData.get("description") as string,
+        };
+
+        // Validate
+        if (!data.name || data.minSpend < 0 || data.cashbackPercent < 0 || data.cashbackPercent > 100) {
+          return json<ActionData>({ 
+            error: "Invalid tier data. Please check your inputs." 
+          }, { status: 400 });
+        }
+
+        // Check for duplicate
         const existing = await db.tier.findFirst({
           where: { 
             shop,
-            name: data.name,
+            OR: [
+              { name: data.name },
+              { minSpend: data.minSpend }
+            ]
           },
         });
 
         if (existing) {
-          return json(
-            { error: `A tier named "${data.name}" already exists` },
-            { status: 400 }
-          );
+          return json<ActionData>({ 
+            error: existing.name === data.name 
+              ? `A tier named "${data.name}" already exists` 
+              : `A tier with minimum spend $${data.minSpend} already exists`
+          }, { status: 400 });
         }
 
-        // Check for conflicting minSpend
-        const conflicting = await db.tier.findFirst({
-          where: {
-            shop,
-            minSpend: data.minSpend,
-          },
-        });
-
-        if (conflicting) {
-          return json(
-            { error: `A tier with minimum spend $${data.minSpend} already exists` },
-            { status: 400 }
-          );
-        }
-
-        // Extract store name from shop domain (e.g., "mystore.myshopify.com" -> "mystore")
+        // Generate tier ID
         const storeName = shop.split('.')[0];
-        
-        // Create tier ID in format: storename-tiername (lowercase, spaces replaced with hyphens)
         const tierId = `${storeName}-${data.name.toLowerCase().replace(/\s+/g, '-')}`;
-        
+
         const newTier = await db.tier.create({
           data: {
             id: tierId,
             shop,
-            ...data,
+            name: data.name,
+            minSpend: data.minSpend,
+            cashbackPercent: data.cashbackPercent,
+            evaluationPeriod: data.evaluationPeriod,
           },
         });
 
-        return json({ success: true, tier: newTier });
+        return json<ActionData>({ 
+          success: true, 
+          tier: {
+            ...newTier,
+            customerCount: 0,
+            createdAt: newTier.createdAt.toISOString(),
+          }
+        });
       }
 
       case "update": {
         const id = formData.get("id") as string;
-        
-        if (!id) {
-          return json({ error: "Tier ID is required" }, { status: 400 });
+        const data: TierFormData = {
+          name: formData.get("name") as string,
+          minSpend: Number(formData.get("minSpend")),
+          cashbackPercent: Number(formData.get("cashbackPercent")),
+          evaluationPeriod: formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME",
+          description: formData.get("description") as string,
+        };
+
+        // Validate
+        if (!id || !data.name || data.minSpend < 0 || data.cashbackPercent < 0 || data.cashbackPercent > 100) {
+          return json<ActionData>({ 
+            error: "Invalid tier data. Please check your inputs." 
+          }, { status: 400 });
         }
 
-        const data = validateTierInput(formData);
-
-        // Verify tier belongs to shop
+        // Verify ownership
         const existingTier = await db.tier.findFirst({
           where: { id, shop },
         });
 
         if (!existingTier) {
-          return json({ error: "Tier not found" }, { status: 404 });
+          return json<ActionData>({ 
+            error: "Tier not found" 
+          }, { status: 404 });
         }
 
-        // Check for duplicate name (excluding current tier)
-        const duplicateName = await db.tier.findFirst({
+        // Check for duplicates (excluding current tier)
+        const duplicate = await db.tier.findFirst({
           where: {
             shop,
-            name: data.name,
             NOT: { id },
+            OR: [
+              { name: data.name },
+              { minSpend: data.minSpend }
+            ]
           },
         });
 
-        if (duplicateName) {
-          return json(
-            { error: `A tier named "${data.name}" already exists` },
-            { status: 400 }
-          );
+        if (duplicate) {
+          return json<ActionData>({ 
+            error: duplicate.name === data.name 
+              ? `A tier named "${data.name}" already exists` 
+              : `A tier with minimum spend $${data.minSpend} already exists`
+          }, { status: 400 });
         }
 
         const updatedTier = await db.tier.update({
           where: { id },
-          data,
+          data: {
+            name: data.name,
+            minSpend: data.minSpend,
+            cashbackPercent: data.cashbackPercent,
+            evaluationPeriod: data.evaluationPeriod,
+          },
         });
 
-        return json({ success: true, tier: updatedTier });
+        return json<ActionData>({ 
+          success: true, 
+          tier: {
+            ...updatedTier,
+            createdAt: updatedTier.createdAt.toISOString(),
+          }
+        });
       }
 
       case "delete": {
         const id = formData.get("id") as string;
-        
+
         if (!id) {
-          return json({ error: "Tier ID is required" }, { status: 400 });
+          return json<ActionData>({ 
+            error: "Tier ID is required" 
+          }, { status: 400 });
         }
 
-        // Verify tier belongs to shop
+        // Verify ownership
         const tier = await db.tier.findFirst({
           where: { id, shop },
         });
 
         if (!tier) {
-          return json({ error: "Tier not found" }, { status: 404 });
+          return json<ActionData>({ 
+            error: "Tier not found" 
+          }, { status: 404 });
+        }
+
+        // Check if tier has customers
+        const customerCount = await db.customer.count({
+          where: { currentTierId: id },
+        });
+
+        if (customerCount > 0) {
+          return json<ActionData>({ 
+            error: `Cannot delete tier with ${customerCount} customers. Please reassign customers first.` 
+          }, { status: 400 });
         }
 
         await db.tier.delete({
           where: { id },
         });
 
-        return json({ success: true, deletedId: id });
+        return json<ActionData>({ 
+          success: true, 
+          deletedId: id 
+        });
+      }
+
+      case "bulkDelete": {
+        const ids = formData.getAll("ids") as string[];
+        
+        if (!ids || ids.length === 0) {
+          return json<ActionData>({ 
+            error: "No tiers selected" 
+          }, { status: 400 });
+        }
+
+        // Verify all tiers belong to shop and have no customers
+        const tiersToDelete = await db.tier.findMany({
+          where: {
+            id: { in: ids },
+            shop,
+          },
+        });
+
+        if (tiersToDelete.length !== ids.length) {
+          return json<ActionData>({ 
+            error: "Some tiers not found or unauthorized" 
+          }, { status: 404 });
+        }
+
+        // Check for customers
+        const customerCounts = await db.customer.groupBy({
+          by: ["currentTierId"],
+          where: {
+            currentTierId: { in: ids },
+          },
+          _count: true,
+        });
+
+        if (customerCounts.length > 0) {
+          return json<ActionData>({ 
+            error: "Cannot delete tiers with customers" 
+          }, { status: 400 });
+        }
+
+        await db.tier.deleteMany({
+          where: {
+            id: { in: ids },
+          },
+        });
+
+        return json<ActionData>({ 
+          success: true 
+        });
       }
 
       default:
-        return json({ error: "Invalid action" }, { status: 400 });
+        return json<ActionData>({ 
+          error: "Invalid action" 
+        }, { status: 400 });
     }
   } catch (error) {
-    console.error("Action error:", error);
+    console.error("[Tiers] Action error:", error);
     
     if (error instanceof Response) {
       throw error;
     }
     
-    if (error instanceof Error) {
-      return json({ error: error.message }, { status: 400 });
-    }
-    
-    return json({ error: "An unexpected error occurred" }, { status: 500 });
+    return json<ActionData>({ 
+      error: error instanceof Error ? error.message : "An unexpected error occurred" 
+    }, { status: 500 });
   }
 };
 
 // ============= COMPONENT =============
 export default function TiersPage() {
-  const { tiers } = useLoaderData<LoaderData>();
-  const fetcher = useFetcher();
-  const submit = useSubmit();
+  const { tiers, shop, stats, errors } = useLoaderData<LoaderData>();
+  const fetcher = useFetcher<ActionData>();
+  const navigate = useNavigate();
   
   const [modalActive, setModalActive] = useState(false);
-  const [editingTier, setEditingTier] = useState<Tier | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editingTier, setEditingTier] = useState<TierData | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [selectedTab, setSelectedTab] = useState(0);
   
-  // Form state
-  const [name, setName] = useState("");
-  const [minSpend, setMinSpend] = useState("");
-  const [cashbackPercent, setCashbackPercent] = useState("");
-  const [evaluationPeriod, setEvaluationPeriod] = useState<"ANNUAL" | "LIFETIME">("ANNUAL");
-  
-  const [formErrors, setFormErrors] = useState<string[]>([]);
-
   // Handle modal open/close
-  const handleModalOpen = useCallback((tier?: Tier) => {
-    if (tier) {
-      setEditingTier(tier);
-      setName(tier.name);
-      setMinSpend(tier.minSpend.toString());
-      setCashbackPercent(tier.cashbackPercent.toString());
-      setEvaluationPeriod(tier.evaluationPeriod);
-    } else {
-      setEditingTier(null);
-      setName("");
-      setMinSpend("");
-      setCashbackPercent("");
-      setEvaluationPeriod("ANNUAL");
-    }
-    setFormErrors([]);
+  const handleModalOpen = useCallback((tier?: TierData) => {
+    setEditingTier(tier || null);
     setModalActive(true);
   }, []);
 
   const handleModalClose = useCallback(() => {
     setModalActive(false);
     setEditingTier(null);
-    setFormErrors([]);
   }, []);
 
   // Handle form submission
-  const handleSubmit = useCallback(() => {
-    const errors: string[] = [];
-    
-    // Client-side validation
-    if (!name.trim()) errors.push("Name is required");
-    if (!minSpend || Number(minSpend) < 0) errors.push("Valid minimum spend is required");
-    if (!cashbackPercent || Number(cashbackPercent) < 0 || Number(cashbackPercent) > 100) {
-      errors.push("Cashback must be between 0 and 100");
-    }
-
-    if (errors.length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+  const handleFormSubmit = useCallback((data: TierFormData) => {
     const formData = new FormData();
     formData.append("intent", editingTier ? "update" : "create");
+    
     if (editingTier) {
       formData.append("id", editingTier.id);
     }
-    formData.append("name", name);
-    formData.append("minSpend", minSpend);
-    formData.append("cashbackPercent", cashbackPercent);
-    formData.append("evaluationPeriod", evaluationPeriod);
+    
+    formData.append("name", data.name);
+    formData.append("minSpend", data.minSpend.toString());
+    formData.append("cashbackPercent", data.cashbackPercent.toString());
+    formData.append("evaluationPeriod", data.evaluationPeriod);
+    if (data.description) {
+      formData.append("description", data.description);
+    }
 
     fetcher.submit(formData, { method: "post" });
     handleModalClose();
-  }, [name, minSpend, cashbackPercent, evaluationPeriod, editingTier, fetcher, handleModalClose]);
+  }, [editingTier, fetcher, handleModalClose]);
 
   // Handle delete
   const handleDelete = useCallback((id: string) => {
     const formData = new FormData();
     formData.append("intent", "delete");
     formData.append("id", id);
-    submit(formData, { method: "post" });
-    setDeleteConfirmId(null);
-  }, [submit]);
+    fetcher.submit(formData, { method: "post" });
+  }, [fetcher]);
 
-  // Prepare table data
-  const rows = tiers.map((tier) => [
-    tier.name,
-    `$${tier.minSpend.toLocaleString()}`,
-    `${tier.cashbackPercent}%`,
-    <Badge tone={tier.evaluationPeriod === "ANNUAL" ? "info" : "success"}>
-      {tier.evaluationPeriod}
-    </Badge>,
-    <InlineStack gap="200">
-      <Button size="slim" onClick={() => handleModalOpen(tier)}>
-        Edit
-      </Button>
-      {deleteConfirmId === tier.id ? (
-        <InlineStack gap="200">
-          <Button size="slim" tone="critical" onClick={() => handleDelete(tier.id)}>
-            Confirm
-          </Button>
-          <Button size="slim" onClick={() => setDeleteConfirmId(null)}>
-            Cancel
-          </Button>
-        </InlineStack>
-      ) : (
-        <Button size="slim" variant="plain" tone="critical" onClick={() => setDeleteConfirmId(tier.id)}>
-          Delete
-        </Button>
-      )}
-    </InlineStack>,
-  ]);
+  // Handle bulk delete
+  const handleBulkDelete = useCallback((ids: string[]) => {
+    const formData = new FormData();
+    formData.append("intent", "bulkDelete");
+    ids.forEach(id => formData.append("ids", id));
+    fetcher.submit(formData, { method: "post" });
+  }, [fetcher]);
+
+  // Handle duplicate
+  const handleDuplicate = useCallback((tier: TierData) => {
+    const duplicatedTier = {
+      ...tier,
+      name: `${tier.name} (Copy)`,
+      id: "", // Clear ID for new tier
+    };
+    handleModalOpen(duplicatedTier);
+  }, [handleModalOpen]);
 
   // Show success/error messages
-  const actionData = fetcher.data as { error?: string; success?: boolean } | undefined;
-  const [showBanner, setShowBanner] = useState(true);
+  const actionData = fetcher.data;
+  const [showBanner, setShowBanner] = useState(false);
   
-  // Reset banner visibility when new action data comes in
   useEffect(() => {
     if (actionData) {
       setShowBanner(true);
+      const timer = setTimeout(() => setShowBanner(false), 5000);
+      return () => clearTimeout(timer);
     }
   }, [actionData]);
   
+  // Tabs
+  const tabs = [
+    {
+      id: "overview",
+      content: "Overview",
+      panelID: "overview-panel",
+    },
+    {
+      id: "tiers",
+      content: `Tiers (${tiers.length})`,
+      panelID: "tiers-panel",
+    },
+    {
+      id: "insights",
+      content: "Insights",
+      panelID: "insights-panel",
+    },
+  ];
+
   return (
     <Page
       title="Loyalty Tiers"
+      subtitle="Manage cashback tiers to reward customers based on their spending"
       primaryAction={{
         content: "Add Tier",
         onAction: () => handleModalOpen(),
+        icon: PriceListIcon,
       }}
+      secondaryActions={[
+        {
+          content: viewMode === "cards" ? "Table View" : "Card View",
+          onAction: () => setViewMode(viewMode === "cards" ? "table" : "cards"),
+        },
+      ]}
     >
-      <Layout>
-        <Layout.Section>
-          <BlockStack gap="400">
-            {actionData?.error && showBanner && (
-              <Banner tone="critical" onDismiss={() => setShowBanner(false)}>
-                <p>{actionData.error}</p>
-              </Banner>
-            )}
-            {actionData?.success && showBanner && (
-              <Banner tone="success" onDismiss={() => setShowBanner(false)}>
-                <p>Tier {editingTier ? "updated" : "created"} successfully!</p>
-              </Banner>
-            )}
-            
-            <Card>
-            {tiers.length === 0 ? (
-              <BlockStack gap="400">
-                <Text as="p" variant="bodyMd">
-                  No tiers created yet. Create your first tier to start rewarding customers!
-                </Text>
-                <Button onClick={() => handleModalOpen()}>Create First Tier</Button>
-              </BlockStack>
-            ) : (
-              <DataTable
-                columnContentTypes={["text", "numeric", "numeric", "text", "text"]}
-                headings={["Tier Name", "Min Spend", "Cashback", "Period", "Actions"]}
-                rows={rows}
-              />
-            )}
-          </Card>
-          </BlockStack>
-        </Layout.Section>
+      <BlockStack gap="500">
+        {/* Error/Success Banners */}
+        {errors && errors.length > 0 && (
+          <Banner tone="critical" onDismiss={() => {}}>
+            {errors.map((error, i) => (
+              <Text key={i} as="p" variant="bodyMd">
+                {error}
+              </Text>
+            ))}
+          </Banner>
+        )}
+        
+        {actionData?.error && showBanner && (
+          <Banner tone="critical" onDismiss={() => setShowBanner(false)}>
+            <Text as="p" variant="bodyMd">
+              {actionData.error}
+            </Text>
+          </Banner>
+        )}
+        
+        {actionData?.success && showBanner && (
+          <Banner tone="success" onDismiss={() => setShowBanner(false)}>
+            <Text as="p" variant="bodyMd">
+              Tier {actionData.deletedId ? "deleted" : editingTier ? "updated" : "created"} successfully!
+            </Text>
+          </Banner>
+        )}
 
-        <Layout.Section variant="oneThird">
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">
-                About Tiers
-              </Text>
-              <Text as="p" variant="bodyMd">
-                Tiers help you reward customers based on their spending. Customers automatically 
-                move up tiers as they spend more.
-              </Text>
-              <Text as="p" variant="bodyMd">
-                <strong>Annual:</strong> Based on last 12 months of spending
-              </Text>
-              <Text as="p" variant="bodyMd">
-                <strong>Lifetime:</strong> Based on all-time spending
-              </Text>
+        <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+          {/* Overview Tab */}
+          {selectedTab === 0 && (
+            <BlockStack gap="500">
+              {/* Stats Cards */}
+              <Layout>
+                <Layout.Section variant="oneThird">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <Icon source={PriceListIcon} tone="base" />
+                          <Badge tone="info">{stats.totalTiers}</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="heading2xl" fontWeight="bold">
+                          {stats.totalTiers}
+                        </Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Active Tiers
+                        </Text>
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                </Layout.Section>
+                
+                <Layout.Section variant="oneThird">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <Icon source={PersonSegmentIcon} tone="base" />
+                        </InlineStack>
+                        <Text as="p" variant="heading2xl" fontWeight="bold">
+                          {stats.totalCustomers}
+                        </Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Enrolled Customers
+                        </Text>
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                </Layout.Section>
+                
+                <Layout.Section variant="oneThird">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <Icon source={StarFilledIcon} tone="base" />
+                        </InlineStack>
+                        <Text as="p" variant="heading2xl" fontWeight="bold">
+                          {stats.averageCashback.toFixed(1)}%
+                        </Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Average Cashback
+                        </Text>
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                </Layout.Section>
+              </Layout>
+
+              {/* Quick Setup Guide */}
+              {tiers.length === 0 && (
+                <Card>
+                  <EmptyState
+                    heading="Start rewarding your customers"
+                    action={{
+                      content: "Create First Tier",
+                      onAction: () => handleModalOpen(),
+                    }}
+                    secondaryAction={{
+                      content: "Learn More",
+                      url: "https://help.shopify.com",
+                    }}
+                    image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                  >
+                    <p>Create loyalty tiers to automatically reward customers with cashback based on their spending.</p>
+                  </EmptyState>
+                </Card>
+              )}
+
+              {/* Tier Cards */}
+              {tiers.length > 0 && viewMode === "cards" && (
+                <BlockStack gap="400">
+                  {tiers.map((tier, index) => (
+                    <TierCard
+                      key={tier.id}
+                      tier={tier}
+                      onEdit={handleModalOpen}
+                      onDelete={handleDelete}
+                      onDuplicate={handleDuplicate}
+                      onViewCustomers={(tierId) => navigate(`/app/customers?tier=${tierId}`)}
+                      position={index + 1}
+                      totalTiers={tiers.length}
+                    />
+                  ))}
+                </BlockStack>
+              )}
             </BlockStack>
-          </Card>
-        </Layout.Section>
-      </Layout>
+          )}
+          
+          {/* Tiers Tab (Table View) */}
+          {selectedTab === 1 && (
+            <TierList
+              tiers={tiers}
+              onEdit={handleModalOpen}
+              onDelete={handleDelete}
+              onBulkDelete={handleBulkDelete}
+              loading={fetcher.state === "submitting"}
+            />
+          )}
+          
+          {/* Insights Tab */}
+          {selectedTab === 2 && (
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <Text as="h2" variant="headingMd">
+                    Program Insights
+                  </Text>
+                  
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between">
+                      <Text as="p" variant="bodyMd">
+                        Total Rewards Distributed
+                      </Text>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        ${stats.totalRewardsDistributed.toFixed(2)}
+                      </Text>
+                    </InlineStack>
+                    
+                    <InlineStack align="space-between">
+                      <Text as="p" variant="bodyMd">
+                        Average Cashback Rate
+                      </Text>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        {stats.averageCashback.toFixed(1)}%
+                      </Text>
+                    </InlineStack>
+                    
+                    <InlineStack align="space-between">
+                      <Text as="p" variant="bodyMd">
+                        Customers per Tier
+                      </Text>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        {stats.totalTiers > 0 ? Math.round(stats.totalCustomers / stats.totalTiers) : 0}
+                      </Text>
+                    </InlineStack>
+                  </BlockStack>
+                  
+                  {/* Tier Distribution */}
+                  {tiers.length > 0 && (
+                    <>
+                      <Text as="h3" variant="headingSm">
+                        Tier Distribution
+                      </Text>
+                      <BlockStack gap="200">
+                        {tiers.map((tier) => (
+                          <Box key={tier.id}>
+                            <InlineStack align="space-between" blockAlign="center">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="p" variant="bodyMd">
+                                  {tier.name}
+                                </Text>
+                                <Badge size="small">
+                                  {tier.customerCount || 0} customers
+                                </Badge>
+                              </InlineStack>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {tier.cashbackPercent}% cashback
+                              </Text>
+                            </InlineStack>
+                          </Box>
+                        ))}
+                      </BlockStack>
+                    </>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          )}
+        </Tabs>
+      </BlockStack>
 
+      {/* Create/Edit Modal */}
       <Modal
         open={modalActive}
         onClose={handleModalClose}
-        title={editingTier ? "Edit Tier" : "Create New Tier"}
+        title={editingTier ? `Edit ${editingTier.name}` : "Create New Tier"}
         primaryAction={{
-          content: editingTier ? "Update" : "Create",
-          onAction: handleSubmit,
+          content: editingTier ? "Update Tier" : "Create Tier",
+          onAction: () => {
+            const form = document.getElementById("tier-form") as HTMLFormElement;
+            if (form) {
+              form.requestSubmit();
+            }
+          },
           loading: fetcher.state === "submitting",
         }}
         secondaryActions={[
@@ -495,62 +735,49 @@ export default function TiersPage() {
             onAction: handleModalClose,
           },
         ]}
+        large
       >
         <Modal.Section>
-          {formErrors.length > 0 && (
-            <Banner tone="critical">
-              <BlockStack gap="200">
-                {formErrors.map((error, i) => (
-                  <Text key={i} as="p" variant="bodyMd">
-                    {error}
-                  </Text>
-                ))}
-              </BlockStack>
-            </Banner>
-          )}
-          
-          <FormLayout>
-            <TextField
-              label="Tier Name"
-              value={name}
-              onChange={setName}
-              autoComplete="off"
-              helpText="E.g., Bronze, Silver, Gold"
+          <form
+            id="tier-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              
+              handleFormSubmit({
+                name: formData.get("name") as string,
+                minSpend: Number(formData.get("minSpend")),
+                cashbackPercent: Number(formData.get("cashbackPercent")),
+                evaluationPeriod: formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME",
+                description: formData.get("description") as string,
+              });
+            }}
+          >
+            <TierForm
+              initialData={editingTier || undefined}
+              onSubmit={handleFormSubmit}
+              isSubmitting={fetcher.state === "submitting"}
+              errors={actionData?.error ? [actionData.error] : []}
+              existingTiers={tiers}
             />
-            
-            <TextField
-              label="Minimum Spend ($)"
-              value={minSpend}
-              onChange={setMinSpend}
-              type="number"
-              min="0"
-              autoComplete="off"
-              helpText="Minimum amount customer must spend to reach this tier"
-            />
-            
-            <TextField
-              label="Cashback Percent (%)"
-              value={cashbackPercent}
-              onChange={setCashbackPercent}
-              type="number"
-              min="0"
-              max="100"
-              autoComplete="off"
-              helpText="Percentage of order value returned as store credit"
-            />
-            
-            <Select
-              label="Evaluation Period"
-              options={[
-                { label: "Annual (12 months rolling)", value: "ANNUAL" },
-                { label: "Lifetime (all-time spending)", value: "LIFETIME" },
-              ]}
-              value={evaluationPeriod}
-              onChange={(value) => setEvaluationPeriod(value as "ANNUAL" | "LIFETIME")}
-            />
-          </FormLayout>
+          </form>
         </Modal.Section>
       </Modal>
+    </Page>
+  );
+}
+
+// Error Boundary
+export function ErrorBoundary() {
+  return (
+    <Page title="Loyalty Tiers">
+      <Card>
+        <Box padding="400">
+          <Banner tone="critical" title="Something went wrong">
+            Unable to load tiers. Please refresh the page or contact support.
+          </Banner>
+        </Box>
+      </Card>
     </Page>
   );
 }
