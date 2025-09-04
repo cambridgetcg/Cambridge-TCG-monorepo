@@ -63,32 +63,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
 
     // Fetch tiers with customer counts and rewards
-    const [tiers, customerCounts, totalRewards] = await Promise.all([
+    const [tiers, customers, ledgerEntries] = await Promise.all([
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: "asc" },
       }),
-      db.customer.groupBy({
-        by: ["currentTierId"],
+      // Use findMany instead of groupBy (Data API doesn't support groupBy)
+      db.customer.findMany({
         where: { shop },
-        _count: true,
+        select: { currentTierId: true },
       }).catch(() => []),
-      db.storeCreditLedger.aggregate({
+      // Use findMany instead of aggregate (Data API doesn't support aggregate)
+      db.storeCreditLedger.findMany({
         where: {
           shop,
           type: "CASHBACK_EARNED",
         },
-        _sum: { amount: true },
-      }).catch(() => ({ _sum: { amount: 0 } })),
+        select: { amount: true },
+      }).catch(() => []),
     ]);
 
-    // Map customer counts to tiers
-    const customerCountMap = customerCounts.reduce((acc: Record<string, number>, item: any) => {
-      if (item.currentTierId) {
-        acc[item.currentTierId] = item._count;
+    // Calculate customer counts per tier
+    const customerCountMap = customers.reduce((acc: Record<string, number>, customer: any) => {
+      if (customer.currentTierId) {
+        acc[customer.currentTierId] = (acc[customer.currentTierId] || 0) + 1;
       }
       return acc;
     }, {});
+    
+    // Calculate total rewards
+    const totalRewardsSum = ledgerEntries.reduce((sum: number, entry: any) => {
+      return sum + (parseFloat(entry.amount?.toString() || "0") || 0);
+    }, 0);
 
     // Enhance tiers with additional data
     const enhancedTiers: TierData[] = tiers.map(tier => ({
@@ -110,7 +116,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       averageCashback: tiers.length > 0 
         ? tiers.reduce((sum, tier) => sum + tier.cashbackPercent, 0) / tiers.length 
         : 0,
-      totalRewardsDistributed: Number(totalRewards._sum.amount || 0),
+      totalRewardsDistributed: totalRewardsSum,
     };
 
     return json<LoaderData>({ 
