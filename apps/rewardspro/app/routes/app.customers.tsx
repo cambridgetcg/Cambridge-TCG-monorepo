@@ -143,44 +143,67 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       }
       
-      // GraphQL query to fetch customers
+      // Improved GraphQL query for API version 2025-07
       const CUSTOMERS_QUERY = `#graphql
-        query GetCustomers($cursor: String) {
-          customers(first: 250, after: $cursor) {
+        query GetCustomers($cursor: String, $first: Int = 50) {
+          customers(first: $first, after: $cursor, sortKey: CREATED_AT) {
             edges {
               node {
                 id
-                defaultEmailAddress {
-                  emailAddress
-                }
+                displayName
                 firstName
                 lastName
-                defaultPhoneNumber {
-                  phoneNumber
+                email
+                phone
+                emailMarketingConsent {
+                  marketingState
+                  marketingOptInLevel
                 }
-                orders(first: 1) {
-                  edges {
-                    node {
-                      totalPriceSet {
-                        shopMoney {
-                          amount
-                        }
-                      }
-                    }
-                  }
-                }
+                state
+                verifiedEmail
+                taxExempt
+                tags
+                note
+                createdAt
+                updatedAt
+                numberOfOrders
                 amountSpent {
                   amount
                   currencyCode
                 }
-                createdAt
+                lastOrder {
+                  id
+                  name
+                  createdAt
+                }
+                addresses(first: 1) {
+                  address1
+                  address2
+                  city
+                  province
+                  country
+                  zip
+                }
+                metafields(first: 5, namespace: "rewards_pro") {
+                  edges {
+                    node {
+                      namespace
+                      key
+                      value
+                      type
+                    }
+                  }
+                }
               }
               cursor
             }
             pageInfo {
               hasNextPage
+              hasPreviousPage
+              startCursor
               endCursor
             }
+            totalCount
           }
         }
       `;
@@ -189,41 +212,77 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       let cursor: string | null = null;
       let syncedCount = 0;
       let processedCount = 0;
+      let skippedCount = 0;
       const errors: string[] = [];
+      const batchSize = 50; // Smaller batch size for better performance
+      let totalCustomers = 0;
       
       // Process customers in batches
       while (hasNextPage) {
         try {
+          // Call GraphQL with pagination
           const response: any = await admin.graphql(
             CUSTOMERS_QUERY,
-            { variables: { cursor } }
+            { 
+              variables: { 
+                cursor,
+                first: batchSize 
+              } 
+            }
           );
           
           const data: any = await response.json();
           
-          if (data.errors) {
+          // Check for GraphQL errors
+          if (data.errors && data.errors.length > 0) {
             console.error("GraphQL errors:", data.errors);
-            errors.push("Failed to fetch some customers from Shopify");
+            const errorMessages = data.errors.map((e: any) => e.message).join(', ');
+            errors.push(`GraphQL Error: ${errorMessages}`);
+            
+            // If it's a critical error, stop processing
+            if (data.errors.some((e: any) => e.extensions?.code === 'THROTTLED')) {
+              errors.push("API rate limit reached. Please try again later.");
+              break;
+            }
+          }
+          
+          // Check if we have customer data
+          if (!data.data?.customers) {
+            errors.push("No customer data received from Shopify");
             break;
           }
           
-          const customersData: any = data.data.customers;
+          const customersData = data.data.customers;
+          totalCustomers = customersData.totalCount || totalCustomers;
           
           // Process each customer
           for (const edge of customersData.edges) {
             const customer = edge.node;
             processedCount++;
             
+            // Get email - try multiple fields for compatibility
+            const email = customer.email || 
+                         customer.defaultEmailAddress?.emailAddress || 
+                         null;
+            
             // Skip customers without email
-            const email = customer.defaultEmailAddress?.emailAddress;
             if (!email) {
+              skippedCount++;
+              console.log(`Skipping customer without email: ${customer.displayName || 'Unknown'}`);
+              continue;
+            }
+            
+            // Skip disabled or invited customers
+            if (customer.state === 'DISABLED' || customer.state === 'INVITED') {
+              skippedCount++;
+              console.log(`Skipping ${customer.state.toLowerCase()} customer: ${email}`);
               continue;
             }
             
             // Extract customer ID from GraphQL ID
             const shopifyCustomerId = customer.id.replace('gid://shopify/Customer/', '');
             
-            // Calculate total spending
+            // Calculate total spending (amount is in decimal format like "123.45")
             const totalSpending = parseFloat(customer.amountSpent?.amount || "0");
             
             // Determine appropriate tier based on spending
@@ -290,7 +349,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                         totalSpending: totalSpending,
                         metadata: {
                           source: "shopify_sync",
-                          customerName: [customer.firstName, customer.lastName].filter(Boolean).join(' ')
+                          customerName: customer.displayName || [customer.firstName, customer.lastName].filter(Boolean).join(' '),
+                          numberOfOrders: customer.numberOfOrders,
+                          tags: customer.tags,
+                          verifiedEmail: customer.verifiedEmail,
+                          emailMarketingConsent: customer.emailMarketingConsent?.marketingState,
+                          lastOrderId: customer.lastOrder?.id,
+                          lastOrderDate: customer.lastOrder?.createdAt,
+                          metafields: customer.metafields?.edges?.map((edge: any) => ({
+                            key: edge.node.key,
+                            value: edge.node.value
+                          }))
                         }
                       }
                     });
@@ -309,22 +378,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           hasNextPage = customersData.pageInfo.hasNextPage;
           cursor = customersData.pageInfo.endCursor;
           
-          // Add delay to avoid rate limiting
+          // Log progress
+          console.log(`Processed batch: ${processedCount}/${totalCustomers} customers`);
+          
+          // Add progressive delay to avoid rate limiting
           if (hasNextPage) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            const delay = processedCount > 500 ? 200 : 100; // Increase delay for large syncs
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         } catch (error) {
           console.error("Error in sync batch:", error);
-          errors.push(`Error after processing ${processedCount} customers`);
-          break;
+          errors.push(`Error after processing ${processedCount} customers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          
+          // If we've synced some customers, don't completely fail
+          if (syncedCount > 0) {
+            break;
+          }
+          
+          // Otherwise, throw the error
+          throw error;
         }
       }
       
+      // Prepare detailed response
+      const successMessage = syncedCount > 0 
+        ? `Successfully synced ${syncedCount} out of ${processedCount} processed customers`
+        : "No customers were synced";
+        
+      const warningMessage = skippedCount > 0 
+        ? ` (${skippedCount} customers skipped due to missing email or invalid state)`
+        : "";
+      
       return json({
-        success: true,
-        message: `Successfully synced ${syncedCount} customers`,
+        success: syncedCount > 0,
+        message: successMessage + warningMessage,
         syncedCount,
         processedCount,
+        skippedCount,
+        totalCustomers,
         errors: errors.length > 0 ? errors : null
       });
     } catch (error) {
@@ -513,6 +604,8 @@ export default function CustomersPage() {
     error?: string; 
     syncedCount?: number; 
     processedCount?: number;
+    skippedCount?: number;
+    totalCustomers?: number;
     message?: string;
     errors?: string[];
   } | undefined;
@@ -539,10 +632,28 @@ export default function CustomersPage() {
               {actionData && actionData.success && "message" in actionData ? actionData.message : ""}
               {actionData && !actionData.success && "error" in actionData ? actionData.error : ""}
               {syncResult?.message}
+              {syncResult?.syncedCount !== undefined && (
+                <BlockStack gap="050">
+                  <Text variant="bodySm" as="p">
+                    • Synced: {syncResult.syncedCount} customers
+                  </Text>
+                  {syncResult.skippedCount !== undefined && syncResult.skippedCount > 0 && (
+                    <Text variant="bodySm" as="p">
+                      • Skipped: {syncResult.skippedCount} customers
+                    </Text>
+                  )}
+                  {syncResult.totalCustomers !== undefined && (
+                    <Text variant="bodySm" as="p">
+                      • Total in store: {syncResult.totalCustomers} customers
+                    </Text>
+                  )}
+                </BlockStack>
+              )}
               {syncResult?.errors && (
                 <BlockStack gap="100">
+                  <Text variant="bodySm" fontWeight="semibold" as="p">Errors encountered:</Text>
                   {syncResult.errors.map((error, i) => (
-                    <Text key={i} variant="bodySm" as="p">• {error}</Text>
+                    <Text key={i} variant="bodySm" tone="critical" as="p">• {error}</Text>
                   ))}
                 </BlockStack>
               )}
