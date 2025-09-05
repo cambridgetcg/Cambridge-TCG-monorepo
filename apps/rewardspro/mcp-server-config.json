@@ -1,0 +1,31 @@
+{
+  "name": "shopify-test-server",
+  "version": "1.0.0",
+  "description": "MCP server for Shopify app testing with Playwright",
+  "capabilities": {
+    "browser": {
+      "launch": true,
+      "screenshot": true,
+      "interact": true,
+      "navigate": true
+    },
+    "shopify": {
+      "admin": true,
+      "storefront": false,
+      "webhooks": true
+    }
+  },
+  "requiredEnv": [
+    "SHOPIFY_APP_URL",
+    "SHOPIFY_TEST_STORE"
+  ],
+  "playwright": {
+    "browser": "chromium",
+    "headless": false,
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "defaultTimeout": 30000
+  }
+}

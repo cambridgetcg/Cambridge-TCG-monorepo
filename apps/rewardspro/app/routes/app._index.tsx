@@ -21,7 +21,7 @@ import {
 } from "@shopify/polaris";
 import {
   StarFilledIcon,
-  PersonFilledIcon,
+  PersonIcon,
   CashDollarFilledIcon,
   TipJarIcon,
   SettingsIcon,
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                       title="Total Customers"
                       value={metrics.totalCustomers}
                       change={metrics.customersChange > 0 ? `+${metrics.customersChange} this month` : undefined}
-                      icon={PersonFilledIcon}
+                      icon={PersonIcon}
                     />
                     <MetricCard
                       title="Rewards Distributed"
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                         </Button>
                       </Link>
                       <Link to="/app/customers" prefetch="intent">
-                        <Button fullWidth icon={PersonFilledIcon}>
+                        <Button fullWidth icon={PersonIcon}>
                           View Customers
                         </Button>
                       </Link>
