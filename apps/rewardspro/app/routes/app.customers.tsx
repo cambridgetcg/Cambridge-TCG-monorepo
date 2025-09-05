@@ -153,11 +153,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 displayName
                 firstName
                 lastName
-                email
-                phone
-                emailMarketingConsent {
+                defaultEmailAddress {
+                  emailAddress
                   marketingState
                   marketingOptInLevel
+                }
+                defaultPhoneNumber {
+                  phoneNumber
                 }
                 state
                 verifiedEmail
@@ -203,7 +205,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               startCursor
               endCursor
             }
-            totalCount
           }
         }
       `;
@@ -253,17 +254,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
           
           const customersData = data.data.customers;
-          totalCustomers = customersData.totalCount || totalCustomers;
+          // Note: totalCount is not available in this API version
+          totalCustomers = totalCustomers || customersData.edges.length;
           
           // Process each customer
           for (const edge of customersData.edges) {
             const customer = edge.node;
             processedCount++;
             
-            // Get email - try multiple fields for compatibility
-            const email = customer.email || 
-                         customer.defaultEmailAddress?.emailAddress || 
-                         null;
+            // Get email from the new field structure
+            const email = customer.defaultEmailAddress?.emailAddress || null;
             
             // Skip customers without email
             if (!email) {
@@ -353,7 +353,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                           numberOfOrders: customer.numberOfOrders,
                           tags: customer.tags,
                           verifiedEmail: customer.verifiedEmail,
-                          emailMarketingConsent: customer.emailMarketingConsent?.marketingState,
+                          emailMarketingState: customer.defaultEmailAddress?.marketingState,
+                          emailMarketingOptInLevel: customer.defaultEmailAddress?.marketingOptInLevel,
+                          phoneNumber: customer.defaultPhoneNumber?.phoneNumber,
                           lastOrderId: customer.lastOrder?.id,
                           lastOrderDate: customer.lastOrder?.createdAt,
                           metafields: customer.metafields?.edges?.map((edge: any) => ({
