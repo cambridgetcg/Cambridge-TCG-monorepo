@@ -14,8 +14,11 @@ database.sqlite
 .env
 .env.*
 
-# Documentation guides
+# Documentation guides and markdown files
 /docs/*.md
+*.md
+*GUIDE.md
+*_GUIDE.md
 
 
 
