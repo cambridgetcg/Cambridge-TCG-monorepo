@@ -11,48 +11,32 @@ import {
   Button,
   Icon,
   Box,
-  Grid,
   ProgressBar,
   Badge,
   CalloutCard,
-  Banner,
-  DataTable,
   EmptyState,
-  Divider,
   SkeletonBodyText,
   SkeletonDisplayText,
+  InlineGrid,
 } from "@shopify/polaris";
 import {
   StarFilledIcon,
-  PersonSegmentIcon,
+  PersonFilledIcon,
   CashDollarFilledIcon,
-  ChartVerticalFilledIcon,
   TipJarIcon,
   SettingsIcon,
   BillFilledIcon,
-  PlusIcon,
   ArrowUpIcon,
-  ArrowDownIcon,
   CheckCircleIcon,
-  AlertTriangleIcon,
   ClockIcon,
+  InfoIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
-import { Suspense, lazy } from "react";
+import { Suspense } from "react";
 import db from "../db.server";
 import { isRouteErrorResponse, useRouteError } from "@remix-run/react";
 
-// Type definitions for loader data
-interface CoreMetrics {
-  totalCustomers: number;
-  customersChange: number;
-  totalRewards: number;
-  rewardsChange: number;
-  activeTiers: number;
-  tiersWithCustomers: number;
-  averageCashback: number;
-}
-
+// Type definitions
 interface SetupChecklist {
   tiersCreated: boolean;
   hasCustomers: boolean;
@@ -68,23 +52,13 @@ interface Activity {
   amount?: number;
 }
 
-interface TierData {
-  name: string;
-  customerCount: number;
-  percentage: number;
-}
-
-// Lazy load heavy components for better code splitting
-const InsightsCard = lazy(() => import("../components/dashboard/InsightsCard"));
-const ActivityFeed = lazy(() => import("../components/dashboard/ActivityFeed"));
-
-// Add caching headers for loader responses
+// Add caching headers
 export const headers: HeadersFunction = () => ({
   "Cache-Control": "private, max-age=0, must-revalidate",
   "CDN-Cache-Control": "private, s-maxage=300, stale-while-revalidate=600",
 });
 
-// Helper function to calculate metrics (moved to async for deferred execution)
+// Helper functions for data fetching
 async function calculateMetrics(shop: string) {
   const [customers, tiers, recentLedgerEntries] = await Promise.all([
     db.customer.findMany({
@@ -162,7 +136,7 @@ async function calculateMetrics(shop: string) {
       totalCustomers: customers.length,
       customersChange: recentCustomers,
       totalRewards: Math.round(totalRewards * 100) / 100,
-      rewardsChange: 12, // Placeholder
+      rewardsChange: 12,
       activeTiers: tiers.length,
       tiersWithCustomers: tierDistribution.filter((t) => t.customerCount > 0).length,
       averageCashback: Math.round(averageCashback * 10) / 10,
@@ -171,7 +145,6 @@ async function calculateMetrics(shop: string) {
   };
 }
 
-// Helper function to fetch recent activity
 async function fetchRecentActivity(shop: string): Promise<Activity[]> {
   const recentLedgerEntries = await db.storeCreditLedger
     .findMany({
@@ -231,7 +204,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         .catch(() => null),
     ]);
 
-    // Quick checklist data - using findMany with take: 1 for compatibility
+    // Quick checklist data
     const [hasCustomers, hasTiers] = await Promise.all([
       db.customer
         .findMany({
@@ -258,14 +231,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       billingActive: billingPlan?.status === "active",
     };
 
-    // Defer non-critical data for faster initial load
+    // Defer non-critical data
     const metricsPromise = calculateMetrics(shop);
     const activityPromise = fetchRecentActivity(shop);
 
     return defer({
       shop,
       setupChecklist,
-      // Deferred promises will stream in as they resolve
       metricsData: metricsPromise,
       recentActivity: activityPromise,
     });
@@ -275,7 +247,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 };
 
-// Error Boundary for graceful error handling
+// Error Boundary
 export function ErrorBoundary() {
   const error = useRouteError();
 
@@ -324,180 +296,63 @@ export function ErrorBoundary() {
   );
 }
 
-// Loading skeleton component for metrics
-function MetricsSkeleton() {
-  return (
-    <Grid>
-      {[1, 2, 3, 4].map((i) => (
-        <Grid.Cell key={i} columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-          <Card>
-            <BlockStack gap="200">
-              <SkeletonDisplayText size="small" />
-              <SkeletonBodyText lines={2} />
-            </BlockStack>
-          </Card>
-        </Grid.Cell>
-      ))}
-    </Grid>
-  );
-}
-
-// Metrics Card Component
-function MetricsCard({
-  metrics,
+// Simplified metric card component
+function MetricCard({ 
+  title, 
+  value, 
+  change, 
+  icon, 
+  tone = "base" 
 }: {
-  metrics: CoreMetrics;
+  title: string;
+  value: string | number;
+  change?: string;
+  icon: any;
+  tone?: "base" | "success" | "warning";
 }) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
-
   return (
-    <Grid>
-      <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-        <Card>
-          <BlockStack gap="200">
-            <InlineStack align="space-between">
-              <Text variant="bodySm" tone="subdued" as="p">
-                Total Customers
-              </Text>
-              <Icon source={PersonSegmentIcon} tone="base" />
-            </InlineStack>
-            <Text variant="headingXl" as="h2">
-              {metrics.totalCustomers}
+    <Card>
+      <Box paddingBlockStart="200" paddingBlockEnd="200" paddingInlineStart="400" paddingInlineEnd="400">
+        <BlockStack gap="200">
+          <InlineStack align="space-between">
+            <Text variant="bodySm" tone="subdued" as="p">
+              {title}
             </Text>
-            <InlineStack gap="100" blockAlign="center">
-              {metrics.customersChange > 0 ? (
-                <>
-                  <Icon source={ArrowUpIcon} tone="success" />
-                  <Text variant="bodySm" as="p">
-                    +{metrics.customersChange} this month
-                  </Text>
-                </>
-              ) : (
-                <Text variant="bodySm" tone="subdued" as="p">
-                  No new customers this month
-                </Text>
-              )}
-            </InlineStack>
-          </BlockStack>
-        </Card>
-      </Grid.Cell>
-
-      <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-        <Card>
-          <BlockStack gap="200">
-            <InlineStack align="space-between">
-              <Text variant="bodySm" tone="subdued" as="p">
-                Rewards Distributed
-              </Text>
-              <Icon source={CashDollarFilledIcon} tone="base" />
-            </InlineStack>
-            <Text variant="headingXl" as="h2">
-              {formatCurrency(metrics.totalRewards)}
-            </Text>
+            <Icon source={icon} tone={tone} />
+          </InlineStack>
+          <Text variant="headingLg" as="h3">
+            {value}
+          </Text>
+          {change && (
             <InlineStack gap="100" blockAlign="center">
               <Icon source={ArrowUpIcon} tone="success" />
-              <Text variant="bodySm" as="p">
-                +{metrics.rewardsChange}% vs last month
-              </Text>
-            </InlineStack>
-          </BlockStack>
-        </Card>
-      </Grid.Cell>
-
-      <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-        <Card>
-          <BlockStack gap="200">
-            <InlineStack align="space-between">
               <Text variant="bodySm" tone="subdued" as="p">
-                Active Tiers
-              </Text>
-              <Icon source={StarFilledIcon} tone="base" />
-            </InlineStack>
-            <InlineStack gap="200" blockAlign="baseline">
-              <Text variant="headingXl" as="h2">
-                {metrics.activeTiers}
-              </Text>
-              <Text variant="bodyMd" tone="subdued" as="span">
-                / {metrics.tiersWithCustomers} used
+                {change}
               </Text>
             </InlineStack>
-            <Badge tone={metrics.activeTiers >= 3 ? "success" : "attention"}>
-              {metrics.activeTiers >= 3 ? `Optimal` : `Add more tiers`}
-            </Badge>
-          </BlockStack>
-        </Card>
-      </Grid.Cell>
-
-      <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-        <Card>
-          <BlockStack gap="200">
-            <InlineStack align="space-between">
-              <Text variant="bodySm" tone="subdued" as="p">
-                Avg. Cashback
-              </Text>
-              <Icon source={TipJarIcon} tone="base" />
-            </InlineStack>
-            <Text variant="headingXl" as="h2">
-              {metrics.averageCashback}%
-            </Text>
-            <Text variant="bodySm" tone="subdued" as="p">
-              Across all tiers
-            </Text>
-          </BlockStack>
-        </Card>
-      </Grid.Cell>
-    </Grid>
+          )}
+        </BlockStack>
+      </Box>
+    </Card>
   );
 }
 
-// Tier Distribution Component
-function TierDistribution({ tiers }: { tiers: TierData[] }) {
-  const navigate = useNavigate();
-
-  if (tiers.length === 0) {
-    return (
-      <EmptyState
-        heading="No tiers yet"
-        action={{
-          content: "Create First Tier",
-          onAction: () => navigate("/app/tiers"),
-        }}
-        image="https://cdn.shopify.com/s/files/1/0583/8520/4949/files/empty-tiers.svg"
-      >
-        <p>Set up loyalty tiers to start rewarding customers.</p>
-      </EmptyState>
-    );
-  }
-
+// Loading skeleton for metrics
+function MetricsSkeleton() {
   return (
-    <BlockStack gap="300">
-      {tiers.map((tier) => (
-        <Box key={tier.name}>
-          <BlockStack gap="100">
-            <InlineStack align="space-between">
-              <Text variant="bodyMd" fontWeight="semibold" as="span">
-                {tier.name}
-              </Text>
-              <InlineStack gap="200">
-                <Text variant="bodyMd" as="span">
-                  {tier.customerCount} customers
-                </Text>
-                <Badge tone="info">{`${tier.percentage}%`}</Badge>
-              </InlineStack>
-            </InlineStack>
-            <ProgressBar
-              progress={tier.percentage}
-              size="small"
-              tone={tier.customerCount > 0 ? "success" : undefined}
-            />
-          </BlockStack>
-        </Box>
-      ))}
+    <BlockStack gap="400">
+      <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <Box padding="400">
+              <BlockStack gap="200">
+                <SkeletonDisplayText size="small" />
+                <SkeletonBodyText lines={2} />
+              </BlockStack>
+            </Box>
+          </Card>
+        ))}
+      </InlineGrid>
     </BlockStack>
   );
 }
@@ -506,25 +361,37 @@ export default function DashboardPage() {
   const { setupChecklist, metricsData, recentActivity } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
 
-  // Calculate setup progress
   const setupSteps = Object.values(setupChecklist);
   const completedSteps = setupSteps.filter(Boolean).length;
   const setupProgress = (completedSteps / setupSteps.length) * 100;
+  const isSetupComplete = setupProgress === 100;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount);
+  };
+
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
 
   return (
-    <Page
-      title="Dashboard"
-      secondaryActions={[
-        {
-          content: "View Reports",
-          icon: ChartVerticalFilledIcon,
-          onAction: () => {},
-        },
-      ]}
-    >
+    <Page title="Dashboard">
       <Layout>
-        {/* Setup Progress Banner */}
-        {setupProgress < 100 && (
+        {/* Setup Progress - Only show if not complete */}
+        {!isSetupComplete && (
           <Layout.Section>
             <CalloutCard
               title="Complete Your Setup"
@@ -539,8 +406,7 @@ export default function DashboardPage() {
             >
               <Box paddingBlockEnd="200">
                 <Text variant="bodyMd" as="p">
-                  You're {Math.round(setupProgress)}% complete with your rewards program
-                  setup.
+                  You're {Math.round(setupProgress)}% complete with your rewards program setup.
                 </Text>
               </Box>
               <ProgressBar progress={setupProgress} tone="primary" />
@@ -548,195 +414,324 @@ export default function DashboardPage() {
           </Layout.Section>
         )}
 
-        {/* Metrics Grid with Suspense */}
+        {/* Key Metrics - Simplified responsive grid */}
         <Layout.Section>
           <Suspense fallback={<MetricsSkeleton />}>
             <Await resolve={metricsData}>
-              {({ metrics }) => <MetricsCard metrics={metrics} />}
+              {({ metrics }) => (
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">Overview</Text>
+                  <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+                    <MetricCard
+                      title="Total Customers"
+                      value={metrics.totalCustomers}
+                      change={metrics.customersChange > 0 ? `+${metrics.customersChange} this month` : undefined}
+                      icon={PersonFilledIcon}
+                    />
+                    <MetricCard
+                      title="Rewards Distributed"
+                      value={formatCurrency(metrics.totalRewards)}
+                      change={`+${metrics.rewardsChange}% vs last month`}
+                      icon={CashDollarFilledIcon}
+                    />
+                    <MetricCard
+                      title="Active Tiers"
+                      value={`${metrics.activeTiers} / ${metrics.tiersWithCustomers}`}
+                      icon={StarFilledIcon}
+                      tone={metrics.activeTiers >= 3 ? "success" : "warning"}
+                    />
+                    <MetricCard
+                      title="Avg. Cashback"
+                      value={`${metrics.averageCashback}%`}
+                      icon={TipJarIcon}
+                    />
+                  </InlineGrid>
+                </BlockStack>
+              )}
             </Await>
           </Suspense>
         </Layout.Section>
 
-        {/* Main Content */}
+        {/* Quick Actions & Tier Distribution - Simplified layout */}
         <Layout.Section>
-          <Grid>
-            {/* Tier Distribution */}
-            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4 }}>
+          <BlockStack gap="400">
+            <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+              {/* Quick Actions */}
               <Card>
                 <BlockStack gap="400">
-                  <InlineStack align="space-between">
-                    <Text variant="headingMd" as="h3">
-                      Tier Distribution
-                    </Text>
-                    <Link to="/app/tiers" prefetch="intent">
-                      <Button variant="plain">Manage Tiers</Button>
-                    </Link>
-                  </InlineStack>
-
-                  <Suspense
-                    fallback={
-                      <Box paddingBlock="400">
-                        <SkeletonBodyText lines={3} />
-                      </Box>
-                    }
-                  >
-                    <Await resolve={metricsData}>
-                      {({ tierDistribution }) => (
-                        <TierDistribution tiers={tierDistribution} />
-                      )}
-                    </Await>
-                  </Suspense>
+                  <Box paddingBlockStart="400" paddingInlineStart="400" paddingInlineEnd="400">
+                    <Text variant="headingMd" as="h3">Quick Actions</Text>
+                  </Box>
+                  <Box paddingBlockEnd="400" paddingInlineStart="400" paddingInlineEnd="400">
+                    <BlockStack gap="300">
+                      <Link to="/app/tiers" prefetch="intent">
+                        <Button fullWidth icon={StarFilledIcon}>
+                          Manage Tiers
+                        </Button>
+                      </Link>
+                      <Link to="/app/customers" prefetch="intent">
+                        <Button fullWidth icon={PersonFilledIcon}>
+                          View Customers
+                        </Button>
+                      </Link>
+                      <Link to="/app/settings" prefetch="viewport">
+                        <Button fullWidth icon={SettingsIcon}>
+                          Settings
+                        </Button>
+                      </Link>
+                      <Link to="/app/billing" prefetch="viewport">
+                        <Button fullWidth icon={BillFilledIcon}>
+                          Billing
+                        </Button>
+                      </Link>
+                    </BlockStack>
+                  </Box>
                 </BlockStack>
               </Card>
-            </Grid.Cell>
 
-            {/* Quick Actions */}
-            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 2 }}>
+              {/* Tier Distribution */}
               <Card>
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h3">
-                    Quick Actions
-                  </Text>
-                  <BlockStack gap="200">
-                    <Link to="/app/tiers" prefetch="intent">
-                      <Button fullWidth icon={StarFilledIcon}>
-                        Manage Tiers
-                      </Button>
-                    </Link>
-                    <Link to="/app/customers" prefetch="intent">
-                      <Button fullWidth icon={PersonSegmentIcon}>
-                        View Customers
-                      </Button>
-                    </Link>
-                    <Link to="/app/settings" prefetch="viewport">
-                      <Button fullWidth icon={SettingsIcon}>
-                        Configure Settings
-                      </Button>
-                    </Link>
-                    <Link to="/app/billing" prefetch="viewport">
-                      <Button fullWidth icon={BillFilledIcon}>
-                        Billing & Plans
-                      </Button>
-                    </Link>
-                  </BlockStack>
-                </BlockStack>
+                <Suspense fallback={
+                  <Box padding="400">
+                    <SkeletonBodyText lines={4} />
+                  </Box>
+                }>
+                  <Await resolve={metricsData}>
+                    {({ tierDistribution }) => (
+                      <BlockStack gap="400">
+                        <Box paddingBlockStart="400" paddingInlineStart="400" paddingInlineEnd="400">
+                          <InlineStack align="space-between">
+                            <Text variant="headingMd" as="h3">Tier Distribution</Text>
+                            <Link to="/app/tiers">
+                              <Button variant="plain" size="slim">Manage</Button>
+                            </Link>
+                          </InlineStack>
+                        </Box>
+                        <Box paddingBlockEnd="400" paddingInlineStart="400" paddingInlineEnd="400">
+                          {tierDistribution.length === 0 ? (
+                            <BlockStack gap="300">
+                              <Text variant="bodyMd" tone="subdued" as="p">
+                                No tiers created yet
+                              </Text>
+                              <Button onClick={() => navigate("/app/tiers")}>
+                                Create First Tier
+                              </Button>
+                            </BlockStack>
+                          ) : (
+                            <BlockStack gap="300">
+                              {tierDistribution.map((tier) => (
+                                <Box key={tier.name}>
+                                  <BlockStack gap="100">
+                                    <InlineStack align="space-between">
+                                      <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                        {tier.name}
+                                      </Text>
+                                      <InlineStack gap="200">
+                                        <Text variant="bodyMd" tone="subdued" as="span">
+                                          {tier.customerCount} customers
+                                        </Text>
+                                        <Badge tone="info">{`${tier.percentage}%`}</Badge>
+                                      </InlineStack>
+                                    </InlineStack>
+                                    <ProgressBar
+                                      progress={tier.percentage}
+                                      size="small"
+                                      tone={tier.customerCount > 0 ? "success" : undefined}
+                                    />
+                                  </BlockStack>
+                                </Box>
+                              ))}
+                            </BlockStack>
+                          )}
+                        </Box>
+                      </BlockStack>
+                    )}
+                  </Await>
+                </Suspense>
               </Card>
-            </Grid.Cell>
-          </Grid>
+            </InlineGrid>
+          </BlockStack>
         </Layout.Section>
 
-        {/* Recent Activity & Insights */}
+        {/* Recent Activity & Setup Status - Cleaner layout */}
         <Layout.Section>
-          <Grid>
-            {/* Recent Activity with lazy loading */}
-            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4 }}>
-              <Suspense
-                fallback={
-                  <Card>
-                    <BlockStack gap="400">
-                      <SkeletonDisplayText size="small" />
-                      <SkeletonBodyText lines={5} />
-                    </BlockStack>
-                  </Card>
-                }
-              >
-                <Await resolve={recentActivity}>
-                  {(activity) => <ActivityFeed activities={activity} />}
-                </Await>
-              </Suspense>
-            </Grid.Cell>
-
-            {/* Insights - Lazy loaded component */}
-            <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 2, lg: 2 }}>
-              <Suspense
-                fallback={
-                  <Card>
-                    <BlockStack gap="400">
-                      <SkeletonDisplayText size="small" />
-                      <SkeletonBodyText lines={4} />
-                    </BlockStack>
-                  </Card>
-                }
-              >
-                <Await resolve={metricsData}>
-                  {({ metrics }) => <InsightsCard metrics={metrics} />}
-                </Await>
-              </Suspense>
-            </Grid.Cell>
-          </Grid>
-        </Layout.Section>
-
-        {/* Setup Checklist */}
-        {setupProgress < 100 && (
-          <Layout.Section variant="oneThird">
+          <InlineGrid columns={{ xs: 1, md: isSetupComplete ? 1 : 2 }} gap="400">
+            {/* Recent Activity */}
             <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h3">
-                  Setup Checklist
-                </Text>
-                <BlockStack gap="200">
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon
-                      source={setupChecklist.tiersCreated ? CheckCircleIcon : ClockIcon}
-                      tone={setupChecklist.tiersCreated ? "success" : "subdued"}
-                    />
-                    <Text
-                      variant="bodyMd"
-                      tone={setupChecklist.tiersCreated ? "success" : "subdued"}
-                      as="span"
-                    >
-                      Create loyalty tiers
-                    </Text>
-                  </InlineStack>
-
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon
-                      source={setupChecklist.hasCustomers ? CheckCircleIcon : ClockIcon}
-                      tone={setupChecklist.hasCustomers ? "success" : "subdued"}
-                    />
-                    <Text
-                      variant="bodyMd"
-                      tone={setupChecklist.hasCustomers ? "success" : "subdued"}
-                      as="span"
-                    >
-                      Import customers
-                    </Text>
-                  </InlineStack>
-
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon
-                      source={
-                        setupChecklist.settingsConfigured ? CheckCircleIcon : ClockIcon
-                      }
-                      tone={setupChecklist.settingsConfigured ? "success" : "subdued"}
-                    />
-                    <Text
-                      variant="bodyMd"
-                      tone={setupChecklist.settingsConfigured ? "success" : "subdued"}
-                      as="span"
-                    >
-                      Configure settings
-                    </Text>
-                  </InlineStack>
-
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon
-                      source={setupChecklist.billingActive ? CheckCircleIcon : ClockIcon}
-                      tone={setupChecklist.billingActive ? "success" : "subdued"}
-                    />
-                    <Text
-                      variant="bodyMd"
-                      tone={setupChecklist.billingActive ? "success" : "subdued"}
-                      as="span"
-                    >
-                      Activate billing plan
-                    </Text>
-                  </InlineStack>
-                </BlockStack>
-              </BlockStack>
+              <Suspense fallback={
+                <Box padding="400">
+                  <SkeletonBodyText lines={5} />
+                </Box>
+              }>
+                <Await resolve={recentActivity}>
+                  {(activities) => (
+                    <BlockStack gap="400">
+                      <Box paddingBlockStart="400" paddingInlineStart="400" paddingInlineEnd="400">
+                        <InlineStack align="space-between">
+                          <Text variant="headingMd" as="h3">Recent Activity</Text>
+                          <Badge tone="info">{activities.length > 0 ? `${activities.length} items` : "No activity"}</Badge>
+                        </InlineStack>
+                      </Box>
+                      <Box paddingBlockEnd="400" paddingInlineStart="400" paddingInlineEnd="400">
+                        {activities.length === 0 ? (
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" tone="subdued" as="p">
+                              No activity yet. Activity will appear here once customers start earning rewards.
+                            </Text>
+                          </BlockStack>
+                        ) : (
+                          <BlockStack gap="300">
+                            {activities.map((activity) => (
+                              <InlineStack key={activity.id} align="space-between">
+                                <BlockStack gap="050">
+                                  <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                    {activity.description}
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued" as="span">
+                                    {formatRelativeTime(activity.timestamp)}
+                                  </Text>
+                                </BlockStack>
+                                {activity.amount !== undefined && activity.amount !== 0 && (
+                                  <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                    {activity.amount > 0 && "+"}{formatCurrency(activity.amount)}
+                                  </Text>
+                                )}
+                              </InlineStack>
+                            ))}
+                          </BlockStack>
+                        )}
+                      </Box>
+                    </BlockStack>
+                  )}
+                </Await>
+              </Suspense>
             </Card>
-          </Layout.Section>
-        )}
+
+            {/* Setup Checklist - Only if incomplete */}
+            {!isSetupComplete && (
+              <Card>
+                <BlockStack gap="400">
+                  <Box paddingBlockStart="400" paddingInlineStart="400" paddingInlineEnd="400">
+                    <Text variant="headingMd" as="h3">Setup Checklist</Text>
+                  </Box>
+                  <Box paddingBlockEnd="400" paddingInlineStart="400" paddingInlineEnd="400">
+                    <BlockStack gap="300">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Icon
+                          source={setupChecklist.tiersCreated ? CheckCircleIcon : ClockIcon}
+                          tone={setupChecklist.tiersCreated ? "success" : "subdued"}
+                        />
+                        <Text
+                          variant="bodyMd"
+                          tone={setupChecklist.tiersCreated ? undefined : "subdued"}
+                          as="span"
+                        >
+                          Create loyalty tiers
+                        </Text>
+                      </InlineStack>
+
+                      <InlineStack gap="200" blockAlign="center">
+                        <Icon
+                          source={setupChecklist.hasCustomers ? CheckCircleIcon : ClockIcon}
+                          tone={setupChecklist.hasCustomers ? "success" : "subdued"}
+                        />
+                        <Text
+                          variant="bodyMd"
+                          tone={setupChecklist.hasCustomers ? undefined : "subdued"}
+                          as="span"
+                        >
+                          Import customers
+                        </Text>
+                      </InlineStack>
+
+                      <InlineStack gap="200" blockAlign="center">
+                        <Icon
+                          source={setupChecklist.settingsConfigured ? CheckCircleIcon : ClockIcon}
+                          tone={setupChecklist.settingsConfigured ? "success" : "subdued"}
+                        />
+                        <Text
+                          variant="bodyMd"
+                          tone={setupChecklist.settingsConfigured ? undefined : "subdued"}
+                          as="span"
+                        >
+                          Configure settings
+                        </Text>
+                      </InlineStack>
+
+                      <InlineStack gap="200" blockAlign="center">
+                        <Icon
+                          source={setupChecklist.billingActive ? CheckCircleIcon : ClockIcon}
+                          tone={setupChecklist.billingActive ? "success" : "subdued"}
+                        />
+                        <Text
+                          variant="bodyMd"
+                          tone={setupChecklist.billingActive ? undefined : "subdued"}
+                          as="span"
+                        >
+                          Activate billing plan
+                        </Text>
+                      </InlineStack>
+                    </BlockStack>
+                  </Box>
+                </BlockStack>
+              </Card>
+            )}
+          </InlineGrid>
+        </Layout.Section>
+
+        {/* Insights - Simplified */}
+        <Layout.Section>
+          <Suspense fallback={null}>
+            <Await resolve={metricsData}>
+              {({ metrics, tierDistribution }) => {
+                const needsMoreTiers = metrics.activeTiers < 3;
+                const goodGrowth = metrics.customersChange > 5;
+                const hasInsights = needsMoreTiers || goodGrowth;
+
+                if (!hasInsights) return null;
+
+                return (
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="300">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Icon source={InfoIcon} tone="info" />
+                          <Text variant="headingMd" as="h3">Insights</Text>
+                        </InlineStack>
+                        
+                        {needsMoreTiers && (
+                          <Box padding="300" background="bg-surface-warning" borderRadius="200">
+                            <BlockStack gap="100">
+                              <Text variant="bodyMd" fontWeight="semibold" as="p">
+                                Add More Tiers
+                              </Text>
+                              <Text variant="bodySm" as="p">
+                                Consider adding more tiers for better customer segmentation.
+                              </Text>
+                            </BlockStack>
+                          </Box>
+                        )}
+
+                        {goodGrowth && (
+                          <Box padding="300" background="bg-surface-success" borderRadius="200">
+                            <BlockStack gap="100">
+                              <Text variant="bodyMd" fontWeight="semibold" as="p">
+                                Growing Customer Base
+                              </Text>
+                              <Text variant="bodySm" as="p">
+                                Great job! Your customer base is growing steadily.
+                              </Text>
+                            </BlockStack>
+                          </Box>
+                        )}
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                );
+              }}
+            </Await>
+          </Suspense>
+        </Layout.Section>
       </Layout>
     </Page>
   );
