@@ -1,58 +1,55 @@
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { useState, useCallback, useEffect } from "react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSearchParams, useFetcher, useNavigation } from "@remix-run/react";
-export { ErrorBoundary } from "../components/ErrorBoundary";
-import {
-  Page,
-  Layout,
-  Card,
-  DataTable,
-  Badge,
-  TextField,
-  Select,
-  InlineStack,
-  BlockStack,
+import { 
+  useLoaderData, 
+  useActionData, 
+  useNavigation, 
+  useSubmit,
+  useFetcher
+} from "@remix-run/react";
+import { 
+  Page, 
+  Layout, 
+  Card, 
+  DataTable, 
+  Button, 
+  TextField, 
+  Select, 
+  BlockStack, 
+  InlineGrid,
   Text,
-  Button,
-  EmptyState,
-  Icon,
-  ResourceList,
-  ResourceItem,
   Banner,
-  ProgressBar,
   Modal,
-  Box,
+  Spinner,
+  EmptyState,
+  Badge,
+  InlineStack,
+  ProgressBar
 } from "@shopify/polaris";
-import { SearchIcon, RefreshIcon } from "@shopify/polaris-icons";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { 
+  RefreshIcon
+} from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 // Types
-type Customer = {
+interface CustomerData {
   id: string;
-  shop: string;
-  shopifyCustomerId: string;
   email: string;
+  shopifyCustomerId: string;
   storeCredit: number;
-  currentTierId: string | null;
   currentTier: {
     id: string;
     name: string;
     cashbackPercent: number;
   } | null;
+  transactionCount: number;
   createdAt: string;
-  updatedAt: string;
-  _count?: {
-    creditLedger: number;
-  };
-  // Calculated fields
-  totalSpending?: number;
-  lastOrderDate?: string;
-};
+}
 
-type LoaderData = {
-  customers: Customer[];
+interface LoaderData {
+  customers: CustomerData[];
   tiers: Array<{
     id: string;
     name: string;
@@ -61,176 +58,122 @@ type LoaderData = {
   }>;
   stats: {
     totalCustomers: number;
-    customersWithTier: number;
-    totalStoreCredit: number;
+    customersWithCredit: number;
+    customersWithTiers: number;
   };
-};
+}
 
 // Loader
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  try {
-    const { session } = await authenticate.admin(request);
-    
-    if (!session?.shop) {
-      console.error("[Customers] No shop in session - forcing re-authentication");
-      throw new Response("Unauthorized", { status: 401 });
-    }
-
-    const shop = session.shop;
-    const url = new URL(request.url);
-    
-    // Get query parameters for filtering
-    const search = url.searchParams.get("search") || "";
-    const tierFilter = url.searchParams.get("tier") || "all";
-    const sortBy = url.searchParams.get("sortBy") || "createdAt";
-    const sortOrder = url.searchParams.get("sortOrder") || "desc";
-
-    // Build where clause
-    const whereClause: any = { shop };
-    
-    if (search) {
-      whereClause.OR = [
-        { email: { contains: search, mode: "insensitive" } },
-        { shopifyCustomerId: { contains: search } },
-      ];
-    }
-    
-    if (tierFilter !== "all") {
-      if (tierFilter === "none") {
-        whereClause.currentTierId = null;
-      } else {
-        whereClause.currentTierId = tierFilter;
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+  
+  // Get customers with tier info and transaction counts
+  const customers = await db.customer.findMany({
+    where: { shop },
+    include: {
+      currentTier: true,
+      _count: {
+        select: {
+          creditLedger: true
+        }
       }
-    }
-
-    // Fetch customers with their tier and ledger count
-    const customers = await db.customer.findMany({
-      where: whereClause,
-      include: {
-        currentTier: {
-          select: {
-            id: true,
-            name: true,
-            cashbackPercent: true,
-          },
-        },
-        _count: {
-          select: {
-            creditLedger: true,
-          },
-        },
-      },
-      orderBy: {
-        [sortBy]: sortOrder as "asc" | "desc",
-      },
-      take: 50, // Limit for performance
-    });
-
-    // Fetch all tiers for filter dropdown
-    const tiers = await db.tier.findMany({
-      where: { shop },
-      orderBy: { minSpend: "asc" },
-      select: {
-        id: true,
-        name: true,
-        minSpend: true,
-        cashbackPercent: true,
-      },
-    });
-
-    // Calculate stats (handle empty results)
-    const stats = await db.customer.aggregate({
-      where: { shop },
-      _count: true,
-      _sum: {
-        storeCredit: true,
-      },
-    });
-
-    const customersWithTier = await db.customer.count({
-      where: {
-        shop,
-        currentTierId: { not: null },
-      },
-    });
-
-    // Serialize data for JSON (handle both Date objects and strings from Data API)
-    const serializedCustomers = customers.map((customer) => ({
-      ...customer,
-      storeCredit: Number(customer.storeCredit),
-      createdAt: customer.createdAt instanceof Date 
-        ? customer.createdAt.toISOString() 
-        : customer.createdAt,
-      updatedAt: customer.updatedAt instanceof Date 
-        ? customer.updatedAt.toISOString() 
-        : customer.updatedAt,
-    }));
-
-    return json<LoaderData>({
-      customers: serializedCustomers,
-      tiers,
-      stats: {
-        totalCustomers: stats._count,
-        customersWithTier,
-        totalStoreCredit: Number(stats._sum.storeCredit || 0),
-      },
-    });
-  } catch (error) {
-    console.error("Loader error:", error);
-    throw new Response("Failed to load customers", { status: 500 });
-  }
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100 // Limit for performance
+  });
+  
+  // Format customer data
+  const customersWithData: CustomerData[] = customers.map(customer => ({
+    id: customer.id,
+    email: customer.email,
+    shopifyCustomerId: customer.shopifyCustomerId,
+    storeCredit: Number(customer.storeCredit),
+    currentTier: customer.currentTier ? {
+      id: customer.currentTier.id,
+      name: customer.currentTier.name,
+      cashbackPercent: customer.currentTier.cashbackPercent
+    } : null,
+    transactionCount: customer._count.creditLedger,
+    createdAt: customer.createdAt instanceof Date 
+      ? customer.createdAt.toISOString() 
+      : customer.createdAt
+  }));
+  
+  // Get available tiers
+  const tiers = await db.tier.findMany({
+    where: { shop },
+    orderBy: { minSpend: 'asc' }
+  });
+  
+  // Calculate stats
+  const stats = {
+    totalCustomers: customers.length,
+    customersWithCredit: customers.filter(c => Number(c.storeCredit) > 0).length,
+    customersWithTiers: customers.filter(c => c.currentTier !== null).length,
+  };
+  
+  return json<LoaderData>({
+    customers: customersWithData,
+    tiers,
+    stats
+  });
 };
 
-// Action handler for sync
+// Action handler
 export const action = async ({ request }: ActionFunctionArgs) => {
-  try {
-    const { admin, session } = await authenticate.admin(request);
-    
-    if (!session?.shop) {
-      throw new Response("Unauthorized", { status: 401 });
-    }
-
-    const shop = session.shop;
-    const formData = await request.formData();
-    const intent = formData.get("intent") as string;
-
-    if (intent === "sync") {
-      // Fetch all tiers for assignment logic
+  const { admin, session } = await authenticate.admin(request);
+  const shop = session.shop;
+  const formData = await request.formData();
+  const actionType = formData.get("actionType") as string;
+  
+  // Handle sync from Shopify
+  if (actionType === "syncFromShopify") {
+    try {
+      // Get all tiers for tier assignment
       const tiers = await db.tier.findMany({
         where: { shop },
-        orderBy: { minSpend: "desc" },
+        orderBy: { minSpend: 'desc' }
       });
-
+      
       if (tiers.length === 0) {
         return json({ 
-          error: "Please create loyalty tiers before syncing customers",
-          syncedCount: 0 
+          success: false, 
+          error: "Please create loyalty tiers before syncing customers" 
         });
       }
-
-      // GraphQL query to fetch customers from Shopify
+      
+      // GraphQL query to fetch customers
       const CUSTOMERS_QUERY = `#graphql
         query GetCustomers($cursor: String) {
           customers(first: 250, after: $cursor) {
             edges {
               node {
                 id
-                email
+                defaultEmailAddress {
+                  emailAddress
+                }
                 firstName
                 lastName
-                phone
-                totalSpentAmount {
+                defaultPhoneNumber {
+                  phoneNumber
+                }
+                orders(first: 1) {
+                  edges {
+                    node {
+                      totalPriceSet {
+                        shopMoney {
+                          amount
+                        }
+                      }
+                    }
+                  }
+                }
+                amountSpent {
                   amount
                   currencyCode
                 }
-                ordersCount
                 createdAt
-                updatedAt
-                addresses {
-                  country
-                  province
-                  city
-                }
               }
               cursor
             }
@@ -241,46 +184,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         }
       `;
-
+      
       let hasNextPage = true;
-      let cursor = null;
+      let cursor: string | null = null;
       let syncedCount = 0;
       let processedCount = 0;
       const errors: string[] = [];
-
+      
       // Process customers in batches
       while (hasNextPage) {
         try {
-          const response = await admin.graphql(
+          const response: any = await admin.graphql(
             CUSTOMERS_QUERY,
             { variables: { cursor } }
           );
-
-          const data = await response.json();
+          
+          const data: any = await response.json();
           
           if (data.errors) {
             console.error("GraphQL errors:", data.errors);
             errors.push("Failed to fetch some customers from Shopify");
             break;
           }
-
-          const customers = data.data.customers;
+          
+          const customersData: any = data.data.customers;
           
           // Process each customer
-          for (const edge of customers.edges) {
+          for (const edge of customersData.edges) {
             const customer = edge.node;
             processedCount++;
             
             // Skip customers without email
-            if (!customer.email) {
+            const email = customer.defaultEmailAddress?.emailAddress;
+            if (!email) {
               continue;
             }
-
+            
             // Extract customer ID from GraphQL ID
             const shopifyCustomerId = customer.id.replace('gid://shopify/Customer/', '');
             
-            // Calculate total spending (convert from cents to dollars)
-            const totalSpending = parseFloat(customer.totalSpentAmount?.amount || "0");
+            // Calculate total spending
+            const totalSpending = parseFloat(customer.amountSpent?.amount || "0");
             
             // Determine appropriate tier based on spending
             let assignedTier = null;
@@ -290,109 +234,200 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 break;
               }
             }
-
-            // Prepare customer data (only using fields that exist in the schema)
-            const customerData = {
-              shop,
-              shopifyCustomerId,
-              email: customer.email,
-              currentTierId: assignedTier?.id || null,
-              storeCredit: 0, // Default to 0 for new customers
-            };
-
-            // Upsert customer in database
-            const upsertedCustomer = await db.customer.upsert({
-              where: {
-                shop_shopifyCustomerId: {
-                  shop,
-                  shopifyCustomerId,
-                },
-              },
-              create: customerData,
-              update: {
-                email: customerData.email,
-                currentTierId: customerData.currentTierId,
-              },
-            });
             
-            // If tier was assigned, log it
-            if (assignedTier && !upsertedCustomer.currentTierId) {
-              await db.tierChangeLog.create({
-                data: {
-                  customerId: upsertedCustomer.id,
-                  shop,
-                  fromTierId: null,
-                  toTierId: assignedTier.id,
-                  changeType: "INITIAL_ASSIGNMENT",
-                  triggerType: "ACCOUNT_CREATED",
-                  totalSpending: totalSpending,
-                  metadata: {
-                    syncedFromShopify: true,
-                    customerName: [customer.firstName, customer.lastName].filter(Boolean).join(' '),
-                    ordersCount: customer.ordersCount,
-                  },
-                },
+            // Upsert customer in database
+            try {
+              const existingCustomer = await db.customer.findUnique({
+                where: {
+                  shop_shopifyCustomerId: {
+                    shop,
+                    shopifyCustomerId
+                  }
+                }
               });
+              
+              if (existingCustomer) {
+                // Update existing customer
+                await db.customer.update({
+                  where: { id: existingCustomer.id },
+                  data: {
+                    email,
+                    currentTierId: assignedTier?.id || null
+                  }
+                });
+              } else {
+                // Create new customer
+                await db.customer.create({
+                  data: {
+                    shop,
+                    shopifyCustomerId,
+                    email,
+                    currentTierId: assignedTier?.id || null,
+                    storeCredit: 0
+                  }
+                });
+                
+                // Log tier assignment if applicable
+                if (assignedTier) {
+                  const newCustomer = await db.customer.findUnique({
+                    where: {
+                      shop_shopifyCustomerId: {
+                        shop,
+                        shopifyCustomerId
+                      }
+                    }
+                  });
+                  
+                  if (newCustomer) {
+                    await db.tierChangeLog.create({
+                      data: {
+                        customerId: newCustomer.id,
+                        shop,
+                        fromTierId: null,
+                        toTierId: assignedTier.id,
+                        changeType: "INITIAL_ASSIGNMENT",
+                        triggerType: "ACCOUNT_CREATED",
+                        totalSpending: totalSpending,
+                        metadata: {
+                          source: "shopify_sync",
+                          customerName: [customer.firstName, customer.lastName].filter(Boolean).join(' ')
+                        }
+                      }
+                    });
+                  }
+                }
+              }
+              
+              syncedCount++;
+            } catch (error) {
+              console.error(`Error processing customer ${email}:`, error);
+              errors.push(`Failed to process customer: ${email}`);
             }
-
-            syncedCount++;
           }
-
-          // Check for next page
-          hasNextPage = customers.pageInfo.hasNextPage;
-          cursor = customers.pageInfo.endCursor;
           
-          // Add a small delay to avoid rate limiting
+          // Check for next page
+          hasNextPage = customersData.pageInfo.hasNextPage;
+          cursor = customersData.pageInfo.endCursor;
+          
+          // Add delay to avoid rate limiting
           if (hasNextPage) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
         } catch (error) {
-          console.error("Error processing customer batch:", error);
-          errors.push(`Error processing batch after ${processedCount} customers`);
+          console.error("Error in sync batch:", error);
+          errors.push(`Error after processing ${processedCount} customers`);
           break;
         }
       }
-
+      
       return json({
         success: true,
+        message: `Successfully synced ${syncedCount} customers`,
         syncedCount,
         processedCount,
-        errors: errors.length > 0 ? errors : null,
-        message: `Successfully synced ${syncedCount} customers`,
+        errors: errors.length > 0 ? errors : null
+      });
+    } catch (error) {
+      console.error("Sync error:", error);
+      return json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to sync customers" 
       });
     }
-
-    return json({ error: "Invalid action" });
-  } catch (error) {
-    console.error("Action error:", error);
-    return json({ error: "Failed to sync customers" }, { status: 500 });
   }
+  
+  // Handle store credit adjustment
+  if (actionType === "adjustCredit") {
+    const customerId = formData.get("customerId") as string;
+    const amount = parseFloat(formData.get("amount") as string);
+    const creditAction = formData.get("creditAction") as string;
+    
+    if (!customerId || !amount || amount <= 0) {
+      return json({ success: false, error: "Invalid amount" });
+    }
+    
+    try {
+      const customer = await db.customer.findUnique({
+        where: { id: customerId }
+      });
+      
+      if (!customer || customer.shop !== shop) {
+        throw new Error("Customer not found");
+      }
+      
+      // Calculate new balance
+      const currentBalance = Number(customer.storeCredit);
+      const newBalance = creditAction === "add" 
+        ? currentBalance + amount 
+        : Math.max(0, currentBalance - amount);
+      
+      // Update customer balance
+      await db.customer.update({
+        where: { id: customerId },
+        data: { storeCredit: newBalance }
+      });
+      
+      // Create ledger entry
+      await db.storeCreditLedger.create({
+        data: {
+          customerId,
+          shop,
+          amount: creditAction === "add" ? amount : -amount,
+          balance: newBalance,
+          type: "MANUAL_ADJUSTMENT",
+          metadata: {
+            action: creditAction,
+            adjustedBy: session.shop,
+            reason: formData.get("reason") || "Manual adjustment via admin"
+          }
+        }
+      });
+      
+      return json({ 
+        success: true, 
+        message: `Successfully ${creditAction === "add" ? "added" : "removed"} $${amount.toFixed(2)}` 
+      });
+    } catch (error) {
+      return json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Failed to adjust credit" 
+      });
+    }
+  }
+  
+  return json({ success: false, error: "Invalid action" });
 };
 
 // Component
 export default function CustomersPage() {
-  const { customers, tiers } = useLoaderData<LoaderData>();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const fetcher = useFetcher();
+  const { customers, tiers, stats } = useLoaderData<LoaderData>();
+  const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-    
-  // Search and filter state
-  const [searchValue, setSearchValue] = useState(searchParams.get("search") || "");
-  const [selectedTier, setSelectedTier] = useState(searchParams.get("tier") || "all");
+  const fetcher = useFetcher();
+  const submit = useSubmit();
   
-  // Sync modal state
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  // State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTier, setSelectedTier] = useState("all");
+  const [modalActive, setModalActive] = useState(false);
+  const [syncModalActive, setSyncModalActive] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerData | null>(null);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditAction, setCreditAction] = useState<"add" | "remove">("add");
   const [syncInProgress, setSyncInProgress] = useState(false);
   
-  // Handle sync action
+  const isSubmitting = navigation.state === "submitting";
+  const isSyncing = fetcher.state === "submitting" || syncInProgress;
+  
+  // Handle sync
   const handleSync = useCallback(() => {
-    setSyncModalOpen(true);
+    setSyncModalActive(true);
   }, []);
   
   const confirmSync = useCallback(() => {
     setSyncInProgress(true);
     const formData = new FormData();
-    formData.append("intent", "sync");
+    formData.append("actionType", "syncFromShopify");
     fetcher.submit(formData, { method: "post" });
   }, [fetcher]);
   
@@ -400,51 +435,20 @@ export default function CustomersPage() {
   useEffect(() => {
     if (fetcher.data) {
       setSyncInProgress(false);
-      setSyncModalOpen(false);
+      setSyncModalActive(false);
     }
   }, [fetcher.data]);
   
-  // Handle search
-  const handleSearch = useCallback((value: string) => {
-    setSearchValue(value);
-    const params = new URLSearchParams(searchParams);
-    if (value) {
-      params.set("search", value);
-    } else {
-      params.delete("search");
-    }
-    setSearchParams(params);
-  }, [searchParams, setSearchParams]);
-
-  // Handle tier filter
-  const handleTierFilter = useCallback((value: string) => {
-    setSelectedTier(value);
-    const params = new URLSearchParams(searchParams);
-    if (value !== "all") {
-      params.set("tier", value);
-    } else {
-      params.delete("tier");
-    }
-    setSearchParams(params);
-  }, [searchParams, setSearchParams]);
-
-  // Prepare tier options for filter
-  const tierOptions = useMemo(() => {
-    const options = [
-      { label: "All Tiers", value: "all" },
-      { label: "No Tier", value: "none" },
-    ];
-    
-    tiers.forEach((tier) => {
-      options.push({
-        label: `${tier.name} (${tier.cashbackPercent}% cashback)`,
-        value: tier.id,
-      });
-    });
-    
-    return options;
-  }, [tiers]);
-
+  // Filter customers
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSearch = customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.shopifyCustomerId.includes(searchTerm);
+    const matchesTier = selectedTier === "all" || 
+      (selectedTier === "none" && !customer.currentTier) ||
+      customer.currentTier?.id === selectedTier;
+    return matchesSearch && matchesTier;
+  });
+  
   // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -452,49 +456,58 @@ export default function CustomersPage() {
       currency: "USD",
     }).format(amount);
   };
-
-  // Get tier badge tone
-  const getTierTone = (tier: Customer["currentTier"]) => {
-    if (!tier) return "new";
-    if (tier.cashbackPercent >= 10) return "success";
-    if (tier.cashbackPercent >= 5) return "info";
-    return "attention";
-  };
-
-  // Prepare table rows for desktop
-  const rows = customers.map((customer) => [
-    <BlockStack gap="100">
-      <Text as="span" variant="bodyMd" fontWeight="semibold">
+  
+  // Format data for table
+  const rows = filteredCustomers.map(customer => [
+    <BlockStack gap="050">
+      <Text variant="bodyMd" fontWeight="semibold" as="span">
         {customer.email}
       </Text>
-      <Text as="span" variant="bodySm" tone="subdued">
+      <Text variant="bodySm" tone="subdued" as="span">
         ID: {customer.shopifyCustomerId}
       </Text>
     </BlockStack>,
     customer.currentTier ? (
-      <Badge tone={getTierTone(customer.currentTier)}>
-        {customer.currentTier.name}
+      <Badge tone="info">
+        {`${customer.currentTier.name} (${customer.currentTier.cashbackPercent}%)`}
       </Badge>
     ) : (
-      <Badge tone="new">No Tier</Badge>
+      <Text variant="bodyMd" tone="subdued" as="span">No tier</Text>
     ),
-    <Text as="span" variant="bodyMd" fontWeight="semibold">
+    <Text variant="bodyMd" fontWeight={customer.storeCredit > 0 ? "semibold" : undefined} as="span">
       {formatCurrency(customer.storeCredit)}
     </Text>,
-    <Button
-      url={`/app/customers/${customer.id}`}
-      size="slim"
-      variant="plain"
-    >
-      View Details
-    </Button>,
+    <Text variant="bodyMd" as="span">
+      {customer.transactionCount}
+    </Text>,
+    <InlineStack gap="200">
+      <Button
+        size="slim"
+        onClick={() => {
+          setSelectedCustomer(customer);
+          setModalActive(true);
+        }}
+      >
+        Adjust Credit
+      </Button>
+    </InlineStack>
   ]);
-
-  // Check if we're loading
-  const isLoading = navigation.state === "loading";
-  const isSyncing = fetcher.state === "submitting" || syncInProgress;
   
-  // Get sync result
+  // Handle credit adjustment
+  const handleCreditAdjustment = () => {
+    if (selectedCustomer && creditAmount) {
+      const formData = new FormData();
+      formData.append("actionType", "adjustCredit");
+      formData.append("customerId", selectedCustomer.id);
+      formData.append("amount", creditAmount);
+      formData.append("creditAction", creditAction);
+      submit(formData, { method: "post" });
+      setModalActive(false);
+      setCreditAmount("");
+    }
+  };
+  
+  // Get sync result from fetcher
   const syncResult = fetcher.data as { 
     success?: boolean; 
     error?: string; 
@@ -503,245 +516,247 @@ export default function CustomersPage() {
     message?: string;
     errors?: string[];
   } | undefined;
-
+  
   return (
-    <Page
+    <Page 
       title="Customers"
       primaryAction={{
         content: "Sync from Shopify",
         icon: RefreshIcon,
         onAction: handleSync,
-        disabled: isSyncing,
         loading: isSyncing,
+        disabled: isSyncing
       }}
     >
       <Layout>
-        <Layout.Section variant="fullWidth">
-          <Card>
-            <BlockStack gap="400">
-              {/* Filters - Responsive */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
-                <div style={{ flex: "1 1 300px", minWidth: "200px" }}>
-                  <TextField
-                    label="Search customers"
-                    value={searchValue}
-                    onChange={handleSearch}
-                    placeholder="Search by email or customer ID"
-                    prefix={<Icon source={SearchIcon} />}
-                    autoComplete="off"
-                    clearButton
-                    onClearButtonClick={() => handleSearch("")}
-                  />
-                </div>
-                <div style={{ flex: "0 1 200px", minWidth: "150px" }}>
-                  <Select
-                    label="Filter by tier"
-                    options={tierOptions}
-                    value={selectedTier}
-                    onChange={handleTierFilter}
-                  />
-                </div>
-              </div>
-
-              {/* Customer table/list - Responsive */}
-              {customers.length === 0 ? (
-                <EmptyState
-                  heading="No customers found"
-                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                >
-                  <p>
-                    {searchValue || selectedTier !== "all"
-                      ? "Try adjusting your filters"
-                      : "Customers will appear here when they make purchases"}
-                  </p>
-                </EmptyState>
-              ) : (
-                <>
-                  {/* Desktop view - Table */}
-                  <div style={{ display: "block" }} className="desktop-only">
-                    <DataTable
-                      columnContentTypes={["text", "text", "numeric", "text"]}
-                      headings={[
-                        "Customer",
-                        "Tier",
-                        "Store Credit",
-                        "Actions",
-                      ]}
-                      rows={rows}
-                      sortable={[true, false, true, false]}
-                    />
-                  </div>
-                  
-                  {/* Mobile view - Resource List */}
-                  <div style={{ display: "none" }} className="mobile-only">
-                    <ResourceList
-                      items={customers}
-                      renderItem={(customer) => {
-                        const { id, email, shopifyCustomerId, currentTier, storeCredit } = customer;
-                        
-                        return (
-                          <ResourceItem
-                            id={id}
-                            url={`/app/customers/${id}`}
-                            accessibilityLabel={`View details for ${email}`}
-                          >
-                            <BlockStack gap="200">
-                              <InlineStack align="space-between" blockAlign="start">
-                                <BlockStack gap="100">
-                                  <Text as="h3" variant="bodyMd" fontWeight="semibold">
-                                    {email}
-                                  </Text>
-                                  <Text as="p" variant="bodySm" tone="subdued">
-                                    ID: {shopifyCustomerId}
-                                  </Text>
-                                </BlockStack>
-                                {currentTier ? (
-                                  <Badge tone={getTierTone(currentTier)}>
-                                    {currentTier.name}
-                                  </Badge>
-                                ) : (
-                                  <Badge tone="new">No Tier</Badge>
-                                )}
-                              </InlineStack>
-                              <BlockStack gap="050">
-                                <Text as="p" variant="bodySm" tone="subdued">Store Credit</Text>
-                                <Text as="p" variant="bodyMd" fontWeight="semibold">
-                                  {formatCurrency(storeCredit)}
-                                </Text>
-                              </BlockStack>
-                            </BlockStack>
-                          </ResourceItem>
-                        );
-                      }}
-                    />
-                  </div>
-                  
-                  {/* CSS for responsive display */}
-                  <style>{`
-                    @media (max-width: 768px) {
-                      .desktop-only { display: none !important; }
-                      .mobile-only { display: block !important; }
-                    }
-                    @media (min-width: 769px) {
-                      .desktop-only { display: block !important; }
-                      .mobile-only { display: none !important; }
-                    }
-                  `}</style>
-                </>
-              )}
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-
-      </Layout>
-
-      {/* Sync Success/Error Banner */}
-      {syncResult && !syncModalOpen && (
-        <div style={{ position: "fixed", bottom: "20px", right: "20px", maxWidth: "400px", zIndex: 1000 }}>
-          <Banner
-            tone={syncResult.success ? "success" : "critical"}
-            onDismiss={() => fetcher.data = null}
-          >
-            <BlockStack gap="200">
-              <Text variant="headingMd" as="h3">
-                {syncResult.success ? "Sync Complete" : "Sync Failed"}
-              </Text>
-              <Text variant="bodyMd" as="p">
-                {syncResult.message || syncResult.error}
-              </Text>
-              {syncResult.syncedCount !== undefined && (
-                <Text variant="bodySm" as="p">
-                  Synced: {syncResult.syncedCount} / {syncResult.processedCount || syncResult.syncedCount} customers
-                </Text>
-              )}
-              {syncResult.errors && syncResult.errors.length > 0 && (
+        {/* Success/Error Messages */}
+        {(actionData || syncResult) && (
+          <Layout.Section>
+            <Banner
+              tone={(actionData?.success || syncResult?.success) ? "success" : "critical"}
+              onDismiss={() => {}}
+            >
+              {actionData && actionData.success && "message" in actionData ? actionData.message : ""}
+              {actionData && !actionData.success && "error" in actionData ? actionData.error : ""}
+              {syncResult?.message}
+              {syncResult?.errors && (
                 <BlockStack gap="100">
-                  <Text variant="bodySm" fontWeight="semibold" as="p">Errors:</Text>
                   {syncResult.errors.map((error, i) => (
                     <Text key={i} variant="bodySm" as="p">• {error}</Text>
                   ))}
                 </BlockStack>
               )}
+            </Banner>
+          </Layout.Section>
+        )}
+        
+        {/* Statistics Cards */}
+        <Layout.Section>
+          <InlineGrid columns={3} gap="400">
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="headingLg" as="h2">
+                  {stats.totalCustomers}
+                </Text>
+                <Text variant="bodySm" tone="subdued" as="p">
+                  Total Customers
+                </Text>
+              </BlockStack>
+            </Card>
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="headingLg" as="h2">
+                  {stats.customersWithTiers}
+                </Text>
+                <Text variant="bodySm" tone="subdued" as="p">
+                  With Tiers
+                </Text>
+              </BlockStack>
+            </Card>
+            <Card>
+              <BlockStack gap="200">
+                <Text variant="headingLg" as="h2">
+                  {stats.customersWithCredit}
+                </Text>
+                <Text variant="bodySm" tone="subdued" as="p">
+                  Have Store Credit
+                </Text>
+              </BlockStack>
+            </Card>
+          </InlineGrid>
+        </Layout.Section>
+        
+        {/* Customers Table */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              {/* Filters */}
+              <InlineGrid columns={2} gap="400">
+                <TextField
+                  label="Search customers"
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                  placeholder="Email or customer ID..."
+                  autoComplete="off"
+                  clearButton
+                  onClearButtonClick={() => setSearchTerm("")}
+                />
+                <Select
+                  label="Filter by tier"
+                  options={[
+                    { label: "All customers", value: "all" },
+                    { label: "No tier", value: "none" },
+                    ...tiers.map(tier => ({
+                      label: `${tier.name} (${tier.cashbackPercent}%)`,
+                      value: tier.id
+                    }))
+                  ]}
+                  value={selectedTier}
+                  onChange={setSelectedTier}
+                />
+              </InlineGrid>
+              
+              {/* Data Table */}
+              {filteredCustomers.length > 0 ? (
+                <DataTable
+                  columnContentTypes={["text", "text", "numeric", "numeric", "text"]}
+                  headings={["Customer", "Tier", "Store Credit", "Transactions", "Actions"]}
+                  rows={rows}
+                />
+              ) : (
+                <EmptyState
+                  heading="No customers found"
+                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                >
+                  <p>
+                    {searchTerm || selectedTier !== "all"
+                      ? "Try adjusting your filters"
+                      : "Sync from Shopify to import customers"}
+                  </p>
+                </EmptyState>
+              )}
             </BlockStack>
-          </Banner>
-        </div>
-      )}
-
-      {/* Sync Confirmation Modal */}
+          </Card>
+        </Layout.Section>
+      </Layout>
+      
+      {/* Credit Adjustment Modal */}
       <Modal
-        open={syncModalOpen}
-        onClose={() => !isSyncing && setSyncModalOpen(false)}
+        open={modalActive}
+        onClose={() => setModalActive(false)}
+        title={`Adjust Store Credit: ${selectedCustomer?.email}`}
+        primaryAction={{
+          content: creditAction === "add" ? "Add Credit" : "Remove Credit",
+          onAction: handleCreditAdjustment,
+          disabled: !creditAmount || parseFloat(creditAmount) <= 0 || isSubmitting,
+          loading: isSubmitting
+        }}
+        secondaryActions={[{
+          content: "Cancel",
+          onAction: () => setModalActive(false)
+        }]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Text variant="bodyMd" as="p">
+              Current balance: {selectedCustomer && formatCurrency(selectedCustomer.storeCredit)}
+            </Text>
+            <Select
+              label="Action"
+              options={[
+                { label: "Add credit", value: "add" },
+                { label: "Remove credit", value: "remove" }
+              ]}
+              value={creditAction}
+              onChange={(value) => setCreditAction(value as "add" | "remove")}
+            />
+            <TextField
+              label="Amount (USD)"
+              type="number"
+              value={creditAmount}
+              onChange={setCreditAmount}
+              placeholder="0.00"
+              min="0.01"
+              step={0.01}
+              autoComplete="off"
+            />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+      
+      {/* Sync Modal */}
+      <Modal
+        open={syncModalActive}
+        onClose={() => !isSyncing && setSyncModalActive(false)}
         title="Sync Customers from Shopify"
         primaryAction={{
           content: "Start Sync",
           onAction: confirmSync,
           loading: isSyncing,
-          disabled: isSyncing,
+          disabled: isSyncing
         }}
-        secondaryActions={!isSyncing ? [
-          {
-            content: "Cancel",
-            onAction: () => setSyncModalOpen(false),
-          },
-        ] : []}
+        secondaryActions={!isSyncing ? [{
+          content: "Cancel",
+          onAction: () => setSyncModalActive(false)
+        }] : []}
       >
         <Modal.Section>
           <BlockStack gap="400">
             {isSyncing ? (
               <>
                 <Text variant="bodyMd" as="p">
-                  Syncing customers from your Shopify store. This may take a few minutes depending on the number of customers.
+                  Syncing customers from Shopify...
                 </Text>
                 <ProgressBar progress={75} tone="primary" animated />
                 <Text variant="bodySm" tone="subdued" as="p">
-                  Please don't close this window while syncing is in progress.
+                  This may take a few minutes. Please don't close this window.
                 </Text>
               </>
             ) : (
               <>
                 <Text variant="bodyMd" as="p">
-                  This will fetch all customers from your Shopify store and update their information in RewardsPro.
+                  This will import all customers from your Shopify store and automatically assign them to loyalty tiers based on their spending.
                 </Text>
-                
                 <BlockStack gap="200">
                   <Text variant="bodyMd" fontWeight="semibold" as="p">
                     What will happen:
                   </Text>
-                  <ul style={{ marginLeft: "20px", marginTop: "8px" }}>
-                    <li>
-                      <Text variant="bodyMd" as="span">
-                        Import all customers with their email and spending data
-                      </Text>
-                    </li>
-                    <li>
-                      <Text variant="bodyMd" as="span">
-                        Automatically assign loyalty tiers based on total spending
-                      </Text>
-                    </li>
-                    <li>
-                      <Text variant="bodyMd" as="span">
-                        Update existing customer records if they already exist
-                      </Text>
-                    </li>
+                  <ul style={{ marginLeft: "20px" }}>
+                    <li>Import customers with email addresses</li>
+                    <li>Assign tiers based on total spending</li>
+                    <li>Update existing customer records</li>
                   </ul>
                 </BlockStack>
-                
                 {tiers.length === 0 && (
                   <Banner tone="warning">
                     <Text variant="bodyMd" as="p">
-                      No loyalty tiers found. Please create tiers first to automatically assign customers to appropriate levels.
+                      No tiers found. Create tiers first for automatic assignment.
                     </Text>
                   </Banner>
                 )}
-                
-                <Text variant="bodySm" tone="subdued" as="p">
-                  Note: Large customer bases may take several minutes to sync. The sync will continue in the background.
-                </Text>
               </>
             )}
           </BlockStack>
         </Modal.Section>
       </Modal>
+      
+      {/* Loading Overlay */}
+      {isSubmitting && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 999
+        }}>
+          <Spinner size="large" />
+        </div>
+      )}
     </Page>
   );
 }
