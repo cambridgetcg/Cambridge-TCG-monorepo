@@ -6,14 +6,27 @@ import {
   ScrollRestoration,
   useLoaderData,
 } from "@remix-run/react";
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs, LinksFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import { detectDevice } from "./utils/device-detection.server";
+import responsiveStyles from "./styles/responsive.css?url";
+
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: responsiveStyles },
+  // Preload critical fonts
+  { rel: "preload", href: "https://cdn.shopify.com/static/fonts/inter/v4/styles.css", as: "style" },
+];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // Pass the API key to the client for App Bridge initialization
+  // Device detection for responsive behavior
+  const device = detectDevice(request);
+  
+  // Pass the API key and device info to the client
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
     appUrl: process.env.SHOPIFY_APP_URL || "",
+    deviceType: device.type,
+    viewport: device.viewport,
   });
 };
 
