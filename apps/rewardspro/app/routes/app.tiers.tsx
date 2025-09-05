@@ -18,10 +18,8 @@ import {
   Text,
   Badge,
   EmptyState,
-  Icon,
   Box,
   Divider,
-  ButtonGroup,
   SkeletonBodyText,
   SkeletonDisplayText,
 } from "@shopify/polaris";
@@ -29,8 +27,6 @@ import {
   PlusIcon,
   EditIcon,
   DeleteIcon,
-  StarFilledIcon,
-  PersonIcon,
 } from "@shopify/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
@@ -507,30 +503,30 @@ export default function TiersPage() {
     const customerCount = stats.tierDistribution[tier.id] || 0;
     
     return [
-      <InlineStack gap="200" blockAlign="center">
+      <BlockStack gap="050">
         <Text variant="bodyMd" fontWeight="semibold" as="span">{tier.name}</Text>
         {customerCount > 0 && (
-          <Badge tone="info">{`${customerCount}`}</Badge>
+          <Text variant="bodySm" tone="subdued" as="span">{`${customerCount} customers`}</Text>
         )}
-      </InlineStack>,
+      </BlockStack>,
       <Text variant="bodyMd" as="span">${tier.minSpend.toLocaleString()}</Text>,
       <Text variant="bodyMd" as="span">{tier.cashbackPercent}%</Text>,
-      <Badge tone={tier.evaluationPeriod === "ANNUAL" ? "info" : "success"}>
+      <Text variant="bodyMd" as="span">
         {tier.evaluationPeriod === "ANNUAL" ? "Annual" : "Lifetime"}
-      </Badge>,
-      <ButtonGroup>
+      </Text>,
+      <InlineStack gap="200" align="end">
         <Button size="slim" icon={EditIcon} onClick={() => handleModalOpen(tier)}>
           Edit
         </Button>
         {deleteConfirmId === tier.id ? (
-          <>
-            <Button size="slim" tone="critical" onClick={() => handleDelete(tier.id)}>
-              Confirm
-            </Button>
+          <InlineStack gap="100">
             <Button size="slim" variant="plain" onClick={() => setDeleteConfirmId(null)}>
               Cancel
             </Button>
-          </>
+            <Button size="slim" tone="critical" onClick={() => handleDelete(tier.id)}>
+              Confirm
+            </Button>
+          </InlineStack>
         ) : (
           <Button 
             size="slim" 
@@ -542,7 +538,7 @@ export default function TiersPage() {
             Delete
           </Button>
         )}
-      </ButtonGroup>,
+      </InlineStack>,
     ];
   });
 
@@ -595,30 +591,24 @@ export default function TiersPage() {
       }
     >
       <Layout>
-        {/* Key Metrics - Simplified to 2 cards */}
+        {/* Key Metrics */}
         <Layout.Section>
           <InlineStack gap="400">
             <Card>
               <Box padding="400">
-                <InlineStack align="space-between" blockAlign="center">
-                  <BlockStack gap="100">
-                    <Text variant="headingMd" as="h3">{stats.totalTiers}</Text>
-                    <Text variant="bodySm" tone="subdued" as="p">Active Tiers</Text>
-                  </BlockStack>
-                  <Icon source={StarFilledIcon} tone="base" />
-                </InlineStack>
+                <BlockStack gap="100">
+                  <Text variant="headingLg" as="h3">{stats.totalTiers}</Text>
+                  <Text variant="bodySm" tone="subdued" as="p">Active Tiers</Text>
+                </BlockStack>
               </Box>
             </Card>
             
             <Card>
               <Box padding="400">
-                <InlineStack align="space-between" blockAlign="center">
-                  <BlockStack gap="100">
-                    <Text variant="headingMd" as="h3">{stats.totalCustomers}</Text>
-                    <Text variant="bodySm" tone="subdued" as="p">Total Customers</Text>
-                  </BlockStack>
-                  <Icon source={PersonIcon} tone="base" />
-                </InlineStack>
+                <BlockStack gap="100">
+                  <Text variant="headingLg" as="h3">{stats.totalCustomers}</Text>
+                  <Text variant="bodySm" tone="subdued" as="p">Total Customers</Text>
+                </BlockStack>
               </Box>
             </Card>
           </InlineStack>
@@ -644,7 +634,6 @@ export default function TiersPage() {
                 heading="Start rewarding your customers"
                 action={{
                   content: "Create first tier",
-                  icon: PlusIcon,
                   onAction: () => handleModalOpen(),
                 }}
                 secondaryAction={{
