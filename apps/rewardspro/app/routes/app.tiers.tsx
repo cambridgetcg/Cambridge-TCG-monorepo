@@ -566,23 +566,43 @@ export default function TiersPage() {
   }, [fetcher]);
 
   // Prepare table data
-  const rows = tiers.map((tier) => {
+  const rows = tiers.map((tier, index) => {
     const customerCount = stats.tierDistribution[tier.id] || 0;
+    const previousTier = index > 0 ? tiers[index - 1] : null;
+    const spendGap = previousTier ? tier.minSpend - previousTier.minSpend : 0;
+    const cashbackIncrease = previousTier ? tier.cashbackPercent - previousTier.cashbackPercent : 0;
     
     return [
       <Box>
-        <InlineStack align="space-between" blockAlign="center" gap="200">
-          <Text variant="bodyMd" fontWeight="semibold">{tier.name}</Text>
-          {customerCount > 0 && (
-            <Badge tone="info">{customerCount} customers</Badge>
+        <BlockStack gap="100">
+          <InlineStack align="space-between" blockAlign="center" gap="200">
+            <Text variant="bodyMd" fontWeight="semibold" as="span">{tier.name}</Text>
+            {customerCount > 0 && (
+              <Badge tone="info">{`${customerCount} customers`}</Badge>
+            )}
+          </InlineStack>
+          {previousTier && (
+            <Text variant="bodySm" tone="subdued" as="span">
+              +${spendGap.toLocaleString()} from {previousTier.name}
+            </Text>
           )}
-        </InlineStack>
+        </BlockStack>
       </Box>,
-      <Text variant="bodyMd">${tier.minSpend.toLocaleString()}</Text>,
-      <InlineStack gap="200" blockAlign="center">
-        <Text variant="bodyMd">{tier.cashbackPercent}%</Text>
-        <ProgressBar progress={tier.cashbackPercent} size="small" />
-      </InlineStack>,
+      <BlockStack gap="100">
+        <Text variant="bodyMd" as="span">${tier.minSpend.toLocaleString()}</Text>
+        {index === 0 && (
+          <Badge tone="success">{`Entry Level`}</Badge>
+        )}
+      </BlockStack>,
+      <BlockStack gap="100">
+        <InlineStack gap="200" blockAlign="center">
+          <Text variant="bodyMd" as="span">{tier.cashbackPercent}%</Text>
+          <ProgressBar progress={tier.cashbackPercent} size="small" />
+        </InlineStack>
+        {cashbackIncrease > 0 && (
+          <Badge tone="success">{`+${cashbackIncrease}%`}</Badge>
+        )}
+      </BlockStack>,
       <Badge tone={tier.evaluationPeriod === "ANNUAL" ? "info" : "success"}>
         {tier.evaluationPeriod}
       </Badge>,
@@ -662,51 +682,71 @@ export default function TiersPage() {
         {/* Statistics Cards */}
         <Layout.Section>
           <Grid>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 3, lg: 3}}>
               <Card>
                 <InlineStack align="space-between">
-                  <div>
+                  <BlockStack gap="100">
                     <Text variant="headingMd" as="h3">{stats.totalTiers}</Text>
-                    <Text variant="bodySm" tone="subdued">Active Tiers</Text>
-                  </div>
+                    <Text variant="bodySm" tone="subdued" as="p">Active Tiers</Text>
+                    {stats.totalTiers > 0 && (
+                      <Text variant="bodySm" as="p">
+                        {Object.values(stats.tierDistribution).filter(count => count > 0).length} with customers
+                      </Text>
+                    )}
+                  </BlockStack>
                   <Icon source={StarFilledIcon} tone="base" />
                 </InlineStack>
               </Card>
             </Grid.Cell>
             
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 3, lg: 3}}>
               <Card>
                 <InlineStack align="space-between">
-                  <div>
+                  <BlockStack gap="100">
                     <Text variant="headingMd" as="h3">{stats.totalCustomers}</Text>
-                    <Text variant="bodySm" tone="subdued">Total Customers</Text>
-                  </div>
+                    <Text variant="bodySm" tone="subdued" as="p">Total Customers</Text>
+                    {stats.totalCustomers > 0 && tiers.length > 0 && (
+                      <Text variant="bodySm" as="p">
+                        {Math.round(stats.totalCustomers / tiers.length)} avg per tier
+                      </Text>
+                    )}
+                  </BlockStack>
                   <Icon source={PersonSegmentIcon} tone="base" />
                 </InlineStack>
               </Card>
             </Grid.Cell>
             
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 3, lg: 3}}>
               <Card>
                 <InlineStack align="space-between">
-                  <div>
+                  <BlockStack gap="100">
                     <Text variant="headingMd" as="h3">{stats.averageCashback}%</Text>
-                    <Text variant="bodySm" tone="subdued">Avg Cashback</Text>
-                  </div>
+                    <Text variant="bodySm" tone="subdued" as="p">Avg Cashback</Text>
+                    {tierInsights && (
+                      <Text variant="bodySm" as="p">
+                        {tierInsights.minCashback}% - {tierInsights.maxCashback}% range
+                      </Text>
+                    )}
+                  </BlockStack>
                   <Icon source={CashDollarFilledIcon} tone="base" />
                 </InlineStack>
               </Card>
             </Grid.Cell>
             
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 3, lg: 3}}>
               <Card>
                 <InlineStack align="space-between">
-                  <div>
+                  <BlockStack gap="100">
                     <Text variant="headingMd" as="h3">
                       ${stats.totalRewardsDistributed.toLocaleString()}
                     </Text>
-                    <Text variant="bodySm" tone="subdued">Total Rewards</Text>
-                  </div>
+                    <Text variant="bodySm" tone="subdued" as="p">Total Rewards</Text>
+                    {stats.totalRewardsDistributed > 0 && stats.totalCustomers > 0 && (
+                      <Text variant="bodySm" as="p">
+                        ${Math.round(stats.totalRewardsDistributed / stats.totalCustomers)} per customer
+                      </Text>
+                    )}
+                  </BlockStack>
                   <Icon source={ChartVerticalFilledIcon} tone="base" />
                 </InlineStack>
               </Card>
@@ -737,7 +777,7 @@ export default function TiersPage() {
                   onAction: () => {},
                 }}
               >
-                <Text variant="bodyMd">{tierInsights.recommendation}</Text>
+                <Text variant="bodyMd" as="p">{tierInsights.recommendation}</Text>
               </CalloutCard>
             )}
           </BlockStack>
@@ -760,7 +800,7 @@ export default function TiersPage() {
                 }}
                 image="https://cdn.shopify.com/s/files/1/0583/8520/4949/files/loyalty-empty-state.svg"
               >
-                <Text variant="bodyMd">
+                <Text variant="bodyMd" as="p">
                   Create loyalty tiers to automatically reward customers based on their spending. 
                   Customers earn cashback and move up tiers as they shop more.
                 </Text>
@@ -770,27 +810,69 @@ export default function TiersPage() {
                 {/* Tier Progression Visualization */}
                 <Box padding="400" borderRadius="200" background="bg-surface-secondary">
                   <BlockStack gap="300">
-                    <Text variant="headingSm" as="h3">Tier Progression</Text>
-                    <InlineStack gap="200" wrap={false}>
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="headingSm" as="h3">Tier Progression</Text>
+                      <Badge tone="success">{`${tiers.length} Active Tiers`}</Badge>
+                    </InlineStack>
+                    <InlineStack gap="100" wrap={false} blockAlign="center">
                       {tiers.map((tier, index) => (
-                        <Box key={tier.id} minWidth="120px">
-                          <BlockStack gap="100">
-                            <Box 
-                              padding="200" 
-                              borderRadius="100" 
-                              background={index === 0 ? "bg-fill-success" : "bg-fill-info"}
-                            >
-                              <Text variant="bodySm" alignment="center" fontWeight="semibold">
-                                {tier.name}
+                        <>
+                          <Box key={tier.id} minWidth="140px">
+                            <BlockStack gap="100">
+                              <Box 
+                                padding="300" 
+                                borderRadius="200" 
+                                background={
+                                  index === 0 
+                                    ? "bg-fill-success-secondary" 
+                                    : index === tiers.length - 1 
+                                    ? "bg-fill-warning-secondary"
+                                    : "bg-fill-info-secondary"
+                                }
+                              >
+                                <BlockStack gap="100">
+                                  <Text variant="bodyMd" alignment="center" fontWeight="bold" as="p">
+                                    {tier.name}
+                                  </Text>
+                                  <InlineStack align="center" gap="100">
+                                    <Badge tone={index === 0 ? "success" : "info"}>
+                                      {`${tier.cashbackPercent}%`}
+                                    </Badge>
+                                    {stats.tierDistribution[tier.id] > 0 && (
+                                      <Badge tone="attention">
+                                        {`${stats.tierDistribution[tier.id]} members`}
+                                      </Badge>
+                                    )}
+                                  </InlineStack>
+                                </BlockStack>
+                              </Box>
+                              <Text variant="bodySm" alignment="center" tone="subdued" as="p">
+                                Spend ${tier.minSpend.toLocaleString()}+
                               </Text>
+                              {tier.evaluationPeriod === "ANNUAL" && (
+                                <Text variant="bodySm" alignment="center" tone="subdued" as="p">
+                                  per year
+                                </Text>
+                              )}
+                            </BlockStack>
+                          </Box>
+                          {index < tiers.length - 1 && (
+                            <Box key={`arrow-${index}`} paddingInline="100">
+                              <Text variant="headingLg" tone="subdued" as="span">→</Text>
                             </Box>
-                            <Text variant="bodySm" alignment="center" tone="subdued">
-                              ${tier.minSpend}+ • {tier.cashbackPercent}%
-                            </Text>
-                          </BlockStack>
-                        </Box>
+                          )}
+                        </>
                       ))}
                     </InlineStack>
+                    {tierInsights && (
+                      <Box padding="200" borderRadius="100" background="bg-fill-tertiary">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="bodySm" as="p">
+                            <Icon source={InfoIcon} tone="base" /> {tierInsights.recommendation}
+                          </Text>
+                        </InlineStack>
+                      </Box>
+                    )}
                   </BlockStack>
                 </Box>
 
@@ -834,6 +916,64 @@ export default function TiersPage() {
               </BlockStack>
             </Card>
 
+            {/* Recommended Next Tier */}
+            {tiers.length > 0 && tierInsights && (
+              <Card>
+                <BlockStack gap="300">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={StarFilledIcon} tone="warning" />
+                    <Text variant="headingMd" as="h2">
+                      Recommended Next Tier
+                    </Text>
+                  </InlineStack>
+                  
+                  <BlockStack gap="200">
+                    {tiers.length < 5 && tierInsights.avgGap > 500 && (
+                      <Box padding="200" borderRadius="100" background="bg-fill-info-secondary">
+                        <BlockStack gap="100">
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
+                            Add Intermediate Tier
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p">
+                            Consider adding a tier between ${Math.round(tiers[0].minSpend + tierInsights.avgGap / 2)} - ${Math.round(tiers[tiers.length - 1].minSpend - tierInsights.avgGap / 2)}
+                          </Text>
+                          <Text variant="bodySm" as="p">
+                            Cashback: {Math.round((tierInsights.minCashback + tierInsights.maxCashback) / 2)}%
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    )}
+                    
+                    {tiers.length === 1 && (
+                      <Box padding="200" borderRadius="100" background="bg-fill-success-secondary">
+                        <BlockStack gap="100">
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
+                            Add Premium Tier
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p">
+                            Create a VIP tier at $1000+ with {tiers[0].cashbackPercent + 2}% cashback
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    )}
+                    
+                    {tierInsights.maxCashback < 5 && (
+                      <Box padding="200" borderRadius="100" background="bg-fill-warning-secondary">
+                        <BlockStack gap="100">
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
+                            Boost Top Tier Rewards
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p">
+                            Consider increasing your highest tier to 5-7% cashback to incentivize big spenders
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    )}
+                  </BlockStack>
+                </BlockStack>
+              </Card>
+            )}
+
             {/* Help Card */}
             <Card>
               <BlockStack gap="300">
@@ -846,28 +986,28 @@ export default function TiersPage() {
                 
                 <BlockStack gap="200">
                   <Box>
-                    <Text variant="bodyMd" fontWeight="semibold">
+                    <Text variant="bodyMd" fontWeight="semibold" as="p">
                       Annual Period
                     </Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" tone="subdued" as="p">
                       Based on spending in the last 12 months. Customers can move up or down.
                     </Text>
                   </Box>
                   
                   <Box>
-                    <Text variant="bodyMd" fontWeight="semibold">
+                    <Text variant="bodyMd" fontWeight="semibold" as="p">
                       Lifetime Period
                     </Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" tone="subdued" as="p">
                       Based on all-time spending. Customers never move down.
                     </Text>
                   </Box>
                   
                   <Box>
-                    <Text variant="bodyMd" fontWeight="semibold">
+                    <Text variant="bodyMd" fontWeight="semibold" as="p">
                       Best Practices
                     </Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" tone="subdued" as="p">
                       • Start with 3-4 tiers for simplicity
                       <br />• Space tiers evenly for smooth progression
                       <br />• Increase rewards gradually (2-3% jumps)
@@ -887,12 +1027,12 @@ export default function TiersPage() {
                   </Text>
                   <BlockStack gap="200">
                     <InlineStack align="space-between">
-                      <Text variant="bodySm" tone="subdued">Avg. Tier Gap</Text>
-                      <Text variant="bodySm">${tierInsights.avgGap}</Text>
+                      <Text variant="bodySm" tone="subdued" as="p">Avg. Tier Gap</Text>
+                      <Text variant="bodySm" as="p">${tierInsights.avgGap}</Text>
                     </InlineStack>
                     <InlineStack align="space-between">
-                      <Text variant="bodySm" tone="subdued">Cashback Range</Text>
-                      <Text variant="bodySm">{tierInsights.minCashback}% - {tierInsights.maxCashback}%</Text>
+                      <Text variant="bodySm" tone="subdued" as="p">Cashback Range</Text>
+                      <Text variant="bodySm" as="p">{tierInsights.minCashback}% - {tierInsights.maxCashback}%</Text>
                     </InlineStack>
                   </BlockStack>
                 </BlockStack>
@@ -925,7 +1065,7 @@ export default function TiersPage() {
               <Banner tone="critical" icon={AlertTriangleIcon}>
                 <BlockStack gap="200">
                   {formErrors.map((error, i) => (
-                    <Text key={i} variant="bodyMd">
+                    <Text key={i} variant="bodyMd" as="p">
                       {error}
                     </Text>
                   ))}
@@ -986,15 +1126,15 @@ export default function TiersPage() {
             <Box paddingBlockStart="400">
               <Card>
                 <BlockStack gap="200">
-                  <Text variant="headingSm">Preview</Text>
+                  <Text variant="headingSm" as="h3">Preview</Text>
                   <Divider />
                   <InlineStack align="space-between">
-                    <Text variant="bodyMd" fontWeight="semibold">
+                    <Text variant="bodyMd" fontWeight="semibold" as="p">
                       {name || "Tier Name"}
                     </Text>
                     <Badge>{evaluationPeriod}</Badge>
                   </InlineStack>
-                  <Text variant="bodySm" tone="subdued">
+                  <Text variant="bodySm" tone="subdued" as="p">
                     Customers who spend ${minSpend || "0"}+ will earn {cashbackPercent || "0"}% cashback
                   </Text>
                 </BlockStack>
@@ -1018,7 +1158,7 @@ export default function TiersPage() {
       >
         <Modal.Section>
           <BlockStack gap="400">
-            <Text variant="bodyMd">
+            <Text variant="bodyMd" as="p">
               Select a pre-configured tier structure to get started quickly. 
               You can customize the tiers after applying the template.
             </Text>
@@ -1028,8 +1168,8 @@ export default function TiersPage() {
                 <BlockStack gap="300">
                   <InlineStack align="space-between">
                     <div>
-                      <Text variant="headingMd">{template.name}</Text>
-                      <Text variant="bodySm" tone="subdued">
+                      <Text variant="headingMd" as="h3">{template.name}</Text>
+                      <Text variant="bodySm" tone="subdued" as="p">
                         {template.description}
                       </Text>
                     </div>
@@ -1043,10 +1183,10 @@ export default function TiersPage() {
                   <BlockStack gap="200">
                     {template.tiers.map((tier, index) => (
                       <InlineStack key={index} align="space-between">
-                        <Text variant="bodySm">
+                        <Text variant="bodySm" as="p">
                           <strong>{tier.name}</strong> - ${tier.minSpend}+
                         </Text>
-                        <Badge tone="info">{tier.cashbackPercent}%</Badge>
+                        <Badge tone="info">{`${tier.cashbackPercent}%`}</Badge>
                       </InlineStack>
                     ))}
                   </BlockStack>

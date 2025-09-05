@@ -312,7 +312,7 @@ export default function DashboardPage() {
               }}
             >
               <Box paddingBlockEnd="200">
-                <Text variant="bodyMd">
+                <Text variant="bodyMd" as="p">
                   You're {Math.round(setupProgress)}% complete with your rewards program setup.
                 </Text>
               </Box>
@@ -328,7 +328,7 @@ export default function DashboardPage() {
               <Card>
                 <BlockStack gap="200">
                   <InlineStack align="space-between">
-                    <Text variant="bodySm" tone="subdued">Total Customers</Text>
+                    <Text variant="bodySm" tone="subdued" as="p">Total Customers</Text>
                     <Icon source={PersonSegmentIcon} tone="base" />
                   </InlineStack>
                   <Text variant="headingXl" as="h2">{metrics.totalCustomers}</Text>
@@ -336,12 +336,12 @@ export default function DashboardPage() {
                     {metrics.customersChange > 0 ? (
                       <>
                         <Icon source={ArrowUpIcon} tone="success" />
-                        <Text variant="bodySm" tone="success">
+                        <Text variant="bodySm" as="p">
                           +{metrics.customersChange} this month
                         </Text>
                       </>
                     ) : (
-                      <Text variant="bodySm" tone="subdued">
+                      <Text variant="bodySm" tone="subdued" as="p">
                         No new customers this month
                       </Text>
                     )}
@@ -354,13 +354,13 @@ export default function DashboardPage() {
               <Card>
                 <BlockStack gap="200">
                   <InlineStack align="space-between">
-                    <Text variant="bodySm" tone="subdued">Rewards Distributed</Text>
+                    <Text variant="bodySm" tone="subdued" as="p">Rewards Distributed</Text>
                     <Icon source={CashDollarFilledIcon} tone="base" />
                   </InlineStack>
                   <Text variant="headingXl" as="h2">{formatCurrency(metrics.totalRewards)}</Text>
                   <InlineStack gap="100" blockAlign="center">
                     <Icon source={ArrowUpIcon} tone="success" />
-                    <Text variant="bodySm" tone="success">
+                    <Text variant="bodySm" as="p">
                       +{metrics.rewardsChange}% vs last month
                     </Text>
                   </InlineStack>
@@ -372,17 +372,17 @@ export default function DashboardPage() {
               <Card>
                 <BlockStack gap="200">
                   <InlineStack align="space-between">
-                    <Text variant="bodySm" tone="subdued">Active Tiers</Text>
+                    <Text variant="bodySm" tone="subdued" as="p">Active Tiers</Text>
                     <Icon source={StarFilledIcon} tone="base" />
                   </InlineStack>
                   <InlineStack gap="200" blockAlign="baseline">
                     <Text variant="headingXl" as="h2">{metrics.activeTiers}</Text>
-                    <Text variant="bodyMd" tone="subdued">
+                    <Text variant="bodyMd" tone="subdued" as="span">
                       / {metrics.tiersWithCustomers} used
                     </Text>
                   </InlineStack>
                   <Badge tone={metrics.activeTiers >= 3 ? "success" : "attention"}>
-                    {metrics.activeTiers >= 3 ? "Optimal" : "Add more tiers"}
+                    {metrics.activeTiers >= 3 ? `Optimal` : `Add more tiers`}
                   </Badge>
                 </BlockStack>
               </Card>
@@ -392,11 +392,11 @@ export default function DashboardPage() {
               <Card>
                 <BlockStack gap="200">
                   <InlineStack align="space-between">
-                    <Text variant="bodySm" tone="subdued">Avg. Cashback</Text>
+                    <Text variant="bodySm" tone="subdued" as="p">Avg. Cashback</Text>
                     <Icon source={TipJarIcon} tone="base" />
                   </InlineStack>
                   <Text variant="headingXl" as="h2">{metrics.averageCashback}%</Text>
-                  <Text variant="bodySm" tone="subdued">
+                  <Text variant="bodySm" tone="subdued" as="p">
                     Across all tiers
                   </Text>
                 </BlockStack>
@@ -409,7 +409,7 @@ export default function DashboardPage() {
         <Layout.Section>
           <Grid>
             {/* Tier Distribution */}
-            <Grid.Cell columnSpan={{ xs: 12, sm: 6, md: 6, lg: 8, xl: 8 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 4, lg: 4}}>
               <Card>
                 <BlockStack gap="400">
                   <InlineStack align="space-between">
@@ -433,20 +433,20 @@ export default function DashboardPage() {
                         <Box key={tier.name}>
                           <BlockStack gap="100">
                             <InlineStack align="space-between">
-                              <Text variant="bodyMd" fontWeight="semibold">
+                              <Text variant="bodyMd" fontWeight="semibold" as="span">
                                 {tier.name}
                               </Text>
                               <InlineStack gap="200">
-                                <Text variant="bodyMd">
+                                <Text variant="bodyMd" as="span">
                                   {tier.customerCount} customers
                                 </Text>
-                                <Badge tone="info">{tier.percentage}%</Badge>
+                                <Badge tone="info">{`${tier.percentage}%`}</Badge>
                               </InlineStack>
                             </InlineStack>
                             <ProgressBar 
                               progress={tier.percentage} 
                               size="small"
-                              tone={tier.customerCount > 0 ? "primary" : "subdued"}
+                              tone={tier.customerCount > 0 ? "success" : undefined}
                             />
                           </BlockStack>
                         </Box>
@@ -458,7 +458,7 @@ export default function DashboardPage() {
             </Grid.Cell>
 
             {/* Quick Actions */}
-            <Grid.Cell columnSpan={{ xs: 12, sm: 6, md: 6, lg: 4, xl: 4 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 2, lg: 2}}>
               <Card>
                 <BlockStack gap="400">
                   <Text variant="headingMd" as="h3">Quick Actions</Text>
@@ -502,7 +502,7 @@ export default function DashboardPage() {
         <Layout.Section>
           <Grid>
             {/* Recent Activity */}
-            <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 12, lg: 8, xl: 8 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 4, lg: 4}}>
               <Card>
                 <BlockStack gap="400">
                   <InlineStack align="space-between">
@@ -513,10 +513,10 @@ export default function DashboardPage() {
                   {recentActivity.length === 0 ? (
                     <Box paddingBlock="600">
                       <BlockStack gap="200">
-                        <Text variant="bodyMd" alignment="center" tone="subdued">
+                        <Text variant="bodyMd" alignment="center" tone="subdued" as="p">
                           No activity yet
                         </Text>
-                        <Text variant="bodySm" alignment="center" tone="subdued">
+                        <Text variant="bodySm" alignment="center" tone="subdued" as="p">
                           Activity will appear here once customers start earning rewards
                         </Text>
                       </BlockStack>
@@ -540,16 +540,16 @@ export default function DashboardPage() {
                                       : "base"
                                   }
                                 />
-                                <Text variant="bodyMd" fontWeight="semibold">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">
                                   {activity.description}
                                 </Text>
                               </InlineStack>
-                              <Text variant="bodySm" tone="subdued">
+                              <Text variant="bodySm" tone="subdued" as="p">
                                 {formatRelativeTime(activity.timestamp)}
                               </Text>
                             </BlockStack>
                             {activity.amount && (
-                              <Text variant="bodyMd" fontWeight="semibold">
+                              <Text variant="bodyMd" fontWeight="semibold" as="span">
                                 {formatCurrency(activity.amount)}
                               </Text>
                             )}
@@ -563,7 +563,7 @@ export default function DashboardPage() {
             </Grid.Cell>
 
             {/* Insights */}
-            <Grid.Cell columnSpan={{ xs: 12, sm: 12, md: 12, lg: 4, xl: 4 }}>
+            <Grid.Cell columnSpan={{xs: 6, sm: 6, md: 2, lg: 2}}>
               <Card>
                 <BlockStack gap="400">
                   <InlineStack gap="200" blockAlign="center">
@@ -579,10 +579,10 @@ export default function DashboardPage() {
                         borderRadius="200"
                       >
                         <BlockStack gap="100">
-                          <Text variant="bodyMd" fontWeight="semibold">
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
                             Add More Tiers
                           </Text>
-                          <Text variant="bodySm">
+                          <Text variant="bodySm" as="p">
                             Consider adding more tiers to provide better progression for customers.
                           </Text>
                         </BlockStack>
@@ -596,10 +596,10 @@ export default function DashboardPage() {
                         borderRadius="200"
                       >
                         <BlockStack gap="100">
-                          <Text variant="bodyMd" fontWeight="semibold">
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
                             Growing Customer Base
                           </Text>
-                          <Text variant="bodySm">
+                          <Text variant="bodySm" as="p">
                             Great job! Your customer base is growing steadily.
                           </Text>
                         </BlockStack>
@@ -613,10 +613,10 @@ export default function DashboardPage() {
                         borderRadius="200"
                       >
                         <BlockStack gap="100">
-                          <Text variant="bodyMd" fontWeight="semibold">
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
                             Boost Engagement
                           </Text>
-                          <Text variant="bodySm">
+                          <Text variant="bodySm" as="p">
                             Consider promotional campaigns to move customers to higher tiers.
                           </Text>
                         </BlockStack>
@@ -644,6 +644,7 @@ export default function DashboardPage() {
                     <Text 
                       variant="bodyMd"
                       tone={setupChecklist.tiersCreated ? "success" : "subdued"}
+                      as="span"
                     >
                       Create loyalty tiers
                     </Text>
@@ -657,6 +658,7 @@ export default function DashboardPage() {
                     <Text 
                       variant="bodyMd"
                       tone={setupChecklist.hasCustomers ? "success" : "subdued"}
+                      as="span"
                     >
                       Import customers
                     </Text>
@@ -670,6 +672,7 @@ export default function DashboardPage() {
                     <Text 
                       variant="bodyMd"
                       tone={setupChecklist.settingsConfigured ? "success" : "subdued"}
+                      as="span"
                     >
                       Configure settings
                     </Text>
@@ -683,6 +686,7 @@ export default function DashboardPage() {
                     <Text 
                       variant="bodyMd"
                       tone={setupChecklist.billingActive ? "success" : "subdued"}
+                      as="span"
                     >
                       Activate billing plan
                     </Text>
