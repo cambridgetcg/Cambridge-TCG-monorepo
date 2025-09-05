@@ -1,6 +1,6 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useSearchParams, useFetcher, useNavigation } from "@remix-run/react";
 export { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   Page,
@@ -18,9 +18,13 @@ import {
   Icon,
   ResourceList,
   ResourceItem,
+  Banner,
+  ProgressBar,
+  Modal,
+  Box,
 } from "@shopify/polaris";
-import { SearchIcon } from "@shopify/polaris-icons";
-import { useState, useCallback, useMemo } from "react";
+import { SearchIcon, RefreshIcon } from "@shopify/polaris-icons";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
@@ -177,14 +181,228 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 };
 
+// Action handler for sync
+export const action = async ({ request }: ActionFunctionArgs) => {
+  try {
+    const { admin, session } = await authenticate.admin(request);
+    
+    if (!session?.shop) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+
+    const shop = session.shop;
+    const formData = await request.formData();
+    const intent = formData.get("intent") as string;
+
+    if (intent === "sync") {
+      // Fetch all tiers for assignment logic
+      const tiers = await db.tier.findMany({
+        where: { shop },
+        orderBy: { minSpend: "desc" },
+      });
+
+      if (tiers.length === 0) {
+        return json({ 
+          error: "Please create loyalty tiers before syncing customers",
+          syncedCount: 0 
+        });
+      }
+
+      // GraphQL query to fetch customers from Shopify
+      const CUSTOMERS_QUERY = `#graphql
+        query GetCustomers($cursor: String) {
+          customers(first: 250, after: $cursor) {
+            edges {
+              node {
+                id
+                email
+                firstName
+                lastName
+                phone
+                totalSpentAmount {
+                  amount
+                  currencyCode
+                }
+                ordersCount
+                createdAt
+                updatedAt
+                addresses {
+                  country
+                  province
+                  city
+                }
+              }
+              cursor
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      `;
+
+      let hasNextPage = true;
+      let cursor = null;
+      let syncedCount = 0;
+      let processedCount = 0;
+      const errors: string[] = [];
+
+      // Process customers in batches
+      while (hasNextPage) {
+        try {
+          const response = await admin.graphql(
+            CUSTOMERS_QUERY,
+            { variables: { cursor } }
+          );
+
+          const data = await response.json();
+          
+          if (data.errors) {
+            console.error("GraphQL errors:", data.errors);
+            errors.push("Failed to fetch some customers from Shopify");
+            break;
+          }
+
+          const customers = data.data.customers;
+          
+          // Process each customer
+          for (const edge of customers.edges) {
+            const customer = edge.node;
+            processedCount++;
+            
+            // Skip customers without email
+            if (!customer.email) {
+              continue;
+            }
+
+            // Extract customer ID from GraphQL ID
+            const shopifyCustomerId = customer.id.replace('gid://shopify/Customer/', '');
+            
+            // Calculate total spending (convert from cents to dollars)
+            const totalSpending = parseFloat(customer.totalSpentAmount?.amount || "0");
+            
+            // Determine appropriate tier based on spending
+            let assignedTier = null;
+            for (const tier of tiers) {
+              if (totalSpending >= tier.minSpend) {
+                assignedTier = tier;
+                break;
+              }
+            }
+
+            // Prepare customer data (only using fields that exist in the schema)
+            const customerData = {
+              shop,
+              shopifyCustomerId,
+              email: customer.email,
+              currentTierId: assignedTier?.id || null,
+              storeCredit: 0, // Default to 0 for new customers
+            };
+
+            // Upsert customer in database
+            const upsertedCustomer = await db.customer.upsert({
+              where: {
+                shop_shopifyCustomerId: {
+                  shop,
+                  shopifyCustomerId,
+                },
+              },
+              create: customerData,
+              update: {
+                email: customerData.email,
+                currentTierId: customerData.currentTierId,
+              },
+            });
+            
+            // If tier was assigned, log it
+            if (assignedTier && !upsertedCustomer.currentTierId) {
+              await db.tierChangeLog.create({
+                data: {
+                  customerId: upsertedCustomer.id,
+                  shop,
+                  fromTierId: null,
+                  toTierId: assignedTier.id,
+                  changeType: "INITIAL_ASSIGNMENT",
+                  triggerType: "ACCOUNT_CREATED",
+                  totalSpending: totalSpending,
+                  metadata: {
+                    syncedFromShopify: true,
+                    customerName: [customer.firstName, customer.lastName].filter(Boolean).join(' '),
+                    ordersCount: customer.ordersCount,
+                  },
+                },
+              });
+            }
+
+            syncedCount++;
+          }
+
+          // Check for next page
+          hasNextPage = customers.pageInfo.hasNextPage;
+          cursor = customers.pageInfo.endCursor;
+          
+          // Add a small delay to avoid rate limiting
+          if (hasNextPage) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (error) {
+          console.error("Error processing customer batch:", error);
+          errors.push(`Error processing batch after ${processedCount} customers`);
+          break;
+        }
+      }
+
+      return json({
+        success: true,
+        syncedCount,
+        processedCount,
+        errors: errors.length > 0 ? errors : null,
+        message: `Successfully synced ${syncedCount} customers`,
+      });
+    }
+
+    return json({ error: "Invalid action" });
+  } catch (error) {
+    console.error("Action error:", error);
+    return json({ error: "Failed to sync customers" }, { status: 500 });
+  }
+};
+
 // Component
 export default function CustomersPage() {
   const { customers, tiers } = useLoaderData<LoaderData>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const fetcher = useFetcher();
+  const navigation = useNavigation();
     
   // Search and filter state
   const [searchValue, setSearchValue] = useState(searchParams.get("search") || "");
   const [selectedTier, setSelectedTier] = useState(searchParams.get("tier") || "all");
+  
+  // Sync modal state
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncInProgress, setSyncInProgress] = useState(false);
+  
+  // Handle sync action
+  const handleSync = useCallback(() => {
+    setSyncModalOpen(true);
+  }, []);
+  
+  const confirmSync = useCallback(() => {
+    setSyncInProgress(true);
+    const formData = new FormData();
+    formData.append("intent", "sync");
+    fetcher.submit(formData, { method: "post" });
+  }, [fetcher]);
+  
+  // Handle sync response
+  useEffect(() => {
+    if (fetcher.data) {
+      setSyncInProgress(false);
+      setSyncModalOpen(false);
+    }
+  }, [fetcher.data]);
   
   // Handle search
   const handleSearch = useCallback((value: string) => {
@@ -272,13 +490,29 @@ export default function CustomersPage() {
     </Button>,
   ]);
 
+  // Check if we're loading
+  const isLoading = navigation.state === "loading";
+  const isSyncing = fetcher.state === "submitting" || syncInProgress;
+  
+  // Get sync result
+  const syncResult = fetcher.data as { 
+    success?: boolean; 
+    error?: string; 
+    syncedCount?: number; 
+    processedCount?: number;
+    message?: string;
+    errors?: string[];
+  } | undefined;
+
   return (
     <Page
       title="Customers"
       primaryAction={{
         content: "Sync from Shopify",
-        onAction: () => console.log("Sync customers"),
-        disabled: true, // Will implement later
+        icon: RefreshIcon,
+        onAction: handleSync,
+        disabled: isSyncing,
+        loading: isSyncing,
       }}
     >
       <Layout>
@@ -400,6 +634,114 @@ export default function CustomersPage() {
         </Layout.Section>
 
       </Layout>
+
+      {/* Sync Success/Error Banner */}
+      {syncResult && !syncModalOpen && (
+        <div style={{ position: "fixed", bottom: "20px", right: "20px", maxWidth: "400px", zIndex: 1000 }}>
+          <Banner
+            tone={syncResult.success ? "success" : "critical"}
+            onDismiss={() => fetcher.data = null}
+          >
+            <BlockStack gap="200">
+              <Text variant="headingMd" as="h3">
+                {syncResult.success ? "Sync Complete" : "Sync Failed"}
+              </Text>
+              <Text variant="bodyMd" as="p">
+                {syncResult.message || syncResult.error}
+              </Text>
+              {syncResult.syncedCount !== undefined && (
+                <Text variant="bodySm" as="p">
+                  Synced: {syncResult.syncedCount} / {syncResult.processedCount || syncResult.syncedCount} customers
+                </Text>
+              )}
+              {syncResult.errors && syncResult.errors.length > 0 && (
+                <BlockStack gap="100">
+                  <Text variant="bodySm" fontWeight="semibold" as="p">Errors:</Text>
+                  {syncResult.errors.map((error, i) => (
+                    <Text key={i} variant="bodySm" as="p">• {error}</Text>
+                  ))}
+                </BlockStack>
+              )}
+            </BlockStack>
+          </Banner>
+        </div>
+      )}
+
+      {/* Sync Confirmation Modal */}
+      <Modal
+        open={syncModalOpen}
+        onClose={() => !isSyncing && setSyncModalOpen(false)}
+        title="Sync Customers from Shopify"
+        primaryAction={{
+          content: "Start Sync",
+          onAction: confirmSync,
+          loading: isSyncing,
+          disabled: isSyncing,
+        }}
+        secondaryActions={!isSyncing ? [
+          {
+            content: "Cancel",
+            onAction: () => setSyncModalOpen(false),
+          },
+        ] : []}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            {isSyncing ? (
+              <>
+                <Text variant="bodyMd" as="p">
+                  Syncing customers from your Shopify store. This may take a few minutes depending on the number of customers.
+                </Text>
+                <ProgressBar progress={75} tone="primary" animated />
+                <Text variant="bodySm" tone="subdued" as="p">
+                  Please don't close this window while syncing is in progress.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text variant="bodyMd" as="p">
+                  This will fetch all customers from your Shopify store and update their information in RewardsPro.
+                </Text>
+                
+                <BlockStack gap="200">
+                  <Text variant="bodyMd" fontWeight="semibold" as="p">
+                    What will happen:
+                  </Text>
+                  <ul style={{ marginLeft: "20px", marginTop: "8px" }}>
+                    <li>
+                      <Text variant="bodyMd" as="span">
+                        Import all customers with their email and spending data
+                      </Text>
+                    </li>
+                    <li>
+                      <Text variant="bodyMd" as="span">
+                        Automatically assign loyalty tiers based on total spending
+                      </Text>
+                    </li>
+                    <li>
+                      <Text variant="bodyMd" as="span">
+                        Update existing customer records if they already exist
+                      </Text>
+                    </li>
+                  </ul>
+                </BlockStack>
+                
+                {tiers.length === 0 && (
+                  <Banner tone="warning">
+                    <Text variant="bodyMd" as="p">
+                      No loyalty tiers found. Please create tiers first to automatically assign customers to appropriate levels.
+                    </Text>
+                  </Banner>
+                )}
+                
+                <Text variant="bodySm" tone="subdued" as="p">
+                  Note: Large customer bases may take several minutes to sync. The sync will continue in the background.
+                </Text>
+              </>
+            )}
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
