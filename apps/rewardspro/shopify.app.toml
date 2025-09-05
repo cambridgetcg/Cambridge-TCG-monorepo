@@ -2,7 +2,7 @@
 
 client_id = "f04b5854fb022d67ba9dd097767b465a"
 name = "rewardspro-production"
-application_url = "https://patents-andrew-telephone-paintings.trycloudflare.com"
+application_url = "https://modifications-titans-plug-applications.trycloudflare.com"
 embedded = true
 handle = "rewardspro-production"
 
@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "read_orders,write_store_credit_account_transactions,read_store_credit_accounts"
 
 [auth]
-redirect_urls = ["https://patents-andrew-telephone-paintings.trycloudflare.com/auth/callback", "https://patents-andrew-telephone-paintings.trycloudflare.com/auth/shopify/callback", "https://patents-andrew-telephone-paintings.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://modifications-titans-plug-applications.trycloudflare.com/auth/callback", "https://modifications-titans-plug-applications.trycloudflare.com/auth/shopify/callback", "https://modifications-titans-plug-applications.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false
