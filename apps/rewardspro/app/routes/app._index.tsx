@@ -17,7 +17,6 @@ import {
   EmptyState,
   SkeletonBodyText,
   SkeletonDisplayText,
-  InlineGrid,
 } from "@shopify/polaris";
 import {
   StarFilledIcon,
@@ -26,7 +25,6 @@ import {
   TipJarIcon,
   SettingsIcon,
   BillFilledIcon,
-  ArrowUpIcon,
   CheckCircleIcon,
   ClockIcon,
   InfoIcon,
@@ -296,64 +294,20 @@ export function ErrorBoundary() {
   );
 }
 
-// Simplified metric card component
-function MetricCard({ 
-  title, 
-  value, 
-  change, 
-  icon, 
-  tone = "base" 
-}: {
-  title: string;
-  value: string | number;
-  change?: string;
-  icon: any;
-  tone?: "base" | "success" | "warning";
-}) {
-  return (
-    <Card>
-      <Box paddingBlockStart="200" paddingBlockEnd="200" paddingInlineStart="400" paddingInlineEnd="400">
-        <BlockStack gap="200">
-          <InlineStack align="space-between">
-            <Text variant="bodySm" tone="subdued" as="p">
-              {title}
-            </Text>
-            <Icon source={icon} tone={tone} />
-          </InlineStack>
-          <Text variant="headingLg" as="h3">
-            {value}
-          </Text>
-          {change && (
-            <InlineStack gap="100" blockAlign="center">
-              <Icon source={ArrowUpIcon} tone="success" />
-              <Text variant="bodySm" tone="subdued" as="p">
-                {change}
-              </Text>
-            </InlineStack>
-          )}
-        </BlockStack>
-      </Box>
-    </Card>
-  );
-}
 
 // Loading skeleton for metrics
 function MetricsSkeleton() {
   return (
-    <BlockStack gap="400">
-      <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i}>
-            <Box padding="400">
-              <BlockStack gap="200">
-                <SkeletonDisplayText size="small" />
-                <SkeletonBodyText lines={2} />
-              </BlockStack>
-            </Box>
-          </Card>
-        ))}
-      </InlineGrid>
-    </BlockStack>
+    <Card>
+      <Box padding="400">
+        <BlockStack gap="400">
+          <SkeletonDisplayText size="small" />
+          <BlockStack gap="200">
+            <SkeletonBodyText lines={4} />
+          </BlockStack>
+        </BlockStack>
+      </Box>
+    </Card>
   );
 }
 
@@ -414,39 +368,89 @@ export default function DashboardPage() {
           </Layout.Section>
         )}
 
-        {/* Key Metrics - Simplified responsive grid */}
+        {/* Key Metrics - Unified Overview Widget */}
         <Layout.Section>
           <Suspense fallback={<MetricsSkeleton />}>
             <Await resolve={metricsData}>
               {({ metrics }) => (
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">Overview</Text>
-                  <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
-                    <MetricCard
-                      title="Total Customers"
-                      value={metrics.totalCustomers}
-                      change={metrics.customersChange > 0 ? `+${metrics.customersChange} this month` : undefined}
-                      icon={PersonIcon}
-                    />
-                    <MetricCard
-                      title="Rewards Distributed"
-                      value={formatCurrency(metrics.totalRewards)}
-                      change={`+${metrics.rewardsChange}% vs last month`}
-                      icon={CashDollarFilledIcon}
-                    />
-                    <MetricCard
-                      title="Active Tiers"
-                      value={`${metrics.activeTiers} / ${metrics.tiersWithCustomers}`}
-                      icon={StarFilledIcon}
-                      tone={metrics.activeTiers >= 3 ? "success" : "warning"}
-                    />
-                    <MetricCard
-                      title="Avg. Cashback"
-                      value={`${metrics.averageCashback}%`}
-                      icon={TipJarIcon}
-                    />
-                  </InlineGrid>
-                </BlockStack>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
+                        <Text variant="headingMd" as="h2">Overview</Text>
+                        <Badge tone="success">Live</Badge>
+                      </InlineStack>
+                      
+                      {/* Main metrics grid */}
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: '24px',
+                        padding: '16px 0'
+                      }}>
+                        <BlockStack gap="100">
+                          <InlineStack gap="100" blockAlign="center">
+                            <Icon source={PersonIcon} tone="base" />
+                            <Text variant="bodySm" tone="subdued" as="p">Customers</Text>
+                          </InlineStack>
+                          <Text variant="headingLg" as="p">{metrics.totalCustomers}</Text>
+                          {metrics.customersChange > 0 && (
+                            <Text variant="bodySm" tone="success" as="p">+{metrics.customersChange} this month</Text>
+                          )}
+                        </BlockStack>
+                        
+                        <BlockStack gap="100">
+                          <InlineStack gap="100" blockAlign="center">
+                            <Icon source={CashDollarFilledIcon} tone="base" />
+                            <Text variant="bodySm" tone="subdued" as="p">Rewards</Text>
+                          </InlineStack>
+                          <Text variant="headingLg" as="p">{formatCurrency(metrics.totalRewards)}</Text>
+                          <Text variant="bodySm" tone="success" as="p">+{metrics.rewardsChange}% vs last</Text>
+                        </BlockStack>
+                        
+                        <BlockStack gap="100">
+                          <InlineStack gap="100" blockAlign="center">
+                            <Icon source={StarFilledIcon} tone={metrics.activeTiers >= 3 ? "success" : "warning"} />
+                            <Text variant="bodySm" tone="subdued" as="p">Tiers</Text>
+                          </InlineStack>
+                          <Text variant="headingLg" as="p">{metrics.activeTiers}</Text>
+                          <Text variant="bodySm" tone="subdued" as="p">{metrics.tiersWithCustomers} active</Text>
+                        </BlockStack>
+                        
+                        <BlockStack gap="100">
+                          <InlineStack gap="100" blockAlign="center">
+                            <Icon source={TipJarIcon} tone="base" />
+                            <Text variant="bodySm" tone="subdued" as="p">Avg Cashback</Text>
+                          </InlineStack>
+                          <Text variant="headingLg" as="p">{metrics.averageCashback}%</Text>
+                          <Text variant="bodySm" tone="subdued" as="p">per tier</Text>
+                        </BlockStack>
+                      </div>
+                      
+                      {/* Progress indicator */}
+                      <Box borderBlockStartWidth="025" borderColor="border" paddingBlockStart="300">
+                        <InlineStack gap="400" wrap={false}>
+                          <BlockStack gap="100">
+                            <Text variant="bodySm" tone="subdued" as="p">Program Health</Text>
+                            <ProgressBar 
+                              progress={Math.min((metrics.totalCustomers / 100) * 100, 100)} 
+                              tone="primary" 
+                              size="small"
+                            />
+                          </BlockStack>
+                          <BlockStack gap="100">
+                            <Text variant="bodySm" tone="subdued" as="p">Engagement Rate</Text>
+                            <ProgressBar 
+                              progress={metrics.tiersWithCustomers > 0 ? (metrics.tiersWithCustomers / metrics.activeTiers) * 100 : 0} 
+                              tone="success" 
+                              size="small"
+                            />
+                          </BlockStack>
+                        </InlineStack>
+                      </Box>
+                    </BlockStack>
+                  </Box>
+                </Card>
               )}
             </Await>
           </Suspense>
@@ -455,7 +459,11 @@ export default function DashboardPage() {
         {/* Quick Actions & Tier Distribution - Simplified layout */}
         <Layout.Section>
           <BlockStack gap="400">
-            <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))',
+              gap: '16px'
+            }}>
               {/* Quick Actions */}
               <Card>
                 <BlockStack gap="400">
@@ -549,13 +557,17 @@ export default function DashboardPage() {
                   </Await>
                 </Suspense>
               </Card>
-            </InlineGrid>
+            </div>
           </BlockStack>
         </Layout.Section>
 
         {/* Recent Activity & Setup Status - Cleaner layout */}
         <Layout.Section>
-          <InlineGrid columns={{ xs: 1, md: isSetupComplete ? 1 : 2 }} gap="400">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isSetupComplete ? '1fr' : 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))',
+            gap: '16px'
+          }}>
             {/* Recent Activity */}
             <Card>
               <Suspense fallback={
@@ -676,7 +688,7 @@ export default function DashboardPage() {
                 </BlockStack>
               </Card>
             )}
-          </InlineGrid>
+          </div>
         </Layout.Section>
 
         {/* Insights - Simplified */}
