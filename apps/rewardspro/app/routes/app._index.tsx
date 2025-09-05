@@ -22,6 +22,7 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { FeedbackSection } from "../components/FeedbackSection";
 
 // Type definitions
 interface SetupTask {
@@ -290,6 +291,16 @@ export default function DashboardPage() {
               </BlockStack>
             </Box>
           </Card>
+        </Layout.Section>
+
+        {/* Feedback Section */}
+        <Layout.Section>
+          <FeedbackSection 
+            onFeedbackSubmit={(rating) => {
+              console.log(`User submitted rating: ${rating}`);
+              // You can send this to analytics or save it
+            }}
+          />
         </Layout.Section>
       </Layout>
     </Page>

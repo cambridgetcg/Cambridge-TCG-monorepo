@@ -645,18 +645,47 @@ export default function TiersPage() {
                 <p>Create loyalty tiers to automatically reward customers based on their spending.</p>
               </EmptyState>
             ) : (
-              <DataTable
-                columnContentTypes={["text", "numeric", "numeric", "text", "text"]}
-                headings={[
-                  "Tier Name",
-                  "Min. Spend",
-                  "Cashback",
-                  "Period",
-                  "Actions",
-                ]}
-                rows={rows}
-                hoverable
-              />
+              <div style={{ 
+                "--table-column-widths": "25% 18% 15% 17% 25%",
+              } as React.CSSProperties}>
+                <style>{`
+                  .Polaris-DataTable__Table {
+                    table-layout: fixed;
+                  }
+                  .Polaris-DataTable__Table th:nth-child(1),
+                  .Polaris-DataTable__Table td:nth-child(1) {
+                    width: 25%;
+                  }
+                  .Polaris-DataTable__Table th:nth-child(2),
+                  .Polaris-DataTable__Table td:nth-child(2) {
+                    width: 18%;
+                  }
+                  .Polaris-DataTable__Table th:nth-child(3),
+                  .Polaris-DataTable__Table td:nth-child(3) {
+                    width: 15%;
+                  }
+                  .Polaris-DataTable__Table th:nth-child(4),
+                  .Polaris-DataTable__Table td:nth-child(4) {
+                    width: 17%;
+                  }
+                  .Polaris-DataTable__Table th:nth-child(5),
+                  .Polaris-DataTable__Table td:nth-child(5) {
+                    width: 25%;
+                  }
+                `}</style>
+                <DataTable
+                  columnContentTypes={["text", "numeric", "numeric", "text", "text"]}
+                  headings={[
+                    "Tier Name",
+                    "Min. Spend",
+                    "Cashback",
+                    "Period",
+                    "Actions",
+                  ]}
+                  rows={rows}
+                  hoverable
+                />
+              </div>
             )}
           </Card>
         </Layout.Section>
