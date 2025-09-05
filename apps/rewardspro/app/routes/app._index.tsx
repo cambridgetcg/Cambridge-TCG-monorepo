@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, Link } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -18,12 +18,7 @@ import {
 import {
   CheckCircleIcon,
   MinusCircleIcon,
-  StarFilledIcon,
-  ThemeEditIcon,
-  CashDollarFilledIcon,
-  PersonIcon,
   ClockIcon,
-  ArrowRightIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -42,12 +37,6 @@ interface SetupTask {
   illustration?: string;
 }
 
-interface DashboardMetrics {
-  totalCustomers: number;
-  totalRewards: number;
-  activeTiers: number;
-  averageCashback: number;
-}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -60,32 +49,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
 
     // Check setup status
-    const [settings, tiers, customers, billingPlan] = await Promise.all([
+    const [settings, tiers, billingPlan] = await Promise.all([
       db.shopSettings.findUnique({ where: { shop } }).catch(() => null),
       db.tier.count({ where: { shop } }).catch(() => 0),
-      db.customer.count({ where: { shop } }).catch(() => 0),
       db.billingPlan.findUnique({ where: { shop } }).catch(() => null),
-    ]);
-
-    // Calculate metrics
-    const [totalRewards, avgCashback] = await Promise.all([
-      db.storeCreditLedger
-        .aggregate({
-          where: { 
-            shop,
-            type: "CASHBACK_EARNED" 
-          },
-          _sum: { amount: true }
-        })
-        .then(r => parseFloat(r._sum.amount?.toString() || "0"))
-        .catch(() => 0),
-      db.tier
-        .aggregate({
-          where: { shop },
-          _avg: { cashbackPercent: true }
-        })
-        .then(r => r._avg.cashbackPercent || 0)
-        .catch(() => 0),
     ]);
 
     // Get recent activity
@@ -142,19 +109,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const completedTasks = setupTasks.filter(task => task.completed).length;
     const setupProgress = (completedTasks / setupTasks.length) * 100;
 
-    const metrics: DashboardMetrics = {
-      totalCustomers: customers,
-      totalRewards: totalRewards,
-      activeTiers: tiers,
-      averageCashback: Math.round(avgCashback * 10) / 10,
-    };
-
     return json({
       shop,
       setupTasks,
       setupProgress,
       completedTasks,
-      metrics,
       recentActivity,
     });
   } catch (error) {
@@ -168,7 +127,6 @@ export default function DashboardPage() {
     setupTasks, 
     setupProgress, 
     completedTasks,
-    metrics,
     recentActivity 
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
@@ -287,166 +245,51 @@ export default function DashboardPage() {
           </Layout.Section>
         )}
 
-        {/* Overview Metrics */}
+        {/* Recent Activity */}
         <Layout.Section>
-          <BlockStack gap="400">
-            <Text variant="headingMd" as="h2">Overview</Text>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '16px'
-            }}>
-              {/* Total Customers */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="200">
-                    <InlineStack gap="100" blockAlign="center">
-                      <Icon source={PersonIcon} tone="base" />
-                      <Text variant="bodySm" tone="subdued" as="p">Total Customers</Text>
-                    </InlineStack>
-                    <Text variant="headingXl" as="h3">{metrics.totalCustomers}</Text>
-                  </BlockStack>
-                </Box>
-              </Card>
-
-              {/* Rewards Distributed */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="200">
-                    <InlineStack gap="100" blockAlign="center">
-                      <Icon source={CashDollarFilledIcon} tone="base" />
-                      <Text variant="bodySm" tone="subdued" as="p">Rewards Distributed</Text>
-                    </InlineStack>
-                    <Text variant="headingXl" as="h3">{formatCurrency(metrics.totalRewards)}</Text>
-                  </BlockStack>
-                </Box>
-              </Card>
-
-              {/* Active Tiers */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="200">
-                    <InlineStack gap="100" blockAlign="center">
-                      <Icon source={StarFilledIcon} tone="base" />
-                      <Text variant="bodySm" tone="subdued" as="p">Active Tiers</Text>
-                    </InlineStack>
-                    <Text variant="headingXl" as="h3">{metrics.activeTiers}</Text>
-                  </BlockStack>
-                </Box>
-              </Card>
-
-              {/* Average Cashback */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="200">
-                    <InlineStack gap="100" blockAlign="center">
-                      <Icon source={CashDollarFilledIcon} tone="base" />
-                      <Text variant="bodySm" tone="subdued" as="p">Avg. Cashback</Text>
-                    </InlineStack>
-                    <Text variant="headingXl" as="h3">{metrics.averageCashback}%</Text>
-                  </BlockStack>
-                </Box>
-              </Card>
-            </div>
-          </BlockStack>
-        </Layout.Section>
-
-        {/* Quick Actions & Recent Activity */}
-        <Layout.Section>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-            gap: '16px'
-          }}>
-            {/* Quick Actions */}
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h3">Quick Actions</Text>
-                  <BlockStack gap="200">
-                    <Link to="/app/tiers" style={{ textDecoration: 'none' }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Icon source={StarFilledIcon} tone="base" />
-                          <Text variant="bodyMd" as="p">Manage Tiers</Text>
-                        </InlineStack>
-                        <Icon source={ArrowRightIcon} tone="subdued" />
-                      </InlineStack>
-                    </Link>
-                    
-                    <Divider />
-                    
-                    <Link to="/app/customers" style={{ textDecoration: 'none' }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Icon source={PersonIcon} tone="base" />
-                          <Text variant="bodyMd" as="p">View Customers</Text>
-                        </InlineStack>
-                        <Icon source={ArrowRightIcon} tone="subdued" />
-                      </InlineStack>
-                    </Link>
-                    
-                    <Divider />
-                    
-                    <Link to="/app/settings" style={{ textDecoration: 'none' }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Icon source={ThemeEditIcon} tone="base" />
-                          <Text variant="bodyMd" as="p">Settings</Text>
-                        </InlineStack>
-                        <Icon source={ArrowRightIcon} tone="subdued" />
-                      </InlineStack>
-                    </Link>
-                  </BlockStack>
-                </BlockStack>
-              </Box>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="400">
-                  <InlineStack align="space-between">
-                    <Text variant="headingMd" as="h3">Recent Activity</Text>
-                    {recentActivity.length > 0 && (
-                      <Badge tone="info">{`${recentActivity.length} items`}</Badge>
-                    )}
-                  </InlineStack>
-                  
-                  {recentActivity.length === 0 ? (
-                    <BlockStack gap="200">
-                      <Icon source={ClockIcon} tone="subdued" />
-                      <Text variant="bodyMd" tone="subdued" as="p">
-                        No activity yet. Activity will appear here once customers start earning rewards.
-                      </Text>
-                    </BlockStack>
-                  ) : (
-                    <BlockStack gap="300">
-                      {recentActivity.map((activity: any) => (
-                        <Box key={activity.id}>
-                          <InlineStack align="space-between">
-                            <BlockStack gap="050">
-                              <Text variant="bodyMd" as="p">
-                                {activity.type === "CASHBACK_EARNED" && "Cashback Earned"}
-                                {activity.type === "ORDER_PAYMENT" && "Store Credit Used"}
-                                {activity.type === "MANUAL_ADJUSTMENT" && "Manual Adjustment"}
-                              </Text>
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                {activity.customer?.name || activity.customer?.email || "Unknown"} • {formatRelativeTime(activity.createdAt)}
-                              </Text>
-                            </BlockStack>
-                            <Text variant="bodyMd" fontWeight="semibold" as="p">
-                              {activity.amount > 0 && "+"}{formatCurrency(parseFloat(activity.amount))}
-                            </Text>
-                          </InlineStack>
-                        </Box>
-                      ))}
-                    </BlockStack>
+          <Card>
+            <Box padding="400">
+              <BlockStack gap="400">
+                <InlineStack align="space-between">
+                  <Text variant="headingMd" as="h3">Recent Activity</Text>
+                  {recentActivity.length > 0 && (
+                    <Badge tone="info">{`${recentActivity.length} items`}</Badge>
                   )}
-                </BlockStack>
-              </Box>
-            </Card>
-          </div>
+                </InlineStack>
+                
+                {recentActivity.length === 0 ? (
+                  <BlockStack gap="200">
+                    <Icon source={ClockIcon} tone="subdued" />
+                    <Text variant="bodyMd" tone="subdued" as="p">
+                      No activity yet. Activity will appear here once customers start earning rewards.
+                    </Text>
+                  </BlockStack>
+                ) : (
+                  <BlockStack gap="300">
+                    {recentActivity.map((activity: any) => (
+                      <Box key={activity.id}>
+                        <InlineStack align="space-between">
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" as="p">
+                              {activity.type === "CASHBACK_EARNED" && "Cashback Earned"}
+                              {activity.type === "ORDER_PAYMENT" && "Store Credit Used"}
+                              {activity.type === "MANUAL_ADJUSTMENT" && "Manual Adjustment"}
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              {activity.customer?.name || activity.customer?.email || "Unknown"} • {formatRelativeTime(activity.createdAt)}
+                            </Text>
+                          </BlockStack>
+                          <Text variant="bodyMd" fontWeight="semibold" as="p">
+                            {activity.amount > 0 && "+"}{formatCurrency(parseFloat(activity.amount))}
+                          </Text>
+                        </InlineStack>
+                      </Box>
+                    ))}
+                  </BlockStack>
+                )}
+              </BlockStack>
+            </Box>
+          </Card>
         </Layout.Section>
       </Layout>
     </Page>
