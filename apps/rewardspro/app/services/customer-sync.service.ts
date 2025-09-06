@@ -37,12 +37,11 @@ export interface SyncResult {
 }
 
 
-// GraphQL Queries
+// GraphQL Queries - Exact format from Shopify API
 const CUSTOMERS_BATCH_QUERY = `#graphql
   query GetCustomersBatch($cursor: String, $first: Int = 50) {
     customers(first: $first, after: $cursor, sortKey: CREATED_AT) {
       edges {
-        cursor
         node {
           id
           email
@@ -57,8 +56,6 @@ const CUSTOMERS_BATCH_QUERY = `#graphql
       }
       pageInfo {
         hasNextPage
-        hasPreviousPage
-        startCursor
         endCursor
       }
     }
@@ -276,9 +273,16 @@ export class CustomerSyncService {
       throw new Error(`GraphQL errors: ${errorMessages}`);
     }
 
+    // Handle the exact response structure from Shopify
+    const edges = result.data?.customers?.edges || [];
+    const customers = edges.map((edge: any) => edge.node);
+    const pageInfo = result.data?.customers?.pageInfo || { hasNextPage: false, endCursor: null };
+
+    console.log(`Fetched ${customers.length} customers, hasNextPage: ${pageInfo.hasNextPage}`);
+
     return {
-      customers: result.data?.customers?.edges?.map((edge: any) => edge.node) || [],
-      pageInfo: result.data?.customers?.pageInfo || { hasNextPage: false }
+      customers,
+      pageInfo
     };
   }
 
@@ -324,14 +328,16 @@ export class CustomerSyncService {
     db: any,
     tiers: any[]
   ): Promise<void> {
-    // Extract customer data
+    // Extract customer data - handle exact structure from Shopify
     const email = customer.email;
     
-    // Extract Shopify customer ID
+    // Extract Shopify customer ID from GraphQL global ID
     const shopifyCustomerId = customer.id.replace('gid://shopify/Customer/', '');
     
-    // Calculate total spending
+    // Calculate total spending - amount is a string in the response
     const totalSpending = parseFloat(customer.amountSpent?.amount || "0");
+    
+    console.log(`Processing customer ${shopifyCustomerId}: email=${email}, state=${customer.state}, spent=${totalSpending} ${customer.amountSpent?.currencyCode}`);
     
     // Determine tier based on spending
     let assignedTier = null;
@@ -348,6 +354,16 @@ export class CustomerSyncService {
       shopifyCustomerId,
       email,
       currentTierId: assignedTier?.id || null
+    };
+    
+    // Store additional metadata for logging
+    const metadata = {
+      state: customer.state,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+      totalSpending,
+      currency: customer.amountSpent?.currencyCode || 'GBP',
+      tierAssigned: assignedTier?.name || 'None'
     };
 
     // Check if customer exists
@@ -372,12 +388,19 @@ export class CustomerSyncService {
 
       // Log tier change if different
       if (existingCustomer.currentTierId !== customerData.currentTierId) {
+        // Get tier names for logging
+        const fromTier = existingCustomer.currentTierId ? 
+          tiers.find(t => t.id === existingCustomer.currentTierId) : null;
+        const toTier = assignedTier;
+        
         await db.tierChangeLog.create({
           data: {
             customerId: existingCustomer.id,
             shop: this.options.shop,
             fromTierId: existingCustomer.currentTierId,
             toTierId: customerData.currentTierId,
+            fromTierName: fromTier?.name || null,
+            toTierName: toTier?.name || null,
             changeType: customerData.currentTierId ? 
               (existingCustomer.currentTierId ? "UPGRADE" : "INITIAL_ASSIGNMENT") : 
               "DOWNGRADE",
@@ -385,8 +408,8 @@ export class CustomerSyncService {
             totalSpending,
             metadata: {
               source: "customer_sync_service",
-              previousTier: existingCustomer.currentTierId,
-              newTier: customerData.currentTierId,
+              customerState: customer.state,
+              currency: customer.amountSpent?.currencyCode,
               reason: "Bulk sync from Shopify"
             }
           }
@@ -412,16 +435,23 @@ export class CustomerSyncService {
             shop: this.options.shop,
             fromTierId: null,
             toTierId: customerData.currentTierId,
+            fromTierName: null,
+            toTierName: assignedTier?.name || null,
             changeType: "INITIAL_ASSIGNMENT",
             triggerType: "ACCOUNT_CREATED",
             totalSpending,
             metadata: {
               source: "customer_sync_service",
+              customerState: customer.state,
+              currency: customer.amountSpent?.currencyCode,
+              shopifyCreatedAt: customer.createdAt,
               reason: "Initial sync from Shopify"
             }
           }
         });
       }
+      
+      console.log(`Created new customer ${shopifyCustomerId} with tier: ${assignedTier?.name || 'None'}`);
     }
   }
 
