@@ -54,15 +54,8 @@ const CUSTOMERS_BATCH_QUERY = `#graphql
           displayName
           firstName
           lastName
-          defaultEmailAddress {
-            emailAddress
-            marketingState
-            marketingOptInLevel
-          }
-          defaultPhoneNumber {
-            phoneNumber
-            marketingState
-          }
+          email
+          phone
           state
           verifiedEmail
           validEmailAddress
@@ -357,7 +350,7 @@ export class CustomerSyncService {
         progress.failed++;
         progress.errors.push({
           customerId: customer.id,
-          email: customer.defaultEmailAddress?.emailAddress,
+          email: customer.email,
           error: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date()
         });
@@ -378,7 +371,7 @@ export class CustomerSyncService {
     tiers: any[]
   ): Promise<void> {
     // Extract customer data
-    const email = customer.defaultEmailAddress?.emailAddress;
+    const email = customer.email;
     
     // Skip if no email
     if (!email) {
@@ -412,7 +405,7 @@ export class CustomerSyncService {
       email,
       firstName: customer.firstName,
       lastName: customer.lastName,
-      phone: customer.defaultPhoneNumber?.phoneNumber,
+      phone: customer.phone,
       currentTierId: assignedTier?.id || null,
       metadata: {
         displayName: customer.displayName,
@@ -432,13 +425,8 @@ export class CustomerSyncService {
           total: customer.lastOrder.totalPrice?.amount
         } : null,
         addresses: customer.addresses || [],
-        emailMarketing: {
-          state: customer.defaultEmailAddress?.marketingState,
-          optInLevel: customer.defaultEmailAddress?.marketingOptInLevel
-        },
-        smsMarketing: customer.defaultPhoneNumber ? {
-          state: customer.defaultPhoneNumber.marketingState
-        } : null,
+        emailMarketing: null, // Marketing fields not available with simple email field
+        smsMarketing: null, // Marketing fields not available with simple phone field
         metafields: this.parseMetafields(customer.metafields),
         image: customer.image?.src || null,
         canDelete: customer.canDelete,
@@ -587,9 +575,7 @@ export class CustomerSyncService {
             node {
               id
               displayName
-              defaultEmailAddress {
-                emailAddress
-              }
+              email
               tags
               numberOfOrders
               amountSpent {
@@ -629,13 +615,8 @@ export class CustomerSyncService {
           displayName
           firstName
           lastName
-          defaultEmailAddress {
-            emailAddress
-            marketingState
-          }
-          defaultPhoneNumber {
-            phoneNumber
-          }
+          email
+          phone
           state
           verifiedEmail
           tags
