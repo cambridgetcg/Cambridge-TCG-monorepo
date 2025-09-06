@@ -10,14 +10,11 @@ import {
   FormLayout,
   TextField,
   Select,
-  Divider,
   Badge,
   Banner,
   BlockStack,
-  InlineGrid,
   Box,
   Text,
-  Code,
   InlineStack
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -84,13 +81,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             customer(id: $id) {
               id
               email
-              phone
               firstName
               lastName
               displayName
               state
               verifiedEmail
-              validEmailAddress
               taxExempt
               tags
               note
@@ -148,13 +143,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 node {
                   id
                   email
-                  phone
                   firstName
                   lastName
                   displayName
                   state
                   verifiedEmail
-                  validEmailAddress
                   taxExempt
                   tags
                   note
@@ -289,10 +282,8 @@ function mapCustomerToDatabase(customer: any, shop: string) {
       displayName: customer.displayName,
       firstName: customer.firstName,
       lastName: customer.lastName,
-      phone: customer.phone,
       state: customer.state,
       verifiedEmail: customer.verifiedEmail,
-      validEmailAddress: customer.validEmailAddress,
       taxExempt: customer.taxExempt,
       tags: customer.tags,
       note: customer.note,
@@ -425,7 +416,7 @@ export default function GraphQLTestPage() {
                 <BlockStack gap="400">
                   <InlineStack align="space-between">
                     <Text variant="headingMd" as="h2">Query Result</Text>
-                    <Badge status={actionData.success ? "success" : "critical"}>
+                    <Badge tone={actionData.success ? "success" : "critical"}>
                       {actionData.success ? "Success" : "Failed"}
                     </Badge>
                   </InlineStack>
@@ -437,7 +428,7 @@ export default function GraphQLTestPage() {
                   )}
                   
                   {actionData.error && (
-                    <Banner status="critical">
+                    <Banner tone="critical">
                       <p>{actionData.error}</p>
                     </Banner>
                   )}
