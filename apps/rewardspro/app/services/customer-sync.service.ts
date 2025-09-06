@@ -1,5 +1,6 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import db from "../db.server";
+import { v4 as uuidv4 } from "uuid";
 
 // Types
 export interface SyncOptions {
@@ -382,6 +383,7 @@ export class CustomerSyncService {
         
         await db.tierChangeLog.create({
           data: {
+            id: uuidv4(), // Explicitly generate UUID
             customerId: existingCustomer.id,
             shop: this.options.shop,
             fromTierId: existingCustomer.currentTierId,
@@ -403,9 +405,10 @@ export class CustomerSyncService {
         });
       }
     } else {
-      // Create new customer
+      // Create new customer with explicit UUID
       const newCustomer = await db.customer.create({
         data: {
+          id: uuidv4(), // Explicitly generate UUID for Aurora Data API
           shop: customerData.shop,
           shopifyCustomerId: customerData.shopifyCustomerId,
           email: customerData.email!,
@@ -418,6 +421,7 @@ export class CustomerSyncService {
       if (customerData.currentTierId) {
         await db.tierChangeLog.create({
           data: {
+            id: uuidv4(), // Explicitly generate UUID
             customerId: newCustomer.id,
             shop: this.options.shop,
             fromTierId: null,
