@@ -33,8 +33,8 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { createCustomerSyncService } from "../services/customer-sync.service";
-import type { SyncProgress } from "../services/customer-sync.service";
+import { createCustomerSyncServiceV2 } from "../services/customer-sync-v2.service";
+import type { SyncProgress } from "../services/customer-sync-v2.service";
 
 // Types
 interface CustomerData {
@@ -145,27 +145,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       }
 
-      // Create sync service instance
-      const syncService = await createCustomerSyncService(admin, shop, {
-        batchSize: 50,
-        maxRetries: 3
+      // Create sync service V2 instance
+      const syncService = await createCustomerSyncServiceV2(admin, shop, {
+        batchSize: 50
       });
 
       // Run the sync
       const syncResult = await syncService.syncAllCustomers();
       
       // Return detailed result
+      const endTime = Date.now();
       return json({
         success: syncResult.success,
         message: syncResult.message,
-        syncedCount: syncResult.progress.successful,
-        processedCount: syncResult.progress.processed,
-        skippedCount: syncResult.progress.skipped,
-        totalCustomers: syncResult.progress.total,
-        errors: syncResult.progress.errors.length > 0 
-          ? syncResult.progress.errors.map(e => e.error).slice(0, 10) // Limit to 10 errors
+        syncedCount: syncResult.successful,
+        processedCount: syncResult.processed,
+        skippedCount: 0,
+        totalCustomers: syncResult.processed,
+        errors: syncResult.errors.length > 0 
+          ? syncResult.errors.slice(0, 10) // Limit to 10 errors
           : null,
-        duration: syncResult.duration
+        duration: endTime - startTime
       });
     } catch (error) {
       console.error("Sync error:", error);
