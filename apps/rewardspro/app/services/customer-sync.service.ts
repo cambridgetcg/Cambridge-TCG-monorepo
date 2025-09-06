@@ -291,8 +291,9 @@ export class CustomerSyncService {
     tiers: any[]
   ): Promise<void> {
     for (const customer of customers) {
-      // Skip disabled or invited customers silently
-      if (customer.state === 'DISABLED' || customer.state === 'INVITED') {
+      // Skip only truly disabled customers
+      // ENABLED, INVITED, and even DECLINED customers should be synced as they can have order history
+      if (customer.state === 'DISABLED') {
         progress.skipped++;
         progress.processed++;
         continue;
