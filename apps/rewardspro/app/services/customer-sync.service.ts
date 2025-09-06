@@ -291,22 +291,15 @@ export class CustomerSyncService {
     tiers: any[]
   ): Promise<void> {
     for (const customer of customers) {
-      // Skip only truly disabled customers
-      // ENABLED, INVITED, and even DECLINED customers should be synced as they can have order history
-      if (customer.state === 'DISABLED') {
-        progress.skipped++;
-        progress.processed++;
-        continue;
-      }
-
-      // Skip customers without email silently
-      if (!customer.email) {
-        progress.skipped++;
-        progress.processed++;
-        continue;
-      }
-
       try {
+        // Process all customers, even disabled ones or those without email
+        // Use a placeholder email if none exists
+        if (!customer.email) {
+          // Use Shopify customer ID as a fallback identifier
+          const shopifyId = customer.id.replace('gid://shopify/Customer/', '');
+          customer.email = `customer_${shopifyId}@placeholder.local`;
+        }
+
         await this.processCustomer(customer, tx, tiers);
         progress.successful++;
         progress.processed++;
@@ -315,7 +308,7 @@ export class CustomerSyncService {
         progress.processed++;
         progress.errors.push({
           customerId: customer.id,
-          email: customer.email,
+          email: customer.email || 'no-email',
           error: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date()
         });
