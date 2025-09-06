@@ -32,6 +32,8 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { createCustomerSyncService } from "../services/customer-sync.service";
+import type { SyncProgress } from "../services/customer-sync.service";
 
 // Types
 interface CustomerData {
@@ -130,295 +132,39 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Handle sync from Shopify
   if (actionType === "syncFromShopify") {
     try {
-      // Get all tiers for tier assignment
-      const tiers = await db.tier.findMany({
-        where: { shop },
-        orderBy: { minSpend: 'desc' }
+      // Check for tiers first
+      const tiersCount = await db.tier.count({
+        where: { shop }
       });
       
-      if (tiers.length === 0) {
+      if (tiersCount === 0) {
         return json({ 
           success: false, 
           error: "Please create loyalty tiers before syncing customers" 
         });
       }
+
+      // Create sync service instance
+      const syncService = await createCustomerSyncService(admin, shop, {
+        batchSize: 50,
+        maxRetries: 3
+      });
+
+      // Run the sync
+      const syncResult = await syncService.syncAllCustomers();
       
-      // Improved GraphQL query for API version 2025-07
-      const CUSTOMERS_QUERY = `#graphql
-        query GetCustomers($cursor: String, $first: Int = 50) {
-          customers(first: $first, after: $cursor, sortKey: CREATED_AT) {
-            edges {
-              node {
-                id
-                displayName
-                firstName
-                lastName
-                defaultEmailAddress {
-                  emailAddress
-                  marketingState
-                  marketingOptInLevel
-                }
-                defaultPhoneNumber {
-                  phoneNumber
-                }
-                state
-                verifiedEmail
-                taxExempt
-                tags
-                note
-                createdAt
-                updatedAt
-                numberOfOrders
-                amountSpent {
-                  amount
-                  currencyCode
-                }
-                lastOrder {
-                  id
-                  name
-                  createdAt
-                }
-                addresses(first: 1) {
-                  address1
-                  address2
-                  city
-                  province
-                  country
-                  zip
-                }
-                metafields(first: 5, namespace: "rewards_pro") {
-                  edges {
-                    node {
-                      namespace
-                      key
-                      value
-                      type
-                    }
-                  }
-                }
-              }
-              cursor
-            }
-            pageInfo {
-              hasNextPage
-              hasPreviousPage
-              startCursor
-              endCursor
-            }
-          }
-        }
-      `;
-      
-      let hasNextPage = true;
-      let cursor: string | null = null;
-      let syncedCount = 0;
-      let processedCount = 0;
-      let skippedCount = 0;
-      const errors: string[] = [];
-      const batchSize = 50; // Smaller batch size for better performance
-      let totalCustomers = 0;
-      
-      // Process customers in batches
-      while (hasNextPage) {
-        try {
-          // Call GraphQL with pagination
-          const response: any = await admin.graphql(
-            CUSTOMERS_QUERY,
-            { 
-              variables: { 
-                cursor,
-                first: batchSize 
-              } 
-            }
-          );
-          
-          const data: any = await response.json();
-          
-          // Check for GraphQL errors
-          if (data.errors && data.errors.length > 0) {
-            console.error("GraphQL errors:", data.errors);
-            const errorMessages = data.errors.map((e: any) => e.message).join(', ');
-            errors.push(`GraphQL Error: ${errorMessages}`);
-            
-            // If it's a critical error, stop processing
-            if (data.errors.some((e: any) => e.extensions?.code === 'THROTTLED')) {
-              errors.push("API rate limit reached. Please try again later.");
-              break;
-            }
-          }
-          
-          // Check if we have customer data
-          if (!data.data?.customers) {
-            errors.push("No customer data received from Shopify");
-            break;
-          }
-          
-          const customersData = data.data.customers;
-          // Note: totalCount is not available in this API version
-          totalCustomers = totalCustomers || customersData.edges.length;
-          
-          // Process each customer
-          for (const edge of customersData.edges) {
-            const customer = edge.node;
-            processedCount++;
-            
-            // Get email from the new field structure
-            const email = customer.defaultEmailAddress?.emailAddress || null;
-            
-            // Skip customers without email
-            if (!email) {
-              skippedCount++;
-              console.log(`Skipping customer without email: ${customer.displayName || 'Unknown'}`);
-              continue;
-            }
-            
-            // Skip disabled or invited customers
-            if (customer.state === 'DISABLED' || customer.state === 'INVITED') {
-              skippedCount++;
-              console.log(`Skipping ${customer.state.toLowerCase()} customer: ${email}`);
-              continue;
-            }
-            
-            // Extract customer ID from GraphQL ID
-            const shopifyCustomerId = customer.id.replace('gid://shopify/Customer/', '');
-            
-            // Calculate total spending (amount is in decimal format like "123.45")
-            const totalSpending = parseFloat(customer.amountSpent?.amount || "0");
-            
-            // Determine appropriate tier based on spending
-            let assignedTier = null;
-            for (const tier of tiers) {
-              if (totalSpending >= tier.minSpend) {
-                assignedTier = tier;
-                break;
-              }
-            }
-            
-            // Upsert customer in database
-            try {
-              const existingCustomer = await db.customer.findUnique({
-                where: {
-                  shop_shopifyCustomerId: {
-                    shop,
-                    shopifyCustomerId
-                  }
-                }
-              });
-              
-              if (existingCustomer) {
-                // Update existing customer
-                await db.customer.update({
-                  where: { id: existingCustomer.id },
-                  data: {
-                    email,
-                    currentTierId: assignedTier?.id || null
-                  }
-                });
-              } else {
-                // Create new customer
-                await db.customer.create({
-                  data: {
-                    shop,
-                    shopifyCustomerId,
-                    email,
-                    currentTierId: assignedTier?.id || null,
-                    storeCredit: 0
-                  }
-                });
-                
-                // Log tier assignment if applicable
-                if (assignedTier) {
-                  const newCustomer = await db.customer.findUnique({
-                    where: {
-                      shop_shopifyCustomerId: {
-                        shop,
-                        shopifyCustomerId
-                      }
-                    }
-                  });
-                  
-                  if (newCustomer) {
-                    await db.tierChangeLog.create({
-                      data: {
-                        customerId: newCustomer.id,
-                        shop,
-                        fromTierId: null,
-                        toTierId: assignedTier.id,
-                        changeType: "INITIAL_ASSIGNMENT",
-                        triggerType: "ACCOUNT_CREATED",
-                        totalSpending: totalSpending,
-                        metadata: {
-                          source: "shopify_sync",
-                          customerName: customer.displayName || [customer.firstName, customer.lastName].filter(Boolean).join(' '),
-                          numberOfOrders: customer.numberOfOrders,
-                          tags: customer.tags,
-                          verifiedEmail: customer.verifiedEmail,
-                          emailMarketingState: customer.defaultEmailAddress?.marketingState,
-                          emailMarketingOptInLevel: customer.defaultEmailAddress?.marketingOptInLevel,
-                          phoneNumber: customer.defaultPhoneNumber?.phoneNumber,
-                          lastOrderId: customer.lastOrder?.id,
-                          lastOrderDate: customer.lastOrder?.createdAt,
-                          metafields: customer.metafields?.edges?.map((edge: any) => ({
-                            key: edge.node.key,
-                            value: edge.node.value
-                          }))
-                        }
-                      }
-                    });
-                  }
-                }
-              }
-              
-              syncedCount++;
-            } catch (error) {
-              console.error(`Error processing customer ${email}:`, error);
-              errors.push(`Failed to process customer: ${email}`);
-            }
-          }
-          
-          // Check for next page
-          hasNextPage = customersData.pageInfo.hasNextPage;
-          cursor = customersData.pageInfo.endCursor;
-          
-          // Log progress
-          console.log(`Processed batch: ${processedCount}/${totalCustomers} customers`);
-          
-          // Add progressive delay to avoid rate limiting
-          if (hasNextPage) {
-            const delay = processedCount > 500 ? 200 : 100; // Increase delay for large syncs
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        } catch (error) {
-          console.error("Error in sync batch:", error);
-          errors.push(`Error after processing ${processedCount} customers: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          
-          // If we've synced some customers, don't completely fail
-          if (syncedCount > 0) {
-            break;
-          }
-          
-          // Otherwise, throw the error
-          throw error;
-        }
-      }
-      
-      // Prepare detailed response
-      const successMessage = syncedCount > 0 
-        ? `Successfully synced ${syncedCount} out of ${processedCount} processed customers`
-        : "No customers were synced";
-        
-      const warningMessage = skippedCount > 0 
-        ? ` (${skippedCount} customers skipped due to missing email or invalid state)`
-        : "";
-      
+      // Return detailed result
       return json({
-        success: syncedCount > 0,
-        message: successMessage + warningMessage,
-        syncedCount,
-        processedCount,
-        skippedCount,
-        totalCustomers,
-        errors: errors.length > 0 ? errors : null
+        success: syncResult.success,
+        message: syncResult.message,
+        syncedCount: syncResult.progress.successful,
+        processedCount: syncResult.progress.processed,
+        skippedCount: syncResult.progress.skipped,
+        totalCustomers: syncResult.progress.total,
+        errors: syncResult.progress.errors.length > 0 
+          ? syncResult.progress.errors.map(e => e.error).slice(0, 10) // Limit to 10 errors
+          : null,
+        duration: syncResult.duration
       });
     } catch (error) {
       console.error("Sync error:", error);
@@ -610,7 +356,13 @@ export default function CustomersPage() {
     totalCustomers?: number;
     message?: string;
     errors?: string[];
+    duration?: number;
   } | undefined;
+  
+  // Calculate sync progress percentage
+  const syncProgress = syncResult && syncResult.processedCount && syncResult.totalCustomers
+    ? Math.round((syncResult.processedCount / syncResult.totalCustomers) * 100)
+    : 0;
   
   return (
     <Page 
@@ -646,7 +398,12 @@ export default function CustomersPage() {
                   )}
                   {syncResult.totalCustomers !== undefined && (
                     <Text variant="bodySm" as="p">
-                      • Total in store: {syncResult.totalCustomers} customers
+                      • Total processed: {syncResult.processedCount} / {syncResult.totalCustomers}
+                    </Text>
+                  )}
+                  {syncResult.duration !== undefined && (
+                    <Text variant="bodySm" as="p">
+                      • Duration: {(syncResult.duration / 1000).toFixed(1)} seconds
                     </Text>
                   )}
                 </BlockStack>
@@ -803,10 +560,10 @@ export default function CustomersPage() {
         onClose={() => !isSyncing && setSyncModalActive(false)}
         title="Sync Customers from Shopify"
         primaryAction={{
-          content: "Start Sync",
+          content: isSyncing ? "Syncing..." : "Start Sync",
           onAction: confirmSync,
           loading: isSyncing,
-          disabled: isSyncing
+          disabled: isSyncing || tiers.length === 0
         }}
         secondaryActions={!isSyncing ? [{
           content: "Cancel",
@@ -817,36 +574,112 @@ export default function CustomersPage() {
           <BlockStack gap="400">
             {isSyncing ? (
               <>
-                <Text variant="bodyMd" as="p">
-                  Syncing customers from Shopify...
-                </Text>
-                <ProgressBar progress={75} tone="primary" animated />
-                <Text variant="bodySm" tone="subdued" as="p">
-                  This may take a few minutes. Please don't close this window.
-                </Text>
+                <InlineStack align="space-between">
+                  <Text variant="bodyMd" as="p">
+                    Syncing customers from Shopify...
+                  </Text>
+                  <Spinner size="small" />
+                </InlineStack>
+                <ProgressBar progress={syncProgress || 75} tone="primary" animated />
+                <InlineGrid columns={2} gap="400">
+                  <BlockStack gap="100">
+                    <Text variant="bodySm" tone="subdued" as="p">
+                      Processing batch data
+                    </Text>
+                    <Text variant="bodyMd" fontWeight="semibold" as="p">
+                      Please wait...
+                    </Text>
+                  </BlockStack>
+                  <BlockStack gap="100">
+                    <Text variant="bodySm" tone="subdued" as="p">
+                      Estimated time
+                    </Text>
+                    <Text variant="bodyMd" fontWeight="semibold" as="p">
+                      1-3 minutes
+                    </Text>
+                  </BlockStack>
+                </InlineGrid>
+                <Banner tone="info">
+                  <Text variant="bodySm" as="p">
+                    This process runs in the background. Please don't close this window until complete.
+                  </Text>
+                </Banner>
               </>
             ) : (
               <>
-                <Text variant="bodyMd" as="p">
-                  This will import all customers from your Shopify store and automatically assign them to loyalty tiers based on their spending.
-                </Text>
+                <Banner tone="info">
+                  <Text variant="bodyMd" as="p">
+                    Import all customers from your Shopify store and automatically assign loyalty tiers based on their total spending.
+                  </Text>
+                </Banner>
+                
                 <BlockStack gap="200">
                   <Text variant="bodyMd" fontWeight="semibold" as="p">
-                    What will happen:
+                    Sync Process Details:
                   </Text>
-                  <ul style={{ marginLeft: "20px" }}>
-                    <li>Import customers with email addresses</li>
-                    <li>Assign tiers based on total spending</li>
-                    <li>Update existing customer records</li>
-                  </ul>
+                  <BlockStack gap="050">
+                    <InlineStack gap="100" align="start">
+                      <Badge tone="success">✓</Badge>
+                      <Text variant="bodySm" as="span">Import customers with valid email addresses</Text>
+                    </InlineStack>
+                    <InlineStack gap="100" align="start">
+                      <Badge tone="success">✓</Badge>
+                      <Text variant="bodySm" as="span">Automatically assign tiers based on lifetime spending</Text>
+                    </InlineStack>
+                    <InlineStack gap="100" align="start">
+                      <Badge tone="success">✓</Badge>
+                      <Text variant="bodySm" as="span">Update existing customer records without duplicates</Text>
+                    </InlineStack>
+                    <InlineStack gap="100" align="start">
+                      <Badge tone="info">✓</Badge>
+                      <Text variant="bodySm" as="span">Store customer metadata and marketing preferences</Text>
+                    </InlineStack>
+                    <InlineStack gap="100" align="start">
+                      <Badge tone="attention">!</Badge>
+                      <Text variant="bodySm" as="span">Skip disabled or invited customers</Text>
+                    </InlineStack>
+                  </BlockStack>
                 </BlockStack>
-                {tiers.length === 0 && (
-                  <Banner tone="warning">
+
+                {tiers.length === 0 ? (
+                  <Banner tone="critical">
                     <Text variant="bodyMd" as="p">
-                      No tiers found. Create tiers first for automatic assignment.
+                      No tiers found! Please create loyalty tiers first for automatic tier assignment during sync.
                     </Text>
                   </Banner>
+                ) : (
+                  <Card>
+                    <BlockStack gap="200">
+                      <Text variant="bodySm" fontWeight="semibold" as="p">
+                        Available Tiers ({tiers.length}):
+                      </Text>
+                      <BlockStack gap="050">
+                        {tiers.slice(0, 3).map(tier => (
+                          <InlineStack key={tier.id} gap="200" align="space-between">
+                            <Text variant="bodySm" as="span">{tier.name}</Text>
+                            <Badge tone="info">
+                              Min: {formatCurrency(tier.minSpend)} | {tier.cashbackPercent}% cashback
+                            </Badge>
+                          </InlineStack>
+                        ))}
+                        {tiers.length > 3 && (
+                          <Text variant="bodySm" tone="subdued" as="span">
+                            ...and {tiers.length - 3} more
+                          </Text>
+                        )}
+                      </BlockStack>
+                    </BlockStack>
+                  </Card>
                 )}
+
+                <BlockStack gap="100">
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    <strong>Note:</strong> The sync process may take several minutes depending on the number of customers in your store.
+                  </Text>
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Rate limits are automatically handled to ensure smooth operation.
+                  </Text>
+                </BlockStack>
               </>
             )}
           </BlockStack>
