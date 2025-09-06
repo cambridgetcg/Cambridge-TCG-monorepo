@@ -1,6 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import db from "../db.server";
-import type { Prisma } from "@prisma/client";
 
 // Types
 export interface SyncOptions {
@@ -235,7 +234,7 @@ export class CustomerSyncService {
   private async getCustomerCount(): Promise<number> {
     try {
       const response = await this.admin.graphql(CUSTOMER_COUNT_QUERY);
-      const data = await response.json();
+      const data = await response.json() as any;
       
       // Estimate based on pagination info
       // Since we can't get exact count, estimate from first page
@@ -258,7 +257,7 @@ export class CustomerSyncService {
     };
 
     const response = await this.admin.graphql(CUSTOMERS_BATCH_QUERY, { variables });
-    const result = await response.json();
+    const result = await response.json() as any;
 
     if (result.errors && result.errors.length > 0) {
       const errorMessages = result.errors.map((e: any) => e.message).join(', ');
@@ -355,24 +354,12 @@ export class CustomerSyncService {
       email,
       currentTierId: assignedTier?.id || null
     };
-    
-    // Store additional metadata for logging
-    const metadata = {
-      state: customer.state,
-      createdAt: customer.createdAt,
-      updatedAt: customer.updatedAt,
-      totalSpending,
-      currency: customer.amountSpent?.currencyCode || 'GBP',
-      tierAssigned: assignedTier?.name || 'None'
-    };
 
-    // Check if customer exists
-    const existingCustomer = await db.customer.findUnique({
+    // Check if customer exists - using findFirst for composite unique
+    const existingCustomer = await db.customer.findFirst({
       where: {
-        shop_shopifyCustomerId: {
-          shop: this.options.shop,
-          shopifyCustomerId
-        }
+        shop: this.options.shop,
+        shopifyCustomerId: shopifyCustomerId
       }
     });
 
@@ -519,7 +506,7 @@ export class CustomerSyncService {
       }
     });
 
-    const result = await response.json();
+    const result = await response.json() as any;
     
     if (result.errors) {
       throw new Error(`Search failed: ${result.errors[0].message}`);
@@ -552,7 +539,7 @@ export class CustomerSyncService {
       variables: { id: customerId }
     });
 
-    const result = await response.json();
+    const result = await response.json() as any;
     
     if (result.errors) {
       throw new Error(`Failed to fetch customer: ${result.errors[0].message}`);
