@@ -174,10 +174,8 @@ export class CustomerSyncService {
             break;
           }
 
-          // Process batch in transaction
-          await db.$transaction(async (tx) => {
-            await this.processBatch(batch.customers, tx, progress, tiers);
-          });
+          // Process batch without transaction wrapper - handle transactions inside processBatch
+          await this.processBatch(batch.customers, db, progress, tiers);
 
           cursor = batch.pageInfo.endCursor;
           hasNextPage = batch.pageInfo.hasNextPage;
@@ -286,7 +284,7 @@ export class CustomerSyncService {
 
   private async processBatch(
     customers: any[],
-    tx: Prisma.TransactionClient,
+    db: any,
     progress: SyncProgress,
     tiers: any[]
   ): Promise<void> {
@@ -300,7 +298,7 @@ export class CustomerSyncService {
           customer.email = `customer_${shopifyId}@placeholder.local`;
         }
 
-        await this.processCustomer(customer, tx, tiers);
+        await this.processCustomer(customer, db, tiers);
         progress.successful++;
         progress.processed++;
       } catch (error) {
@@ -323,7 +321,7 @@ export class CustomerSyncService {
 
   private async processCustomer(
     customer: any,
-    tx: Prisma.TransactionClient,
+    db: any,
     tiers: any[]
   ): Promise<void> {
     // Extract customer data
@@ -353,7 +351,7 @@ export class CustomerSyncService {
     };
 
     // Check if customer exists
-    const existingCustomer = await tx.customer.findUnique({
+    const existingCustomer = await db.customer.findUnique({
       where: {
         shop_shopifyCustomerId: {
           shop: this.options.shop,
@@ -364,7 +362,7 @@ export class CustomerSyncService {
 
     if (existingCustomer) {
       // Update existing customer
-      await tx.customer.update({
+      await db.customer.update({
         where: { id: existingCustomer.id },
         data: {
           email: customerData.email,
@@ -374,7 +372,7 @@ export class CustomerSyncService {
 
       // Log tier change if different
       if (existingCustomer.currentTierId !== customerData.currentTierId) {
-        await tx.tierChangeLog.create({
+        await db.tierChangeLog.create({
           data: {
             customerId: existingCustomer.id,
             shop: this.options.shop,
@@ -396,7 +394,7 @@ export class CustomerSyncService {
       }
     } else {
       // Create new customer
-      const newCustomer = await tx.customer.create({
+      const newCustomer = await db.customer.create({
         data: {
           shop: customerData.shop,
           shopifyCustomerId: customerData.shopifyCustomerId,
@@ -408,7 +406,7 @@ export class CustomerSyncService {
 
       // Log initial tier assignment
       if (customerData.currentTierId) {
-        await tx.tierChangeLog.create({
+        await db.tierChangeLog.create({
           data: {
             customerId: newCustomer.id,
             shop: this.options.shop,
@@ -541,9 +539,7 @@ export class CustomerSyncService {
     });
 
     // Process the customer
-    await db.$transaction(async (tx) => {
-      await this.processCustomer(result.data.customer, tx, tiers);
-    });
+    await this.processCustomer(result.data.customer, db, tiers);
   }
 }
 
