@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useActionData, useNavigation, useSubmit } from "@remix-run/react";
@@ -7,7 +6,6 @@ import {
   Layout,
   Card,
   DataTable,
-  Button,
   Text,
   BlockStack,
   InlineGrid,
@@ -156,7 +154,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
       
       // Create and run sync service
-      const syncService = await createCustomerSyncServiceV2(admin, session.shop, {
+      const syncService = await createCustomerSyncServiceV2(admin as any, session.shop, {
         batchSize: 50
       });
       
@@ -211,10 +209,10 @@ export default function CustomersPageV2() {
     customer.shopifyCustomerId,
     customer.currentTier ? (
       <Badge tone="success">
-        {customer.currentTier.name} ({customer.currentTier.cashbackPercent}%)
+        {`${customer.currentTier.name} (${customer.currentTier.cashbackPercent.toString()}%)`}
       </Badge>
     ) : (
-      <Badge tone="neutral">No tier</Badge>
+      <Badge>No tier</Badge>
     ),
     `$${customer.storeCredit}`,
     new Date(customer.createdAt).toLocaleDateString()
@@ -264,7 +262,7 @@ export default function CustomersPageV2() {
                 <BlockStack gap="100">
                   <Text fontWeight="semibold" as="p">Errors:</Text>
                   {actionData.errors.map((error, i) => (
-                    <Box key={i} padding="200" background="bg-surface-critical-subdued" borderRadius="200">
+                    <Box key={i} padding="200" background="bg-surface-critical" borderRadius="200">
                       <Text as="p" variant="bodySm" breakWord>
                         {error}
                       </Text>
@@ -324,7 +322,7 @@ export default function CustomersPageV2() {
                 </Text>
                 {customers.length > 0 && (
                   <Badge tone="info">
-                    Showing {customers.length} of {stats.totalCustomers}
+                    {`Showing ${customers.length.toString()} of ${stats.totalCustomers.toString()}`}
                   </Badge>
                 )}
               </InlineStack>
@@ -366,8 +364,7 @@ export default function CustomersPageV2() {
                 <InlineStack gap="200">
                   {tiers.map(tier => (
                     <Badge key={tier.id} tone="info">
-                      {tier.name}: {tier.cashbackPercent}% 
-                      {tier.minSpend !== null && ` (Min: $${tier.minSpend})`}
+                      {`${tier.name}: ${tier.cashbackPercent.toString()}%${tier.minSpend !== null ? ` (Min: $${tier.minSpend.toString()})` : ''}`}
                     </Badge>
                   ))}
                 </InlineStack>
