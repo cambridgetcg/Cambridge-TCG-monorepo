@@ -36,12 +36,6 @@ export interface SyncResult {
   duration: number;
 }
 
-export interface CustomerMetafield {
-  namespace: string;
-  key: string;
-  value: string;
-  type: string;
-}
 
 // GraphQL Queries
 const CUSTOMERS_BATCH_QUERY = `#graphql
@@ -51,61 +45,14 @@ const CUSTOMERS_BATCH_QUERY = `#graphql
         cursor
         node {
           id
-          displayName
-          firstName
-          lastName
           email
-          phone
           state
-          verifiedEmail
-          validEmailAddress
-          taxExempt
-          tags
-          note
           createdAt
           updatedAt
-          numberOfOrders
           amountSpent {
             amount
             currencyCode
           }
-          lastOrder {
-            id
-            name
-            createdAt
-            totalPriceSet {
-              shopMoney {
-                amount
-                currencyCode
-              }
-            }
-          }
-          defaultAddress {
-            address1
-            address2
-            city
-            province
-            country
-            zip
-            phone
-            provinceCode
-            countryCodeV2
-          }
-          metafields(first: 10, namespace: "rewards_pro") {
-            edges {
-              node {
-                namespace
-                key
-                value
-                type
-              }
-            }
-          }
-          image {
-            src
-            altText
-          }
-          canDelete
         }
       }
       pageInfo {
@@ -390,7 +337,7 @@ export class CustomerSyncService {
     // Calculate total spending
     const totalSpending = parseFloat(customer.amountSpent?.amount || "0");
     
-    // Determine tier
+    // Determine tier based on spending
     let assignedTier = null;
     for (const tier of tiers) {
       if (totalSpending >= tier.minSpend) {
@@ -399,40 +346,12 @@ export class CustomerSyncService {
       }
     }
 
-    // Prepare customer data
+    // Prepare customer data - only fields that exist in Customer model
     const customerData = {
       shop: this.options.shop,
       shopifyCustomerId,
       email,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      phone: customer.phone,
-      currentTierId: assignedTier?.id || null,
-      metadata: {
-        displayName: customer.displayName,
-        tags: customer.tags || [],
-        note: customer.note,
-        verifiedEmail: customer.verifiedEmail,
-        validEmailAddress: customer.validEmailAddress,
-        taxExempt: customer.taxExempt,
-        numberOfOrders: parseInt(customer.numberOfOrders || "0"),
-        totalSpent: totalSpending,
-        currency: customer.amountSpent?.currencyCode,
-        lastOrder: customer.lastOrder ? {
-          id: customer.lastOrder.id,
-          name: customer.lastOrder.name,
-          createdAt: customer.lastOrder.createdAt,
-          total: customer.lastOrder.totalPriceSet?.shopMoney?.amount || null
-        } : null,
-        address: customer.defaultAddress || null,
-        emailMarketing: null, // Marketing fields not available with simple email field
-        smsMarketing: null, // Marketing fields not available with simple phone field
-        metafields: this.parseMetafields(customer.metafields),
-        image: customer.image?.src || null,
-        canDelete: customer.canDelete,
-        shopifyCreatedAt: customer.createdAt,
-        shopifyUpdatedAt: customer.updatedAt
-      }
+      currentTierId: assignedTier?.id || null
     };
 
     // Check if customer exists
@@ -451,11 +370,7 @@ export class CustomerSyncService {
         where: { id: existingCustomer.id },
         data: {
           email: customerData.email,
-          firstName: customerData.firstName,
-          lastName: customerData.lastName,
-          phone: customerData.phone,
-          currentTierId: customerData.currentTierId,
-          metadata: customerData.metadata as any
+          currentTierId: customerData.currentTierId
         }
       });
 
@@ -488,12 +403,8 @@ export class CustomerSyncService {
           shop: customerData.shop,
           shopifyCustomerId: customerData.shopifyCustomerId,
           email: customerData.email!,
-          firstName: customerData.firstName,
-          lastName: customerData.lastName,
-          phone: customerData.phone,
           storeCredit: 0,
-          currentTierId: customerData.currentTierId,
-          metadata: customerData.metadata as any
+          currentTierId: customerData.currentTierId
         }
       });
 
@@ -518,18 +429,6 @@ export class CustomerSyncService {
     }
   }
 
-  private parseMetafields(metafields: any): CustomerMetafield[] {
-    if (!metafields?.edges || metafields.edges.length === 0) {
-      return [];
-    }
-
-    return metafields.edges.map((edge: any) => ({
-      namespace: edge.node.namespace,
-      key: edge.node.key,
-      value: edge.node.value,
-      type: edge.node.type
-    }));
-  }
 
   private async createSyncLog(progress: SyncProgress): Promise<void> {
     try {
@@ -574,10 +473,7 @@ export class CustomerSyncService {
           edges {
             node {
               id
-              displayName
               email
-              tags
-              numberOfOrders
               amountSpent {
                 amount
                 currencyCode
@@ -612,18 +508,10 @@ export class CustomerSyncService {
       query GetCustomer($id: ID!) {
         customer(id: $id) {
           id
-          displayName
-          firstName
-          lastName
           email
-          phone
           state
-          verifiedEmail
-          tags
-          note
           createdAt
           updatedAt
-          numberOfOrders
           amountSpent {
             amount
             currencyCode
