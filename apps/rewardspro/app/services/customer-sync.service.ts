@@ -65,7 +65,6 @@ const CUSTOMERS_BATCH_QUERY = `#graphql
           createdAt
           updatedAt
           numberOfOrders
-          lifetimeDuration
           amountSpent {
             amount
             currencyCode
@@ -74,12 +73,14 @@ const CUSTOMERS_BATCH_QUERY = `#graphql
             id
             name
             createdAt
-            totalPrice {
-              amount
-              currencyCode
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
             }
           }
-          addresses(first: 1) {
+          defaultAddress {
             address1
             address2
             city
@@ -415,16 +416,15 @@ export class CustomerSyncService {
         validEmailAddress: customer.validEmailAddress,
         taxExempt: customer.taxExempt,
         numberOfOrders: parseInt(customer.numberOfOrders || "0"),
-        lifetimeDuration: customer.lifetimeDuration,
         totalSpent: totalSpending,
         currency: customer.amountSpent?.currencyCode,
         lastOrder: customer.lastOrder ? {
           id: customer.lastOrder.id,
           name: customer.lastOrder.name,
           createdAt: customer.lastOrder.createdAt,
-          total: customer.lastOrder.totalPrice?.amount
+          total: customer.lastOrder.totalPriceSet?.shopMoney?.amount || null
         } : null,
-        addresses: customer.addresses || [],
+        address: customer.defaultAddress || null,
         emailMarketing: null, // Marketing fields not available with simple email field
         smsMarketing: null, // Marketing fields not available with simple phone field
         metafields: this.parseMetafields(customer.metafields),
