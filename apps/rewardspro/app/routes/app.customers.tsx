@@ -25,7 +25,8 @@ import {
   EmptyState,
   Badge,
   InlineStack,
-  ProgressBar
+  ProgressBar,
+  Box
 } from "@shopify/polaris";
 import { 
   RefreshIcon
@@ -412,7 +413,11 @@ export default function CustomersPage() {
                 <BlockStack gap="100">
                   <Text variant="bodySm" fontWeight="semibold" as="p">Errors encountered:</Text>
                   {syncResult.errors.map((error, i) => (
-                    <Text key={i} variant="bodySm" tone="critical" as="p">• {error}</Text>
+                    <Box key={i} padding="200" background="bg-surface-critical-subdued" borderRadius="200">
+                      <Text variant="bodySm" tone="critical" as="p" breakWord>
+                        {error}
+                      </Text>
+                    </Box>
                   ))}
                 </BlockStack>
               )}
