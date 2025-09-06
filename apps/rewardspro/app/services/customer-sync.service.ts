@@ -395,6 +395,7 @@ export class CustomerSyncService {
               "DOWNGRADE",
             triggerType: "SHOPIFY_SYNC",
             totalSpending,
+            createdAt: new Date(), // Explicitly set timestamp
             metadata: {
               source: "customer_sync_service",
               customerState: customer.state,
@@ -405,7 +406,8 @@ export class CustomerSyncService {
         });
       }
     } else {
-      // Create new customer with explicit UUID
+      // Create new customer with explicit UUID and timestamps
+      const now = new Date();
       const newCustomer = await db.customer.create({
         data: {
           id: uuidv4(), // Explicitly generate UUID for Aurora Data API
@@ -413,7 +415,9 @@ export class CustomerSyncService {
           shopifyCustomerId: customerData.shopifyCustomerId,
           email: customerData.email!,
           storeCredit: 0,
-          currentTierId: customerData.currentTierId
+          currentTierId: customerData.currentTierId,
+          createdAt: now, // Explicitly set timestamps for Aurora Data API
+          updatedAt: now
         }
       });
 
@@ -431,6 +435,7 @@ export class CustomerSyncService {
             changeType: "INITIAL_ASSIGNMENT",
             triggerType: "ACCOUNT_CREATED",
             totalSpending,
+            createdAt: new Date(), // Explicitly set timestamp
             metadata: {
               source: "customer_sync_service",
               customerState: customer.state,
