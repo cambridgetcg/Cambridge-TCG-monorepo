@@ -291,19 +291,33 @@ export class CustomerSyncService {
     tiers: any[]
   ): Promise<void> {
     for (const customer of customers) {
+      // Skip disabled or invited customers silently
+      if (customer.state === 'DISABLED' || customer.state === 'INVITED') {
+        progress.skipped++;
+        progress.processed++;
+        continue;
+      }
+
+      // Skip customers without email silently
+      if (!customer.email) {
+        progress.skipped++;
+        progress.processed++;
+        continue;
+      }
+
       try {
         await this.processCustomer(customer, tx, tiers);
         progress.successful++;
+        progress.processed++;
       } catch (error) {
         progress.failed++;
+        progress.processed++;
         progress.errors.push({
           customerId: customer.id,
           email: customer.email,
           error: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date()
         });
-      } finally {
-        progress.processed++;
       }
 
       // Update total if we didn't get it initially
@@ -321,16 +335,6 @@ export class CustomerSyncService {
     // Extract customer data
     const email = customer.email;
     
-    // Skip if no email
-    if (!email) {
-      throw new Error("Customer has no email address");
-    }
-
-    // Skip disabled or invited customers
-    if (customer.state === 'DISABLED' || customer.state === 'INVITED') {
-      throw new Error(`Customer is ${customer.state.toLowerCase()}`);
-    }
-
     // Extract Shopify customer ID
     const shopifyCustomerId = customer.id.replace('gid://shopify/Customer/', '');
     
