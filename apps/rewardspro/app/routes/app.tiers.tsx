@@ -22,11 +22,16 @@ import {
   Divider,
   SkeletonBodyText,
   SkeletonDisplayText,
+  Icon,
 } from "@shopify/polaris";
 import {
   PlusIcon,
   EditIcon,
   DeleteIcon,
+  StarFilledIcon,
+  CashDollarIcon,
+  CalendarIcon,
+  PersonIcon,
 } from "@shopify/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
@@ -532,49 +537,23 @@ export default function TiersPage() {
     setTemplateModalActive(false);
   }, [fetcher]);
 
-  // Prepare table data
-  const rows = tiers.map((tier) => {
-    const customerCount = stats.tierDistribution[tier.id] || 0;
-    
-    return [
-      <BlockStack gap="050">
-        <Text variant="bodyMd" fontWeight="semibold" as="span">{tier.name}</Text>
-        {customerCount > 0 && (
-          <Text variant="bodySm" tone="subdued" as="span">{`${customerCount} customers`}</Text>
-        )}
-      </BlockStack>,
-      <Text variant="bodyMd" as="span">{formatCurrency(tier.minSpend, shopSettings as any)}</Text>,
-      <Text variant="bodyMd" as="span">{tier.cashbackPercent}%</Text>,
-      <Text variant="bodyMd" as="span">
-        {tier.evaluationPeriod === "ANNUAL" ? "Annual" : "Lifetime"}
-      </Text>,
-      <InlineStack gap="200" align="end">
-        <Button size="slim" icon={EditIcon} onClick={() => handleModalOpen(tier)}>
-          Edit
-        </Button>
-        {deleteConfirmId === tier.id ? (
-          <InlineStack gap="100">
-            <Button size="slim" variant="plain" onClick={() => setDeleteConfirmId(null)}>
-              Cancel
-            </Button>
-            <Button size="slim" tone="critical" onClick={() => handleDelete(tier.id)}>
-              Confirm
-            </Button>
-          </InlineStack>
-        ) : (
-          <Button 
-            size="slim" 
-            variant="plain" 
-            tone="critical" 
-            icon={DeleteIcon}
-            onClick={() => setDeleteConfirmId(tier.id)}
-          >
-            Delete
-          </Button>
-        )}
-      </InlineStack>,
+  // Get tier color based on index/level
+  const getTierColor = (index: number) => {
+    const colors = ['warning', 'subdued', 'success', 'info', 'attention'];
+    return colors[index % colors.length] as any;
+  };
+  
+  // Get tier icon background
+  const getTierBackground = (index: number) => {
+    const backgrounds = [
+      'bg-surface-warning',
+      'bg-surface-caution', 
+      'bg-surface-success',
+      'bg-surface-info',
+      'bg-surface-magic'
     ];
-  });
+    return backgrounds[index % backgrounds.length];
+  };
 
   // Show success/error messages
   const actionData = fetcher.data as { error?: string; success?: boolean; message?: string } | undefined;
@@ -679,47 +658,117 @@ export default function TiersPage() {
                 <p>Create loyalty tiers to automatically reward customers based on their spending.</p>
               </EmptyState>
             ) : (
-              <div style={{ 
-                "--table-column-widths": "25% 18% 15% 17% 25%",
-              } as React.CSSProperties}>
-                <style>{`
-                  .Polaris-DataTable__Table {
-                    table-layout: fixed;
-                  }
-                  .Polaris-DataTable__Table th:nth-child(1),
-                  .Polaris-DataTable__Table td:nth-child(1) {
-                    width: 25%;
-                  }
-                  .Polaris-DataTable__Table th:nth-child(2),
-                  .Polaris-DataTable__Table td:nth-child(2) {
-                    width: 18%;
-                  }
-                  .Polaris-DataTable__Table th:nth-child(3),
-                  .Polaris-DataTable__Table td:nth-child(3) {
-                    width: 15%;
-                  }
-                  .Polaris-DataTable__Table th:nth-child(4),
-                  .Polaris-DataTable__Table td:nth-child(4) {
-                    width: 17%;
-                  }
-                  .Polaris-DataTable__Table th:nth-child(5),
-                  .Polaris-DataTable__Table td:nth-child(5) {
-                    width: 25%;
-                  }
-                `}</style>
-                <DataTable
-                  columnContentTypes={["text", "numeric", "numeric", "text", "text"]}
-                  headings={[
-                    "Tier Name",
-                    "Min. Spend",
-                    "Cashback",
-                    "Period",
-                    "Actions",
-                  ]}
-                  rows={rows}
-                  hoverable
-                />
-              </div>
+              <BlockStack gap="400">
+                {tiers.map((tier, index) => {
+                  const customerCount = stats.tierDistribution[tier.id] || 0;
+                  const tierBackground = getTierBackground(index);
+                  const tierColor = getTierColor(index);
+                  
+                  return (
+                    <Box key={tier.id} background="bg-surface" padding="0" borderRadius="200">
+                      <InlineStack align="space-between" blockAlign="stretch" wrap={false}>
+                        {/* Tier Info Section */}
+                        <Box padding="400" minWidth="0">
+                          <InlineStack gap="400" align="start" blockAlign="start">
+                            {/* Icon */}
+                            <Box background="bg-surface-brand" padding="300" borderRadius="100">
+                              <Icon source={StarFilledIcon} tone={tierColor} />
+                            </Box>
+                            
+                            {/* Tier Details */}
+                            <BlockStack gap="200">
+                              <InlineStack gap="200" align="start">
+                                <Text variant="headingMd" as="h3">
+                                  {tier.name}
+                                </Text>
+                                {customerCount > 0 && (
+                                  <Badge tone="info">
+                                    {`${customerCount} ${customerCount === 1 ? 'customer' : 'customers'}`}
+                                  </Badge>
+                                )}
+                              </InlineStack>
+                              
+                              <InlineStack gap="400" wrap={false}>
+                                <InlineStack gap="100">
+                                  <Icon source={CashDollarIcon} tone="subdued" />
+                                  <Text variant="bodyMd" as="span">
+                                    <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                      {formatCurrency(tier.minSpend, shopSettings as any)}
+                                    </Text>
+                                    {' min spend'}
+                                  </Text>
+                                </InlineStack>
+                                
+                                <Box borderInlineStartWidth="025" borderColor="border">
+                                  <Box paddingInlineStart="400">
+                                    <Badge tone={tierColor}>
+                                      {`${tier.cashbackPercent}% cashback`}
+                                    </Badge>
+                                  </Box>
+                                </Box>
+                                
+                                <Box borderInlineStartWidth="025" borderColor="border">
+                                  <Box paddingInlineStart="400">
+                                    <InlineStack gap="100">
+                                      <Icon source={CalendarIcon} tone="subdued" />
+                                      <Text variant="bodyMd" tone="subdued" as="span">
+                                        {tier.evaluationPeriod === "ANNUAL" ? "Annual" : "Lifetime"}
+                                      </Text>
+                                    </InlineStack>
+                                  </Box>
+                                </Box>
+                              </InlineStack>
+                            </BlockStack>
+                          </InlineStack>
+                        </Box>
+                        
+                        {/* Actions Section */}
+                        <Box background="bg-surface-secondary" borderRadius="200">
+                          <Box padding="400">
+                            <InlineStack gap="200">
+                              <Button 
+                                size="medium" 
+                                icon={EditIcon} 
+                                onClick={() => handleModalOpen(tier)}
+                              >
+                                Edit
+                              </Button>
+                              {deleteConfirmId === tier.id ? (
+                                <InlineStack gap="100">
+                                  <Button 
+                                    size="medium" 
+                                    variant="plain" 
+                                    onClick={() => setDeleteConfirmId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button 
+                                    size="medium" 
+                                    tone="critical" 
+                                    onClick={() => handleDelete(tier.id)}
+                                  >
+                                    Confirm
+                                  </Button>
+                                </InlineStack>
+                              ) : (
+                                <Button 
+                                  size="medium" 
+                                  variant="plain" 
+                                  tone="critical" 
+                                  icon={DeleteIcon}
+                                  onClick={() => setDeleteConfirmId(tier.id)}
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                            </InlineStack>
+                          </Box>
+                        </Box>
+                      </InlineStack>
+                    </Box>
+                  );
+                })}
+              </BlockStack>
             )}
           </Card>
         </Layout.Section>
