@@ -2,7 +2,7 @@
 
 client_id = "f04b5854fb022d67ba9dd097767b465a"
 name = "rewardspro-production"
-application_url = "https://sake-aviation-finder-these.trycloudflare.com"
+application_url = "https://mardi-cardiac-instead-travel.trycloudflare.com"
 embedded = true
 handle = "rewardspro-production"
 
@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "read_customers,write_customers,read_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts"
 
 [auth]
-redirect_urls = ["https://sake-aviation-finder-these.trycloudflare.com/auth/callback", "https://sake-aviation-finder-these.trycloudflare.com/auth/shopify/callback", "https://sake-aviation-finder-these.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://mardi-cardiac-instead-travel.trycloudflare.com/auth/callback", "https://mardi-cardiac-instead-travel.trycloudflare.com/auth/shopify/callback", "https://mardi-cardiac-instead-travel.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

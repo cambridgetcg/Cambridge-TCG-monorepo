@@ -26,7 +26,6 @@ import {
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import crypto from "crypto";
 
 // ============================================================================
 // TEST SCENARIOS
@@ -279,6 +278,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const webhookUrl = `${process.env.SHOPIFY_APP_URL || `https://${request.headers.get("host")}`}/webhooks/orders/paid`;
     const payload = JSON.stringify(testOrder);
     const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+    const crypto = await import("crypto");
     const hmac = webhookSecret 
       ? crypto.createHmac("sha256", webhookSecret).update(payload, "utf8").digest("base64")
       : "";
@@ -331,6 +331,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const webhookUrl = `${process.env.SHOPIFY_APP_URL || `https://${request.headers.get("host")}`}/webhooks/orders/paid`;
       const payload = JSON.stringify(testOrder);
       const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+      const crypto = await import("crypto");
       const hmac = webhookSecret 
         ? crypto.createHmac("sha256", webhookSecret).update(payload, "utf8").digest("base64")
         : "";

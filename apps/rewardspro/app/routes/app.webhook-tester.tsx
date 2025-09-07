@@ -26,7 +26,6 @@ import {
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import crypto from "crypto";
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -202,7 +201,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
         const payload = JSON.stringify(mockOrder);
         const hmac = webhookSecret 
-          ? crypto.createHmac("sha256", webhookSecret).update(payload, "utf8").digest("base64")
+          ? (await import("crypto")).createHmac("sha256", webhookSecret).update(payload, "utf8").digest("base64")
           : "";
 
         // Make the request
