@@ -27,13 +27,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     where: {
       id: params.id,
       shop: session.shop
-    },
-    include: {
-      currentTier: true,
-      creditLedger: {
-        take: 10,
-        orderBy: { createdAt: 'desc' }
-      }
     }
   });
   
@@ -41,13 +34,25 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     throw new Response("Customer not found", { status: 404 });
   }
   
+  // Fetch related data separately (Data API doesn't support includes)
+  const [currentTier, creditLedger] = await Promise.all([
+    customer.currentTierId ? db.tier.findUnique({
+      where: { id: customer.currentTierId }
+    }) : Promise.resolve(null),
+    db.storeCreditLedger.findMany({
+      where: { customerId: customer.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    })
+  ]);
+  
   return json({
     id: customer.id,
     email: customer.email,
     shopifyCustomerId: customer.shopifyCustomerId,
     storeCredit: customer.storeCredit.toString(),
-    currentTier: customer.currentTier,
-    recentTransactions: customer.creditLedger.map(ledger => ({
+    currentTier,
+    recentTransactions: creditLedger.map(ledger => ({
       id: ledger.id,
       amount: ledger.amount.toString(),
       type: ledger.type,

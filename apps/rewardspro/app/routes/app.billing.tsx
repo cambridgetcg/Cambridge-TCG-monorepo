@@ -147,9 +147,8 @@ const calculateUsagePercentage = (used: number, limit: number): number => {
   return Math.min(Math.round((used / limit) * 100), 100);
 };
 
-const getUsageTone = (percentage: number): "success" | "warning" | "critical" => {
-  if (percentage < 80) return "success";
-  if (percentage < 90) return "warning";
+const getUsageTone = (percentage: number): "success" | "critical" => {
+  if (percentage < 90) return "success";
   return "critical";
 };
 

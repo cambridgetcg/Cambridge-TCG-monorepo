@@ -23,6 +23,7 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { FeedbackSection } from "../components/FeedbackSection";
+import { formatCurrency } from "../utils/currency";
 
 // Type definitions
 interface SetupTask {
@@ -116,6 +117,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       setupProgress,
       completedTasks,
       recentActivity,
+      shopSettings: settings ? {
+        storeCurrency: settings.storeCurrency,
+        currencyDisplayType: settings.currencyDisplayType
+      } : null
     });
   } catch (error) {
     console.error("[Dashboard] Loader error:", error);
@@ -128,16 +133,14 @@ export default function DashboardPage() {
     setupTasks, 
     setupProgress, 
     completedTasks,
-    recentActivity 
+    recentActivity,
+    shopSettings 
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const isSetupComplete = completedTasks === setupTasks.length;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+  const formatAmount = (amount: number) => {
+    return formatCurrency(amount, shopSettings as any);
   };
 
   const formatRelativeTime = (date: string | Date) => {
@@ -281,7 +284,7 @@ export default function DashboardPage() {
                             </Text>
                           </BlockStack>
                           <Text variant="bodyMd" fontWeight="semibold" as="p">
-                            {activity.amount > 0 && "+"}{formatCurrency(parseFloat(activity.amount))}
+                            {activity.amount > 0 && "+"}{formatAmount(parseFloat(activity.amount))}
                           </Text>
                         </InlineStack>
                       </Box>

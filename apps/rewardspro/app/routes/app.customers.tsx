@@ -133,6 +133,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Handle sync from Shopify
   if (actionType === "syncFromShopify") {
     try {
+      const startTime = Date.now();
+      
       // Check for tiers first
       const tiersCount = await db.tier.count({
         where: { shop }
@@ -146,7 +148,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       // Create sync service V2 instance
-      const syncService = await createCustomerSyncServiceV2(admin, shop, {
+      const syncService = await createCustomerSyncServiceV2(admin as any, shop, {
         batchSize: 50
       });
 
@@ -413,7 +415,7 @@ export default function CustomersPage() {
                 <BlockStack gap="100">
                   <Text variant="bodySm" fontWeight="semibold" as="p">Errors encountered:</Text>
                   {syncResult.errors.map((error, i) => (
-                    <Box key={i} padding="200" background="bg-surface-critical-subdued" borderRadius="200">
+                    <Box key={i} padding="200" background="bg-surface-critical" borderRadius="200">
                       <Text variant="bodySm" tone="critical" as="p" breakWord>
                         {error}
                       </Text>
@@ -663,7 +665,7 @@ export default function CustomersPage() {
                           <InlineStack key={tier.id} gap="200" align="space-between">
                             <Text variant="bodySm" as="span">{tier.name}</Text>
                             <Badge tone="info">
-                              Min: {formatCurrency(tier.minSpend)} | {tier.cashbackPercent}% cashback
+                              {`Min: ${formatCurrency(tier.minSpend)} | ${tier.cashbackPercent}% cashback`}
                             </Badge>
                           </InlineStack>
                         ))}

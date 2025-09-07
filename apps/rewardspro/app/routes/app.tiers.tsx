@@ -31,6 +31,7 @@ import {
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { formatCurrency, getCurrencySymbol } from "../utils/currency";
 
 // ============= TYPES =============
 type Tier = {
@@ -51,6 +52,10 @@ type LoaderData = {
     totalCustomers: number;
     tierDistribution: Record<string, number>;
   };
+  shopSettings: {
+    storeCurrency: string;
+    currencyDisplayType: string;
+  } | null;
 };
 
 // ============= TIER TEMPLATES =============
@@ -170,8 +175,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const shop = session.shop;
 
-    // Fetch tiers and related data
-    const [tiers, customers] = await Promise.all([
+    // Fetch shop settings and tiers
+    const [shopSettings, tiers, customers] = await Promise.all([
+      db.shopSettings.findUnique({
+        where: { shop }
+      }),
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: "asc" },
@@ -204,7 +212,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tierDistribution,
     };
 
-    return json<LoaderData>({ tiers: serializedTiers, shop, stats });
+    return json<LoaderData>({ 
+      tiers: serializedTiers, 
+      shop, 
+      stats,
+      shopSettings: shopSettings ? {
+        storeCurrency: shopSettings.storeCurrency,
+        currencyDisplayType: shopSettings.currencyDisplayType
+      } : null
+    });
   } catch (error) {
     console.error("Loader error:", error);
     throw new Response("Failed to load tiers", { status: 500 });
@@ -422,7 +438,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 // ============= COMPONENT =============
 export default function TiersPage() {
-  const { tiers, stats } = useLoaderData<LoaderData>();
+  const { tiers, stats, shopSettings } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -527,7 +543,7 @@ export default function TiersPage() {
           <Text variant="bodySm" tone="subdued" as="span">{`${customerCount} customers`}</Text>
         )}
       </BlockStack>,
-      <Text variant="bodyMd" as="span">${tier.minSpend.toLocaleString()}</Text>,
+      <Text variant="bodyMd" as="span">{formatCurrency(tier.minSpend, shopSettings as any)}</Text>,
       <Text variant="bodyMd" as="span">{tier.cashbackPercent}%</Text>,
       <Text variant="bodyMd" as="span">
         {tier.evaluationPeriod === "ANNUAL" ? "Annual" : "Lifetime"}
@@ -758,7 +774,7 @@ export default function TiersPage() {
               min="0"
               autoComplete="off"
               helpText="Minimum amount to reach this tier"
-              prefix="$"
+              prefix={shopSettings ? getCurrencySymbol(shopSettings.storeCurrency as any) : "$"}
             />
             
             <TextField
@@ -827,7 +843,7 @@ export default function TiersPage() {
                       {template.tiers.map((tier, index) => (
                         <InlineStack key={index} align="space-between">
                           <Text variant="bodySm" as="p">
-                            <Text variant="bodySm" fontWeight="semibold" as="span">{tier.name}</Text> - ${tier.minSpend}+
+                            <Text variant="bodySm" fontWeight="semibold" as="span">{tier.name}</Text> - {formatCurrency(tier.minSpend, shopSettings as any)}+
                           </Text>
                           <Badge tone="info">{`${tier.cashbackPercent}%`}</Badge>
                         </InlineStack>

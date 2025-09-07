@@ -2,7 +2,7 @@
  * Type definitions for the customers route
  */
 
-import type { Customer, Tier } from "@prisma/client";
+import type { Customer, Tier, Currency, CurrencyDisplayType } from "@prisma/client";
 
 /**
  * Customer with tier relationship
@@ -40,6 +40,10 @@ export interface CustomersLoaderData {
   };
   sortBy?: string;
   sortOrder?: string;
+  shopSettings: {
+    storeCurrency: Currency;
+    currencyDisplayType: CurrencyDisplayType;
+  } | null;
 }
 
 /**

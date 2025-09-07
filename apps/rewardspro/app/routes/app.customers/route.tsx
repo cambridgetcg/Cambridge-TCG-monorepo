@@ -20,6 +20,7 @@ import {
 import { authenticate } from "../../shopify.server";
 import db from "../../db.server";
 import { createCustomerSyncServiceV2 } from "../../services/customer-sync-v2.service";
+import { formatCurrency } from "../../utils/currency";
 
 // Type imports
 import type { CustomersLoaderData, CustomersActionData } from "./types";
@@ -60,6 +61,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         break;
     }
     
+    // Fetch shop settings for currency formatting
+    const shopSettings = await db.shopSettings.findUnique({
+      where: { shop: session.shop }
+    });
+
     // Fetch customers with their tiers
     const customers = await db.customer.findMany({
       where: { shop: session.shop },
@@ -109,7 +115,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tiers,
       stats,
       sortBy,
-      sortOrder
+      sortOrder,
+      shopSettings: shopSettings ? {
+        storeCurrency: shopSettings.storeCurrency,
+        currencyDisplayType: shopSettings.currencyDisplayType
+      } : null
     });
   } catch (error) {
     console.error("Error loading customers:", error);
@@ -120,7 +130,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         totalCustomers: 0,
         customersWithTiers: 0,
         totalStoreCredit: "0.00"
-      }
+      },
+      sortBy,
+      sortOrder,
+      shopSettings: null
     });
   }
 };
@@ -174,7 +187,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
   
-  return json<ActionData>({
+  return json<CustomersActionData>({
     success: false,
     message: "Invalid action"
   });
@@ -185,7 +198,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================================================
 
 export default function CustomersPageV2() {
-  const { customers, tiers, stats, sortBy = 'createdAt', sortOrder = 'desc' } = useLoaderData<typeof loader>();
+  const { customers, tiers, stats, sortBy = 'createdAt', sortOrder = 'desc', shopSettings } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submit = useSubmit();
@@ -233,7 +246,7 @@ export default function CustomersPageV2() {
     ) : (
       <Badge>No tier</Badge>
     ),
-    `$${customer.storeCredit}`,
+    formatCurrency(customer.storeCredit, shopSettings),
     new Date(customer.createdAt).toLocaleDateString()
   ]);
   
@@ -280,7 +293,7 @@ export default function CustomersPageV2() {
               {actionData.errors && actionData.errors.length > 0 && (
                 <BlockStack gap="100">
                   <Text fontWeight="semibold" as="p">Errors:</Text>
-                  {actionData.errors.map((error, i) => (
+                  {actionData.errors.map((error: string, i: number) => (
                     <Box key={i} padding="200" background="bg-surface-critical" borderRadius="200">
                       <Text as="p" variant="bodySm" breakWord>
                         {error}
@@ -321,7 +334,7 @@ export default function CustomersPageV2() {
             <Card>
               <BlockStack gap="200">
                 <Text variant="headingLg" as="h2">
-                  ${stats.totalStoreCredit}
+                  {formatCurrency(stats.totalStoreCredit, shopSettings)}
                 </Text>
                 <Text variant="bodySm" tone="subdued" as="p">
                   Total Store Credit

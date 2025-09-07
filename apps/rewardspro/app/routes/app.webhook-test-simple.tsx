@@ -21,9 +21,8 @@ import {
 import {
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon,
   CashDollarIcon,
-  CustomerIcon,
+  PersonIcon,
   ReceiptRefundIcon,
 } from "@shopify/polaris-icons";
 import { useState } from "react";
@@ -418,13 +417,10 @@ export default function SimpleWebhookTester() {
                     </Text>
                     <InlineStack gap="200">
                       <Badge tone={actionData.details.response.status === 200 ? "success" : "critical"}>
-                        HTTP {actionData.details.response.status}
+                        {`HTTP ${actionData.details.response.status.toString()}`}
                       </Badge>
                       <Badge tone="info">
-                        <InlineStack gap="100">
-                          <Icon source={ClockIcon} />
-                          {actionData.details.response.timing}ms
-                        </InlineStack>
+                        {`${actionData.details.response.timing}ms`}
                       </Badge>
                     </InlineStack>
                   </InlineStack>
@@ -470,7 +466,7 @@ export default function SimpleWebhookTester() {
                       Response Body
                     </Text>
                     <Box background="bg-surface-secondary" padding="300" borderRadius="200">
-                      <Text as="p" variant="bodySm" fontWeight="monospace">
+                      <Text as="p" variant="bodySm">
                         {actionData.details.response.body || "(empty response)"}
                       </Text>
                     </Box>
@@ -492,7 +488,7 @@ export default function SimpleWebhookTester() {
                     <Box background="bg-surface-secondary" padding="400" borderRadius="200">
                       <BlockStack gap="300">
                         <InlineStack gap="200">
-                          <Icon source={CustomerIcon} />
+                          <Icon source={PersonIcon} />
                           <Text variant="headingSm" as="h3">
                             Customer
                           </Text>
