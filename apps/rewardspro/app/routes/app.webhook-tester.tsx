@@ -171,10 +171,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       customer: useExistingCustomer && customerId
         ? await db.customer.findUnique({
             where: { id: customerId },
-            select: {
-              shopifyCustomerId: true,
-              email: true,
-            },
           }).then(c => c ? {
             id: parseInt(c.shopifyCustomerId),
             email: c.email,
@@ -224,21 +220,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const responseBody = await response.text();
 
         // Check what actually happened in the database
-        const customer = mockOrder.customer ? await db.customer.findUnique({
-          where: {
-            shop_shopifyCustomerId: {
-              shop: session.shop,
-              shopifyCustomerId: mockOrder.customer.id.toString(),
+        const customer = mockOrder.customer ? await (async () => {
+          const c = await db.customer.findUnique({
+            where: {
+              shop_shopifyCustomerId: {
+                shop: session.shop,
+                shopifyCustomerId: mockOrder.customer!.id.toString(),
+              },
             },
-          },
-          include: {
-            currentTier: true,
-            ledgerEntries: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
-            },
-          },
-        }) : null;
+          });
+          if (!c) return null;
+          const tier = c.currentTierId ? await db.tier.findUnique({ where: { id: c.currentTierId } }) : null;
+          const ledgerEntries = await db.storeCreditLedger.findMany({
+            where: { customerId: c.id },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          });
+          return { ...c, currentTier: tier, ledgerEntries };
+        })() : null;
 
         return json<ActionData>({
           success: response.ok,
@@ -294,10 +293,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               shopifyCustomerId,
             },
           },
-          include: {
-            currentTier: true,
-          },
         });
+        let currentTier = customer?.currentTierId ? await db.tier.findUnique({ where: { id: customer.currentTierId } }) : null;
 
         const storeCreditBefore = customer ? Number(customer.storeCredit) : 0;
 
@@ -306,17 +303,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             data: {
               shop: session.shop,
               shopifyCustomerId,
-              email: mockOrder.customer.email,
+              email: mockOrder.customer!.email,
               storeCredit: 0,
             },
-            include: {
-              currentTier: true,
-            },
           });
+          currentTier = customer.currentTierId ? await db.tier.findUnique({ where: { id: customer.currentTierId } }) : null;
         }
 
         // Calculate cashback
-        const tier = customer.currentTier || await db.tier.findFirst({
+        const tier = currentTier || await db.tier.findFirst({
           where: {
             shop: session.shop,
             minSpend: 0,
@@ -345,7 +340,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 tierName: tier?.name,
                 tierId: tier?.id,
                 currency: mockOrder.currency,
-                customerEmail: mockOrder.customer.email,
+                customerEmail: mockOrder.customer!.email,
                 orderDate: mockOrder.created_at,
                 testSimulation: true,
               },
@@ -543,7 +538,6 @@ export default function WebhookTester() {
                       onChange={setOrderAmount}
                       prefix="$"
                       type="number"
-                      step="0.01"
                       autoComplete="off"
                     />
                     <Select
@@ -614,7 +608,7 @@ export default function WebhookTester() {
                           term: "Status Code",
                           description: (
                             <Badge tone={actionData.webhookResponse.status === 200 ? "success" : "critical"}>
-                              {actionData.webhookResponse.status}
+                              {actionData.webhookResponse.status.toString()}
                             </Badge>
                           ),
                         },

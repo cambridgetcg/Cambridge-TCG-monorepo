@@ -224,6 +224,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ACTION
 // ============================================================================
 
+interface ActionResult {
+  success: boolean;
+  message: string;
+  scenarioName?: string;
+  expectedResult?: string;
+  actualStatus?: number;
+  results?: Array<{
+    orderId: number;
+    email: string;
+    amount: number;
+    status: number;
+    success: boolean;
+  }>;
+}
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
@@ -234,7 +249,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const scenario = TEST_SCENARIOS.find(s => s.id === scenarioId);
     
     if (!scenario) {
-      return json({ success: false, message: "Invalid scenario" });
+      return json<ActionResult>({ success: false, message: "Invalid scenario" });
     }
 
     // Implement scenario-specific logic
@@ -279,7 +294,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       body: payload,
     });
 
-    return json({
+    return json<ActionResult>({
       success: response.ok,
       message: `Scenario "${scenario.name}" executed`,
       scenarioName: scenario.name,
@@ -342,7 +357,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const successCount = results.filter(r => r.success).length;
     
-    return json({
+    return json<ActionResult>({
       success: true,
       message: `Batch test completed: ${successCount}/${count} successful`,
       results,
@@ -361,7 +376,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    return json({
+    return json<ActionResult>({
       success: true,
       message: "Test data cleared successfully",
     });
@@ -376,7 +391,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function WebhookTesterAdvanced() {
   const data = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<ActionResult>();
   const navigation = useNavigation();
   
   const [selectedTab, setSelectedTab] = useState(0);
@@ -450,8 +465,9 @@ export default function WebhookTesterAdvanced() {
                     
                     <BlockStack gap="200">
                       {TEST_SCENARIOS.map(scenario => (
-                        <Card key={scenario.id} sectioned>
-                          <InlineGrid columns="1fr auto" gap="400">
+                        <Card key={scenario.id}>
+                          <Box padding="400">
+                            <InlineGrid columns="1fr auto" gap="400">
                             <BlockStack gap="200">
                               <Text variant="headingSm" as="h3">
                                 {scenario.name}
@@ -471,6 +487,7 @@ export default function WebhookTesterAdvanced() {
                               </Button>
                             </Form>
                           </InlineGrid>
+                          </Box>
                         </Card>
                       ))}
                     </BlockStack>
@@ -489,8 +506,9 @@ export default function WebhookTesterAdvanced() {
                       Generate and process multiple test orders simultaneously
                     </Text>
                     
-                    <Card sectioned>
-                      <Form method="post">
+                    <Card>
+                      <Box padding="400">
+                        <Form method="post">
                         <BlockStack gap="400">
                           <TextField
                             label="Number of test orders"
@@ -509,6 +527,7 @@ export default function WebhookTesterAdvanced() {
                           </Button>
                         </BlockStack>
                       </Form>
+                      </Box>
                     </Card>
 
                     {actionData?.results && (
@@ -738,7 +757,7 @@ export default function WebhookTesterAdvanced() {
             form.submit();
             setShowClearModal(false);
           },
-          tone: "critical",
+          destructive: true,
         }}
         secondaryActions={[
           {
