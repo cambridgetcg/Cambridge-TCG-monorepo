@@ -4,40 +4,6 @@
  */
 
 import type { Prisma } from "@prisma/client";
-import type { SortField, SortOrder } from "./types";
-
-/**
- * Builds Prisma orderBy clause based on sort parameters
- * 
- * @param sortBy - Field to sort by
- * @param sortOrder - Sort direction (asc/desc)
- * @returns Prisma orderBy clause
- */
-export function buildCustomerOrderBy(
-  sortBy: string,
-  sortOrder: string
-): Prisma.CustomerOrderByWithRelationInput {
-  const order = sortOrder as SortOrder;
-  
-  switch (sortBy as SortField) {
-    case 'email':
-      return { email: order };
-    
-    case 'shopifyCustomerId':
-      return { shopifyCustomerId: order };
-    
-    case 'storeCredit':
-      return { storeCredit: order };
-    
-    case 'tier':
-      // Sort by tier's minSpend (higher tiers have higher minSpend)
-      return { currentTier: { minSpend: order } };
-    
-    case 'createdAt':
-    default:
-      return { createdAt: order };
-  }
-}
 
 /**
  * Formats customer data for client consumption

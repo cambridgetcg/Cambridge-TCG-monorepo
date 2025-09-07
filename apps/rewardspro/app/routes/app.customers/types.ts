@@ -38,8 +38,7 @@ export interface CustomersLoaderData {
     customersWithTiers: number;
     totalStoreCredit: string;
   };
-  sortBy?: string;
-  sortOrder?: string;
+  searchQuery?: string;
   shopSettings: {
     storeCurrency: Currency;
     currencyDisplayType: CurrencyDisplayType;
@@ -57,12 +56,6 @@ export interface CustomersActionData {
   failed?: number;
   errors?: string[];
 }
-
-/**
- * Sort configuration
- */
-export type SortField = "email" | "shopifyCustomerId" | "tier" | "storeCredit" | "createdAt";
-export type SortOrder = "asc" | "desc";
 
 /**
  * Sync options for customer service

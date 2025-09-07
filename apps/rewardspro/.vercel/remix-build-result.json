@@ -11,23 +11,18 @@
     },
     "routeIdToServerBundleId": {
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-data-api-session": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-billing-direct": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-tier-list": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-session": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-auth": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-enum": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-db": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.webhook-tester-advanced": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.webhook-test-simple": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.webhook-tester": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -51,29 +46,11 @@
           "runtime": "nodejs"
         }
       },
-      "routes/api.test-data-api-session": {
-        "id": "routes/api.test-data-api-session",
-        "parentId": "root",
-        "file": "app/routes/api.test-data-api-session.tsx",
-        "path": "api/test-data-api-session",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
         "parentId": "root",
         "file": "app/routes/webhooks.app.uninstalled.tsx",
         "path": "webhooks/app/uninstalled",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-billing-direct": {
-        "id": "routes/api.test-billing-direct",
-        "parentId": "root",
-        "file": "app/routes/api.test-billing-direct.tsx",
-        "path": "api/test-billing-direct",
         "config": {
           "runtime": "nodejs"
         }
@@ -101,69 +78,6 @@
         "parentId": "root",
         "file": "app/routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-tier-list": {
-        "id": "routes/api.test-tier-list",
-        "parentId": "root",
-        "file": "app/routes/api.test-tier-list.tsx",
-        "path": "api/test-tier-list",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-settings": {
-        "id": "routes/api.test-settings",
-        "parentId": "root",
-        "file": "app/routes/api.test-settings.tsx",
-        "path": "api/test-settings",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-billing": {
-        "id": "routes/api.test-billing",
-        "parentId": "root",
-        "file": "app/routes/api.test-billing.tsx",
-        "path": "api/test-billing",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-session": {
-        "id": "routes/api.test-session",
-        "parentId": "root",
-        "file": "app/routes/api.test-session.tsx",
-        "path": "api/test-session",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-auth": {
-        "id": "routes/api.test-auth",
-        "parentId": "root",
-        "file": "app/routes/api.test-auth.tsx",
-        "path": "api/test-auth",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-enum": {
-        "id": "routes/api.test-enum",
-        "parentId": "root",
-        "file": "app/routes/api.test-enum.tsx",
-        "path": "api/test-enum",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-db": {
-        "id": "routes/api.test-db",
-        "parentId": "root",
-        "file": "app/routes/api.test-db.tsx",
-        "path": "api/test-db",
         "config": {
           "runtime": "nodejs"
         }
@@ -211,10 +125,46 @@
         "path": "app",
         "config": {}
       },
+      "routes/app.webhook-tester-advanced": {
+        "id": "routes/app.webhook-tester-advanced",
+        "parentId": "routes/app",
+        "file": "app/routes/app.webhook-tester-advanced.tsx",
+        "path": "webhook-tester-advanced",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.webhook-test-simple": {
+        "id": "routes/app.webhook-test-simple",
+        "parentId": "routes/app",
+        "file": "app/routes/app.webhook-test-simple.tsx",
+        "path": "webhook-test-simple",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.webhook-tester": {
+        "id": "routes/app.webhook-tester",
+        "parentId": "routes/app",
+        "file": "app/routes/app.webhook-tester.tsx",
+        "path": "webhook-tester",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.graphql-test": {
+        "id": "routes/app.graphql-test",
+        "parentId": "routes/app",
+        "file": "app/routes/app.graphql-test.tsx",
+        "path": "graphql-test",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.customers": {
         "id": "routes/app.customers",
         "parentId": "routes/app",
-        "file": "app/routes/app.customers.tsx",
+        "file": "app/routes/app.customers/route.tsx",
         "path": "customers",
         "config": {
           "runtime": "nodejs"
@@ -292,23 +242,11 @@
         "file": "routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update"
       },
-      "routes/api.test-data-api-session": {
-        "id": "routes/api.test-data-api-session",
-        "parentId": "root",
-        "file": "routes/api.test-data-api-session.tsx",
-        "path": "api/test-data-api-session"
-      },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
         "parentId": "root",
         "file": "routes/webhooks.app.uninstalled.tsx",
         "path": "webhooks/app/uninstalled"
-      },
-      "routes/api.test-billing-direct": {
-        "id": "routes/api.test-billing-direct",
-        "parentId": "root",
-        "file": "routes/api.test-billing-direct.tsx",
-        "path": "api/test-billing-direct"
       },
       "routes/webhooks.orders.paid": {
         "id": "routes/webhooks.orders.paid",
@@ -327,48 +265,6 @@
         "parentId": "root",
         "file": "routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance"
-      },
-      "routes/api.test-tier-list": {
-        "id": "routes/api.test-tier-list",
-        "parentId": "root",
-        "file": "routes/api.test-tier-list.tsx",
-        "path": "api/test-tier-list"
-      },
-      "routes/api.test-settings": {
-        "id": "routes/api.test-settings",
-        "parentId": "root",
-        "file": "routes/api.test-settings.tsx",
-        "path": "api/test-settings"
-      },
-      "routes/api.test-billing": {
-        "id": "routes/api.test-billing",
-        "parentId": "root",
-        "file": "routes/api.test-billing.tsx",
-        "path": "api/test-billing"
-      },
-      "routes/api.test-session": {
-        "id": "routes/api.test-session",
-        "parentId": "root",
-        "file": "routes/api.test-session.tsx",
-        "path": "api/test-session"
-      },
-      "routes/api.test-auth": {
-        "id": "routes/api.test-auth",
-        "parentId": "root",
-        "file": "routes/api.test-auth.tsx",
-        "path": "api/test-auth"
-      },
-      "routes/api.test-enum": {
-        "id": "routes/api.test-enum",
-        "parentId": "root",
-        "file": "routes/api.test-enum.tsx",
-        "path": "api/test-enum"
-      },
-      "routes/api.test-db": {
-        "id": "routes/api.test-db",
-        "parentId": "root",
-        "file": "routes/api.test-db.tsx",
-        "path": "api/test-db"
       },
       "routes/api.health": {
         "id": "routes/api.health",
@@ -400,10 +296,34 @@
         "file": "routes/app.tsx",
         "path": "app"
       },
+      "routes/app.webhook-tester-advanced": {
+        "id": "routes/app.webhook-tester-advanced",
+        "parentId": "routes/app",
+        "file": "routes/app.webhook-tester-advanced.tsx",
+        "path": "webhook-tester-advanced"
+      },
+      "routes/app.webhook-test-simple": {
+        "id": "routes/app.webhook-test-simple",
+        "parentId": "routes/app",
+        "file": "routes/app.webhook-test-simple.tsx",
+        "path": "webhook-test-simple"
+      },
+      "routes/app.webhook-tester": {
+        "id": "routes/app.webhook-tester",
+        "parentId": "routes/app",
+        "file": "routes/app.webhook-tester.tsx",
+        "path": "webhook-tester"
+      },
+      "routes/app.graphql-test": {
+        "id": "routes/app.graphql-test",
+        "parentId": "routes/app",
+        "file": "routes/app.graphql-test.tsx",
+        "path": "graphql-test"
+      },
       "routes/app.customers": {
         "id": "routes/app.customers",
         "parentId": "routes/app",
-        "file": "routes/app.customers.tsx",
+        "file": "routes/app.customers/route.tsx",
         "path": "customers"
       },
       "routes/app.settings": {

@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useActionData, useNavigation, useSubmit, useSearchParams, useRouteError, isRouteErrorResponse } from "@remix-run/react";
+import { useState, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -15,8 +16,11 @@ import {
   InlineStack,
   EmptyState,
   Button,
-  ButtonGroup
+  ButtonGroup,
+  TextField,
+  Icon
 } from "@shopify/polaris";
+import { SearchIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../../shopify.server";
 import db from "../../db.server";
 import { createCustomerSyncServiceV2 } from "../../services/customer-sync-v2.service";
@@ -32,33 +36,19 @@ import type { CustomersLoaderData, CustomersActionData } from "./types";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   
-  // Get sorting parameters from URL
+  // Get search parameter from URL
   const url = new URL(request.url);
-  const sortBy = url.searchParams.get('sortBy') || 'createdAt';
-  const sortOrder = url.searchParams.get('sortOrder') || 'desc';
+  const searchQuery = url.searchParams.get('search') || '';
   
   try {
-    // Build orderBy based on sort parameters
-    let orderBy: any = {};
+    // Build where clause for search
+    const whereClause: any = { shop: session.shop };
     
-    switch (sortBy) {
-      case 'email':
-        orderBy = { email: sortOrder };
-        break;
-      case 'shopifyCustomerId':
-        orderBy = { shopifyCustomerId: sortOrder };
-        break;
-      case 'storeCredit':
-        orderBy = { storeCredit: sortOrder };
-        break;
-      case 'tier':
-        // Sort by tier's minSpend (higher tiers have higher minSpend)
-        orderBy = { currentTier: { minSpend: sortOrder } };
-        break;
-      case 'createdAt':
-      default:
-        orderBy = { createdAt: sortOrder };
-        break;
+    if (searchQuery) {
+      whereClause.OR = [
+        { email: { contains: searchQuery, mode: 'insensitive' } },
+        { shopifyCustomerId: { contains: searchQuery, mode: 'insensitive' } }
+      ];
     }
     
     // Fetch shop settings for currency formatting
@@ -66,13 +56,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where: { shop: session.shop }
     });
 
-    // Fetch customers with their tiers
+    // Fetch customers (Data API doesn't support includes)
     const customers = await db.customer.findMany({
-      where: { shop: session.shop },
-      include: {
-        currentTier: true
-      },
-      orderBy,
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
       take: 100 // Limit to first 100 for performance
     });
 
@@ -96,26 +83,41 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       totalStoreCredit: customers.reduce((sum, c) => sum + Number(c.storeCredit), 0).toFixed(2)
     };
 
+    // Fetch tier information for customers who have tiers
+    const customerTierIds = customers
+      .filter(c => c.currentTierId)
+      .map(c => c.currentTierId);
+    
+    const customerTiers = customerTierIds.length > 0
+      ? await db.tier.findMany({
+          where: { id: { in: customerTierIds as string[] } }
+        })
+      : [];
+    
+    const tierMap = new Map(customerTiers.map(tier => [tier.id, tier]));
+    
     // Format customers for display
-    const formattedCustomers = customers.map(customer => ({
-      id: customer.id,
-      email: customer.email,
-      shopifyCustomerId: customer.shopifyCustomerId,
-      storeCredit: customer.storeCredit.toString(),
-      currentTier: customer.currentTier ? {
-        name: customer.currentTier.name,
-        cashbackPercent: customer.currentTier.cashbackPercent
-      } : null,
-      createdAt: customer.createdAt.toISOString(),
-      updatedAt: customer.updatedAt.toISOString()
-    }));
+    const formattedCustomers = customers.map(customer => {
+      const tier = customer.currentTierId ? tierMap.get(customer.currentTierId) : null;
+      return {
+        id: customer.id,
+        email: customer.email,
+        shopifyCustomerId: customer.shopifyCustomerId,
+        storeCredit: customer.storeCredit.toString(),
+        currentTier: tier ? {
+          name: tier.name,
+          cashbackPercent: tier.cashbackPercent
+        } : null,
+        createdAt: customer.createdAt.toISOString(),
+        updatedAt: customer.updatedAt.toISOString()
+      };
+    });
 
     return json<CustomersLoaderData>({
       customers: formattedCustomers,
       tiers,
       stats,
-      sortBy,
-      sortOrder,
+      searchQuery,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType
@@ -131,8 +133,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         customersWithTiers: 0,
         totalStoreCredit: "0.00"
       },
-      sortBy,
-      sortOrder,
+      searchQuery: '',
       shopSettings: null
     });
   }
@@ -198,13 +199,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================================================
 
 export default function CustomersPageV2() {
-  const { customers, tiers, stats, sortBy = 'createdAt', sortOrder = 'desc', shopSettings } = useLoaderData<typeof loader>();
+  const { customers, tiers, stats, searchQuery = '', shopSettings } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submit = useSubmit();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [searchValue, setSearchValue] = useState(searchQuery);
   
   const isLoading = navigation.state === "submitting" || navigation.state === "loading";
+  const isSearching = navigation.state === "loading" && searchParams.has('search');
   
   // Handle sync button click
   const handleSync = () => {
@@ -213,27 +216,25 @@ export default function CustomersPageV2() {
     submit(formData, { method: "post" });
   };
   
-  // Handle column sorting
-  const handleSort = (column: string) => {
-    const newParams = new URLSearchParams(searchParams);
-    
-    // Toggle sort order if clicking the same column
-    if (sortBy === column) {
-      newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Default to ascending for new column
-      newParams.set('sortBy', column);
-      newParams.set('sortOrder', 'asc');
-    }
-    
-    setSearchParams(newParams);
-  };
+  // Handle search
+  const handleSearch = useCallback(
+    (value: string) => {
+      setSearchValue(value);
+      const newParams = new URLSearchParams(searchParams);
+      if (value) {
+        newParams.set('search', value);
+      } else {
+        newParams.delete('search');
+      }
+      setSearchParams(newParams);
+    },
+    [searchParams, setSearchParams]
+  );
   
-  // Get sort indicator
-  const getSortIndicator = (column: string) => {
-    if (sortBy !== column) return '';
-    return sortOrder === 'asc' ? ' ↑' : ' ↓';
-  };
+  // Clear search
+  const handleClearSearch = useCallback(() => {
+    handleSearch('');
+  }, [handleSearch]);
   
   // Prepare data for table
   const rows = customers.map(customer => [
@@ -259,6 +260,21 @@ export default function CustomersPageV2() {
         onAction: handleSync
       }}
     >
+      {/* Search Bar */}
+      <div style={{ marginBottom: "16px" }}>
+        <TextField
+          label="Search customers"
+          value={searchValue}
+          onChange={handleSearch}
+          clearButton
+          onClearButtonClick={handleClearSearch}
+          prefix={<Icon source={SearchIcon} />}
+          placeholder="Search by email or customer ID"
+          autoComplete="off"
+          loading={isSearching}
+        />
+      </div>
+      
       <Layout>
         {/* Sync Result Banner */}
         {actionData && (
@@ -361,47 +377,6 @@ export default function CustomersPageV2() {
               
               {customers.length > 0 ? (
                 <BlockStack gap="300">
-                  <InlineStack gap="200">
-                    <Text variant="bodySm" tone="subdued" as="span">Sort by:</Text>
-                    <ButtonGroup>
-                      <Button 
-                        size="slim" 
-                        onClick={() => handleSort('email')}
-                        pressed={sortBy === 'email'}
-                      >
-                        {`Email${getSortIndicator('email')}`}
-                      </Button>
-                      <Button 
-                        size="slim" 
-                        onClick={() => handleSort('shopifyCustomerId')}
-                        pressed={sortBy === 'shopifyCustomerId'}
-                      >
-                        {`ID${getSortIndicator('shopifyCustomerId')}`}
-                      </Button>
-                      <Button 
-                        size="slim" 
-                        onClick={() => handleSort('tier')}
-                        pressed={sortBy === 'tier'}
-                      >
-                        {`Tier${getSortIndicator('tier')}`}
-                      </Button>
-                      <Button 
-                        size="slim" 
-                        onClick={() => handleSort('storeCredit')}
-                        pressed={sortBy === 'storeCredit'}
-                      >
-                        {`Credit${getSortIndicator('storeCredit')}`}
-                      </Button>
-                      <Button 
-                        size="slim" 
-                        onClick={() => handleSort('createdAt')}
-                        pressed={sortBy === 'createdAt'}
-                      >
-                        {`Date${getSortIndicator('createdAt')}`}
-                      </Button>
-                    </ButtonGroup>
-                  </InlineStack>
-                  
                   <DataTable
                     columnContentTypes={["text", "text", "text", "numeric", "text"]}
                     headings={[
