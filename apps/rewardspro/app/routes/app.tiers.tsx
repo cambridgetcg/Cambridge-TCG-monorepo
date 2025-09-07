@@ -303,13 +303,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           where: {
             shop,
             name: data.name,
-            NOT: { id },
+            id: {
+              not: id
+            },
           },
         });
 
         if (duplicateName) {
           return json(
             { error: `A tier named "${data.name}" already exists` },
+            { status: 400 }
+          );
+        }
+
+        // Check for conflicting minSpend (excluding current tier)
+        const duplicateMinSpend = await db.tier.findFirst({
+          where: {
+            shop,
+            minSpend: data.minSpend,
+            id: {
+              not: id
+            },
+          },
+        });
+
+        if (duplicateMinSpend) {
+          return json(
+            { error: `A tier with minimum spend $${data.minSpend} already exists` },
             { status: 400 }
           );
         }

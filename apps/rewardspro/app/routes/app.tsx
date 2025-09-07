@@ -80,7 +80,7 @@ export default function App() {
             Home
           </Link>
           <Link to="/app/tiers">Loyalty Tiers</Link>
-          <Link to="/app/customers-v2">Customers</Link>
+          <Link to="/app/customers">Customers</Link>
           <Link to="/app/graphql-test">GraphQL API Test</Link>
           <Link to="/app/billing">Billing</Link>
           <Link to="/app/settings">Settings</Link>

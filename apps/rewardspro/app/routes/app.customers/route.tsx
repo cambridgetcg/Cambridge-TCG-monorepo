@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useActionData, useNavigation, useSubmit } from "@remix-run/react";
+import { useLoaderData, useActionData, useNavigation, useSubmit, useSearchParams, useRouteError, isRouteErrorResponse } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -13,50 +13,16 @@ import {
   Banner,
   Box,
   InlineStack,
-  EmptyState
+  EmptyState,
+  Button,
+  ButtonGroup
 } from "@shopify/polaris";
-import { authenticate } from "../shopify.server";
-import db from "../db.server";
-import { createCustomerSyncServiceV2 } from "../services/customer-sync-v2.service";
+import { authenticate } from "../../shopify.server";
+import db from "../../db.server";
+import { createCustomerSyncServiceV2 } from "../../services/customer-sync-v2.service";
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface LoaderData {
-  customers: Array<{
-    id: string;
-    email: string;
-    shopifyCustomerId: string;
-    storeCredit: string;
-    currentTier: {
-      name: string;
-      cashbackPercent: number;
-    } | null;
-    createdAt: string;
-    updatedAt: string;
-  }>;
-  tiers: Array<{
-    id: string;
-    name: string;
-    minSpend: number | null;
-    cashbackPercent: number;
-  }>;
-  stats: {
-    totalCustomers: number;
-    customersWithTiers: number;
-    totalStoreCredit: string;
-  };
-}
-
-interface ActionData {
-  success: boolean;
-  message?: string;
-  processed?: number;
-  successful?: number;
-  failed?: number;
-  errors?: string[];
-}
+// Type imports
+import type { CustomersLoaderData, CustomersActionData } from "./types";
 
 // ============================================================================
 // LOADER - Fetch customers and stats
@@ -65,14 +31,42 @@ interface ActionData {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   
+  // Get sorting parameters from URL
+  const url = new URL(request.url);
+  const sortBy = url.searchParams.get('sortBy') || 'createdAt';
+  const sortOrder = url.searchParams.get('sortOrder') || 'desc';
+  
   try {
+    // Build orderBy based on sort parameters
+    let orderBy: any = {};
+    
+    switch (sortBy) {
+      case 'email':
+        orderBy = { email: sortOrder };
+        break;
+      case 'shopifyCustomerId':
+        orderBy = { shopifyCustomerId: sortOrder };
+        break;
+      case 'storeCredit':
+        orderBy = { storeCredit: sortOrder };
+        break;
+      case 'tier':
+        // Sort by tier's minSpend (higher tiers have higher minSpend)
+        orderBy = { currentTier: { minSpend: sortOrder } };
+        break;
+      case 'createdAt':
+      default:
+        orderBy = { createdAt: sortOrder };
+        break;
+    }
+    
     // Fetch customers with their tiers
     const customers = await db.customer.findMany({
       where: { shop: session.shop },
       include: {
         currentTier: true
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       take: 100 // Limit to first 100 for performance
     });
 
@@ -110,14 +104,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       updatedAt: customer.updatedAt.toISOString()
     }));
 
-    return json<LoaderData>({
+    return json<CustomersLoaderData>({
       customers: formattedCustomers,
       tiers,
-      stats
+      stats,
+      sortBy,
+      sortOrder
     });
   } catch (error) {
     console.error("Error loading customers:", error);
-    return json<LoaderData>({
+    return json<CustomersLoaderData>({
       customers: [],
       tiers: [],
       stats: {
@@ -147,7 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
       
       if (tierCount === 0) {
-        return json<ActionData>({
+        return json<CustomersActionData>({
           success: false,
           message: "Please create at least one tier before syncing customers"
         });
@@ -160,7 +156,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       const result = await syncService.syncAllCustomers();
       
-      return json<ActionData>({
+      return json<CustomersActionData>({
         success: result.success,
         message: result.message,
         processed: result.processed,
@@ -171,7 +167,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
     } catch (error) {
       console.error("Sync error:", error);
-      return json<ActionData>({
+      return json<CustomersActionData>({
         success: false,
         message: error instanceof Error ? error.message : "Sync failed"
       });
@@ -189,18 +185,41 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================================================
 
 export default function CustomersPageV2() {
-  const { customers, tiers, stats } = useLoaderData<typeof loader>();
+  const { customers, tiers, stats, sortBy = 'createdAt', sortOrder = 'desc' } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submit = useSubmit();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  const isLoading = navigation.state === "submitting";
+  const isLoading = navigation.state === "submitting" || navigation.state === "loading";
   
   // Handle sync button click
   const handleSync = () => {
     const formData = new FormData();
     formData.append("action", "sync");
     submit(formData, { method: "post" });
+  };
+  
+  // Handle column sorting
+  const handleSort = (column: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    
+    // Toggle sort order if clicking the same column
+    if (sortBy === column) {
+      newParams.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Default to ascending for new column
+      newParams.set('sortBy', column);
+      newParams.set('sortOrder', 'asc');
+    }
+    
+    setSearchParams(newParams);
+  };
+  
+  // Get sort indicator
+  const getSortIndicator = (column: string) => {
+    if (sortBy !== column) return '';
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
   };
   
   // Prepare data for table
@@ -328,17 +347,60 @@ export default function CustomersPageV2() {
               </InlineStack>
               
               {customers.length > 0 ? (
-                <DataTable
-                  columnContentTypes={["text", "text", "text", "numeric", "text"]}
-                  headings={[
-                    "Email",
-                    "Shopify ID",
-                    "Tier",
-                    "Store Credit",
-                    "Created"
-                  ]}
-                  rows={rows}
-                />
+                <BlockStack gap="300">
+                  <InlineStack gap="200">
+                    <Text variant="bodySm" tone="subdued" as="span">Sort by:</Text>
+                    <ButtonGroup>
+                      <Button 
+                        size="slim" 
+                        onClick={() => handleSort('email')}
+                        pressed={sortBy === 'email'}
+                      >
+                        {`Email${getSortIndicator('email')}`}
+                      </Button>
+                      <Button 
+                        size="slim" 
+                        onClick={() => handleSort('shopifyCustomerId')}
+                        pressed={sortBy === 'shopifyCustomerId'}
+                      >
+                        {`ID${getSortIndicator('shopifyCustomerId')}`}
+                      </Button>
+                      <Button 
+                        size="slim" 
+                        onClick={() => handleSort('tier')}
+                        pressed={sortBy === 'tier'}
+                      >
+                        {`Tier${getSortIndicator('tier')}`}
+                      </Button>
+                      <Button 
+                        size="slim" 
+                        onClick={() => handleSort('storeCredit')}
+                        pressed={sortBy === 'storeCredit'}
+                      >
+                        {`Credit${getSortIndicator('storeCredit')}`}
+                      </Button>
+                      <Button 
+                        size="slim" 
+                        onClick={() => handleSort('createdAt')}
+                        pressed={sortBy === 'createdAt'}
+                      >
+                        {`Date${getSortIndicator('createdAt')}`}
+                      </Button>
+                    </ButtonGroup>
+                  </InlineStack>
+                  
+                  <DataTable
+                    columnContentTypes={["text", "text", "text", "numeric", "text"]}
+                    headings={[
+                      "Email",
+                      "Shopify ID",
+                      "Tier",
+                      "Store Credit",
+                      "Created"
+                    ]}
+                    rows={rows}
+                  />
+                </BlockStack>
               ) : (
                 <EmptyState
                   heading="No customers yet"
@@ -372,6 +434,49 @@ export default function CustomersPageV2() {
             </Card>
           </Layout.Section>
         )}
+      </Layout>
+    </Page>
+  );
+}
+// ============================================================================
+// ERROR BOUNDARY
+// ============================================================================
+
+/**
+ * Error boundary for the customers route
+ * Provides graceful error handling and user-friendly error messages
+ */
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  if (isRouteErrorResponse(error)) {
+    return (
+      <Page title="Error">
+        <Layout>
+          <Layout.Section>
+            <Banner tone="critical">
+              <p>
+                {error.status === 404
+                  ? "Customer not found"
+                  : error.status === 401
+                  ? "You don't have permission to view this page"
+                  : error.data || "An error occurred while loading customers"}
+              </p>
+            </Banner>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
+  }
+
+  return (
+    <Page title="Error">
+      <Layout>
+        <Layout.Section>
+          <Banner tone="critical">
+            <p>An unexpected error occurred while loading customers. Please try again later.</p>
+          </Banner>
+        </Layout.Section>
       </Layout>
     </Page>
   );
