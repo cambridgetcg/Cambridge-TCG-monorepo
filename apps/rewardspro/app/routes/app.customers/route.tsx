@@ -41,15 +41,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const searchQuery = url.searchParams.get('search') || '';
   
   try {
-    // Build where clause for search
+    // Fetch all customers first, then filter in memory if searching
+    // This is because Data API adapter might not handle complex nested queries well
     const whereClause: any = { shop: session.shop };
     
-    if (searchQuery) {
-      whereClause.OR = [
-        { email: { contains: searchQuery, mode: 'insensitive' } },
-        { shopifyCustomerId: { contains: searchQuery, mode: 'insensitive' } }
-      ];
-    }
+    // For now, get all customers from the shop and filter after
+    // This ensures search works correctly with Data API limitations
     
     // Fetch shop settings for currency formatting
     const shopSettings = await db.shopSettings.findUnique({
@@ -57,11 +54,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
 
     // Fetch customers (Data API doesn't support includes)
-    const customers = await db.customer.findMany({
+    let customers = await db.customer.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
-      take: 100 // Limit to first 100 for performance
+      take: 500 // Get more initially for filtering
     });
+    
+    // Filter in memory if search query exists
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      customers = customers.filter(customer => 
+        customer.email.toLowerCase().includes(searchLower) ||
+        customer.shopifyCustomerId.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Limit to 100 after filtering
+    customers = customers.slice(0, 100);
 
     // Fetch all tiers
     const tiers = await db.tier.findMany({
