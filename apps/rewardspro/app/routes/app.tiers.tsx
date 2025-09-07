@@ -298,40 +298,38 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           return json({ error: "Tier not found" }, { status: 404 });
         }
 
-        // Check for duplicate name (excluding current tier)
-        const duplicateName = await db.tier.findFirst({
-          where: {
-            shop,
-            name: data.name,
-            id: {
-              not: id
+        // Only check for duplicate name if the name has changed
+        if (data.name !== existingTier.name) {
+          const duplicateName = await db.tier.findFirst({
+            where: {
+              shop,
+              name: data.name,
             },
-          },
-        });
+          });
 
-        if (duplicateName) {
-          return json(
-            { error: `A tier named "${data.name}" already exists` },
-            { status: 400 }
-          );
+          if (duplicateName) {
+            return json(
+              { error: `A tier named "${data.name}" already exists` },
+              { status: 400 }
+            );
+          }
         }
 
-        // Check for conflicting minSpend (excluding current tier)
-        const duplicateMinSpend = await db.tier.findFirst({
-          where: {
-            shop,
-            minSpend: data.minSpend,
-            id: {
-              not: id
+        // Only check for duplicate minSpend if the value has changed
+        if (data.minSpend !== existingTier.minSpend) {
+          const duplicateMinSpend = await db.tier.findFirst({
+            where: {
+              shop,
+              minSpend: data.minSpend,
             },
-          },
-        });
+          });
 
-        if (duplicateMinSpend) {
-          return json(
-            { error: `A tier with minimum spend $${data.minSpend} already exists` },
-            { status: 400 }
-          );
+          if (duplicateMinSpend) {
+            return json(
+              { error: `A tier with minimum spend $${data.minSpend} already exists` },
+              { status: 400 }
+            );
+          }
         }
 
         const updatedTier = await db.tier.update({
