@@ -204,18 +204,160 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 // ============================================================================
-// ACTION - Handle credit adjustments
+// ACTION - Handle credit adjustments and sync
 // ============================================================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   
   const formData = await request.formData();
   const actionType = formData.get("actionType") as string;
   const customerId = formData.get("customerId") as string;
-  const amount = parseFloat(formData.get("amount") as string);
+  const amount = parseFloat(formData.get("amount") as string || "0");
   const reason = formData.get("reason") as string;
+  const shopifyCustomerId = formData.get("shopifyCustomerId") as string;
   
+  // Handle sync action
+  if (actionType === "sync") {
+    if (!shopifyCustomerId) {
+      return json({
+        success: false,
+        error: "Shopify Customer ID required for sync"
+      });
+    }
+    
+    try {
+      // GraphQL query to get store credit from Shopify
+      const syncQuery = `#graphql
+        query SyncCustomerStoreCredit($customerId: ID!) {
+          customer(id: $customerId) {
+            id
+            email
+            displayName
+            storeCreditAccounts(first: 10) {
+              edges {
+                node {
+                  id
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+              }
+            }
+          }
+        }
+      `;
+      
+      const gidCustomerId = shopifyCustomerId.startsWith('gid://') 
+        ? shopifyCustomerId 
+        : `gid://shopify/Customer/${shopifyCustomerId}`;
+      
+      const response = await admin.graphql(syncQuery, {
+        variables: { customerId: gidCustomerId }
+      });
+      
+      const responseJson = await response.json() as any;
+      
+      if (responseJson.errors) {
+        return json({
+          success: false,
+          error: `GraphQL Error: ${responseJson.errors[0]?.message || 'Unknown error'}`
+        });
+      }
+      
+      const shopifyCustomer = responseJson.data?.customer;
+      if (!shopifyCustomer) {
+        return json({
+          success: false,
+          error: "Customer not found in Shopify"
+        });
+      }
+      
+      // Calculate total store credit from all accounts
+      let totalStoreCredit = 0;
+      const storeCreditAccounts = shopifyCustomer.storeCreditAccounts?.edges || [];
+      
+      for (const edge of storeCreditAccounts) {
+        const balance = parseFloat(edge.node.balance.amount || "0");
+        totalStoreCredit += balance;
+      }
+      
+      // Find or create customer in database
+      let dbCustomer = await db.customer.findFirst({
+        where: {
+          shop: session.shop,
+          shopifyCustomerId: shopifyCustomerId.replace('gid://shopify/Customer/', '')
+        }
+      });
+      
+      if (!dbCustomer) {
+        // Create new customer if doesn't exist
+        dbCustomer = await db.customer.create({
+          data: {
+            id: uuidv4(),
+            shop: session.shop,
+            shopifyCustomerId: shopifyCustomerId.replace('gid://shopify/Customer/', ''),
+            email: shopifyCustomer.email || `customer_${shopifyCustomerId}@shop.com`,
+            storeCredit: totalStoreCredit,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      } else {
+        // Update existing customer
+        const previousBalance = parseFloat(dbCustomer.storeCredit.toString());
+        
+        if (previousBalance !== totalStoreCredit) {
+          // Create ledger entry for the sync
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId: dbCustomer.id,
+              shop: session.shop,
+              amount: totalStoreCredit - previousBalance,
+              balance: totalStoreCredit,
+              type: "SHOPIFY_SYNC",
+              metadata: {
+                previousBalance,
+                syncedBalance: totalStoreCredit,
+                shopifyAccounts: storeCreditAccounts.length,
+                syncedAt: new Date().toISOString()
+              },
+              createdAt: new Date()
+            }
+          });
+          
+          // Update customer balance
+          await db.customer.update({
+            where: { id: dbCustomer.id },
+            data: {
+              storeCredit: totalStoreCredit,
+              updatedAt: new Date()
+            }
+          });
+        }
+      }
+      
+      return json({
+        success: true,
+        message: `Successfully synced store credit: ${formatCurrency(totalStoreCredit, null)} from ${storeCreditAccounts.length} account(s)`,
+        newBalance: totalStoreCredit.toString(),
+        customerId: dbCustomer.id
+      });
+    } catch (error) {
+      console.error("Error syncing store credit:", error);
+      return json({
+        success: false,
+        error: "Failed to sync store credit from Shopify"
+      });
+    }
+  }
+  
+  // Handle add/remove actions
   if (!customerId || isNaN(amount) || amount === 0) {
     return json({
       success: false,
@@ -308,8 +450,11 @@ export default function CreditManagement() {
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [quickTestMode, setQuickTestMode] = useState(false);
   const [quickTestId, setQuickTestId] = useState("");
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncCustomerId, setSyncCustomerId] = useState("");
   
   const isLoading = navigation.state === "submitting" || navigation.state === "loading";
+  const isSyncing = navigation.state === "submitting" && navigation.formData?.get("actionType") === "sync";
   
   // Handle customer search
   const handleSearch = useCallback((value: string) => {
@@ -358,6 +503,28 @@ export default function CreditManagement() {
       // Keep in quick test mode to show if customer not found
     }
   }, [quickTestId, customers, handleSelectCustomer, searchParams, setSearchParams]);
+  
+  // Handle sync modal
+  const handleOpenSyncModal = useCallback(() => {
+    setSyncCustomerId(selectedCustomer?.shopifyCustomerId || "");
+    setShowSyncModal(true);
+  }, [selectedCustomer]);
+  
+  const handleCloseSyncModal = useCallback(() => {
+    setShowSyncModal(false);
+    setSyncCustomerId("");
+  }, []);
+  
+  const handleSubmitSync = useCallback(() => {
+    if (!syncCustomerId) return;
+    
+    const formData = new FormData();
+    formData.append("actionType", "sync");
+    formData.append("shopifyCustomerId", syncCustomerId);
+    
+    submit(formData, { method: "post" });
+    handleCloseSyncModal();
+  }, [syncCustomerId, submit, handleCloseSyncModal]);
   
   // Handle adjustment modal
   const handleOpenAdjustModal = useCallback((type: "add" | "remove") => {
@@ -425,7 +592,11 @@ export default function CreditManagement() {
         {actionData && (
           <Layout.Section>
             <Banner
-              title={actionData.success ? "Credit adjusted successfully" : "Failed to adjust credit"}
+              title={actionData.success 
+                ? (navigation.formData?.get("actionType") === "sync" 
+                  ? "Store credit synced successfully" 
+                  : "Credit adjusted successfully")
+                : "Operation failed"}
               tone={actionData.success ? "success" : "critical"}
               onDismiss={() => {}}
             >
@@ -433,6 +604,17 @@ export default function CreditManagement() {
                 <Text as="p">{(actionData as any).message}</Text>
               ) : (
                 <Text as="p">{(actionData as any).error}</Text>
+              )}
+              {actionData.success && (actionData as any).customerId && (
+                <Text as="p">
+                  <Button
+                    onClick={() => handleSelectCustomer((actionData as any).customerId)}
+                    size="slim"
+                    variant="plain"
+                  >
+                    View customer details
+                  </Button>
+                </Text>
               )}
             </Banner>
           </Layout.Section>
@@ -614,6 +796,13 @@ export default function CreditManagement() {
                     >
                       Remove Credit
                     </Button>
+                    <Button
+                      icon={RefreshIcon}
+                      onClick={handleOpenSyncModal}
+                      loading={isSyncing}
+                    >
+                      Sync from Shopify
+                    </Button>
                   </InlineStack>
                 </BlockStack>
               </Card>
@@ -717,6 +906,46 @@ export default function CreditManagement() {
                 )}
               </Banner>
             )}
+          </FormLayout>
+        </Modal.Section>
+      </Modal>
+      
+      {/* Sync Modal */}
+      <Modal
+        open={showSyncModal}
+        onClose={handleCloseSyncModal}
+        title="Sync Store Credit from Shopify"
+        primaryAction={{
+          content: "Sync Credit",
+          onAction: handleSubmitSync,
+          disabled: !syncCustomerId,
+          loading: isSyncing
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: handleCloseSyncModal
+          }
+        ]}
+      >
+        <Modal.Section>
+          <FormLayout>
+            <TextField
+              label="Shopify Customer ID"
+              value={syncCustomerId}
+              onChange={setSyncCustomerId}
+              placeholder="e.g., 9224704164179 or gid://shopify/Customer/9224704164179"
+              helpText="Enter the Shopify Customer ID to sync their store credit balance"
+              autoComplete="off"
+            />
+            <Banner tone="info">
+              <Text as="p">
+                This will fetch the current store credit balance from Shopify and update the local database.
+              </Text>
+              <Text as="p">
+                If the customer doesn't exist locally, they will be created.
+              </Text>
+            </Banner>
           </FormLayout>
         </Modal.Section>
       </Modal>
