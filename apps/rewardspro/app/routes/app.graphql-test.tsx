@@ -77,6 +77,70 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     // Build query based on type
     switch (queryType) {
+      case "storeCredit":
+        // Comprehensive store credit query from Shopify's customerCredit API
+        query = `#graphql
+          query GetCustomerStoreCredit($customerId: ID!) {
+            customer(id: $customerId) {
+              # Basic customer identification
+              id
+              email
+              displayName
+              
+              # The customerCredit field contains store credit details
+              customerCredit {
+                # Current available balance
+                balance {
+                  amount
+                  currencyCode
+                }
+                
+                # Credit account information
+                creditAccount {
+                  # Unique identifier for the credit account
+                  id
+                  
+                  # Current balance (same as above, but in the account context)
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                  
+                  # History of credit transactions
+                  creditTransactions(first: 10, reverse: true) {
+                    edges {
+                      node {
+                        id
+                        amount {
+                          amount
+                          currencyCode
+                        }
+                        # Type of transaction (adjustment, refund, etc.)
+                        type
+                        # When this transaction occurred
+                        createdAt
+                        # Optional description of the transaction
+                        description
+                        # Reference to the order if applicable
+                        order {
+                          id
+                          name
+                        }
+                      }
+                    }
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+        variables = { customerId };
+        break;
+        
       case "shopifyCreditBalance":
         // Query specifically for store credit metafield
         query = `#graphql
@@ -347,7 +411,89 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     if (rawResponse.data) {
       // Extract customer data based on query type
-      if (queryType === "shopifyCreditBalance" && rawResponse.data.customer) {
+      if (queryType === "storeCredit" && rawResponse.data.customer) {
+        parsedData = rawResponse.data.customer;
+        
+        // Extract native Shopify store credit information
+        const customerCredit = parsedData.customerCredit;
+        const creditBalance = customerCredit?.balance;
+        const creditAccount = customerCredit?.creditAccount;
+        
+        // Parse transactions
+        const transactions = creditAccount?.creditTransactions?.edges?.map((edge: any) => ({
+          id: edge.node.id,
+          amount: edge.node.amount.amount,
+          currency: edge.node.amount.currencyCode,
+          type: edge.node.type,
+          createdAt: edge.node.createdAt,
+          description: edge.node.description,
+          orderId: edge.node.order?.id,
+          orderName: edge.node.order?.name
+        })) || [];
+        
+        // Extract the Shopify customer ID for database comparison
+        const shopifyCustomerId = parsedData.id?.replace('gid://shopify/Customer/', '') || '';
+        
+        // Get database customer for comparison
+        const existingCustomer = await db.customer.findUnique({
+          where: {
+            shop_shopifyCustomerId: {
+              shop: session.shop,
+              shopifyCustomerId
+            }
+          }
+        });
+        
+        // Get tier if customer exists
+        let currentTier = null;
+        if (existingCustomer && existingCustomer.currentTierId) {
+          currentTier = await db.tier.findUnique({
+            where: { id: existingCustomer.currentTierId }
+          });
+        }
+        
+        databaseCreditBalance = {
+          shopifyNativeCredit: {
+            available: creditBalance ? {
+              amount: creditBalance.amount,
+              currency: creditBalance.currencyCode
+            } : null,
+            accountId: creditAccount?.id || null,
+            accountBalance: creditAccount?.balance ? {
+              amount: creditAccount.balance.amount,
+              currency: creditAccount.balance.currencyCode
+            } : null,
+            transactions,
+            hasMoreTransactions: creditAccount?.creditTransactions?.pageInfo?.hasNextPage || false,
+            nextCursor: creditAccount?.creditTransactions?.pageInfo?.endCursor || null
+          },
+          databaseComparison: {
+            shopifyCredit: parseFloat(creditBalance?.amount || "0"),
+            databaseCredit: existingCustomer ? parseFloat(existingCustomer.storeCredit.toString()) : 0,
+            isInSync: existingCustomer ? 
+              Math.abs(parseFloat(creditBalance?.amount || "0") - parseFloat(existingCustomer.storeCredit.toString())) < 0.01 : false,
+            currentTier: currentTier ? {
+              name: currentTier.name,
+              cashbackPercent: currentTier.cashbackPercent
+            } : null
+          },
+          transactionTypes: {
+            ADJUSTMENT: "Manual adjustments made by store staff",
+            REFUND: "Credit added from order refunds", 
+            APPLIED: "Credit used for a purchase",
+            REVERT: "Reversal of a previous transaction"
+          },
+          recommendations: [
+            !creditBalance ? "No native store credit found in Shopify" : null,
+            !existingCustomer ? "Customer not found in database - needs sync" : null,
+            existingCustomer && !creditBalance ? "Database has credit but Shopify native credit doesn't exist" : null,
+            existingCustomer && creditBalance && 
+              Math.abs(parseFloat(creditBalance.amount || "0") - parseFloat(existingCustomer.storeCredit.toString())) >= 0.01 ?
+              `Credit mismatch: Shopify native has ${creditBalance.amount}, Database has ${existingCustomer.storeCredit}` : null,
+            creditAccount && transactions.length === 0 ? "Credit account exists but no transaction history" : null
+          ].filter(Boolean)
+        };
+      } else if (queryType === "shopifyCreditBalance" && rawResponse.data.customer) {
         parsedData = rawResponse.data.customer;
         
         // Extract the Shopify customer ID
@@ -656,6 +802,7 @@ export default function GraphQLTestPage() {
                 <Select
                   label="Query Type"
                   options={[
+                    { label: "Store Credit (Native Shopify API)", value: "storeCredit" },
                     { label: "Shopify Credit Balance (metafield)", value: "shopifyCreditBalance" },
                     { label: "Credit Balance Test (metafields + DB)", value: "creditBalance" },
                     { label: "Update Credit (mutation)", value: "updateCredit" },
@@ -667,6 +814,7 @@ export default function GraphQLTestPage() {
                   value={queryType}
                   onChange={setQueryType}
                   helpText={
+                    queryType === "storeCredit" ? "Fetches native Shopify store credit with transaction history" :
                     queryType === "shopifyCreditBalance" ? "Fetches store credit from Shopify metafields and compares with database" :
                     queryType === "creditBalance" ? "Tests customer credit balance sync between Shopify and database" :
                     queryType === "updateCredit" ? "Updates customer credit via Shopify metafields" :
@@ -674,7 +822,7 @@ export default function GraphQLTestPage() {
                   }
                 />
                 
-                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance") && (
+                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance" || queryType === "storeCredit") && (
                   <TextField
                     label="Customer ID"
                     value={customerId}
@@ -824,6 +972,80 @@ export default function GraphQLTestPage() {
                           <Banner tone={actionData.databaseCreditBalance.syncStatus === 'SYNCED' ? 'info' : 'warning'}>
                             <p>Status: {actionData.databaseCreditBalance.syncStatus}</p>
                           </Banner>
+                        )}
+                        
+                        {/* Native Shopify Store Credit Information */}
+                        {actionData.databaseCreditBalance.shopifyNativeCredit && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Native Shopify Store Credit</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                {actionData.databaseCreditBalance.shopifyNativeCredit.available ? (
+                                  <>
+                                    <Text as="p" variant="headingLg">
+                                      Balance: {actionData.databaseCreditBalance.shopifyNativeCredit.available.currency} {actionData.databaseCreditBalance.shopifyNativeCredit.available.amount}
+                                    </Text>
+                                    {actionData.databaseCreditBalance.shopifyNativeCredit.accountId && (
+                                      <Text as="p" tone="subdued">
+                                        Account ID: {actionData.databaseCreditBalance.shopifyNativeCredit.accountId}
+                                      </Text>
+                                    )}
+                                  </>
+                                ) : (
+                                  <Text as="p" tone="subdued">No store credit available</Text>
+                                )}
+                              </BlockStack>
+                            </Box>
+                            
+                            {/* Transaction History */}
+                            {actionData.databaseCreditBalance.shopifyNativeCredit.transactions?.length > 0 && (
+                              <>
+                                <Text variant="headingSm" as="h3">Transaction History</Text>
+                                <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                                  <BlockStack gap="200">
+                                    {actionData.databaseCreditBalance.shopifyNativeCredit.transactions.map((tx: any, index: number) => (
+                                      <BlockStack key={tx.id || index} gap="100">
+                                        <InlineStack align="space-between">
+                                          <Text as="p" fontWeight="semibold">
+                                            {tx.type}: {tx.currency} {tx.amount}
+                                          </Text>
+                                          <Text as="p" tone="subdued">
+                                            {new Date(tx.createdAt).toLocaleDateString()}
+                                          </Text>
+                                        </InlineStack>
+                                        {tx.description && (
+                                          <Text as="p">{tx.description}</Text>
+                                        )}
+                                        {tx.orderName && (
+                                          <Text as="p" tone="subdued">Order: {tx.orderName}</Text>
+                                        )}
+                                        {index < actionData.databaseCreditBalance.shopifyNativeCredit.transactions.length - 1 && <Divider />}
+                                      </BlockStack>
+                                    ))}
+                                    {actionData.databaseCreditBalance.shopifyNativeCredit.hasMoreTransactions && (
+                                      <Text as="p" tone="subdued">More transactions available...</Text>
+                                    )}
+                                  </BlockStack>
+                                </Box>
+                              </>
+                            )}
+                            
+                            {/* Transaction Types Legend */}
+                            {actionData.databaseCreditBalance.transactionTypes && (
+                              <>
+                                <Text variant="headingSm" as="h3">Transaction Types</Text>
+                                <Box padding="200" background="bg-surface-info" borderRadius="200">
+                                  <BlockStack gap="100">
+                                    {Object.entries(actionData.databaseCreditBalance.transactionTypes).map(([type, description]) => (
+                                      <Text as="p" key={type}>
+                                        <Text as="span" fontWeight="semibold">{type}:</Text> {description as string}
+                                      </Text>
+                                    ))}
+                                  </BlockStack>
+                                </Box>
+                              </>
+                            )}
+                          </BlockStack>
                         )}
                         
                         {/* Shopify Metafield Information */}
