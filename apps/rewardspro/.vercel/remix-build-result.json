@@ -21,6 +21,7 @@
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-tester-advanced": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-test-simple": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-tester": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -139,6 +140,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.webhook-test-simple.tsx",
         "path": "webhook-test-simple",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.credit-management": {
+        "id": "routes/app.credit-management",
+        "parentId": "routes/app",
+        "file": "app/routes/app.credit-management.tsx",
+        "path": "credit-management",
         "config": {
           "runtime": "nodejs"
         }
@@ -307,6 +317,12 @@
         "parentId": "routes/app",
         "file": "routes/app.webhook-test-simple.tsx",
         "path": "webhook-test-simple"
+      },
+      "routes/app.credit-management": {
+        "id": "routes/app.credit-management",
+        "parentId": "routes/app",
+        "file": "routes/app.credit-management.tsx",
+        "path": "credit-management"
       },
       "routes/app.webhook-tester": {
         "id": "routes/app.webhook-tester",
