@@ -78,7 +78,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Build query based on type
     switch (queryType) {
       case "storeCredit":
-        // Comprehensive store credit query from Shopify's customerCredit API
+        // Shopify Plus approach: Gift Cards + Metafields for store credit
         query = `#graphql
           query GetCustomerStoreCredit($customerId: ID!) {
             customer(id: $customerId) {
@@ -86,51 +86,81 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               id
               email
               displayName
+              firstName
+              lastName
+              tags
               
-              # The customerCredit field contains store credit details
-              customerCredit {
-                # Current available balance
-                balance {
-                  amount
-                  currencyCode
-                }
-                
-                # Credit account information
-                creditAccount {
-                  # Unique identifier for the credit account
-                  id
-                  
-                  # Current balance (same as above, but in the account context)
-                  balance {
-                    amount
-                    currencyCode
+              # Metafields for custom store credit implementation
+              metafields(first: 20, namespace: "rewards_pro") {
+                edges {
+                  node {
+                    id
+                    namespace
+                    key
+                    value
+                    type
+                    description
+                    createdAt
+                    updatedAt
                   }
-                  
-                  # History of credit transactions
-                  creditTransactions(first: 10, reverse: true) {
-                    edges {
-                      node {
-                        id
-                        amount {
+                }
+              }
+              
+              # Recent orders to check for refunds/credits
+              orders(first: 10, reverse: true) {
+                edges {
+                  node {
+                    id
+                    name
+                    createdAt
+                    totalPriceSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    # Check for refunds that might be store credit
+                    refunds {
+                      id
+                      createdAt
+                      totalRefundedSet {
+                        shopMoney {
                           amount
                           currencyCode
                         }
-                        # Type of transaction (adjustment, refund, etc.)
-                        type
-                        # When this transaction occurred
-                        createdAt
-                        # Optional description of the transaction
-                        description
-                        # Reference to the order if applicable
-                        order {
-                          id
-                          name
+                      }
+                      refundLineItems(first: 10) {
+                        edges {
+                          node {
+                            lineItem {
+                              id
+                              name
+                            }
+                            quantity
+                            priceSet {
+                              shopMoney {
+                                amount
+                                currencyCode
+                              }
+                            }
+                          }
                         }
                       }
                     }
-                    pageInfo {
-                      hasNextPage
-                      endCursor
+                    # Check for gift cards applied
+                    lineItems(first: 50) {
+                      edges {
+                        node {
+                          id
+                          title
+                          variant {
+                            product {
+                              productType
+                              tags
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -139,6 +169,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
         variables = { customerId };
+        break;
+        
+      case "giftCards":
+        // Query gift cards that can act as store credit
+        const customerNumber = customerId.split('/').pop();
+        query = `#graphql
+          query GetGiftCards($query: String!) {
+            giftCards(first: 25, query: $query) {
+              edges {
+                node {
+                  id
+                  maskedCode
+                  lastCharacters
+                  enabled
+                  note
+                  initialValue {
+                    amount
+                    currencyCode
+                  }
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                  expiresOn
+                  createdAt
+                  updatedAt
+                  customer {
+                    id
+                    email
+                    displayName
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+          }
+        `;
+        // Search by customer email or note field
+        variables = { query: `customer_id:${customerNumber}` };
         break;
         
       case "shopifyCreditBalance":
@@ -414,22 +486,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (queryType === "storeCredit" && rawResponse.data.customer) {
         parsedData = rawResponse.data.customer;
         
-        // Extract native Shopify store credit information
-        const customerCredit = parsedData.customerCredit;
-        const creditBalance = customerCredit?.balance;
-        const creditAccount = customerCredit?.creditAccount;
+        // Extract metafield-based store credit
+        const metafields: any = {};
+        let storeCreditFromMetafield = 0;
         
-        // Parse transactions
-        const transactions = creditAccount?.creditTransactions?.edges?.map((edge: any) => ({
-          id: edge.node.id,
-          amount: edge.node.amount.amount,
-          currency: edge.node.amount.currencyCode,
-          type: edge.node.type,
-          createdAt: edge.node.createdAt,
-          description: edge.node.description,
-          orderId: edge.node.order?.id,
-          orderName: edge.node.order?.name
-        })) || [];
+        if (parsedData.metafields?.edges) {
+          parsedData.metafields.edges.forEach((edge: any) => {
+            metafields[edge.node.key] = {
+              value: edge.node.value,
+              type: edge.node.type,
+              id: edge.node.id,
+              updatedAt: edge.node.updatedAt
+            };
+            
+            // Check for store credit in metafields
+            if (edge.node.key === 'store_credit' || edge.node.key === 'credit_balance') {
+              storeCreditFromMetafield = parseFloat(edge.node.value) || 0;
+            }
+          });
+        }
+        
+        // Calculate total refunds that might be store credit
+        let totalRefunds = 0;
+        const refundDetails: any[] = [];
+        
+        if (parsedData.orders?.edges) {
+          parsedData.orders.edges.forEach((orderEdge: any) => {
+            const order = orderEdge.node;
+            if (order.refunds && order.refunds.length > 0) {
+              order.refunds.forEach((refund: any) => {
+                const refundAmount = parseFloat(refund.totalRefundedSet?.shopMoney?.amount || "0");
+                totalRefunds += refundAmount;
+                refundDetails.push({
+                  orderId: order.id,
+                  orderName: order.name,
+                  refundId: refund.id,
+                  amount: refundAmount,
+                  currency: refund.totalRefundedSet?.shopMoney?.currencyCode,
+                  createdAt: refund.createdAt
+                });
+              });
+            }
+          });
+        }
         
         // Extract the Shopify customer ID for database comparison
         const shopifyCustomerId = parsedData.id?.replace('gid://shopify/Customer/', '') || '';
@@ -453,44 +552,84 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
         
         databaseCreditBalance = {
-          shopifyNativeCredit: {
-            available: creditBalance ? {
-              amount: creditBalance.amount,
-              currency: creditBalance.currencyCode
-            } : null,
-            accountId: creditAccount?.id || null,
-            accountBalance: creditAccount?.balance ? {
-              amount: creditAccount.balance.amount,
-              currency: creditAccount.balance.currencyCode
-            } : null,
-            transactions,
-            hasMoreTransactions: creditAccount?.creditTransactions?.pageInfo?.hasNextPage || false,
-            nextCursor: creditAccount?.creditTransactions?.pageInfo?.endCursor || null
+          shopifyPlusCredit: {
+            metafieldCredit: storeCreditFromMetafield,
+            totalRefunds: totalRefunds,
+            refundDetails: refundDetails,
+            metafields: metafields,
+            customerTags: parsedData.tags || [],
+            totalAvailable: storeCreditFromMetafield // Could add refunds if they're converted to credit
           },
           databaseComparison: {
-            shopifyCredit: parseFloat(creditBalance?.amount || "0"),
+            shopifyMetafieldCredit: storeCreditFromMetafield,
             databaseCredit: existingCustomer ? parseFloat(existingCustomer.storeCredit.toString()) : 0,
             isInSync: existingCustomer ? 
-              Math.abs(parseFloat(creditBalance?.amount || "0") - parseFloat(existingCustomer.storeCredit.toString())) < 0.01 : false,
+              Math.abs(storeCreditFromMetafield - parseFloat(existingCustomer.storeCredit.toString())) < 0.01 : false,
             currentTier: currentTier ? {
               name: currentTier.name,
               cashbackPercent: currentTier.cashbackPercent
             } : null
           },
-          transactionTypes: {
-            ADJUSTMENT: "Manual adjustments made by store staff",
-            REFUND: "Credit added from order refunds", 
-            APPLIED: "Credit used for a purchase",
-            REVERT: "Reversal of a previous transaction"
+          recommendations: [
+            !storeCreditFromMetafield && !totalRefunds ? "No store credit found in metafields or refunds" : null,
+            !existingCustomer ? "Customer not found in database - needs sync" : null,
+            existingCustomer && Math.abs(storeCreditFromMetafield - parseFloat(existingCustomer.storeCredit.toString())) >= 0.01 ?
+              `Credit mismatch: Shopify metafield has ${storeCreditFromMetafield}, Database has ${existingCustomer.storeCredit}` : null,
+            totalRefunds > 0 ? `Customer has ${totalRefunds} in refunds that could be converted to store credit` : null
+          ].filter(Boolean)
+        };
+      } else if (queryType === "giftCards" && rawResponse.data.giftCards) {
+        parsedData = rawResponse.data.giftCards;
+        
+        // Calculate total gift card balance
+        let totalBalance = 0;
+        let totalInitialValue = 0;
+        const activeCards: any[] = [];
+        const expiredCards: any[] = [];
+        
+        rawResponse.data.giftCards.edges.forEach((edge: any) => {
+          const card = edge.node;
+          const balance = parseFloat(card.balance?.amount || "0");
+          const initialValue = parseFloat(card.initialValue?.amount || "0");
+          
+          totalBalance += balance;
+          totalInitialValue += initialValue;
+          
+          const cardInfo = {
+            id: card.id,
+            maskedCode: card.maskedCode,
+            lastCharacters: card.lastCharacters,
+            balance: balance,
+            initialValue: initialValue,
+            currency: card.balance?.currencyCode,
+            enabled: card.enabled,
+            expiresOn: card.expiresOn,
+            createdAt: card.createdAt,
+            note: card.note,
+            customer: card.customer
+          };
+          
+          if (card.enabled && (!card.expiresOn || new Date(card.expiresOn) > new Date())) {
+            activeCards.push(cardInfo);
+          } else {
+            expiredCards.push(cardInfo);
+          }
+        });
+        
+        databaseCreditBalance = {
+          giftCardSummary: {
+            totalBalance: totalBalance,
+            totalInitialValue: totalInitialValue,
+            activeCardsCount: activeCards.length,
+            expiredCardsCount: expiredCards.length,
+            activeCards: activeCards,
+            expiredCards: expiredCards,
+            hasMore: rawResponse.data.giftCards.pageInfo?.hasNextPage || false
           },
           recommendations: [
-            !creditBalance ? "No native store credit found in Shopify" : null,
-            !existingCustomer ? "Customer not found in database - needs sync" : null,
-            existingCustomer && !creditBalance ? "Database has credit but Shopify native credit doesn't exist" : null,
-            existingCustomer && creditBalance && 
-              Math.abs(parseFloat(creditBalance.amount || "0") - parseFloat(existingCustomer.storeCredit.toString())) >= 0.01 ?
-              `Credit mismatch: Shopify native has ${creditBalance.amount}, Database has ${existingCustomer.storeCredit}` : null,
-            creditAccount && transactions.length === 0 ? "Credit account exists but no transaction history" : null
+            activeCards.length === 0 ? "No active gift cards found for this customer" : null,
+            expiredCards.length > 0 ? `${expiredCards.length} gift card(s) have expired` : null,
+            totalBalance > 0 ? `Customer has ${totalBalance} available in gift card balance` : null
           ].filter(Boolean)
         };
       } else if (queryType === "shopifyCreditBalance" && rawResponse.data.customer) {
@@ -802,7 +941,8 @@ export default function GraphQLTestPage() {
                 <Select
                   label="Query Type"
                   options={[
-                    { label: "Store Credit (Native Shopify API)", value: "storeCredit" },
+                    { label: "Store Credit (Shopify Plus)", value: "storeCredit" },
+                    { label: "Gift Cards (Store Credit)", value: "giftCards" },
                     { label: "Shopify Credit Balance (metafield)", value: "shopifyCreditBalance" },
                     { label: "Credit Balance Test (metafields + DB)", value: "creditBalance" },
                     { label: "Update Credit (mutation)", value: "updateCredit" },
@@ -814,7 +954,8 @@ export default function GraphQLTestPage() {
                   value={queryType}
                   onChange={setQueryType}
                   helpText={
-                    queryType === "storeCredit" ? "Fetches native Shopify store credit with transaction history" :
+                    queryType === "storeCredit" ? "Fetches metafields and refunds for store credit (Shopify Plus approach)" :
+                    queryType === "giftCards" ? "Fetches gift cards that can be used as store credit" :
                     queryType === "shopifyCreditBalance" ? "Fetches store credit from Shopify metafields and compares with database" :
                     queryType === "creditBalance" ? "Tests customer credit balance sync between Shopify and database" :
                     queryType === "updateCredit" ? "Updates customer credit via Shopify metafields" :
@@ -822,7 +963,7 @@ export default function GraphQLTestPage() {
                   }
                 />
                 
-                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance" || queryType === "storeCredit") && (
+                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance" || queryType === "storeCredit" || queryType === "giftCards") && (
                   <TextField
                     label="Customer ID"
                     value={customerId}
@@ -974,7 +1115,109 @@ export default function GraphQLTestPage() {
                           </Banner>
                         )}
                         
-                        {/* Native Shopify Store Credit Information */}
+                        {/* Shopify Plus Store Credit Information */}
+                        {actionData.databaseCreditBalance.shopifyPlusCredit && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Shopify Plus Store Credit (Metafields & Refunds)</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                <Text as="p" variant="headingLg">
+                                  Metafield Credit: ${actionData.databaseCreditBalance.shopifyPlusCredit.metafieldCredit.toFixed(2)}
+                                </Text>
+                                {actionData.databaseCreditBalance.shopifyPlusCredit.totalRefunds > 0 && (
+                                  <Text as="p">
+                                    Total Refunds: ${actionData.databaseCreditBalance.shopifyPlusCredit.totalRefunds.toFixed(2)}
+                                  </Text>
+                                )}
+                                {actionData.databaseCreditBalance.shopifyPlusCredit.customerTags?.length > 0 && (
+                                  <Text as="p" tone="subdued">
+                                    Tags: {actionData.databaseCreditBalance.shopifyPlusCredit.customerTags.join(', ')}
+                                  </Text>
+                                )}
+                              </BlockStack>
+                            </Box>
+                            
+                            {/* Refund Details */}
+                            {actionData.databaseCreditBalance.shopifyPlusCredit.refundDetails?.length > 0 && (
+                              <>
+                                <Text variant="headingSm" as="h3">Refund History</Text>
+                                <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                                  <BlockStack gap="200">
+                                    {actionData.databaseCreditBalance.shopifyPlusCredit.refundDetails.map((refund: any, index: number) => (
+                                      <BlockStack key={refund.refundId || index} gap="100">
+                                        <InlineStack align="space-between">
+                                          <Text as="p" fontWeight="semibold">
+                                            {refund.orderName}: {refund.currency} {refund.amount.toFixed(2)}
+                                          </Text>
+                                          <Text as="p" tone="subdued">
+                                            {new Date(refund.createdAt).toLocaleDateString()}
+                                          </Text>
+                                        </InlineStack>
+                                        {index < actionData.databaseCreditBalance.shopifyPlusCredit.refundDetails.length - 1 && <Divider />}
+                                      </BlockStack>
+                                    ))}
+                                  </BlockStack>
+                                </Box>
+                              </>
+                            )}
+                          </BlockStack>
+                        )}
+                        
+                        {/* Gift Card Summary */}
+                        {actionData.databaseCreditBalance.giftCardSummary && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Gift Cards (Store Credit)</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                <Text as="p" variant="headingLg">
+                                  Total Balance: ${actionData.databaseCreditBalance.giftCardSummary.totalBalance.toFixed(2)}
+                                </Text>
+                                <Text as="p">
+                                  Active Cards: {actionData.databaseCreditBalance.giftCardSummary.activeCardsCount}
+                                </Text>
+                                {actionData.databaseCreditBalance.giftCardSummary.expiredCardsCount > 0 && (
+                                  <Text as="p" tone="caution">
+                                    Expired Cards: {actionData.databaseCreditBalance.giftCardSummary.expiredCardsCount}
+                                  </Text>
+                                )}
+                              </BlockStack>
+                            </Box>
+                            
+                            {/* Active Gift Cards */}
+                            {actionData.databaseCreditBalance.giftCardSummary.activeCards?.length > 0 && (
+                              <>
+                                <Text variant="headingSm" as="h3">Active Gift Cards</Text>
+                                <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                                  <BlockStack gap="200">
+                                    {actionData.databaseCreditBalance.giftCardSummary.activeCards.map((card: any, index: number) => (
+                                      <BlockStack key={card.id || index} gap="100">
+                                        <InlineStack align="space-between">
+                                          <Text as="p" fontWeight="semibold">
+                                            {card.maskedCode || `****${card.lastCharacters}`}
+                                          </Text>
+                                          <Text as="p">
+                                            Balance: {card.currency} {card.balance.toFixed(2)}
+                                          </Text>
+                                        </InlineStack>
+                                        {card.note && (
+                                          <Text as="p" tone="subdued">{card.note}</Text>
+                                        )}
+                                        {card.expiresOn && (
+                                          <Text as="p" tone="subdued">
+                                            Expires: {new Date(card.expiresOn).toLocaleDateString()}
+                                          </Text>
+                                        )}
+                                        {index < actionData.databaseCreditBalance.giftCardSummary.activeCards.length - 1 && <Divider />}
+                                      </BlockStack>
+                                    ))}
+                                  </BlockStack>
+                                </Box>
+                              </>
+                            )}
+                          </BlockStack>
+                        )}
+                        
+                        {/* Native Shopify Store Credit Information - keeping for compatibility */}
                         {actionData.databaseCreditBalance.shopifyNativeCredit && (
                           <BlockStack gap="200">
                             <Text variant="headingSm" as="h3">Native Shopify Store Credit</Text>
