@@ -19,7 +19,6 @@ import {
   Divider
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
 
 // ============================================================================
 // TYPES
@@ -61,10 +60,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   
   const queryType = formData.get("queryType") as string;
   const customerId = formData.get("customerId") as string;
-  const giftCardId = formData.get("giftCardId") as string;
   const amount = formData.get("amount") as string || "0";
   const note = formData.get("note") as string || "";
-  const customQuery = formData.get("customQuery") as string;
+  const storeCreditAccountId = formData.get("storeCreditAccountId") as string;
   
   const startTime = Date.now();
   
@@ -72,68 +70,194 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     let query = "";
     let variables: any = {};
     
-    // Build query based on type from the GraphQL guide
+    // Build query based on type
     switch (queryType) {
-      // ========== GIFT CARD QUERIES (Store Credit) ==========
+      // ========== CUSTOMER STORE CREDIT QUERIES ==========
       
-      case "giftCardById":
-        // Query gift card by ID - Section 9 of guide
+      case "customerStoreCreditAccounts":
+        // Query all store credit accounts through customer object
         query = `#graphql
-          query GetGiftCardBalance($id: ID!) {
-            giftCard(id: $id) {
+          query GetCustomerStoreCreditAccounts($customerId: ID!) {
+            customer(id: $customerId) {
               id
-              balance {
+              displayName
+              email
+              phone
+              state
+              createdAt
+              updatedAt
+              numberOfOrders
+              amountSpent {
                 amount
                 currencyCode
               }
-              initialValue {
-                amount
+              storeCreditAccounts(first: 10) {
+                edges {
+                  node {
+                    id
+                    balance {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+                nodes {
+                  id
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+                totalCount
               }
-              expiresOn
-              enabled
-              note
+            }
+          }
+        `;
+        variables = { customerId };
+        break;
+        
+      case "customerStoreCreditWithTransactions":
+        // Query store credit accounts with transaction history
+        query = `#graphql
+          query GetCustomerStoreCreditWithHistory($customerId: ID!) {
+            customer(id: $customerId) {
+              id
+              email
+              displayName
+              storeCreditAccounts(first: 10) {
+                edges {
+                  node {
+                    id
+                    balance {
+                      amount
+                      currencyCode
+                    }
+                    owner {
+                      ... on Customer {
+                        id
+                        email
+                      }
+                    }
+                    transactions(first: 10, reverse: true) {
+                      edges {
+                        node {
+                          ... on StoreCreditAccountCreditTransaction {
+                            __typename
+                            id
+                            amount {
+                              amount
+                              currencyCode
+                            }
+                            description
+                            createdAt
+                          }
+                          ... on StoreCreditAccountDebitTransaction {
+                            __typename
+                            id
+                            amount {
+                              amount
+                              currencyCode
+                            }
+                            description
+                            createdAt
+                          }
+                        }
+                      }
+                      pageInfo {
+                        hasNextPage
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+        variables = { customerId };
+        break;
+        
+      case "customerWithAllFinancialData":
+        // Comprehensive customer query with all financial data
+        query = `#graphql
+          query GetCustomerCompleteFinancialData($customerId: ID!) {
+            customer(id: $customerId) {
+              id
+              email
+              displayName
+              firstName
+              lastName
+              phone
+              state
               createdAt
               updatedAt
-              customer {
-                id
-                email
-                displayName
+              numberOfOrders
+              
+              # Lifetime spending
+              amountSpent {
+                amount
+                currencyCode
+              }
+              
+              # Store credit accounts
+              storeCreditAccounts(first: 10) {
+                edges {
+                  node {
+                    id
+                    balance {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+                totalCount
+              }
+              
+              # Recent orders
+              orders(first: 5, reverse: true) {
+                edges {
+                  node {
+                    id
+                    name
+                    createdAt
+                    totalPriceSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
+                    fulfillmentStatus
+                    financialStatus
+                  }
+                }
+              }
+              
+              # Metafields for rewards data
+              metafields(first: 10, namespace: "rewards_pro") {
+                edges {
+                  node {
+                    id
+                    namespace
+                    key
+                    value
+                    type
+                    description
+                  }
+                }
               }
             }
           }
         `;
-        variables = { id: giftCardId };
+        variables = { customerId };
         break;
         
-      case "giftCardByCode":
-        // Search gift card by code - Section 9 of guide
+      case "createStoreCreditForCustomer":
+        // Create store credit through gift card (customer context)
         query = `#graphql
-          query FindGiftCardByCode($code: String!) {
-            giftCards(first: 1, query: $code) {
-              nodes {
-                id
-                balance { 
-                  amount 
-                  currencyCode 
-                }
-                displayCode
-                enabled
-                expiresOn
-                customer {
-                  id
-                  email
-                }
-              }
-            }
-          }
-        `;
-        variables = { code: formData.get("code") as string };
-        break;
-        
-      case "createGiftCard":
-        // Create store credit via gift card - Section 9 of guide
-        query = `#graphql
-          mutation CreateStoreCredit($input: GiftCardCreateInput!) {
+          mutation CreateStoreCreditForCustomer($input: GiftCardCreateInput!) {
             giftCardCreate(input: $input) {
               giftCard {
                 id
@@ -146,6 +270,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 }
                 customer {
                   id
+                  email
+                  storeCreditAccounts(first: 1) {
+                    edges {
+                      node {
+                        id
+                        balance {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
                 }
               }
               giftCardCode
@@ -165,273 +301,122 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         };
         break;
         
-      case "creditGiftCard":
-        // Add credit to gift card - Section 9 of guide
+      case "creditStoreCreditAccount":
+        // Credit an existing store credit account
         query = `#graphql
-          mutation CreditStoreCredit($id: ID!, $creditInput: GiftCardCreditInput!) {
-            giftCardCredit(id: $id, creditInput: $creditInput) {
-              giftCardCreditTransaction {
+          mutation CreditStoreCreditAccount($accountId: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+            storeCreditAccountCredit(id: $accountId, creditInput: $creditInput) {
+              storeCreditAccountTransaction {
                 id
                 amount {
                   amount
                   currencyCode
                 }
-                processedAt
-                note
-                giftCard {
+                description
+                createdAt
+                account {
                   id
                   balance {
                     amount
                     currencyCode
                   }
+                  owner {
+                    ... on Customer {
+                      id
+                      email
+                      storeCreditAccounts(first: 1) {
+                        edges {
+                          node {
+                            balance {
+                              amount
+                              currencyCode
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
               userErrors {
-                message
                 field
-                code
+                message
               }
             }
           }
         `;
         variables = {
-          id: giftCardId,
+          accountId: storeCreditAccountId,
           creditInput: {
-            creditAmount: { 
-              amount: amount, 
-              currencyCode: "USD" 
+            creditAmount: {
+              amount: amount,
+              currencyCode: "USD"
             },
-            note: note || "Credit adjustment",
-            processedAt: new Date().toISOString()
+            description: note || "Credit adjustment"
           }
         };
         break;
         
-      case "debitGiftCard":
-        // Deduct credit from gift card - Section 9 of guide
+      case "debitStoreCreditAccount":
+        // Debit an existing store credit account
         query = `#graphql
-          mutation DebitStoreCredit($id: ID!, $debitInput: GiftCardDebitInput!) {
-            giftCardDebit(id: $id, debitInput: $debitInput) {
-              giftCardDebitTransaction {
+          mutation DebitStoreCreditAccount($accountId: ID!, $debitInput: StoreCreditAccountDebitInput!) {
+            storeCreditAccountDebit(id: $accountId, debitInput: $debitInput) {
+              storeCreditAccountTransaction {
                 id
                 amount {
                   amount
                   currencyCode
                 }
-                processedAt
-                note
-                giftCard {
+                description
+                createdAt
+                account {
                   id
                   balance {
                     amount
                     currencyCode
                   }
+                  owner {
+                    ... on Customer {
+                      id
+                      email
+                      storeCreditAccounts(first: 1) {
+                        edges {
+                          node {
+                            balance {
+                              amount
+                              currencyCode
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
               userErrors {
-                message
                 field
-                code
+                message
               }
             }
           }
         `;
         variables = {
-          id: giftCardId,
+          accountId: storeCreditAccountId,
           debitInput: {
-            debitAmount: { 
-              amount: amount, 
-              currencyCode: "USD" 
+            debitAmount: {
+              amount: amount,
+              currencyCode: "USD"
             },
-            note: note || "Debit adjustment",
-            processedAt: new Date().toISOString()
+            description: note || "Debit adjustment"
           }
         };
         break;
         
-      // ========== STORE CREDIT ACCOUNTS (Shopify Plus) ==========
-      
-      case "storeCreditAccountById":
-        // Query store credit account by ID directly
+      case "syncCustomerStoreCredit":
+        // Sync query - same as used in customer detail page
         query = `#graphql
-          query GetStoreCreditAccountById($id: ID!) {
-            storeCreditAccount(id: $id) {
-              id
-              balance {
-                amount
-                currencyCode
-              }
-              owner {
-                ... on Customer {
-                  id
-                  email
-                  displayName
-                }
-              }
-              transactions(first: 10, reverse: true) {
-                edges {
-                  node {
-                    ... on StoreCreditAccountCreditTransaction {
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                    }
-                    ... on StoreCreditAccountDebitTransaction {
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                    }
-                    ... on StoreCreditAccountDebitRevertTransaction {
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                    }
-                    ... on StoreCreditAccountExpirationTransaction {
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                    }
-                  }
-                }
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-              }
-            }
-          }
-        `;
-        variables = { id: formData.get("storeCreditAccountId") as string };
-        break;
-        
-      case "storeCreditAccountTransactions":
-        // Query store credit account transactions with filtering
-        query = `#graphql
-          query GetStoreCreditAccountTransactions($id: ID!, $first: Int!, $query: String, $sortKey: TransactionSortKeys) {
-            storeCreditAccount(id: $id) {
-              id
-              balance {
-                amount
-                currencyCode
-              }
-              transactions(first: $first, query: $query, sortKey: $sortKey, reverse: true) {
-                edges {
-                  cursor
-                  node {
-                    ... on StoreCreditAccountCreditTransaction {
-                      __typename
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                      account {
-                        id
-                        balance {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                    ... on StoreCreditAccountDebitTransaction {
-                      __typename
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                      account {
-                        id
-                        balance {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                    ... on StoreCreditAccountDebitRevertTransaction {
-                      __typename
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                      account {
-                        id
-                        balance {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                    ... on StoreCreditAccountExpirationTransaction {
-                      __typename
-                      id
-                      amount {
-                        amount
-                        currencyCode
-                      }
-                      description
-                      createdAt
-                      account {
-                        id
-                        balance {
-                          amount
-                          currencyCode
-                        }
-                      }
-                    }
-                  }
-                }
-                nodes {
-                  ... on StoreCreditAccountTransaction {
-                    id
-                    createdAt
-                  }
-                }
-                pageInfo {
-                  hasNextPage
-                  hasPreviousPage
-                  startCursor
-                  endCursor
-                }
-              }
-            }
-          }
-        `;
-        variables = { 
-          id: formData.get("storeCreditAccountId") as string,
-          first: parseInt(formData.get("transactionLimit") as string || "20"),
-          query: formData.get("transactionQuery") as string || null,
-          sortKey: formData.get("sortKey") as string || "CREATED_AT"
-        };
-        break;
-        
-      case "customerStoreCreditAccounts":
-        // Query customer's store credit accounts
-        query = `#graphql
-          query GetCustomerStoreCreditAccounts($customerId: ID!) {
+          query SyncCustomerStoreCredit($customerId: ID!) {
             customer(id: $customerId) {
               id
               email
@@ -446,376 +431,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     }
                   }
                 }
-                nodes {
-                  id
-                  balance {
-                    amount
-                    currencyCode
-                  }
-                  transactions(first: 5, reverse: true) {
-                    nodes {
-                      ... on StoreCreditAccountTransaction {
-                        id
-                        createdAt
-                      }
-                    }
-                  }
-                }
                 pageInfo {
                   hasNextPage
-                  endCursor
                 }
               }
             }
           }
         `;
         variables = { customerId };
-        break;
-        
-      case "creditStoreCreditAccount":
-        // Credit store credit account (Plus) - Section 9 of guide
-        query = `#graphql
-          mutation CreditStoreCreditAccount($accountId: ID!, $creditInput: StoreCreditAccountCreditInput!) {
-            storeCreditAccountCredit(id: $accountId, creditInput: $creditInput) {
-              storeCreditAccountTransaction {
-                id
-                amount {
-                  amount
-                  currencyCode
-                }
-                account {
-                  balance {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          accountId: formData.get("accountId") as string,
-          creditInput: {
-            creditAmount: {
-              amount: amount,
-              currencyCode: "USD"
-            },
-            description: note
-          }
-        };
-        break;
-        
-      // ========== CUSTOMER QUERIES ==========
-      
-      case "customerWithMetafields":
-        // Customer with metafields for store credit
-        query = `#graphql
-          query GetCustomerWithMetafields($id: ID!) {
-            customer(id: $id) {
-              id
-              email
-              firstName
-              lastName
-              displayName
-              state
-              createdAt
-              updatedAt
-              numberOfOrders
-              amountSpent {
-                amount
-                currencyCode
-              }
-              metafields(first: 10, namespace: "rewards_pro") {
-                edges {
-                  node {
-                    id
-                    namespace
-                    key
-                    value
-                    type
-                    description
-                    createdAt
-                    updatedAt
-                  }
-                }
-              }
-            }
-          }
-        `;
-        variables = { id: customerId };
-        break;
-        
-      case "updateCustomerMetafield":
-        // Update customer metafield for store credit
-        query = `#graphql
-          mutation UpdateCustomerMetafield($input: CustomerInput!) {
-            customerUpdate(input: $input) {
-              customer {
-                id
-                email
-                metafields(first: 10, namespace: "rewards_pro") {
-                  edges {
-                    node {
-                      id
-                      namespace
-                      key
-                      value
-                      type
-                    }
-                  }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          input: {
-            id: customerId,
-            metafields: [
-              {
-                namespace: "rewards_pro",
-                key: "store_credit",
-                value: amount,
-                type: "number_decimal"
-              },
-              {
-                namespace: "rewards_pro",
-                key: "last_updated",
-                value: new Date().toISOString(),
-                type: "date_time"
-              }
-            ]
-          }
-        };
-        break;
-        
-      // ========== PRODUCTS QUERIES ==========
-      
-      case "products":
-        // Full product query - Section 1 of guide
-        query = `#graphql
-          query GetProductsWithFullDetails($first: Int!, $query: String) {
-            products(first: $first, query: $query) {
-              edges {
-                node {
-                  id
-                  title
-                  handle
-                  descriptionHtml
-                  status
-                  vendor
-                  productType
-                  seo {
-                    title
-                    description
-                  }
-                  featuredImage {
-                    url
-                    altText
-                  }
-                  metafields(first: 10) {
-                    edges {
-                      node {
-                        namespace
-                        key
-                        value
-                        type
-                      }
-                    }
-                  }
-                  variants(first: 50) {
-                    edges {
-                      node {
-                        id
-                        price
-                        compareAtPrice
-                        sku
-                        inventoryQuantity
-                        selectedOptions {
-                          name
-                          value
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-              pageInfo {
-                hasNextPage
-                endCursor
-              }
-            }
-          }
-        `;
-        variables = {
-          first: 10,
-          query: formData.get("productQuery") as string || null
-        };
-        break;
-        
-      // ========== ORDERS QUERIES ==========
-      
-      case "orders":
-        // Orders query for customer
-        query = `#graphql
-          query GetCustomerOrders($customerId: ID!, $first: Int!) {
-            customer(id: $customerId) {
-              id
-              email
-              orders(first: $first, reverse: true) {
-                edges {
-                  node {
-                    id
-                    name
-                    createdAt
-                    totalPriceSet {
-                      shopMoney {
-                        amount
-                        currencyCode
-                      }
-                    }
-                    lineItems(first: 50) {
-                      edges {
-                        node {
-                          id
-                          title
-                          quantity
-                          originalUnitPriceSet {
-                            shopMoney {
-                              amount
-                              currencyCode
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-              }
-            }
-          }
-        `;
-        variables = {
-          customerId,
-          first: 10
-        };
-        break;
-        
-      // ========== BULK OPERATIONS ==========
-      
-      case "bulkOperation":
-        // Bulk operation for large datasets - Section 10 of guide
-        query = `#graphql
-          mutation RunBulkQuery($query: String!) {
-            bulkOperationRunQuery(query: $query) {
-              bulkOperation {
-                id
-                status
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          query: formData.get("bulkQuery") as string || `{
-            customers {
-              edges {
-                node {
-                  id
-                  email
-                }
-              }
-            }
-          }`
-        };
-        break;
-        
-      // ========== METAFIELDS QUERIES ==========
-      
-      case "metafields":
-        // Query metafields
-        query = `#graphql
-          query GetMetafields($ownerId: ID!) {
-            metafields(first: 100, ownerType: CUSTOMER, filters: { ownerId: $ownerId }) {
-              edges {
-                node {
-                  id
-                  namespace
-                  key
-                  value
-                  type
-                  description
-                  createdAt
-                  updatedAt
-                }
-              }
-            }
-          }
-        `;
-        variables = { ownerId: customerId };
-        break;
-        
-      case "createMetafield":
-        // Create metafield mutation
-        query = `#graphql
-          mutation CreateMetafield($metafields: [MetafieldsSetInput!]!) {
-            metafieldsSet(metafields: $metafields) {
-              metafields {
-                id
-                namespace
-                key
-                value
-                type
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          metafields: [{
-            ownerId: customerId,
-            namespace: "rewards_pro",
-            key: formData.get("metafieldKey") as string || "store_credit",
-            value: formData.get("metafieldValue") as string || "0",
-            type: "number_decimal"
-          }]
-        };
-        break;
-        
-      // ========== CUSTOM QUERY ==========
-      
-      case "custom":
-        query = customQuery;
-        // Try to parse variables from the form
-        const varsString = formData.get("variables") as string;
-        if (varsString) {
-          try {
-            variables = JSON.parse(varsString);
-          } catch (e) {
-            // If not valid JSON, try simple ID variable
-            if (customerId) {
-              variables = { id: customerId, customerId };
-            }
-          }
-        }
         break;
         
       default:
@@ -858,23 +481,11 @@ export default function GraphQLTestPage() {
   const navigation = useNavigation();
   const submit = useSubmit();
   
-  const [queryType, setQueryType] = useState("giftCardById");
+  const [queryType, setQueryType] = useState("customerStoreCreditAccounts");
   const [customerId, setCustomerId] = useState("");
-  const [giftCardId, setGiftCardId] = useState("");
+  const [storeCreditAccountId, setStoreCreditAccountId] = useState("");
   const [amount, setAmount] = useState("10.00");
   const [note, setNote] = useState("");
-  const [code, setCode] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [storeCreditAccountId, setStoreCreditAccountId] = useState("");
-  const [transactionLimit, setTransactionLimit] = useState("20");
-  const [transactionQuery, setTransactionQuery] = useState("");
-  const [sortKey, setSortKey] = useState("CREATED_AT");
-  const [productQuery, setProductQuery] = useState("");
-  const [bulkQuery, setBulkQuery] = useState("");
-  const [metafieldKey, setMetafieldKey] = useState("store_credit");
-  const [metafieldValue, setMetafieldValue] = useState("0");
-  const [customQuery, setCustomQuery] = useState("");
-  const [variables, setVariables] = useState("");
   
   const isLoading = navigation.state === "submitting";
   
@@ -882,29 +493,17 @@ export default function GraphQLTestPage() {
     const formData = new FormData();
     formData.append("queryType", queryType);
     formData.append("customerId", customerId);
-    formData.append("giftCardId", giftCardId);
+    formData.append("storeCreditAccountId", storeCreditAccountId);
     formData.append("amount", amount);
     formData.append("note", note);
-    formData.append("code", code);
-    formData.append("accountId", accountId);
-    formData.append("storeCreditAccountId", storeCreditAccountId);
-    formData.append("transactionLimit", transactionLimit);
-    formData.append("transactionQuery", transactionQuery);
-    formData.append("sortKey", sortKey);
-    formData.append("productQuery", productQuery);
-    formData.append("bulkQuery", bulkQuery);
-    formData.append("metafieldKey", metafieldKey);
-    formData.append("metafieldValue", metafieldValue);
-    formData.append("customQuery", customQuery);
-    formData.append("variables", variables);
     submit(formData, { method: "post" });
-  }, [queryType, customerId, giftCardId, amount, note, code, accountId, storeCreditAccountId, transactionLimit, transactionQuery, sortKey, productQuery, bulkQuery, metafieldKey, metafieldValue, customQuery, variables, submit]);
+  }, [queryType, customerId, storeCreditAccountId, amount, note, submit]);
   
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
   }, []);
   
-  // Helper to format IDs
+  // Helper to format Customer IDs
   const formatCustomerId = useCallback((value: string) => {
     if (/^\d+$/.test(value)) {
       return `gid://shopify/Customer/${value}`;
@@ -912,13 +511,7 @@ export default function GraphQLTestPage() {
     return value;
   }, []);
   
-  const formatGiftCardId = useCallback((value: string) => {
-    if (/^\d+$/.test(value)) {
-      return `gid://shopify/GiftCard/${value}`;
-    }
-    return value;
-  }, []);
-  
+  // Helper to format Store Credit Account IDs
   const formatStoreCreditAccountId = useCallback((value: string) => {
     if (/^\d+$/.test(value)) {
       return `gid://shopify/StoreCreditAccount/${value}`;
@@ -926,10 +519,30 @@ export default function GraphQLTestPage() {
     return value;
   }, []);
   
+  // Helper to calculate total store credit from response
+  const calculateTotalStoreCredit = useCallback((customer: any) => {
+    if (!customer?.storeCreditAccounts?.edges) return null;
+    
+    let total = 0;
+    const accounts = [];
+    
+    for (const edge of customer.storeCreditAccounts.edges) {
+      const amount = parseFloat(edge.node.balance.amount);
+      total += amount;
+      accounts.push({
+        id: edge.node.id,
+        amount: amount,
+        currency: edge.node.balance.currencyCode
+      });
+    }
+    
+    return { total, accounts };
+  }, []);
+  
   return (
     <Page
-      title="GraphQL API Test"
-      subtitle="Test GraphQL queries from the API guide"
+      title="Customer Store Credit API Test"
+      subtitle="Test store credit queries through the Customer object"
       primaryAction={{
         content: "Run Query",
         loading: isLoading,
@@ -946,138 +559,42 @@ export default function GraphQLTestPage() {
                 <Select
                   label="Query Type"
                   options={[
-                    { label: "--- Gift Cards (Store Credit) ---", value: "", disabled: true },
-                    { label: "Get Gift Card by ID", value: "giftCardById" },
-                    { label: "Search Gift Card by Code", value: "giftCardByCode" },
-                    { label: "Create Gift Card (Store Credit)", value: "createGiftCard" },
-                    { label: "Credit Gift Card (Add Balance)", value: "creditGiftCard" },
-                    { label: "Debit Gift Card (Reduce Balance)", value: "debitGiftCard" },
-                    
-                    { label: "--- Store Credit Accounts (Plus) ---", value: "", disabled: true },
-                    { label: "Get Store Credit Account by ID", value: "storeCreditAccountById" },
-                    { label: "Get Store Credit Account Transactions", value: "storeCreditAccountTransactions" },
                     { label: "Get Customer Store Credit Accounts", value: "customerStoreCreditAccounts" },
+                    { label: "Get Store Credit with Transactions", value: "customerStoreCreditWithTransactions" },
+                    { label: "Get Complete Financial Data", value: "customerWithAllFinancialData" },
+                    { label: "Sync Customer Store Credit", value: "syncCustomerStoreCredit" },
+                    { label: "Create Store Credit for Customer", value: "createStoreCreditForCustomer" },
                     { label: "Credit Store Credit Account", value: "creditStoreCreditAccount" },
-                    
-                    { label: "--- Customer Queries ---", value: "", disabled: true },
-                    { label: "Customer with Metafields", value: "customerWithMetafields" },
-                    { label: "Update Customer Metafield", value: "updateCustomerMetafield" },
-                    
-                    { label: "--- Product Queries ---", value: "", disabled: true },
-                    { label: "Products with Full Details", value: "products" },
-                    
-                    { label: "--- Order Queries ---", value: "", disabled: true },
-                    { label: "Customer Orders", value: "orders" },
-                    
-                    { label: "--- Metafield Operations ---", value: "", disabled: true },
-                    { label: "Get Metafields", value: "metafields" },
-                    { label: "Create Metafield", value: "createMetafield" },
-                    
-                    { label: "--- Bulk Operations ---", value: "", disabled: true },
-                    { label: "Run Bulk Query", value: "bulkOperation" },
-                    
-                    { label: "--- Custom ---", value: "", disabled: true },
-                    { label: "Custom Query", value: "custom" }
+                    { label: "Debit Store Credit Account", value: "debitStoreCreditAccount" }
                   ]}
                   value={queryType}
                   onChange={setQueryType}
                 />
                 
-                {/* Gift Card Fields */}
-                {["giftCardById", "creditGiftCard", "debitGiftCard"].includes(queryType) && (
-                  <TextField
-                    label="Gift Card ID"
-                    value={giftCardId}
-                    onChange={(value) => setGiftCardId(formatGiftCardId(value))}
-                    placeholder="123456789 or gid://shopify/GiftCard/123456789"
-                    helpText="Enter gift card ID (will auto-format)"
-                    autoComplete="off"
-                  />
-                )}
+                {/* Customer ID Field - Required for all queries */}
+                <TextField
+                  label="Customer ID"
+                  value={customerId}
+                  onChange={(value) => setCustomerId(formatCustomerId(value))}
+                  placeholder="123456789 or gid://shopify/Customer/123456789"
+                  helpText="Enter customer ID (will auto-format)"
+                  autoComplete="off"
+                />
                 
-                {queryType === "giftCardByCode" && (
-                  <TextField
-                    label="Gift Card Code"
-                    value={code}
-                    onChange={setCode}
-                    placeholder="ABCD-1234-EFGH"
-                    helpText="Enter the gift card code to search"
-                    autoComplete="off"
-                  />
-                )}
-                
-                {/* Customer Fields */}
-                {["createGiftCard", "customerStoreCreditAccounts", "customerWithMetafields", "updateCustomerMetafield", "orders", "metafields", "createMetafield"].includes(queryType) && (
-                  <TextField
-                    label="Customer ID"
-                    value={customerId}
-                    onChange={(value) => setCustomerId(formatCustomerId(value))}
-                    placeholder="123456789 or gid://shopify/Customer/123456789"
-                    helpText="Enter customer ID (will auto-format)"
-                    autoComplete="off"
-                  />
-                )}
-                
-                {/* Store Credit Account ID for direct queries */}
-                {["storeCreditAccountById", "storeCreditAccountTransactions"].includes(queryType) && (
+                {/* Store Credit Account ID - For credit/debit mutations */}
+                {["creditStoreCreditAccount", "debitStoreCreditAccount"].includes(queryType) && (
                   <TextField
                     label="Store Credit Account ID"
                     value={storeCreditAccountId}
                     onChange={(value) => setStoreCreditAccountId(formatStoreCreditAccountId(value))}
                     placeholder="123 or gid://shopify/StoreCreditAccount/123"
-                    helpText="Enter store credit account ID (will auto-format)"
+                    helpText="Enter the store credit account ID"
                     autoComplete="off"
                   />
                 )}
                 
-                {/* Store Credit Account Transactions Parameters */}
-                {queryType === "storeCreditAccountTransactions" && (
-                  <>
-                    <TextField
-                      label="Transaction Limit"
-                      type="number"
-                      value={transactionLimit}
-                      onChange={setTransactionLimit}
-                      placeholder="20"
-                      helpText="Number of transactions to fetch (default: 20)"
-                      autoComplete="off"
-                    />
-                    <TextField
-                      label="Transaction Query Filter"
-                      value={transactionQuery}
-                      onChange={setTransactionQuery}
-                      placeholder='created_at:>"2025-01-01"'
-                      helpText="Optional Shopify search syntax filter"
-                      autoComplete="off"
-                    />
-                    <Select
-                      label="Sort Key"
-                      options={[
-                        { label: "Created At", value: "CREATED_AT" },
-                        { label: "ID", value: "ID" },
-                        { label: "Updated At", value: "UPDATED_AT" }
-                      ]}
-                      value={sortKey}
-                      onChange={setSortKey}
-                      helpText="Sort order for transactions"
-                    />
-                  </>
-                )}
-                
-                {/* Store Credit Account ID for mutations */}
-                {queryType === "creditStoreCreditAccount" && (
-                  <TextField
-                    label="Store Credit Account ID"
-                    value={accountId}
-                    onChange={setAccountId}
-                    placeholder="gid://shopify/StoreCreditAccount/123"
-                    helpText="Enter the store credit account ID to credit"
-                    autoComplete="off"
-                  />
-                )}
-                
-                {/* Amount Fields */}
-                {["createGiftCard", "creditGiftCard", "debitGiftCard", "creditStoreCreditAccount", "updateCustomerMetafield"].includes(queryType) && (
+                {/* Amount Field - For mutations */}
+                {["createStoreCreditForCustomer", "creditStoreCreditAccount", "debitStoreCreditAccount"].includes(queryType) && (
                   <TextField
                     label="Amount"
                     type="number"
@@ -1090,8 +607,8 @@ export default function GraphQLTestPage() {
                   />
                 )}
                 
-                {/* Note Fields */}
-                {["createGiftCard", "creditGiftCard", "debitGiftCard", "creditStoreCreditAccount"].includes(queryType) && (
+                {/* Note/Description Field - For mutations */}
+                {["createStoreCreditForCustomer", "creditStoreCreditAccount", "debitStoreCreditAccount"].includes(queryType) && (
                   <TextField
                     label="Note / Description"
                     value={note}
@@ -1100,90 +617,6 @@ export default function GraphQLTestPage() {
                     helpText="Optional note for the transaction"
                     autoComplete="off"
                   />
-                )}
-                
-                {/* Product Query */}
-                {queryType === "products" && (
-                  <TextField
-                    label="Product Search Query"
-                    value={productQuery}
-                    onChange={setProductQuery}
-                    placeholder="title:Widget OR vendor:Acme"
-                    helpText="Optional search query for products"
-                    autoComplete="off"
-                  />
-                )}
-                
-                {/* Metafield Fields */}
-                {queryType === "createMetafield" && (
-                  <>
-                    <TextField
-                      label="Metafield Key"
-                      value={metafieldKey}
-                      onChange={setMetafieldKey}
-                      placeholder="store_credit"
-                      autoComplete="off"
-                    />
-                    <TextField
-                      label="Metafield Value"
-                      value={metafieldValue}
-                      onChange={setMetafieldValue}
-                      placeholder="100.00"
-                      autoComplete="off"
-                    />
-                  </>
-                )}
-                
-                {/* Bulk Query */}
-                {queryType === "bulkOperation" && (
-                  <TextField
-                    label="Bulk Query"
-                    value={bulkQuery}
-                    onChange={setBulkQuery}
-                    multiline={4}
-                    placeholder={`{
-  customers {
-    edges {
-      node {
-        id
-        email
-      }
-    }
-  }
-}`}
-                    helpText="GraphQL query to run in bulk"
-                    autoComplete="off"
-                  />
-                )}
-                
-                {/* Custom Query */}
-                {queryType === "custom" && (
-                  <>
-                    <TextField
-                      label="Custom GraphQL Query"
-                      value={customQuery}
-                      onChange={setCustomQuery}
-                      multiline={6}
-                      placeholder={`query GetCustomer($id: ID!) {
-  customer(id: $id) {
-    id
-    email
-  }
-}`}
-                      autoComplete="off"
-                    />
-                    <TextField
-                      label="Variables (JSON)"
-                      value={variables}
-                      onChange={setVariables}
-                      multiline={3}
-                      placeholder={`{
-  "id": "gid://shopify/Customer/123"
-}`}
-                      helpText="Variables in JSON format"
-                      autoComplete="off"
-                    />
-                  </>
                 )}
               </FormLayout>
               
@@ -1306,38 +739,80 @@ export default function GraphQLTestPage() {
                       <BlockStack gap="400">
                         <Text variant="headingMd" as="h2">Parsed Data</Text>
                         
-                        {/* Gift Card Display */}
-                        {actionData.parsedData.giftCard && (
+                        {/* Customer Store Credit Summary */}
+                        {actionData.parsedData.customer && (
                           <Box padding="200" background="bg-surface-success" borderRadius="200">
                             <BlockStack gap="200">
-                              <Text variant="headingSm" as="h3">Gift Card Details</Text>
-                              <InlineStack gap="400">
+                              <Text variant="headingSm" as="h3">Customer Details</Text>
+                              <InlineStack gap="400" wrap>
                                 <BlockStack gap="100">
-                                  <Text as="p" fontWeight="semibold">Balance:</Text>
-                                  <Text as="p">
-                                    {actionData.parsedData.giftCard.balance?.currencyCode} {actionData.parsedData.giftCard.balance?.amount}
-                                  </Text>
+                                  <Text as="p" fontWeight="semibold">Email:</Text>
+                                  <Text as="p">{actionData.parsedData.customer.email}</Text>
                                 </BlockStack>
-                                {actionData.parsedData.giftCard.initialValue && (
+                                {actionData.parsedData.customer.displayName && (
                                   <BlockStack gap="100">
-                                    <Text as="p" fontWeight="semibold">Initial Value:</Text>
-                                    <Text as="p">{actionData.parsedData.giftCard.initialValue.amount}</Text>
+                                    <Text as="p" fontWeight="semibold">Name:</Text>
+                                    <Text as="p">{actionData.parsedData.customer.displayName}</Text>
                                   </BlockStack>
                                 )}
-                                {actionData.parsedData.giftCard.enabled !== undefined && (
+                                {actionData.parsedData.customer.amountSpent && (
                                   <BlockStack gap="100">
-                                    <Text as="p" fontWeight="semibold">Status:</Text>
-                                    <Badge tone={actionData.parsedData.giftCard.enabled ? "success" : "critical"}>
-                                      {actionData.parsedData.giftCard.enabled ? "Enabled" : "Disabled"}
-                                    </Badge>
+                                    <Text as="p" fontWeight="semibold">Lifetime Spent:</Text>
+                                    <Text as="p">
+                                      {actionData.parsedData.customer.amountSpent.currencyCode} {actionData.parsedData.customer.amountSpent.amount}
+                                    </Text>
                                   </BlockStack>
                                 )}
                               </InlineStack>
+                              
+                              {/* Store Credit Accounts Summary */}
+                              {(() => {
+                                const creditSummary = calculateTotalStoreCredit(actionData.parsedData.customer);
+                                if (creditSummary) {
+                                  return (
+                                    <>
+                                      <Divider />
+                                      <Text variant="headingSm" as="h4">Store Credit Summary</Text>
+                                      <InlineStack gap="400">
+                                        <BlockStack gap="100">
+                                          <Text as="p" fontWeight="semibold">Total Balance:</Text>
+                                          <Text as="p" variant="headingLg">
+                                            ${creditSummary.total.toFixed(2)}
+                                          </Text>
+                                        </BlockStack>
+                                        <BlockStack gap="100">
+                                          <Text as="p" fontWeight="semibold">Number of Accounts:</Text>
+                                          <Text as="p">{creditSummary.accounts.length}</Text>
+                                        </BlockStack>
+                                      </InlineStack>
+                                      
+                                      {creditSummary.accounts.length > 0 && (
+                                        <BlockStack gap="100">
+                                          <Text as="p" fontWeight="semibold">Account Details:</Text>
+                                          {creditSummary.accounts.map((account, index) => (
+                                            <Box key={index} padding="100" background="bg-surface" borderRadius="100">
+                                              <InlineStack align="space-between">
+                                                <Text as="p" tone="subdued" variant="bodySm">
+                                                  {account.id.split('/').pop()}
+                                                </Text>
+                                                <Text as="p" fontWeight="semibold">
+                                                  {account.currency} {account.amount.toFixed(2)}
+                                                </Text>
+                                              </InlineStack>
+                                            </Box>
+                                          ))}
+                                        </BlockStack>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </BlockStack>
                           </Box>
                         )}
                         
-                        {/* Gift Card Create Result */}
+                        {/* Mutation Results */}
                         {actionData.parsedData.giftCardCreate && (
                           <Box padding="200" background="bg-surface-success" borderRadius="200">
                             <BlockStack gap="200">
@@ -1358,23 +833,35 @@ export default function GraphQLTestPage() {
                           </Box>
                         )}
                         
-                        {/* Customer Display */}
-                        {actionData.parsedData.customer && (
+                        {/* Transaction Results */}
+                        {(actionData.parsedData.storeCreditAccountCredit || actionData.parsedData.storeCreditAccountDebit) && (
                           <Box padding="200" background="bg-surface-info" borderRadius="200">
                             <BlockStack gap="200">
-                              <Text variant="headingSm" as="h3">Customer Details</Text>
-                              <Text as="p">Email: {actionData.parsedData.customer.email}</Text>
-                              <Text as="p">Name: {actionData.parsedData.customer.displayName}</Text>
-                              {actionData.parsedData.customer.amountSpent && (
-                                <Text as="p">
-                                  Total Spent: {actionData.parsedData.customer.amountSpent.currencyCode} {actionData.parsedData.customer.amountSpent.amount}
-                                </Text>
-                              )}
-                              {actionData.parsedData.customer.storeCreditAccount && (
-                                <Text as="p" fontWeight="semibold">
-                                  Store Credit: {actionData.parsedData.customer.storeCreditAccount.balance?.currencyCode} {actionData.parsedData.customer.storeCreditAccount.balance?.amount}
-                                </Text>
-                              )}
+                              <Text variant="headingSm" as="h3">Transaction Completed</Text>
+                              {(() => {
+                                const transaction = actionData.parsedData.storeCreditAccountCredit?.storeCreditAccountTransaction ||
+                                                   actionData.parsedData.storeCreditAccountDebit?.storeCreditAccountTransaction;
+                                if (transaction) {
+                                  return (
+                                    <>
+                                      <Text as="p">
+                                        Amount: {transaction.amount?.currencyCode} {transaction.amount?.amount}
+                                      </Text>
+                                      {transaction.account && (
+                                        <Text as="p" fontWeight="semibold">
+                                          New Balance: {transaction.account.balance?.currencyCode} {transaction.account.balance?.amount}
+                                        </Text>
+                                      )}
+                                      {transaction.description && (
+                                        <Text as="p" tone="subdued">
+                                          Description: {transaction.description}
+                                        </Text>
+                                      )}
+                                    </>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </BlockStack>
                           </Box>
                         )}
