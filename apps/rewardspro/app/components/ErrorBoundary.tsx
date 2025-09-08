@@ -119,7 +119,7 @@ export function ErrorBoundary() {
                     This is usually a temporary issue. Please try again in a few moments.
                   </Text>
                   {process.env.NODE_ENV === 'development' && (
-                    <Card sectioned>
+                    <Card>
                       <Text as="p" variant="bodySm" tone="subdued">
                         Debug: {errorMessage}
                       </Text>

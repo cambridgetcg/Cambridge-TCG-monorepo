@@ -63,7 +63,7 @@ export class DataAPISessionStorage implements SessionStorage {
         { name: "expires", value: session.expires ? { stringValue: session.expires.toISOString() } : { isNull: true } },
         { name: "accessToken", value: { stringValue: encryptedAccessToken } },
         { name: "userId", value: session.onlineAccessInfo?.associated_user?.id ? 
-          { longValue: BigInt(session.onlineAccessInfo.associated_user.id) } : { isNull: true } },
+          { longValue: Number(session.onlineAccessInfo.associated_user.id) } : { isNull: true } },
         { name: "firstName", value: session.onlineAccessInfo?.associated_user?.first_name ? 
           { stringValue: session.onlineAccessInfo.associated_user.first_name } : { isNull: true } },
         { name: "lastName", value: session.onlineAccessInfo?.associated_user?.last_name ? 
@@ -125,6 +125,8 @@ export class DataAPISessionStorage implements SessionStorage {
         expires: record.expires ? new Date(record.expires) : undefined,
         accessToken: decryptedAccessToken,
         onlineAccessInfo: record.userId ? {
+          expires_in: 86400, // Default to 24 hours
+          associated_user_scope: record.scope || "",
           associated_user: {
             id: Number(record.userId),
             first_name: record.firstName || "",
@@ -225,6 +227,8 @@ export class DataAPISessionStorage implements SessionStorage {
           expires: record.expires ? new Date(record.expires) : undefined,
           accessToken: decryptedAccessToken,
           onlineAccessInfo: record.userId ? {
+            expires_in: 86400, // Default to 24 hours
+            associated_user_scope: record.scope || "",
             associated_user: {
               id: Number(record.userId),
               first_name: record.firstName || "",

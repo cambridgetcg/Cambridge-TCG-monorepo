@@ -593,7 +593,7 @@ export default function CreditManagement() {
               prefix={getCurrencySymbol(shopSettings?.storeCurrency || "USD")}
               placeholder="0.00"
               min={0.01}
-              step="0.01"
+              step={0.01}
               autoComplete="off"
             />
             <TextField

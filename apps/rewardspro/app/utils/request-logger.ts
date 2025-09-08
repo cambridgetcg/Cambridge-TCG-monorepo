@@ -95,7 +95,7 @@ export function logResponse(
         headers[key] = value;
       });
     } else if (response.headers instanceof Headers) {
-      response.headers.forEach((value, key) => {
+      response.headers.forEach((value: string, key: string) => {
         headers[key] = value;
       });
     }

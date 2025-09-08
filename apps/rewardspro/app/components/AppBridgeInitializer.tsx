@@ -39,9 +39,9 @@ export function AppBridgeInitializer() {
       console.log("  - Loading:", window.shopify.loading);
       
       // Force App Bridge to reinitialize if needed
-      if (window.shopify.loading) {
+      if ('loading' in window.shopify && (window.shopify as any).loading) {
         console.log("⚠️ Forcing App Bridge reload...");
-        window.shopify.loading = false;
+        (window.shopify as any).loading = false;
       }
     } else {
       console.error("❌ App Bridge NOT found!");

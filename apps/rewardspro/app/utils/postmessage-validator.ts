@@ -130,7 +130,7 @@ export function setupPostMessageDebugging(): () => void {
     console.log('Timestamp:', new Date().toISOString());
     console.groupEnd();
     
-    return originalPostMessage.apply(window.parent, args);
+    return originalPostMessage.apply(window.parent, args as unknown as [any, WindowPostMessageOptions?]);
   };
 
   return () => {
