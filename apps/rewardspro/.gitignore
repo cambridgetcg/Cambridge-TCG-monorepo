@@ -39,6 +39,15 @@ DRAFT.md
 # Keep docs folder (important documentation)
 !/docs/**/*.md
 
+# Security documentation (sensitive information)
+/docs/08-security/
+/docs/08-security/**/*.md
+/docs/**/security-*.md
+/docs/**/*-security.md
+/docs/**/*-vulnerabilities.md
+/docs/**/*-auth*.md
+/docs/**/*-exposure*.md
+
 
 
 

@@ -678,9 +678,16 @@ export default function GraphQLTestPage() {
                   <TextField
                     label="Customer ID"
                     value={customerId}
-                    onChange={setCustomerId}
-                    placeholder="gid://shopify/Customer/123456789"
-                    helpText="Enter the full GraphQL ID"
+                    onChange={(value) => {
+                      // If user enters just a number, convert to full GraphQL ID
+                      if (/^\d+$/.test(value)) {
+                        setCustomerId(`gid://shopify/Customer/${value}`);
+                      } else {
+                        setCustomerId(value);
+                      }
+                    }}
+                    placeholder="123456789 or gid://shopify/Customer/123456789"
+                    helpText="Enter customer ID (will auto-format to GraphQL ID)"
                     autoComplete="off"
                   />
                 )}

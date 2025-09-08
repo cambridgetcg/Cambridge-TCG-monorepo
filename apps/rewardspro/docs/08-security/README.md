@@ -10,6 +10,7 @@ Comprehensive security guides for the RewardsPro Shopify application, covering a
 
 ### 🛡️ Configuration & Deployment
 - **[09. Configuration & Deployment Vulnerabilities](./09-configuration-deployment-vulnerabilities.md)** - Environment variables, secrets management, Vercel deployment, AWS Aurora security, Docker security, CI/CD pipeline security
+- **[10. Data Exposure Prevention](./10-data-exposure-prevention.md)** - Preventing sensitive data leaks, secure API design, frontend/backend separation, logging best practices, Shopify-specific data protection
 
 ### 🚨 Core Security Patterns
 - **[01. Security Overview](./01-security-overview.md)** - Comprehensive security architecture and threat model
@@ -44,6 +45,8 @@ Comprehensive security guides for the RewardsPro Shopify application, covering a
 - **2024 Statistics**: 87% of production containers have vulnerabilities
 - **CORS Issues**: 17% of major domains suffer from CORS misconfigurations
 - **Supply Chain**: Millions of weekly NPM downloads compromised in 2024
+- **Data Exposure**: Shopify apps have exposed admin tokens via unsecured services for 100+ days
+- **Frontend Leaks**: 8.5% of Docker images expose API keys and private keys
 
 ## Quick Security Checklist
 
@@ -60,6 +63,9 @@ Comprehensive security guides for the RewardsPro Shopify application, covering a
 - [ ] Configure pre-commit hooks for secret scanning
 - [ ] Implement CSP with nonces
 - [ ] Set up branch protection rules
+- [ ] Verify no secrets in frontend bundles
+- [ ] Implement field-level data redaction
+- [ ] Set Cache-Control headers on sensitive endpoints
 
 ### Production Security
 - [ ] Deploy in private VPC subnets
