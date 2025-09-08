@@ -213,6 +213,81 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         variables = { query: `customer_id:${customerNumber}` };
         break;
         
+      case "storeCreditAccounts":
+        // Query for store credit accounts (Shopify Plus feature)
+        query = `#graphql
+          query GetCustomerStoreCreditAccounts($customerId: ID!) {
+            customer(id: $customerId) {
+              id
+              email
+              displayName
+              # Store credit accounts for Shopify Plus
+              storeCreditAccounts(first: 10) {
+                edges {
+                  node {
+                    id
+                    balance {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                }
+              }
+            }
+          }
+        `;
+        variables = { customerId };
+        break;
+        
+      case "createStoreCredit":
+        // Mutation to issue store credit (Shopify Plus)
+        const amount = formData.get("creditAmount") as string || "0";
+        const currency = formData.get("currency") as string || "USD";
+        const description = formData.get("description") as string || "Manual store credit adjustment";
+        
+        query = `#graphql
+          mutation IssueStoreCredit($customerId: ID!, $amount: Money!, $description: String) {
+            customerStoreCreditAccountCredit(
+              customerId: $customerId,
+              creditAmount: $amount,
+              description: $description
+            ) {
+              storeCreditAccount {
+                id
+                balance {
+                  amount
+                  currencyCode
+                }
+              }
+              storeCreditTransaction {
+                id
+                amount {
+                  amount
+                  currencyCode
+                }
+                description
+                createdAt
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+        variables = {
+          customerId,
+          amount: {
+            amount: amount,
+            currencyCode: currency
+          },
+          description
+        };
+        break;
+        
       case "shopifyCreditBalance":
         // Query specifically for store credit metafield
         query = `#graphql
@@ -578,6 +653,91 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             totalRefunds > 0 ? `Customer has ${totalRefunds} in refunds that could be converted to store credit` : null
           ].filter(Boolean)
         };
+      } else if (queryType === "storeCreditAccounts" && rawResponse.data.customer) {
+        parsedData = rawResponse.data.customer;
+        
+        // Extract store credit accounts (same structure as sync function)
+        const storeCreditAccounts = parsedData.storeCreditAccounts?.edges || [];
+        
+        // Calculate total balance across all accounts
+        let totalBalance = 0;
+        const accountDetails: any[] = [];
+        
+        for (const edge of storeCreditAccounts) {
+          const amount = parseFloat(edge.node.balance.amount);
+          totalBalance += amount;
+          accountDetails.push({
+            id: edge.node.id,
+            amount: amount,
+            currency: edge.node.balance.currencyCode
+          });
+        }
+        
+        // Extract the Shopify customer ID for database comparison
+        const shopifyCustomerId = parsedData.id?.replace('gid://shopify/Customer/', '') || '';
+        
+        // Get database customer for comparison
+        const existingCustomer = await db.customer.findUnique({
+          where: {
+            shop_shopifyCustomerId: {
+              shop: session.shop,
+              shopifyCustomerId
+            }
+          }
+        });
+        
+        databaseCreditBalance = {
+          storeCreditAccountsSummary: {
+            totalBalance: totalBalance,
+            accountCount: accountDetails.length,
+            accounts: accountDetails,
+            customer: {
+              id: parsedData.id,
+              email: parsedData.email,
+              displayName: parsedData.displayName
+            }
+          },
+          databaseComparison: {
+            shopifyTotal: totalBalance,
+            databaseTotal: existingCustomer ? parseFloat(existingCustomer.storeCredit.toString()) : 0,
+            isInSync: existingCustomer ? 
+              Math.abs(totalBalance - parseFloat(existingCustomer.storeCredit.toString())) < 0.01 : false,
+            lastSyncedAt: existingCustomer?.lastSyncedAt || null
+          },
+          syncRecommendation: existingCustomer && Math.abs(totalBalance - parseFloat(existingCustomer.storeCredit.toString())) >= 0.01 ?
+            `Database is out of sync. Run sync to update from ${existingCustomer.storeCredit} to ${totalBalance}` :
+            existingCustomer ? "Database is in sync with Shopify" : "Customer not found in database",
+          implementationNote: "This is the same query used in the sync function from app.customers.$id.v2.tsx"
+        };
+      } else if (queryType === "createStoreCredit" && rawResponse.data) {
+        parsedData = rawResponse.data.customerStoreCreditAccountCredit;
+        
+        if (parsedData?.userErrors?.length > 0) {
+          databaseCreditBalance = {
+            error: true,
+            userErrors: parsedData.userErrors,
+            message: parsedData.userErrors.map((e: any) => e.message).join(', ')
+          };
+        } else if (parsedData?.storeCreditAccount) {
+          databaseCreditBalance = {
+            success: true,
+            storeCreditAccount: {
+              id: parsedData.storeCreditAccount.id,
+              balance: parsedData.storeCreditAccount.balance
+            },
+            transaction: parsedData.storeCreditTransaction ? {
+              id: parsedData.storeCreditTransaction.id,
+              amount: parsedData.storeCreditTransaction.amount,
+              description: parsedData.storeCreditTransaction.description,
+              createdAt: parsedData.storeCreditTransaction.createdAt
+            } : null,
+            nextSteps: [
+              "Run sync in the customer detail page to update database",
+              "Verify the credit appears in customer's account",
+              "Check store credit ledger for the new entry"
+            ]
+          };
+        }
       } else if (queryType === "giftCards" && rawResponse.data.giftCards) {
         parsedData = rawResponse.data.giftCards;
         
@@ -904,6 +1064,7 @@ export default function GraphQLTestPage() {
   const [batchSize, setBatchSize] = useState("3");
   const [customQuery, setCustomQuery] = useState("");
   const [creditAmount, setCreditAmount] = useState("0.00");
+  const [creditDescription, setCreditDescription] = useState("Manual store credit adjustment");
   
   const isLoading = navigation.state === "submitting";
   
@@ -914,8 +1075,9 @@ export default function GraphQLTestPage() {
     formData.append("batchSize", batchSize);
     formData.append("customQuery", customQuery);
     formData.append("creditAmount", creditAmount);
+    formData.append("description", creditDescription);
     submit(formData, { method: "post" });
-  }, [queryType, customerId, batchSize, customQuery, creditAmount, submit]);
+  }, [queryType, customerId, batchSize, customQuery, creditAmount, creditDescription, submit]);
   
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -941,7 +1103,9 @@ export default function GraphQLTestPage() {
                 <Select
                   label="Query Type"
                   options={[
-                    { label: "Store Credit (Shopify Plus)", value: "storeCredit" },
+                    { label: "Store Credit Accounts (Plus)", value: "storeCreditAccounts" },
+                    { label: "Create Store Credit (Plus)", value: "createStoreCredit" },
+                    { label: "Store Credit (Metafields)", value: "storeCredit" },
                     { label: "Gift Cards (Store Credit)", value: "giftCards" },
                     { label: "Shopify Credit Balance (metafield)", value: "shopifyCreditBalance" },
                     { label: "Credit Balance Test (metafields + DB)", value: "creditBalance" },
@@ -954,7 +1118,9 @@ export default function GraphQLTestPage() {
                   value={queryType}
                   onChange={setQueryType}
                   helpText={
-                    queryType === "storeCredit" ? "Fetches metafields and refunds for store credit (Shopify Plus approach)" :
+                    queryType === "storeCreditAccounts" ? "Fetches native Shopify Plus store credit accounts (same as sync function)" :
+                    queryType === "createStoreCredit" ? "Issues store credit to customer (Shopify Plus feature)" :
+                    queryType === "storeCredit" ? "Fetches metafields and refunds for store credit" :
                     queryType === "giftCards" ? "Fetches gift cards that can be used as store credit" :
                     queryType === "shopifyCreditBalance" ? "Fetches store credit from Shopify metafields and compares with database" :
                     queryType === "creditBalance" ? "Tests customer credit balance sync between Shopify and database" :
@@ -963,7 +1129,7 @@ export default function GraphQLTestPage() {
                   }
                 />
                 
-                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance" || queryType === "storeCredit" || queryType === "giftCards") && (
+                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance" || queryType === "storeCredit" || queryType === "giftCards" || queryType === "storeCreditAccounts" || queryType === "createStoreCredit") && (
                   <TextField
                     label="Customer ID"
                     value={customerId}
@@ -981,17 +1147,29 @@ export default function GraphQLTestPage() {
                   />
                 )}
                 
-                {queryType === "updateCredit" && (
-                  <TextField
-                    label="Credit Amount"
-                    type="number"
-                    value={creditAmount}
-                    onChange={setCreditAmount}
-                    prefix="$"
-                    placeholder="0.00"
-                    helpText="Amount to set as store credit in metafield"
-                    autoComplete="off"
-                  />
+                {(queryType === "updateCredit" || queryType === "createStoreCredit") && (
+                  <>
+                    <TextField
+                      label="Credit Amount"
+                      type="number"
+                      value={creditAmount}
+                      onChange={setCreditAmount}
+                      prefix="$"
+                      placeholder="0.00"
+                      helpText={queryType === "createStoreCredit" ? "Amount to issue as store credit" : "Amount to set as store credit in metafield"}
+                      autoComplete="off"
+                    />
+                    {queryType === "createStoreCredit" && (
+                      <TextField
+                        label="Description"
+                        value={creditDescription}
+                        onChange={setCreditDescription}
+                        placeholder="Manual store credit adjustment"
+                        helpText="Description for the store credit transaction"
+                        autoComplete="off"
+                      />
+                    )}
+                  </>
                 )}
                 
                 {(queryType === "batch" || queryType === "minimal") && (
@@ -1160,6 +1338,152 @@ export default function GraphQLTestPage() {
                                 </Box>
                               </>
                             )}
+                          </BlockStack>
+                        )}
+                        
+                        {/* Store Credit Accounts Summary (Shopify Plus) */}
+                        {actionData.databaseCreditBalance.storeCreditAccountsSummary && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Store Credit Accounts (Shopify Plus)</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                <Text as="p" variant="headingLg">
+                                  Total Balance: ${actionData.databaseCreditBalance.storeCreditAccountsSummary.totalBalance.toFixed(2)}
+                                </Text>
+                                <Text as="p">
+                                  Accounts: {actionData.databaseCreditBalance.storeCreditAccountsSummary.accountCount}
+                                </Text>
+                                <Text as="p" tone="subdued">
+                                  Customer: {actionData.databaseCreditBalance.storeCreditAccountsSummary.customer.email}
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                            
+                            {/* Individual Accounts */}
+                            {actionData.databaseCreditBalance.storeCreditAccountsSummary.accounts?.length > 0 && (
+                              <>
+                                <Text variant="headingSm" as="h3">Account Details</Text>
+                                <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                                  <BlockStack gap="100">
+                                    {actionData.databaseCreditBalance.storeCreditAccountsSummary.accounts.map((account: any, index: number) => (
+                                      <InlineStack key={account.id || index} align="space-between">
+                                        <Text as="p" tone="subdued">{account.id}</Text>
+                                        <Text as="p" fontWeight="semibold">
+                                          {account.currency} {account.amount.toFixed(2)}
+                                        </Text>
+                                      </InlineStack>
+                                    ))}
+                                  </BlockStack>
+                                </Box>
+                              </>
+                            )}
+                            
+                            {/* Sync Status */}
+                            {actionData.databaseCreditBalance.databaseComparison && (
+                              <>
+                                <Text variant="headingSm" as="h3">Database Sync Status</Text>
+                                <Box padding="200" background={actionData.databaseCreditBalance.databaseComparison.isInSync ? "bg-surface-success" : "bg-surface-warning"} borderRadius="200">
+                                  <BlockStack gap="100">
+                                    <InlineStack gap="400">
+                                      <BlockStack gap="100">
+                                        <Text as="p" fontWeight="semibold">Shopify:</Text>
+                                        <Text as="p">${actionData.databaseCreditBalance.databaseComparison.shopifyTotal.toFixed(2)}</Text>
+                                      </BlockStack>
+                                      <BlockStack gap="100">
+                                        <Text as="p" fontWeight="semibold">Database:</Text>
+                                        <Text as="p">${actionData.databaseCreditBalance.databaseComparison.databaseTotal.toFixed(2)}</Text>
+                                      </BlockStack>
+                                      <BlockStack gap="100">
+                                        <Text as="p" fontWeight="semibold">Status:</Text>
+                                        <Badge tone={actionData.databaseCreditBalance.databaseComparison.isInSync ? "success" : "warning"}>
+                                          {actionData.databaseCreditBalance.databaseComparison.isInSync ? "In Sync" : "Out of Sync"}
+                                        </Badge>
+                                      </BlockStack>
+                                    </InlineStack>
+                                    {actionData.databaseCreditBalance.databaseComparison.lastSyncedAt && (
+                                      <Text as="p" tone="subdued">
+                                        Last synced: {new Date(actionData.databaseCreditBalance.databaseComparison.lastSyncedAt).toLocaleString()}
+                                      </Text>
+                                    )}
+                                  </BlockStack>
+                                </Box>
+                                {actionData.databaseCreditBalance.syncRecommendation && (
+                                  <Banner tone="info">
+                                    <p>{actionData.databaseCreditBalance.syncRecommendation}</p>
+                                  </Banner>
+                                )}
+                              </>
+                            )}
+                            
+                            {actionData.databaseCreditBalance.implementationNote && (
+                              <Banner tone="info">
+                                <p>{actionData.databaseCreditBalance.implementationNote}</p>
+                              </Banner>
+                            )}
+                          </BlockStack>
+                        )}
+                        
+                        {/* Create Store Credit Result */}
+                        {actionData.databaseCreditBalance.success && actionData.databaseCreditBalance.storeCreditAccount && (
+                          <BlockStack gap="200">
+                            <Banner tone="success">
+                              <p>Store credit successfully created!</p>
+                            </Banner>
+                            <Text variant="headingSm" as="h3">New Store Credit Account</Text>
+                            <Box padding="200" background="bg-surface-success" borderRadius="200">
+                              <BlockStack gap="100">
+                                <Text as="p">Account ID: {actionData.databaseCreditBalance.storeCreditAccount.id}</Text>
+                                <Text as="p" variant="headingLg">
+                                  Balance: {actionData.databaseCreditBalance.storeCreditAccount.balance.currencyCode} {actionData.databaseCreditBalance.storeCreditAccount.balance.amount}
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                            
+                            {actionData.databaseCreditBalance.transaction && (
+                              <>
+                                <Text variant="headingSm" as="h3">Transaction Details</Text>
+                                <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                                  <BlockStack gap="100">
+                                    <Text as="p">Transaction ID: {actionData.databaseCreditBalance.transaction.id}</Text>
+                                    <Text as="p">Amount: {actionData.databaseCreditBalance.transaction.amount.currencyCode} {actionData.databaseCreditBalance.transaction.amount.amount}</Text>
+                                    <Text as="p">Description: {actionData.databaseCreditBalance.transaction.description}</Text>
+                                    <Text as="p">Created: {new Date(actionData.databaseCreditBalance.transaction.createdAt).toLocaleString()}</Text>
+                                  </BlockStack>
+                                </Box>
+                              </>
+                            )}
+                            
+                            {actionData.databaseCreditBalance.nextSteps && (
+                              <>
+                                <Text variant="headingSm" as="h3">Next Steps</Text>
+                                <Box padding="200" background="bg-surface-info" borderRadius="200">
+                                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                    {actionData.databaseCreditBalance.nextSteps.map((step: string, index: number) => (
+                                      <li key={index}>{step}</li>
+                                    ))}
+                                  </ul>
+                                </Box>
+                              </>
+                            )}
+                          </BlockStack>
+                        )}
+                        
+                        {/* Create Store Credit Error */}
+                        {actionData.databaseCreditBalance.error && actionData.databaseCreditBalance.userErrors && (
+                          <BlockStack gap="200">
+                            <Banner tone="critical">
+                              <p>{actionData.databaseCreditBalance.message}</p>
+                            </Banner>
+                            <Text variant="headingSm" as="h3">Errors</Text>
+                            <Box padding="200" background="bg-surface-critical" borderRadius="200">
+                              <BlockStack gap="100">
+                                {actionData.databaseCreditBalance.userErrors.map((error: any, index: number) => (
+                                  <Text as="p" key={index}>
+                                    <Text as="span" fontWeight="semibold">{error.field}:</Text> {error.message}
+                                  </Text>
+                                ))}
+                              </BlockStack>
+                            </Box>
                           </BlockStack>
                         )}
                         
