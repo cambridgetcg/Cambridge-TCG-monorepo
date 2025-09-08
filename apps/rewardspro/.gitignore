@@ -14,11 +14,30 @@ database.sqlite
 .env
 .env.*
 
-# Documentation guides and markdown files
-/docs/*.md
-*.md
-*GUIDE.md
+# Workflow and internal documentation
+TODO.md
+PROGRESS.md
+COMPLETED_TASKS.md
+CLAUDE.md
+**/CLAUDE.md
+WORKFLOW.md
+GUIDE.md
 *_GUIDE.md
+*-guide.md
+NOTES.md
+SCRATCH.md
+TEMP.md
+DRAFT.md
+
+# Keep important project documentation
+!README.md
+!LICENSE.md
+!CONTRIBUTING.md
+!CHANGELOG.md
+!CODE_OF_CONDUCT.md
+
+# Keep docs folder (important documentation)
+!/docs/**/*.md
 
 
 

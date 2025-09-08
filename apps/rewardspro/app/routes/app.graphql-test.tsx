@@ -15,7 +15,8 @@ import {
   BlockStack,
   Box,
   Text,
-  InlineStack
+  InlineStack,
+  Divider
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -76,6 +77,43 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     // Build query based on type
     switch (queryType) {
+      case "shopifyCreditBalance":
+        // Query specifically for store credit metafield
+        query = `#graphql
+          query GetCustomerStoreCredit($id: ID!) {
+            customer(id: $id) {
+              id
+              email
+              displayName
+              metafield(namespace: "rewards_pro", key: "store_credit") {
+                id
+                namespace
+                key
+                value
+                type
+                createdAt
+                updatedAt
+              }
+              metafields(first: 20, namespace: "rewards_pro") {
+                edges {
+                  node {
+                    id
+                    namespace
+                    key
+                    value
+                    type
+                    description
+                    createdAt
+                    updatedAt
+                  }
+                }
+              }
+            }
+          }
+        `;
+        variables = { id: customerId };
+        break;
+        
       case "creditBalance":
         query = `#graphql
           query GetCustomerWithMetafields($id: ID!) {
@@ -309,7 +347,74 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     if (rawResponse.data) {
       // Extract customer data based on query type
-      if (queryType === "creditBalance" && rawResponse.data.customer) {
+      if (queryType === "shopifyCreditBalance" && rawResponse.data.customer) {
+        parsedData = rawResponse.data.customer;
+        
+        // Extract the Shopify customer ID
+        const shopifyCustomerId = parsedData.id?.replace('gid://shopify/Customer/', '') || '';
+        
+        // Get store credit from single metafield query
+        const storeCreditMetafield = parsedData.metafield;
+        
+        // Also extract all metafields
+        const metafields: any = {};
+        if (parsedData.metafields?.edges) {
+          parsedData.metafields.edges.forEach((edge: any) => {
+            metafields[edge.node.key] = {
+              value: edge.node.value,
+              type: edge.node.type,
+              id: edge.node.id,
+              updatedAt: edge.node.updatedAt
+            };
+          });
+        }
+        
+        // Get database customer for comparison
+        const existingCustomer = await db.customer.findUnique({
+          where: {
+            shop_shopifyCustomerId: {
+              shop: session.shop,
+              shopifyCustomerId
+            }
+          }
+        });
+        
+        // Get tier if customer exists
+        let currentTier = null;
+        if (existingCustomer && existingCustomer.currentTierId) {
+          currentTier = await db.tier.findUnique({
+            where: { id: existingCustomer.currentTierId }
+          });
+        }
+        
+        databaseCreditBalance = {
+          shopifyMetafield: {
+            storeCreditValue: storeCreditMetafield?.value || null,
+            storeCreditType: storeCreditMetafield?.type || null,
+            lastUpdated: storeCreditMetafield?.updatedAt || null,
+            metafieldId: storeCreditMetafield?.id || null,
+            allMetafields: metafields
+          },
+          databaseComparison: {
+            shopifyCredit: parseFloat(storeCreditMetafield?.value || "0"),
+            databaseCredit: existingCustomer ? parseFloat(existingCustomer.storeCredit.toString()) : 0,
+            isInSync: existingCustomer ? 
+              Math.abs(parseFloat(storeCreditMetafield?.value || "0") - parseFloat(existingCustomer.storeCredit.toString())) < 0.01 : false,
+            currentTier: currentTier ? {
+              name: currentTier.name,
+              cashbackPercent: currentTier.cashbackPercent
+            } : null
+          },
+          recommendations: [
+            !storeCreditMetafield ? "No store credit metafield found in Shopify" : null,
+            !existingCustomer ? "Customer not found in database - needs sync" : null,
+            existingCustomer && !storeCreditMetafield ? "Database has credit but Shopify doesn't - needs metafield creation" : null,
+            existingCustomer && storeCreditMetafield && 
+              Math.abs(parseFloat(storeCreditMetafield.value || "0") - parseFloat(existingCustomer.storeCredit.toString())) >= 0.01 ?
+              `Credit mismatch: Shopify has ${storeCreditMetafield.value}, Database has ${existingCustomer.storeCredit}` : null
+          ].filter(Boolean)
+        };
+      } else if (queryType === "creditBalance" && rawResponse.data.customer) {
         parsedData = rawResponse.data.customer;
         
         // Extract the Shopify customer ID
@@ -551,6 +656,7 @@ export default function GraphQLTestPage() {
                 <Select
                   label="Query Type"
                   options={[
+                    { label: "Shopify Credit Balance (metafield)", value: "shopifyCreditBalance" },
                     { label: "Credit Balance Test (metafields + DB)", value: "creditBalance" },
                     { label: "Update Credit (mutation)", value: "updateCredit" },
                     { label: "Minimal (only required fields)", value: "minimal" },
@@ -561,13 +667,14 @@ export default function GraphQLTestPage() {
                   value={queryType}
                   onChange={setQueryType}
                   helpText={
+                    queryType === "shopifyCreditBalance" ? "Fetches store credit from Shopify metafields and compares with database" :
                     queryType === "creditBalance" ? "Tests customer credit balance sync between Shopify and database" :
                     queryType === "updateCredit" ? "Updates customer credit via Shopify metafields" :
                     undefined
                   }
                 />
                 
-                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit") && (
+                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit" || queryType === "shopifyCreditBalance") && (
                   <TextField
                     label="Customer ID"
                     value={customerId}
@@ -705,10 +812,81 @@ export default function GraphQLTestPage() {
                           </Button>
                         </InlineStack>
                         
-                        <Banner tone={actionData.databaseCreditBalance.syncStatus === 'SYNCED' ? 'info' : 'warning'}>
-                          <p>Status: {actionData.databaseCreditBalance.syncStatus}</p>
-                        </Banner>
+                        {/* Show sync status or comparison status */}
+                        {actionData.databaseCreditBalance.syncStatus && (
+                          <Banner tone={actionData.databaseCreditBalance.syncStatus === 'SYNCED' ? 'info' : 'warning'}>
+                            <p>Status: {actionData.databaseCreditBalance.syncStatus}</p>
+                          </Banner>
+                        )}
                         
+                        {/* Shopify Metafield Information */}
+                        {actionData.databaseCreditBalance.shopifyMetafield && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Shopify Metafield Credit</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                <Text as="p">
+                                  Store Credit Value: {actionData.databaseCreditBalance.shopifyMetafield.storeCreditValue || 'Not Set'}
+                                </Text>
+                                <Text as="p">
+                                  Metafield Type: {actionData.databaseCreditBalance.shopifyMetafield.storeCreditType || 'N/A'}
+                                </Text>
+                                {actionData.databaseCreditBalance.shopifyMetafield.lastUpdated && (
+                                  <Text as="p">
+                                    Last Updated: {new Date(actionData.databaseCreditBalance.shopifyMetafield.lastUpdated).toLocaleString()}
+                                  </Text>
+                                )}
+                                {actionData.databaseCreditBalance.shopifyMetafield.metafieldId && (
+                                  <Text as="p" tone="subdued">
+                                    Metafield ID: {actionData.databaseCreditBalance.shopifyMetafield.metafieldId}
+                                  </Text>
+                                )}
+                              </BlockStack>
+                            </Box>
+                          </BlockStack>
+                        )}
+                        
+                        {/* Database vs Shopify Comparison */}
+                        {actionData.databaseCreditBalance.databaseComparison && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Credit Comparison</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                <InlineStack gap="400">
+                                  <BlockStack gap="100">
+                                    <Text as="p" fontWeight="semibold">Shopify:</Text>
+                                    <Text as="p" variant="headingLg">
+                                      ${actionData.databaseCreditBalance.databaseComparison.shopifyCredit.toFixed(2)}
+                                    </Text>
+                                  </BlockStack>
+                                  <BlockStack gap="100">
+                                    <Text as="p" fontWeight="semibold">Database:</Text>
+                                    <Text as="p" variant="headingLg">
+                                      ${actionData.databaseCreditBalance.databaseComparison.databaseCredit.toFixed(2)}
+                                    </Text>
+                                  </BlockStack>
+                                  <BlockStack gap="100">
+                                    <Text as="p" fontWeight="semibold">In Sync:</Text>
+                                    <Badge tone={actionData.databaseCreditBalance.databaseComparison.isInSync ? "success" : "warning"}>
+                                      {actionData.databaseCreditBalance.databaseComparison.isInSync ? "Yes" : "No"}
+                                    </Badge>
+                                  </BlockStack>
+                                </InlineStack>
+                                {actionData.databaseCreditBalance.databaseComparison.currentTier && (
+                                  <>
+                                    <Divider />
+                                    <Text as="p">
+                                      Current Tier: {actionData.databaseCreditBalance.databaseComparison.currentTier.name} 
+                                      ({actionData.databaseCreditBalance.databaseComparison.currentTier.cashbackPercent}% cashback)
+                                    </Text>
+                                  </>
+                                )}
+                              </BlockStack>
+                            </Box>
+                          </BlockStack>
+                        )}
+                        
+                        {/* Original database data display for backward compatibility */}
                         {actionData.databaseCreditBalance.databaseData && (
                           <BlockStack gap="200">
                             <Text variant="headingSm" as="h3">Database Credit Info</Text>
@@ -724,6 +902,21 @@ export default function GraphQLTestPage() {
                           </BlockStack>
                         )}
                         
+                        {/* Recommendations for Shopify credit sync */}
+                        {actionData.databaseCreditBalance.recommendations?.length > 0 && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Sync Recommendations</Text>
+                            <Banner tone="info">
+                              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                {actionData.databaseCreditBalance.recommendations.map((rec: string, index: number) => (
+                                  <li key={index}>{rec}</li>
+                                ))}
+                              </ul>
+                            </Banner>
+                          </BlockStack>
+                        )}
+                        
+                        {/* Original suggested actions for backward compatibility */}
                         {actionData.databaseCreditBalance.suggestedActions?.length > 0 && (
                           <BlockStack gap="200">
                             <Text variant="headingSm" as="h3">Suggested Actions</Text>
