@@ -16,7 +16,9 @@ import {
   Box,
   Text,
   InlineStack,
-  Divider
+  Divider,
+  DataTable,
+  SkeletonBodyText
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 
@@ -51,422 +53,339 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 // ============================================================================
-// ACTION - Execute GraphQL query
+// ACTION - Execute GraphQL query for customer orders
 // ============================================================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   
-  const queryType = formData.get("queryType") as string;
   const customerId = formData.get("customerId") as string;
-  const amount = formData.get("amount") as string || "0";
-  const note = formData.get("note") as string || "";
-  const storeCreditAccountId = formData.get("storeCreditAccountId") as string;
+  const orderCount = parseInt(formData.get("orderCount") as string || "10");
+  const includeLineItems = formData.get("includeLineItems") === "true";
+  const orderStatus = formData.get("orderStatus") as string || "any";
   
   const startTime = Date.now();
   
   try {
-    let query = "";
-    let variables: any = {};
+    // Format customer ID as GID if needed
+    const gidCustomerId = customerId.startsWith('gid://') 
+      ? customerId 
+      : `gid://shopify/Customer/${customerId}`;
     
-    // Build query based on type
-    switch (queryType) {
-      // ========== CUSTOMER STORE CREDIT QUERIES ==========
-      
-      case "customerStoreCreditAccounts":
-        // Query all store credit accounts through customer object
-        query = `#graphql
-          query GetCustomerStoreCreditAccounts($customerId: ID!) {
-            customer(id: $customerId) {
-              id
-              displayName
-              email
-              phone
-              state
-              createdAt
-              updatedAt
-              numberOfOrders
-              amountSpent {
-                amount
-                currencyCode
-              }
-              storeCreditAccounts(first: 10) {
-                edges {
-                  node {
-                    id
-                    balance {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-                nodes {
-                  id
-                  balance {
+    // Build the orders query with all order details
+    let query = `#graphql
+      query GetCustomerOrders($customerId: ID!, $first: Int!) {
+        customer(id: $customerId) {
+          id
+          displayName
+          email
+          phone
+          numberOfOrders
+          amountSpent {
+            amount
+            currencyCode
+          }
+          createdAt
+          updatedAt
+          
+          # Get all orders for this customer
+          orders(first: $first, reverse: true) {
+            edges {
+              node {
+                id
+                name
+                createdAt
+                updatedAt
+                processedAt
+                cancelledAt
+                closedAt
+                
+                # Order status
+                displayFinancialStatus
+                displayFulfillmentStatus
+                returnStatus
+                
+                # Financial details
+                totalPriceSet {
+                  shopMoney {
                     amount
                     currencyCode
                   }
                 }
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-                totalCount
-              }
-            }
-          }
-        `;
-        variables = { customerId };
-        break;
-        
-      case "customerStoreCreditWithTransactions":
-        // Query store credit accounts with transaction history
-        query = `#graphql
-          query GetCustomerStoreCreditWithHistory($customerId: ID!) {
-            customer(id: $customerId) {
-              id
-              email
-              displayName
-              storeCreditAccounts(first: 10) {
-                edges {
-                  node {
-                    id
-                    balance {
-                      amount
-                      currencyCode
-                    }
-                    owner {
-                      ... on Customer {
-                        id
-                        email
-                      }
-                    }
-                    transactions(first: 10, reverse: true) {
-                      edges {
-                        node {
-                          ... on StoreCreditAccountCreditTransaction {
-                            __typename
-                            id
-                            amount {
-                              amount
-                              currencyCode
-                            }
-                            description
-                            createdAt
-                          }
-                          ... on StoreCreditAccountDebitTransaction {
-                            __typename
-                            id
-                            amount {
-                              amount
-                              currencyCode
-                            }
-                            description
-                            createdAt
-                          }
-                        }
-                      }
-                      pageInfo {
-                        hasNextPage
-                      }
-                    }
+                subtotalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
                   }
                 }
-              }
-            }
-          }
-        `;
-        variables = { customerId };
-        break;
-        
-      case "customerWithAllFinancialData":
-        // Comprehensive customer query with all financial data
-        query = `#graphql
-          query GetCustomerCompleteFinancialData($customerId: ID!) {
-            customer(id: $customerId) {
-              id
-              email
-              displayName
-              firstName
-              lastName
-              phone
-              state
-              createdAt
-              updatedAt
-              numberOfOrders
-              
-              # Lifetime spending
-              amountSpent {
-                amount
+                totalTaxSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                totalShippingPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                totalDiscountsSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                totalRefundedSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+                
+                # Additional order info
                 currencyCode
-              }
-              
-              # Store credit accounts
-              storeCreditAccounts(first: 10) {
-                edges {
-                  node {
-                    id
-                    balance {
-                      amount
-                      currencyCode
-                    }
+                currentTotalPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
                   }
                 }
-                totalCount
-              }
-              
-              # Recent orders
-              orders(first: 5, reverse: true) {
-                edges {
-                  node {
-                    id
-                    name
-                    createdAt
-                    totalPriceSet {
-                      shopMoney {
-                        amount
-                        currencyCode
-                      }
-                    }
-                    fulfillmentStatus
-                    financialStatus
-                  }
+                email
+                phone
+                note
+                tags
+                
+                # Payment details
+                paymentGatewayNames
+                
+                # Shipping address
+                shippingAddress {
+                  address1
+                  address2
+                  city
+                  province
+                  country
+                  zip
+                  phone
                 }
-              }
-              
-              # Metafields for rewards data
-              metafields(first: 10, namespace: "rewards_pro") {
-                edges {
-                  node {
-                    id
-                    namespace
-                    key
-                    value
-                    type
-                    description
-                  }
-                }
-              }
-            }
-          }
-        `;
-        variables = { customerId };
-        break;
-        
-      case "createStoreCreditForCustomer":
-        // Create store credit through gift card (customer context)
-        query = `#graphql
-          mutation CreateStoreCreditForCustomer($input: GiftCardCreateInput!) {
-            giftCardCreate(input: $input) {
-              giftCard {
-                id
-                balance {
-                  amount
-                  currencyCode
-                }
-                initialValue {
-                  amount
-                }
-                customer {
-                  id
-                  email
-                  storeCreditAccounts(first: 1) {
-                    edges {
-                      node {
-                        id
-                        balance {
+                
+                # Billing address
+                billingAddress {
+                  address1
+                  address2
+                  city
+                  province
+                  country
+                  zip
+                  phone
+                }`;
+    
+    // Conditionally add line items if requested
+    if (includeLineItems) {
+      query += `
+                
+                # Line items
+                lineItems(first: 50) {
+                  edges {
+                    node {
+                      id
+                      title
+                      quantity
+                      sku
+                      variantTitle
+                      vendor
+                      
+                      # Pricing for each line item
+                      originalTotalSet {
+                        shopMoney {
                           amount
                           currencyCode
                         }
                       }
-                    }
-                  }
-                }
-              }
-              giftCardCode
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          input: {
-            initialValue: amount,
-            customerId: customerId || undefined,
-            note: note || "Store credit issued via RewardsPro"
-          }
-        };
-        break;
-        
-      case "creditStoreCreditAccount":
-        // Credit an existing store credit account
-        query = `#graphql
-          mutation CreditStoreCreditAccount($accountId: ID!, $creditInput: StoreCreditAccountCreditInput!) {
-            storeCreditAccountCredit(id: $accountId, creditInput: $creditInput) {
-              storeCreditAccountTransaction {
-                id
-                amount {
-                  amount
-                  currencyCode
-                }
-                description
-                createdAt
-                account {
-                  id
-                  balance {
-                    amount
-                    currencyCode
-                  }
-                  owner {
-                    ... on Customer {
-                      id
-                      email
-                      storeCreditAccounts(first: 1) {
-                        edges {
-                          node {
-                            balance {
-                              amount
-                              currencyCode
+                      discountedTotalSet {
+                        shopMoney {
+                          amount
+                          currencyCode
+                        }
+                      }
+                      
+                      # Product details
+                      product {
+                        id
+                        title
+                        productType
+                        vendor
+                        tags
+                      }
+                      
+                      # Variant details
+                      variant {
+                        id
+                        title
+                        price
+                        sku
+                        barcode
+                        inventoryQuantity
+                      }
+                      
+                      # Applied discounts
+                      discountAllocations {
+                        allocatedAmountSet {
+                          shopMoney {
+                            amount
+                            currencyCode
+                          }
+                        }
+                        discountApplication {
+                          ... on DiscountCodeApplication {
+                            code
+                            targetSelection
+                            targetType
+                            value {
+                              ... on PricingPercentageValue {
+                                percentage
+                              }
+                              ... on MoneyV2 {
+                                amount
+                                currencyCode
+                              }
                             }
                           }
                         }
                       }
                     }
                   }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          accountId: storeCreditAccountId,
-          creditInput: {
-            creditAmount: {
-              amount: amount,
-              currencyCode: "USD"
-            },
-            description: note || "Credit adjustment"
-          }
-        };
-        break;
-        
-      case "debitStoreCreditAccount":
-        // Debit an existing store credit account
-        query = `#graphql
-          mutation DebitStoreCreditAccount($accountId: ID!, $debitInput: StoreCreditAccountDebitInput!) {
-            storeCreditAccountDebit(id: $accountId, debitInput: $debitInput) {
-              storeCreditAccountTransaction {
-                id
-                amount {
-                  amount
-                  currencyCode
-                }
-                description
-                createdAt
-                account {
-                  id
-                  balance {
-                    amount
-                    currencyCode
-                  }
-                  owner {
-                    ... on Customer {
-                      id
-                      email
-                      storeCreditAccounts(first: 1) {
-                        edges {
-                          node {
-                            balance {
-                              amount
-                              currencyCode
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-        variables = {
-          accountId: storeCreditAccountId,
-          debitInput: {
-            debitAmount: {
-              amount: amount,
-              currencyCode: "USD"
-            },
-            description: note || "Debit adjustment"
-          }
-        };
-        break;
-        
-      case "syncCustomerStoreCredit":
-        // Sync query - same as used in customer detail page
-        query = `#graphql
-          query SyncCustomerStoreCredit($customerId: ID!) {
-            customer(id: $customerId) {
-              id
-              email
-              displayName
-              storeCreditAccounts(first: 10) {
-                edges {
-                  node {
-                    id
-                    balance {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-                pageInfo {
-                  hasNextPage
-                }
-              }
-            }
-          }
-        `;
-        variables = { customerId };
-        break;
-        
-      default:
-        throw new Error("Invalid query type");
+                }`;
     }
     
-    // Execute GraphQL query
+    // Close the query
+    query += `
+              }
+            }
+            pageInfo {
+              hasNextPage
+              hasPreviousPage
+            }
+          }
+        }
+      }
+    `;
+    
+    const variables = {
+      customerId: gidCustomerId,
+      first: orderCount
+    };
+    
+    console.log("[GraphQL Test] Executing query for customer:", gidCustomerId);
+    console.log("[GraphQL Test] Fetching", orderCount, "orders");
+    
+    // Execute the GraphQL query
     const response = await admin.graphql(query, { variables });
-    const rawResponse = await response.json();
+    const responseJson = await response.json() as any;
     
     const executionTime = Date.now() - startTime;
+    
+    // Check for errors
+    if (responseJson.errors) {
+      console.error("[GraphQL Test] Errors:", responseJson.errors);
+      return json<GraphQLTestResult>({
+        success: false,
+        query,
+        variables,
+        rawResponse: responseJson,
+        error: responseJson.errors[0]?.message || "GraphQL query failed",
+        executionTime
+      });
+    }
+    
+    // Parse and format the response
+    const customer = responseJson.data?.customer;
+    
+    if (!customer) {
+      return json<GraphQLTestResult>({
+        success: false,
+        query,
+        variables,
+        rawResponse: responseJson,
+        error: "Customer not found",
+        executionTime
+      });
+    }
+    
+    // Extract and format order data
+    const orders = customer.orders?.edges?.map((edge: any) => edge.node) || [];
+    
+    const parsedData = {
+      customer: {
+        id: customer.id,
+        displayName: customer.displayName,
+        email: customer.email,
+        phone: customer.phone,
+        numberOfOrders: customer.numberOfOrders,
+        amountSpent: customer.amountSpent,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt
+      },
+      orders: orders.map((order: any) => ({
+        id: order.id,
+        name: order.name,
+        createdAt: order.createdAt,
+        status: {
+          financial: order.displayFinancialStatus,
+          fulfillment: order.displayFulfillmentStatus,
+          return: order.returnStatus
+        },
+        totals: {
+          total: order.totalPriceSet?.shopMoney,
+          subtotal: order.subtotalPriceSet?.shopMoney,
+          tax: order.totalTaxSet?.shopMoney,
+          shipping: order.totalShippingPriceSet?.shopMoney,
+          discounts: order.totalDiscountsSet?.shopMoney,
+          refunded: order.totalRefundedSet?.shopMoney,
+          currentTotal: order.currentTotalPriceSet?.shopMoney
+        },
+        addresses: {
+          shipping: order.shippingAddress,
+          billing: order.billingAddress
+        },
+        lineItems: includeLineItems ? order.lineItems?.edges?.map((e: any) => e.node) : undefined,
+        note: order.note,
+        tags: order.tags,
+        paymentGateways: order.paymentGatewayNames
+      })),
+      summary: {
+        totalOrders: orders.length,
+        totalSpent: customer.amountSpent,
+        averageOrderValue: orders.length > 0 
+          ? (parseFloat(customer.amountSpent?.amount || 0) / orders.length).toFixed(2)
+          : "0",
+        hasMoreOrders: customer.orders?.pageInfo?.hasNextPage || false
+      }
+    };
+    
+    console.log(`[GraphQL Test] Successfully fetched ${orders.length} orders`);
     
     return json<GraphQLTestResult>({
       success: true,
       query,
       variables,
-      rawResponse,
-      parsedData: rawResponse.data,
+      rawResponse: responseJson,
+      parsedData,
       executionTime
     });
     
   } catch (error) {
+    console.error("[GraphQL Test] Error:", error);
+    const executionTime = Date.now() - startTime;
+    
     return json<GraphQLTestResult>({
       success: false,
       query: "",
-      variables: {},
-      error: error instanceof Error ? error.message : "Unknown error",
-      executionTime: Date.now() - startTime
+      variables: { customerId },
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+      executionTime
     });
   }
 };
@@ -475,410 +394,259 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // COMPONENT
 // ============================================================================
 
-export default function GraphQLTestPage() {
-  const loaderData = useLoaderData<LoaderData>();
+export default function GraphQLTest() {
+  const { shop } = useLoaderData<LoaderData>();
   const actionData = useActionData<GraphQLTestResult>();
   const navigation = useNavigation();
   const submit = useSubmit();
   
-  const [queryType, setQueryType] = useState("customerStoreCreditAccounts");
+  // Form state
   const [customerId, setCustomerId] = useState("");
-  const [storeCreditAccountId, setStoreCreditAccountId] = useState("");
-  const [amount, setAmount] = useState("10.00");
-  const [note, setNote] = useState("");
+  const [orderCount, setOrderCount] = useState("10");
+  const [includeLineItems, setIncludeLineItems] = useState(true);
+  const [orderStatus, setOrderStatus] = useState("any");
   
   const isLoading = navigation.state === "submitting";
   
+  // Format customer ID helper
+  const formatCustomerId = (value: string) => {
+    // Remove any existing gid:// prefix
+    const cleaned = value.replace(/^gid:\/\/shopify\/Customer\//, '');
+    // Return just the numeric ID
+    return cleaned;
+  };
+  
+  // Handle form submission
   const handleSubmit = useCallback(() => {
     const formData = new FormData();
-    formData.append("queryType", queryType);
-    formData.append("customerId", customerId);
-    formData.append("storeCreditAccountId", storeCreditAccountId);
-    formData.append("amount", amount);
-    formData.append("note", note);
+    formData.append("customerId", formatCustomerId(customerId));
+    formData.append("orderCount", orderCount);
+    formData.append("includeLineItems", includeLineItems.toString());
+    formData.append("orderStatus", orderStatus);
+    
     submit(formData, { method: "post" });
-  }, [queryType, customerId, storeCreditAccountId, amount, note, submit]);
+  }, [customerId, orderCount, includeLineItems, orderStatus, submit]);
   
-  const copyToClipboard = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-  }, []);
-  
-  // Helper to format Customer IDs
-  const formatCustomerId = useCallback((value: string) => {
-    if (/^\d+$/.test(value)) {
-      return `gid://shopify/Customer/${value}`;
-    }
-    return value;
-  }, []);
-  
-  // Helper to format Store Credit Account IDs
-  const formatStoreCreditAccountId = useCallback((value: string) => {
-    if (/^\d+$/.test(value)) {
-      return `gid://shopify/StoreCreditAccount/${value}`;
-    }
-    return value;
-  }, []);
-  
-  // Helper to calculate total store credit from response
-  const calculateTotalStoreCredit = useCallback((customer: any) => {
-    if (!customer?.storeCreditAccounts?.edges) return null;
+  // Render order summary table if we have data
+  const renderOrderTable = () => {
+    if (!actionData?.parsedData?.orders) return null;
     
-    let total = 0;
-    const accounts = [];
+    const orders = actionData.parsedData.orders;
     
-    for (const edge of customer.storeCreditAccounts.edges) {
-      const amount = parseFloat(edge.node.balance.amount);
-      total += amount;
-      accounts.push({
-        id: edge.node.id,
-        amount: amount,
-        currency: edge.node.balance.currencyCode
-      });
-    }
+    const rows = orders.map((order: any) => [
+      order.name,
+      new Date(order.createdAt).toLocaleDateString(),
+      order.status.financial,
+      order.status.fulfillment,
+      `${order.totals.total?.amount} ${order.totals.total?.currencyCode}`,
+      order.lineItems ? `${order.lineItems.length} items` : "N/A"
+    ]);
     
-    return { total, accounts };
-  }, []);
+    return (
+      <Card>
+        <BlockStack gap="300">
+          <Text variant="headingMd" as="h3">Orders Summary</Text>
+          <DataTable
+            columnContentTypes={[
+              'text',
+              'text',
+              'text',
+              'text',
+              'numeric',
+              'text'
+            ]}
+            headings={[
+              'Order #',
+              'Date',
+              'Payment',
+              'Fulfillment',
+              'Total',
+              'Items'
+            ]}
+            rows={rows}
+          />
+        </BlockStack>
+      </Card>
+    );
+  };
   
   return (
     <Page
-      title="Customer Store Credit API Test"
-      subtitle="Test store credit queries through the Customer object"
-      primaryAction={{
-        content: "Run Query",
-        loading: isLoading,
-        onAction: handleSubmit
-      }}
+      title="Customer Orders Query Test"
+      subtitle="Test GraphQL queries for retrieving customer order history"
     >
       <Layout>
         <Layout.Section>
-          <Card>
-            <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Query Configuration</Text>
-              
-              <FormLayout>
-                <Select
-                  label="Query Type"
-                  options={[
-                    { label: "Get Customer Store Credit Accounts", value: "customerStoreCreditAccounts" },
-                    { label: "Get Store Credit with Transactions", value: "customerStoreCreditWithTransactions" },
-                    { label: "Get Complete Financial Data", value: "customerWithAllFinancialData" },
-                    { label: "Sync Customer Store Credit", value: "syncCustomerStoreCredit" },
-                    { label: "Create Store Credit for Customer", value: "createStoreCreditForCustomer" },
-                    { label: "Credit Store Credit Account", value: "creditStoreCreditAccount" },
-                    { label: "Debit Store Credit Account", value: "debitStoreCreditAccount" }
-                  ]}
-                  value={queryType}
-                  onChange={setQueryType}
-                />
+          <BlockStack gap="500">
+            {/* Query Configuration */}
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">Query Configuration</Text>
                 
-                {/* Customer ID Field - Required for all queries */}
-                <TextField
-                  label="Customer ID"
-                  value={customerId}
-                  onChange={(value) => setCustomerId(formatCustomerId(value))}
-                  placeholder="123456789 or gid://shopify/Customer/123456789"
-                  helpText="Enter customer ID (will auto-format)"
-                  autoComplete="off"
-                />
-                
-                {/* Store Credit Account ID - For credit/debit mutations */}
-                {["creditStoreCreditAccount", "debitStoreCreditAccount"].includes(queryType) && (
+                <FormLayout>
                   <TextField
-                    label="Store Credit Account ID"
-                    value={storeCreditAccountId}
-                    onChange={(value) => setStoreCreditAccountId(formatStoreCreditAccountId(value))}
-                    placeholder="123 or gid://shopify/StoreCreditAccount/123"
-                    helpText="Enter the store credit account ID"
+                    label="Customer ID"
+                    value={customerId}
+                    onChange={(value) => setCustomerId(formatCustomerId(value))}
+                    placeholder="123456789 or gid://shopify/Customer/123456789"
+                    helpText="Enter the numeric customer ID (will auto-format)"
                     autoComplete="off"
                   />
-                )}
-                
-                {/* Amount Field - For mutations */}
-                {["createStoreCreditForCustomer", "creditStoreCreditAccount", "debitStoreCreditAccount"].includes(queryType) && (
-                  <TextField
-                    label="Amount"
-                    type="number"
-                    value={amount}
-                    onChange={setAmount}
-                    prefix="$"
-                    placeholder="10.00"
-                    helpText="Amount in USD"
-                    autoComplete="off"
+                  
+                  <Select
+                    label="Number of Orders"
+                    options={[
+                      { label: "5 orders", value: "5" },
+                      { label: "10 orders", value: "10" },
+                      { label: "25 orders", value: "25" },
+                      { label: "50 orders", value: "50" },
+                      { label: "100 orders", value: "100" },
+                      { label: "250 orders (max)", value: "250" }
+                    ]}
+                    value={orderCount}
+                    onChange={setOrderCount}
                   />
-                )}
-                
-                {/* Note/Description Field - For mutations */}
-                {["createStoreCreditForCustomer", "creditStoreCreditAccount", "debitStoreCreditAccount"].includes(queryType) && (
-                  <TextField
-                    label="Note / Description"
-                    value={note}
-                    onChange={setNote}
-                    placeholder="Store credit adjustment"
-                    helpText="Optional note for the transaction"
-                    autoComplete="off"
+                  
+                  <Select
+                    label="Include Line Items"
+                    options={[
+                      { label: "Yes - Include product details", value: "true" },
+                      { label: "No - Orders only", value: "false" }
+                    ]}
+                    value={includeLineItems.toString()}
+                    onChange={(value) => setIncludeLineItems(value === "true")}
+                    helpText="Including line items will fetch detailed product information for each order"
                   />
-                )}
-              </FormLayout>
-              
-              <Box padding="200" background="bg-surface-secondary" borderRadius="200">
-                <Text as="p" tone="subdued">
-                  Shop: {loaderData.shop}
-                </Text>
-              </Box>
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        
-        {actionData && (
-          <>
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="400">
-                  <InlineStack align="space-between">
-                    <Text variant="headingMd" as="h2">Query Result</Text>
-                    <Badge tone={actionData.success ? "success" : "critical"}>
-                      {actionData.success ? "Success" : "Failed"}
-                    </Badge>
+                  
+                  <Button
+                    variant="primary"
+                    onClick={handleSubmit}
+                    loading={isLoading}
+                    disabled={!customerId}
+                  >
+                    Fetch Customer Orders
+                  </Button>
+                </FormLayout>
+                
+                <Box>
+                  <InlineStack gap="200" align="start">
+                    <Badge>{`Shop: ${shop}`}</Badge>
+                    <Badge tone="info">Scope: read_orders</Badge>
                   </InlineStack>
-                  
-                  {actionData.executionTime && (
-                    <Text as="p" tone="subdued">
-                      Execution time: {actionData.executionTime}ms
-                    </Text>
-                  )}
-                  
-                  {actionData.error && (
-                    <Banner tone="critical">
-                      <p>{actionData.error}</p>
-                    </Banner>
-                  )}
-                </BlockStack>
-              </Card>
-            </Layout.Section>
+                </Box>
+              </BlockStack>
+            </Card>
             
-            {actionData.success && (
+            {/* Results Display */}
+            {actionData && (
               <>
-                <Layout.Section>
-                  <Card>
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between">
-                        <Text variant="headingMd" as="h2">GraphQL Query</Text>
-                        <Button onClick={() => copyToClipboard(actionData.query)}>
-                          Copy Query
-                        </Button>
-                      </InlineStack>
-                      <Box padding="200" background="bg-surface-secondary" borderRadius="200">
-                        <pre style={{ overflow: 'auto', fontSize: '12px' }}>
-                          {actionData.query}
-                        </pre>
-                      </Box>
-                      
-                      <Text variant="headingSm" as="h3">Variables</Text>
-                      <Box padding="200" background="bg-surface-secondary" borderRadius="200">
-                        <pre style={{ overflow: 'auto', fontSize: '12px' }}>
-                          {JSON.stringify(actionData.variables, null, 2)}
-                        </pre>
-                      </Box>
-                    </BlockStack>
-                  </Card>
-                </Layout.Section>
+                {/* Status Banner */}
+                <Banner
+                  title={actionData.success ? "Query executed successfully" : "Query failed"}
+                  tone={actionData.success ? "success" : "critical"}
+                >
+                  {actionData.executionTime && (
+                    <Text as="p">Execution time: {actionData.executionTime}ms</Text>
+                  )}
+                  {actionData.error && (
+                    <Text as="p" tone="critical">{actionData.error}</Text>
+                  )}
+                </Banner>
                 
-                <Layout.Section>
+                {/* Customer Summary */}
+                {actionData.success && actionData.parsedData && (
                   <Card>
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between">
-                        <Text variant="headingMd" as="h2">GraphQL Response</Text>
-                        <Button onClick={() => copyToClipboard(JSON.stringify(actionData.rawResponse, null, 2))}>
-                          Copy Response
-                        </Button>
-                      </InlineStack>
-                      
-                      {/* Check for errors in response */}
-                      {actionData.rawResponse?.errors && (
-                        <Banner tone="critical">
-                          <BlockStack gap="200">
-                            {actionData.rawResponse.errors.map((error: any, index: number) => (
-                              <Text as="p" key={index}>
-                                {error.message}
-                              </Text>
-                            ))}
-                          </BlockStack>
-                        </Banner>
-                      )}
-                      
-                      {/* Check for user errors in mutations */}
-                      {actionData.parsedData && Object.values(actionData.parsedData).some((value: any) => 
-                        value?.userErrors?.length > 0
-                      ) && (
-                        <Banner tone="warning">
-                          <BlockStack gap="200">
-                            {Object.values(actionData.parsedData).map((value: any) => 
-                              value?.userErrors?.map((error: any, index: number) => (
-                                <Text as="p" key={index}>
-                                  {error.field}: {error.message}
-                                </Text>
-                              ))
-                            )}
-                          </BlockStack>
-                        </Banner>
-                      )}
-                      
-                      <Box padding="200" background="bg-surface-secondary" borderRadius="200">
-                        <pre style={{ overflow: 'auto', fontSize: '12px', maxHeight: '600px' }}>
-                          {JSON.stringify(actionData.rawResponse, null, 2)}
-                        </pre>
-                      </Box>
-                    </BlockStack>
-                  </Card>
-                </Layout.Section>
-                
-                {/* Parsed Data Display */}
-                {actionData.parsedData && (
-                  <Layout.Section>
-                    <Card>
-                      <BlockStack gap="400">
-                        <Text variant="headingMd" as="h2">Parsed Data</Text>
-                        
-                        {/* Customer Store Credit Summary */}
-                        {actionData.parsedData.customer && (
-                          <Box padding="200" background="bg-surface-success" borderRadius="200">
-                            <BlockStack gap="200">
-                              <Text variant="headingSm" as="h3">Customer Details</Text>
-                              <InlineStack gap="400" wrap>
-                                <BlockStack gap="100">
-                                  <Text as="p" fontWeight="semibold">Email:</Text>
-                                  <Text as="p">{actionData.parsedData.customer.email}</Text>
-                                </BlockStack>
-                                {actionData.parsedData.customer.displayName && (
-                                  <BlockStack gap="100">
-                                    <Text as="p" fontWeight="semibold">Name:</Text>
-                                    <Text as="p">{actionData.parsedData.customer.displayName}</Text>
-                                  </BlockStack>
-                                )}
-                                {actionData.parsedData.customer.amountSpent && (
-                                  <BlockStack gap="100">
-                                    <Text as="p" fontWeight="semibold">Lifetime Spent:</Text>
-                                    <Text as="p">
-                                      {actionData.parsedData.customer.amountSpent.currencyCode} {actionData.parsedData.customer.amountSpent.amount}
-                                    </Text>
-                                  </BlockStack>
-                                )}
-                              </InlineStack>
-                              
-                              {/* Store Credit Accounts Summary */}
-                              {(() => {
-                                const creditSummary = calculateTotalStoreCredit(actionData.parsedData.customer);
-                                if (creditSummary) {
-                                  return (
-                                    <>
-                                      <Divider />
-                                      <Text variant="headingSm" as="h4">Store Credit Summary</Text>
-                                      <InlineStack gap="400">
-                                        <BlockStack gap="100">
-                                          <Text as="p" fontWeight="semibold">Total Balance:</Text>
-                                          <Text as="p" variant="headingLg">
-                                            ${creditSummary.total.toFixed(2)}
-                                          </Text>
-                                        </BlockStack>
-                                        <BlockStack gap="100">
-                                          <Text as="p" fontWeight="semibold">Number of Accounts:</Text>
-                                          <Text as="p">{creditSummary.accounts.length}</Text>
-                                        </BlockStack>
-                                      </InlineStack>
-                                      
-                                      {creditSummary.accounts.length > 0 && (
-                                        <BlockStack gap="100">
-                                          <Text as="p" fontWeight="semibold">Account Details:</Text>
-                                          {creditSummary.accounts.map((account, index) => (
-                                            <Box key={index} padding="100" background="bg-surface" borderRadius="100">
-                                              <InlineStack align="space-between">
-                                                <Text as="p" tone="subdued" variant="bodySm">
-                                                  {account.id.split('/').pop()}
-                                                </Text>
-                                                <Text as="p" fontWeight="semibold">
-                                                  {account.currency} {account.amount.toFixed(2)}
-                                                </Text>
-                                              </InlineStack>
-                                            </Box>
-                                          ))}
-                                        </BlockStack>
-                                      )}
-                                    </>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </BlockStack>
-                          </Box>
-                        )}
-                        
-                        {/* Mutation Results */}
-                        {actionData.parsedData.giftCardCreate && (
-                          <Box padding="200" background="bg-surface-success" borderRadius="200">
-                            <BlockStack gap="200">
-                              <Text variant="headingSm" as="h3">Gift Card Created</Text>
-                              {actionData.parsedData.giftCardCreate.giftCardCode && (
-                                <Banner tone="success">
-                                  <Text as="p" fontWeight="semibold">
-                                    Code: {actionData.parsedData.giftCardCreate.giftCardCode}
-                                  </Text>
-                                </Banner>
-                              )}
-                              {actionData.parsedData.giftCardCreate.giftCard && (
-                                <Text as="p">
-                                  Balance: {actionData.parsedData.giftCardCreate.giftCard.balance?.currencyCode} {actionData.parsedData.giftCardCreate.giftCard.balance?.amount}
-                                </Text>
-                              )}
-                            </BlockStack>
-                          </Box>
-                        )}
-                        
-                        {/* Transaction Results */}
-                        {(actionData.parsedData.storeCreditAccountCredit || actionData.parsedData.storeCreditAccountDebit) && (
-                          <Box padding="200" background="bg-surface-info" borderRadius="200">
-                            <BlockStack gap="200">
-                              <Text variant="headingSm" as="h3">Transaction Completed</Text>
-                              {(() => {
-                                const transaction = actionData.parsedData.storeCreditAccountCredit?.storeCreditAccountTransaction ||
-                                                   actionData.parsedData.storeCreditAccountDebit?.storeCreditAccountTransaction;
-                                if (transaction) {
-                                  return (
-                                    <>
-                                      <Text as="p">
-                                        Amount: {transaction.amount?.currencyCode} {transaction.amount?.amount}
-                                      </Text>
-                                      {transaction.account && (
-                                        <Text as="p" fontWeight="semibold">
-                                          New Balance: {transaction.account.balance?.currencyCode} {transaction.account.balance?.amount}
-                                        </Text>
-                                      )}
-                                      {transaction.description && (
-                                        <Text as="p" tone="subdued">
-                                          Description: {transaction.description}
-                                        </Text>
-                                      )}
-                                    </>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </BlockStack>
-                          </Box>
-                        )}
-                        
-                        <Box padding="200" background="bg-surface-secondary" borderRadius="200">
-                          <pre style={{ overflow: 'auto', fontSize: '12px', maxHeight: '400px' }}>
-                            {JSON.stringify(actionData.parsedData, null, 2)}
-                          </pre>
-                        </Box>
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h3">Customer Summary</Text>
+                      <BlockStack gap="200">
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Name:</Text>
+                          <Text as="span">{actionData.parsedData.customer.displayName || "N/A"}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Email:</Text>
+                          <Text as="span">{actionData.parsedData.customer.email}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Orders:</Text>
+                          <Text as="span">{actionData.parsedData.customer.numberOfOrders}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Spent:</Text>
+                          <Text as="span">
+                            {actionData.parsedData.customer.amountSpent?.amount} {actionData.parsedData.customer.amountSpent?.currencyCode}
+                          </Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Average Order Value:</Text>
+                          <Text as="span">
+                            {actionData.parsedData.summary.averageOrderValue} {actionData.parsedData.customer.amountSpent?.currencyCode}
+                          </Text>
+                        </InlineStack>
                       </BlockStack>
-                    </Card>
-                  </Layout.Section>
+                    </BlockStack>
+                  </Card>
                 )}
+                
+                {/* Orders Table */}
+                {renderOrderTable()}
+                
+                {/* GraphQL Query Display */}
+                <Card>
+                  <BlockStack gap="300">
+                    <Text variant="headingMd" as="h3">GraphQL Query</Text>
+                    <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                      <pre style={{ 
+                        whiteSpace: 'pre-wrap', 
+                        wordBreak: 'break-all',
+                        fontSize: '12px',
+                        margin: 0
+                      }}>
+                        {actionData.query}
+                      </pre>
+                    </Box>
+                  </BlockStack>
+                </Card>
+                
+                {/* Variables Display */}
+                <Card>
+                  <BlockStack gap="300">
+                    <Text variant="headingMd" as="h3">Variables</Text>
+                    <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                      <pre style={{ 
+                        whiteSpace: 'pre-wrap', 
+                        wordBreak: 'break-all',
+                        fontSize: '12px',
+                        margin: 0
+                      }}>
+                        {JSON.stringify(actionData.variables, null, 2)}
+                      </pre>
+                    </Box>
+                  </BlockStack>
+                </Card>
+                
+                {/* Raw Response */}
+                <Card>
+                  <BlockStack gap="300">
+                    <Text variant="headingMd" as="h3">Raw Response</Text>
+                    <div style={{ maxHeight: '400px', overflow: 'auto' }}>
+                      <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                        <pre style={{ 
+                          whiteSpace: 'pre-wrap', 
+                          wordBreak: 'break-all',
+                          fontSize: '12px',
+                          margin: 0
+                        }}>
+                          {JSON.stringify(actionData.rawResponse || actionData.parsedData, null, 2)}
+                        </pre>
+                      </Box>
+                    </div>
+                  </BlockStack>
+                </Card>
               </>
             )}
-          </>
-        )}
+          </BlockStack>
+        </Layout.Section>
       </Layout>
     </Page>
   );
