@@ -79,7 +79,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         customer(id: $customerId) {
           id
           displayName
-          email
           numberOfOrders
           amountSpent {
             amount
@@ -151,32 +150,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     currencyCode
                   }
                 }
-                email
-                note
-                tags
-                
-                # Payment details
-                paymentGatewayNames
-                
-                # Shipping address
-                shippingAddress {
-                  address1
-                  address2
-                  city
-                  province
-                  country
-                  zip
-                }
-                
-                # Billing address
-                billingAddress {
-                  address1
-                  address2
-                  city
-                  province
-                  country
-                  zip
-                }`;
+                tags`;
     
     // Conditionally add line items if requested
     if (includeLineItems) {
@@ -222,7 +196,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                         title
                         price
                         sku
-                        barcode
                         inventoryQuantity
                       }
                       
@@ -317,7 +290,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       customer: {
         id: customer.id,
         displayName: customer.displayName,
-        email: customer.email,
         numberOfOrders: customer.numberOfOrders,
         amountSpent: customer.amountSpent,
         createdAt: customer.createdAt,
@@ -341,14 +313,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           refunded: order.totalRefundedSet?.shopMoney,
           currentTotal: order.currentTotalPriceSet?.shopMoney
         },
-        addresses: {
-          shipping: order.shippingAddress,
-          billing: order.billingAddress
-        },
         lineItems: includeLineItems ? order.lineItems?.edges?.map((e: any) => e.node) : undefined,
-        note: order.note,
-        tags: order.tags,
-        paymentGateways: order.paymentGatewayNames
+        tags: order.tags
       })),
       summary: {
         totalOrders: orders.length,
@@ -557,10 +523,6 @@ export default function GraphQLTest() {
                         <InlineStack gap="400">
                           <Text as="span" fontWeight="semibold">Name:</Text>
                           <Text as="span">{actionData.parsedData.customer.displayName || "N/A"}</Text>
-                        </InlineStack>
-                        <InlineStack gap="400">
-                          <Text as="span" fontWeight="semibold">Email:</Text>
-                          <Text as="span">{actionData.parsedData.customer.email}</Text>
                         </InlineStack>
                         <InlineStack gap="400">
                           <Text as="span" fontWeight="semibold">Total Orders:</Text>
