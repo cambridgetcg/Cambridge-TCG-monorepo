@@ -80,7 +80,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           id
           displayName
           email
-          phone
           numberOfOrders
           amountSpent {
             amount
@@ -153,7 +152,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   }
                 }
                 email
-                phone
                 note
                 tags
                 
@@ -168,7 +166,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   province
                   country
                   zip
-                  phone
                 }
                 
                 # Billing address
@@ -179,7 +176,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   province
                   country
                   zip
-                  phone
                 }`;
     
     // Conditionally add line items if requested
@@ -322,7 +318,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         id: customer.id,
         displayName: customer.displayName,
         email: customer.email,
-        phone: customer.phone,
         numberOfOrders: customer.numberOfOrders,
         amountSpent: customer.amountSpent,
         createdAt: customer.createdAt,
