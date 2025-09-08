@@ -228,7 +228,7 @@ export class DataAPIModelProxy<T = any> {
     const fields = Object.keys(args.data);
     const params: SqlParameter[] = [];
     
-    // Build values with proper type casting for enums and timestamps
+    // Build values with proper type casting for enums, timestamps, and JSON
     const values = fields.map((field, i) => {
       const value = args.data[field];
       params.push(AuroraDataAPI.buildParameter(`param${i}`, value));
@@ -242,6 +242,15 @@ export class DataAPIModelProxy<T = any> {
       if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
           field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
         return `:param${i}::timestamp`;
+      }
+      
+      // Check if this is a JSON field (metadata or any field that contains objects/arrays)
+      if (field === 'metadata' || field === 'data' || field === 'config') {
+        // If value is an object or array, it will be stringified by buildParameter
+        // We need to cast it to jsonb for PostgreSQL
+        if (value && typeof value === 'object') {
+          return `:param${i}::jsonb`;
+        }
       }
       
       return `:param${i}`;
@@ -307,9 +316,10 @@ export class DataAPIModelProxy<T = any> {
     const whereFields = Object.keys(args.where);
     const params: SqlParameter[] = [];
 
-    // Build SET clause with enum and timestamp casting
+    // Build SET clause with enum, timestamp, and JSON casting
     const setClauses = setFields.map((field, i) => {
-      params.push(AuroraDataAPI.buildParameter(`set${i}`, args.data[field]));
+      const value = args.data[field];
+      params.push(AuroraDataAPI.buildParameter(`set${i}`, value));
       
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
@@ -320,6 +330,13 @@ export class DataAPIModelProxy<T = any> {
       if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
           field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
         return `"${field}" = :set${i}::timestamp`;
+      }
+      
+      // Check if this is a JSON field
+      if (field === 'metadata' || field === 'data' || field === 'config') {
+        if (value && typeof value === 'object') {
+          return `"${field}" = :set${i}::jsonb`;
+        }
       }
       
       return `"${field}" = :set${i}`;
@@ -358,9 +375,10 @@ export class DataAPIModelProxy<T = any> {
     const setFields = Object.keys(args.data);
     const params: SqlParameter[] = [];
 
-    // Build SET clause with enum and timestamp casting
+    // Build SET clause with enum, timestamp, and JSON casting
     const setClauses = setFields.map((field, i) => {
-      params.push(AuroraDataAPI.buildParameter(`set${i}`, args.data[field]));
+      const value = args.data[field];
+      params.push(AuroraDataAPI.buildParameter(`set${i}`, value));
       
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
@@ -371,6 +389,13 @@ export class DataAPIModelProxy<T = any> {
       if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
           field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
         return `"${field}" = :set${i}::timestamp`;
+      }
+      
+      // Check if this is a JSON field
+      if (field === 'metadata' || field === 'data' || field === 'config') {
+        if (value && typeof value === 'object') {
+          return `"${field}" = :set${i}::jsonb`;
+        }
       }
       
       return `"${field}" = :set${i}`;
