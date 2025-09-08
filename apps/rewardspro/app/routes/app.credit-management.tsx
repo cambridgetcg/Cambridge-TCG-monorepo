@@ -86,9 +86,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     // If a customer is selected, fetch their details and credit history
     if (customerId) {
+      // Try to find by database ID first
       selectedCustomer = await db.customer.findUnique({
         where: { id: customerId }
       });
+      
+      // If not found by database ID, try by Shopify customer ID
+      if (!selectedCustomer && customerId) {
+        selectedCustomer = await db.customer.findFirst({
+          where: {
+            shop: session.shop,
+            shopifyCustomerId: customerId
+          }
+        });
+      }
       
       if (selectedCustomer) {
         // Fetch tier separately (Data API doesn't support includes)
@@ -137,7 +148,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const searchLower = searchQuery.toLowerCase();
       customers = customers.filter(customer => 
         customer.email.toLowerCase().includes(searchLower) ||
-        customer.shopifyCustomerId.toLowerCase().includes(searchLower)
+        customer.shopifyCustomerId.toLowerCase().includes(searchLower) ||
+        customer.id.toLowerCase().includes(searchLower)
       );
     }
     
@@ -294,6 +306,8 @@ export default function CreditManagement() {
   const [adjustmentType, setAdjustmentType] = useState<"add" | "remove">("add");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
   const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [quickTestMode, setQuickTestMode] = useState(false);
+  const [quickTestId, setQuickTestId] = useState("");
   
   const isLoading = navigation.state === "submitting" || navigation.state === "loading";
   
@@ -319,6 +333,31 @@ export default function CreditManagement() {
     newParams.set('customerId', customerId);
     setSearchParams(newParams);
   }, [searchParams, setSearchParams]);
+  
+  // Handle quick test - load customer by Shopify ID directly
+  const handleQuickTest = useCallback(() => {
+    if (!quickTestId.trim()) return;
+    
+    // Find customer by Shopify ID in current list
+    const customer = customers.find(c => 
+      c.shopifyCustomerId === quickTestId || 
+      c.id === quickTestId
+    );
+    
+    if (customer) {
+      // Found the customer, select them
+      handleSelectCustomer(customer.id);
+      setQuickTestMode(false);
+      setQuickTestId("");
+    } else {
+      // Try to load directly by ID
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('customerId', quickTestId);
+      newParams.set('search', quickTestId);
+      setSearchParams(newParams);
+      // Keep in quick test mode to show if customer not found
+    }
+  }, [quickTestId, customers, handleSelectCustomer, searchParams, setSearchParams]);
   
   // Handle adjustment modal
   const handleOpenAdjustModal = useCallback((type: "add" | "remove") => {
@@ -402,20 +441,82 @@ export default function CreditManagement() {
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
-              {/* Search Bar */}
-              <TextField
-                label="Search customers"
-                value={searchValue}
-                onChange={handleSearch}
-                clearButton
-                onClearButtonClick={() => handleSearch("")}
-                prefix={<Icon source={SearchIcon} />}
-                placeholder="Search by email or customer ID"
-                autoComplete="off"
-              />
+              {/* Toggle between search and quick test modes */}
+              <InlineStack align="space-between">
+                <Text variant="headingMd" as="h3">
+                  {quickTestMode ? "Quick Test Mode" : "Customer Search"}
+                </Text>
+                <Button
+                  onClick={() => {
+                    setQuickTestMode(!quickTestMode);
+                    setQuickTestId("");
+                  }}
+                  size="slim"
+                >
+                  {quickTestMode ? "Switch to Search" : "Quick Test Mode"}
+                </Button>
+              </InlineStack>
               
-              {/* Customer List */}
-              {customers.length > 0 ? (
+              {/* Quick Test Mode - Direct ID Input */}
+              {quickTestMode ? (
+                <BlockStack gap="300">
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (quickTestId.trim()) {
+                      handleQuickTest();
+                    }
+                  }}>
+                    <InlineStack gap="200">
+                      <div style={{ flex: 1 }}>
+                        <TextField
+                          label="Enter Customer ID"
+                          value={quickTestId}
+                          onChange={setQuickTestId}
+                          placeholder="e.g., 7123456789012 or uuid"
+                          helpText="Enter Shopify Customer ID or Database UUID (press Enter to load)"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <Button
+                        submit
+                        variant="primary"
+                        disabled={!quickTestId.trim()}
+                      >
+                        Load Customer
+                      </Button>
+                    </InlineStack>
+                  </form>
+                  
+                  {/* Show help text if customer not found */}
+                  {quickTestId && !selectedCustomer && customers.length === 0 && (
+                    <Banner tone="warning">
+                      <Text as="p">
+                        Customer with ID "{quickTestId}" not found. This could mean:
+                      </Text>
+                      <ul style={{ marginTop: "8px", marginBottom: 0 }}>
+                        <li>The customer doesn't exist in the database yet</li>
+                        <li>You need to sync customers from Shopify first</li>
+                        <li>The ID format might be incorrect</li>
+                      </ul>
+                    </Banner>
+                  )}
+                </BlockStack>
+              ) : (
+                /* Regular Search Mode */
+                <TextField
+                  label="Search customers"
+                  value={searchValue}
+                  onChange={handleSearch}
+                  clearButton
+                  onClearButtonClick={() => handleSearch("")}
+                  prefix={<Icon source={SearchIcon} />}
+                  placeholder="Search by email or customer ID"
+                  autoComplete="off"
+                />
+              )}
+              
+              {/* Customer List - Only show in search mode */}
+              {!quickTestMode && customers.length > 0 ? (
                 <div style={{ maxHeight: "200px", overflowY: "scroll" }}>
                   <BlockStack gap="100">
                     {customers.map(customer => (
@@ -450,14 +551,14 @@ export default function CreditManagement() {
                     ))}
                   </BlockStack>
                 </div>
-              ) : (
+              ) : !quickTestMode ? (
                 <EmptyState
                   heading="No customers found"
                   image="https://cdn.shopify.com/s/files/1/0583/8520/4949/files/empty-state.svg"
                 >
                   <p>Try adjusting your search or sync customers from Shopify.</p>
                 </EmptyState>
-              )}
+              ) : null}
             </BlockStack>
           </Card>
         </Layout.Section>
