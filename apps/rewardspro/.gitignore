@@ -14,39 +14,16 @@ database.sqlite
 .env
 .env.*
 
-# Workflow and internal documentation
-TODO.md
-PROGRESS.md
-COMPLETED_TASKS.md
-CLAUDE.md
-**/CLAUDE.md
-WORKFLOW.md
-GUIDE.md
-*_GUIDE.md
-*-guide.md
-NOTES.md
-SCRATCH.md
-TEMP.md
-DRAFT.md
+# All Markdown files
+*.md
+**/*.md
 
-# Keep important project documentation
+# Keep essential project files only
 !README.md
 !LICENSE.md
 !CONTRIBUTING.md
 !CHANGELOG.md
 !CODE_OF_CONDUCT.md
-
-# Keep docs folder (important documentation)
-!/docs/**/*.md
-
-# Security documentation (sensitive information)
-/docs/08-security/
-/docs/08-security/**/*.md
-/docs/**/security-*.md
-/docs/**/*-security.md
-/docs/**/*-vulnerabilities.md
-/docs/**/*-auth*.md
-/docs/**/*-exposure*.md
 
 
 

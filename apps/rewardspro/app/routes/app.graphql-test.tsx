@@ -251,19 +251,219 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         
       // ========== STORE CREDIT ACCOUNTS (Shopify Plus) ==========
       
-      case "storeCreditAccount":
-        // Query store credit account - Section 9 of guide
+      case "storeCreditAccountById":
+        // Query store credit account by ID directly
         query = `#graphql
-          query GetStoreCreditAccount($customerId: ID!) {
+          query GetStoreCreditAccountById($id: ID!) {
+            storeCreditAccount(id: $id) {
+              id
+              balance {
+                amount
+                currencyCode
+              }
+              owner {
+                ... on Customer {
+                  id
+                  email
+                  displayName
+                }
+              }
+              transactions(first: 10, reverse: true) {
+                edges {
+                  node {
+                    ... on StoreCreditAccountCreditTransaction {
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                    }
+                    ... on StoreCreditAccountDebitTransaction {
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                    }
+                    ... on StoreCreditAccountDebitRevertTransaction {
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                    }
+                    ... on StoreCreditAccountExpirationTransaction {
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                    }
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          }
+        `;
+        variables = { id: formData.get("storeCreditAccountId") as string };
+        break;
+        
+      case "storeCreditAccountTransactions":
+        // Query store credit account transactions with filtering
+        query = `#graphql
+          query GetStoreCreditAccountTransactions($id: ID!, $first: Int!, $query: String, $sortKey: TransactionSortKeys) {
+            storeCreditAccount(id: $id) {
+              id
+              balance {
+                amount
+                currencyCode
+              }
+              transactions(first: $first, query: $query, sortKey: $sortKey, reverse: true) {
+                edges {
+                  cursor
+                  node {
+                    ... on StoreCreditAccountCreditTransaction {
+                      __typename
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                      account {
+                        id
+                        balance {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                    ... on StoreCreditAccountDebitTransaction {
+                      __typename
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                      account {
+                        id
+                        balance {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                    ... on StoreCreditAccountDebitRevertTransaction {
+                      __typename
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                      account {
+                        id
+                        balance {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                    ... on StoreCreditAccountExpirationTransaction {
+                      __typename
+                      id
+                      amount {
+                        amount
+                        currencyCode
+                      }
+                      description
+                      createdAt
+                      account {
+                        id
+                        balance {
+                          amount
+                          currencyCode
+                        }
+                      }
+                    }
+                  }
+                }
+                nodes {
+                  ... on StoreCreditAccountTransaction {
+                    id
+                    createdAt
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  hasPreviousPage
+                  startCursor
+                  endCursor
+                }
+              }
+            }
+          }
+        `;
+        variables = { 
+          id: formData.get("storeCreditAccountId") as string,
+          first: parseInt(formData.get("transactionLimit") as string || "20"),
+          query: formData.get("transactionQuery") as string || null,
+          sortKey: formData.get("sortKey") as string || "CREATED_AT"
+        };
+        break;
+        
+      case "customerStoreCreditAccounts":
+        // Query customer's store credit accounts
+        query = `#graphql
+          query GetCustomerStoreCreditAccounts($customerId: ID!) {
             customer(id: $customerId) {
               id
               email
               displayName
-              storeCreditAccount {
-                id
-                balance {
-                  amount
-                  currencyCode
+              storeCreditAccounts(first: 10) {
+                edges {
+                  node {
+                    id
+                    balance {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+                nodes {
+                  id
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                  transactions(first: 5, reverse: true) {
+                    nodes {
+                      ... on StoreCreditAccountTransaction {
+                        id
+                        createdAt
+                      }
+                    }
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
@@ -665,6 +865,10 @@ export default function GraphQLTestPage() {
   const [note, setNote] = useState("");
   const [code, setCode] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [storeCreditAccountId, setStoreCreditAccountId] = useState("");
+  const [transactionLimit, setTransactionLimit] = useState("20");
+  const [transactionQuery, setTransactionQuery] = useState("");
+  const [sortKey, setSortKey] = useState("CREATED_AT");
   const [productQuery, setProductQuery] = useState("");
   const [bulkQuery, setBulkQuery] = useState("");
   const [metafieldKey, setMetafieldKey] = useState("store_credit");
@@ -683,6 +887,10 @@ export default function GraphQLTestPage() {
     formData.append("note", note);
     formData.append("code", code);
     formData.append("accountId", accountId);
+    formData.append("storeCreditAccountId", storeCreditAccountId);
+    formData.append("transactionLimit", transactionLimit);
+    formData.append("transactionQuery", transactionQuery);
+    formData.append("sortKey", sortKey);
     formData.append("productQuery", productQuery);
     formData.append("bulkQuery", bulkQuery);
     formData.append("metafieldKey", metafieldKey);
@@ -690,7 +898,7 @@ export default function GraphQLTestPage() {
     formData.append("customQuery", customQuery);
     formData.append("variables", variables);
     submit(formData, { method: "post" });
-  }, [queryType, customerId, giftCardId, amount, note, code, accountId, productQuery, bulkQuery, metafieldKey, metafieldValue, customQuery, variables, submit]);
+  }, [queryType, customerId, giftCardId, amount, note, code, accountId, storeCreditAccountId, transactionLimit, transactionQuery, sortKey, productQuery, bulkQuery, metafieldKey, metafieldValue, customQuery, variables, submit]);
   
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -707,6 +915,13 @@ export default function GraphQLTestPage() {
   const formatGiftCardId = useCallback((value: string) => {
     if (/^\d+$/.test(value)) {
       return `gid://shopify/GiftCard/${value}`;
+    }
+    return value;
+  }, []);
+  
+  const formatStoreCreditAccountId = useCallback((value: string) => {
+    if (/^\d+$/.test(value)) {
+      return `gid://shopify/StoreCreditAccount/${value}`;
     }
     return value;
   }, []);
@@ -739,7 +954,9 @@ export default function GraphQLTestPage() {
                     { label: "Debit Gift Card (Reduce Balance)", value: "debitGiftCard" },
                     
                     { label: "--- Store Credit Accounts (Plus) ---", value: "", disabled: true },
-                    { label: "Get Store Credit Account", value: "storeCreditAccount" },
+                    { label: "Get Store Credit Account by ID", value: "storeCreditAccountById" },
+                    { label: "Get Store Credit Account Transactions", value: "storeCreditAccountTransactions" },
+                    { label: "Get Customer Store Credit Accounts", value: "customerStoreCreditAccounts" },
                     { label: "Credit Store Credit Account", value: "creditStoreCreditAccount" },
                     
                     { label: "--- Customer Queries ---", value: "", disabled: true },
@@ -790,7 +1007,7 @@ export default function GraphQLTestPage() {
                 )}
                 
                 {/* Customer Fields */}
-                {["createGiftCard", "storeCreditAccount", "customerWithMetafields", "updateCustomerMetafield", "orders", "metafields", "createMetafield"].includes(queryType) && (
+                {["createGiftCard", "customerStoreCreditAccounts", "customerWithMetafields", "updateCustomerMetafield", "orders", "metafields", "createMetafield"].includes(queryType) && (
                   <TextField
                     label="Customer ID"
                     value={customerId}
@@ -801,14 +1018,60 @@ export default function GraphQLTestPage() {
                   />
                 )}
                 
-                {/* Store Credit Account ID */}
+                {/* Store Credit Account ID for direct queries */}
+                {["storeCreditAccountById", "storeCreditAccountTransactions"].includes(queryType) && (
+                  <TextField
+                    label="Store Credit Account ID"
+                    value={storeCreditAccountId}
+                    onChange={(value) => setStoreCreditAccountId(formatStoreCreditAccountId(value))}
+                    placeholder="123 or gid://shopify/StoreCreditAccount/123"
+                    helpText="Enter store credit account ID (will auto-format)"
+                    autoComplete="off"
+                  />
+                )}
+                
+                {/* Store Credit Account Transactions Parameters */}
+                {queryType === "storeCreditAccountTransactions" && (
+                  <>
+                    <TextField
+                      label="Transaction Limit"
+                      type="number"
+                      value={transactionLimit}
+                      onChange={setTransactionLimit}
+                      placeholder="20"
+                      helpText="Number of transactions to fetch (default: 20)"
+                      autoComplete="off"
+                    />
+                    <TextField
+                      label="Transaction Query Filter"
+                      value={transactionQuery}
+                      onChange={setTransactionQuery}
+                      placeholder='created_at:>"2025-01-01"'
+                      helpText="Optional Shopify search syntax filter"
+                      autoComplete="off"
+                    />
+                    <Select
+                      label="Sort Key"
+                      options={[
+                        { label: "Created At", value: "CREATED_AT" },
+                        { label: "ID", value: "ID" },
+                        { label: "Updated At", value: "UPDATED_AT" }
+                      ]}
+                      value={sortKey}
+                      onChange={setSortKey}
+                      helpText="Sort order for transactions"
+                    />
+                  </>
+                )}
+                
+                {/* Store Credit Account ID for mutations */}
                 {queryType === "creditStoreCreditAccount" && (
                   <TextField
                     label="Store Credit Account ID"
                     value={accountId}
                     onChange={setAccountId}
                     placeholder="gid://shopify/StoreCreditAccount/123"
-                    helpText="Enter the store credit account ID"
+                    helpText="Enter the store credit account ID to credit"
                     autoComplete="off"
                   />
                 )}
