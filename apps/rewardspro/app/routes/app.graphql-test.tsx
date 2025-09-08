@@ -31,6 +31,7 @@ interface GraphQLTestResult {
   rawResponse?: any;
   parsedData?: any;
   databaseMapping?: any;
+  databaseCreditBalance?: any;
   error?: string;
   executionTime?: number;
 }
@@ -75,6 +76,92 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     // Build query based on type
     switch (queryType) {
+      case "creditBalance":
+        query = `#graphql
+          query GetCustomerWithMetafields($id: ID!) {
+            customer(id: $id) {
+              id
+              email
+              firstName
+              lastName
+              displayName
+              state
+              createdAt
+              updatedAt
+              numberOfOrders
+              amountSpent {
+                amount
+                currencyCode
+              }
+              metafields(first: 10, namespace: "rewards_pro") {
+                edges {
+                  node {
+                    id
+                    namespace
+                    key
+                    value
+                    type
+                    description
+                    createdAt
+                    updatedAt
+                  }
+                }
+              }
+            }
+          }
+        `;
+        variables = { id: customerId };
+        break;
+        
+      case "updateCredit":
+        // This would update a customer's credit balance via metafield
+        const creditAmount = formData.get("creditAmount") as string || "0";
+        query = `#graphql
+          mutation UpdateCustomerCredit($input: CustomerInput!) {
+            customerUpdate(input: $input) {
+              customer {
+                id
+                email
+                metafields(first: 10, namespace: "rewards_pro") {
+                  edges {
+                    node {
+                      id
+                      namespace
+                      key
+                      value
+                      type
+                    }
+                  }
+                }
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+        variables = {
+          input: {
+            id: customerId,
+            metafields: [
+              {
+                namespace: "rewards_pro",
+                key: "store_credit",
+                value: creditAmount,
+                type: "number_decimal"
+              },
+              {
+                namespace: "rewards_pro",
+                key: "last_updated",
+                value: new Date().toISOString(),
+                type: "date_time"
+              }
+            ]
+          }
+        };
+        break;
+        
       case "single":
         query = `#graphql
           query GetCustomer($id: ID!) {
@@ -218,10 +305,113 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Parse the response
     let parsedData = null;
     let databaseMapping = null;
+    let databaseCreditBalance = null;
     
     if (rawResponse.data) {
       // Extract customer data based on query type
-      if (queryType === "single" && rawResponse.data.customer) {
+      if (queryType === "creditBalance" && rawResponse.data.customer) {
+        parsedData = rawResponse.data.customer;
+        
+        // Extract the Shopify customer ID
+        const shopifyCustomerId = parsedData.id?.replace('gid://shopify/Customer/', '') || '';
+        
+        // Check if customer exists in database and get their credit balance
+        const existingCustomer = await db.customer.findUnique({
+          where: {
+            shop_shopifyCustomerId: {
+              shop: session.shop,
+              shopifyCustomerId
+            }
+          }
+        });
+        
+        // Get tier and recent transactions if customer exists
+        let currentTier = null;
+        let creditLedger: any[] = [];
+        
+        if (existingCustomer) {
+          currentTier = existingCustomer.currentTierId ? 
+            await db.tier.findUnique({
+              where: { id: existingCustomer.currentTierId }
+            }) : null;
+            
+          creditLedger = await db.storeCreditLedger.findMany({
+            where: { customerId: existingCustomer.id },
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          });
+        }
+        
+        // Extract metafield data if any
+        const metafields: any = {};
+        if (parsedData.metafields?.edges) {
+          parsedData.metafields.edges.forEach((edge: any) => {
+            metafields[edge.node.key] = {
+              value: edge.node.value,
+              type: edge.node.type,
+              id: edge.node.id
+            };
+          });
+        }
+        
+        databaseCreditBalance = {
+          shopifyData: {
+            id: parsedData.id,
+            email: parsedData.email,
+            displayName: parsedData.displayName,
+            totalSpent: parsedData.amountSpent,
+            numberOfOrders: parsedData.numberOfOrders,
+            metafields
+          },
+          databaseData: existingCustomer ? {
+            id: existingCustomer.id,
+            storeCredit: existingCustomer.storeCredit.toString(),
+            currentTier: currentTier,
+            recentTransactions: creditLedger.map((ledger: any) => ({
+              id: ledger.id,
+              amount: ledger.amount.toString(),
+              balance: ledger.balance.toString(),
+              type: ledger.type,
+              createdAt: ledger.createdAt,
+              metadata: ledger.metadata
+            }))
+          } : null,
+          syncStatus: existingCustomer ? 'SYNCED' : 'NOT_IN_DATABASE',
+          suggestedActions: !existingCustomer ? [
+            'Customer not found in database',
+            'Run customer sync to import this customer',
+            'Or manually create customer record'
+          ] : []
+        };
+      } else if (queryType === "updateCredit" && rawResponse.data.customerUpdate) {
+        parsedData = rawResponse.data.customerUpdate;
+        
+        // Extract metafields from the updated customer
+        const metafields: any = {};
+        if (parsedData.customer?.metafields?.edges) {
+          parsedData.customer.metafields.edges.forEach((edge: any) => {
+            metafields[edge.node.key] = {
+              value: edge.node.value,
+              type: edge.node.type
+            };
+          });
+        }
+        
+        databaseCreditBalance = {
+          mutationResult: {
+            success: !parsedData.userErrors || parsedData.userErrors.length === 0,
+            errors: parsedData.userErrors,
+            customerId: parsedData.customer?.id,
+            email: parsedData.customer?.email,
+            updatedMetafields: metafields
+          },
+          nextSteps: [
+            'Sync this change to your database',
+            'Update the customer record in your StoreCreditLedger',
+            'Consider triggering tier recalculation'
+          ]
+        };
+      } else if (queryType === "single" && rawResponse.data.customer) {
         parsedData = rawResponse.data.customer;
         databaseMapping = mapCustomerToDatabase(parsedData, session.shop);
       } else if (rawResponse.data.customers?.edges) {
@@ -241,6 +431,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       rawResponse,
       parsedData,
       databaseMapping,
+      databaseCreditBalance,
       executionTime
     });
     
@@ -318,10 +509,11 @@ export default function GraphQLTestPage() {
   const navigation = useNavigation();
   const submit = useSubmit();
   
-  const [queryType, setQueryType] = useState("minimal");
+  const [queryType, setQueryType] = useState("creditBalance");
   const [customerId, setCustomerId] = useState("");
   const [batchSize, setBatchSize] = useState("3");
   const [customQuery, setCustomQuery] = useState("");
+  const [creditAmount, setCreditAmount] = useState("0.00");
   
   const isLoading = navigation.state === "submitting";
   
@@ -331,8 +523,9 @@ export default function GraphQLTestPage() {
     formData.append("customerId", customerId);
     formData.append("batchSize", batchSize);
     formData.append("customQuery", customQuery);
+    formData.append("creditAmount", creditAmount);
     submit(formData, { method: "post" });
-  }, [queryType, customerId, batchSize, customQuery, submit]);
+  }, [queryType, customerId, batchSize, customQuery, creditAmount, submit]);
   
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -358,6 +551,8 @@ export default function GraphQLTestPage() {
                 <Select
                   label="Query Type"
                   options={[
+                    { label: "Credit Balance Test (metafields + DB)", value: "creditBalance" },
+                    { label: "Update Credit (mutation)", value: "updateCredit" },
                     { label: "Minimal (only required fields)", value: "minimal" },
                     { label: "Batch (standard fields)", value: "batch" },
                     { label: "Single Customer (all fields)", value: "single" },
@@ -365,15 +560,33 @@ export default function GraphQLTestPage() {
                   ]}
                   value={queryType}
                   onChange={setQueryType}
+                  helpText={
+                    queryType === "creditBalance" ? "Tests customer credit balance sync between Shopify and database" :
+                    queryType === "updateCredit" ? "Updates customer credit via Shopify metafields" :
+                    undefined
+                  }
                 />
                 
-                {queryType === "single" && (
+                {(queryType === "single" || queryType === "creditBalance" || queryType === "updateCredit") && (
                   <TextField
                     label="Customer ID"
                     value={customerId}
                     onChange={setCustomerId}
                     placeholder="gid://shopify/Customer/123456789"
                     helpText="Enter the full GraphQL ID"
+                    autoComplete="off"
+                  />
+                )}
+                
+                {queryType === "updateCredit" && (
+                  <TextField
+                    label="Credit Amount"
+                    type="number"
+                    value={creditAmount}
+                    onChange={setCreditAmount}
+                    prefix="$"
+                    placeholder="0.00"
+                    helpText="Amount to set as store credit in metafield"
                     autoComplete="off"
                   />
                 )}
@@ -480,6 +693,60 @@ export default function GraphQLTestPage() {
                     </BlockStack>
                   </Card>
                 </Layout.Section>
+                
+                {actionData.databaseCreditBalance && (
+                  <Layout.Section>
+                    <Card>
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <Text variant="headingMd" as="h2">Credit Balance Analysis</Text>
+                          <Button onClick={() => copyToClipboard(JSON.stringify(actionData.databaseCreditBalance, null, 2))}>
+                            Copy Analysis
+                          </Button>
+                        </InlineStack>
+                        
+                        <Banner tone={actionData.databaseCreditBalance.syncStatus === 'SYNCED' ? 'info' : 'warning'}>
+                          <p>Status: {actionData.databaseCreditBalance.syncStatus}</p>
+                        </Banner>
+                        
+                        {actionData.databaseCreditBalance.databaseData && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Database Credit Info</Text>
+                            <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="100">
+                                <Text as="p">Store Credit: ${actionData.databaseCreditBalance.databaseData.storeCredit}</Text>
+                                <Text as="p">Current Tier: {actionData.databaseCreditBalance.databaseData.currentTier?.name || 'None'}</Text>
+                                {actionData.databaseCreditBalance.databaseData.currentTier && (
+                                  <Text as="p">Cashback Rate: {actionData.databaseCreditBalance.databaseData.currentTier.cashbackPercent}%</Text>
+                                )}
+                              </BlockStack>
+                            </Box>
+                          </BlockStack>
+                        )}
+                        
+                        {actionData.databaseCreditBalance.suggestedActions?.length > 0 && (
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h3">Suggested Actions</Text>
+                            <Box padding="200" background="bg-surface-caution" borderRadius="200">
+                              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                {actionData.databaseCreditBalance.suggestedActions.map((action: string, index: number) => (
+                                  <li key={index}>{action}</li>
+                                ))}
+                              </ul>
+                            </Box>
+                          </BlockStack>
+                        )}
+                        
+                        <Text variant="headingSm" as="h3">Full Analysis</Text>
+                        <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                          <pre style={{ overflow: 'auto', fontSize: '12px', maxHeight: '400px' }}>
+                            {JSON.stringify(actionData.databaseCreditBalance, null, 2)}
+                          </pre>
+                        </Box>
+                      </BlockStack>
+                    </Card>
+                  </Layout.Section>
+                )}
                 
                 {actionData.databaseMapping && (
                   <Layout.Section>

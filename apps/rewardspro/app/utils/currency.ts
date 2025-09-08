@@ -1,5 +1,17 @@
 import type { Currency, CurrencyDisplayType } from "@prisma/client";
 
+/**
+ * Currency formatting utilities
+ * 
+ * For color coding financial values (positive/negative amounts, gains/losses):
+ * @see /docs/04-ui-components/color-design-guide.md#ui-implementation-strategies
+ * 
+ * Color recommendations:
+ * - Positive amounts/gains: Green (#00AA00)
+ * - Negative amounts/losses: Red (#CC0000)
+ * - Neutral amounts: Default text color
+ */
+
 // Currency symbols mapping
 const CURRENCY_SYMBOLS: Record<Currency, string> = {
   USD: "$",
