@@ -281,6 +281,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     
     try {
+      // Clean up the customer ID - remove any gid:// prefix if present
+      const cleanId = shopifyCustomerId.replace('gid://shopify/Customer/', '').trim();
+      
+      // Validate the ID is numeric
+      if (!/^\d+$/.test(cleanId)) {
+        return json({
+          success: false,
+          error: `Invalid Customer ID format: ${cleanId}. Please use numeric ID only.`
+        });
+      }
+      
+      console.log(`[Credit Sync] Starting sync for customer ID: ${cleanId}`);
+      
       // GraphQL query to get store credit from Shopify
       const syncQuery = `#graphql
         query SyncCustomerStoreCredit($customerId: ID!) {
@@ -306,9 +319,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       `;
       
-      const gidCustomerId = shopifyCustomerId.startsWith('gid://') 
-        ? shopifyCustomerId 
-        : `gid://shopify/Customer/${shopifyCustomerId}`;
+      // Always format as gid:// for GraphQL
+      const gidCustomerId = `gid://shopify/Customer/${cleanId}`;
+      
+      console.log(`[Credit Sync] Querying Shopify with GID: ${gidCustomerId}`);
       
       const response = await admin.graphql(syncQuery, {
         variables: { customerId: gidCustomerId }
@@ -316,44 +330,83 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       const responseJson = await response.json() as any;
       
+      console.log(`[Credit Sync] GraphQL Response:`, JSON.stringify(responseJson, null, 2));
+      
       if (responseJson.errors) {
+        console.error(`[Credit Sync] GraphQL Errors:`, responseJson.errors);
+        const errorMessage = responseJson.errors[0]?.message || 'Unknown error';
         return json({
           success: false,
-          error: `GraphQL Error: ${responseJson.errors[0]?.message || 'Unknown error'}`
+          error: `GraphQL Error: ${errorMessage}. Customer ID used: ${cleanId}`
         });
       }
       
       const shopifyCustomer = responseJson.data?.customer;
       if (!shopifyCustomer) {
+        console.error(`[Credit Sync] Customer not found in Shopify for ID: ${cleanId}`);
         return json({
           success: false,
-          error: "Customer not found in Shopify"
+          error: `Customer with ID ${cleanId} not found in Shopify. Please verify the ID is correct.`
         });
       }
+      
+      console.log(`[Credit Sync] Found customer: ${shopifyCustomer.email || shopifyCustomer.displayName}`);
       
       // Calculate total store credit from all accounts
       let totalStoreCredit = 0;
       const storeCreditAccounts = shopifyCustomer.storeCreditAccounts?.edges || [];
       
+      console.log(`[Credit Sync] Found ${storeCreditAccounts.length} store credit account(s)`);
+      
       for (const edge of storeCreditAccounts) {
         const balanceStr = edge.node.balance.amount || "0";
         const balance = parseFloat(balanceStr);
+        const currency = edge.node.balance.currencyCode;
+        
+        console.log(`[Credit Sync] Account ${edge.node.id}: ${balanceStr} ${currency}`);
         
         // Validate balance is a valid number
         if (!isNaN(balance) && isFinite(balance) && balance >= 0) {
           totalStoreCredit += balance;
         } else {
-          console.warn(`Invalid balance value from Shopify: ${balanceStr}`);
+          console.warn(`[Credit Sync] Invalid balance value from Shopify: ${balanceStr}`);
         }
       }
       
+      console.log(`[Credit Sync] Total store credit: ${totalStoreCredit}`);
+      
+      // Extract clean Shopify ID (without gid:// prefix)
+      const cleanShopifyId = gidCustomerId.replace('gid://shopify/Customer/', '');
+      
       // Find or create customer in database
+      // First try to find by shopifyCustomerId
       let dbCustomer = await db.customer.findFirst({
         where: {
           shop: session.shop,
-          shopifyCustomerId: shopifyCustomerId.replace('gid://shopify/Customer/', '')
+          shopifyCustomerId: cleanShopifyId
         }
       });
+      
+      // If we have a customerId from the form, also try to find by that
+      if (!dbCustomer && customerId) {
+        dbCustomer = await db.customer.findFirst({
+          where: {
+            id: customerId,
+            shop: session.shop
+          }
+        });
+        
+        // If found by ID but missing Shopify Customer ID, update it
+        if (dbCustomer && !dbCustomer.shopifyCustomerId) {
+          await db.customer.update({
+            where: { id: dbCustomer.id },
+            data: {
+              shopifyCustomerId: cleanShopifyId,
+              updatedAt: new Date()
+            }
+          });
+        }
+      }
       
       if (!dbCustomer) {
         // Create new customer if doesn't exist
@@ -361,8 +414,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           data: {
             id: uuidv4(),
             shop: session.shop,
-            shopifyCustomerId: shopifyCustomerId.replace('gid://shopify/Customer/', ''),
-            email: shopifyCustomer.email || `customer_${shopifyCustomerId}@shop.com`,
+            shopifyCustomerId: cleanShopifyId,
+            email: shopifyCustomer.email || shopifyCustomer.displayName || `customer_${cleanShopifyId}@shop.com`,
             storeCredit: totalStoreCredit,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -403,6 +456,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
       
+      console.log(`[Credit Sync] Sync completed successfully for customer ${dbCustomer.id}`);
+      
       return json({
         success: true,
         message: `Successfully synced store credit: ${formatCurrency(totalStoreCredit, null)} from ${storeCreditAccounts.length} account(s)`,
@@ -410,10 +465,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         customerId: dbCustomer.id
       });
     } catch (error) {
-      console.error("Error syncing store credit:", error);
+      console.error("[Credit Sync] Error syncing store credit:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return json({
         success: false,
-        error: "Failed to sync store credit from Shopify"
+        error: `Failed to sync store credit: ${errorMessage}`
       });
     }
   }
@@ -571,7 +627,15 @@ export default function CreditManagement() {
   
   // Handle sync modal
   const handleOpenSyncModal = useCallback(() => {
-    setSyncCustomerId(selectedCustomer?.shopifyCustomerId || "");
+    // Use the Shopify Customer ID from the selected customer
+    // If not available, allow manual entry
+    if (selectedCustomer?.shopifyCustomerId) {
+      // Ensure we don't have the gid:// prefix for display
+      const cleanId = selectedCustomer.shopifyCustomerId.replace('gid://shopify/Customer/', '');
+      setSyncCustomerId(cleanId);
+    } else {
+      setSyncCustomerId("");
+    }
     setShowSyncModal(true);
   }, [selectedCustomer]);
   
@@ -585,11 +649,18 @@ export default function CreditManagement() {
     
     const formData = new FormData();
     formData.append("actionType", "sync");
-    formData.append("shopifyCustomerId", syncCustomerId);
+    // Pass the clean ID without gid:// prefix
+    const cleanId = syncCustomerId.replace('gid://shopify/Customer/', '');
+    formData.append("shopifyCustomerId", cleanId);
+    
+    // Also pass the database customer ID if available
+    if (selectedCustomer?.id) {
+      formData.append("customerId", selectedCustomer.id);
+    }
     
     submit(formData, { method: "post" });
     handleCloseSyncModal();
-  }, [syncCustomerId, submit, handleCloseSyncModal]);
+  }, [syncCustomerId, selectedCustomer, submit, handleCloseSyncModal]);
   
   // Handle adjustment modal
   const handleOpenAdjustModal = useCallback((type: "add" | "remove") => {
@@ -999,8 +1070,8 @@ export default function CreditManagement() {
               label="Shopify Customer ID"
               value={syncCustomerId}
               onChange={setSyncCustomerId}
-              placeholder="e.g., 9224704164179 or gid://shopify/Customer/9224704164179"
-              helpText="Enter the Shopify Customer ID to sync their store credit balance"
+              placeholder="e.g., 9224704164179"
+              helpText="Enter the numeric Shopify Customer ID (without gid:// prefix)"
               autoComplete="off"
             />
             <Banner tone="info">
