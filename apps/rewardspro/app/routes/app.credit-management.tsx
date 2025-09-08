@@ -86,9 +86,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     // If a customer is selected, fetch their details and credit history
     if (customerId) {
-      // Try to find by database ID first
-      selectedCustomer = await db.customer.findUnique({
-        where: { id: customerId }
+      // SECURITY: Always scope to shop to prevent cross-tenant access
+      selectedCustomer = await db.customer.findFirst({
+        where: {
+          id: customerId,
+          shop: session.shop // CRITICAL: Prevent cross-tenant access
+        }
       });
       
       // If not found by database ID, try by Shopify customer ID
@@ -103,15 +106,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       
       if (selectedCustomer) {
         // Fetch tier separately (Data API doesn't support includes)
+        // SECURITY: Scope tier query to shop
         const tier = selectedCustomer.currentTierId 
-          ? await db.tier.findUnique({
-              where: { id: selectedCustomer.currentTierId }
+          ? await db.tier.findFirst({
+              where: { 
+                id: selectedCustomer.currentTierId,
+                shop: session.shop // CRITICAL: Prevent cross-tenant access
+              }
             })
           : null;
         
         // Fetch credit history
+        // SECURITY: Scope ledger query to shop
         const ledgerEntries = await db.storeCreditLedger.findMany({
-          where: { customerId },
+          where: { 
+            customerId,
+            shop: session.shop // CRITICAL: Prevent cross-tenant access
+          },
           orderBy: { createdAt: 'desc' },
           take: 50 // Last 50 transactions
         });
@@ -160,7 +171,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     const customerTiers = customerTierIds.length > 0
       ? await db.tier.findMany({
-          where: { id: { in: customerTierIds as string[] } }
+          where: { 
+            id: { in: customerTierIds as string[] },
+            shop: session.shop // CRITICAL: Prevent cross-tenant access
+          }
         })
       : [];
     
@@ -213,9 +227,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const actionType = formData.get("actionType") as string;
   const customerId = formData.get("customerId") as string;
-  const amount = parseFloat(formData.get("amount") as string || "0");
+  const amountStr = formData.get("amount") as string || "0";
+  const amount = parseFloat(amountStr);
   const reason = formData.get("reason") as string;
   const shopifyCustomerId = formData.get("shopifyCustomerId") as string;
+  
+  // Input validation for amount
+  if (actionType !== "sync") {
+    if (isNaN(amount) || !isFinite(amount)) {
+      return json({
+        success: false,
+        error: "Invalid amount provided"
+      });
+    }
+    
+    if (amount < 0) {
+      return json({
+        success: false,
+        error: "Amount cannot be negative"
+      });
+    }
+    
+    if (amount > 999999.99) {
+      return json({
+        success: false,
+        error: "Amount exceeds maximum allowed value"
+      });
+    }
+    
+    // Validate reason for manual adjustments
+    if ((actionType === "add" || actionType === "remove") && (!reason || reason.trim().length === 0)) {
+      return json({
+        success: false,
+        error: "Reason is required for manual adjustments"
+      });
+    }
+    
+    if (reason && reason.length > 500) {
+      return json({
+        success: false,
+        error: "Reason must be less than 500 characters"
+      });
+    }
+  }
   
   // Handle sync action
   if (actionType === "sync") {
@@ -282,8 +336,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const storeCreditAccounts = shopifyCustomer.storeCreditAccounts?.edges || [];
       
       for (const edge of storeCreditAccounts) {
-        const balance = parseFloat(edge.node.balance.amount || "0");
-        totalStoreCredit += balance;
+        const balanceStr = edge.node.balance.amount || "0";
+        const balance = parseFloat(balanceStr);
+        
+        // Validate balance is a valid number
+        if (!isNaN(balance) && isFinite(balance) && balance >= 0) {
+          totalStoreCredit += balance;
+        } else {
+          console.warn(`Invalid balance value from Shopify: ${balanceStr}`);
+        }
       }
       
       // Find or create customer in database
@@ -358,7 +419,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
   
   // Handle add/remove actions
-  if (!customerId || isNaN(amount) || amount === 0) {
+  if (!customerId || amount === 0) {
     return json({
       success: false,
       error: "Invalid input data"
@@ -367,8 +428,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   
   try {
     // Fetch customer
-    const customer = await db.customer.findUnique({
-      where: { id: customerId }
+    // SECURITY: Always scope to shop to prevent cross-tenant access
+    const customer = await db.customer.findFirst({
+      where: { 
+        id: customerId,
+        shop: session.shop // CRITICAL: Prevent cross-tenant access
+      }
     });
     
     if (!customer) {
