@@ -224,7 +224,7 @@ export function CustomerDetailModal({
         content: 'Close',
         onAction: onClose,
       }}
-      large
+      size="large"
     >
       <Modal.Section>
         {loading && (
@@ -257,7 +257,7 @@ export function CustomerDetailModal({
                           </InlineStack>
                           {details.tier && (
                             <Badge tone="success">
-                              {details.tier.name} ({details.tier.cashbackPercent}% cashback)
+                              {details.tier.name} ({details.tier.cashbackPercent.toString()}% cashback)
                             </Badge>
                           )}
                         </InlineStack>
@@ -266,30 +266,30 @@ export function CustomerDetailModal({
                         
                         <BlockStack gap="200">
                           <InlineStack align="space-between">
-                            <Text tone="subdued">Email</Text>
-                            <Text fontWeight="semibold">{details.customer.email}</Text>
+                            <Text as="span" tone="subdued">Email</Text>
+                            <Text as="span" fontWeight="semibold">{details.customer.email}</Text>
                           </InlineStack>
                           
                           <InlineStack align="space-between">
-                            <Text tone="subdued">Shopify ID</Text>
-                            <Text fontWeight="semibold">{details.customer.shopifyCustomerId}</Text>
+                            <Text as="span" tone="subdued">Shopify ID</Text>
+                            <Text as="span" fontWeight="semibold">{details.customer.shopifyCustomerId}</Text>
                           </InlineStack>
                           
                           <InlineStack align="space-between">
-                            <Text tone="subdued">Store Credit Balance</Text>
-                            <Text fontWeight="semibold" tone="success">
+                            <Text as="span" tone="subdued">Store Credit Balance</Text>
+                            <Text as="span" fontWeight="semibold" tone="success">
                               {formatAmount(details.customer.storeCredit)}
                             </Text>
                           </InlineStack>
                           
                           <InlineStack align="space-between">
-                            <Text tone="subdued">Customer Since</Text>
-                            <Text>{formatDate(details.customer.createdAt)}</Text>
+                            <Text as="span" tone="subdued">Customer Since</Text>
+                            <Text as="span">{formatDate(details.customer.createdAt)}</Text>
                           </InlineStack>
                           
                           <InlineStack align="space-between">
-                            <Text tone="subdued">Last Updated</Text>
-                            <Text>{formatDate(details.customer.updatedAt)}</Text>
+                            <Text as="span" tone="subdued">Last Updated</Text>
+                            <Text as="span">{formatDate(details.customer.updatedAt)}</Text>
                           </InlineStack>
                         </BlockStack>
                       </BlockStack>
@@ -308,23 +308,23 @@ export function CustomerDetailModal({
                           
                           <BlockStack gap="200">
                             <InlineStack align="space-between">
-                              <Text tone="subdued">Tier Name</Text>
+                              <Text as="span" tone="subdued">Tier Name</Text>
                               <Badge tone="success">{details.tier.name}</Badge>
                             </InlineStack>
                             
                             <InlineStack align="space-between">
-                              <Text tone="subdued">Cashback Rate</Text>
-                              <Text fontWeight="semibold">{details.tier.cashbackPercent}%</Text>
+                              <Text as="span" tone="subdued">Cashback Rate</Text>
+                              <Text as="span" fontWeight="semibold">{details.tier.cashbackPercent}%</Text>
                             </InlineStack>
                             
                             <InlineStack align="space-between">
-                              <Text tone="subdued">Minimum Spend</Text>
-                              <Text>{formatAmount(details.tier.minSpend)}</Text>
+                              <Text as="span" tone="subdued">Minimum Spend</Text>
+                              <Text as="span">{formatAmount(details.tier.minSpend)}</Text>
                             </InlineStack>
                             
                             <InlineStack align="space-between">
-                              <Text tone="subdued">Evaluation Period</Text>
-                              <Text>{details.tier.evaluationPeriod}</Text>
+                              <Text as="span" tone="subdued">Evaluation Period</Text>
+                              <Text as="span">{details.tier.evaluationPeriod}</Text>
                             </InlineStack>
                           </BlockStack>
                         </BlockStack>
@@ -346,11 +346,11 @@ export function CustomerDetailModal({
                               <BlockStack gap="100">
                                 <InlineStack gap="200">
                                   <Icon source={PackageIcon} tone="base" />
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text as="span" variant="headingSm" fontWeight="semibold">
                                     {order.name}
                                   </Text>
                                 </InlineStack>
-                                <Text variant="bodySm" tone="subdued">
+                                <Text as="span" variant="bodySm" tone="subdued">
                                   {formatDate(order.createdAt)}
                                 </Text>
                               </BlockStack>
@@ -358,7 +358,7 @@ export function CustomerDetailModal({
                               <InlineStack gap="200">
                                 <Badge tone="info">{order.financialStatus}</Badge>
                                 <Badge>{order.fulfillmentStatus}</Badge>
-                                <Text fontWeight="semibold">
+                                <Text as="span" fontWeight="semibold">
                                   {formatAmount(order.total.amount)}
                                 </Text>
                                 <Button
@@ -376,15 +376,15 @@ export function CustomerDetailModal({
                               <Box paddingBlockStart="300">
                                 <BlockStack gap="200">
                                   <Divider />
-                                  <Text variant="headingSm" tone="subdued">Line Items</Text>
+                                  <Text as="span" variant="headingSm" tone="subdued">Line Items</Text>
                                   <List>
                                     {order.lineItems.map((item, index) => (
                                       <List.Item key={index}>
                                         <InlineStack align="space-between">
-                                          <Text>
+                                          <Text as="span">
                                             {item.title} × {item.quantity}
                                           </Text>
-                                          <Text fontWeight="semibold">
+                                          <Text as="span" fontWeight="semibold">
                                             {formatAmount(item.total.amount)}
                                           </Text>
                                         </InlineStack>
@@ -401,7 +401,7 @@ export function CustomerDetailModal({
                       <Card>
                         <BlockStack gap="200" align="center">
                           <Icon source={PackageIcon} tone="subdued" />
-                          <Text tone="subdued">No orders found</Text>
+                          <Text as="span" tone="subdued">No orders found</Text>
                         </BlockStack>
                       </Card>
                     )}
@@ -420,6 +420,7 @@ export function CustomerDetailModal({
                         formatDate(entry.createdAt),
                         getLedgerTypeBadge(entry.type),
                         <Text
+                          as="span"
                           tone={parseFloat(entry.amount) > 0 ? 'success' : 'critical'}
                           fontWeight="semibold"
                         >
@@ -433,7 +434,7 @@ export function CustomerDetailModal({
                     <Card>
                       <BlockStack gap="200" align="center">
                         <Icon source={CashDollarIcon} tone="subdued" />
-                        <Text tone="subdued">No credit history</Text>
+                        <Text as="span" tone="subdued">No credit history</Text>
                       </BlockStack>
                     </Card>
                   )}
@@ -451,11 +452,11 @@ export function CustomerDetailModal({
                             <InlineStack align="space-between">
                               <InlineStack gap="200">
                                 <Icon source={ClockIcon} tone="base" />
-                                <Text variant="headingSm">
+                                <Text as="span" variant="headingSm">
                                   {log.changeType.replace(/_/g, ' ')}
                                 </Text>
                               </InlineStack>
-                              <Text variant="bodySm" tone="subdued">
+                              <Text as="span" variant="bodySm" tone="subdued">
                                 {formatDate(log.createdAt)}
                               </Text>
                             </InlineStack>
@@ -465,7 +466,7 @@ export function CustomerDetailModal({
                                 <Badge>{log.fromTierName}</Badge>
                               )}
                               {log.fromTierName && log.toTierName && (
-                                <Text>→</Text>
+                                <Text as="span">→</Text>
                               )}
                               {log.toTierName && (
                                 <Badge tone="success">{log.toTierName}</Badge>
@@ -473,15 +474,15 @@ export function CustomerDetailModal({
                             </InlineStack>
                             
                             {log.note && (
-                              <Text variant="bodySm" tone="subdued">{log.note}</Text>
+                              <Text as="span" variant="bodySm" tone="subdued">{log.note}</Text>
                             )}
                             
                             <InlineStack gap="400">
-                              <Text variant="bodySm" tone="subdued">
+                              <Text as="span" variant="bodySm" tone="subdued">
                                 Trigger: {log.triggerType.replace(/_/g, ' ').toLowerCase()}
                               </Text>
                               {log.totalSpending && (
-                                <Text variant="bodySm" tone="subdued">
+                                <Text as="span" variant="bodySm" tone="subdued">
                                   Total spent: {formatAmount(log.totalSpending)}
                                 </Text>
                               )}
@@ -493,7 +494,7 @@ export function CustomerDetailModal({
                       <Card>
                         <BlockStack gap="200" align="center">
                           <Icon source={ClockIcon} tone="subdued" />
-                          <Text tone="subdued">No tier changes recorded</Text>
+                          <Text as="span" tone="subdued">No tier changes recorded</Text>
                         </BlockStack>
                       </Card>
                     )}

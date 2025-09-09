@@ -317,7 +317,7 @@ function TierIcon({ tierName }: { tierName: string }) {
     return <Icon source={StarFilledIcon} tone="emphasis" />;
   }
   if (name.includes('gold')) {
-    return <Icon source={StarFilledIcon} tone="warning" />;
+    return <Icon source={StarFilledIcon} tone="caution" />;
   }
   if (name.includes('silver')) {
     return <Icon source={StarIcon} tone="subdued" />;
@@ -509,7 +509,7 @@ export default function Customers() {
     { label: "All tiers", value: "all" },
     { label: "No tier", value: "none" },
     ...data.tiers.map(tier => ({
-      label: `${tier.name} (${tier.cashbackPercent}%)`,
+      label: `${tier.name} (${String(tier.cashbackPercent)}%)`,
       value: tier.id,
     })),
   ];
@@ -531,17 +531,17 @@ export default function Customers() {
     if (fetcher.state === "idle" && fetcher.data && calculatingCustomerId) {
       setCalculatingCustomerId(null);
       
-      if (fetcher.data.success) {
+      if ('success' in fetcher.data && fetcher.data.success) {
         setToast({
           active: true,
-          content: fetcher.data.message,
+          content: 'message' in fetcher.data ? String(fetcher.data.message) : 'Success',
           error: false,
           duration: 4000,
         });
       } else {
         setToast({
           active: true,
-          content: fetcher.data.message,
+          content: 'message' in fetcher.data ? String(fetcher.data.message) : 'Error',
           error: true,
           duration: 4000,
         });
@@ -607,11 +607,11 @@ export default function Customers() {
             {`${customer.currentTier.name}`}
           </Badge>
           <Text variant="bodySm" tone="subdued" as="span">
-            {customer.currentTier.cashbackPercent}%
+            {String(customer.currentTier.cashbackPercent)}%
           </Text>
         </InlineStack>
       ) : (
-        <Badge tone="warning">No tier</Badge>
+        <Badge tone="attention">No tier</Badge>
       ),
       <BlockStack gap="050">
         <Text variant="bodyMd" fontWeight="semibold" as="span">
@@ -639,9 +639,8 @@ export default function Customers() {
             onClick={() => handleCalculateSingle(customer.id)}
             loading={isProcessing}
             accessibilityLabel={`Recalculate tier for ${customer.email}`}
-          >
-            {isProcessing ? <Spinner size="small" /> : <Icon source={RefreshIcon} />}
-          </Button>
+            icon={RefreshIcon}
+          />
         </Tooltip>
       </InlineStack>
     ];
@@ -709,8 +708,8 @@ export default function Customers() {
                     title="Without Tiers"
                     value={data.customers.filter(c => !c.currentTier).length}
                     icon={AlertTriangleIcon}
-                    tone="warning"
-                    badge={{ content: "Needs attention", tone: "warning" }}
+                    tone="attention"
+                    badge={{ content: "Needs attention", tone: "attention" }}
                     delay={100}
                   />
                 </Grid.Cell>
@@ -753,7 +752,7 @@ export default function Customers() {
                                 <Text variant="bodyMd" fontWeight="medium" as="span">
                                   {tier.tierName}
                                 </Text>
-                                <Badge tone={tier.tierName === "No Tier" ? "warning" : "info"}>
+                                <Badge tone={tier.tierName === "No Tier" ? "attention" : "info"}>
                                   {tier.count} customers
                                 </Badge>
                               </InlineStack>
@@ -765,7 +764,7 @@ export default function Customers() {
                               <ProgressBar 
                                 progress={tier.percentage} 
                                 size="small"
-                                tone={tier.tierName === "No Tier" ? "warning" : "emphasis"}
+                                tone={tier.tierName === "No Tier" ? "attention" : undefined}
                               />
                             </div>
                           </BlockStack>
@@ -845,7 +844,7 @@ export default function Customers() {
 
               {/* Collapsible Advanced Section */}
               <Card>
-                <Card.Section>
+                <Box padding="400">
                   <Button
                     fullWidth
                     textAlign="left"
@@ -856,14 +855,14 @@ export default function Customers() {
                   >
                     {showAdvanced ? 'Hide' : 'Show'} Calculation Details
                   </Button>
-                </Card.Section>
+                </Box>
                 
                 <Collapsible
                   open={showAdvanced}
                   id="advanced-info"
                   transition={{ duration: '200ms', timingFunction: 'ease-out' }}
                 >
-                  <Card.Section>
+                  <Box padding="400">
                     <Grid columns={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2 }}>
                       <Grid.Cell>
                         <BlockStack gap="400">
@@ -924,11 +923,8 @@ export default function Customers() {
                           </InlineStack>
                           
                           <BlockStack gap="300">
-                            <Button fullWidth onClick={handleCalculateAll} loading={isLoading}>
-                              <InlineStack gap="100">
-                                <Icon source={RefreshIcon} />
-                                Recalculate All Tiers
-                              </InlineStack>
+                            <Button fullWidth onClick={handleCalculateAll} loading={isLoading} icon={RefreshIcon}>
+                              Recalculate All Tiers
                             </Button>
                             
                             <Text variant="bodySm" tone="subdued" as="p">
@@ -948,7 +944,7 @@ export default function Customers() {
                         </BlockStack>
                       </Grid.Cell>
                     </Grid>
-                  </Card.Section>
+                  </Box>
                 </Collapsible>
               </Card>
             </BlockStack>
