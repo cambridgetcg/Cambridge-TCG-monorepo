@@ -190,7 +190,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.storeCreditLedger.findMany({
         where: { 
           shop,
-          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }
         },
         orderBy: { createdAt: 'desc' },
       }),
