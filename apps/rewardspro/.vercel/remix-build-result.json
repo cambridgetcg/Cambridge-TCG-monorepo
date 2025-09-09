@@ -26,6 +26,7 @@
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-tester": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -187,6 +188,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.graphql-test.tsx",
         "path": "graphql-test",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.analytics": {
+        "id": "routes/app.analytics",
+        "parentId": "routes/app",
+        "file": "app/routes/app.analytics.tsx",
+        "path": "analytics",
         "config": {
           "runtime": "nodejs"
         }
@@ -367,6 +377,12 @@
         "parentId": "routes/app",
         "file": "routes/app.graphql-test.tsx",
         "path": "graphql-test"
+      },
+      "routes/app.analytics": {
+        "id": "routes/app.analytics",
+        "parentId": "routes/app",
+        "file": "routes/app.analytics.tsx",
+        "path": "analytics"
       },
       "routes/app.customers": {
         "id": "routes/app.customers",
