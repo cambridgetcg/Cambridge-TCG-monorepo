@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { useState, useCallback, useMemo } from "react";
+import { useLoaderData } from "@remix-run/react";
+import { useState, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -12,34 +12,24 @@ import {
   Button,
   Icon,
   Box,
-  ProgressBar,
   Badge,
   Divider,
-  Grid,
   EmptyState,
   DataTable,
+  Grid,
+  ProgressBar,
   Tabs,
   Banner,
-  SkeletonBodyText,
-  SkeletonDisplayText,
-  Tooltip,
-  Link,
 } from "@shopify/polaris";
 import {
   PersonIcon,
   CashDollarIcon,
+  StarFilledIcon,
   ChartVerticalIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  RefreshIcon,
   PlusIcon,
   SettingsIcon,
-  QuestionCircleIcon,
-  StarFilledIcon,
-  CheckCircleIcon,
+  RefreshIcon,
   AlertTriangleIcon,
-  EmailIcon,
-  EditIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -49,73 +39,73 @@ import { formatCurrency } from "../utils/currency";
 // TYPE DEFINITIONS
 // ============================================
 
-interface DashboardMetrics {
-  totalCustomers: number;
-  totalStoreCredit: number;
-  activeTiers: number;
-  averageCredit: number;
-  customersGrowth: number; // Percentage change
-  creditGrowth: number; // Percentage change
-  topTier: { name: string; count: number } | null;
-  recentSignups: number;
-}
-
-interface TierDistribution {
-  name: string;
-  count: number;
-  percentage: number;
-  cashbackPercent: number;
-  totalCredit: number;
-}
-
-interface RecentTransaction {
-  id: string;
-  type: string;
-  amount: number;
-  customerEmail: string;
-  customerName?: string;
-  createdAt: string;
-  metadata?: any;
-}
-
-interface QuickStat {
-  label: string;
-  value: string | number;
-  change?: number;
-  tone?: "positive" | "negative" | "neutral";
-  icon: any;
+interface DashboardData {
+  shop: string;
+  metrics: {
+    totalCustomers: number;
+    totalStoreCredit: number;
+    activeTiers: number;
+    averageCredit: number;
+    customersWithCredit: number;
+    customersWithTiers: number;
+  };
+  tierDistribution: Array<{
+    id: string;
+    name: string;
+    count: number;
+    percentage: number;
+    cashbackPercent: number;
+    totalCredit: number;
+    minSpend: number;
+  }>;
+  recentTransactions: Array<{
+    id: string;
+    type: string;
+    amount: number;
+    balance: number;
+    customerEmail: string;
+    createdAt: string;
+    metadata: any;
+  }>;
+  topCustomers: Array<{
+    id: string;
+    email: string;
+    storeCredit: number;
+    tierName: string | null;
+  }>;
+  setupComplete: boolean;
+  shopSettings: {
+    storeCurrency: string;
+    currencyDisplayType: string;
+  } | null;
 }
 
 // ============================================
-// LOADER - Fetch comprehensive dashboard data
+// LOADER - Fetch dashboard data
 // ============================================
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { session } = await authenticate.admin(request);
-
+    
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
     }
 
     const shop = session.shop;
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    console.log(`[Dashboard] Loading data for shop: ${shop}`);
 
-    // Parallel data fetching for performance
+    // Fetch all data in parallel for performance
     const [
       shopSettings,
       customers,
       tiers,
       recentTransactions,
-      last30DaysCustomers,
-      last7DaysCustomers,
-      totalCreditSum,
-      creditLast30Days,
     ] = await Promise.all([
       // Shop settings
-      db.shopSettings.findUnique({ where: { shop } }),
+      db.shopSettings.findUnique({ 
+        where: { shop } 
+      }),
       
       // All customers with tier info
       db.customer.findMany({
@@ -123,6 +113,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         include: {
           currentTier: true,
         },
+        orderBy: { storeCredit: 'desc' },
       }),
       
       // All tiers
@@ -131,11 +122,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderBy: { minSpend: 'asc' },
       }),
       
-      // Recent transactions
+      // Recent transactions (last 20)
       db.storeCreditLedger.findMany({
         where: { shop },
         orderBy: { createdAt: 'desc' },
-        take: 10,
+        take: 20,
         include: {
           customer: {
             select: {
@@ -145,60 +136,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           },
         },
       }),
-      
-      // Customers created in last 30 days
-      db.customer.count({
-        where: {
-          shop,
-          createdAt: { gte: thirtyDaysAgo },
-        },
-      }),
-      
-      // Customers created in last 7 days
-      db.customer.count({
-        where: {
-          shop,
-          createdAt: { gte: sevenDaysAgo },
-        },
-      }),
-      
-      // Total store credit
-      db.customer.aggregate({
-        where: { shop },
-        _sum: { storeCredit: true },
-      }),
-      
-      // Credit earned in last 30 days
-      db.storeCreditLedger.aggregate({
-        where: {
-          shop,
-          createdAt: { gte: thirtyDaysAgo },
-          type: { in: ['CASHBACK_EARNED', 'MANUAL_ADJUSTMENT'] },
-          amount: { gt: 0 },
-        },
-        _sum: { amount: true },
-      }),
     ]);
 
+    console.log(`[Dashboard] Fetched data - Customers: ${customers.length}, Tiers: ${tiers.length}, Transactions: ${recentTransactions.length}`);
+
+    // Calculate metrics
+    const totalCustomers = customers.length;
+    const totalStoreCredit = customers.reduce((sum, c) => 
+      sum + parseFloat(c.storeCredit.toString()), 0
+    );
+    const activeTiers = tiers.length;
+    const averageCredit = totalCustomers > 0 ? totalStoreCredit / totalCustomers : 0;
+    const customersWithCredit = customers.filter(c => parseFloat(c.storeCredit.toString()) > 0).length;
+    const customersWithTiers = customers.filter(c => c.currentTierId).length;
+
     // Calculate tier distribution
-    const tierDistribution: TierDistribution[] = tiers.map(tier => {
+    const tierDistribution = tiers.map(tier => {
       const customersInTier = customers.filter(c => c.currentTierId === tier.id);
       const totalCreditInTier = customersInTier.reduce((sum, c) => 
         sum + parseFloat(c.storeCredit.toString()), 0
       );
       
       return {
+        id: tier.id,
         name: tier.name,
         count: customersInTier.length,
-        percentage: customers.length > 0 
-          ? (customersInTier.length / customers.length) * 100 
-          : 0,
+        percentage: totalCustomers > 0 ? (customersInTier.length / totalCustomers) * 100 : 0,
         cashbackPercent: tier.cashbackPercent,
         totalCredit: totalCreditInTier,
+        minSpend: tier.minSpend,
       };
     });
 
-    // Add "No Tier" category
+    // Add "No Tier" category if there are customers without tiers
     const noTierCustomers = customers.filter(c => !c.currentTierId);
     if (noTierCustomers.length > 0) {
       const totalCreditNoTier = noTierCustomers.reduce((sum, c) => 
@@ -206,67 +176,65 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       );
       
       tierDistribution.push({
+        id: 'no-tier',
         name: "No Tier",
         count: noTierCustomers.length,
-        percentage: (noTierCustomers.length / customers.length) * 100,
+        percentage: totalCustomers > 0 ? (noTierCustomers.length / totalCustomers) * 100 : 0,
         cashbackPercent: 0,
         totalCredit: totalCreditNoTier,
+        minSpend: 0,
       });
     }
 
-    // Calculate growth metrics
-    const customersGrowth = customers.length > 0 
-      ? (last30DaysCustomers / customers.length) * 100 
-      : 0;
-    
-    const totalCredit = parseFloat(totalCreditSum._sum.storeCredit?.toString() || "0");
-    const creditEarnedRecently = parseFloat(creditLast30Days._sum.amount?.toString() || "0");
-    const creditGrowth = totalCredit > 0 
-      ? (creditEarnedRecently / totalCredit) * 100 
-      : 0;
+    // Sort tier distribution by customer count
+    tierDistribution.sort((a, b) => b.count - a.count);
 
-    // Find top tier
-    const topTier = tierDistribution.length > 0 
-      ? tierDistribution.reduce((max, tier) => 
-          tier.count > max.count ? tier : max, tierDistribution[0])
-      : null;
+    // Get top customers with store credit
+    const topCustomers = customers
+      .slice(0, 5)
+      .map(c => ({
+        id: c.id,
+        email: c.email,
+        storeCredit: parseFloat(c.storeCredit.toString()),
+        tierName: c.currentTier?.name || null,
+      }));
 
-    // Prepare metrics
-    const metrics: DashboardMetrics = {
-      totalCustomers: customers.length,
-      totalStoreCredit: totalCredit,
-      activeTiers: tiers.length,
-      averageCredit: customers.length > 0 ? totalCredit / customers.length : 0,
-      customersGrowth: Math.round(customersGrowth * 10) / 10,
-      creditGrowth: Math.round(creditGrowth * 10) / 10,
-      topTier: topTier ? { name: topTier.name, count: topTier.count } : null,
-      recentSignups: last7DaysCustomers,
-    };
-
-    // Format recent transactions
-    const formattedTransactions: RecentTransaction[] = recentTransactions.map(tx => ({
+    // Format recent transactions for display
+    const formattedTransactions = recentTransactions.map(tx => ({
       id: tx.id,
       type: tx.type,
       amount: parseFloat(tx.amount.toString()),
+      balance: parseFloat(tx.balance.toString()),
       customerEmail: tx.customer?.email || "Unknown",
-      createdAt: tx.createdAt.toISOString(),
+      createdAt: new Date(tx.createdAt).toLocaleDateString(),
       metadata: tx.metadata,
     }));
 
     // Check if setup is complete
-    const setupComplete = tiers.length > 0 && shopSettings !== null;
+    const setupComplete = tiers.length > 0;
 
-    return json({
+    const dashboardData: DashboardData = {
       shop,
-      metrics,
-      tierDistribution: tierDistribution.sort((a, b) => b.count - a.count),
+      metrics: {
+        totalCustomers,
+        totalStoreCredit,
+        activeTiers,
+        averageCredit,
+        customersWithCredit,
+        customersWithTiers,
+      },
+      tierDistribution,
       recentTransactions: formattedTransactions,
+      topCustomers,
       setupComplete,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType,
       } : null,
-    });
+    };
+
+    console.log(`[Dashboard] Returning data for ${shop}`);
+    return json(dashboardData);
   } catch (error) {
     console.error("[Dashboard] Loader error:", error);
     throw new Response("Failed to load dashboard data", { status: 500 });
@@ -278,50 +246,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============================================
 
 export default function Dashboard() {
-  const { 
-    metrics, 
-    tierDistribution, 
-    recentTransactions, 
-    setupComplete,
-    shopSettings 
-  } = useLoaderData<typeof loader>();
-  
-  const navigate = useNavigate();
+  const data = useLoaderData<typeof loader>() as DashboardData;
   const [selectedTab, setSelectedTab] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
-    return formatCurrency(amount, shopSettings as any);
-  }, [shopSettings]);
-
-  // Format relative time
-  const formatRelativeTime = useCallback((date: string) => {
-    const timestamp = new Date(date);
-    const now = new Date();
-    const diffMs = now.getTime() - timestamp.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 30) return `${diffDays}d ago`;
-    return timestamp.toLocaleDateString();
-  }, []);
-
-  // Get transaction type label and tone
-  const getTransactionDisplay = useCallback((type: string) => {
-    const displays: Record<string, { label: string; tone: "success" | "critical" | "warning" | "info" }> = {
-      CASHBACK_EARNED: { label: "Cashback Earned", tone: "success" },
-      ORDER_PAYMENT: { label: "Credit Used", tone: "info" },
-      REFUND_CREDIT: { label: "Refund Credit", tone: "warning" },
-      MANUAL_ADJUSTMENT: { label: "Manual Adjustment", tone: "info" },
-      SHOPIFY_SYNC: { label: "Synced", tone: "info" },
-    };
-    return displays[type] || { label: type, tone: "info" };
-  }, []);
+    return formatCurrency(amount, data.shopSettings as any);
+  }, [data.shopSettings]);
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
@@ -329,53 +261,46 @@ export default function Dashboard() {
     window.location.reload();
   }, []);
 
-  // Quick stats for metric cards
-  const quickStats: QuickStat[] = useMemo(() => [
-    {
-      label: "Total Customers",
-      value: metrics.totalCustomers.toLocaleString(),
-      change: metrics.customersGrowth,
-      tone: metrics.customersGrowth > 0 ? "positive" : "neutral",
-      icon: PersonIcon,
-    },
-    {
-      label: "Store Credit",
-      value: formatAmount(metrics.totalStoreCredit),
-      change: metrics.creditGrowth,
-      tone: metrics.creditGrowth > 0 ? "positive" : "neutral",
-      icon: CashDollarIcon,
-    },
-    {
-      label: "Active Tiers",
-      value: metrics.activeTiers,
-      icon: StarFilledIcon,
-    },
-    {
-      label: "Avg. Credit/Customer",
-      value: formatAmount(metrics.averageCredit),
-      icon: ChartVerticalIcon,
-    },
-  ], [metrics, formatAmount]);
-
-  // Tabs for different views
+  // Tab configuration
   const tabs = [
-    { id: "overview", content: "Overview", panelID: "overview-panel" },
-    { id: "activity", content: "Recent Activity", badge: recentTransactions.length.toString(), panelID: "activity-panel" },
-    { id: "insights", content: "Insights", panelID: "insights-panel" },
+    { id: 'overview', content: 'Overview', panelID: 'overview-panel' },
+    { id: 'activity', content: 'Recent Activity', panelID: 'activity-panel' },
+    { id: 'insights', content: 'Insights', panelID: 'insights-panel' },
   ];
 
-  // ============================================
-  // RENDER
-  // ============================================
+  // If setup is not complete, show onboarding
+  if (!data.setupComplete) {
+    return (
+      <Page title="Welcome to RewardsPro">
+        <Layout>
+          <Layout.Section>
+            <EmptyState
+              heading="Get started with RewardsPro"
+              action={{
+                content: "Create your first tier",
+                url: "/app/tiers",
+              }}
+              secondaryAction={{
+                content: "Configure settings",
+                url: "/app/settings",
+              }}
+              image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+            >
+              <p>Set up loyalty tiers and start rewarding your customers with cashback.</p>
+            </EmptyState>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
+  }
 
   return (
-    <Page
-      title="RewardsPro Dashboard"
-      subtitle="Monitor your loyalty program performance"
+    <Page 
+      title="Dashboard"
       primaryAction={{
-        content: "Add Customer",
+        content: "Add customer",
         icon: PlusIcon,
-        onAction: () => navigate("/app/customers"),
+        url: "/app/customers",
       }}
       secondaryActions={[
         {
@@ -384,125 +309,128 @@ export default function Dashboard() {
           onAction: handleRefresh,
           loading: isRefreshing,
         },
-        {
-          content: "Settings",
-          icon: SettingsIcon,
-          onAction: () => navigate("/app/settings"),
-        },
       ]}
     >
       <Layout>
-        {/* Setup Banner if not complete */}
-        {!setupComplete && (
-          <Layout.Section>
-            <Banner
-              title="Complete your setup"
-              tone="warning"
-              action={{
-                content: "Finish setup",
-                onAction: () => navigate("/app/tiers"),
-              }}
-            >
-              <p>Create loyalty tiers to start rewarding your customers.</p>
-            </Banner>
-          </Layout.Section>
-        )}
-
-        {/* Metrics Cards - Symmetrical Balance */}
         <Layout.Section>
-          <BlockStack gap="600">
-            {/* Primary Metrics */}
-            <Grid columns={{ xs: 1, sm: 2, md: 4, lg: 4, xl: 4 }}>
-              {quickStats.map((stat) => (
-                <Grid.Cell key={stat.label}>
-                  <Card>
-                    <Box padding="400">
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between">
-                          <Icon source={stat.icon} tone="base" />
-                          {stat.change !== undefined && (
-                            <Badge
-                              tone={stat.tone === "positive" ? "success" : "info"}
-                              icon={stat.change > 0 ? ArrowUpIcon : ArrowDownIcon}
-                            >
-                              {`${Math.abs(stat.change)}%`}
-                            </Badge>
-                          )}
-                        </InlineStack>
-                        <BlockStack gap="100">
-                          <Text variant="bodySm" tone="subdued" as="p">
-                            {stat.label}
-                          </Text>
-                          <Text variant="heading2xl" as="h2">
-                            {stat.value}
-                          </Text>
-                        </BlockStack>
+          {/* Key Metrics - Following 60-30-10 rule */}
+          <BlockStack gap="500">
+            <Grid>
+              {/* Primary Metrics (60% visual weight) */}
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Icon source={PersonIcon} tone="base" />
+                        {data.metrics.customersWithTiers > 0 && (
+                          <Badge tone="success">
+                            {`${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% in tiers`}
+                          </Badge>
+                        )}
+                      </InlineStack>
+                      <BlockStack gap="100">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Total Customers
+                        </Text>
+                        <Text variant="heading2xl" as="h3">
+                          {data.metrics.totalCustomers}
+                        </Text>
                       </BlockStack>
-                    </Box>
-                  </Card>
-                </Grid.Cell>
-              ))}
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Icon source={CashDollarIcon} tone="success" />
+                        {data.metrics.customersWithCredit > 0 && (
+                          <Badge tone="info">
+                            {`${data.metrics.customersWithCredit} active`}
+                          </Badge>
+                        )}
+                      </InlineStack>
+                      <BlockStack gap="100">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Total Store Credit
+                        </Text>
+                        <Text variant="heading2xl" as="h3">
+                          {formatAmount(data.metrics.totalStoreCredit)}
+                        </Text>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              {/* Secondary Metrics (30% visual weight) */}
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Icon source={StarFilledIcon} tone="warning" />
+                      <BlockStack gap="100">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Active Tiers
+                        </Text>
+                        <Text variant="heading2xl" as="h3">
+                          {data.metrics.activeTiers}
+                        </Text>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Icon source={ChartVerticalIcon} tone="info" />
+                      <BlockStack gap="100">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Average Credit
+                        </Text>
+                        <Text variant="heading2xl" as="h3">
+                          {formatAmount(data.metrics.averageCredit)}
+                        </Text>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
             </Grid>
 
-            {/* Welcome Message & Quick Stats */}
-            {metrics.recentSignups > 0 && (
-              <Card>
-                <Box padding="400" background="bg-surface-success">
-                  <InlineStack gap="400" align="center">
-                    <Icon source={StarFilledIcon} tone="success" />
-                    <Text variant="bodyMd" as="p">
-                      <Text variant="bodyMd" fontWeight="semibold" as="span">
-                        {metrics.recentSignups} new customers
-                      </Text>
-                      {" "}joined in the last 7 days!
-                    </Text>
-                  </InlineStack>
-                </Box>
-              </Card>
-            )}
-          </BlockStack>
-        </Layout.Section>
-
-        {/* Main Content Area - Tabbed Interface */}
-        <Layout.Section>
-          <Card>
-            <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
-              <Box padding="400">
+            {/* Tabbed Content Area */}
+            <Card>
+              <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
                 {/* Overview Tab */}
                 {selectedTab === 0 && (
-                  <BlockStack gap="600">
-                    {/* Tier Distribution */}
-                    <BlockStack gap="400">
-                      <InlineStack align="space-between">
-                        <Text variant="headingMd" as="h3">
+                  <Box padding="400">
+                    <BlockStack gap="500">
+                      {/* Tier Distribution */}
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h2">
                           Tier Distribution
                         </Text>
-                        <Button
-                          variant="plain"
-                          onClick={() => navigate("/app/tiers")}
-                        >
-                          Manage Tiers
-                        </Button>
-                      </InlineStack>
-
-                      {tierDistribution.length > 0 ? (
-                        <BlockStack gap="300">
-                          {tierDistribution.map((tier) => (
-                            <Box key={tier.name}>
-                              <BlockStack gap="200">
+                        {data.tierDistribution.length > 0 ? (
+                          <BlockStack gap="300">
+                            {data.tierDistribution.map((tier) => (
+                              <BlockStack key={tier.id} gap="200">
                                 <InlineStack align="space-between">
-                                  <InlineStack gap="200" align="center">
+                                  <InlineStack gap="300" align="start">
                                     <Icon 
                                       source={tier.name === "No Tier" ? AlertTriangleIcon : StarFilledIcon}
-                                      tone={tier.name === "No Tier" ? "warning" : "base"}
+                                      tone={tier.name === "No Tier" ? "caution" : "base"}
                                     />
-                                    <BlockStack gap="050">
-                                      <Text variant="bodyMd" fontWeight="semibold" as="p">
-                                        {tier.name}
-                                      </Text>
-                                      <InlineStack gap="200">
-                                        <Text variant="bodySm" tone="subdued" as="span">
-                                          {tier.count} customers ({tier.percentage.toFixed(1)}%)
+                                    <BlockStack gap="100">
+                                      <InlineStack gap="200" align="start">
+                                        <Text variant="bodyMd" fontWeight="semibold" as="p">
+                                          {tier.name}
                                         </Text>
                                         {tier.cashbackPercent > 0 && (
                                           <Badge tone="info">
@@ -510,10 +438,13 @@ export default function Dashboard() {
                                           </Badge>
                                         )}
                                       </InlineStack>
+                                      <Text variant="bodySm" tone="subdued" as="p">
+                                        {tier.count} customers • {formatAmount(tier.totalCredit)} total credit
+                                      </Text>
                                     </BlockStack>
                                   </InlineStack>
-                                  <Text variant="bodyMd" as="p">
-                                    {formatAmount(tier.totalCredit)}
+                                  <Text variant="bodyLg" fontWeight="semibold" as="p">
+                                    {tier.percentage.toFixed(1)}%
                                   </Text>
                                 </InlineStack>
                                 <ProgressBar
@@ -522,392 +453,226 @@ export default function Dashboard() {
                                   tone={tier.name === "No Tier" ? "critical" : "success"}
                                 />
                               </BlockStack>
-                            </Box>
-                          ))}
+                            ))}
+                          </BlockStack>
+                        ) : (
+                          <EmptyState
+                            heading="No tier data yet"
+                            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                          >
+                            <p>Tier distribution will appear here once you have customers.</p>
+                          </EmptyState>
+                        )}
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Top Customers */}
+                      {data.topCustomers.length > 0 && (
+                        <BlockStack gap="400">
+                          <Text variant="headingMd" as="h2">
+                            Top Customers by Credit
+                          </Text>
+                          <DataTable
+                            columnContentTypes={["text", "text", "numeric"]}
+                            headings={["Customer", "Tier", "Store Credit"]}
+                            rows={data.topCustomers.map(customer => [
+                              customer.email,
+                              customer.tierName || "No Tier",
+                              formatAmount(customer.storeCredit),
+                            ])}
+                          />
                         </BlockStack>
+                      )}
+                    </BlockStack>
+                  </Box>
+                )}
+
+                {/* Recent Activity Tab */}
+                {selectedTab === 1 && (
+                  <Box padding="400">
+                    <BlockStack gap="400">
+                      <Text variant="headingMd" as="h2">
+                        Recent Transactions
+                      </Text>
+                      {data.recentTransactions.length > 0 ? (
+                        <DataTable
+                          columnContentTypes={["text", "text", "numeric", "numeric", "text"]}
+                          headings={["Customer", "Type", "Amount", "Balance", "Date"]}
+                          rows={data.recentTransactions.slice(0, 10).map(tx => [
+                            tx.customerEmail,
+                            tx.type.replace(/_/g, ' ').toLowerCase(),
+                            formatAmount(tx.amount),
+                            formatAmount(tx.balance),
+                            tx.createdAt,
+                          ])}
+                        />
                       ) : (
                         <EmptyState
-                          heading="No tiers yet"
+                          heading="No transactions yet"
                           image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                          action={{
-                            content: "Create first tier",
-                            onAction: () => navigate("/app/tiers"),
-                          }}
                         >
-                          <p>Set up loyalty tiers to categorize customers.</p>
+                          <p>Transactions will appear here when customers earn or use store credit.</p>
                         </EmptyState>
                       )}
                     </BlockStack>
-
-                    <Divider />
-
-                    {/* Quick Actions Grid */}
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h3">
-                        Quick Actions
-                      </Text>
-                      <Grid columns={{ xs: 1, sm: 2, md: 3 }}>
-                        <Grid.Cell>
-                          <Card>
-                            <Box padding="400">
-                              <BlockStack gap="300">
-                                <Icon source={PersonIcon} tone="base" />
-                                <Text variant="headingSm" as="h4">
-                                  Customers
-                                </Text>
-                                <Text variant="bodySm" tone="subdued" as="p">
-                                  View and manage customer profiles
-                                </Text>
-                                <Button
-                                  fullWidth
-                                  onClick={() => navigate("/app/customers")}
-                                >
-                                  View Customers
-                                </Button>
-                              </BlockStack>
-                            </Box>
-                          </Card>
-                        </Grid.Cell>
-
-                        <Grid.Cell>
-                          <Card>
-                            <Box padding="400">
-                              <BlockStack gap="300">
-                                <Icon source={CashDollarIcon} tone="base" />
-                                <Text variant="headingSm" as="h4">
-                                  Credit Management
-                                </Text>
-                                <Text variant="bodySm" tone="subdued" as="p">
-                                  Adjust store credit balances
-                                </Text>
-                                <Button
-                                  fullWidth
-                                  onClick={() => navigate("/app/credit-management")}
-                                >
-                                  Manage Credit
-                                </Button>
-                              </BlockStack>
-                            </Box>
-                          </Card>
-                        </Grid.Cell>
-
-                        <Grid.Cell>
-                          <Card>
-                            <Box padding="400">
-                              <BlockStack gap="300">
-                                <Icon source={StarFilledIcon} tone="base" />
-                                <Text variant="headingSm" as="h4">
-                                  Loyalty Tiers
-                                </Text>
-                                <Text variant="bodySm" tone="subdued" as="p">
-                                  Configure tier requirements
-                                </Text>
-                                <Button
-                                  fullWidth
-                                  onClick={() => navigate("/app/tiers")}
-                                >
-                                  Manage Tiers
-                                </Button>
-                              </BlockStack>
-                            </Box>
-                          </Card>
-                        </Grid.Cell>
-                      </Grid>
-                    </BlockStack>
-                  </BlockStack>
-                )}
-
-                {/* Activity Tab */}
-                {selectedTab === 1 && (
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between">
-                      <Text variant="headingMd" as="h3">
-                        Recent Transactions
-                      </Text>
-                      <Button
-                        variant="plain"
-                        onClick={() => navigate("/app/credit-management")}
-                      >
-                        View All
-                      </Button>
-                    </InlineStack>
-
-                    {recentTransactions.length > 0 ? (
-                      <BlockStack gap="200">
-                        {recentTransactions.map((transaction) => {
-                          const display = getTransactionDisplay(transaction.type);
-                          return (
-                            <Box
-                              key={transaction.id}
-                              padding="300"
-                              background="bg-surface"
-                              borderColor="border"
-                              borderWidth="025"
-                              borderRadius="200"
-                            >
-                              <InlineStack align="space-between">
-                                <InlineStack gap="300">
-                                  <Box minWidth="40px">
-                                    <Icon
-                                      source={
-                                        transaction.amount > 0
-                                          ? ArrowUpIcon
-                                          : ArrowDownIcon
-                                      }
-                                      tone={transaction.amount > 0 ? "success" : "critical"}
-                                    />
-                                  </Box>
-                                  <BlockStack gap="050">
-                                    <InlineStack gap="200" align="center">
-                                      <Text variant="bodyMd" fontWeight="semibold" as="p">
-                                        {display.label}
-                                      </Text>
-                                      <Badge tone={display.tone}>
-                                        {transaction.type}
-                                      </Badge>
-                                    </InlineStack>
-                                    <InlineStack gap="200">
-                                      <Text variant="bodySm" tone="subdued" as="span">
-                                        {transaction.customerEmail}
-                                      </Text>
-                                      <Text variant="bodySm" tone="subdued" as="span">
-                                        •
-                                      </Text>
-                                      <Text variant="bodySm" tone="subdued" as="span">
-                                        {formatRelativeTime(transaction.createdAt)}
-                                      </Text>
-                                    </InlineStack>
-                                  </BlockStack>
-                                </InlineStack>
-                                <Text
-                                  variant="bodyLg"
-                                  fontWeight="semibold"
-                                  tone={transaction.amount > 0 ? "success" : "critical"}
-                                  as="p"
-                                >
-                                  {transaction.amount > 0 ? "+" : ""}
-                                  {formatAmount(Math.abs(transaction.amount))}
-                                </Text>
-                              </InlineStack>
-                            </Box>
-                          );
-                        })}
-                      </BlockStack>
-                    ) : (
-                      <EmptyState
-                        heading="No transactions yet"
-                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                      >
-                        <p>Transaction history will appear here.</p>
-                      </EmptyState>
-                    )}
-                  </BlockStack>
+                  </Box>
                 )}
 
                 {/* Insights Tab */}
                 {selectedTab === 2 && (
-                  <BlockStack gap="600">
-                    {/* Key Insights */}
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h3">
-                        Key Insights
-                      </Text>
-                      
-                      <Grid columns={{ xs: 1, md: 2 }}>
-                        {/* Top Tier Insight */}
-                        {metrics.topTier && (
-                          <Grid.Cell>
-                            <Box
-                              padding="400"
-                              background="bg-surface-info"
-                              borderRadius="200"
+                  <Box padding="400">
+                    <BlockStack gap="500">
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h2">
+                          Key Insights
+                        </Text>
+                        
+                        {/* Insights Cards */}
+                        <BlockStack gap="300">
+                          {data.metrics.customersWithTiers < data.metrics.totalCustomers * 0.5 && (
+                            <Banner
+                              title="Opportunity: Increase tier participation"
+                              tone="info"
+                              action={{ content: "View customers", url: "/app/customers" }}
                             >
-                              <BlockStack gap="200">
-                                <InlineStack gap="200" align="center">
-                                  <Icon source={StarFilledIcon} tone="info" />
-                                  <Text variant="headingSm" as="h4">
-                                    Most Popular Tier
+                              <p>Only {Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% of your customers are in a tier. Consider reviewing tier thresholds or running a campaign.</p>
+                            </Banner>
+                          )}
+
+                          {data.metrics.averageCredit > 50 && (
+                            <Banner
+                              title="High average credit balance"
+                              tone="success"
+                            >
+                              <p>Your customers have an average of {formatAmount(data.metrics.averageCredit)} in store credit. This indicates strong engagement with your rewards program.</p>
+                            </Banner>
+                          )}
+
+                          {data.tierDistribution.find(t => t.name === "No Tier" && t.percentage > 30) && (
+                            <Banner
+                              title="Many customers without tiers"
+                              tone="warning"
+                              action={{ content: "Manage tiers", url: "/app/tiers" }}
+                            >
+                              <p>{data.tierDistribution.find(t => t.name === "No Tier")?.percentage.toFixed(0)}% of customers aren't in a tier. Consider adjusting your tier requirements.</p>
+                            </Banner>
+                          )}
+                        </BlockStack>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Program Statistics */}
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h2">
+                          Program Statistics
+                        </Text>
+                        <Grid>
+                          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                            <Card>
+                              <Box padding="300">
+                                <BlockStack gap="200">
+                                  <Text variant="bodySm" tone="subdued" as="p">
+                                    Tier Participation Rate
                                   </Text>
-                                </InlineStack>
-                                <Text variant="bodyMd" as="p">
-                                  <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                    {metrics.topTier.name}
+                                  <Text variant="headingLg" as="h3">
+                                    {Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}%
                                   </Text>
-                                  {" "}has{" "}
-                                  <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                    {metrics.topTier.count} customers
-                                  </Text>
-                                </Text>
-                              </BlockStack>
-                            </Box>
+                                  <ProgressBar 
+                                    progress={(data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100}
+                                    size="small"
+                                  />
+                                </BlockStack>
+                              </Box>
+                            </Card>
                           </Grid.Cell>
-                        )}
-
-                        {/* Growth Insight */}
-                        {metrics.customersGrowth > 0 && (
-                          <Grid.Cell>
-                            <Box
-                              padding="400"
-                              background="bg-surface-success"
-                              borderRadius="200"
-                            >
-                              <BlockStack gap="200">
-                                <InlineStack gap="200" align="center">
-                                  <Icon source={ArrowUpIcon} tone="success" />
-                                  <Text variant="headingSm" as="h4">
-                                    Growing Customer Base
+                          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                            <Card>
+                              <Box padding="300">
+                                <BlockStack gap="200">
+                                  <Text variant="bodySm" tone="subdued" as="p">
+                                    Credit Utilization Rate
                                   </Text>
-                                </InlineStack>
-                                <Text variant="bodyMd" as="p">
-                                  <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                    {metrics.customersGrowth}% growth
+                                  <Text variant="headingLg" as="h3">
+                                    {Math.round((data.metrics.customersWithCredit / data.metrics.totalCustomers) * 100)}%
                                   </Text>
-                                  {" "}in the last 30 days
-                                </Text>
-                              </BlockStack>
-                            </Box>
+                                  <ProgressBar 
+                                    progress={(data.metrics.customersWithCredit / data.metrics.totalCustomers) * 100}
+                                    size="small"
+                                  />
+                                </BlockStack>
+                              </Box>
+                            </Card>
                           </Grid.Cell>
-                        )}
-
-                        {/* Average Credit Insight */}
-                        <Grid.Cell>
-                          <Box
-                            padding="400"
-                            background="bg-surface"
-                            borderColor="border"
-                            borderWidth="025"
-                            borderRadius="200"
-                          >
-                            <BlockStack gap="200">
-                              <InlineStack gap="200" align="center">
-                                <Icon source={CashDollarIcon} />
-                                <Text variant="headingSm" as="h4">
-                                  Average Store Credit
-                                </Text>
-                              </InlineStack>
-                              <Text variant="bodyMd" as="p">
-                                Each customer has an average of{" "}
-                                <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                  {formatAmount(metrics.averageCredit)}
-                                </Text>
-                                {" "}in store credit
-                              </Text>
-                            </BlockStack>
-                          </Box>
-                        </Grid.Cell>
-
-                        {/* Engagement Tip */}
-                        <Grid.Cell>
-                          <Box
-                            padding="400"
-                            background="bg-surface-warning"
-                            borderRadius="200"
-                          >
-                            <BlockStack gap="200">
-                              <InlineStack gap="200" align="center">
-                                <Icon source={AlertTriangleIcon} tone="warning" />
-                                <Text variant="headingSm" as="h4">
-                                  Engagement Tip
-                                </Text>
-                              </InlineStack>
-                              <Text variant="bodyMd" as="p">
-                                {tierDistribution.find(t => t.name === "No Tier")?.count || 0} customers
-                                haven't been assigned to a tier yet
-                              </Text>
-                              <Button
-                                size="slim"
-                                onClick={() => navigate("/app/customers")}
-                              >
-                                Review Customers
-                              </Button>
-                            </BlockStack>
-                          </Box>
-                        </Grid.Cell>
-                      </Grid>
-                    </BlockStack>
-
-                    <Divider />
-
-                    {/* Recommendations */}
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h3">
-                        Recommendations
-                      </Text>
-                      
-                      <BlockStack gap="300">
-                        <InlineStack gap="300" align="start">
-                          <Icon source={CheckCircleIcon} tone="success" />
-                          <BlockStack gap="100">
-                            <Text variant="bodyMd" fontWeight="semibold" as="p">
-                              Email your top customers
-                            </Text>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Engage with your most loyal customers to increase retention
-                            </Text>
-                            <Button
-                              variant="plain"
-                              icon={EmailIcon}
-                              onClick={() => navigate("/app/customers")}
-                            >
-                              View Top Customers
-                            </Button>
-                          </BlockStack>
-                        </InlineStack>
-
-                        <InlineStack gap="300" align="start">
-                          <Icon source={CheckCircleIcon} tone="success" />
-                          <BlockStack gap="100">
-                            <Text variant="bodyMd" fontWeight="semibold" as="p">
-                              Review tier thresholds
-                            </Text>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Optimize tier requirements based on customer distribution
-                            </Text>
-                            <Button
-                              variant="plain"
-                              icon={EditIcon}
-                              onClick={() => navigate("/app/tiers")}
-                            >
-                              Adjust Tiers
-                            </Button>
-                          </BlockStack>
-                        </InlineStack>
+                        </Grid>
                       </BlockStack>
                     </BlockStack>
-                  </BlockStack>
+                  </Box>
                 )}
-              </Box>
-            </Tabs>
-          </Card>
-        </Layout.Section>
+              </Tabs>
+            </Card>
 
-        {/* Footer Section with Help Resources */}
-        <Layout.Section>
-          <Card>
-            <Box padding="400" background="bg-surface-secondary">
-              <InlineStack align="space-between" blockAlign="center">
-                <InlineStack gap="400">
-                  <Icon source={QuestionCircleIcon} />
-                  <BlockStack gap="050">
-                    <Text variant="headingSm" as="h4">
-                      Need help getting started?
-                    </Text>
-                    <Text variant="bodySm" tone="subdued" as="p">
-                      Check out our resources to make the most of RewardsPro
-                    </Text>
-                  </BlockStack>
-                </InlineStack>
-                <InlineStack gap="200">
-                  <Button variant="plain" url="https://help.shopify.com">
-                    Documentation
-                  </Button>
-                  <Button variant="plain" onClick={() => navigate("/app/settings")}>
-                    Settings
-                  </Button>
-                </InlineStack>
-              </InlineStack>
-            </Box>
-          </Card>
+            {/* Quick Actions - Following visual hierarchy */}
+            <Grid>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="300">
+                      <Icon source={StarFilledIcon} tone="base" />
+                      <Text variant="headingMd" as="h3">
+                        Manage Tiers
+                      </Text>
+                      <Text variant="bodySm" tone="subdued" as="p">
+                        Create and configure loyalty tiers with cashback percentages
+                      </Text>
+                      <Button url="/app/tiers" fullWidth>
+                        Go to Tiers
+                      </Button>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="300">
+                      <Icon source={PersonIcon} tone="base" />
+                      <Text variant="headingMd" as="h3">
+                        View Customers
+                      </Text>
+                      <Text variant="bodySm" tone="subdued" as="p">
+                        Manage customer tiers, view balances, and adjust credits
+                      </Text>
+                      <Button url="/app/customers" fullWidth>
+                        Go to Customers
+                      </Button>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="300">
+                      <Icon source={SettingsIcon} tone="base" />
+                      <Text variant="headingMd" as="h3">
+                        Settings
+                      </Text>
+                      <Text variant="bodySm" tone="subdued" as="p">
+                        Configure store settings, currency, and preferences
+                      </Text>
+                      <Button url="/app/settings" fullWidth>
+                        Go to Settings
+                      </Button>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+            </Grid>
+          </BlockStack>
         </Layout.Section>
       </Layout>
     </Page>
