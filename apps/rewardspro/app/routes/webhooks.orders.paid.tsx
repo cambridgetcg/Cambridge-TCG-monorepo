@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import type { Decimal } from "@prisma/client/runtime/library";
+import { calculateTierAfterOrder } from "../services/tier-calculation.server";
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -141,9 +142,14 @@ async function calculateCashback(
   };
 }
 
-/**
- * Calculate customer's total spending for tier evaluation
+// NOTE: These functions are replaced by services/tier-calculation.server.ts
+// Kept for reference only - DO NOT USE
+
+/*
+ * DEPRECATED: Calculate customer's total spending for tier evaluation
+ * Now handled by services/tier-calculation.server.ts
  */
+/*
 async function calculateCustomerSpending(
   customerId: string,
   shop: string,
@@ -191,10 +197,13 @@ async function calculateCustomerSpending(
 
   return totalSpending;
 }
+*/
 
-/**
- * Evaluate if customer should be upgraded to a higher tier
+/*
+ * DEPRECATED: Evaluate if customer should be upgraded to a higher tier
+ * Now handled by services/tier-calculation.server.ts
  */
+/*
 async function evaluateTierUpgrade(
   customer: any,
   shop: string
@@ -274,6 +283,7 @@ async function evaluateTierUpgrade(
 
   console.log(`[Tier Upgrade] Customer ${customer.id} moved from ${currentTierName || 'no tier'} to ${eligibleTier.name}`);
 }
+*/
 
 // ============================================================================
 // MAIN WEBHOOK HANDLER
@@ -415,10 +425,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log(`[Order Paid] Store credit updated: ${previousBalance} → ${newBalance}`);
     
     // ========================================================================
-    // STEP 5: Evaluate tier upgrade
+    // STEP 5: Calculate and update tier based on new spending
     // ========================================================================
     
-    await evaluateTierUpgrade(customer, shop);
+    // Use the new tier calculation service to check if tier needs updating
+    const tierResult = await calculateTierAfterOrder(
+      shop,
+      customer.shopifyCustomerId,
+      orderAmount,
+      admin as any
+    );
+    
+    if (tierResult?.changed) {
+      console.log(`[Order Paid] Tier updated from ${tierResult.previousTierName || 'None'} to ${tierResult.newTierName || 'None'}`);
+    }
     
     // ========================================================================
     // STEP 6: Issue Store Credit to Shopify

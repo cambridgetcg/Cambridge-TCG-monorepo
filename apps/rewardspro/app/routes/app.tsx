@@ -79,8 +79,8 @@ export default function App() {
           <Link to="/app" rel="home">
             Home
           </Link>
-          <Link to="/app/tiers">Loyalty Tiers</Link>
           <Link to="/app/customers">Customers</Link>
+          <Link to="/app/tiers">Loyalty Tiers</Link>
           <Link to="/app/credit-management">Credit Management</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
