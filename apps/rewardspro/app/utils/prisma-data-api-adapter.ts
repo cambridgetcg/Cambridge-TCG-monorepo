@@ -51,6 +51,32 @@ export class DataAPIModelProxy<T = any> {
             conditions.push(`"${key}" LIKE :param${index}`);
           }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, `%${searchValue}%`));
+        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
+          // Handle { gte: value } (greater than or equal)
+          conditions.push(`"${key}" >= :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
+        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
+          // Handle { lte: value } (less than or equal)
+          conditions.push(`"${key}" <= :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
+        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
+          // Handle { gt: value } (greater than)
+          conditions.push(`"${key}" > :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
+        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
+          // Handle { lt: value } (less than)
+          conditions.push(`"${key}" < :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
+        } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
+          // Handle { in: [...] } (IN clause)
+          const inValues = value.in;
+          if (Array.isArray(inValues) && inValues.length > 0) {
+            const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
+            conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
+            inValues.forEach((val, i) => {
+              params.push(AuroraDataAPI.buildParameter(`param${index}_${i}`, val));
+            });
+          }
         } else if (value !== undefined) {
           conditions.push(`"${key}" = :param${index}`);
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
@@ -478,14 +504,44 @@ export class DataAPIModelProxy<T = any> {
   }): Promise<number> {
     let sql = `SELECT COUNT(*) as count FROM "${this.tableName}"`;
     const params: SqlParameter[] = [];
+    const conditions: string[] = [];
 
     if (args?.where) {
-      const whereFields = Object.keys(args.where);
-      const whereClauses = whereFields.map((field, i) => {
-        params.push(AuroraDataAPI.buildParameter(`param${i}`, args.where![field]));
-        return `"${field}" = :param${i}`;
+      Object.entries(args.where).forEach(([key, value], index) => {
+        if (value === null) {
+          conditions.push(`"${key}" IS NULL`);
+        } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
+          conditions.push(`"${key}" IS NOT NULL`);
+        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
+          conditions.push(`"${key}" >= :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
+        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
+          conditions.push(`"${key}" <= :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
+        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
+          conditions.push(`"${key}" > :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
+        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
+          conditions.push(`"${key}" < :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
+        } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
+          const inValues = value.in;
+          if (Array.isArray(inValues) && inValues.length > 0) {
+            const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
+            conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
+            inValues.forEach((val, i) => {
+              params.push(AuroraDataAPI.buildParameter(`param${index}_${i}`, val));
+            });
+          }
+        } else if (value !== undefined) {
+          conditions.push(`"${key}" = :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
+        }
       });
-      sql += ` WHERE ${whereClauses.join(" AND ")}`;
+      
+      if (conditions.length > 0) {
+        sql += ` WHERE ${conditions.join(" AND ")}`;
+      }
     }
 
     const result = await this.client.executeStatement(sql, params);
@@ -525,21 +581,44 @@ export class DataAPIModelProxy<T = any> {
 
     let sql = `SELECT ${aggregates.join(", ")} FROM "${this.tableName}"`;
     const params: SqlParameter[] = [];
+    const conditions: string[] = [];
 
     if (args.where) {
-      const whereFields = Object.keys(args.where);
-      const whereClauses = whereFields.map((field, i) => {
-        if (args.where![field] !== undefined && typeof args.where![field] === 'object' && 'not' in args.where![field]) {
-          // Handle { not: null }
-          return `"${field}" IS NOT NULL`;
-        } else if (args.where![field] === null) {
-          return `"${field}" IS NULL`;
-        } else {
-          params.push(AuroraDataAPI.buildParameter(`param${i}`, args.where![field]));
-          return `"${field}" = :param${i}`;
+      Object.entries(args.where).forEach(([key, value], index) => {
+        if (value === null) {
+          conditions.push(`"${key}" IS NULL`);
+        } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
+          conditions.push(`"${key}" IS NOT NULL`);
+        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
+          conditions.push(`"${key}" >= :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
+        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
+          conditions.push(`"${key}" <= :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
+        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
+          conditions.push(`"${key}" > :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
+        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
+          conditions.push(`"${key}" < :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
+        } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
+          const inValues = value.in;
+          if (Array.isArray(inValues) && inValues.length > 0) {
+            const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
+            conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
+            inValues.forEach((val, i) => {
+              params.push(AuroraDataAPI.buildParameter(`param${index}_${i}`, val));
+            });
+          }
+        } else if (value !== undefined) {
+          conditions.push(`"${key}" = :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });
-      sql += ` WHERE ${whereClauses.join(" AND ")}`;
+      
+      if (conditions.length > 0) {
+        sql += ` WHERE ${conditions.join(" AND ")}`;
+      }
     }
 
     const result = await this.client.executeStatement(sql, params);

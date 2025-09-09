@@ -102,10 +102,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    // Format dates for Aurora Data API
-    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
-    const sevenDaysAgoISO = sevenDaysAgo.toISOString();
 
     // Parallel data fetching for performance
     const [
@@ -154,7 +150,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.customer.count({
         where: {
           shop,
-          createdAt: { gte: thirtyDaysAgoISO as any },
+          createdAt: { gte: thirtyDaysAgo },
         },
       }),
       
@@ -162,7 +158,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.customer.count({
         where: {
           shop,
-          createdAt: { gte: sevenDaysAgoISO as any },
+          createdAt: { gte: sevenDaysAgo },
         },
       }),
       
@@ -176,7 +172,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.storeCreditLedger.aggregate({
         where: {
           shop,
-          createdAt: { gte: thirtyDaysAgoISO as any },
+          createdAt: { gte: thirtyDaysAgo },
           type: { in: ['CASHBACK_EARNED', 'MANUAL_ADJUSTMENT'] },
           amount: { gt: 0 },
         },
