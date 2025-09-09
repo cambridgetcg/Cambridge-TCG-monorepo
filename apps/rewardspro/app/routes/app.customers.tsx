@@ -531,17 +531,18 @@ export default function Customers() {
     if (fetcher.state === "idle" && fetcher.data && calculatingCustomerId) {
       setCalculatingCustomerId(null);
       
-      if ('success' in fetcher.data && fetcher.data.success) {
+      const data = fetcher.data as Record<string, any>;
+      if (data.success) {
         setToast({
           active: true,
-          content: 'message' in fetcher.data ? String(fetcher.data.message) : 'Success',
+          content: data.message ? String(data.message) : 'Success',
           error: false,
           duration: 4000,
         });
       } else {
         setToast({
           active: true,
-          content: 'message' in fetcher.data ? String(fetcher.data.message) : 'Error',
+          content: data.message ? String(data.message) : 'Error',
           error: true,
           duration: 4000,
         });
@@ -621,13 +622,6 @@ export default function Customers() {
           Available
         </Text>
       </BlockStack>,
-      customer.currentTier ? (
-        <Text variant="bodySm" as="span">
-          Min: {formatAmount(customer.currentTier.minSpend)}
-        </Text>
-      ) : (
-        <Text variant="bodySm" tone="subdued" as="span">-</Text>
-      ),
       <InlineStack gap="200">
         <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
           View
@@ -753,7 +747,7 @@ export default function Customers() {
                                   {tier.tierName}
                                 </Text>
                                 <Badge tone={tier.tierName === "No Tier" ? "attention" : "info"}>
-                                  {tier.count} customers
+                                  {`${tier.count} customers`}
                                 </Badge>
                               </InlineStack>
                               <Text variant="bodyMd" tone="subdued" as="span">
@@ -764,7 +758,6 @@ export default function Customers() {
                               <ProgressBar 
                                 progress={tier.percentage} 
                                 size="small"
-                                tone={tier.tierName === "No Tier" ? "attention" : undefined}
                               />
                             </div>
                           </BlockStack>
@@ -820,12 +813,11 @@ export default function Customers() {
                     </Box>
                   ) : filteredCustomers.length > 0 ? (
                     <DataTable
-                      columnContentTypes={["text", "text", "numeric", "text", "text"]}
+                      columnContentTypes={["text", "text", "numeric", "text"]}
                       headings={[
                         "Customer",
                         "Current Tier",
                         "Store Credit",
-                        "Tier Requirement",
                         "Actions",
                       ]}
                       rows={rows}
