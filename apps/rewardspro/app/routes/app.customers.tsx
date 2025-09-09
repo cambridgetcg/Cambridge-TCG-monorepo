@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
-import { useState, useCallback, useMemo } from "react";
+import { useLoaderData, useSubmit, useNavigation, useFetcher } from "@remix-run/react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Page,
   Layout,
@@ -21,6 +21,12 @@ import {
   ProgressBar,
   Modal,
   Spinner,
+  Divider,
+  Grid,
+  Tooltip,
+  Avatar,
+  SkeletonBodyText,
+  SkeletonDisplayText,
 } from "@shopify/polaris";
 import {
   SearchIcon,
@@ -31,6 +37,13 @@ import {
   CashDollarIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
+  InfoIcon,
+  ClockIcon,
+  TrophyIcon,
+  DiamondIcon,
+  CircleTickIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -74,11 +87,11 @@ interface LoaderData {
     currencyDisplayType: string;
   } | null;
   totalCustomers: number;
-  tierCalculationResults?: {
-    total: number;
-    changed: number;
-    errors: number;
-  };
+  tierDistribution: {
+    tierName: string;
+    count: number;
+    percentage: number;
+  }[];
 }
 
 // ============================================
@@ -138,6 +151,33 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
 
+    // Calculate tier distribution
+    const tierDistribution = await Promise.all(
+      tiers.map(async (tier) => {
+        const count = await db.customer.count({
+          where: { shop, currentTierId: tier.id },
+        });
+        return {
+          tierName: tier.name,
+          count,
+          percentage: totalCount > 0 ? Math.round((count / totalCount) * 100) : 0,
+        };
+      })
+    );
+
+    // Add customers without tiers
+    const noTierCount = await db.customer.count({
+      where: { shop, currentTierId: null },
+    });
+    
+    if (noTierCount > 0) {
+      tierDistribution.unshift({
+        tierName: "No Tier",
+        count: noTierCount,
+        percentage: totalCount > 0 ? Math.round((noTierCount / totalCount) * 100) : 0,
+      });
+    }
+
     // Format customers for display
     const formattedCustomers = customers.map(customer => ({
       id: customer.id,
@@ -162,6 +202,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         currencyDisplayType: shopSettings.currencyDisplayType,
       } : null,
       totalCustomers: totalCount,
+      tierDistribution,
     });
   } catch (error) {
     console.error("[Customers] Loader error:", error);
@@ -256,23 +297,56 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 // ============================================
-// COMPONENT
+// HELPER COMPONENTS
+// ============================================
+
+function TierIcon({ tierName }: { tierName: string }) {
+  const name = tierName.toLowerCase();
+  if (name.includes('platinum') || name.includes('vip')) {
+    return <Icon source={DiamondIcon} tone="emphasis" />;
+  }
+  if (name.includes('gold')) {
+    return <Icon source={StarFilledIcon} tone="warning" />;
+  }
+  if (name.includes('silver')) {
+    return <Icon source={StarFilledIcon} tone="subdued" />;
+  }
+  if (name.includes('bronze')) {
+    return <Icon source={CircleTickIcon} tone="base" />;
+  }
+  return <Icon source={PersonIcon} tone="base" />;
+}
+
+function CustomerAvatar({ email }: { email: string }) {
+  const initials = email.substring(0, 2).toUpperCase();
+  return (
+    <div style={{ marginRight: '12px', display: 'inline-block' }}>
+      <Avatar customer size="md" initials={initials} />
+    </div>
+  );
+}
+
+// ============================================
+// MAIN COMPONENT
 // ============================================
 
 export default function Customers() {
   const data = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const navigation = useNavigation();
+  const fetcher = useFetcher();
   
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [tierFilter, setTierFilter] = useState("all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState("");
+  const [bannerTone, setBannerTone] = useState<"success" | "warning" | "critical">("success");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
 
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
@@ -282,7 +356,6 @@ export default function Customers() {
   // Handle search
   const handleSearch = useCallback((value: string) => {
     setSearchQuery(value);
-    // You could implement client-side filtering or server-side search here
   }, []);
 
   // Handle tier filter
@@ -304,7 +377,8 @@ export default function Customers() {
   const handleCalculateSelected = useCallback(() => {
     if (selectedCustomers.length === 0) {
       setBannerMessage("Please select customers first");
-      setShowSuccessBanner(true);
+      setBannerTone("warning");
+      setShowBanner(true);
       return;
     }
     
@@ -317,11 +391,12 @@ export default function Customers() {
 
   // Calculate single customer tier
   const handleCalculateSingle = useCallback((customerId: string) => {
+    setCalculatingCustomerId(customerId);
     const formData = new FormData();
     formData.append("action", "calculate-single");
     formData.append("customerId", customerId);
-    submit(formData, { method: "post" });
-  }, [submit]);
+    fetcher.submit(formData, { method: "post" });
+  }, [fetcher]);
 
   // Open customer detail modal
   const handleViewCustomer = useCallback((customerId: string) => {
@@ -354,41 +429,89 @@ export default function Customers() {
     })),
   ];
 
-  // Table rows
+  // Effect to handle fetcher response
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data && calculatingCustomerId) {
+      setCalculatingCustomerId(null);
+      if (fetcher.data.success) {
+        setBannerMessage(fetcher.data.message);
+        setBannerTone("success");
+        setShowBanner(true);
+      }
+    }
+  }, [fetcher.state, fetcher.data, calculatingCustomerId]);
+
+  // Effect to handle action results
+  useEffect(() => {
+    if (navigation.state === "idle" && isCalculating) {
+      setIsCalculating(false);
+    }
+  }, [navigation.state, isCalculating]);
+
+  // Table rows with enhanced UI
   const rows = filteredCustomers.map(customer => [
-    customer.email,
+    <InlineStack gap="200" align="center">
+      <CustomerAvatar email={customer.email} />
+      <BlockStack gap="050">
+        <Text variant="bodyMd" fontWeight="medium" as="span">
+          {customer.email}
+        </Text>
+        <Text variant="bodySm" tone="subdued" as="span">
+          ID: {customer.shopifyCustomerId}
+        </Text>
+      </BlockStack>
+    </InlineStack>,
     customer.currentTier ? (
-      <Badge tone="success">
-        {`${customer.currentTier.name} (${customer.currentTier.cashbackPercent}%)`}
-      </Badge>
+      <InlineStack gap="100" align="center">
+        <TierIcon tierName={customer.currentTier.name} />
+        <Badge tone="success">
+          {`${customer.currentTier.name}`}
+        </Badge>
+        <Text variant="bodySm" tone="subdued" as="span">
+          {customer.currentTier.cashbackPercent}%
+        </Text>
+      </InlineStack>
     ) : (
       <Badge tone="warning">No tier</Badge>
     ),
-    formatAmount(customer.storeCredit),
-    customer.currentTier ? (
-      <Text variant="bodySm" tone="subdued" as="span">
-        Min: {formatAmount(customer.currentTier.minSpend)}
+    <BlockStack gap="050">
+      <Text variant="bodyMd" fontWeight="semibold" as="span">
+        {formatAmount(customer.storeCredit)}
       </Text>
+      <Text variant="bodySm" tone="subdued" as="span">
+        Available
+      </Text>
+    </BlockStack>,
+    customer.currentTier ? (
+      <BlockStack gap="050">
+        <Text variant="bodySm" as="span">
+          Min: {formatAmount(customer.currentTier.minSpend)}
+        </Text>
+        <ProgressBar 
+          progress={(customer.storeCredit / customer.currentTier.minSpend) * 100} 
+          size="small" 
+          tone="emphasis"
+        />
+      </BlockStack>
     ) : (
-      "-"
+      <Text variant="bodySm" tone="subdued" as="span">-</Text>
     ),
-    <InlineStack gap="100">
+    <InlineStack gap="200">
       <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
         View
       </Button>
-      <Button size="slim" variant="plain" onClick={() => handleCalculateSingle(customer.id)}>
-        Recalculate
+      <Button 
+        size="slim" 
+        variant="plain" 
+        onClick={() => handleCalculateSingle(customer.id)}
+        loading={calculatingCustomerId === customer.id}
+      >
+        <Icon source={RefreshIcon} />
       </Button>
     </InlineStack>
   ]);
 
   const isLoading = navigation.state === "submitting" || isCalculating;
-
-  // Effect to handle action results
-  if (navigation.state === "idle" && isCalculating) {
-    setIsCalculating(false);
-    // You would handle the response here
-  }
 
   return (
     <Page
@@ -410,140 +533,304 @@ export default function Customers() {
     >
       <Layout>
         <Layout.Section>
-          <BlockStack gap="400">
+          <BlockStack gap="600">
             {/* Success Banner */}
-            {showSuccessBanner && (
+            {showBanner && (
               <Banner
                 title={bannerMessage}
-                tone="success"
-                onDismiss={() => setShowSuccessBanner(false)}
+                tone={bannerTone}
+                onDismiss={() => setShowBanner(false)}
               />
             )}
 
-            {/* Stats Overview */}
-            <Card>
-              <Box padding="400">
-                <InlineStack align="space-between">
-                  <BlockStack gap="100">
-                    <Text variant="headingMd" as="h2">
-                      Customer Overview
-                    </Text>
-                    <Text variant="bodyMd" tone="subdued" as="p">
-                      Total: {data.totalCustomers} customers
-                    </Text>
-                  </BlockStack>
-                  <InlineStack gap="400">
-                    <BlockStack gap="100" align="center">
-                      <Icon source={PersonIcon} tone="base" />
-                      <Text variant="bodyLg" fontWeight="semibold" as="p">
+            {/* Stats Overview with Visual Hierarchy */}
+            <Grid columns={{ xs: 1, sm: 2, md: 4, lg: 4, xl: 4 }}>
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Total Customers
+                        </Text>
+                        <Icon source={PersonIcon} tone="base" />
+                      </InlineStack>
+                      <Text variant="headingXl" as="h3">
+                        {data.totalCustomers}
+                      </Text>
+                      <Badge tone="info">
+                        <InlineStack gap="050" align="center">
+                          <Icon source={ArrowUpIcon} />
+                          All time
+                        </InlineStack>
+                      </Badge>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          With Tiers
+                        </Text>
+                        <Icon source={StarFilledIcon} tone="success" />
+                      </InlineStack>
+                      <Text variant="headingXl" as="h3">
                         {data.customers.filter(c => c.currentTier).length}
                       </Text>
-                      <Text variant="bodySm" tone="subdued" as="p">
-                        With tiers
-                      </Text>
+                      <ProgressBar 
+                        progress={(data.customers.filter(c => c.currentTier).length / data.totalCustomers) * 100} 
+                        size="small"
+                        tone="success"
+                      />
                     </BlockStack>
-                    <BlockStack gap="100" align="center">
-                      <Icon source={AlertTriangleIcon} tone="warning" />
-                      <Text variant="bodyLg" fontWeight="semibold" as="p">
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Without Tiers
+                        </Text>
+                        <Icon source={AlertTriangleIcon} tone="warning" />
+                      </InlineStack>
+                      <Text variant="headingXl" as="h3">
                         {data.customers.filter(c => !c.currentTier).length}
                       </Text>
-                      <Text variant="bodySm" tone="subdued" as="p">
-                        No tier
+                      <Badge tone="warning">Needs attention</Badge>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Total Store Credit
+                        </Text>
+                        <Icon source={CashDollarIcon} tone="emphasis" />
+                      </InlineStack>
+                      <Text variant="headingXl" as="h3">
+                        {formatAmount(data.customers.reduce((sum, c) => sum + c.storeCredit, 0))}
+                      </Text>
+                      <Text variant="bodySm" tone="subdued" as="span">
+                        Available balance
                       </Text>
                     </BlockStack>
-                  </InlineStack>
-                </InlineStack>
-              </Box>
-            </Card>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+            </Grid>
 
-            {/* Filters */}
+            {/* Tier Distribution */}
             <Card>
               <Box padding="400">
-                <InlineStack gap="300">
-                  <div style={{ flex: 1 }}>
-                    <TextField
-                      label="Search customers"
-                      labelHidden
-                      placeholder="Search by email or ID..."
-                      value={searchQuery}
-                      onChange={handleSearch}
-                      prefix={<Icon source={SearchIcon} />}
-                      clearButton
-                      onClearButtonClick={() => setSearchQuery("")}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <Select
-                    label="Filter by tier"
-                    labelHidden
-                    options={tierOptions}
-                    value={tierFilter}
-                    onChange={handleTierFilter}
-                  />
-                </InlineStack>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text variant="headingMd" as="h2">
+                      Tier Distribution
+                    </Text>
+                    <Icon source={ChartVerticalIcon} tone="base" />
+                  </InlineStack>
+                  
+                  <BlockStack gap="300">
+                    {data.tierDistribution.map((tier, index) => (
+                      <BlockStack key={index} gap="100">
+                        <InlineStack align="space-between">
+                          <InlineStack gap="200" align="center">
+                            <TierIcon tierName={tier.tierName} />
+                            <Text variant="bodyMd" fontWeight="medium" as="span">
+                              {tier.tierName}
+                            </Text>
+                            <Badge tone={tier.tierName === "No Tier" ? "warning" : "info"}>
+                              {tier.count} customers
+                            </Badge>
+                          </InlineStack>
+                          <Text variant="bodyMd" tone="subdued" as="span">
+                            {tier.percentage}%
+                          </Text>
+                        </InlineStack>
+                        <ProgressBar 
+                          progress={tier.percentage} 
+                          size="small"
+                          tone={tier.tierName === "No Tier" ? "warning" : "emphasis"}
+                        />
+                      </BlockStack>
+                    ))}
+                  </BlockStack>
+                </BlockStack>
               </Box>
             </Card>
 
-            {/* Customer Table */}
+            {/* Filters with Better Visual Design */}
             <Card>
-              {filteredCustomers.length > 0 ? (
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h2">
+                    Search & Filter
+                  </Text>
+                  <InlineStack gap="300">
+                    <div style={{ flex: 1 }}>
+                      <TextField
+                        label="Search customers"
+                        labelHidden
+                        placeholder="Search by email or customer ID..."
+                        value={searchQuery}
+                        onChange={handleSearch}
+                        prefix={<Icon source={SearchIcon} />}
+                        clearButton
+                        onClearButtonClick={() => setSearchQuery("")}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <Select
+                      label="Filter by tier"
+                      labelHidden
+                      options={tierOptions}
+                      value={tierFilter}
+                      onChange={handleTierFilter}
+                    />
+                  </InlineStack>
+                </BlockStack>
+              </Box>
+            </Card>
+
+            {/* Enhanced Customer Table */}
+            <Card>
+              {isLoading ? (
+                <Box padding="400">
+                  <BlockStack gap="300">
+                    <SkeletonDisplayText size="small" />
+                    <SkeletonBodyText lines={5} />
+                  </BlockStack>
+                </Box>
+              ) : filteredCustomers.length > 0 ? (
                 <DataTable
                   columnContentTypes={["text", "text", "numeric", "text", "text"]}
                   headings={[
                     "Customer",
                     "Current Tier",
                     "Store Credit",
-                    "Tier Requirement",
+                    "Progress",
                     "Actions",
                   ]}
                   rows={rows}
+                  hoverable
                 />
               ) : (
                 <EmptyState
                   heading="No customers found"
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
-                  <p>Try adjusting your search or filters.</p>
+                  <p>Try adjusting your search or filters, or sync customers from Shopify.</p>
                 </EmptyState>
               )}
             </Card>
 
-            {/* Tier Calculation Info */}
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="300">
-                  <InlineStack align="space-between">
-                    <Text variant="headingMd" as="h3">
-                      Tier Calculation
-                    </Text>
-                    <Icon source={ChartVerticalIcon} tone="base" />
-                  </InlineStack>
-                  <Text variant="bodyMd" tone="subdued" as="p">
-                    Tiers are automatically calculated based on customer spending. Click "Calculate all tiers" to update all customers based on their order history.
-                  </Text>
-                  <BlockStack gap="200">
-                    <InlineStack gap="100">
-                      <Icon source={CheckCircleIcon} tone="success" />
-                      <Text variant="bodySm" as="p">
-                        Calculation includes all paid orders
-                      </Text>
-                    </InlineStack>
-                    <InlineStack gap="100">
-                      <Icon source={CheckCircleIcon} tone="success" />
-                      <Text variant="bodySm" as="p">
-                        Refunds are automatically deducted
-                      </Text>
-                    </InlineStack>
-                    <InlineStack gap="100">
-                      <Icon source={CheckCircleIcon} tone="success" />
-                      <Text variant="bodySm" as="p">
-                        Respects tier evaluation periods (Annual/Lifetime)
-                      </Text>
-                    </InlineStack>
-                  </BlockStack>
-                </BlockStack>
-              </Box>
-            </Card>
+            {/* Enhanced Tier Calculation Info */}
+            <Grid columns={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2 }}>
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
+                        <Text variant="headingMd" as="h3">
+                          How Tier Calculation Works
+                        </Text>
+                        <Icon source={InfoIcon} tone="base" />
+                      </InlineStack>
+                      
+                      <BlockStack gap="300">
+                        <InlineStack gap="200" align="start">
+                          <Icon source={CheckCircleIcon} tone="success" />
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="medium" as="span">
+                              Automatic Processing
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              Tiers update automatically with each order
+                            </Text>
+                          </BlockStack>
+                        </InlineStack>
+
+                        <InlineStack gap="200" align="start">
+                          <Icon source={CheckCircleIcon} tone="success" />
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="medium" as="span">
+                              Smart Calculation
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              Includes all paid orders, deducts refunds
+                            </Text>
+                          </BlockStack>
+                        </InlineStack>
+
+                        <InlineStack gap="200" align="start">
+                          <Icon source={CheckCircleIcon} tone="success" />
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="medium" as="span">
+                              Flexible Periods
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              Respects annual or lifetime evaluation
+                            </Text>
+                          </BlockStack>
+                        </InlineStack>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
+                        <Text variant="headingMd" as="h3">
+                          Quick Actions
+                        </Text>
+                        <Icon source={ClockIcon} tone="base" />
+                      </InlineStack>
+                      
+                      <BlockStack gap="300">
+                        <Button fullWidth onClick={handleCalculateAll} loading={isLoading}>
+                          <InlineStack gap="100">
+                            <Icon source={RefreshIcon} />
+                            Recalculate All Tiers
+                          </InlineStack>
+                        </Button>
+                        
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Last calculation updates all customer tiers based on their complete order history. 
+                          This process may take a few minutes for large customer bases.
+                        </Text>
+
+                        <Divider />
+
+                        <InlineStack gap="200">
+                          <Badge tone="info">Tip</Badge>
+                          <Text variant="bodySm" as="span">
+                            Individual recalculation happens automatically with each order
+                          </Text>
+                        </InlineStack>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+            </Grid>
           </BlockStack>
         </Layout.Section>
       </Layout>
