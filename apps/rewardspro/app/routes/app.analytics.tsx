@@ -846,8 +846,12 @@ export default function AnalyticsPage() {
   const data = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const [selectedTab, setSelectedTab] = useState(0);
-  const [dateRange, setDateRange] = useState({ start: null, end: null });
+  const [selectedDateRange, setSelectedDateRange] = useState('30days');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [customDateRange, setCustomDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({ start: null, end: null });
   
   const isLoading = navigation.state === "loading";
   
@@ -855,6 +859,44 @@ export default function AnalyticsPage() {
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
   }, [data.shopSettings]);
+  
+  // Handle date range selection
+  const handleDateRangeSelect = useCallback((range: string) => {
+    setSelectedDateRange(range);
+    setShowDatePicker(false);
+    
+    // In a real implementation, this would trigger a data reload
+    // For now, we'll just update the UI state
+    console.log('Selected date range:', range);
+  }, []);
+  
+  // Get date range display text
+  const getDateRangeText = useCallback(() => {
+    const now = new Date();
+    switch (selectedDateRange) {
+      case 'today':
+        return `Today (${now.toLocaleDateString()})`;
+      case '7days':
+        const week = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return `Last 7 Days (${week.toLocaleDateString()} - ${now.toLocaleDateString()})`;
+      case '30days':
+        const month = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return `Last 30 Days (${month.toLocaleDateString()} - ${now.toLocaleDateString()})`;
+      case 'quarter':
+        const quarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return `Last Quarter (${quarter.toLocaleDateString()} - ${now.toLocaleDateString()})`;
+      case 'year':
+        const year = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        return `Last Year (${year.toLocaleDateString()} - ${now.toLocaleDateString()})`;
+      case 'custom':
+        if (customDateRange.start && customDateRange.end) {
+          return `Custom (${customDateRange.start.toLocaleDateString()} - ${customDateRange.end.toLocaleDateString()})`;
+        }
+        return 'Custom Range';
+      default:
+        return 'Last 30 Days';
+    }
+  }, [selectedDateRange, customDateRange]);
 
   const tabs = [
     { id: 'overview', content: 'Overview' },
@@ -887,11 +929,36 @@ export default function AnalyticsPage() {
             <Box padding="400">
               <InlineStack align="space-between">
                 <ButtonGroup>
-                  <Button>Today</Button>
-                  <Button>7 Days</Button>
-                  <Button variant="primary">30 Days</Button>
-                  <Button>Quarter</Button>
-                  <Button>Year</Button>
+                  <Button 
+                    pressed={selectedDateRange === 'today'}
+                    onClick={() => handleDateRangeSelect('today')}
+                  >
+                    Today
+                  </Button>
+                  <Button 
+                    pressed={selectedDateRange === '7days'}
+                    onClick={() => handleDateRangeSelect('7days')}
+                  >
+                    7 Days
+                  </Button>
+                  <Button 
+                    pressed={selectedDateRange === '30days'}
+                    onClick={() => handleDateRangeSelect('30days')}
+                  >
+                    30 Days
+                  </Button>
+                  <Button 
+                    pressed={selectedDateRange === 'quarter'}
+                    onClick={() => handleDateRangeSelect('quarter')}
+                  >
+                    Quarter
+                  </Button>
+                  <Button 
+                    pressed={selectedDateRange === 'year'}
+                    onClick={() => handleDateRangeSelect('year')}
+                  >
+                    Year
+                  </Button>
                 </ButtonGroup>
                 
                 <Popover
@@ -899,20 +966,64 @@ export default function AnalyticsPage() {
                   activator={
                     <Button 
                       icon={CalendarIcon}
+                      pressed={selectedDateRange === 'custom'}
                       onClick={() => setShowDatePicker(!showDatePicker)}
+                      disclosure={showDatePicker ? 'up' : 'down'}
                     >
                       Custom Range
                     </Button>
                   }
                   onClose={() => setShowDatePicker(false)}
                 >
-                  <Box padding="400">
-                    <Text as="p">Date picker would go here</Text>
+                  <Box padding="400" minWidth="320px">
+                    <BlockStack gap="400">
+                      <Text variant="headingSm" as="h3">Select Date Range</Text>
+                      <BlockStack gap="300">
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Date range selection is coming soon. This will allow you to:
+                        </Text>
+                        <BlockStack gap="200">
+                          <InlineStack gap="200">
+                            <Icon source={CheckCircleIcon} tone="success" />
+                            <Text variant="bodySm" as="span">Select custom start and end dates</Text>
+                          </InlineStack>
+                          <InlineStack gap="200">
+                            <Icon source={CheckCircleIcon} tone="success" />
+                            <Text variant="bodySm" as="span">Compare periods</Text>
+                          </InlineStack>
+                          <InlineStack gap="200">
+                            <Icon source={CheckCircleIcon} tone="success" />
+                            <Text variant="bodySm" as="span">Export data for selected range</Text>
+                          </InlineStack>
+                        </BlockStack>
+                      </BlockStack>
+                      <Button 
+                        variant="primary" 
+                        onClick={() => {
+                          setSelectedDateRange('custom');
+                          setShowDatePicker(false);
+                        }}
+                      >
+                        Apply Custom Range
+                      </Button>
+                    </BlockStack>
                   </Box>
                 </Popover>
               </InlineStack>
             </Box>
           </Card>
+        </Layout.Section>
+
+        {/* Selected Date Range Indicator */}
+        <Layout.Section>
+          <Banner tone="info">
+            <InlineStack gap="200" align="start">
+              <Icon source={CalendarIcon} />
+              <Text variant="bodyMd" as="span">
+                Showing data for: <Text as="span" fontWeight="semibold">{getDateRangeText()}</Text>
+              </Text>
+            </InlineStack>
+          </Banner>
         </Layout.Section>
 
         {/* Key Metrics Grid */}
