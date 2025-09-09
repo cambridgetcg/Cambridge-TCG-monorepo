@@ -170,6 +170,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
   
   try {
+    // Get date 30 days ago as ISO string for Data API
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    
     // Fetch all necessary data
     const [
       shopSettings,
@@ -188,11 +191,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderBy: { minSpend: 'asc' },
       }),
       db.storeCreditLedger.findMany({
-        where: { 
-          shop,
-          createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }
-        },
+        where: { shop },
         orderBy: { createdAt: 'desc' },
+        take: 100, // Limit recent transactions
       }),
       db.storeCreditLedger.findMany({
         where: { shop },
@@ -205,23 +206,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
     
+    // Filter recent transactions (last 30 days) since we can't use date comparison in query
+    const thirtyDaysAgoDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const filteredRecentTransactions = recentTransactions.filter(
+      t => new Date(t.createdAt) >= thirtyDaysAgoDate
+    );
+    
     // Calculate metrics
     const totalMembers = customers.length;
     const activeMembers = customers.filter(c => 
-      c.currentTierId || parseFloat(c.storeCredit.toString()) > 0
+      c.currentTierId || (c.storeCredit && parseFloat(c.storeCredit.toString()) > 0)
     ).length;
     
     const totalStoreCredit = customers.reduce((sum, c) => 
-      sum + parseFloat(c.storeCredit.toString()), 0
+      sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
     );
     
     const totalCreditIssued = allTransactions
       .filter(t => t.type === 'CASHBACK_EARNED' || t.type === 'MANUAL_ADJUSTMENT')
-      .reduce((sum, t) => sum + Math.max(0, parseFloat(t.amount.toString())), 0);
+      .reduce((sum, t) => sum + Math.max(0, t.amount ? parseFloat(t.amount.toString()) : 0), 0);
     
     const totalCreditRedeemed = allTransactions
       .filter(t => t.type === 'ORDER_PAYMENT')
-      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount.toString())), 0);
+      .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
     
     const creditUtilization = totalCreditIssued > 0 
       ? (totalCreditRedeemed / totalCreditIssued) * 100 
@@ -244,7 +251,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     );
     
     // Generate trend data (last 30 days)
-    const trends = generateTrendData(customers, allTransactions);
+    const trends = generateTrendData(customers, filteredRecentTransactions);
     
     // Calculate tier performance
     const tierPerformance = calculateTierPerformance(tiers, customers, allTransactions);
@@ -279,7 +286,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       period: 'month' as const,
       current: revenueImpact,
       previous: revenueImpact * 0.85, // Mock data - would calculate from historical
-      change: ((revenueImpact - (revenueImpact * 0.85)) / (revenueImpact * 0.85)) * 100,
+      change: revenueImpact * 0.85 > 0 ? ((revenueImpact - (revenueImpact * 0.85)) / (revenueImpact * 0.85)) * 100 : 0,
     };
     
     const analyticsData: AnalyticsData = {
@@ -417,7 +424,7 @@ function calculateTierPerformance(
       .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount.toString())), 0) * 10;
     
     const creditBalance = tierCustomers.reduce((sum, c) => 
-      sum + parseFloat(c.storeCredit.toString()), 0
+      sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
     );
     
     return {
@@ -451,7 +458,9 @@ function generateInsights(
   const customersNearUpgrade = customers.filter(c => {
     if (!c.currentTier) return false;
     const nextTier = tiers.find(t => t.minSpend > c.currentTier.minSpend);
-    return nextTier && (nextTier.minSpend - c.lifetimeSpend) < 100;
+    // Since we don't have lifetimeSpend, we can't calculate near upgrades accurately
+    // This would need to be calculated from order history
+    return false;
   }).length;
   
   if (customersNearUpgrade > 0) {
@@ -530,9 +539,11 @@ function calculateCustomerSegments(customers: any[], transactions: any[]): Analy
   const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
   
   // VIP customers (top 10% by credit balance)
-  const sortedByCredit = [...customers].sort((a, b) => 
-    parseFloat(b.storeCredit.toString()) - parseFloat(a.storeCredit.toString())
-  );
+  const sortedByCredit = [...customers].sort((a, b) => {
+    const aCredit = a.storeCredit ? parseFloat(a.storeCredit.toString()) : 0;
+    const bCredit = b.storeCredit ? parseFloat(b.storeCredit.toString()) : 0;
+    return bCredit - aCredit;
+  });
   const vipCount = Math.ceil(customers.length * 0.1);
   const vipCustomers = sortedByCredit.slice(0, vipCount);
   
@@ -540,32 +551,32 @@ function calculateCustomerSegments(customers: any[], transactions: any[]): Analy
   const atRiskCustomers = customers.filter(c => {
     const lastTransaction = transactions
       .filter(t => t.customerId === c.id)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     
     return lastTransaction && 
-           lastTransaction.createdAt.getTime() < thirtyDaysAgo &&
-           lastTransaction.createdAt.getTime() > sixtyDaysAgo;
+           new Date(lastTransaction.createdAt).getTime() < thirtyDaysAgo &&
+           new Date(lastTransaction.createdAt).getTime() > sixtyDaysAgo;
   });
   
   // New customers (joined in last 30 days)
   const newCustomers = customers.filter(c => 
-    c.createdAt.getTime() > thirtyDaysAgo
+    new Date(c.createdAt).getTime() > thirtyDaysAgo
   );
   
   // Dormant customers (no activity in 60+ days)
   const dormantCustomers = customers.filter(c => {
     const lastTransaction = transactions
       .filter(t => t.customerId === c.id)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
     
-    return !lastTransaction || lastTransaction.createdAt.getTime() < sixtyDaysAgo;
+    return !lastTransaction || new Date(lastTransaction.createdAt).getTime() < sixtyDaysAgo;
   });
   
   return {
     vip: {
       count: vipCustomers.length,
       revenue: vipCustomers.length * 500, // Mock revenue
-      avgCredit: vipCustomers.reduce((sum, c) => sum + parseFloat(c.storeCredit.toString()), 0) / Math.max(1, vipCustomers.length),
+      avgCredit: vipCustomers.reduce((sum, c) => sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0) / Math.max(1, vipCustomers.length),
     },
     atRisk: {
       count: atRiskCustomers.length,
