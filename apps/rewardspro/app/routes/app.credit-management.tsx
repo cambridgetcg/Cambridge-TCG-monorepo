@@ -474,83 +474,266 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
   
-  // Handle add/remove actions
-  if (!customerId || amount === 0) {
-    return json({
-      success: false,
-      error: "Invalid input data"
-    });
+  // Handle add/remove actions with Shopify GraphQL
+  if (actionType === "add" || actionType === "remove") {
+    if (!customerId || amount === 0) {
+      return json({
+        success: false,
+        error: "Invalid input data"
+      });
+    }
+    
+    try {
+      // Fetch customer from database
+      const customer = await db.customer.findFirst({
+        where: { 
+          id: customerId,
+          shop: session.shop // CRITICAL: Prevent cross-tenant access
+        }
+      });
+      
+      if (!customer || !customer.shopifyCustomerId) {
+        return json({
+          success: false,
+          error: "Customer not found or missing Shopify ID"
+        });
+      }
+      
+      // Get customer's store credit account from Shopify
+      const accountQuery = `#graphql
+        query GetStoreCreditAccount($customerId: ID!) {
+          customer(id: $customerId) {
+            id
+            storeCreditAccounts(first: 1) {
+              edges {
+                node {
+                  id
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+      
+      const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
+      const accountResponse = await admin.graphql(accountQuery, {
+        variables: { customerId: gidCustomerId }
+      });
+      
+      const accountData = await accountResponse.json() as any;
+      
+      if (accountData.errors) {
+        console.error("GraphQL errors:", accountData.errors);
+        return json({
+          success: false,
+          error: "Failed to fetch store credit account from Shopify"
+        });
+      }
+      
+      const storeCreditAccount = accountData.data?.customer?.storeCreditAccounts?.edges?.[0]?.node;
+      
+      if (!storeCreditAccount) {
+        return json({
+          success: false,
+          error: "Customer does not have a store credit account in Shopify. Please create one first."
+        });
+      }
+      
+      // Get shop settings for currency
+      const shopSettings = await db.shopSettings.findUnique({
+        where: { shop: session.shop }
+      });
+      
+      const currency = shopSettings?.storeCurrency || "USD";
+      
+      // Perform the credit/debit operation in Shopify
+      if (actionType === "add") {
+        // Add credit using storeCreditAccountCredit mutation
+        const creditMutation = `#graphql
+          mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+            storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+              storeCreditAccountTransaction {
+                amount {
+                  amount
+                  currencyCode
+                }
+                account {
+                  id
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+              userErrors {
+                message
+                field
+              }
+            }
+          }
+        `;
+        
+        const creditResponse = await admin.graphql(creditMutation, {
+          variables: {
+            id: gidCustomerId,
+            creditInput: {
+              creditAmount: {
+                amount: amount.toFixed(2),
+                currencyCode: currency
+              }
+            }
+          }
+        });
+        
+        const creditData = await creditResponse.json() as any;
+        
+        if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+          const errors = creditData.data.storeCreditAccountCredit.userErrors;
+          console.error("Credit mutation errors:", errors);
+          return json({
+            success: false,
+            error: errors[0].message || "Failed to add store credit"
+          });
+        }
+        
+        const newBalance = parseFloat(creditData.data?.storeCreditAccountCredit?.storeCreditAccountTransaction?.account?.balance?.amount || "0");
+        
+        // Update local database
+        await db.storeCreditLedger.create({
+          data: {
+            id: uuidv4(),
+            customerId,
+            shop: session.shop,
+            amount: amount,
+            balance: newBalance,
+            type: "MANUAL_ADJUSTMENT",
+            metadata: {
+              reason,
+              adjustedBy: "admin",
+              shopifyAccountId: storeCreditAccount.id,
+              timestamp: new Date().toISOString()
+            },
+            createdAt: new Date()
+          }
+        });
+        
+        await db.customer.update({
+          where: { id: customerId },
+          data: {
+            storeCredit: newBalance,
+            updatedAt: new Date()
+          }
+        });
+        
+        return json({
+          success: true,
+          message: `Successfully added ${formatCurrency(amount, shopSettings)} to store credit`,
+          newBalance: newBalance.toString()
+        });
+        
+      } else {
+        // Remove credit using storeCreditAccountDebit mutation
+        const debitMutation = `#graphql
+          mutation storeCreditAccountDebit($id: ID!, $debitInput: StoreCreditAccountDebitInput!) {
+            storeCreditAccountDebit(id: $id, debitInput: $debitInput) {
+              storeCreditAccountTransaction {
+                amount {
+                  amount
+                  currencyCode
+                }
+                account {
+                  id
+                  balance {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+              userErrors {
+                message
+                field
+              }
+            }
+          }
+        `;
+        
+        const debitResponse = await admin.graphql(debitMutation, {
+          variables: {
+            id: storeCreditAccount.id,
+            debitInput: {
+              debitAmount: {
+                amount: amount.toFixed(2),
+                currencyCode: currency
+              }
+            }
+          }
+        });
+        
+        const debitData = await debitResponse.json() as any;
+        
+        if (debitData.data?.storeCreditAccountDebit?.userErrors?.length > 0) {
+          const errors = debitData.data.storeCreditAccountDebit.userErrors;
+          console.error("Debit mutation errors:", errors);
+          return json({
+            success: false,
+            error: errors[0].message || "Failed to remove store credit"
+          });
+        }
+        
+        const newBalance = parseFloat(debitData.data?.storeCreditAccountDebit?.storeCreditAccountTransaction?.account?.balance?.amount || "0");
+        
+        // Update local database
+        await db.storeCreditLedger.create({
+          data: {
+            id: uuidv4(),
+            customerId,
+            shop: session.shop,
+            amount: -amount,
+            balance: newBalance,
+            type: "MANUAL_ADJUSTMENT",
+            metadata: {
+              reason,
+              adjustedBy: "admin",
+              shopifyAccountId: storeCreditAccount.id,
+              timestamp: new Date().toISOString()
+            },
+            createdAt: new Date()
+          }
+        });
+        
+        await db.customer.update({
+          where: { id: customerId },
+          data: {
+            storeCredit: newBalance,
+            updatedAt: new Date()
+          }
+        });
+        
+        return json({
+          success: true,
+          message: `Successfully removed ${formatCurrency(amount, shopSettings)} from store credit`,
+          newBalance: newBalance.toString()
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error adjusting credit:", error);
+      return json({
+        success: false,
+        error: "Failed to adjust store credit: " + (error instanceof Error ? error.message : "Unknown error")
+      });
+    }
   }
   
-  try {
-    // Fetch customer
-    // SECURITY: Always scope to shop to prevent cross-tenant access
-    const customer = await db.customer.findFirst({
-      where: { 
-        id: customerId,
-        shop: session.shop // CRITICAL: Prevent cross-tenant access
-      }
-    });
-    
-    if (!customer) {
-      return json({
-        success: false,
-        error: "Customer not found"
-      });
-    }
-    
-    // Calculate new balance
-    const currentBalance = parseFloat(customer.storeCredit.toString());
-    const adjustmentAmount = actionType === "add" ? Math.abs(amount) : -Math.abs(amount);
-    const newBalance = currentBalance + adjustmentAmount;
-    
-    // Don't allow negative balance
-    if (newBalance < 0) {
-      return json({
-        success: false,
-        error: "Insufficient store credit balance"
-      });
-    }
-    
-    // Create ledger entry
-    const ledgerEntry = await db.storeCreditLedger.create({
-      data: {
-        id: uuidv4(),
-        customerId,
-        shop: session.shop,
-        amount: adjustmentAmount,
-        balance: newBalance,
-        type: "MANUAL_ADJUSTMENT",
-        metadata: {
-          reason,
-          adjustedBy: "admin",
-          timestamp: new Date().toISOString()
-        },
-        createdAt: new Date()
-      }
-    });
-    
-    // Update customer balance
-    await db.customer.update({
-      where: { id: customerId },
-      data: {
-        storeCredit: newBalance,
-        updatedAt: new Date()
-      }
-    });
-    
-    return json({
-      success: true,
-      message: `Successfully ${actionType === "add" ? "added" : "removed"} ${formatCurrency(Math.abs(amount), null)} ${actionType === "add" ? "to" : "from"} store credit`,
-      newBalance: newBalance.toString()
-    });
-  } catch (error) {
-    console.error("Error adjusting credit:", error);
-    return json({
-      success: false,
-      error: "Failed to adjust store credit"
-    });
-  }
+  // If we get here, action type was not recognized
+  return json({
+    success: false,
+    error: "Invalid action type"
+  });
 };
 
 // ============================================================================
