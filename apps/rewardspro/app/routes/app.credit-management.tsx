@@ -33,6 +33,8 @@ import {
   ReceiptRefundIcon,
   EditIcon,
   PersonIcon,
+  InfoIcon,
+  ArrowRightIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -915,9 +917,30 @@ export default function CreditManagement() {
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
-              <Text variant="headingMd" as="h3">
-                Customer Search
-              </Text>
+              <InlineStack align="space-between">
+                <Text variant="headingMd" as="h3">
+                  Customer Search
+                </Text>
+                <Icon source={SearchIcon} tone="subdued" />
+              </InlineStack>
+              
+              {/* Help text for first-time users */}
+              {!selectedCustomer && (
+                <Banner tone="info">
+                  <BlockStack gap="200">
+                    <Text as="p" variant="bodyMd">
+                      <Text as="span" fontWeight="semibold">How to manage store credit:</Text>
+                    </Text>
+                    <InlineStack gap="100" blockAlign="center">
+                      <Text as="span">1. Search for a customer</Text>
+                      <Icon source={ArrowRightIcon} tone="subdued" />
+                      <Text as="span">2. Click on their name</Text>
+                      <Icon source={ArrowRightIcon} tone="subdued" />
+                      <Text as="span">3. Manage their credit</Text>
+                    </InlineStack>
+                  </BlockStack>
+                </Banner>
+              )}
               
               <TextField
                 label="Search customers"
@@ -928,44 +951,83 @@ export default function CreditManagement() {
                 prefix={<Icon source={SearchIcon} />}
                 placeholder="Search by email or customer ID"
                 autoComplete="off"
+                helpText="Start typing to search for customers by email or ID"
               />
               
-              {/* Customer List */}
+              {/* Customer List with better guidance */}
               {customers.length > 0 ? (
-                <div style={{ maxHeight: "200px", overflowY: "scroll" }}>
-                  <BlockStack gap="100">
-                    {customers.map(customer => (
-                      <div
-                        key={customer.id}
-                        onClick={() => handleSelectCustomer(customer.id)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <Box
-                          padding="200"
-                          background={selectedCustomer?.id === customer.id ? "bg-surface-selected" : "bg-surface"}
-                          borderRadius="100"
+                <BlockStack gap="200">
+                  <InlineStack align="space-between">
+                    <Text variant="bodySm" tone="subdued" as="p">
+                      {customers.length} customer{customers.length !== 1 ? 's' : ''} found
+                    </Text>
+                    <Text variant="bodySm" tone="subdued" as="p">
+                      Click to select
+                    </Text>
+                  </InlineStack>
+                  <div style={{ 
+                    maxHeight: "300px", 
+                    overflowY: "auto",
+                    border: "1px solid var(--p-color-border-subdued)",
+                    borderRadius: "var(--p-border-radius-200)"
+                  }}>
+                    <BlockStack gap="0">
+                      {customers.map((customer, index) => (
+                        <div
+                          key={customer.id}
+                          onClick={() => handleSelectCustomer(customer.id)}
+                          style={{ 
+                            cursor: "pointer",
+                            borderBottom: index < customers.length - 1 ? "1px solid var(--p-color-border-subdued)" : "none"
+                          }}
                         >
-                        <InlineStack align="space-between">
-                          <InlineStack gap="200">
-                            <Icon source={PersonIcon} />
-                            <BlockStack gap="0">
-                              <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                {customer.email}
-                              </Text>
-                              <Text variant="bodySm" tone="subdued" as="span">
-                                ID: {customer.shopifyCustomerId}
-                              </Text>
-                            </BlockStack>
-                          </InlineStack>
-                          <Badge tone="success">
-                            {formatAmount(customer.storeCredit)}
-                          </Badge>
-                        </InlineStack>
-                        </Box>
-                      </div>
-                    ))}
-                  </BlockStack>
-                </div>
+                          <Box
+                            padding="300"
+                            background={selectedCustomer?.id === customer.id ? "bg-surface-selected" : "bg-surface-hover"}
+                          >
+                            <InlineStack align="space-between">
+                              <InlineStack gap="300">
+                                <div style={{
+                                  backgroundColor: "var(--p-color-bg-surface-secondary)",
+                                  borderRadius: "50%",
+                                  padding: "8px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center"
+                                }}>
+                                  <Icon source={PersonIcon} tone="base" />
+                                </div>
+                                <BlockStack gap="050">
+                                  <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                    {customer.email}
+                                  </Text>
+                                  <InlineStack gap="200">
+                                    <Text variant="bodySm" tone="subdued" as="span">
+                                      ID: {customer.shopifyCustomerId}
+                                    </Text>
+                                    {customer.currentTier && (
+                                      <Badge>
+                                        {customer.currentTier.name}
+                                      </Badge>
+                                    )}
+                                  </InlineStack>
+                                </BlockStack>
+                              </InlineStack>
+                              <BlockStack gap="050" align="end">
+                                <Badge tone={parseFloat(customer.storeCredit) > 0 ? "success" : undefined}>
+                                  {formatAmount(customer.storeCredit)}
+                                </Badge>
+                                <Text variant="bodySm" tone="subdued" as="span">
+                                  Balance
+                                </Text>
+                              </BlockStack>
+                            </InlineStack>
+                          </Box>
+                        </div>
+                      ))}
+                    </BlockStack>
+                  </div>
+                </BlockStack>
               ) : (
                 <EmptyState
                   heading="No customers found"
@@ -1143,7 +1205,7 @@ export default function CreditManagement() {
         </Modal.Section>
       </Modal>
       
-      {/* Sync Modal */}
+      {/* Enhanced Sync Modal with better explanation */}
       <Modal
         open={showSyncModal}
         onClose={handleCloseSyncModal}
@@ -1162,24 +1224,66 @@ export default function CreditManagement() {
         ]}
       >
         <Modal.Section>
-          <FormLayout>
-            <TextField
-              label="Shopify Customer ID"
-              value={syncCustomerId}
-              onChange={setSyncCustomerId}
-              placeholder="e.g., 9224704164179"
-              helpText="Enter the numeric Shopify Customer ID (without gid:// prefix)"
-              autoComplete="off"
-            />
-            <Banner tone="info">
-              <Text as="p">
-                This will fetch the current store credit balance from Shopify and update the local database.
-              </Text>
-              <Text as="p">
-                If the customer doesn't exist locally, they will be created.
-              </Text>
-            </Banner>
-          </FormLayout>
+          <BlockStack gap="400">
+            {/* Explanation of sync purpose */}
+            <BlockStack gap="200">
+              <InlineStack gap="200" blockAlign="center">
+                <Icon source={InfoIcon} tone="info" />
+                <Text variant="headingSm" as="h4">
+                  Why sync from Shopify?
+                </Text>
+              </InlineStack>
+              <BlockStack gap="300">
+                <Text as="p" variant="bodyMd">
+                  The sync feature ensures your RewardsPro database matches Shopify's store credit records exactly.
+                </Text>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm">
+                    <Text as="span" fontWeight="semibold">Use sync when:</Text>
+                  </Text>
+                  <ul style={{ marginLeft: "20px", marginTop: "4px" }}>
+                    <li>Store credit was added/removed directly in Shopify</li>
+                    <li>You need to import existing store credit balances</li>
+                    <li>Balances appear out of sync between systems</li>
+                    <li>After manual adjustments in Shopify admin</li>
+                  </ul>
+                </BlockStack>
+              </BlockStack>
+            </BlockStack>
+            
+            <Divider />
+            
+            <FormLayout>
+              <TextField
+                label="Shopify Customer ID"
+                value={syncCustomerId}
+                onChange={setSyncCustomerId}
+                placeholder="e.g., 9224704164179"
+                helpText="Enter the numeric Shopify Customer ID (without gid:// prefix)"
+                autoComplete="off"
+              />
+              
+              <Banner tone="info">
+                <BlockStack gap="200">
+                  <InlineStack gap="100" blockAlign="start">
+                    <Icon source={RefreshIcon} />
+                    <Text as="p" variant="bodyMd" fontWeight="semibold">
+                      What happens during sync:
+                    </Text>
+                  </InlineStack>
+                  <ol style={{ marginLeft: "20px", marginTop: "4px" }}>
+                    <li>Fetches current balance from Shopify</li>
+                    <li>Updates local database to match</li>
+                    <li>Creates audit trail entry</li>
+                    <li>Shows difference if balance changed</li>
+                  </ol>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Note: This is a one-way sync from Shopify → RewardsPro
+                  </Text>
+                </BlockStack>
+              </Banner>
+            </FormLayout>
+          </BlockStack>
         </Modal.Section>
       </Modal>
     </Page>
