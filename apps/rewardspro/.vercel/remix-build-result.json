@@ -194,7 +194,7 @@
       "routes/app.customers": {
         "id": "routes/app.customers",
         "parentId": "routes/app",
-        "file": "app/routes/app.customers/route.tsx",
+        "file": "app/routes/app.customers.tsx",
         "path": "customers",
         "config": {
           "runtime": "nodejs"
@@ -371,7 +371,7 @@
       "routes/app.customers": {
         "id": "routes/app.customers",
         "parentId": "routes/app",
-        "file": "routes/app.customers/route.tsx",
+        "file": "routes/app.customers.tsx",
         "path": "customers"
       },
       "routes/app.settings": {

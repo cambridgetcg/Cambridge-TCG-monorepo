@@ -39,9 +39,8 @@ import {
   AlertTriangleIcon,
   InfoIcon,
   ClockIcon,
-  TrophyIcon,
-  DiamondIcon,
-  CircleTickIcon,
+  StarIcon,
+  CheckIcon,
   ArrowUpIcon,
   ArrowDownIcon,
 } from "@shopify/polaris-icons";
@@ -303,16 +302,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 function TierIcon({ tierName }: { tierName: string }) {
   const name = tierName.toLowerCase();
   if (name.includes('platinum') || name.includes('vip')) {
-    return <Icon source={DiamondIcon} tone="emphasis" />;
+    return <Icon source={StarFilledIcon} tone="emphasis" />;
   }
   if (name.includes('gold')) {
     return <Icon source={StarFilledIcon} tone="warning" />;
   }
   if (name.includes('silver')) {
-    return <Icon source={StarFilledIcon} tone="subdued" />;
+    return <Icon source={StarIcon} tone="subdued" />;
   }
   if (name.includes('bronze')) {
-    return <Icon source={CircleTickIcon} tone="base" />;
+    return <Icon source={CheckIcon} tone="base" />;
   }
   return <Icon source={PersonIcon} tone="base" />;
 }
