@@ -11,6 +11,7 @@
     },
     "routeIdToServerBundleId": {
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -22,6 +23,7 @@
       "routes/app.webhook-tester-advanced": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-test-simple": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-tester": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -43,6 +45,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-details.$id": {
+        "id": "routes/api.customer-details.$id",
+        "parentId": "root",
+        "file": "app/routes/api.customer-details.$id.tsx",
+        "path": "api/customer-details/:id",
         "config": {
           "runtime": "nodejs"
         }
@@ -153,6 +164,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.design-showcase": {
+        "id": "routes/app.design-showcase",
+        "parentId": "routes/app",
+        "file": "app/routes/app.design-showcase.tsx",
+        "path": "design-showcase",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.webhook-tester": {
         "id": "routes/app.webhook-tester",
         "parentId": "routes/app",
@@ -252,6 +272,12 @@
         "file": "routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update"
       },
+      "routes/api.customer-details.$id": {
+        "id": "routes/api.customer-details.$id",
+        "parentId": "root",
+        "file": "routes/api.customer-details.$id.tsx",
+        "path": "api/customer-details/:id"
+      },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
         "parentId": "root",
@@ -323,6 +349,12 @@
         "parentId": "routes/app",
         "file": "routes/app.credit-management.tsx",
         "path": "credit-management"
+      },
+      "routes/app.design-showcase": {
+        "id": "routes/app.design-showcase",
+        "parentId": "routes/app",
+        "file": "routes/app.design-showcase.tsx",
+        "path": "design-showcase"
       },
       "routes/app.webhook-tester": {
         "id": "routes/app.webhook-tester",

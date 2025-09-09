@@ -14,11 +14,16 @@ import {
   ProgressBar,
   Badge,
   Divider,
+  Grid,
 } from "@shopify/polaris";
 import {
   CheckCircleIcon,
   MinusCircleIcon,
   ClockIcon,
+  PersonIcon,
+  CashDollarIcon,
+  StarIcon,
+  ChartLineIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -50,11 +55,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const shop = session.shop;
 
-    // Check setup status
-    const [settings, tiers, billingPlan] = await Promise.all([
+    // Check setup status and get metrics
+    const [settings, tiers, billingPlan, customerCount, totalStoreCredit] = await Promise.all([
       db.shopSettings.findUnique({ where: { shop } }).catch(() => null),
       db.tier.count({ where: { shop } }).catch(() => 0),
       db.billingPlan.findUnique({ where: { shop } }).catch(() => null),
+      db.customer.count({ where: { shop } }).catch(() => 0),
+      db.customer.aggregate({
+        where: { shop },
+        _sum: { storeCredit: true }
+      }).catch(() => ({ _sum: { storeCredit: 0 } }))
     ]);
 
     // Get recent activity
@@ -66,7 +76,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         include: {
           customer: {
             select: {
-              name: true,
               email: true,
             }
           }
@@ -111,12 +120,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const completedTasks = setupTasks.filter(task => task.completed).length;
     const setupProgress = (completedTasks / setupTasks.length) * 100;
 
+    // Calculate metrics
+    const metrics = {
+      totalCustomers: customerCount,
+      totalStoreCredit: totalStoreCredit._sum.storeCredit || 0,
+      totalTiers: tiers,
+      averageCredit: customerCount > 0 ? (totalStoreCredit._sum.storeCredit || 0) / customerCount : 0
+    };
+
     return json({
       shop,
       setupTasks,
       setupProgress,
       completedTasks,
       recentActivity,
+      metrics,
       shopSettings: settings ? {
         storeCurrency: settings.storeCurrency,
         currencyDisplayType: settings.currencyDisplayType
@@ -134,6 +152,7 @@ export default function DashboardPage() {
     setupProgress, 
     completedTasks,
     recentActivity,
+    metrics,
     shopSettings 
   } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
@@ -161,6 +180,77 @@ export default function DashboardPage() {
   return (
     <Page title="Dashboard">
       <Layout>
+        {/* Metrics Section - Symmetrical Balance */}
+        {isSetupComplete && (
+          <Layout.Section>
+            <Grid columns={{xs: 2, sm: 2, md: 4, lg: 4, xl: 4}}>
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200" align="center">
+                      <Icon source={PersonIcon} tone="base" />
+                      <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                        Total Customers
+                      </Text>
+                      <Text variant="headingLg" as="h3" alignment="center">
+                        {metrics.totalCustomers.toLocaleString()}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200" align="center">
+                      <Icon source={CashDollarIcon} tone="base" />
+                      <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                        Total Store Credit
+                      </Text>
+                      <Text variant="headingLg" as="h3" alignment="center">
+                        {formatAmount(parseFloat(metrics.totalStoreCredit))}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200" align="center">
+                      <Icon source={StarIcon} tone="base" />
+                      <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                        Active Tiers
+                      </Text>
+                      <Text variant="headingLg" as="h3" alignment="center">
+                        {metrics.totalTiers}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              
+              <Grid.Cell>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200" align="center">
+                      <Icon source={ChartLineIcon} tone="base" />
+                      <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                        Avg. Credit
+                      </Text>
+                      <Text variant="headingLg" as="h3" alignment="center">
+                        {formatAmount(metrics.averageCredit)}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+            </Grid>
+          </Layout.Section>
+        )}
+
         {/* Setup Guide Section */}
         {!isSetupComplete && (
           <Layout.Section>
@@ -249,52 +339,100 @@ export default function DashboardPage() {
           </Layout.Section>
         )}
 
-        {/* Recent Activity */}
-        <Layout.Section>
-          <Card>
-            <Box padding="400">
-              <BlockStack gap="400">
-                <InlineStack align="space-between">
-                  <Text variant="headingMd" as="h3">Recent Activity</Text>
-                  {recentActivity.length > 0 && (
-                    <Badge tone="info">{`${recentActivity.length} items`}</Badge>
-                  )}
-                </InlineStack>
-                
-                {recentActivity.length === 0 ? (
-                  <BlockStack gap="200">
-                    <Icon source={ClockIcon} tone="subdued" />
-                    <Text variant="bodyMd" tone="subdued" as="p">
-                      No activity yet. Activity will appear here once customers start earning rewards.
-                    </Text>
-                  </BlockStack>
-                ) : (
-                  <BlockStack gap="300">
-                    {recentActivity.map((activity: any) => (
-                      <Box key={activity.id}>
-                        <InlineStack align="space-between">
-                          <BlockStack gap="050">
-                            <Text variant="bodyMd" as="p">
-                              {activity.type === "CASHBACK_EARNED" && "Cashback Earned"}
-                              {activity.type === "ORDER_PAYMENT" && "Store Credit Used"}
-                              {activity.type === "MANUAL_ADJUSTMENT" && "Manual Adjustment"}
-                            </Text>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              {activity.customer?.name || activity.customer?.email || "Unknown"} • {formatRelativeTime(activity.createdAt)}
-                            </Text>
-                          </BlockStack>
-                          <Text variant="bodyMd" fontWeight="semibold" as="p">
-                            {activity.amount > 0 && "+"}{formatAmount(parseFloat(activity.amount))}
+        {/* Main Content Area - Asymmetrical Balance */}
+        <Layout>
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingMd" as="h3">Recent Activity</Text>
+                    {recentActivity.length > 0 && (
+                      <Badge tone="info">{`${recentActivity.length} items`}</Badge>
+                    )}
+                  </InlineStack>
+                  
+                  {recentActivity.length === 0 ? (
+                    <BlockStack gap="200" align="center">
+                      <Box padding="800">
+                        <BlockStack gap="300" align="center">
+                          <Icon source={ClockIcon} tone="subdued" />
+                          <Text variant="bodyMd" tone="subdued" as="p" alignment="center">
+                            No activity yet. Activity will appear here once customers start earning rewards.
                           </Text>
-                        </InlineStack>
+                        </BlockStack>
                       </Box>
-                    ))}
+                    </BlockStack>
+                  ) : (
+                    <BlockStack gap="300">
+                      {recentActivity.map((activity: any) => (
+                        <Box key={activity.id}>
+                          <InlineStack align="space-between" blockAlign="center">
+                            <BlockStack gap="050">
+                              <Text variant="bodyMd" as="p">
+                                {activity.type === "CASHBACK_EARNED" && "Cashback Earned"}
+                                {activity.type === "ORDER_PAYMENT" && "Store Credit Used"}
+                                {activity.type === "MANUAL_ADJUSTMENT" && "Manual Adjustment"}
+                              </Text>
+                              <Text variant="bodySm" tone="subdued" as="p">
+                                {activity.customer?.email || "Unknown"} • {formatRelativeTime(activity.createdAt)}
+                              </Text>
+                            </BlockStack>
+                            <Text variant="bodyMd" fontWeight="semibold" as="p">
+                              {activity.amount > 0 && "+"}{formatAmount(parseFloat(activity.amount))}
+                            </Text>
+                          </InlineStack>
+                          <Box paddingBlockStart="300">
+                            <Divider />
+                          </Box>
+                        </Box>
+                      ))}
+                    </BlockStack>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+          
+          <Layout.Section variant="oneThird">
+            <BlockStack gap="400">
+              {/* Quick Actions Card */}
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    <Text variant="headingMd" as="h3">Quick Actions</Text>
+                    <BlockStack gap="200">
+                      <Button fullWidth onClick={() => navigate("/app/customers")}>
+                        View Customers
+                      </Button>
+                      <Button fullWidth variant="plain" onClick={() => navigate("/app/tiers")}>
+                        Manage Tiers
+                      </Button>
+                      <Button fullWidth variant="plain" onClick={() => navigate("/app/settings")}>
+                        Settings
+                      </Button>
+                    </BlockStack>
                   </BlockStack>
-                )}
-              </BlockStack>
-            </Box>
-          </Card>
-        </Layout.Section>
+                </Box>
+              </Card>
+              
+              {/* Help Card */}
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="300">
+                    <Text variant="headingMd" as="h3">Need Help?</Text>
+                    <Text variant="bodyMd" tone="subdued" as="p">
+                      Check our documentation or contact support for assistance.
+                    </Text>
+                    <Button fullWidth variant="plain" url="https://help.shopify.com">
+                      View Documentation
+                    </Button>
+                  </BlockStack>
+                </Box>
+              </Card>
+            </BlockStack>
+          </Layout.Section>
+        </Layout>
 
         {/* Feedback Section */}
         <Layout.Section>

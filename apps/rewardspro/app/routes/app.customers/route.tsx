@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useActionData, useNavigation, useSubmit, useSearchParams, useRouteError, isRouteErrorResponse } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   Page,
   Layout,
@@ -20,11 +20,12 @@ import {
   TextField,
   Icon
 } from "@shopify/polaris";
-import { SearchIcon } from "@shopify/polaris-icons";
+import { SearchIcon, ViewIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../../shopify.server";
 import db from "../../db.server";
 import { createCustomerSyncServiceV2 } from "../../services/customer-sync-v2.service";
 import { formatCurrency } from "../../utils/currency";
+import { CustomerDetailModal } from "../../components/CustomerDetailModal";
 
 // Type imports
 import type { CustomersLoaderData, CustomersActionData } from "./types";
@@ -214,6 +215,8 @@ export default function CustomersPageV2() {
   const submit = useSubmit();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState(searchQuery);
+  const [selectedCustomer, setSelectedCustomer] = useState<{id: string, email: string} | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   
   const isLoading = navigation.state === "submitting" || navigation.state === "loading";
   const isSearching = navigation.state === "loading" && searchParams.has('search');
@@ -245,20 +248,40 @@ export default function CustomersPageV2() {
     handleSearch('');
   }, [handleSearch]);
   
-  // Prepare data for table
-  const rows = customers.map(customer => [
-    customer.email,
-    customer.shopifyCustomerId,
-    customer.currentTier ? (
-      <Badge tone="success">
-        {`${customer.currentTier.name} (${customer.currentTier.cashbackPercent.toString()}%)`}
-      </Badge>
-    ) : (
-      <Badge>No tier</Badge>
-    ),
-    formatCurrency(customer.storeCredit, shopSettings),
-    new Date(customer.createdAt).toLocaleDateString()
-  ]);
+  // Handle customer row click
+  const handleCustomerClick = useCallback((customerId: string, email: string) => {
+    setSelectedCustomer({ id: customerId, email });
+    setDetailModalOpen(true);
+  }, []);
+  
+  // Handle modal close
+  const handleModalClose = useCallback(() => {
+    setDetailModalOpen(false);
+    setSelectedCustomer(null);
+  }, []);
+  
+  // Prepare data for table with action buttons
+  const rows = useMemo(() => {
+    return customers.map(customer => [
+      customer.email,
+      customer.shopifyCustomerId,
+      customer.currentTier ? (
+        <Badge tone="success">
+          {`${customer.currentTier.name} (${customer.currentTier.cashbackPercent.toString()}%)`}
+        </Badge>
+      ) : (
+        <Badge>No tier</Badge>
+      ),
+      formatCurrency(customer.storeCredit, shopSettings),
+      new Date(customer.createdAt).toLocaleDateString(),
+      <Button
+        variant="plain"
+        icon={ViewIcon}
+        onClick={() => handleCustomerClick(customer.id, customer.email)}
+        accessibilityLabel={`View details for ${customer.email}`}
+      />
+    ]);
+  }, [customers, shopSettings, handleCustomerClick]);
   
   return (
     <Page
@@ -387,15 +410,17 @@ export default function CustomersPageV2() {
               {customers.length > 0 ? (
                 <BlockStack gap="300">
                   <DataTable
-                    columnContentTypes={["text", "text", "text", "numeric", "text"]}
+                    columnContentTypes={["text", "text", "text", "numeric", "text", "text"]}
                     headings={[
                       "Email",
                       "Shopify ID",
                       "Tier",
                       "Store Credit",
-                      "Created"
+                      "Created",
+                      "Actions"
                     ]}
                     rows={rows}
+                    hoverable
                   />
                 </BlockStack>
               ) : (
@@ -432,6 +457,16 @@ export default function CustomersPageV2() {
           </Layout.Section>
         )}
       </Layout>
+      
+      {/* Customer Detail Modal */}
+      {selectedCustomer && (
+        <CustomerDetailModal
+          customerId={selectedCustomer.id}
+          customerEmail={selectedCustomer.email}
+          open={detailModalOpen}
+          onClose={handleModalClose}
+        />
+      )}
     </Page>
   );
 }
