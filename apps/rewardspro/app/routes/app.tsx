@@ -91,31 +91,42 @@ export default function App() {
         </NavMenu>
         <Outlet />
         
-        {/* Global styles for app pages */}
+        {/* 
+          Global styles for iframe bottom spacing in Shopify Admin
+          
+          CRITICAL: Use padding, NOT margin!
+          - Margins collapse and aren't counted in iframe height calculations
+          - Padding is included in offsetHeight and ensures visible spacing
+          - See: docs/APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
+        */}
         <style>{`
-          /* Add bottom padding to prevent content from touching the bottom */
-          .Polaris-Page {
-            padding-bottom: 80px !important;
-          }
-          
-          /* Alternative: Bottom margin for the app container */
-          #app {
-            margin-bottom: 80px;
-          }
-          
-          /* Ensure scrollable content has padding */
+          /* Primary solution: Padding on Polaris Frame scrollable content */
           .Polaris-Frame__Content {
-            padding-bottom: 80px;
+            padding-bottom: 80px !important; /* Counted in iframe height */
+            box-sizing: border-box;
           }
           
-          /* For mobile responsiveness */
+          /* Secondary: Ensure Polaris Page components have padding */
+          .Polaris-Page {
+            padding-bottom: 80px !important; /* Prevents content touching bottom */
+          }
+          
+          /* DO NOT USE: Margins won't work in iframe context */
+          /* #app { margin-bottom: 80px; } <- This won't create visible space */
+          
+          /* Mobile responsiveness - reduce spacing on smaller screens */
           @media (max-width: 768px) {
+            .Polaris-Frame__Content {
+              padding-bottom: 60px !important;
+            }
             .Polaris-Page {
               padding-bottom: 60px !important;
             }
-            .Polaris-Frame__Content {
-              padding-bottom: 60px;
-            }
+          }
+          
+          /* Ensure padding isn't overridden by Polaris resets */
+          .Polaris-Frame__Content > * {
+            margin-bottom: 0; /* Clear any margins that might interfere */
           }
         `}</style>
       </AuthenticatedFetchProvider>
