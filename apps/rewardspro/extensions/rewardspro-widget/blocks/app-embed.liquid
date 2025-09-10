@@ -191,50 +191,68 @@
     </style>
   {% endif %}
 
-  {% comment %} Widget configuration data {% endcomment %}
+  {% comment %} 
+    Security-hardened widget configuration
+    NO customer IDs, emails, or sensitive data exposed
+  {% endcomment %}
+  
+  {% comment %} Meta tags for session detection (server-side verified) {% endcomment %}
+  {% if customer %}
+    <meta name="rewardspro-session" content="authenticated">
+    <meta name="rewardspro-session-check" content="{{ 'now' | date: '%s' | hmac: shop.domain }}">
+  {% else %}
+    <meta name="rewardspro-session" content="guest">
+  {% endif %}
+  
   <script>
+    // SECURE: Only public, non-sensitive configuration
     window.RewardsProConfig = {
-      // Widget settings
-      position: '{{ block.settings.position }}',
-      startMinimized: {{ block.settings.start_minimized | json }},
-      themeColor: '{{ block.settings.theme_color }}',
-      iconStyle: '{{ block.settings.icon_style }}',
-      animationSpeed: {{ block.settings.animation_speed }},
-      rememberState: {{ block.settings.remember_state | json }},
-      autoHideDelay: {{ block.settings.auto_hide_delay }},
-      showOnMobile: {{ block.settings.show_on_mobile | json }},
+      // Session state (boolean only, no IDs or personal data)
+      isAuthenticated: {% if customer %}true{% else %}false{% endif %},
       
-      // Content
-      title: {{ block.settings.widget_title | json }},
-      guestMessage: {{ block.settings.guest_message | json }},
-      signInText: {{ block.settings.sign_in_text | json }},
-      registerText: {{ block.settings.register_text | json }},
+      // Widget settings from theme customizer
+      settings: {
+        position: {{ block.settings.position | json }},
+        startMinimized: {{ block.settings.start_minimized | json }},
+        themeColor: {{ block.settings.theme_color | json }},
+        iconStyle: {{ block.settings.icon_style | json }},
+        animationSpeed: {{ block.settings.animation_speed }},
+        rememberState: {{ block.settings.remember_state | json }},
+        autoHideDelay: {{ block.settings.auto_hide_delay }},
+        showOnMobile: {{ block.settings.show_on_mobile | json }}
+      },
       
-      // Customer data
-      customerId: {% if customer %}{{ customer.id | json }}{% else %}null{% endif %},
-      customerEmail: {% if customer %}{{ customer.email | json }}{% else %}null{% endif %},
-      customerName: {% if customer %}{{ customer.name | json }}{% else %}null{% endif %},
-      customerTags: {% if customer %}{{ customer.tags | json }}{% else %}[]{% endif %},
+      // Content strings
+      content: {
+        title: {{ block.settings.widget_title | json }},
+        guestMessage: {{ block.settings.guest_message | json }},
+        signInText: {{ block.settings.sign_in_text | json }},
+        registerText: {{ block.settings.register_text | json }}
+      },
       
-      // Shop data
-      shop: {{ shop.domain | json }},
-      shopName: {{ shop.name | json }},
-      shopCurrency: {{ shop.currency | json }},
-      shopLocale: {{ request.locale.iso_code | json }},
+      // Shop information (public data only)
+      shop: {
+        domain: {{ shop.domain | json }},
+        name: {{ shop.name | json }},
+        currency: {{ shop.currency | json }},
+        moneyFormat: {{ shop.money_format | json }},
+        locale: {{ request.locale.iso_code | json }}
+      },
       
-      // URLs
-      loginUrl: {{ routes.account_login_url | json }},
-      registerUrl: {{ routes.account_register_url | json }},
-      accountUrl: {{ routes.account_url | json }},
+      // Public URLs
+      urls: {
+        login: {{ routes.account_login_url | json }},
+        register: {{ routes.account_register_url | json }},
+        account: {{ routes.account_url | json }},
+        // Protected app proxy endpoint (HMAC verified)
+        membershipApi: {{ '/apps/rewardspro/membership' | json }}
+      },
       
-      // API endpoints
-      membershipApiUrl: '/apps/rewardspro/membership',
-      
-      // Security
-      sessionToken: '{{ content_for_header | escape }}',
-      
-      // Debug mode
-      debug: {% if request.host contains '.myshopify.io' %}true{% else %}false{% endif %}
+      // Environment flags
+      environment: {
+        debug: {% if request.host contains '.myshopify.io' %}true{% else %}false{% endif %},
+        timestamp: {{ 'now' | date: '%s' }}
+      }
     };
   </script>
 

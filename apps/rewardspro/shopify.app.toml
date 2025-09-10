@@ -38,3 +38,10 @@ redirect_urls = ["https://rewardspro-production-nnwf.vercel.app/auth/callback", 
 
 [pos]
 embedded = false
+
+# App proxy configuration for customer-facing widget API
+# This allows the widget to securely fetch member data
+[app_proxy]
+url = "https://rewardspro-production-nnwf.vercel.app/api"
+subpath = "rewardspro"
+prefix = "apps"
