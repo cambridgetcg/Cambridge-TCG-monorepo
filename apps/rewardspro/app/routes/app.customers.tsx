@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useFetcher } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import crypto from "crypto";
 import {
@@ -514,6 +514,7 @@ function MetricCard({ title, value, icon, tone, badge, progress, delay = 0 }: an
 
 export default function Customers() {
   const data = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const fetcher = useFetcher();
@@ -673,8 +674,18 @@ export default function Customers() {
     if (navigation.state === "idle" && isCalculating) {
       setIsCalculating(false);
       
-      // Success feedback will come through navigation data
-      if (navigation.formData) {
+      // Check if we have sync results
+      if (actionData && 'totalImported' in actionData) {
+        // Sync customers completed
+        const totalProcessed = (actionData.totalImported || 0) + (actionData.totalUpdated || 0);
+        setToast({
+          active: true,
+          content: `Sync complete! Imported: ${actionData.totalImported}, Updated: ${actionData.totalUpdated}${actionData.totalErrors ? `, Errors: ${actionData.totalErrors}` : ''}`,
+          error: actionData.totalErrors > 0,
+          duration: 8000,
+        });
+      } else if (navigation.formData) {
+        // Other operations
         setToast({
           active: true,
           content: "Tier calculation complete!",
@@ -683,7 +694,7 @@ export default function Customers() {
         });
       }
     }
-  }, [navigation.state, isCalculating, navigation.formData]);
+  }, [navigation.state, isCalculating, navigation.formData, actionData]);
 
   // Skip animations on first render for performance
   useEffect(() => {
