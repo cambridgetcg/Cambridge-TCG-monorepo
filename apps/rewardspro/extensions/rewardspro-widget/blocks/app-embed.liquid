@@ -136,6 +136,28 @@
       "default": 0,
       "unit": "sec",
       "info": "0 = never auto-hide"
+    },
+    {
+      "type": "header",
+      "content": "Page Spacing"
+    },
+    {
+      "type": "range",
+      "id": "bottom_margin",
+      "label": "Bottom Page Margin",
+      "min": 0,
+      "max": 200,
+      "step": 10,
+      "default": 80,
+      "unit": "px",
+      "info": "Adds space at the bottom of the page to prevent overlap"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_bottom_margin",
+      "label": "Enable Bottom Margin",
+      "default": true,
+      "info": "Add spacing below the widget area"
     }
   ]
 }
@@ -188,6 +210,25 @@
           .rp-widget-container { display: none !important; }
         }
       {% endunless %}
+      
+      /* Bottom spacer responsive styles */
+      .rp-widget-bottom-spacer {
+        background: transparent;
+        pointer-events: none;
+        user-select: none;
+      }
+      
+      /* Reduce spacing on mobile */
+      @media (max-width: 768px) {
+        .rp-widget-bottom-spacer {
+          height: {{ block.settings.bottom_margin | divided_by: 2 | default: 40 }}px !important;
+        }
+      }
+      
+      /* Ensure spacer works with different page layouts */
+      body:has(.sticky-footer) .rp-widget-bottom-spacer {
+        height: calc({{ block.settings.bottom_margin | default: 80 }}px + 20px) !important;
+      }
     </style>
   {% endif %}
 
@@ -258,5 +299,12 @@
 
   {% comment %} Widget container will be created by JavaScript {% endcomment %}
   <div id="rewardspro-widget-root" data-widget-version="1.0.0"></div>
+  
+  {% comment %} Bottom spacing to prevent widget touching page bottom {% endcomment %}
+  {% if block.settings.enable_bottom_margin %}
+    <div class="rp-widget-bottom-spacer" 
+         aria-hidden="true" 
+         style="height: {{ block.settings.bottom_margin | default: 80 }}px; width: 100%; display: block; clear: both;"></div>
+  {% endif %}
 
 {% endif %}
