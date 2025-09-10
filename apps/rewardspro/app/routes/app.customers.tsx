@@ -675,13 +675,17 @@ export default function Customers() {
       setIsCalculating(false);
       
       // Check if we have sync results
-      if (actionData && 'totalImported' in actionData) {
+      if (actionData && 'results' in actionData && actionData.results && 
+          typeof actionData.results === 'object' && 
+          'imported' in actionData.results && 
+          'updated' in actionData.results && 
+          'errors' in actionData.results) {
         // Sync customers completed
-        const totalProcessed = (actionData.totalImported || 0) + (actionData.totalUpdated || 0);
+        const results = actionData.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
         setToast({
           active: true,
-          content: `Sync complete! Imported: ${actionData.totalImported}, Updated: ${actionData.totalUpdated}${actionData.totalErrors ? `, Errors: ${actionData.totalErrors}` : ''}`,
-          error: actionData.totalErrors > 0,
+          content: `Sync complete! Imported: ${results.imported}, Updated: ${results.updated}${results.errors ? `, Errors: ${results.errors}` : ''}`,
+          error: results.errors > 0,
           duration: 8000,
         });
       } else if (navigation.formData) {
