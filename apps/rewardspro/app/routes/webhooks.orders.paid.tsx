@@ -1,12 +1,47 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { v4 as uuidv4 } from "uuid";
 import type { Decimal } from "@prisma/client/runtime/library";
 import { calculateTierAfterOrder } from "../services/tier-calculation.server";
 
 // ============================================================================
 // TYPES & INTERFACES
 // ============================================================================
+
+interface Transaction {
+  id: string;
+  gateway: string;
+  status: string;
+  kind: string;
+  amountSet: {
+    shopMoney: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  parentTransaction?: {
+    id: string;
+  };
+}
+
+interface OrderDetails {
+  id: string;
+  totalReceivedSet: {
+    shopMoney: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  transactions: Transaction[];
+}
+
+interface PaymentBreakdown {
+  giftCardAmount: number;
+  storeCreditAmount: number;
+  externalPaymentAmount: number;
+  cashbackEligibleAmount: number;
+}
 
 interface OrderWebhookPayload {
   id: number;
@@ -33,16 +68,23 @@ interface OrderWebhookPayload {
   }>;
 }
 
-interface CashbackCalculation {
-  amount: number;
-  percentage: number;
-  tierName: string | null;
-  tierId: string | null;
-}
-
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Round down to 2 decimal places for accurate currency calculations
+ */
+function roundDownToHundredths(value: number): number {
+  return Math.floor(value * 100) / 100;
+}
+
+/**
+ * Format number for Shopify API (exactly 2 decimal places)
+ */
+function formatForShopify(value: number): string {
+  return roundDownToHundredths(value).toFixed(2);
+}
 
 /**
  * Convert Decimal type to number for calculations
@@ -52,46 +94,179 @@ function decimalToNumber(value: Decimal | number): number {
   return parseFloat(value.toString());
 }
 
-/**
- * Calculate cashback based on customer's current tier
- */
+// ============================================================================
+// STEP 3: FETCH TRANSACTION DETAILS
+// ============================================================================
+
+async function fetchOrderTransactions(
+  admin: any, 
+  orderId: string
+): Promise<OrderDetails | null> {
+  const query = `#graphql
+    query GetOrderPaymentDetails($id: ID!) {
+      order(id: $id) {
+        id
+        totalReceivedSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        transactions(first: 250) {
+          id
+          gateway
+          status
+          kind
+          amountSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          parentTransaction {
+            id
+          }
+        }
+      }
+    }
+  `;
+
+  const gid = orderId.startsWith('gid://') 
+    ? orderId 
+    : `gid://shopify/Order/${orderId}`;
+  
+  try {
+    const response = await admin.graphql(query, { 
+      variables: { id: gid } 
+    });
+    const result = await response.json();
+    
+    if (result.errors || !result.data?.order) {
+      console.error("Failed to fetch order details:", result.errors);
+      return null;
+    }
+    
+    return result.data.order;
+  } catch (error) {
+    console.error("GraphQL query failed:", error);
+    return null;
+  }
+}
+
+// ============================================================================
+// STEP 4: ANALYZE TRANSACTIONS
+// ============================================================================
+
+function analyzeTransactions(transactions: Transaction[]): PaymentBreakdown {
+  let giftCardAmount = 0;
+  let storeCreditAmount = 0;
+  let externalPaymentAmount = 0;
+  
+  // Only process successful SALE or CAPTURE transactions
+  const validTransactions = transactions.filter(tx => {
+    const isSuccessful = tx.status === 'SUCCESS';
+    const isPayment = ['SALE', 'CAPTURE'].includes(tx.kind);
+    return isSuccessful && isPayment;
+  });
+  
+  // Deduplicate CAPTURE/AUTHORIZATION pairs
+  const processedIds = new Set<string>();
+  
+  validTransactions.forEach(tx => {
+    // Skip if we've already processed this transaction
+    if (processedIds.has(tx.id)) return;
+    
+    // Skip CAPTURE if we already processed its AUTHORIZATION
+    if (tx.kind === 'CAPTURE' && tx.parentTransaction) {
+      const parentAuth = transactions.find(
+        t => t.id === tx.parentTransaction!.id && t.kind === 'AUTHORIZATION'
+      );
+      if (parentAuth && processedIds.has(parentAuth.id)) {
+        return;
+      }
+    }
+    
+    processedIds.add(tx.id);
+    const amount = parseFloat(tx.amountSet.shopMoney.amount);
+    const gateway = tx.gateway.toLowerCase();
+    
+    // Categorize payment by gateway
+    if (gateway.includes('gift_card')) {
+      giftCardAmount += amount;
+      console.log(`  Gift card: ${amount} (excluded)`);
+    } else if (gateway.includes('store_credit')) {
+      storeCreditAmount += amount;
+      console.log(`  Store credit: ${amount} (excluded)`);
+    } else {
+      externalPaymentAmount += amount;
+      console.log(`  External payment (${tx.gateway}): ${amount} (eligible)`);
+    }
+  });
+  
+  return {
+    giftCardAmount,
+    storeCreditAmount,
+    externalPaymentAmount,
+    cashbackEligibleAmount: externalPaymentAmount
+  };
+}
+
+// ============================================================================
+// STEP 5: CALCULATE CASHBACK
+// ============================================================================
+
 async function calculateCashback(
-  customer: any,
-  orderAmount: number,
-  shop: string
-): Promise<CashbackCalculation> {
-  // If customer has no tier, check for default tier
-  if (!customer.currentTierId) {
+  customerId: string,
+  shopDomain: string,
+  eligibleAmount: number
+): Promise<{ amount: number; percentage: number; tierName: string | null; tierId: string | null }> {
+  // Get customer with their current tier
+  const customer = await db.customer.findUnique({
+    where: { id: customerId }
+  });
+  
+  // Get current tier if exists
+  let currentTier = null;
+  if (customer?.currentTierId) {
+    currentTier = await db.tier.findUnique({
+      where: { id: customer.currentTierId }
+    });
+  }
+  
+  if (!customer) {
+    console.error(`Customer ${customerId} not found`);
+    return { amount: 0, percentage: 0, tierName: null, tierId: null };
+  }
+  
+  // If customer has no tier, try to find default tier
+  if (!currentTier) {
     const defaultTier = await db.tier.findFirst({
       where: {
-        shop,
-        minSpend: 0 // Default tier with no minimum spend
+        shop: shopDomain,
+        minSpend: 0
       },
       orderBy: {
         minSpend: 'asc'
       }
     });
-
+    
     if (!defaultTier) {
-      return {
-        amount: 0,
-        percentage: 0,
-        tierName: null,
-        tierId: null
-      };
+      console.log("No default tier found, no cashback awarded");
+      return { amount: 0, percentage: 0, tierName: null, tierId: null };
     }
-
+    
     // Assign default tier to customer
     await db.customer.update({
-      where: { id: customer.id },
+      where: { id: customerId },
       data: { currentTierId: defaultTier.id }
     });
-
+    
     // Log initial tier assignment
     await db.tierChangeLog.create({
       data: {
+        id: uuidv4(),
         customerId: customer.id,
-        shop,
+        shop: shopDomain,
         fromTierId: null,
         fromTierName: null,
         toTierId: defaultTier.id,
@@ -99,191 +274,182 @@ async function calculateCashback(
         changeType: "INITIAL_ASSIGNMENT",
         triggerType: "ACCOUNT_CREATED",
         processedBy: "system",
-        metadata: {
-          reason: "First purchase - default tier assigned"
-        }
+        note: "Default tier assigned on first order",
+        createdAt: new Date()
       }
     });
-
+    
     const cashbackPercent = defaultTier.cashbackPercent;
-    const cashbackAmount = (orderAmount * cashbackPercent) / 100;
-
+    const rawAmount = eligibleAmount * (cashbackPercent / 100);
+    const cashbackAmount = roundDownToHundredths(rawAmount);
+    
     return {
-      amount: Math.floor(cashbackAmount * 100) / 100, // Round down to 2 decimals
+      amount: cashbackAmount,
       percentage: cashbackPercent,
       tierName: defaultTier.name,
       tierId: defaultTier.id
     };
   }
-
-  // Get customer's current tier
-  const currentTier = await db.tier.findUnique({
-    where: { id: customer.currentTierId }
-  });
-
-  if (!currentTier) {
-    console.error(`Tier not found for customer ${customer.id}`);
-    return {
-      amount: 0,
-      percentage: 0,
-      tierName: null,
-      tierId: null
-    };
-  }
-
-  const cashbackPercent = currentTier.cashbackPercent;
-  const cashbackAmount = (orderAmount * cashbackPercent) / 100;
-
+  
+  const cashbackPercent = currentTier!.cashbackPercent;
+  const rawAmount = eligibleAmount * (cashbackPercent / 100);
+  const cashbackAmount = roundDownToHundredths(rawAmount);
+  
   return {
-    amount: Math.floor(cashbackAmount * 100) / 100, // Round down to 2 decimals
+    amount: cashbackAmount,
     percentage: cashbackPercent,
-    tierName: currentTier.name,
-    tierId: currentTier.id
+    tierName: currentTier!.name,
+    tierId: currentTier!.id
   };
 }
 
-// NOTE: These functions are replaced by services/tier-calculation.server.ts
-// Kept for reference only - DO NOT USE
+// ============================================================================
+// STEP 6: ISSUE STORE CREDIT
+// ============================================================================
 
-/*
- * DEPRECATED: Calculate customer's total spending for tier evaluation
- * Now handled by services/tier-calculation.server.ts
- */
-/*
-async function calculateCustomerSpending(
+async function issueStoreCredit(
+  admin: any,
   customerId: string,
-  shop: string,
-  evaluationPeriod: "ANNUAL" | "LIFETIME"
-): Promise<number> {
-  const now = new Date();
-  const oneYearAgo = new Date(now.setFullYear(now.getFullYear() - 1));
-
-  const whereClause: any = {
-    customerId,
-    shop,
-    type: "CASHBACK_EARNED" // Only count cashback-earning transactions
-  };
-
-  if (evaluationPeriod === "ANNUAL") {
-    whereClause.createdAt = {
-      gte: oneYearAgo
+  amount: number,
+  currency: string
+): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+  const formattedAmount = formatForShopify(amount);
+  
+  console.log(`Issuing store credit: ${formattedAmount} ${currency}`);
+  
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation IssueStoreCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+        storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+          storeCreditAccountTransaction {
+            id
+            amount {
+              amount
+              currencyCode
+            }
+            balanceAfterTransaction {
+              amount
+              currencyCode
+            }
+          }
+          userErrors {
+            field
+            message
+            code
+          }
+        }
+      }`,
+      {
+        variables: {
+          id: `gid://shopify/Customer/${customerId}`,
+          creditInput: {
+            creditAmount: {
+              amount: formattedAmount,
+              currencyCode: currency
+            }
+          }
+        }
+      }
+    );
+    
+    const result = await response.json();
+    
+    // Check for errors
+    if (result.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+      const errors = result.data.storeCreditAccountCredit.userErrors;
+      const errorMessages = errors.map((e: any) => e.message).join(', ');
+      console.error("Store credit errors:", errors);
+      return { success: false, error: errorMessages };
+    }
+    
+    // Check for successful transaction
+    const transaction = result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
+    if (transaction) {
+      console.log(`✅ Store credit issued: ${transaction.id}`);
+      console.log(`   New balance: ${transaction.balanceAfterTransaction.amount} ${currency}`);
+      return { 
+        success: true, 
+        transactionId: transaction.id 
+      };
+    }
+    
+    return { success: false, error: "No transaction returned" };
+    
+  } catch (error) {
+    console.error("Store credit API error:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
     };
   }
-
-  const result = await db.storeCreditLedger.aggregate({
-    where: whereClause,
-    _sum: {
-      amount: true
-    }
-  });
-
-  // Calculate from cashback amounts (reverse engineer spending)
-  // If they earned X in cashback at Y%, spending was X * 100 / Y
-  const ledgerEntries = await db.storeCreditLedger.findMany({
-    where: whereClause,
-    select: {
-      amount: true,
-      metadata: true
-    }
-  });
-
-  let totalSpending = 0;
-  for (const entry of ledgerEntries) {
-    const metadata = entry.metadata as any;
-    if (metadata?.orderAmount) {
-      totalSpending += metadata.orderAmount;
-    }
-  }
-
-  return totalSpending;
 }
-*/
 
-/*
- * DEPRECATED: Evaluate if customer should be upgraded to a higher tier
- * Now handled by services/tier-calculation.server.ts
- */
-/*
-async function evaluateTierUpgrade(
-  customer: any,
-  shop: string
-): Promise<void> {
-  // Get all active tiers for the shop
-  const tiers = await db.tier.findMany({
-    where: { shop },
-    orderBy: { minSpend: 'desc' }
+// ============================================================================
+// DATABASE OPERATIONS
+// ============================================================================
+
+async function recordCashbackTransaction(
+  shopDomain: string,
+  customerId: string,
+  orderId: string,
+  orderAmount: number,
+  cashbackAmount: number,
+  cashbackPercent: number,
+  currency: string,
+  customerEmail: string,
+  orderDate: string,
+  tierName: string | null,
+  tierId: string | null,
+  shopifyTransactionId?: string
+) {
+  // Get current balance for running total
+  const lastEntry = await db.storeCreditLedger.findFirst({
+    where: { customerId },
+    orderBy: { createdAt: 'desc' }
   });
-
-  if (tiers.length === 0) return;
-
-  // Get the customer's current tier details BEFORE any changes
-  let currentTier = null;
-  let currentTierName = null;
-  if (customer.currentTierId) {
-    currentTier = await db.tier.findUnique({
-      where: { id: customer.currentTierId }
-    });
-    currentTierName = currentTier?.name || null;
-  }
-
-  // Determine evaluation period from current tier or use default
-  let evaluationPeriod: "ANNUAL" | "LIFETIME" = "ANNUAL";
-  if (currentTier) {
-    evaluationPeriod = currentTier.evaluationPeriod;
-  }
-
-  // Calculate customer's spending
-  const totalSpending = await calculateCustomerSpending(
-    customer.id,
-    shop,
-    evaluationPeriod
-  );
-
-  // Find the highest tier the customer qualifies for
-  const eligibleTier = tiers.find(tier => totalSpending >= tier.minSpend);
-
-  if (!eligibleTier || eligibleTier.id === customer.currentTierId) {
-    // No change needed
-    return;
-  }
-
-  // Determine if this is an upgrade or downgrade
-  const changeType = !currentTier || eligibleTier.minSpend > (currentTier?.minSpend || 0)
-    ? "UPGRADE"
-    : "DOWNGRADE";
-
-  // Log the tier change BEFORE updating the customer
-  await db.tierChangeLog.create({
+  
+  const previousBalance = lastEntry ? decimalToNumber(lastEntry.balance) : 0;
+  const newBalance = previousBalance + cashbackAmount;
+  
+  // Create ledger entry
+  const ledgerEntry = await db.storeCreditLedger.create({
     data: {
-      customerId: customer.id,
-      shop,
-      fromTierId: customer.currentTierId || null,  // Current tier (before change)
-      fromTierName: currentTierName,                // Current tier name (before change)
-      toTierId: eligibleTier.id,                    // New tier
-      toTierName: eligibleTier.name,                // New tier name
-      changeType,
-      triggerType: "SPENDING_MILESTONE",
-      totalSpending,
-      periodSpending: evaluationPeriod === "ANNUAL" ? totalSpending : null,
-      processedBy: "system",
+      id: uuidv4(),
+      customerId,
+      shop: shopDomain,
+      amount: cashbackAmount,
+      balance: newBalance,
+      type: "CASHBACK_EARNED",
+      shopifyOrderId: orderId,
       metadata: {
-        evaluationPeriod,
-        previousMinSpend: currentTier?.minSpend || 0,
-        newMinSpend: eligibleTier.minSpend,
-        reason: `Customer spending (${totalSpending}) qualifies for ${eligibleTier.name} tier`
-      }
+        orderId,
+        orderAmount,
+        cashbackPercent,
+        tierName,
+        tierId,
+        currency,
+        customerEmail,
+        orderDate,
+        shopifyTransactionId: shopifyTransactionId || null,
+        shopifySyncStatus: shopifyTransactionId ? "SUCCESS" : "PENDING",
+        shopifySyncedAt: shopifyTransactionId ? new Date().toISOString() : null
+      },
+      createdAt: new Date()
     }
   });
-
-  // NOW update customer's tier
-  await db.customer.update({
-    where: { id: customer.id },
-    data: { currentTierId: eligibleTier.id }
+  
+  // Update customer balance
+  const updatedCustomer = await db.customer.update({
+    where: { id: customerId },
+    data: {
+      storeCredit: newBalance,
+      updatedAt: new Date()
+    }
   });
-
-  console.log(`[Tier Upgrade] Customer ${customer.id} moved from ${currentTierName || 'no tier'} to ${eligibleTier.name}`);
+  
+  return { ledgerEntry, updatedCustomer, previousBalance, newBalance };
 }
-*/
 
 // ============================================================================
 // MAIN WEBHOOK HANDLER
@@ -291,283 +457,223 @@ async function evaluateTierUpgrade(
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   console.log("\n" + "=".repeat(60));
-  console.log("WEBHOOK: ORDERS/PAID");
+  console.log("CASHBACK WEBHOOK - ORDER PAID");
   console.log("=".repeat(60));
-
+  
   try {
-    // Authenticate the webhook request
-    const { topic, shop, payload, admin } = await authenticate.webhook(request);
+    // Authenticate webhook
+    const { shop, payload, admin } = await authenticate.webhook(request);
+    
+    // ========================================================================
+    // STEP 1 & 2: RECEIVE ORDER & EXTRACT BASIC INFO
+    // ========================================================================
     
     const order = payload as OrderWebhookPayload;
     
-    console.log(`[Order Paid] Processing order ${order.id} from ${shop}`);
-    console.log(`[Order Paid] Customer: ${order.customer?.email || 'Guest'}`);
-    console.log(`[Order Paid] Total: ${order.total_price} ${order.currency}`);
+    // Extract essential information
+    const orderId = order.id?.toString();
+    const customerId = order.customer?.id?.toString();
+    const customerEmail = order.customer?.email;
+    const currency = order.currency || "USD";
+    const webhookTotalPrice = parseFloat(order.total_price || "0");
     
-    // Skip if no customer (guest checkout)
-    if (!order.customer?.id) {
-      console.log("[Order Paid] Skipping: Guest checkout");
+    console.log("\n📦 Order Information:");
+    console.log(`   Order ID: ${orderId}`);
+    console.log(`   Customer: ${customerEmail} (ID: ${customerId})`);
+    console.log(`   Total Price: ${webhookTotalPrice} ${currency}`);
+    console.log(`   Financial Status: ${order.financial_status}`);
+    
+    // Validation checks
+    if (!customerId) {
+      console.log("⏭️  Skipping: Guest checkout (no customer ID)");
       return new Response("OK", { status: 200 });
     }
     
-    // Skip if order is cancelled or voided
-    if (order.cancelled_at || order.financial_status === 'voided') {
-      console.log("[Order Paid] Skipping: Order cancelled or voided");
+    if (order.financial_status === 'voided' || order.cancelled_at) {
+      console.log("⏭️  Skipping: Order cancelled or voided");
       return new Response("OK", { status: 200 });
     }
     
-    const shopifyCustomerId = order.customer.id.toString();
-    const orderAmount = parseFloat(order.total_price);
+    // Check for duplicate processing
+    const existingTransaction = await db.storeCreditLedger.findFirst({
+      where: {
+        shop,
+        shopifyOrderId: orderId,
+        type: "CASHBACK_EARNED"
+      }
+    });
     
-    // ========================================================================
-    // STEP 1: Find or create customer
-    // ========================================================================
+    if (existingTransaction) {
+      console.log("⏭️  Skipping: Order already processed");
+      return new Response("OK", { status: 200 });
+    }
     
+    // Find or create customer
     let customer = await db.customer.findUnique({
       where: {
         shop_shopifyCustomerId: {
           shop,
-          shopifyCustomerId
+          shopifyCustomerId: customerId
         }
       }
     });
     
     if (!customer) {
-      console.log("[Order Paid] Creating new customer record");
+      console.log("👤 Creating new customer record");
       customer = await db.customer.create({
         data: {
+          id: uuidv4(),
           shop,
-          shopifyCustomerId,
-          email: order.customer.email,
-          storeCredit: 0
+          shopifyCustomerId: customerId,
+          email: customerEmail || "",
+          storeCredit: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       });
     }
     
     // ========================================================================
-    // STEP 2: Check for duplicate order processing
+    // STEP 3: FETCH TRANSACTION DETAILS
     // ========================================================================
     
-    const shopifyOrderId = order.id.toString();
+    console.log("\n💳 Fetching payment details...");
     
-    const existingEntry = await db.storeCreditLedger.findFirst({
-      where: {
-        shop,
-        shopifyOrderId,
-        type: "CASHBACK_EARNED"
+    let cashbackEligibleAmount = webhookTotalPrice; // Fallback
+    
+    if (admin) {
+      const orderDetails = await fetchOrderTransactions(admin, orderId);
+      
+      if (orderDetails && orderDetails.transactions.length > 0) {
+        // ====================================================================
+        // STEP 4: ANALYZE TRANSACTIONS
+        // ====================================================================
+        
+        console.log(`\n📊 Analyzing ${orderDetails.transactions.length} transactions:`);
+        const breakdown = analyzeTransactions(orderDetails.transactions);
+        
+        console.log("\n💰 Payment Breakdown:");
+        console.log(`   Gift Cards: ${breakdown.giftCardAmount.toFixed(2)} ${currency}`);
+        console.log(`   Store Credit: ${breakdown.storeCreditAmount.toFixed(2)} ${currency}`);
+        console.log(`   External Payments: ${breakdown.externalPaymentAmount.toFixed(2)} ${currency}`);
+        console.log(`   ✅ Cashback Eligible: ${breakdown.cashbackEligibleAmount.toFixed(2)} ${currency}`);
+        
+        cashbackEligibleAmount = breakdown.cashbackEligibleAmount;
+      } else {
+        console.warn("⚠️  Could not fetch transactions, using webhook total");
       }
-    });
+    } else {
+      console.warn("⚠️  Admin API not available");
+    }
     
-    if (existingEntry) {
-      console.log("[Order Paid] Order already processed, skipping");
+    // Skip if no eligible amount
+    if (cashbackEligibleAmount <= 0) {
+      console.log("⏭️  Skipping: No cashback eligible amount");
       return new Response("OK", { status: 200 });
     }
     
     // ========================================================================
-    // STEP 3: Calculate cashback based on tier
+    // STEP 5: CALCULATE CASHBACK
     // ========================================================================
     
-    const cashback = await calculateCashback(customer, orderAmount, shop);
-    
-    console.log(`[Order Paid] Tier: ${cashback.tierName || 'None'}`);
-    console.log(`[Order Paid] Cashback rate: ${cashback.percentage}%`);
-    console.log(`[Order Paid] Cashback amount: ${cashback.amount}`);
-    
-    if (cashback.amount <= 0) {
-      console.log("[Order Paid] No cashback to award");
-      return new Response("OK", { status: 200 });
-    }
-    
-    // ========================================================================
-    // STEP 4: Record cashback in ledger
-    // ========================================================================
-    
-    // Get current balance for running total
-    const lastEntry = await db.storeCreditLedger.findFirst({
-      where: { customerId: customer.id },
-      orderBy: { createdAt: 'desc' }
-    });
-    
-    const previousBalance = lastEntry ? decimalToNumber(lastEntry.balance) : 0;
-    const newBalance = previousBalance + cashback.amount;
-    
-    // Create ledger entry
-    await db.storeCreditLedger.create({
-      data: {
-        customerId: customer.id,
-        shop,
-        amount: cashback.amount,
-        balance: newBalance,
-        type: "CASHBACK_EARNED",
-        shopifyOrderId,
-        metadata: {
-          orderId: shopifyOrderId,
-          orderAmount,
-          cashbackPercent: cashback.percentage,
-          tierName: cashback.tierName,
-          tierId: cashback.tierId,
-          currency: order.currency,
-          customerEmail: order.customer.email,
-          orderDate: order.created_at
-        }
-      }
-    });
-    
-    // Update customer's store credit balance
-    await db.customer.update({
-      where: { id: customer.id },
-      data: {
-        storeCredit: newBalance,
-        updatedAt: new Date()
-      }
-    });
-    
-    console.log(`[Order Paid] Store credit updated: ${previousBalance} → ${newBalance}`);
-    
-    // ========================================================================
-    // STEP 5: Calculate and update tier based on new spending
-    // ========================================================================
-    
-    // Use the new tier calculation service to check if tier needs updating
-    const tierResult = await calculateTierAfterOrder(
-      shop,
-      customer.shopifyCustomerId,
-      orderAmount,
-      admin as any
+    console.log("\n🎯 Calculating cashback:");
+    const cashback = await calculateCashback(
+      customer.id, 
+      shop, 
+      cashbackEligibleAmount
     );
     
-    if (tierResult?.changed) {
-      console.log(`[Order Paid] Tier updated from ${tierResult.previousTierName || 'None'} to ${tierResult.newTierName || 'None'}`);
+    console.log(`   Tier: ${cashback.tierName || 'Default'}`);
+    console.log(`   Rate: ${cashback.percentage}%`);
+    console.log(`   Amount: ${cashback.amount.toFixed(2)} ${currency}`);
+    
+    if (cashback.amount <= 0) {
+      console.log("⏭️  Skipping: No cashback to award");
+      return new Response("OK", { status: 200 });
     }
     
     // ========================================================================
-    // STEP 6: Issue Store Credit to Shopify
+    // STEP 6: ISSUE STORE CREDIT TO SHOPIFY
     // ========================================================================
+    
+    let shopifyTransactionId: string | undefined;
     
     // Temporarily disable store credit sync to prevent crashes
     const ENABLE_SHOPIFY_STORE_CREDIT = false; // Set to true when currency issue is resolved
     
     if (admin && cashback.amount > 0 && ENABLE_SHOPIFY_STORE_CREDIT) {
-      try {
-        console.log(`[Order Paid] Issuing ${cashback.amount} store credit to Shopify...`);
-        
-        // Format amount to 2 decimal places as required by Shopify
-        const formattedAmount = cashback.amount.toFixed(2);
-        
-        const response = await admin.graphql(
-          `#graphql
-          mutation IssueStoreCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
-            storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
-              storeCreditAccountTransaction {
-                id
-                amount {
-                  amount
-                  currencyCode
-                }
-                balanceAfterTransaction {
-                  amount
-                  currencyCode
-                }
-              }
-              userErrors {
-                field
-                message
-                code
-              }
-            }
-          }`,
-          {
-            variables: {
-              id: `gid://shopify/Customer/${shopifyCustomerId}`,
-              creditInput: {
-                creditAmount: {
-                  amount: formattedAmount,
-                  currencyCode: order.currency
-                }
-              }
-            }
-          }
-        );
-        
-        const result = await response.json();
-        
-        // Check for errors
-        if (result.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
-          const errors = result.data.storeCreditAccountCredit.userErrors;
-          console.error("[Order Paid] Store credit API errors:", errors);
-          
-          // Update ledger entry to note the sync failure
-          await db.storeCreditLedger.updateMany({
-            where: {
-              customerId: customer.id,
-              shopifyOrderId,
-              type: "CASHBACK_EARNED"
-            },
-            data: {
-              metadata: {
-                ...(lastEntry?.metadata as object || {}),
-                shopifySyncStatus: "FAILED",
-                shopifySyncError: errors.map((e: any) => e.message).join(", "),
-                shopifySyncAttemptedAt: new Date().toISOString()
-              }
-            }
-          });
-        } else if (result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction) {
-          // Success!
-          const transaction = result.data.storeCreditAccountCredit.storeCreditAccountTransaction;
-          console.log(`[Order Paid] ✅ Store credit issued to Shopify: ${transaction.id}`);
-          console.log(`[Order Paid] New Shopify balance: ${transaction.balanceAfterTransaction.amount} ${transaction.balanceAfterTransaction.currencyCode}`);
-          
-          // Update ledger entry with Shopify transaction ID
-          await db.storeCreditLedger.updateMany({
-            where: {
-              customerId: customer.id,
-              shopifyOrderId,
-              type: "CASHBACK_EARNED"
-            },
-            data: {
-              metadata: {
-                ...(lastEntry?.metadata as object || {}),
-                shopifySyncStatus: "SUCCESS",
-                shopifyTransactionId: transaction.id,
-                shopifyBalance: transaction.balanceAfterTransaction.amount,
-                shopifySyncedAt: new Date().toISOString()
-              }
-            }
-          });
-        }
-      } catch (error) {
-        console.error("[Order Paid] Failed to issue store credit to Shopify:", error);
-        
-        // Record the sync failure in metadata
-        await db.storeCreditLedger.updateMany({
-          where: {
-            customerId: customer.id,
-            shopifyOrderId,
-            type: "CASHBACK_EARNED"
-          },
-          data: {
-            metadata: {
-              ...(lastEntry?.metadata as object || {}),
-              shopifySyncStatus: "ERROR",
-              shopifySyncError: error instanceof Error ? error.message : "Unknown error",
-              shopifySyncAttemptedAt: new Date().toISOString()
-            }
-          }
-        });
+      console.log("\n💸 Issuing store credit in Shopify:");
+      
+      const creditResult = await issueStoreCredit(
+        admin,
+        customerId,
+        cashback.amount,
+        currency
+      );
+      
+      if (creditResult.success) {
+        shopifyTransactionId = creditResult.transactionId;
+        console.log("   ✅ Success! Transaction ID:", shopifyTransactionId);
+      } else {
+        console.error("   ❌ Failed:", creditResult.error);
       }
+    } else if (!ENABLE_SHOPIFY_STORE_CREDIT) {
+      console.log("\n⚠️  Store credit sync disabled (currency issue)");
     }
     
-    console.log(`[Order Paid] Successfully processed order ${shopifyOrderId}`);
+    // ========================================================================
+    // RECORD IN DATABASE
+    // ========================================================================
+    
+    console.log("\n💾 Recording transaction in database:");
+    const { ledgerEntry, previousBalance, newBalance } = await recordCashbackTransaction(
+      shop,
+      customer.id,
+      orderId,
+      cashbackEligibleAmount,
+      cashback.amount,
+      cashback.percentage,
+      currency,
+      customerEmail || "",
+      order.created_at,
+      cashback.tierName,
+      cashback.tierId,
+      shopifyTransactionId
+    );
+    
+    console.log(`   Transaction ID: ${ledgerEntry.id}`);
+    console.log(`   Previous Balance: ${previousBalance.toFixed(2)}`);
+    console.log(`   New Balance: ${newBalance.toFixed(2)}`);
+    
+    // ========================================================================
+    // EVALUATE TIER UPGRADE
+    // ========================================================================
+    
+    console.log("\n🏆 Evaluating tier upgrade...");
+    const tierResult = await calculateTierAfterOrder(
+      shop,
+      customer.shopifyCustomerId,
+      cashbackEligibleAmount,
+      admin as any
+    );
+    
+    if (tierResult?.changed) {
+      console.log(`   🎉 Tier upgraded: ${tierResult.previousTierName || 'None'} → ${tierResult.newTierName || 'None'}`);
+      console.log(`   Total spending: ${tierResult.totalSpending.toFixed(2)} ${currency}`);
+    } else {
+      console.log(`   No tier change required`);
+    }
+    
+    console.log("\n✅ Webhook processing complete!");
     console.log("=".repeat(60) + "\n");
     
     return new Response("OK", { status: 200 });
     
   } catch (error) {
-    console.error("[Order Paid] Error processing webhook:", error);
+    console.error("\n❌ WEBHOOK ERROR:", error);
+    console.error(error instanceof Error ? error.stack : error);
     
-    // Return 200 to prevent Shopify from retrying
-    // Log the error for debugging but don't fail the webhook
-    return new Response("OK", { status: 200 });
+    // Return 200 to prevent Shopify retries
+    return new Response("ERROR", { status: 200 });
   }
 };
