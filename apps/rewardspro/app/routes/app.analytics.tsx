@@ -67,14 +67,6 @@ interface AnalyticsData {
   totalStoreCredit: number;
   creditUtilization: number;
   
-  // Health metrics
-  healthScore: number;
-  healthBreakdown: {
-    category: string;
-    score: number;
-    status: 'good' | 'warning' | 'critical';
-    message?: string;
-  }[];
   
   // Trends (last 30 days)
   trends: {
@@ -239,16 +231,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const avgOrderValue = revenueImpact / Math.max(1, activeMembers);
     const conversionRate = activeMembers > 0 ? (activeMembers / totalMembers) * 100 : 0;
     
-    // Calculate health score
-    const healthBreakdown = calculateHealthScore(
-      customers,
-      tiers,
-      creditUtilization,
-      conversionRate
-    );
-    const healthScore = Math.round(
-      healthBreakdown.reduce((sum, item) => sum + item.score, 0) / healthBreakdown.length
-    );
     
     // Generate trend data (last 30 days)
     const trends = generateTrendData(customers, filteredRecentTransactions);
@@ -297,8 +279,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       conversionRate,
       totalStoreCredit,
       creditUtilization,
-      healthScore,
-      healthBreakdown,
       trends,
       tierPerformance,
       insights,
@@ -322,51 +302,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // HELPER FUNCTIONS
 // ============================================
 
-function calculateHealthScore(
-  customers: any[],
-  tiers: any[],
-  creditUtilization: number,
-  conversionRate: number
-): AnalyticsData['healthBreakdown'] {
-  const breakdown = [];
-  
-  // Engagement rate
-  const engagementRate = customers.filter(c => c.currentTierId).length / Math.max(1, customers.length) * 100;
-  breakdown.push({
-    category: 'Engagement Rate',
-    score: Math.min(100, engagementRate),
-    status: engagementRate >= 70 ? 'good' : engagementRate >= 40 ? 'warning' : 'critical' as any,
-    message: `${engagementRate.toFixed(0)}% of customers are in a tier`,
-  });
-  
-  // Tier distribution
-  const tierBalance = tiers.length > 0 ? 100 - Math.abs(50 - (customers.filter(c => c.currentTierId).length / Math.max(1, customers.length) * 100)) : 0;
-  breakdown.push({
-    category: 'Tier Distribution',
-    score: tierBalance,
-    status: tierBalance >= 70 ? 'good' : tierBalance >= 40 ? 'warning' : 'critical' as any,
-    message: 'How well distributed customers are across tiers',
-  });
-  
-  // Credit utilization
-  breakdown.push({
-    category: 'Credit Utilization',
-    score: Math.min(100, creditUtilization),
-    status: creditUtilization >= 60 ? 'good' : creditUtilization >= 30 ? 'warning' : 'critical' as any,
-    message: `${creditUtilization.toFixed(0)}% of issued credit is being used`,
-  });
-  
-  // ROI Performance
-  const roiScore = Math.min(100, conversionRate * 2);
-  breakdown.push({
-    category: 'ROI Performance',
-    score: roiScore,
-    status: roiScore >= 70 ? 'good' : roiScore >= 40 ? 'warning' : 'critical' as any,
-    message: 'Return on loyalty program investment',
-  });
-  
-  return breakdown;
-}
 
 function generateTrendData(customers: any[], transactions: any[]): AnalyticsData['trends'] {
   // Generate mock trend data for last 30 days
@@ -679,95 +614,6 @@ function MetricCard({
   );
 }
 
-function HealthScore({ score, breakdown }: { score: number; breakdown: AnalyticsData['healthBreakdown'] }) {
-  const getScoreTone = (score: number) => {
-    if (score >= 80) return 'success';
-    if (score >= 60) return 'warning';
-    return 'critical';
-  };
-
-  const getStatusIcon = (status: string) => {
-    if (status === 'good') return CheckCircleIcon;
-    if (status === 'warning') return AlertTriangleIcon;
-    return AlertTriangleIcon;
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === 'good') return 'success';
-    if (status === 'warning') return 'warning';
-    return 'critical';
-  };
-
-  return (
-    <Card>
-      <Box padding="500">
-        <BlockStack gap="400">
-          <InlineStack align="space-between">
-            <BlockStack gap="200">
-              <Text variant="headingMd" as="h3">
-                Program Health Score
-              </Text>
-              <InlineStack gap="200" align="center">
-                <Text variant="heading3xl" as="span">
-                  {score}
-                </Text>
-                <Text variant="headingLg" tone="subdued" as="span">
-                  / 100
-                </Text>
-                <Badge tone={getScoreTone(score) as any} progress="complete">
-                  {score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : 'Needs Attention'}
-                </Badge>
-              </InlineStack>
-            </BlockStack>
-          </InlineStack>
-
-          <Divider />
-
-          <BlockStack gap="300">
-            {breakdown.map((item, index) => (
-              <div
-                key={item.category}
-                style={{
-                  opacity: 0,
-                  animation: `fadeInLeft 300ms ease-out ${index * 50}ms forwards`,
-                }}
-              >
-                <BlockStack gap="100">
-                  <InlineStack align="space-between">
-                    <InlineStack gap="200">
-                      <Icon 
-                        source={getStatusIcon(item.status)} 
-                        tone={getStatusColor(item.status) as any}
-                      />
-                      <Text variant="bodyMd" fontWeight="medium" as="span">
-                        {item.category}
-                      </Text>
-                    </InlineStack>
-                    <Text variant="bodyMd" tone="subdued" as="span">
-                      {item.score.toFixed(0)}%
-                    </Text>
-                  </InlineStack>
-                  <Box paddingInlineStart="600">
-                    <ProgressBar
-                      progress={item.score}
-                      size="small"
-                      tone={getStatusColor(item.status) as any}
-                    />
-                    {item.message && (
-                      <Text variant="bodySm" tone="subdued" as="p">
-                        {item.message}
-                      </Text>
-                    )}
-                  </Box>
-                </BlockStack>
-              </div>
-            ))}
-          </BlockStack>
-        </BlockStack>
-      </Box>
-    </Card>
-  );
-}
 
 function InsightCard({ insight }: { insight: Insight }) {
   const getIcon = () => {
@@ -1080,11 +926,6 @@ export default function AnalyticsPage() {
               />
             </Grid.Cell>
           </Grid>
-        </Layout.Section>
-
-        {/* Health Score */}
-        <Layout.Section>
-          <HealthScore score={data.healthScore} breakdown={data.healthBreakdown} />
         </Layout.Section>
 
         {/* Tabbed Content */}
