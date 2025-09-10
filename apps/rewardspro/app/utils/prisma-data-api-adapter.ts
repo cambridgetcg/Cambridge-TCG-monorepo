@@ -78,7 +78,14 @@ export class DataAPIModelProxy<T = any> {
             });
           }
         } else if (value !== undefined) {
-          conditions.push(`"${key}" = :param${index}`);
+          // Check if this field is an enum type that needs casting
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+          if (enumFields.includes(key)) {
+            // Cast enum types explicitly for PostgreSQL
+            conditions.push(`"${key}"::text = :param${index}`);
+          } else {
+            conditions.push(`"${key}" = :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });
@@ -99,7 +106,14 @@ export class DataAPIModelProxy<T = any> {
               }
               params.push(AuroraDataAPI.buildParameter(paramName, `%${searchValue}%`));
             } else {
-              subConditions.push(`"${key}" = :${paramName}`);
+              // Check if this field is an enum type that needs casting
+              const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+              if (enumFields.includes(key)) {
+                // Cast enum types explicitly for PostgreSQL
+                subConditions.push(`"${key}"::text = :${paramName}`);
+              } else {
+                subConditions.push(`"${key}" = :${paramName}`);
+              }
               params.push(AuroraDataAPI.buildParameter(paramName, value));
             }
           });
@@ -534,7 +548,14 @@ export class DataAPIModelProxy<T = any> {
             });
           }
         } else if (value !== undefined) {
-          conditions.push(`"${key}" = :param${index}`);
+          // Check if this field is an enum type that needs casting
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+          if (enumFields.includes(key)) {
+            // Cast enum types explicitly for PostgreSQL
+            conditions.push(`"${key}"::text = :param${index}`);
+          } else {
+            conditions.push(`"${key}" = :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });
@@ -611,7 +632,14 @@ export class DataAPIModelProxy<T = any> {
             });
           }
         } else if (value !== undefined) {
-          conditions.push(`"${key}" = :param${index}`);
+          // Check if this field is an enum type that needs casting
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+          if (enumFields.includes(key)) {
+            // Cast enum types explicitly for PostgreSQL
+            conditions.push(`"${key}"::text = :param${index}`);
+          } else {
+            conditions.push(`"${key}" = :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });

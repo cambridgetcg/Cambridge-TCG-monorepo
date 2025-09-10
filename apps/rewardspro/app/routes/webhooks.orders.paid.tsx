@@ -313,15 +313,26 @@ async function issueStoreCredit(
   amount: number,
   shop: string
 ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+  console.log(`[Store Credit] Starting mutation for customer ${customerId}`);
+  
   // Fetch shop settings to get the store's configured currency
   const shopSettings = await db.shopSettings.findUnique({
     where: { shop }
   });
   
-  const currency = shopSettings?.storeCurrency || "USD";
-  const formattedAmount = formatForShopify(amount);
+  if (!shopSettings) {
+    console.error(`[Store Credit] No shop settings found for ${shop}`);
+    return { success: false, error: "Shop settings not found" };
+  }
   
-  console.log(`Issuing store credit: ${formattedAmount} ${currency} (store currency)`);
+  const currency = shopSettings.storeCurrency || "USD";
+  const formattedAmount = formatForShopify(amount);
+  const gid = `gid://shopify/Customer/${customerId}`;
+  
+  console.log(`[Store Credit] Mutation details:`);
+  console.log(`  - GID: ${gid}`);
+  console.log(`  - Amount: ${formattedAmount}`);
+  console.log(`  - Currency: ${currency} (from shop settings)`);
   
   try {
     const response = await admin.graphql(
@@ -348,7 +359,7 @@ async function issueStoreCredit(
       }`,
       {
         variables: {
-          id: `gid://shopify/Customer/${customerId}`,
+          id: gid,
           creditInput: {
             creditAmount: {
               amount: formattedAmount,
@@ -361,29 +372,43 @@ async function issueStoreCredit(
     
     const result = await response.json();
     
-    // Check for errors
+    console.log("[Store Credit] GraphQL Response:", JSON.stringify(result, null, 2));
+    
+    // Check for GraphQL errors
+    if (result.errors) {
+      console.error("[Store Credit] GraphQL errors:", result.errors);
+      return { success: false, error: JSON.stringify(result.errors) };
+    }
+    
+    // Check for user errors
     if (result.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
       const errors = result.data.storeCreditAccountCredit.userErrors;
-      const errorMessages = errors.map((e: any) => e.message).join(', ');
-      console.error("Store credit errors:", errors);
+      const errorMessages = errors.map((e: any) => `${e.field}: ${e.message}`).join(', ');
+      console.error("[Store Credit] User errors:", errors);
       return { success: false, error: errorMessages };
     }
     
     // Check for successful transaction
     const transaction = result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
     if (transaction) {
-      console.log(`✅ Store credit issued: ${transaction.id}`);
-      console.log(`   New balance: ${transaction.balanceAfterTransaction.amount} ${currency}`);
+      console.log(`[Store Credit] ✅ Success!`);
+      console.log(`  - Transaction ID: ${transaction.id}`);
+      console.log(`  - Amount credited: ${transaction.amount.amount} ${transaction.amount.currencyCode}`);
+      console.log(`  - New balance: ${transaction.balanceAfterTransaction.amount} ${transaction.balanceAfterTransaction.currencyCode}`);
       return { 
         success: true, 
         transactionId: transaction.id 
       };
     }
     
+    console.error("[Store Credit] No transaction returned in response");
     return { success: false, error: "No transaction returned" };
     
   } catch (error) {
-    console.error("Store credit API error:", error);
+    console.error("[Store Credit] Exception caught:", error);
+    if (error instanceof Error) {
+      console.error("[Store Credit] Error stack:", error.stack);
+    }
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Unknown error" 
@@ -613,27 +638,39 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     let shopifyTransactionId: string | undefined;
     
-    // Temporarily disable store credit sync to prevent crashes
-    const ENABLE_SHOPIFY_STORE_CREDIT = false; // Set to true when currency issue is resolved
+    // Enable store credit sync (now using store currency)
+    const ENABLE_SHOPIFY_STORE_CREDIT = true;
     
     if (admin && cashback.amount > 0 && ENABLE_SHOPIFY_STORE_CREDIT) {
       console.log("\n💸 Issuing store credit in Shopify:");
+      console.log(`   Customer ID: ${customerId}`);
+      console.log(`   Amount: ${cashback.amount.toFixed(2)} ${storeCurrency}`);
       
-      const creditResult = await issueStoreCredit(
-        admin,
-        customerId,
-        cashback.amount,
-        shop
-      );
-      
-      if (creditResult.success) {
-        shopifyTransactionId = creditResult.transactionId;
-        console.log("   ✅ Success! Transaction ID:", shopifyTransactionId);
-      } else {
-        console.error("   ❌ Failed:", creditResult.error);
+      try {
+        const creditResult = await issueStoreCredit(
+          admin,
+          customerId,
+          cashback.amount,
+          shop
+        );
+        
+        if (creditResult.success) {
+          shopifyTransactionId = creditResult.transactionId;
+          console.log("   ✅ Success! Transaction ID:", shopifyTransactionId);
+        } else {
+          console.error("   ❌ Store Credit Failed:", creditResult.error);
+          console.error("   Continuing with database recording only");
+        }
+      } catch (error) {
+        console.error("   ❌ Store Credit Exception:", error);
+        console.error("   Continuing with database recording only");
       }
     } else if (!ENABLE_SHOPIFY_STORE_CREDIT) {
-      console.log("\n⚠️  Store credit sync disabled (currency issue)");
+      console.log("\n⚠️  Store credit sync disabled");
+    } else if (!admin) {
+      console.log("\n⚠️  Admin context not available for store credit");
+    } else if (cashback.amount <= 0) {
+      console.log("\n⚠️  No cashback amount to issue");
     }
     
     // ========================================================================
