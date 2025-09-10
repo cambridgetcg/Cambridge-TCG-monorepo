@@ -1,8 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import * as crypto from "crypto";
 import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
-import { unauthenticated } from "~/shopify.server";
+import { authenticate, unauthenticated } from "~/shopify.server";
 import { v4 as uuidv4 } from 'uuid';
 
 // Initialize Prisma client
@@ -10,33 +9,6 @@ const db = createDataAPIPrismaClient();
 
 // Configuration
 const STORE_CREDIT_AMOUNT = 10; // Fixed £10 credit for all orders
-const WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET || "";
-
-/**
- * Verify webhook HMAC signature
- */
-function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
-  const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-  if (!hmacHeader || !WEBHOOK_SECRET) {
-    console.error('[OrdersPaidWebhook] Missing HMAC header or webhook secret');
-    return false;
-  }
-
-  const generatedHash = crypto
-    .createHmac('sha256', WEBHOOK_SECRET)
-    .update(rawBody, 'utf8')
-    .digest('base64');
-
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(generatedHash),
-      Buffer.from(hmacHeader)
-    );
-  } catch (error) {
-    console.error('[OrdersPaidWebhook] HMAC verification error:', error);
-    return false;
-  }
-}
 
 /**
  * Issue store credit via Shopify GraphQL
@@ -137,42 +109,27 @@ async function issueStoreCredit(
 export async function action({ request }: ActionFunctionArgs) {
   const startTime = Date.now();
   
-  // Get raw body for HMAC verification
-  const rawBody = await request.text();
-  
-  // Verify webhook authenticity
-  if (!verifyWebhookHMAC(request, rawBody)) {
-    console.error('[OrdersPaidWebhook] HMAC verification failed');
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Parse webhook data
-  const orderData = JSON.parse(rawBody);
-  const shop = request.headers.get('X-Shopify-Shop-Domain');
-  
-  if (!shop) {
-    console.error('[OrdersPaidWebhook] Missing shop domain');
-    return json({ error: "Missing shop domain" }, { status: 400 });
-  }
-
-  const orderId = orderData.id?.toString();
-  const customerId = orderData.customer?.id?.toString();
-  const customerEmail = orderData.customer?.email;
-
-  console.log('[OrdersPaidWebhook] Processing order:', {
-    orderId,
-    customerId,
-    customerEmail,
-    shop
-  });
-
-  // Validate required fields
-  if (!orderId || !customerId) {
-    console.error('[OrdersPaidWebhook] Missing required fields');
-    return json({ error: "Missing required fields" }, { status: 400 });
-  }
-
   try {
+    // Authenticate webhook using Shopify's built-in verification
+    const { shop, topic, payload } = await authenticate.webhook(request);
+    
+    console.log('[OrdersPaidWebhook] Processing webhook:', {
+      shop,
+      topic,
+      orderId: payload.id
+    });
+
+    // Extract order data from payload
+    const orderId = payload.id?.toString();
+    const customerId = payload.customer?.id?.toString();
+    const customerEmail = payload.customer?.email;
+
+    // Validate required fields
+    if (!orderId || !customerId) {
+      console.error('[OrdersPaidWebhook] Missing required fields');
+      return json({ error: "Missing required fields" }, { status: 400 });
+    }
+
     // Check for duplicate processing (idempotency)
     const existingEntry = await db.storeCreditLedger.findFirst({
       where: {
@@ -254,13 +211,13 @@ export async function action({ request }: ActionFunctionArgs) {
         type: 'CASHBACK_EARNED',
         shopifyOrderId: orderId,
         metadata: {
-          orderCurrency: orderData.currency,
+          orderCurrency: payload.currency,
           storeCurrency,
           fixedAmount: true,
           creditAmount: STORE_CREDIT_AMOUNT,
           shopifyTransactionId: creditResult.transactionId || null,
           shopifyCreditSuccess: creditResult.success,
-          orderTotal: orderData.total_price
+          orderTotal: payload.total_price
         },
         createdAt: new Date()
       }
