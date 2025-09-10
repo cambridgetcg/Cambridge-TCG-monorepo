@@ -311,11 +311,17 @@ async function issueStoreCredit(
   admin: any,
   customerId: string,
   amount: number,
-  currency: string
+  shop: string
 ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+  // Fetch shop settings to get the store's configured currency
+  const shopSettings = await db.shopSettings.findUnique({
+    where: { shop }
+  });
+  
+  const currency = shopSettings?.storeCurrency || "USD";
   const formattedAmount = formatForShopify(amount);
   
-  console.log(`Issuing store credit: ${formattedAmount} ${currency}`);
+  console.log(`Issuing store credit: ${formattedAmount} ${currency} (store currency)`);
   
   try {
     const response = await admin.graphql(
@@ -396,7 +402,8 @@ async function recordCashbackTransaction(
   orderAmount: number,
   cashbackAmount: number,
   cashbackPercent: number,
-  currency: string,
+  orderCurrency: string,
+  storeCurrency: string,
   customerEmail: string,
   orderDate: string,
   tierName: string | null,
@@ -428,7 +435,8 @@ async function recordCashbackTransaction(
         cashbackPercent,
         tierName,
         tierId,
-        currency,
+        orderCurrency,
+        storeCurrency,
         customerEmail,
         orderDate,
         shopifyTransactionId: shopifyTransactionId || null,
@@ -474,14 +482,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const orderId = order.id?.toString();
     const customerId = order.customer?.id?.toString();
     const customerEmail = order.customer?.email;
-    const currency = order.currency || "USD";
+    const orderCurrency = order.currency || "USD";
     const webhookTotalPrice = parseFloat(order.total_price || "0");
+    
+    // Fetch shop settings to get store currency
+    const shopSettings = await db.shopSettings.findUnique({
+      where: { shop }
+    });
+    const storeCurrency = shopSettings?.storeCurrency || "USD";
     
     console.log("\n📦 Order Information:");
     console.log(`   Order ID: ${orderId}`);
     console.log(`   Customer: ${customerEmail} (ID: ${customerId})`);
-    console.log(`   Total Price: ${webhookTotalPrice} ${currency}`);
+    console.log(`   Total Price: ${webhookTotalPrice} ${orderCurrency}`);
     console.log(`   Financial Status: ${order.financial_status}`);
+    console.log(`   Store Currency: ${storeCurrency}`);
     
     // Validation checks
     if (!customerId) {
@@ -553,10 +568,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const breakdown = analyzeTransactions(orderDetails.transactions);
         
         console.log("\n💰 Payment Breakdown:");
-        console.log(`   Gift Cards: ${breakdown.giftCardAmount.toFixed(2)} ${currency}`);
-        console.log(`   Store Credit: ${breakdown.storeCreditAmount.toFixed(2)} ${currency}`);
-        console.log(`   External Payments: ${breakdown.externalPaymentAmount.toFixed(2)} ${currency}`);
-        console.log(`   ✅ Cashback Eligible: ${breakdown.cashbackEligibleAmount.toFixed(2)} ${currency}`);
+        console.log(`   Gift Cards: ${breakdown.giftCardAmount.toFixed(2)} ${orderCurrency}`);
+        console.log(`   Store Credit: ${breakdown.storeCreditAmount.toFixed(2)} ${orderCurrency}`);
+        console.log(`   External Payments: ${breakdown.externalPaymentAmount.toFixed(2)} ${orderCurrency}`);
+        console.log(`   ✅ Cashback Eligible: ${breakdown.cashbackEligibleAmount.toFixed(2)} ${orderCurrency}`);
         
         cashbackEligibleAmount = breakdown.cashbackEligibleAmount;
       } else {
@@ -585,7 +600,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     console.log(`   Tier: ${cashback.tierName || 'Default'}`);
     console.log(`   Rate: ${cashback.percentage}%`);
-    console.log(`   Amount: ${cashback.amount.toFixed(2)} ${currency}`);
+    console.log(`   Amount: ${cashback.amount.toFixed(2)} ${storeCurrency}`);
     
     if (cashback.amount <= 0) {
       console.log("⏭️  Skipping: No cashback to award");
@@ -608,7 +623,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         admin,
         customerId,
         cashback.amount,
-        currency
+        shop
       );
       
       if (creditResult.success) {
@@ -633,7 +648,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       cashbackEligibleAmount,
       cashback.amount,
       cashback.percentage,
-      currency,
+      orderCurrency,
+      storeCurrency,
       customerEmail || "",
       order.created_at,
       cashback.tierName,
@@ -659,7 +675,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     if (tierResult?.changed) {
       console.log(`   🎉 Tier upgraded: ${tierResult.previousTierName || 'None'} → ${tierResult.newTierName || 'None'}`);
-      console.log(`   Total spending: ${tierResult.totalSpending.toFixed(2)} ${currency}`);
+      console.log(`   Total spending: ${tierResult.totalSpending.toFixed(2)} ${storeCurrency}`);
     } else {
       console.log(`   No tier change required`);
     }
