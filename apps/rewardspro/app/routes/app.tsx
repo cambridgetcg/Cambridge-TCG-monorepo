@@ -90,6 +90,34 @@ export default function App() {
           <Link to="/app/graphql-customer-test">Customer GraphQL Test</Link>
         </NavMenu>
         <Outlet />
+        
+        {/* Global styles for app pages */}
+        <style>{`
+          /* Add bottom padding to prevent content from touching the bottom */
+          .Polaris-Page {
+            padding-bottom: 80px !important;
+          }
+          
+          /* Alternative: Bottom margin for the app container */
+          #app {
+            margin-bottom: 80px;
+          }
+          
+          /* Ensure scrollable content has padding */
+          .Polaris-Frame__Content {
+            padding-bottom: 80px;
+          }
+          
+          /* For mobile responsiveness */
+          @media (max-width: 768px) {
+            .Polaris-Page {
+              padding-bottom: 60px !important;
+            }
+            .Polaris-Frame__Content {
+              padding-bottom: 60px;
+            }
+          }
+        `}</style>
       </AuthenticatedFetchProvider>
     </AppProvider>
   );

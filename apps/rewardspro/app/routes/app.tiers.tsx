@@ -582,6 +582,9 @@ export default function TiersPage() {
             </Card>
           </Layout.Section>
         </Layout>
+        
+        {/* Bottom spacer to prevent content from touching the bottom */}
+        <div style={{ height: '80px', width: '100%' }} aria-hidden="true" />
       </Page>
     );
   }

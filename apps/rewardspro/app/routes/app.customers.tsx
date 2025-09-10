@@ -1116,6 +1116,9 @@ export default function Customers() {
             customerEmail={filteredCustomers.find(c => c.id === selectedCustomerId)?.email || ""}
           />
         )}
+        
+        {/* Bottom spacer to prevent content from touching the bottom */}
+        <div style={{ height: '80px', width: '100%' }} aria-hidden="true" />
       </Page>
       
       {/* Toast notifications */}
