@@ -239,11 +239,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const shop = session.shop;
 
     if (action === "sync-customers") {
-      // Sync customers from Shopify
+      // Sync customers from Shopify using minimal query
       console.log("[Customers] Starting customer sync from Shopify");
       
       try {
-        // GraphQL query to fetch customers from Shopify
+        // Minimal GraphQL query - only essential fields for Prisma schema
         const customersQuery = `
           query getCustomers($first: Int!, $after: String) {
             customers(first: $first, after: $after) {
@@ -252,14 +252,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 node {
                   id
                   email
-                  firstName
-                  lastName
-                  totalSpentV2 {
-                    amount
-                    currencyCode
-                  }
-                  ordersCount
-                  tags
+                  displayName
                   createdAt
                   updatedAt
                 }
@@ -275,7 +268,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         let hasNextPage = true;
         let cursor = null;
         let totalImported = 0;
-        let totalSkipped = 0;
+        let totalUpdated = 0;
+        let totalErrors = 0;
+        const processedCustomers = [];
         
         while (hasNextPage) {
           const response = await admin.graphql(customersQuery, {
@@ -285,71 +280,116 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             },
           });
           
-          const result = await response.json();
+          const result = await response.json() as any;
+          
+          if (result.errors) {
+            console.error("[Customers] GraphQL errors:", result.errors);
+            throw new Error("GraphQL query failed");
+          }
+          
           const customers = result.data.customers;
           
           // Process each customer
           for (const edge of customers.edges) {
             const shopifyCustomer = edge.node;
-            const shopifyId = shopifyCustomer.id.split('/').pop(); // Extract ID from gid
+            const shopifyId = shopifyCustomer.id.split('/').pop(); // Extract ID from gid://shopify/Customer/9224704098643
             
-            // Check if customer already exists
-            const existingCustomer = await db.customer.findFirst({
-              where: {
-                shop,
-                shopifyCustomerId: shopifyId,
-              },
-            });
-            
-            if (!existingCustomer) {
-              // Create new customer
-              await db.customer.create({
-                data: {
-                  id: crypto.randomUUID(),
+            try {
+              // Check if customer already exists
+              const existingCustomer = await db.customer.findFirst({
+                where: {
                   shop,
                   shopifyCustomerId: shopifyId,
-                  email: shopifyCustomer.email || '',
-                  firstName: shopifyCustomer.firstName || '',
-                  lastName: shopifyCustomer.lastName || '',
-                  storeCredit: 0,
-                  createdAt: new Date(shopifyCustomer.createdAt),
-                  updatedAt: new Date(),
                 },
               });
-              totalImported++;
-            } else {
-              // Update existing customer if needed
-              await db.customer.update({
-                where: { id: existingCustomer.id },
-                data: {
-                  email: shopifyCustomer.email || existingCustomer.email,
-                  firstName: shopifyCustomer.firstName || existingCustomer.firstName,
-                  lastName: shopifyCustomer.lastName || existingCustomer.lastName,
-                  updatedAt: new Date(),
-                },
+              
+              if (!existingCustomer) {
+                // Create new customer with minimal required fields
+                const newCustomer = await db.customer.create({
+                  data: {
+                    id: crypto.randomUUID(),
+                    shop,
+                    shopifyCustomerId: shopifyId,
+                    email: shopifyCustomer.email || `customer${shopifyId}@placeholder.com`, // Fallback email if null
+                    storeCredit: 0, // Default to 0
+                    createdAt: new Date(shopifyCustomer.createdAt),
+                    updatedAt: new Date(shopifyCustomer.updatedAt),
+                  },
+                });
+                
+                totalImported++;
+                processedCustomers.push({
+                  shopifyId,
+                  email: newCustomer.email,
+                  displayName: shopifyCustomer.displayName || "No name",
+                  status: "imported",
+                });
+                
+                console.log(`[Customers] Imported customer ${shopifyId} (${shopifyCustomer.email})`);
+              } else {
+                // Update existing customer only if email has changed
+                if (shopifyCustomer.email && shopifyCustomer.email !== existingCustomer.email) {
+                  await db.customer.update({
+                    where: { id: existingCustomer.id },
+                    data: {
+                      email: shopifyCustomer.email,
+                      updatedAt: new Date(shopifyCustomer.updatedAt),
+                    },
+                  });
+                  
+                  totalUpdated++;
+                  processedCustomers.push({
+                    shopifyId,
+                    email: shopifyCustomer.email,
+                    displayName: shopifyCustomer.displayName || "No name",
+                    status: "updated",
+                  });
+                  
+                  console.log(`[Customers] Updated customer ${shopifyId} email`);
+                } else {
+                  processedCustomers.push({
+                    shopifyId,
+                    email: existingCustomer.email,
+                    displayName: shopifyCustomer.displayName || "No name",
+                    status: "skipped (no changes)",
+                  });
+                }
+              }
+            } catch (customerError) {
+              console.error(`[Customers] Error processing customer ${shopifyId}:`, customerError);
+              totalErrors++;
+              processedCustomers.push({
+                shopifyId,
+                email: shopifyCustomer.email || "Unknown",
+                displayName: shopifyCustomer.displayName || "No name",
+                status: "error",
               });
-              totalSkipped++;
             }
           }
           
           hasNextPage = customers.pageInfo.hasNextPage;
           cursor = customers.pageInfo.endCursor;
+          
+          // Log progress
+          console.log(`[Customers] Processed batch. Total so far - Imported: ${totalImported}, Updated: ${totalUpdated}, Errors: ${totalErrors}`);
         }
         
         return json({
           success: true,
-          message: `Sync complete! Imported ${totalImported} new customers, updated ${totalSkipped} existing customers.`,
+          message: `Sync complete! Imported ${totalImported} new customers, updated ${totalUpdated} existing customers${totalErrors > 0 ? `, ${totalErrors} errors` : ''}.`,
           results: {
             imported: totalImported,
-            updated: totalSkipped,
-            total: totalImported + totalSkipped,
+            updated: totalUpdated,
+            errors: totalErrors,
+            total: totalImported + totalUpdated,
+            details: processedCustomers.slice(0, 50), // Return first 50 for display
           },
         });
       } catch (error) {
         console.error("[Customers] Sync error:", error);
         return json({
           success: false,
-          message: "Failed to sync customers from Shopify. Please try again.",
+          message: `Failed to sync customers: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
       }
     }
