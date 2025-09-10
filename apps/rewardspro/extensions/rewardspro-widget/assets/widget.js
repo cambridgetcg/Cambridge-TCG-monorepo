@@ -342,30 +342,42 @@
     renderRewardsData() {
       const data = this.state.data;
       
+      // Ensure we have default values
+      const storeCredit = data.formattedCredit || '$0.00';
+      const tierName = data.tierName || 'No Tier';
+      const isNoTier = tierName === 'No Tier';
+      const cashbackRate = data.cashbackRate || 0;
+      
       return `
         <div class="rp-rewards-info">
           <!-- Store Credit Balance -->
           <div class="rp-balance-section">
             <div class="rp-balance">
               <div class="rp-balance-label">${this.escapeHtml(this.t('widget.member.balance.label'))}</div>
-              <div class="rp-balance-amount">${this.escapeHtml(data.formattedCredit || '$0.00')}</div>
+              <div class="rp-balance-amount">${this.escapeHtml(storeCredit)}</div>
             </div>
           </div>
           
           <!-- Tier Information -->
-          ${data.tierName ? `
-            <div class="rp-tier-section">
-              <div class="rp-tier-badge">
-                <span class="rp-tier-icon">${this.getTierIcon(data.tierName)}</span>
-                <span class="rp-tier-name">${this.escapeHtml(this.t('widget.member.tier.current', { tier: data.tierName }))}</span>
-              </div>
-              ${data.cashbackRate ? `
-                <div class="rp-cashback-rate">
-                  ${this.escapeHtml(this.t('widget.member.tier.cashback', { rate: data.cashbackRate }))}
-                </div>
-              ` : ''}
+          <div class="rp-tier-section">
+            <div class="rp-tier-badge">
+              <span class="rp-tier-icon">${this.getTierIcon(tierName)}</span>
+              <span class="rp-tier-name">
+                ${isNoTier 
+                  ? this.escapeHtml(tierName) 
+                  : this.escapeHtml(this.t('widget.member.tier.current', { tier: tierName }))}
+              </span>
             </div>
-          ` : ''}
+            ${cashbackRate > 0 ? `
+              <div class="rp-cashback-rate">
+                ${this.escapeHtml(this.t('widget.member.tier.cashback', { rate: cashbackRate }))}
+              </div>
+            ` : isNoTier ? `
+              <div class="rp-no-tier-message">
+                Start shopping to earn rewards and unlock tiers!
+              </div>
+            ` : ''}
+          </div>
           
           <!-- Progress to Next Tier -->
           ${data.nextTier ? `
@@ -427,7 +439,20 @@
       this.updateContent();
 
       try {
-        const response = await fetch(this.config.membershipApiUrl || '/apps/rewardspro/membership', {
+        // Build URL with proper parameters for app proxy
+        const apiUrl = new URL(this.config.membershipApiUrl || '/apps/rewardspro/membership', window.location.origin);
+        
+        // Add required parameters if not present
+        if (!apiUrl.searchParams.has('shop') && this.config.shop) {
+          apiUrl.searchParams.set('shop', this.config.shop);
+        }
+        if (!apiUrl.searchParams.has('logged_in_customer_id') && this.config.customerId) {
+          apiUrl.searchParams.set('logged_in_customer_id', this.config.customerId);
+        }
+        
+        console.log('RewardsPro: Loading data from', apiUrl.toString());
+        
+        const response = await fetch(apiUrl.toString(), {
           method: 'GET',
           credentials: 'same-origin',
           headers: {
@@ -439,26 +464,40 @@
         // Check response type
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Invalid response type');
+          console.error('RewardsPro: Invalid response type:', contentType);
+          throw new Error('Invalid response from server');
         }
 
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || `HTTP ${response.status}`);
+          console.error('RewardsPro: API error response:', data);
+          throw new Error(data.error || `Unable to load rewards (${response.status})`);
         }
 
         // Check if login required
         if (data.requiresLogin) {
+          console.log('RewardsPro: Login required');
           this.config.customerId = null;
           this.setState({ isLoading: false });
           this.renderExpanded();
           return;
         }
 
-        // Success
+        // Success - ensure we have default values
+        const processedData = {
+          ...data,
+          formattedCredit: data.formattedCredit || '$0.00',
+          tierName: data.tierName || 'No Tier',
+          cashbackRate: data.cashbackRate || 0,
+          lifetimeEarned: data.lifetimeEarned || '$0.00',
+          lifetimeSpent: data.lifetimeSpent || '$0.00'
+        };
+        
+        console.log('RewardsPro: Data loaded successfully', processedData);
+        
         this.setState({ 
-          data: data,
+          data: processedData,
           isLoading: false,
           error: null,
           retryCount: 0
@@ -468,7 +507,7 @@
       } catch (error) {
         console.error('RewardsPro: Failed to load data', error);
         this.setState({ 
-          error: error.message || 'Failed to load data',
+          error: error.message || 'Unable to connect to rewards service',
           isLoading: false 
         });
         this.handleLoadError();
@@ -616,6 +655,7 @@
 
     getTierIcon(tierName) {
       const name = tierName.toLowerCase();
+      if (name === 'no tier') return '👤'; // User icon for no tier
       if (name.includes('vip') || name.includes('diamond')) return '💎';
       if (name.includes('gold')) return '🏆';
       if (name.includes('silver')) return '🥈';

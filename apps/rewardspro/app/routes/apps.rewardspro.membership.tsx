@@ -89,14 +89,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     });
     
-    // 5. If customer doesn't exist, create them
+    // 5. If customer doesn't exist, create them with defaults
     if (!customer) {
+      console.log(`[Membership] Creating new customer record for Shopify ID: ${customerId}`);
       customer = await db.customer.create({
         data: {
           id: crypto.randomUUID(),
           shop,
           shopifyCustomerId: customerId,
-          email: '', // Will be synced from Shopify later
+          email: `customer${customerId}@placeholder.com`, // Placeholder email until synced
           storeCredit: 0,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -159,32 +160,33 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
     
-    // 8. Prepare response data
+    // 8. Prepare response data with defaults for new customers
     const responseData = {
       // Customer info
       customerId: customer.id,
       
-      // Store credit
-      formattedCredit: formatCurrency(storeCreditBalance, shopSettings),
+      // Store credit - always provide a value
+      formattedCredit: formatCurrency(storeCreditBalance, shopSettings) || '$0.00',
       storeCredit: storeCreditBalance,
       
-      // Tier information
-      tierName: customer.currentTier?.name || null,
+      // Tier information - provide "No Tier" as default
+      tierName: customer.currentTier?.name || 'No Tier',
       tierMinSpend: customer.currentTier?.minSpend || 0,
       cashbackRate: customer.currentTier?.cashbackPercent || 0,
       
-      // Lifetime stats
-      lifetimeEarned: formatCurrency(lifetimeEarned, shopSettings),
-      lifetimeSpent: formatCurrency(0, shopSettings), // Would need order data
+      // Lifetime stats with defaults
+      lifetimeEarned: formatCurrency(lifetimeEarned, shopSettings) || '$0.00',
+      lifetimeSpent: formatCurrency(0, shopSettings) || '$0.00', // Would need order data
       
-      // Progress to next tier
-      ...progressData,
+      // Progress to next tier (null if no current tier)
+      ...(customer.currentTier ? progressData : {}),
       
       // Additional data
       availableRewards: 0, // Could be expanded with rewards system
       
       // Metadata
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      isNewCustomer: !customer.currentTier // Flag for new customers
     };
     
     // 9. Return the data with appropriate headers
