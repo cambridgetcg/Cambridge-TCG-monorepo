@@ -10,6 +10,163 @@ const db = createDataAPIPrismaClient();
 // Configuration
 const DEFAULT_CASHBACK_PERCENTAGE = 0.05; // 5% default cashback if no tier assigned
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+interface Transaction {
+  id: string;
+  gateway: string;
+  status: string;
+  kind: string;
+  amountSet: {
+    shopMoney: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  parentTransaction?: {
+    id: string;
+  };
+}
+
+interface OrderDetails {
+  id: string;
+  totalReceivedSet: {
+    shopMoney: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  transactions: Transaction[];
+}
+
+interface PaymentBreakdown {
+  giftCardAmount: number;
+  storeCreditAmount: number;
+  externalPaymentAmount: number;
+  cashbackEligibleAmount: number;
+}
+
+// ============================================================================
+// GRAPHQL FUNCTIONS
+// ============================================================================
+
+/**
+ * Fetch detailed order transactions from Shopify
+ */
+async function fetchOrderTransactions(
+  admin: any,
+  orderId: string
+): Promise<OrderDetails | null> {
+  const query = `#graphql
+    query GetOrderPaymentDetails($id: ID!) {
+      order(id: $id) {
+        id
+        totalReceivedSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        transactions(first: 250) {
+          id
+          gateway
+          status
+          kind
+          amountSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          parentTransaction {
+            id
+          }
+        }
+      }
+    }
+  `;
+
+  const gid = orderId.startsWith('gid://') 
+    ? orderId 
+    : `gid://shopify/Order/${orderId}`;
+  
+  try {
+    const response = await admin.graphql(query, { 
+      variables: { id: gid } 
+    });
+    const result = await response.json();
+    
+    if (result.errors || !result.data?.order) {
+      console.error('[OrdersPaidWebhook] Failed to fetch order details:', result.errors);
+      return null;
+    }
+    
+    return result.data.order;
+  } catch (error) {
+    console.error('[OrdersPaidWebhook] GraphQL query failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Analyze transactions to determine cashback eligible amount
+ */
+function analyzeTransactions(transactions: Transaction[]): PaymentBreakdown {
+  let giftCardAmount = 0;
+  let storeCreditAmount = 0;
+  let externalPaymentAmount = 0;
+  
+  // Only process successful SALE or CAPTURE transactions
+  const validTransactions = transactions.filter(tx => {
+    const isSuccessful = tx.status === 'SUCCESS';
+    const isPayment = ['SALE', 'CAPTURE'].includes(tx.kind);
+    return isSuccessful && isPayment;
+  });
+  
+  // Deduplicate CAPTURE/AUTHORIZATION pairs
+  const processedIds = new Set<string>();
+  
+  validTransactions.forEach(tx => {
+    // Skip if we've already processed this transaction
+    if (processedIds.has(tx.id)) return;
+    
+    // Skip CAPTURE if we already processed its AUTHORIZATION
+    if (tx.kind === 'CAPTURE' && tx.parentTransaction) {
+      const parentAuth = transactions.find(
+        t => t.id === tx.parentTransaction!.id && t.kind === 'AUTHORIZATION'
+      );
+      if (parentAuth && processedIds.has(parentAuth.id)) {
+        return;
+      }
+    }
+    
+    processedIds.add(tx.id);
+    const amount = parseFloat(tx.amountSet.shopMoney.amount);
+    const gateway = tx.gateway.toLowerCase();
+    
+    // Categorize payment by gateway
+    if (gateway.includes('gift_card')) {
+      giftCardAmount += amount;
+      console.log(`  [OrdersPaidWebhook] Gift card: ${amount} (excluded from cashback)`);
+    } else if (gateway.includes('store_credit')) {
+      storeCreditAmount += amount;
+      console.log(`  [OrdersPaidWebhook] Store credit: ${amount} (excluded from cashback)`);
+    } else {
+      externalPaymentAmount += amount;
+      console.log(`  [OrdersPaidWebhook] External payment (${tx.gateway}): ${amount} (eligible for cashback)`);
+    }
+  });
+  
+  return {
+    giftCardAmount,
+    storeCreditAmount,
+    externalPaymentAmount,
+    cashbackEligibleAmount: externalPaymentAmount
+  };
+}
+
 /**
  * Issue store credit via Shopify GraphQL
  */
@@ -102,8 +259,13 @@ async function issueStoreCredit(
 
 /**
  * Main webhook handler for orders/paid
- * Adds store credit based on customer's tier cashback percentage
- * Falls back to 5% default if customer has no tier assigned
+ * 
+ * Features:
+ * - Fetches detailed transaction data via GraphQL
+ * - Excludes gift cards and store credit from cashback calculation
+ * - Uses customer's tier cashback percentage (falls back to 5% if no tier)
+ * - Only calculates cashback on external payment methods
+ * - Prevents duplicate processing with idempotency checks
  */
 export async function action({ request }: ActionFunctionArgs) {
   const startTime = Date.now();
@@ -123,12 +285,42 @@ export async function action({ request }: ActionFunctionArgs) {
     const orderId = payload.id?.toString();
     const customerId = payload.customer?.id?.toString();
     const customerEmail = payload.customer?.email;
-    const orderTotal = parseFloat(payload.total_price || '0');
+    const webhookTotalPrice = parseFloat(payload.total_price || '0');
 
     // Validate required fields
     if (!orderId || !customerId) {
       console.error('[OrdersPaidWebhook] Missing required fields');
       return json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // ========================================================================
+    // FETCH TRANSACTION DETAILS FOR ACCURATE CASHBACK CALCULATION
+    // ========================================================================
+    
+    console.log('[OrdersPaidWebhook] 💳 Fetching payment details...');
+    
+    let cashbackEligibleAmount = webhookTotalPrice; // Fallback to webhook data
+    let paymentBreakdown: PaymentBreakdown | null = null;
+    
+    if (admin) {
+      const orderDetails = await fetchOrderTransactions(admin, orderId);
+      
+      if (orderDetails && orderDetails.transactions.length > 0) {
+        console.log(`[OrdersPaidWebhook] 📊 Analyzing ${orderDetails.transactions.length} transactions:`);
+        paymentBreakdown = analyzeTransactions(orderDetails.transactions);
+        
+        console.log('[OrdersPaidWebhook] 💰 Payment Breakdown:');
+        console.log(`   Gift Cards: ${paymentBreakdown.giftCardAmount.toFixed(2)}`);
+        console.log(`   Store Credit: ${paymentBreakdown.storeCreditAmount.toFixed(2)}`);
+        console.log(`   External Payments: ${paymentBreakdown.externalPaymentAmount.toFixed(2)}`);
+        console.log(`   ✅ Cashback Eligible: ${paymentBreakdown.cashbackEligibleAmount.toFixed(2)}`);
+        
+        cashbackEligibleAmount = paymentBreakdown.cashbackEligibleAmount;
+      } else {
+        console.warn('[OrdersPaidWebhook] ⚠️ Could not fetch transactions, using webhook total');
+      }
+    } else {
+      console.warn('[OrdersPaidWebhook] ⚠️ Admin API not available');
     }
 
     // Check for duplicate processing (idempotency)
@@ -209,11 +401,12 @@ export async function action({ request }: ActionFunctionArgs) {
       console.log('[OrdersPaidWebhook] No tier assigned, using default cashback:', `${DEFAULT_CASHBACK_PERCENTAGE * 100}%`);
     }
 
-    // Calculate cashback amount based on tier percentage
-    const creditAmount = Math.round(orderTotal * cashbackPercentage * 100) / 100; // Round to 2 decimal places
+    // Calculate cashback amount based on tier percentage and eligible amount
+    const creditAmount = Math.round(cashbackEligibleAmount * cashbackPercentage * 100) / 100; // Round to 2 decimal places
     
     console.log('[OrdersPaidWebhook] Calculating cashback:', {
-      orderTotal,
+      orderTotal: webhookTotalPrice,
+      eligibleAmount: cashbackEligibleAmount,
       tierName,
       percentage: `${cashbackPercentage * 100}%`,
       creditAmount
@@ -257,7 +450,13 @@ export async function action({ request }: ActionFunctionArgs) {
           creditAmount,
           shopifyTransactionId: creditResult.transactionId || null,
           shopifyCreditSuccess: creditResult.success,
-          orderTotal
+          orderTotal: webhookTotalPrice,
+          eligibleAmount: cashbackEligibleAmount,
+          paymentBreakdown: paymentBreakdown ? {
+            giftCardAmount: paymentBreakdown.giftCardAmount,
+            storeCreditAmount: paymentBreakdown.storeCreditAmount,
+            externalPaymentAmount: paymentBreakdown.externalPaymentAmount
+          } : null
         },
         createdAt: new Date()
       }
@@ -279,12 +478,14 @@ export async function action({ request }: ActionFunctionArgs) {
       customerId: customer.id,
       customerEmail,
       tierName: tierName || 'No Tier',
-      orderTotal,
+      orderTotal: webhookTotalPrice,
+      eligibleAmount: cashbackEligibleAmount,
       creditAmount,
       cashbackPercentage: `${cashbackPercentage * 100}%`,
       newBalance,
       currency: storeCurrency,
       shopifyCreditIssued: creditResult.success,
+      paymentBreakdown: paymentBreakdown || 'Not available',
       processingTimeMs: processingTime
     });
 
@@ -293,12 +494,14 @@ export async function action({ request }: ActionFunctionArgs) {
       orderId,
       customerId,
       tierName: tierName || 'No Tier',
-      orderTotal,
+      orderTotal: webhookTotalPrice,
+      eligibleAmount: cashbackEligibleAmount,
       creditAmount,
       cashbackPercentage: cashbackPercentage * 100,
       currency: storeCurrency,
       newBalance,
       shopifyCreditIssued: creditResult.success,
+      paymentBreakdown: paymentBreakdown || null,
       processingTimeMs: processingTime
     });
 
