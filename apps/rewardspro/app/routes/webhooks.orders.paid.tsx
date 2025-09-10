@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
-import { authenticate, unauthenticated } from "~/shopify.server";
+import { authenticate } from "~/shopify.server";
 import { v4 as uuidv4 } from 'uuid';
 
 // Initialize Prisma client
@@ -14,18 +14,19 @@ const STORE_CREDIT_AMOUNT = 10; // Fixed £10 credit for all orders
  * Issue store credit via Shopify GraphQL
  */
 async function issueStoreCredit(
-  shop: string,
+  admin: any,
   customerId: string,
   amount: number,
   currency: string,
   orderId: string
 ): Promise<{ success: boolean; transactionId?: string; error?: string }> {
   try {
-    const admin = await unauthenticated.admin(shop);
+    // Format customer ID as GID
+    const gidCustomerId = `gid://shopify/Customer/${customerId}`;
     
-    const mutation = `
-      mutation storeCreditAccountCredit($input: StoreCreditAccountCreditInput!) {
-        storeCreditAccountCredit(input: $input) {
+    const mutation = `#graphql
+      mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+        storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
           storeCreditAccountTransaction {
             id
             amount {
@@ -41,8 +42,8 @@ async function issueStoreCredit(
             }
           }
           userErrors {
-            field
             message
+            field
           }
         }
       }
@@ -50,14 +51,11 @@ async function issueStoreCredit(
 
     const response = await admin.graphql(mutation, {
       variables: {
-        input: {
+        id: gidCustomerId,
+        creditInput: {
           creditAmount: {
             amount: amount.toFixed(2),
             currencyCode: currency
-          },
-          externalReference: {
-            externalId: orderId,
-            source: "REWARDS_PRO"
           }
         }
       }
@@ -111,12 +109,13 @@ export async function action({ request }: ActionFunctionArgs) {
   
   try {
     // Authenticate webhook using Shopify's built-in verification
-    const { shop, topic, payload } = await authenticate.webhook(request);
+    const { shop, topic, payload, admin } = await authenticate.webhook(request);
     
     console.log('[OrdersPaidWebhook] Processing webhook:', {
       shop,
       topic,
-      orderId: payload.id
+      orderId: payload.id,
+      hasAdmin: !!admin
     });
 
     // Extract order data from payload
@@ -188,7 +187,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Issue store credit via Shopify using store currency
     const creditResult = await issueStoreCredit(
-      shop,
+      admin,
       customerId,
       STORE_CREDIT_AMOUNT,
       storeCurrency,
