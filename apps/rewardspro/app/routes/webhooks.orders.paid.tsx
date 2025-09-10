@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 const db = createDataAPIPrismaClient();
 
 // Configuration
-const CASHBACK_PERCENTAGE = 0.10; // 10% cashback on order value
+const DEFAULT_CASHBACK_PERCENTAGE = 0.05; // 5% default cashback if no tier assigned
 
 /**
  * Issue store credit via Shopify GraphQL
@@ -102,7 +102,8 @@ async function issueStoreCredit(
 
 /**
  * Main webhook handler for orders/paid
- * Adds 10% of order value as store credit to the customer who placed the order
+ * Adds store credit based on customer's tier cashback percentage
+ * Falls back to 5% default if customer has no tier assigned
  */
 export async function action({ request }: ActionFunctionArgs) {
   const startTime = Date.now();
@@ -129,15 +130,6 @@ export async function action({ request }: ActionFunctionArgs) {
       console.error('[OrdersPaidWebhook] Missing required fields');
       return json({ error: "Missing required fields" }, { status: 400 });
     }
-    
-    // Calculate 10% cashback amount
-    const creditAmount = Math.round(orderTotal * CASHBACK_PERCENTAGE * 100) / 100; // Round to 2 decimal places
-    
-    console.log('[OrdersPaidWebhook] Calculating cashback:', {
-      orderTotal,
-      percentage: `${CASHBACK_PERCENTAGE * 100}%`,
-      creditAmount
-    });
 
     // Check for duplicate processing (idempotency)
     const existingEntry = await db.storeCreditLedger.findFirst({
@@ -167,7 +159,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     console.log('[OrdersPaidWebhook] Using store currency:', storeCurrency);
 
-    // Get or create customer
+    // Get or create customer with tier information
     let customer = await db.customer.findFirst({
       where: {
         shop,
@@ -190,6 +182,42 @@ export async function action({ request }: ActionFunctionArgs) {
       });
       console.log('[OrdersPaidWebhook] Created new customer:', customer.id);
     }
+
+    // Get customer's tier for cashback percentage
+    let cashbackPercentage = DEFAULT_CASHBACK_PERCENTAGE;
+    let tierName = null;
+    
+    if (customer.currentTierId) {
+      const tier = await db.tier.findFirst({
+        where: {
+          id: customer.currentTierId,
+          shop // CRITICAL: Always scope to shop for security
+        }
+      });
+      
+      if (tier) {
+        // Tier cashbackPercent is stored as an integer (e.g., 10 for 10%)
+        cashbackPercentage = tier.cashbackPercent / 100;
+        tierName = tier.name;
+        console.log('[OrdersPaidWebhook] Using tier cashback:', {
+          tierId: tier.id,
+          tierName: tier.name,
+          cashbackPercent: `${tier.cashbackPercent}%`
+        });
+      }
+    } else {
+      console.log('[OrdersPaidWebhook] No tier assigned, using default cashback:', `${DEFAULT_CASHBACK_PERCENTAGE * 100}%`);
+    }
+
+    // Calculate cashback amount based on tier percentage
+    const creditAmount = Math.round(orderTotal * cashbackPercentage * 100) / 100; // Round to 2 decimal places
+    
+    console.log('[OrdersPaidWebhook] Calculating cashback:', {
+      orderTotal,
+      tierName,
+      percentage: `${cashbackPercentage * 100}%`,
+      creditAmount
+    });
 
     // Calculate new balance
     const currentBalance = Number(customer.storeCredit);
@@ -222,8 +250,10 @@ export async function action({ request }: ActionFunctionArgs) {
         metadata: {
           orderCurrency: payload.currency,
           storeCurrency,
+          tierName: tierName || 'No Tier',
+          tierId: customer.currentTierId || null,
           percentageBased: true,
-          cashbackPercentage: CASHBACK_PERCENTAGE * 100,
+          cashbackPercentage: cashbackPercentage * 100,
           creditAmount,
           shopifyTransactionId: creditResult.transactionId || null,
           shopifyCreditSuccess: creditResult.success,
@@ -248,9 +278,10 @@ export async function action({ request }: ActionFunctionArgs) {
       orderId,
       customerId: customer.id,
       customerEmail,
+      tierName: tierName || 'No Tier',
       orderTotal,
       creditAmount,
-      cashbackPercentage: `${CASHBACK_PERCENTAGE * 100}%`,
+      cashbackPercentage: `${cashbackPercentage * 100}%`,
       newBalance,
       currency: storeCurrency,
       shopifyCreditIssued: creditResult.success,
@@ -261,9 +292,10 @@ export async function action({ request }: ActionFunctionArgs) {
       success: true,
       orderId,
       customerId,
+      tierName: tierName || 'No Tier',
       orderTotal,
       creditAmount,
-      cashbackPercentage: CASHBACK_PERCENTAGE * 100,
+      cashbackPercentage: cashbackPercentage * 100,
       currency: storeCurrency,
       newBalance,
       shopifyCreditIssued: creditResult.success,
