@@ -87,6 +87,7 @@ export default function App() {
           <Link to="/app/billing">Billing</Link>
           <Link to="/app/webhook-test-simple">Webhook Tester</Link>
           <Link to="/app/graphql-test">GraphQL API Test</Link>
+          <Link to="/app/graphql-customer-test">Customer GraphQL Test</Link>
         </NavMenu>
         <Outlet />
       </AuthenticatedFetchProvider>

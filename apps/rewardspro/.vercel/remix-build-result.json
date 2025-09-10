@@ -10,6 +10,8 @@
       }
     },
     "routeIdToServerBundleId": {
+      "routes/apps.rewardspro.locales.$locale": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/apps.rewardspro.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -21,6 +23,7 @@
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-tester-advanced": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.graphql-customer-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-test-simple": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -40,6 +43,24 @@
         "id": "root",
         "file": "app/root.tsx",
         "config": {}
+      },
+      "routes/apps.rewardspro.locales.$locale": {
+        "id": "routes/apps.rewardspro.locales.$locale",
+        "parentId": "root",
+        "file": "app/routes/apps.rewardspro.locales.$locale.tsx",
+        "path": "apps/rewardspro/locales/:locale",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/apps.rewardspro.membership": {
+        "id": "routes/apps.rewardspro.membership",
+        "parentId": "root",
+        "file": "app/routes/apps.rewardspro.membership.tsx",
+        "path": "apps/rewardspro/membership",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/webhooks.app.scopes_update": {
         "id": "routes/webhooks.app.scopes_update",
@@ -143,6 +164,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.webhook-tester-advanced.tsx",
         "path": "webhook-tester-advanced",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.graphql-customer-test": {
+        "id": "routes/app.graphql-customer-test",
+        "parentId": "routes/app",
+        "file": "app/routes/app.graphql-customer-test.tsx",
+        "path": "graphql-customer-test",
         "config": {
           "runtime": "nodejs"
         }
@@ -276,6 +306,18 @@
         "id": "root",
         "file": "root.tsx"
       },
+      "routes/apps.rewardspro.locales.$locale": {
+        "id": "routes/apps.rewardspro.locales.$locale",
+        "parentId": "root",
+        "file": "routes/apps.rewardspro.locales.$locale.tsx",
+        "path": "apps/rewardspro/locales/:locale"
+      },
+      "routes/apps.rewardspro.membership": {
+        "id": "routes/apps.rewardspro.membership",
+        "parentId": "root",
+        "file": "routes/apps.rewardspro.membership.tsx",
+        "path": "apps/rewardspro/membership"
+      },
       "routes/webhooks.app.scopes_update": {
         "id": "routes/webhooks.app.scopes_update",
         "parentId": "root",
@@ -347,6 +389,12 @@
         "parentId": "routes/app",
         "file": "routes/app.webhook-tester-advanced.tsx",
         "path": "webhook-tester-advanced"
+      },
+      "routes/app.graphql-customer-test": {
+        "id": "routes/app.graphql-customer-test",
+        "parentId": "routes/app",
+        "file": "routes/app.graphql-customer-test.tsx",
+        "path": "graphql-customer-test"
       },
       "routes/app.webhook-test-simple": {
         "id": "routes/app.webhook-test-simple",

@@ -144,7 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
       
-      const result = await response.json();
+      const result = await response.json() as any;
       
       if (result.errors) {
         return json({
@@ -184,7 +184,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
       
-      const result = await response.json();
+      const result = await response.json() as any;
       
       if (result.errors) {
         return json({
@@ -245,7 +245,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         variables: { id: gid },
       });
       
-      const result = await response.json();
+      const result = await response.json() as any;
       
       if (result.errors) {
         return json({
@@ -292,7 +292,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
       
-      const result = await response.json();
+      const result = await response.json() as any;
       
       if (result.errors) {
         return json({
