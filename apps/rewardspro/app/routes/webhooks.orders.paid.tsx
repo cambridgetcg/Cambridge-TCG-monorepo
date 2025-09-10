@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 const db = createDataAPIPrismaClient();
 
 // Configuration
-const STORE_CREDIT_AMOUNT = 10; // Fixed £10 credit for all orders
+const CASHBACK_PERCENTAGE = 0.10; // 10% cashback on order value
 
 /**
  * Issue store credit via Shopify GraphQL
@@ -102,7 +102,7 @@ async function issueStoreCredit(
 
 /**
  * Main webhook handler for orders/paid
- * Adds £10 store credit to the customer who placed the order
+ * Adds 10% of order value as store credit to the customer who placed the order
  */
 export async function action({ request }: ActionFunctionArgs) {
   const startTime = Date.now();
@@ -122,12 +122,22 @@ export async function action({ request }: ActionFunctionArgs) {
     const orderId = payload.id?.toString();
     const customerId = payload.customer?.id?.toString();
     const customerEmail = payload.customer?.email;
+    const orderTotal = parseFloat(payload.total_price || '0');
 
     // Validate required fields
     if (!orderId || !customerId) {
       console.error('[OrdersPaidWebhook] Missing required fields');
       return json({ error: "Missing required fields" }, { status: 400 });
     }
+    
+    // Calculate 10% cashback amount
+    const creditAmount = Math.round(orderTotal * CASHBACK_PERCENTAGE * 100) / 100; // Round to 2 decimal places
+    
+    console.log('[OrdersPaidWebhook] Calculating cashback:', {
+      orderTotal,
+      percentage: `${CASHBACK_PERCENTAGE * 100}%`,
+      creditAmount
+    });
 
     // Check for duplicate processing (idempotency)
     const existingEntry = await db.storeCreditLedger.findFirst({
@@ -152,8 +162,8 @@ export async function action({ request }: ActionFunctionArgs) {
       where: { shop }
     });
 
-    // Use store currency, fallback to GBP if not configured
-    const storeCurrency = shopSettings?.storeCurrency || 'GBP';
+    // Use store currency, fallback to USD if not configured
+    const storeCurrency = shopSettings?.storeCurrency || 'USD';
 
     console.log('[OrdersPaidWebhook] Using store currency:', storeCurrency);
 
@@ -183,13 +193,13 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Calculate new balance
     const currentBalance = Number(customer.storeCredit);
-    const newBalance = currentBalance + STORE_CREDIT_AMOUNT;
+    const newBalance = currentBalance + creditAmount;
 
     // Issue store credit via Shopify using store currency
     const creditResult = await issueStoreCredit(
       admin,
       customerId,
-      STORE_CREDIT_AMOUNT,
+      creditAmount,
       storeCurrency,
       orderId
     );
@@ -205,18 +215,19 @@ export async function action({ request }: ActionFunctionArgs) {
         id: uuidv4(),
         customerId: customer.id,
         shop,
-        amount: STORE_CREDIT_AMOUNT,
+        amount: creditAmount,
         balance: newBalance,
         type: 'CASHBACK_EARNED',
         shopifyOrderId: orderId,
         metadata: {
           orderCurrency: payload.currency,
           storeCurrency,
-          fixedAmount: true,
-          creditAmount: STORE_CREDIT_AMOUNT,
+          percentageBased: true,
+          cashbackPercentage: CASHBACK_PERCENTAGE * 100,
+          creditAmount,
           shopifyTransactionId: creditResult.transactionId || null,
           shopifyCreditSuccess: creditResult.success,
-          orderTotal: payload.total_price
+          orderTotal
         },
         createdAt: new Date()
       }
@@ -237,7 +248,9 @@ export async function action({ request }: ActionFunctionArgs) {
       orderId,
       customerId: customer.id,
       customerEmail,
-      creditAmount: STORE_CREDIT_AMOUNT,
+      orderTotal,
+      creditAmount,
+      cashbackPercentage: `${CASHBACK_PERCENTAGE * 100}%`,
       newBalance,
       currency: storeCurrency,
       shopifyCreditIssued: creditResult.success,
@@ -248,7 +261,9 @@ export async function action({ request }: ActionFunctionArgs) {
       success: true,
       orderId,
       customerId,
-      creditAmount: STORE_CREDIT_AMOUNT,
+      orderTotal,
+      creditAmount,
+      cashbackPercentage: CASHBACK_PERCENTAGE * 100,
       currency: storeCurrency,
       newBalance,
       shopifyCreditIssued: creditResult.success,
