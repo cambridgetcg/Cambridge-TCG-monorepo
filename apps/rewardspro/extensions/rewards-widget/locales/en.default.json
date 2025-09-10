@@ -1,0 +1,59 @@
+{
+  "widget": {
+    "title": "Rewards Center",
+    "close": "Close rewards widget",
+    "open": "Open rewards widget",
+    "loading": "Loading your rewards...",
+    "error": {
+      "title": "Unable to load rewards data",
+      "retry": "Try Again"
+    },
+    "guest": {
+      "message": "Join our rewards program and earn cashback on every purchase!",
+      "benefits": {
+        "cashback": "Earn cashback on every order",
+        "tiers": "Unlock exclusive member tiers",
+        "rewards": "Get personalized rewards"
+      },
+      "signin": "Sign In",
+      "register": "Join Now"
+    },
+    "member": {
+      "balance": {
+        "label": "Store Credit Balance",
+        "currency": "{{amount}}"
+      },
+      "tier": {
+        "current": "{{tier}} Member",
+        "cashback": "Earning {{rate}}% cashback",
+        "progress": "Progress to {{nextTier}}",
+        "remaining": "{{amount}} to go"
+      },
+      "stats": {
+        "earned": {
+          "value": "{{amount}}",
+          "label": "Lifetime Earned"
+        },
+        "spent": {
+          "value": "{{amount}}",
+          "label": "Total Spent"
+        },
+        "rewards": {
+          "value": "{{count}}",
+          "label": "Rewards Available"
+        }
+      },
+      "actions": {
+        "dashboard": "View Full Dashboard",
+        "shop": "Continue Shopping",
+        "redeem": "Redeem Rewards"
+      }
+    },
+    "accessibility": {
+      "minimized": "Rewards widget minimized",
+      "opened": "Rewards widget opened",
+      "loading": "Loading rewards data",
+      "error": "Error loading rewards"
+    }
+  }
+}

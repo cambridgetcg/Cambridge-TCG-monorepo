@@ -1,0 +1,59 @@
+{
+  "widget": {
+    "title": "Centro de Recompensas",
+    "close": "Cerrar widget de recompensas",
+    "open": "Abrir widget de recompensas",
+    "loading": "Cargando tus recompensas...",
+    "error": {
+      "title": "No se pudieron cargar los datos de recompensas",
+      "retry": "Intentar de Nuevo"
+    },
+    "guest": {
+      "message": "¡Únete a nuestro programa de recompensas y gana cashback en cada compra!",
+      "benefits": {
+        "cashback": "Gana cashback en cada pedido",
+        "tiers": "Desbloquea niveles de miembro exclusivos",
+        "rewards": "Obtén recompensas personalizadas"
+      },
+      "signin": "Iniciar Sesión",
+      "register": "Únete Ahora"
+    },
+    "member": {
+      "balance": {
+        "label": "Saldo de Crédito de Tienda",
+        "currency": "{{amount}}"
+      },
+      "tier": {
+        "current": "Miembro {{tier}}",
+        "cashback": "Ganando {{rate}}% de cashback",
+        "progress": "Progreso hacia {{nextTier}}",
+        "remaining": "{{amount}} restante"
+      },
+      "stats": {
+        "earned": {
+          "value": "{{amount}}",
+          "label": "Total Ganado"
+        },
+        "spent": {
+          "value": "{{amount}}",
+          "label": "Total Gastado"
+        },
+        "rewards": {
+          "value": "{{count}}",
+          "label": "Recompensas Disponibles"
+        }
+      },
+      "actions": {
+        "dashboard": "Ver Panel Completo",
+        "shop": "Continuar Comprando",
+        "redeem": "Canjear Recompensas"
+      }
+    },
+    "accessibility": {
+      "minimized": "Widget de recompensas minimizado",
+      "opened": "Widget de recompensas abierto",
+      "loading": "Cargando datos de recompensas",
+      "error": "Error al cargar recompensas"
+    }
+  }
+}

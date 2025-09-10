@@ -1,0 +1,67 @@
+# Shopify Theme Extension Configuration
+# This extension adds a rewards widget to the storefront
+
+api_version = "2024-10"
+name = "RewardsPro Widget"
+
+[[extensions]]
+type = "theme"
+name = "RewardsPro Rewards Widget"
+handle = "rewards-widget"
+
+[extensions.settings]
+  [[extensions.settings.fields]]
+    key = "position"
+    type = "select"
+    label = "Widget Position"
+    default = "bottom-right"
+    info = "Choose where the widget appears on the screen"
+    [[extensions.settings.fields.options]]
+      value = "bottom-right"
+      label = "Bottom Right"
+    [[extensions.settings.fields.options]]
+      value = "bottom-left"
+      label = "Bottom Left"
+    [[extensions.settings.fields.options]]
+      value = "top-right"
+      label = "Top Right"
+    [[extensions.settings.fields.options]]
+      value = "top-left"
+      label = "Top Left"
+
+  [[extensions.settings.fields]]
+    key = "start_minimized"
+    type = "checkbox"
+    label = "Start Minimized"
+    default = false
+    info = "Widget starts as a small button instead of expanded panel"
+
+  [[extensions.settings.fields]]
+    key = "theme_color"
+    type = "color"
+    label = "Primary Color"
+    default = "#5C6AC4"
+    info = "Main color for buttons and highlights"
+
+  [[extensions.settings.fields]]
+    key = "show_on_mobile"
+    type = "checkbox"
+    label = "Show on Mobile"
+    default = true
+    info = "Display widget on mobile devices"
+
+  [[extensions.settings.fields]]
+    key = "auto_hide_seconds"
+    type = "range"
+    label = "Auto-hide after (seconds)"
+    min = 0
+    max = 30
+    step = 5
+    default = 0
+    unit = "sec"
+    info = "0 means never auto-hide"
+
+[extensions.capabilities]
+  block_groups = ["header", "footer", "aside"]
+  api_access = true
+  network_access = true
