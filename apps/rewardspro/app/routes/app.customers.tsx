@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import crypto from "crypto";
 import {
   Page,
   Layout,
@@ -237,6 +238,122 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const action = formData.get("action");
     const shop = session.shop;
 
+    if (action === "sync-customers") {
+      // Sync customers from Shopify
+      console.log("[Customers] Starting customer sync from Shopify");
+      
+      try {
+        // GraphQL query to fetch customers from Shopify
+        const customersQuery = `
+          query getCustomers($first: Int!, $after: String) {
+            customers(first: $first, after: $after) {
+              edges {
+                cursor
+                node {
+                  id
+                  email
+                  firstName
+                  lastName
+                  totalSpentV2 {
+                    amount
+                    currencyCode
+                  }
+                  ordersCount
+                  tags
+                  createdAt
+                  updatedAt
+                }
+              }
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+            }
+          }
+        `;
+        
+        let hasNextPage = true;
+        let cursor = null;
+        let totalImported = 0;
+        let totalSkipped = 0;
+        
+        while (hasNextPage) {
+          const response = await admin.graphql(customersQuery, {
+            variables: {
+              first: 250, // Max allowed per request
+              after: cursor,
+            },
+          });
+          
+          const result = await response.json();
+          const customers = result.data.customers;
+          
+          // Process each customer
+          for (const edge of customers.edges) {
+            const shopifyCustomer = edge.node;
+            const shopifyId = shopifyCustomer.id.split('/').pop(); // Extract ID from gid
+            
+            // Check if customer already exists
+            const existingCustomer = await db.customer.findFirst({
+              where: {
+                shop,
+                shopifyCustomerId: shopifyId,
+              },
+            });
+            
+            if (!existingCustomer) {
+              // Create new customer
+              await db.customer.create({
+                data: {
+                  id: crypto.randomUUID(),
+                  shop,
+                  shopifyCustomerId: shopifyId,
+                  email: shopifyCustomer.email || '',
+                  firstName: shopifyCustomer.firstName || '',
+                  lastName: shopifyCustomer.lastName || '',
+                  storeCredit: 0,
+                  createdAt: new Date(shopifyCustomer.createdAt),
+                  updatedAt: new Date(),
+                },
+              });
+              totalImported++;
+            } else {
+              // Update existing customer if needed
+              await db.customer.update({
+                where: { id: existingCustomer.id },
+                data: {
+                  email: shopifyCustomer.email || existingCustomer.email,
+                  firstName: shopifyCustomer.firstName || existingCustomer.firstName,
+                  lastName: shopifyCustomer.lastName || existingCustomer.lastName,
+                  updatedAt: new Date(),
+                },
+              });
+              totalSkipped++;
+            }
+          }
+          
+          hasNextPage = customers.pageInfo.hasNextPage;
+          cursor = customers.pageInfo.endCursor;
+        }
+        
+        return json({
+          success: true,
+          message: `Sync complete! Imported ${totalImported} new customers, updated ${totalSkipped} existing customers.`,
+          results: {
+            imported: totalImported,
+            updated: totalSkipped,
+            total: totalImported + totalSkipped,
+          },
+        });
+      } catch (error) {
+        console.error("[Customers] Sync error:", error);
+        return json({
+          success: false,
+          message: "Failed to sync customers from Shopify. Please try again.",
+        });
+      }
+    }
+
     if (action === "calculate-all") {
       // Calculate tiers for all customers
       console.log("[Customers] Starting tier calculation for all customers");
@@ -249,34 +366,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           total: results.total,
           changed: results.changed,
           errors: results.errors,
-        }
-      });
-    }
-    
-    if (action === "calculate-selected") {
-      // Calculate tiers for selected customers
-      const customerIds = formData.getAll("customerIds[]") as string[];
-      
-      if (customerIds.length === 0) {
-        return json({ 
-          success: false, 
-          message: "No customers selected" 
-        });
-      }
-      
-      console.log(`[Customers] Calculating tiers for ${customerIds.length} selected customers`);
-      const results = await calculateTiersForCustomers(shop, customerIds, admin as any);
-      
-      const changed = results.filter(r => r.changed).length;
-      const errors = results.filter(r => r.error).length;
-      
-      return json({
-        success: true,
-        message: `Calculated tiers for ${results.length} customers. ${changed} tiers updated.`,
-        results: {
-          total: results.length,
-          changed,
-          errors,
         }
       });
     }
@@ -449,30 +538,19 @@ export default function Customers() {
     submit(formData, { method: "post" });
   }, [data.totalCustomers, submit]);
 
-  // Calculate selected tiers
-  const handleCalculateSelected = useCallback(() => {
-    if (selectedCustomers.length === 0) {
-      setToast({
-        active: true,
-        content: "Please select customers first",
-        error: true,
-        duration: 3000,
-      });
-      return;
-    }
-    
+  // Sync customers from Shopify
+  const handleSyncCustomers = useCallback(() => {
     setIsCalculating(true);
     setToast({
       active: true,
-      content: `Processing ${selectedCustomers.length} customers...`,
-      duration: 30000,
+      content: "Syncing customers from Shopify...",
+      duration: 60000, // Long duration for sync
     });
     
     const formData = new FormData();
-    formData.append("action", "calculate-selected");
-    selectedCustomers.forEach(id => formData.append("customerIds[]", id));
+    formData.append("action", "sync-customers");
     submit(formData, { method: "post" });
-  }, [selectedCustomers, submit]);
+  }, [submit]);
 
   // Calculate single customer tier with inline feedback
   const handleCalculateSingle = useCallback((customerId: string) => {
@@ -664,9 +742,9 @@ export default function Customers() {
         }}
         secondaryActions={[
           {
-            content: "Calculate selected",
-            onAction: handleCalculateSelected,
-            disabled: selectedCustomers.length === 0,
+            content: "Sync from Shopify",
+            icon: RefreshIcon,
+            onAction: handleSyncCustomers,
             loading: isLoading,
           },
         ]}
@@ -801,6 +879,24 @@ export default function Customers() {
                 </Box>
               </Card>
 
+              {/* Sync Information Banner */}
+              {data.totalCustomers === 0 && (
+                <Banner
+                  title="Import your customers from Shopify"
+                  tone="info"
+                  action={{
+                    content: "Sync from Shopify",
+                    onAction: handleSyncCustomers,
+                  }}
+                >
+                  <p>
+                    Click "Sync from Shopify" to import all your existing customers. 
+                    This will create customer profiles in the rewards system so you can 
+                    track store credit and assign loyalty tiers.
+                  </p>
+                </Banner>
+              )}
+
               {/* Enhanced Customer Table with Animations */}
               <Card>
                 <div ref={tableRef}>
@@ -827,8 +923,12 @@ export default function Customers() {
                     <EmptyState
                       heading="No customers found"
                       image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      action={{
+                        content: "Sync from Shopify",
+                        onAction: handleSyncCustomers,
+                      }}
                     >
-                      <p>Try adjusting your search or filters, or sync customers from Shopify.</p>
+                      <p>Import your existing customers from Shopify to start tracking their rewards and tier status.</p>
                     </EmptyState>
                   )}
                 </div>
@@ -860,20 +960,20 @@ export default function Customers() {
                         <BlockStack gap="400">
                           <InlineStack align="space-between">
                             <Text variant="headingMd" as="h3">
-                              How Tier Calculation Works
+                              How Customer Management Works
                             </Text>
                             <Icon source={InfoIcon} tone="base" />
                           </InlineStack>
                           
                           <BlockStack gap="300">
                             <InlineStack gap="200" align="start">
-                              <Icon source={CheckCircleIcon} tone="success" />
+                              <Icon source={RefreshIcon} tone="success" />
                               <BlockStack gap="050">
                                 <Text variant="bodyMd" fontWeight="medium" as="span">
-                                  Automatic Processing
+                                  Sync from Shopify
                                 </Text>
                                 <Text variant="bodySm" tone="subdued" as="span">
-                                  Tiers update automatically with each order
+                                  Import all your existing customers with one click
                                 </Text>
                               </BlockStack>
                             </InlineStack>
@@ -882,19 +982,19 @@ export default function Customers() {
                               <Icon source={CheckCircleIcon} tone="success" />
                               <BlockStack gap="050">
                                 <Text variant="bodyMd" fontWeight="medium" as="span">
-                                  Smart Calculation
+                                  Automatic Updates
                                 </Text>
                                 <Text variant="bodySm" tone="subdued" as="span">
-                                  Includes all paid orders, deducts refunds
+                                  Customer profiles sync automatically with new orders
                                 </Text>
                               </BlockStack>
                             </InlineStack>
 
                             <InlineStack gap="200" align="start">
-                              <Icon source={CheckCircleIcon} tone="success" />
+                              <Icon source={StarFilledIcon} tone="success" />
                               <BlockStack gap="050">
                                 <Text variant="bodyMd" fontWeight="medium" as="span">
-                                  Flexible Periods
+                                  Tier Assignment
                                 </Text>
                                 <Text variant="bodySm" tone="subdued" as="span">
                                   Respects annual or lifetime evaluation
@@ -915,13 +1015,23 @@ export default function Customers() {
                           </InlineStack>
                           
                           <BlockStack gap="300">
-                            <Button fullWidth onClick={handleCalculateAll} loading={isLoading} icon={RefreshIcon}>
+                            <Button fullWidth onClick={handleSyncCustomers} loading={isLoading} icon={RefreshIcon}>
+                              Sync Customers from Shopify
+                            </Button>
+                            
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              Import all your existing customers from Shopify. New customers are automatically 
+                              added when they place orders, but use this to import your existing customer base.
+                            </Text>
+
+                            <Divider />
+                            
+                            <Button fullWidth onClick={handleCalculateAll} loading={isLoading} variant="secondary">
                               Recalculate All Tiers
                             </Button>
                             
                             <Text variant="bodySm" tone="subdued" as="p">
-                              Last calculation updates all customer tiers based on their complete order history. 
-                              This process may take a few minutes for large customer bases.
+                              Updates all customer tiers based on their order history and current tier settings.
                             </Text>
 
                             <Divider />
@@ -929,7 +1039,7 @@ export default function Customers() {
                             <InlineStack gap="200">
                               <Badge tone="info">Tip</Badge>
                               <Text variant="bodySm" as="span">
-                                Individual recalculation happens automatically with each order
+                                Click on any customer to manage their store credit
                               </Text>
                             </InlineStack>
                           </BlockStack>
