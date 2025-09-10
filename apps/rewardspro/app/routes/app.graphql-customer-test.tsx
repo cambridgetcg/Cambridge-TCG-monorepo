@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState } from "react";
 import {
   Page,
@@ -19,6 +19,7 @@ import {
   DataTable,
   EmptyState,
   SkeletonBodyText,
+  Collapsible,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import crypto from "crypto";
@@ -169,6 +170,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           customers,
           pageInfo: result.data.customers.pageInfo,
         },
+        rawResponse: result, // Include raw GraphQL response
       });
     }
     
@@ -220,6 +222,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           customers,
           pageInfo: result.data.customers.pageInfo,
         },
+        rawResponse: result, // Include raw GraphQL response
       });
     }
     
@@ -277,6 +280,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         success: true,
         message: "Successfully fetched single customer",
         data: { customer },
+        rawResponse: result, // Include raw GraphQL response
       });
     }
     
@@ -357,6 +361,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           total: imported + skipped,
           results: importResults,
         },
+        rawResponse: result, // Include raw GraphQL response
       });
     }
     
@@ -377,10 +382,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function GraphQLCustomerTest() {
   const { shop, customerCount } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const [customerId, setCustomerId] = useState("");
   const [queryType, setQueryType] = useState("minimal");
+  const [showRawData, setShowRawData] = useState(false);
   
   const isLoading = navigation.state === "submitting";
   
@@ -587,6 +594,199 @@ export default function GraphQLCustomerTest() {
                 </BlockStack>
               </Box>
             </Card>
+            
+            {/* Query Results Display */}
+            {actionData && (
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between">
+                      <Text variant="headingMd" as="h2">
+                        Query Results
+                      </Text>
+                      <Badge tone={actionData.success ? "success" : "critical"}>
+                        {actionData.success ? "Success" : "Failed"}
+                      </Badge>
+                    </InlineStack>
+                    
+                    {/* Result Message */}
+                    <Banner tone={actionData.success ? "success" : "critical"}>
+                      <p>{actionData.message}</p>
+                    </Banner>
+                    
+                    {/* Formatted Data Display */}
+                    {actionData.data && (
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h3">
+                          Formatted Data
+                        </Text>
+                        
+                        {/* Customer Table for list queries */}
+                        {actionData.data.customers && (
+                          <DataTable
+                            columnContentTypes={["text", "text", "text", "text"]}
+                            headings={["Shopify ID", "Email", "Display Name", "Created At"]}
+                            rows={actionData.data.customers.map((customer: any) => [
+                              customer.shopifyId || customer.gid?.split('/').pop() || "N/A",
+                              customer.email || "No email",
+                              customer.displayName || customer.firstName + " " + customer.lastName || "No name",
+                              new Date(customer.createdAt).toLocaleDateString(),
+                            ])}
+                          />
+                        )}
+                        
+                        {/* Single Customer Display */}
+                        {actionData.data.customer && (
+                          <Box background="bg-surface-secondary" padding="400" borderRadius="200">
+                            <BlockStack gap="200">
+                              <InlineStack gap="400">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                  Shopify ID:
+                                </Text>
+                                <Text variant="bodyMd" as="span">
+                                  {actionData.data.customer.shopifyId}
+                                </Text>
+                              </InlineStack>
+                              <InlineStack gap="400">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                  Email:
+                                </Text>
+                                <Text variant="bodyMd" as="span">
+                                  {actionData.data.customer.email}
+                                </Text>
+                              </InlineStack>
+                              <InlineStack gap="400">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                  Name:
+                                </Text>
+                                <Text variant="bodyMd" as="span">
+                                  {actionData.data.customer.displayName}
+                                </Text>
+                              </InlineStack>
+                              <InlineStack gap="400">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                  Created:
+                                </Text>
+                                <Text variant="bodyMd" as="span">
+                                  {new Date(actionData.data.customer.createdAt).toLocaleString()}
+                                </Text>
+                              </InlineStack>
+                            </BlockStack>
+                          </Box>
+                        )}
+                        
+                        {/* Import Results */}
+                        {actionData.data.results && Array.isArray(actionData.data.results) && (
+                          <BlockStack gap="300">
+                            <InlineStack gap="400">
+                              <Badge tone="success">
+                                Imported: {actionData.data.imported}
+                              </Badge>
+                              <Badge tone="attention">
+                                Skipped: {actionData.data.skipped}
+                              </Badge>
+                              <Badge>
+                                Total: {actionData.data.total}
+                              </Badge>
+                            </InlineStack>
+                            
+                            <DataTable
+                              columnContentTypes={["text", "text", "text"]}
+                              headings={["Shopify ID", "Email", "Status"]}
+                              rows={actionData.data.results.map((result: any) => [
+                                result.shopifyId,
+                                result.email,
+                                result.status,
+                              ])}
+                            />
+                          </BlockStack>
+                        )}
+                        
+                        {/* Page Info */}
+                        {actionData.data.pageInfo && (
+                          <Box background="bg-surface-secondary" padding="400" borderRadius="200">
+                            <BlockStack gap="200">
+                              <Text variant="headingSm" as="h4">
+                                Pagination Info
+                              </Text>
+                              <InlineStack gap="400">
+                                <Badge>
+                                  Has Next Page: {actionData.data.pageInfo.hasNextPage ? "Yes" : "No"}
+                                </Badge>
+                                <Badge>
+                                  Has Previous Page: {actionData.data.pageInfo.hasPreviousPage ? "Yes" : "No"}
+                                </Badge>
+                              </InlineStack>
+                            </BlockStack>
+                          </Box>
+                        )}
+                      </BlockStack>
+                    )}
+                    
+                    <Divider />
+                    
+                    {/* Raw GraphQL Response */}
+                    <BlockStack gap="300">
+                      <Button
+                        onClick={() => setShowRawData(!showRawData)}
+                        ariaExpanded={showRawData}
+                        ariaControls="raw-data"
+                      >
+                        {showRawData ? "Hide" : "Show"} Raw GraphQL Response
+                      </Button>
+                      
+                      <Collapsible
+                        open={showRawData}
+                        id="raw-data"
+                        transition={{ duration: "200ms", timingFunction: "ease-in-out" }}
+                      >
+                        <Box background="bg-surface-secondary" padding="400" borderRadius="200">
+                          <BlockStack gap="200">
+                            <Text variant="headingSm" as="h4">
+                              Raw Response Data
+                            </Text>
+                            <pre style={{
+                              fontFamily: "monospace",
+                              fontSize: "11px",
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                              margin: 0,
+                              maxHeight: "500px",
+                              overflow: "auto",
+                              backgroundColor: "#f6f8fa",
+                              padding: "12px",
+                              borderRadius: "4px",
+                            }}>
+                              {JSON.stringify(actionData.rawResponse, null, 2)}
+                            </pre>
+                          </BlockStack>
+                        </Box>
+                      </Collapsible>
+                    </BlockStack>
+                    
+                    {/* Error Display */}
+                    {actionData.errors && (
+                      <Box background="bg-surface-critical" padding="400" borderRadius="200">
+                        <BlockStack gap="200">
+                          <Text variant="headingSm" as="h4">
+                            GraphQL Errors
+                          </Text>
+                          <pre style={{
+                            fontFamily: "monospace",
+                            fontSize: "11px",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            margin: 0,
+                          }}>
+                            {JSON.stringify(actionData.errors, null, 2)}
+                          </pre>
+                        </BlockStack>
+                      </Box>
+                    )}
+                  </BlockStack>
+                </Box>
+              </Card>
+            )}
           </BlockStack>
         </Layout.Section>
       </Layout>
