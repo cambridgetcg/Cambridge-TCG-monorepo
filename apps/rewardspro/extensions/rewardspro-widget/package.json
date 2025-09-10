@@ -1,0 +1,8 @@
+{
+  "name": "rewards-widget",
+  "version": "1.0.0",
+  "description": "RewardsPro rewards widget for Shopify storefronts",
+  "private": true,
+  "author": "RewardsPro",
+  "license": "UNLICENSED"
+}

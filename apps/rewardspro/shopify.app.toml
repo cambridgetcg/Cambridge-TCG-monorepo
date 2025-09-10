@@ -2,7 +2,7 @@
 
 client_id = "f04b5854fb022d67ba9dd097767b465a"
 name = "rewardspro-production"
-application_url = "https://tired-receivers-encouraging-gate.trycloudflare.com"
+application_url = "https://morgan-popular-image-electro.trycloudflare.com"
 embedded = true
 handle = "rewardspro-production"
 
@@ -34,7 +34,7 @@ api_version = "2025-07"
 scopes = "read_customers,write_customers,read_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts"
 
 [auth]
-redirect_urls = ["https://tired-receivers-encouraging-gate.trycloudflare.com/auth/callback", "https://tired-receivers-encouraging-gate.trycloudflare.com/auth/shopify/callback", "https://tired-receivers-encouraging-gate.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://morgan-popular-image-electro.trycloudflare.com/auth/callback", "https://morgan-popular-image-electro.trycloudflare.com/auth/shopify/callback", "https://morgan-popular-image-electro.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

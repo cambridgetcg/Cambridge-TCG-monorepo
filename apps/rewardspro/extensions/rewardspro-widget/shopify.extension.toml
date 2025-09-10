@@ -1,0 +1,10 @@
+# Shopify Theme Extension Configuration
+# This extension adds a rewards widget to the storefront
+
+api_version = "2024-10"
+
+[[extensions]]
+type = "theme"
+name = "RewardsPro Rewards Widget"
+handle = "rewardspro-widget"
+uuid = "1274033569793"
