@@ -69,8 +69,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           // Use the redirect helper to ensure proper iframe breakout
           return redirect(pricingPageUrl, { target: "_top" });
         }
-      } catch (billingError) {
-        // Log billing check errors but don't block app access
+      } catch (billingError: any) {
+        // Check if this is a Shopify authentication error with a redirect URL
+        if (billingError instanceof Response && billingError.status === 401) {
+          const reauthorizeUrl = billingError.headers?.get('x-shopify-api-request-failure-reauthorize-url');
+          if (reauthorizeUrl) {
+            console.log("[App Loader] Billing auth failed, redirecting to:", reauthorizeUrl);
+            return redirect(reauthorizeUrl, { target: "_top" });
+          }
+        }
+        
+        // Log other billing check errors but don't block app access
         console.error("[App Loader] Billing check error:", billingError);
         // Continue loading the app even if billing check fails
       }

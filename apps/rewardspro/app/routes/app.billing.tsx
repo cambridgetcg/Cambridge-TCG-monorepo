@@ -291,6 +291,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   } catch (error: any) {
     console.error("[Billing Page] Error:", error);
+    
+    // Check if this is a Shopify authentication error with a redirect URL
+    if (error instanceof Response && error.status === 401) {
+      const reauthorizeUrl = error.headers?.get('x-shopify-api-request-failure-reauthorize-url');
+      if (reauthorizeUrl) {
+        console.log("[Billing Page] Redirecting to reauthorize:", reauthorizeUrl);
+        // Throw a redirect response to the reauthorization URL
+        throw new Response(null, {
+          status: 302,
+          headers: {
+            Location: reauthorizeUrl,
+          },
+        });
+      }
+    }
+    
     throw new Response("Failed to load billing information", { status: 500 });
   }
 };
@@ -356,8 +372,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     return json({ error: "Invalid action" }, { status: 400 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Billing Action] Error:", error);
+    
+    // Check if this is a Shopify authentication error with a redirect URL
+    if (error instanceof Response && error.status === 401) {
+      const reauthorizeUrl = error.headers?.get('x-shopify-api-request-failure-reauthorize-url');
+      if (reauthorizeUrl) {
+        console.log("[Billing Action] Redirecting to reauthorize:", reauthorizeUrl);
+        // Return a redirect response to the reauthorization URL
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: reauthorizeUrl,
+          },
+        });
+      }
+    }
+    
     return json({ error: "Failed to process billing action" }, { status: 500 });
   }
 };
