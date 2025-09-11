@@ -59,6 +59,14 @@ import {
   calculateAllCustomerTiers 
 } from "../services/tier-calculation.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
+import { TierBadge } from "../components/TierBadge";
+import { 
+  getTierStyle, 
+  formatTierName,
+  getTierEmoji,
+  getTierGradientCSS,
+  getTierTextColor
+} from "../utils/tier-styles";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -441,20 +449,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 function TierIcon({ tierName }: { tierName: string }) {
-  const name = tierName.toLowerCase();
-  if (name.includes('platinum') || name.includes('vip')) {
-    return <Icon source={StarFilledIcon} tone="emphasis" />;
-  }
-  if (name.includes('gold')) {
-    return <Icon source={StarFilledIcon} tone="caution" />;
-  }
-  if (name.includes('silver')) {
-    return <Icon source={StarIcon} tone="subdued" />;
-  }
-  if (name.includes('bronze')) {
-    return <Icon source={CheckIcon} tone="base" />;
-  }
-  return <Icon source={PersonIcon} tone="base" />;
+  const style = getTierStyle(tierName);
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '24px',
+      height: '24px',
+      borderRadius: '50%',
+      background: style.backgroundColor,
+      border: `1px solid ${style.borderColor}`,
+    }}>
+      <Icon source={style.icon} tone="base" />
+    </div>
+  );
 }
 
 function CustomerAvatar({ email }: { email: string }) {
@@ -879,9 +888,17 @@ export default function Customers() {
                                 <Text variant="bodyMd" fontWeight="medium" as="span">
                                   {tier.tierName}
                                 </Text>
-                                <Badge tone={tier.tierName === "No Tier" ? "attention" : "info"}>
-                                  {`${tier.count} customers`}
-                                </Badge>
+                                {tier.tierName === "No Tier" ? (
+                                  <Badge tone="attention">
+                                    {`${tier.count} customers`}
+                                  </Badge>
+                                ) : (
+                                  <TierBadge 
+                                    tierName={tier.tierName}
+                                    size="small"
+                                    showIcon={false}
+                                  />
+                                )}
                               </InlineStack>
                               <Text variant="bodyMd" tone="subdued" as="span">
                                 {tier.percentage}%

@@ -34,7 +34,14 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { TierBadge, TierIndicator } from "../components/TierBadge";
-import { getTierStyle, sortTiersByPriority } from "../utils/tier-styles";
+import { 
+  getTierStyle, 
+  sortTiersByPriority, 
+  getTierGradientCSS, 
+  getTierTextColor,
+  getTierEmoji,
+  formatTierName 
+} from "../utils/tier-styles";
 import "../styles/tiers.css";
 
 // ============================================
@@ -377,12 +384,26 @@ export default function Dashboard() {
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="200">
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {data.tierDistribution.slice(0, 3).map(tier => {
                           if (tier.name === "No Tier") return null;
                           const style = getTierStyle(tier.name);
                           return (
-                            <Icon key={tier.id} source={style.icon} tone="base" />
+                            <div 
+                              key={tier.id}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                background: style.backgroundColor,
+                                border: `1px solid ${style.borderColor}`,
+                              }}
+                            >
+                              <Icon source={style.icon} tone="base" />
+                            </div>
                           );
                         })}
                       </div>
@@ -439,7 +460,21 @@ export default function Dashboard() {
                                     {tier.name === "No Tier" ? (
                                       <Icon source={AlertTriangleIcon} tone="caution" />
                                     ) : (
-                                      <TierIndicator tierName={tier.name} showLabel={false} />
+                                      <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '8px',
+                                        background: getTierStyle(tier.name).backgroundColor,
+                                        border: `2px solid ${getTierStyle(tier.name).borderColor}`,
+                                      }}>
+                                        <Icon 
+                                          source={getTierStyle(tier.name).icon} 
+                                          tone="base"
+                                        />
+                                      </div>
                                     )}
                                     <BlockStack gap="100">
                                       <InlineStack gap="200" align="start">

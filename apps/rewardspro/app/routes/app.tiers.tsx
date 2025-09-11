@@ -37,6 +37,13 @@ import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency, getCurrencySymbol } from "../utils/currency";
+import { TierBadge } from "../components/TierBadge";
+import { 
+  getTierStyle, 
+  formatTierName,
+  getTierGradientCSS,
+  sortTiersByPriority
+} from "../utils/tier-styles";
 
 // ============= TYPES =============
 type Tier = {
@@ -674,9 +681,18 @@ export default function TiersPage() {
                         <Box padding="400" minWidth="0">
                           <InlineStack gap="400" align="start" blockAlign="start">
                             {/* Icon */}
-                            <Box background="bg-surface-brand" padding="300" borderRadius="100">
-                              <Icon source={StarFilledIcon} tone={tierColor} />
-                            </Box>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              background: getTierStyle(tier.name).backgroundColor,
+                              border: `2px solid ${getTierStyle(tier.name).borderColor}`,
+                            }}>
+                              <Icon source={getTierStyle(tier.name).icon} tone="base" />
+                            </div>
                             
                             {/* Tier Details */}
                             <BlockStack gap="200">
@@ -704,9 +720,12 @@ export default function TiersPage() {
                                 
                                 <Box borderInlineStartWidth="025" borderColor="border">
                                   <Box paddingInlineStart="400">
-                                    <Badge tone={tierColor}>
-                                      {`${tier.cashbackPercent}% cashback`}
-                                    </Badge>
+                                    <TierBadge 
+                                      tierName={tier.name}
+                                      size="medium"
+                                      showIcon={false}
+                                      cashbackPercent={tier.cashbackPercent}
+                                    />
                                   </Box>
                                 </Box>
                                 
@@ -897,7 +916,17 @@ export default function TiersPage() {
                           <Text variant="bodySm" as="p">
                             <Text variant="bodySm" fontWeight="semibold" as="span">{tier.name}</Text> - {formatCurrency(tier.minSpend, shopSettings as any)}+
                           </Text>
-                          <Badge tone="info">{`${tier.cashbackPercent}%`}</Badge>
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: getTierStyle(tier.name).backgroundColor,
+                            border: `1px solid ${getTierStyle(tier.name).borderColor}`,
+                          }}>
+                            <Text variant="bodySm" tone="base">{`${tier.cashbackPercent}%`}</Text>
+                          </div>
                         </InlineStack>
                       ))}
                     </BlockStack>
