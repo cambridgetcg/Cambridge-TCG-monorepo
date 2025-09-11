@@ -17,7 +17,14 @@
     "shopify": "shopify",
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",
-    "vite": "vite"
+    "vite": "vite",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:data-api": "node scripts/migrate-via-data-api.mjs",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "tunnel:setup": "./scripts/setup-aurora-tunnel.sh"
   },
   "type": "module",
   "engines": {

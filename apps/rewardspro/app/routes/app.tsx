@@ -7,7 +7,6 @@ import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
 import { authenticate, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
-import { combineHeaders } from "../utils/security-headers";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
@@ -48,8 +47,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.log("[App Loader] Checking billing status...");
       
       try {
-        const { hasActivePayment, appSubscriptions } = await billing.check({
-          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
+        const { hasActivePayment } = await billing.check({
+          plans: [MONTHLY_PLAN, ANNUAL_PLAN] as any,
           isTest: process.env.NODE_ENV === 'development',
         });
         
