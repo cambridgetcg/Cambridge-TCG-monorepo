@@ -638,21 +638,46 @@ export class DataAPIModelProxy<T = any> {
 
     if (args.where) {
       Object.entries(args.where).forEach(([key, value], index) => {
+        // Check if this is a timestamp field
+        const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
+                                  'currentPeriodStart', 'currentPeriodEnd', 'startedAt', 
+                                  'finishedAt', 'lastCapAlert'].includes(key);
+        
         if (value === null) {
           conditions.push(`"${key}" IS NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
           conditions.push(`"${key}" IS NOT NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
-          conditions.push(`"${key}" >= :param${index}`);
+          // Apply timestamp casting for timestamp fields
+          if (isTimestampField) {
+            conditions.push(`"${key}" >= :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" >= :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
         } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
-          conditions.push(`"${key}" <= :param${index}`);
+          // Apply timestamp casting for timestamp fields
+          if (isTimestampField) {
+            conditions.push(`"${key}" <= :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" <= :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
         } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
-          conditions.push(`"${key}" > :param${index}`);
+          // Apply timestamp casting for timestamp fields
+          if (isTimestampField) {
+            conditions.push(`"${key}" > :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" > :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
         } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
-          conditions.push(`"${key}" < :param${index}`);
+          // Apply timestamp casting for timestamp fields
+          if (isTimestampField) {
+            conditions.push(`"${key}" < :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" < :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
         } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
           const inValues = value.in;
