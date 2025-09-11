@@ -53,19 +53,51 @@ export class DataAPIModelProxy<T = any> {
           params.push(AuroraDataAPI.buildParameter(`param${index}`, `%${searchValue}%`));
         } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
           // Handle { gte: value } (greater than or equal)
-          conditions.push(`"${key}" >= :param${index}`);
+          // Check if this is a timestamp field that needs casting
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          
+          if (isTimestampField) {
+            conditions.push(`"${key}" >= :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" >= :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
         } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
           // Handle { lte: value } (less than or equal)
-          conditions.push(`"${key}" <= :param${index}`);
+          // Check if this is a timestamp field that needs casting
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          
+          if (isTimestampField) {
+            conditions.push(`"${key}" <= :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" <= :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
         } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
           // Handle { gt: value } (greater than)
-          conditions.push(`"${key}" > :param${index}`);
+          // Check if this is a timestamp field that needs casting
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          
+          if (isTimestampField) {
+            conditions.push(`"${key}" > :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" > :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
         } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
           // Handle { lt: value } (less than)
-          conditions.push(`"${key}" < :param${index}`);
+          // Check if this is a timestamp field that needs casting
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          
+          if (isTimestampField) {
+            conditions.push(`"${key}" < :param${index}::timestamp`);
+          } else {
+            conditions.push(`"${key}" < :param${index}`);
+          }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
         } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
           // Handle { in: [...] } (IN clause)
