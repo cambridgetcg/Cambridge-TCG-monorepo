@@ -27,10 +27,10 @@ import {
   CreditCardIcon,
   MegaphoneIcon,
   LightbulbIcon,
-  ChartIcon,
+  ChartVerticalIcon,
 } from "@shopify/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
-import { authenticate, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
+import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 // ============= TYPES =============
@@ -71,8 +71,8 @@ type LoaderData = {
 
 // ============= CONSTANTS =============
 const MANAGED_PLANS = {
-  [MONTHLY_PLAN]: {
-    name: MONTHLY_PLAN,
+  "RewardsPro Monthly": {
+    name: "RewardsPro Monthly",
     displayName: "RewardsPro Monthly",
     price: 49,
     interval: "month",
@@ -90,8 +90,8 @@ const MANAGED_PLANS = {
     ],
     recommended: true,
   },
-  [ANNUAL_PLAN]: {
-    name: ANNUAL_PLAN,
+  "RewardsPro Annual": {
+    name: "RewardsPro Annual",
     displayName: "RewardsPro Annual",
     price: 490,
     interval: "year",
@@ -140,6 +140,9 @@ const getCurrentMonthName = (): string => {
 // ============= LOADER =============
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log("[Billing Page] Loading billing information...");
+  
+  // Import plan names from server module inside loader
+  const { MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
   
   try {
     const { session, billing } = await authenticate.admin(request);
@@ -484,7 +487,7 @@ export default function BillingPage() {
                           <BlockStack gap="200">
                             <InlineStack align="space-between">
                               <Text as="p" variant="bodyMd">
-                                <Icon source={ChartIcon} tone="base" />
+                                <Icon source={ChartVerticalIcon} tone="base" />
                                 {" "}Usage: ${monthlyUsage.toFixed(2)}
                               </Text>
                               <Text as="p" variant="bodySm" tone="subdued">

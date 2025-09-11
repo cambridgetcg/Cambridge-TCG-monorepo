@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { verifyWebhookHMAC } from "~/utils/webhook-validation";
+import { verifyWebhookHMAC } from "~/utils/security";
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 

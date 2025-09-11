@@ -10,7 +10,9 @@
       }
     },
     "routeIdToServerBundleId": {
+      "routes/webhooks.subscriptions.approaching-cap": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.locales.$locale": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.subscriptions.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -19,6 +21,7 @@
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.billing.usage": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -47,11 +50,29 @@
         "file": "app/root.tsx",
         "config": {}
       },
+      "routes/webhooks.subscriptions.approaching-cap": {
+        "id": "routes/webhooks.subscriptions.approaching-cap",
+        "parentId": "root",
+        "file": "app/routes/webhooks.subscriptions.approaching-cap.tsx",
+        "path": "webhooks/subscriptions/approaching-cap",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/apps.rewardspro.locales.$locale": {
         "id": "routes/apps.rewardspro.locales.$locale",
         "parentId": "root",
         "file": "app/routes/apps.rewardspro.locales.$locale.tsx",
         "path": "apps/rewardspro/locales/:locale",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.subscriptions.update": {
+        "id": "routes/webhooks.subscriptions.update",
+        "parentId": "root",
+        "file": "app/routes/webhooks.subscriptions.update.tsx",
+        "path": "webhooks/subscriptions/update",
         "config": {
           "runtime": "nodejs"
         }
@@ -124,6 +145,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.billing.usage": {
+        "id": "routes/api.billing.usage",
+        "parentId": "root",
+        "file": "app/routes/api.billing.usage.tsx",
+        "path": "api/billing/usage",
         "config": {
           "runtime": "nodejs"
         }
@@ -336,11 +366,23 @@
         "id": "root",
         "file": "root.tsx"
       },
+      "routes/webhooks.subscriptions.approaching-cap": {
+        "id": "routes/webhooks.subscriptions.approaching-cap",
+        "parentId": "root",
+        "file": "routes/webhooks.subscriptions.approaching-cap.tsx",
+        "path": "webhooks/subscriptions/approaching-cap"
+      },
       "routes/apps.rewardspro.locales.$locale": {
         "id": "routes/apps.rewardspro.locales.$locale",
         "parentId": "root",
         "file": "routes/apps.rewardspro.locales.$locale.tsx",
         "path": "apps/rewardspro/locales/:locale"
+      },
+      "routes/webhooks.subscriptions.update": {
+        "id": "routes/webhooks.subscriptions.update",
+        "parentId": "root",
+        "file": "routes/webhooks.subscriptions.update.tsx",
+        "path": "webhooks/subscriptions/update"
       },
       "routes/apps.rewardspro.membership": {
         "id": "routes/apps.rewardspro.membership",
@@ -389,6 +431,12 @@
         "parentId": "root",
         "file": "routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance"
+      },
+      "routes/api.billing.usage": {
+        "id": "routes/api.billing.usage",
+        "parentId": "root",
+        "file": "routes/api.billing.usage.tsx",
+        "path": "api/billing/usage"
       },
       "routes/api.membership": {
         "id": "routes/api.membership",

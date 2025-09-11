@@ -817,7 +817,7 @@ export default function Customers() {
           <Layout.Section>
             <BlockStack gap="600">
               {/* Stats Overview with Staggered Animation */}
-              <Grid columns={{ xs: 1, sm: 2, md: 4, lg: 4, xl: 4 }}>
+              <Grid columns={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2 }}>
                 <Grid.Cell>
                   <MetricCard
                     title="Total Customers"
@@ -828,27 +828,6 @@ export default function Customers() {
                   />
                 </Grid.Cell>
 
-                <Grid.Cell>
-                  <MetricCard
-                    title="With Tiers"
-                    value={data.customers.filter(c => c.currentTier).length}
-                    icon={StarFilledIcon}
-                    tone="success"
-                    progress={(data.customers.filter(c => c.currentTier).length / data.totalCustomers) * 100}
-                    delay={50}
-                  />
-                </Grid.Cell>
-
-                <Grid.Cell>
-                  <MetricCard
-                    title="Without Tiers"
-                    value={data.customers.filter(c => !c.currentTier).length}
-                    icon={AlertTriangleIcon}
-                    tone="attention"
-                    badge={{ content: "Needs attention", tone: "attention" }}
-                    delay={100}
-                  />
-                </Grid.Cell>
 
                 <Grid.Cell>
                   <MetricCard
@@ -856,7 +835,7 @@ export default function Customers() {
                     value={formatAmount(data.customers.reduce((sum, c) => sum + c.storeCredit, 0))}
                     icon={CashDollarIcon}
                     tone="emphasis"
-                    delay={150}
+                    delay={50}
                   />
                 </Grid.Cell>
               </Grid>
