@@ -25,6 +25,89 @@ import { authenticate } from "../shopify.server";
 import crypto from "crypto";
 import db from "../db.server";
 
+// Type definitions for action responses
+type BaseActionResponse = {
+  success: boolean;
+  message: string;
+};
+
+type CustomerListResponse = BaseActionResponse & {
+  data?: {
+    customers: Array<{
+      shopifyId: string;
+      gid: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      displayName: string;
+      phone?: string;
+      state?: string;
+      tags?: string[];
+      ordersCount?: number;
+      totalSpent?: { amount: string; currency: string } | null;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    pageInfo?: any;
+  };
+  rawResponse?: any;
+};
+
+type SingleCustomerResponse = BaseActionResponse & {
+  data?: {
+    customer: {
+      shopifyId: string;
+      gid: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      displayName: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+  };
+  rawResponse?: any;
+};
+
+type ImportResponse = BaseActionResponse & {
+  data?: {
+    imported: number;
+    updated: number;
+    errors: number;
+    skipped?: number;
+    total?: number;
+    details: any[];
+    results?: any[];
+  };
+};
+
+type ErrorResponse = BaseActionResponse & {
+  errors?: any[];
+};
+
+type ActionResponse = CustomerListResponse | SingleCustomerResponse | ImportResponse | ErrorResponse;
+
+// Type guards for narrowing action response types
+function hasCustomerListData(response: ActionResponse): response is CustomerListResponse {
+  return 'data' in response && response.data !== undefined && 'customers' in response.data;
+}
+
+function hasSingleCustomerData(response: ActionResponse): response is SingleCustomerResponse {
+  return 'data' in response && response.data !== undefined && 'customer' in response.data;
+}
+
+function hasImportData(response: ActionResponse): response is ImportResponse {
+  return 'data' in response && response.data !== undefined && 'imported' in response.data;
+}
+
+function hasErrors(response: ActionResponse): response is ErrorResponse {
+  return 'errors' in response;
+}
+
+function hasRawResponse(response: ActionResponse): response is (CustomerListResponse | SingleCustomerResponse) {
+  return 'rawResponse' in response;
+}
+
 // GraphQL query for minimal customer data matching Prisma schema
 const CUSTOMERS_QUERY = `
   query GetCustomersMinimal($first: Int!, $after: String, $query: String) {
@@ -121,7 +204,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
-export const action = async ({ request }: ActionFunctionArgs) => {
+export const action = async ({ request }: ActionFunctionArgs): Promise<Response> => {
   const { session, admin } = await authenticate.admin(request);
   
   if (!session?.shop) {
@@ -382,7 +465,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function GraphQLCustomerTest() {
   const { shop, customerCount } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<ActionResponse>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const [customerId, setCustomerId] = useState("");
@@ -615,14 +698,14 @@ export default function GraphQLCustomerTest() {
                     </Banner>
                     
                     {/* Formatted Data Display */}
-                    {actionData.data && (
+                    {actionData && 'data' in actionData && actionData.data && (
                       <BlockStack gap="300">
                         <Text variant="headingMd" as="h3">
                           Formatted Data
                         </Text>
                         
                         {/* Customer Table for list queries */}
-                        {actionData.data.customers && (
+                        {hasCustomerListData(actionData) && (
                           <DataTable
                             columnContentTypes={["text", "text", "text", "text"]}
                             headings={["Shopify ID", "Email", "Display Name", "Created At"]}
@@ -636,7 +719,7 @@ export default function GraphQLCustomerTest() {
                         )}
                         
                         {/* Single Customer Display */}
-                        {actionData.data.customer && (
+                        {hasSingleCustomerData(actionData) && (
                           <Box background="bg-surface-secondary" padding="400" borderRadius="200">
                             <BlockStack gap="200">
                               <InlineStack gap="400">
@@ -676,24 +759,24 @@ export default function GraphQLCustomerTest() {
                         )}
                         
                         {/* Import Results */}
-                        {actionData.data.results && Array.isArray(actionData.data.results) && (
+                        {hasImportData(actionData) && actionData.data && actionData.data.details && Array.isArray(actionData.data.details) && (
                           <BlockStack gap="300">
                             <InlineStack gap="400">
                               <Badge tone="success">
-                                Imported: {actionData.data.imported}
+                                {`Imported: ${actionData.data.imported}`}
                               </Badge>
                               <Badge tone="attention">
-                                Skipped: {actionData.data.skipped}
+                                {`Skipped: ${actionData.data.skipped}`}
                               </Badge>
                               <Badge>
-                                Total: {actionData.data.total}
+                                {`Total: ${actionData.data.total}`}
                               </Badge>
                             </InlineStack>
                             
                             <DataTable
                               columnContentTypes={["text", "text", "text"]}
                               headings={["Shopify ID", "Email", "Status"]}
-                              rows={actionData.data.results.map((result: any) => [
+                              rows={actionData.data.details.map((result: any) => [
                                 result.shopifyId,
                                 result.email,
                                 result.status,
@@ -703,7 +786,7 @@ export default function GraphQLCustomerTest() {
                         )}
                         
                         {/* Page Info */}
-                        {actionData.data.pageInfo && (
+                        {hasCustomerListData(actionData) && actionData.data.pageInfo && (
                           <Box background="bg-surface-secondary" padding="400" borderRadius="200">
                             <BlockStack gap="200">
                               <Text variant="headingSm" as="h4">
@@ -711,10 +794,10 @@ export default function GraphQLCustomerTest() {
                               </Text>
                               <InlineStack gap="400">
                                 <Badge>
-                                  Has Next Page: {actionData.data.pageInfo.hasNextPage ? "Yes" : "No"}
+                                  {`Has Next Page: ${actionData.data.pageInfo.hasNextPage ? "Yes" : "No"}`}
                                 </Badge>
                                 <Badge>
-                                  Has Previous Page: {actionData.data.pageInfo.hasPreviousPage ? "Yes" : "No"}
+                                  {`Has Previous Page: ${actionData.data.pageInfo.hasPreviousPage ? "Yes" : "No"}`}
                                 </Badge>
                               </InlineStack>
                             </BlockStack>
@@ -757,7 +840,7 @@ export default function GraphQLCustomerTest() {
                               padding: "12px",
                               borderRadius: "4px",
                             }}>
-                              {JSON.stringify(actionData.rawResponse, null, 2)}
+                              {hasRawResponse(actionData) ? JSON.stringify(actionData.rawResponse, null, 2) : '{}'}
                             </pre>
                           </BlockStack>
                         </Box>
@@ -765,7 +848,7 @@ export default function GraphQLCustomerTest() {
                     </BlockStack>
                     
                     {/* Error Display */}
-                    {actionData.errors && (
+                    {hasErrors(actionData) && actionData.errors && (
                       <Box background="bg-surface-critical" padding="400" borderRadius="200">
                         <BlockStack gap="200">
                           <Text variant="headingSm" as="h4">
@@ -778,7 +861,7 @@ export default function GraphQLCustomerTest() {
                             wordBreak: "break-word",
                             margin: 0,
                           }}>
-                            {JSON.stringify(actionData.errors, null, 2)}
+                            {hasErrors(actionData) ? JSON.stringify(actionData.errors, null, 2) : '[]'}
                           </pre>
                         </BlockStack>
                       </Box>

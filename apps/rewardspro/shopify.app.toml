@@ -31,7 +31,7 @@ api_version = "2025-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,write_customers,read_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts"
+scopes = "read_customers,write_customers,read_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts,write_app_proxy"
 
 [auth]
 redirect_urls = ["https://rewardspro-production-nnwf.vercel.app/auth/callback", "https://rewardspro-production-nnwf.vercel.app/auth/shopify/callback", "https://rewardspro-production-nnwf.vercel.app/api/auth/callback"]
@@ -40,8 +40,9 @@ redirect_urls = ["https://rewardspro-production-nnwf.vercel.app/auth/callback", 
 embedded = false
 
 # App proxy configuration for customer-facing widget API
-# This allows the widget to securely fetch member data
+# This allows the widget to securely fetch member data through Shopify's HMAC-verified proxy
+# Storefront requests to /apps/rewardspro/* are proxied to /api/proxy/*
 [app_proxy]
-url = "https://rewardspro-production-nnwf.vercel.app/api"
+url = "https://rewardspro-production-nnwf.vercel.app/api/proxy"
 subpath = "rewardspro"
 prefix = "apps"

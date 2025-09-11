@@ -1,16 +1,16 @@
 /**
- * Secure App Proxy Endpoint for Customer Membership Data
+ * DEPRECATED - Direct API Endpoint for Customer Membership Data
  * 
- * This endpoint is accessed via Shopify App Proxy at:
- * https://shop.myshopify.com/apps/rewardspro/membership
+ * NOTE: This endpoint was originally intended for App Proxy but was never properly configured.
+ * The actual App Proxy implementation is now at: /api/proxy/membership
  * 
- * SECURITY FEATURES:
- * - HMAC signature verification (mandatory)
- * - Shop domain validation
- * - Customer authentication via Shopify session
- * - Data scoping to authenticated customer only
- * - Minimal data exposure
- * - Rate limiting ready
+ * This endpoint currently uses custom authentication and should be migrated to the proper
+ * App Proxy handler for better security.
+ * 
+ * MIGRATION STATUS:
+ * - New App Proxy handler created at: api.proxy.membership.tsx
+ * - Widget already calls correct path: /apps/rewardspro/membership
+ * - This file kept for reference during migration
  */
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
@@ -23,40 +23,36 @@ import {
 import { formatCurrency } from "~/utils/currency";
 import { appProxyRateLimit } from "~/utils/rate-limiter";
 import { validateCustomerAuth } from "~/utils/widget-session-manager";
-import { z } from "zod";
+// Zod schemas removed - this file is deprecated
+// See api.proxy.membership.tsx for the new App Proxy implementation
 
-// Schema for query parameters validation
-const AppProxyParamsSchema = z.object({
-  shop: z.string(),
-  logged_in_customer_id: z.string().optional(),
-  path_prefix: z.string().optional(),
-  timestamp: z.string().optional(),
-  signature: z.string()
-});
+// Type definitions (without Zod)
+type AppProxyParams = {
+  shop: string;
+  logged_in_customer_id?: string;
+  path_prefix?: string;
+  timestamp?: string;
+  signature: string;
+};
 
-// Response schemas for type safety
-const GuestResponseSchema = z.object({
-  requiresLogin: z.literal(true),
-  message: z.string()
-});
+type GuestResponse = {
+  requiresLogin: true;
+  message: string;
+};
 
-const MemberResponseSchema = z.object({
-  success: z.literal(true),
-  enrolled: z.boolean(),
-  // Only include necessary data for frontend
-  memberData: z.object({
-    storeCredit: z.string(),
-    tierName: z.string(),
-    cashbackRate: z.number(),
-    nextTier: z.string().optional(),
-    progressToNextTier: z.number().optional(),
-    lifetimeEarned: z.string().optional(),
-    memberSince: z.string()
-  }).optional()
-});
-
-type GuestResponse = z.infer<typeof GuestResponseSchema>;
-type MemberResponse = z.infer<typeof MemberResponseSchema>;
+type MemberResponse = {
+  success: true;
+  enrolled: boolean;
+  memberData?: {
+    storeCredit: string;
+    tierName: string;
+    cashbackRate: number;
+    nextTier?: string;
+    progressToNextTier?: number;
+    lifetimeEarned?: string;
+    memberSince: string;
+  };
+};
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const startTime = Date.now();
@@ -76,20 +72,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const url = new URL(request.url);
     const rawParams = Object.fromEntries(url.searchParams);
     
-    // Validate parameter structure
-    const parseResult = AppProxyParamsSchema.safeParse(rawParams);
-    if (!parseResult.success) {
+    // Validate parameter structure (manual validation without Zod)
+    const params = rawParams as AppProxyParams;
+    if (!params.shop || !params.signature) {
       logSecurityEvent('INVALID_SIGNATURE', {
         reason: 'Invalid parameters',
-        errors: parseResult.error.errors,
+        errors: 'Missing required parameters',
         ip: request.headers.get('x-forwarded-for')
       });
       return json({ error: 'Invalid request' }, { status: 400 });
     }
     
-    const params = parseResult.data;
-    
-    // Step 3: CRITICAL - Verify HMAC signature
+    // Step 3: Custom signature verification (not actual App Proxy)
+    // NOTE: This custom implementation doesn't provide the same security as Shopify's App Proxy
+    // The new App Proxy handler at api.proxy.membership.tsx uses Shopify's built-in verification
     const isValidSignature = verifyAppProxySignature(
       url.toString(),
       process.env.SHOPIFY_API_SECRET!
@@ -115,9 +111,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
     
     // Step 5: Check if customer is logged in
-    // Note: App proxy provides logged_in_customer_id when customer is authenticated
-    // The HMAC signature ensures this parameter hasn't been tampered with
-    // For additional security, you could also validate session cookies using validateCustomerAuth()
+    // NOTE: In this custom implementation, we're relying on our own verification
+    // The proper App Proxy implementation automatically provides verified customer ID
     const customerId = params.logged_in_customer_id;
     
     if (!customerId) {

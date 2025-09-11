@@ -15,9 +15,11 @@
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.proxy.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -29,6 +31,7 @@
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhook-tester": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -89,6 +92,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.proxy.membership": {
+        "id": "routes/api.proxy.membership",
+        "parentId": "root",
+        "file": "app/routes/api.proxy.membership.tsx",
+        "path": "api/proxy/membership",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/webhooks.orders.paid": {
         "id": "routes/webhooks.orders.paid",
         "parentId": "root",
@@ -112,6 +124,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.membership": {
+        "id": "routes/api.membership",
+        "parentId": "root",
+        "file": "app/routes/api.membership.tsx",
+        "path": "api/membership",
         "config": {
           "runtime": "nodejs"
         }
@@ -218,6 +239,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.graphql-test.tsx",
         "path": "graphql-test",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.proxy-test": {
+        "id": "routes/app.proxy-test",
+        "parentId": "routes/app",
+        "file": "app/routes/app.proxy-test.tsx",
+        "path": "proxy-test",
         "config": {
           "runtime": "nodejs"
         }
@@ -336,6 +366,12 @@
         "file": "routes/webhooks.app.uninstalled.tsx",
         "path": "webhooks/app/uninstalled"
       },
+      "routes/api.proxy.membership": {
+        "id": "routes/api.proxy.membership",
+        "parentId": "root",
+        "file": "routes/api.proxy.membership.tsx",
+        "path": "api/proxy/membership"
+      },
       "routes/webhooks.orders.paid": {
         "id": "routes/webhooks.orders.paid",
         "parentId": "root",
@@ -353,6 +389,12 @@
         "parentId": "root",
         "file": "routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance"
+      },
+      "routes/api.membership": {
+        "id": "routes/api.membership",
+        "parentId": "root",
+        "file": "routes/api.membership.tsx",
+        "path": "api/membership"
       },
       "routes/api.health": {
         "id": "routes/api.health",
@@ -425,6 +467,12 @@
         "parentId": "routes/app",
         "file": "routes/app.graphql-test.tsx",
         "path": "graphql-test"
+      },
+      "routes/app.proxy-test": {
+        "id": "routes/app.proxy-test",
+        "parentId": "routes/app",
+        "file": "routes/app.proxy-test.tsx",
+        "path": "proxy-test"
       },
       "routes/app.analytics": {
         "id": "routes/app.analytics",

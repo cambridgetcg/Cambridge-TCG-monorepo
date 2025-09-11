@@ -96,7 +96,7 @@ export default function DesignShowcase() {
               <BlockStack gap="400">
                 <BlockStack gap="200">
                   <Text variant="headingMd" as="h2">Balance and Symmetry Principles</Text>
-                  <Text tone="subdued">
+                  <Text as="p" tone="subdued">
                     These examples demonstrate the implementation of visual and functional balance patterns
                     from our design guide. Each pattern serves specific use cases and maintains consistency
                     across the application.
@@ -114,7 +114,7 @@ export default function DesignShowcase() {
                       <Box padding="300" background="bg-surface-info">
                         <BlockStack gap="200">
                           <Text variant="headingMd" as="h3">{tabs[selected].content} Balance</Text>
-                          <Text>{tabs[selected].description}</Text>
+                          <Text as="p">{tabs[selected].description}</Text>
                         </BlockStack>
                       </Box>
                     </Card>
@@ -141,11 +141,11 @@ export default function DesignShowcase() {
                   <Text variant="headingSm" as="h3">Key Principles:</Text>
                   <Box paddingInlineStart="400">
                     <BlockStack gap="100">
-                      <Text>• Use Polaris spacing tokens for consistent gaps</Text>
-                      <Text>• Maintain visual hierarchy with typography scales</Text>
-                      <Text>• Balance color weight across the interface</Text>
-                      <Text>• Test responsive behavior at all breakpoints</Text>
-                      <Text>• Group related content for better organization</Text>
+                      <Text as="p">• Use Polaris spacing tokens for consistent gaps</Text>
+                      <Text as="p">• Maintain visual hierarchy with typography scales</Text>
+                      <Text as="p">• Balance color weight across the interface</Text>
+                      <Text as="p">• Test responsive behavior at all breakpoints</Text>
+                      <Text as="p">• Group related content for better organization</Text>
                     </BlockStack>
                   </Box>
                 </BlockStack>
@@ -154,10 +154,10 @@ export default function DesignShowcase() {
                   <Text variant="headingSm" as="h3">Responsive Considerations:</Text>
                   <Box paddingInlineStart="400">
                     <BlockStack gap="100">
-                      <Text>• Switch from horizontal to vertical layouts on mobile</Text>
-                      <Text>• Adjust grid columns based on screen size</Text>
-                      <Text>• Ensure touch targets are at least 44x44px on mobile</Text>
-                      <Text>• Test with real device viewports</Text>
+                      <Text as="p">• Switch from horizontal to vertical layouts on mobile</Text>
+                      <Text as="p">• Adjust grid columns based on screen size</Text>
+                      <Text as="p">• Ensure touch targets are at least 44x44px on mobile</Text>
+                      <Text as="p">• Test with real device viewports</Text>
                     </BlockStack>
                   </Box>
                 </BlockStack>
