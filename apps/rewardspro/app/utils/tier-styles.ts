@@ -4,14 +4,14 @@
  */
 
 import {
-  DiamondIcon,
   StarFilledIcon,
-  TrophyIcon,
-  AwardIcon,
-  CrownIcon,
   HeartIcon,
-  FlameIcon,
   GlobeIcon,
+  FlowerFilledIcon, // Using as diamond replacement
+  MegaphoneIcon, // Using as crown replacement
+  RewardIcon, // Using as trophy/award replacement
+  LightbulbIcon, // Using as flame replacement
+  TargetFilledIcon, // Additional premium tier icon
 } from "@shopify/polaris-icons";
 
 export interface TierStyle {
@@ -35,7 +35,7 @@ export interface TierConfig {
 export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   // Premium tiers
   DIAMOND: {
-    icon: DiamondIcon,
+    icon: FlowerFilledIcon,
     color: '#8B5CF6', // Purple
     badgeTone: 'new',
     backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -45,7 +45,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
     gradientTo: '#7C3AED'
   },
   PLATINUM: {
-    icon: CrownIcon,
+    icon: MegaphoneIcon,
     color: '#6B7280', // Gray
     badgeTone: 'enabled',
     backgroundColor: 'rgba(107, 114, 128, 0.1)',
@@ -55,7 +55,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
     gradientTo: '#6B7280'
   },
   GOLD: {
-    icon: TrophyIcon,
+    icon: TargetFilledIcon,
     color: '#F59E0B', // Amber
     badgeTone: 'warning',
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -65,7 +65,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
     gradientTo: '#F59E0B'
   },
   SILVER: {
-    icon: AwardIcon,
+    icon: RewardIcon,
     color: '#9CA3AF', // Light gray
     badgeTone: 'read-only',
     backgroundColor: 'rgba(156, 163, 175, 0.1)',
@@ -87,7 +87,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   
   // Status-based tiers
   VIP: {
-    icon: CrownIcon,
+    icon: MegaphoneIcon,
     color: '#DC2626', // Red
     badgeTone: 'critical',
     backgroundColor: 'rgba(220, 38, 38, 0.1)',
@@ -97,7 +97,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
     gradientTo: '#DC2626'
   },
   ELITE: {
-    icon: FlameIcon,
+    icon: LightbulbIcon,
     color: '#7C3AED', // Violet
     badgeTone: 'new',
     backgroundColor: 'rgba(124, 58, 237, 0.1)',
@@ -107,7 +107,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
     gradientTo: '#7C3AED'
   },
   PREMIUM: {
-    icon: DiamondIcon,
+    icon: FlowerFilledIcon,
     color: '#0891B2', // Cyan
     badgeTone: 'info',
     backgroundColor: 'rgba(8, 145, 178, 0.1)',
@@ -341,12 +341,12 @@ export function getTierBadgeProps(tierName: string | null | undefined) {
 // Export for use in components
 export type { TierStyle, TierConfig };
 export { 
-  DiamondIcon,
+  FlowerFilledIcon,
   StarFilledIcon,
-  TrophyIcon,
-  AwardIcon,
-  CrownIcon,
+  TargetFilledIcon,
+  RewardIcon,
+  MegaphoneIcon,
   HeartIcon,
-  FlameIcon,
+  LightbulbIcon,
   GlobeIcon,
 };
