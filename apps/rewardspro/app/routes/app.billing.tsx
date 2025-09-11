@@ -181,47 +181,67 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     
     // Get usage records for this month
-    const usageRecords = await db.usageRecord.findMany({
-      where: {
-        shop,
-        processedAt: {
-          gte: startOfMonth,
+    let usageRecords = [];
+    try {
+      usageRecords = await db.usageRecord.findMany({
+        where: {
+          shop,
+          processedAt: {
+            gte: startOfMonth,
+          },
         },
-      },
-      orderBy: {
-        processedAt: 'desc',
-      },
-      take: 10, // Last 10 usage records
-    });
+        orderBy: {
+          processedAt: 'desc',
+        },
+        take: 10, // Last 10 usage records
+      });
+    } catch (error) {
+      console.warn("[Billing Page] Could not fetch usage records (migration may be pending):", error);
+      // Continue with empty records if there's a schema mismatch
+      usageRecords = [];
+    }
     
     // Calculate total monthly usage
-    const monthlyUsageAgg = await db.usageRecord.aggregate({
-      where: {
-        shop,
-        processedAt: {
-          gte: startOfMonth,
+    let monthlyUsage = 0;
+    try {
+      const monthlyUsageAgg = await db.usageRecord.aggregate({
+        where: {
+          shop,
+          processedAt: {
+            gte: startOfMonth,
+          },
         },
-      },
-      _sum: {
-        amount: true,
-      },
-    });
-    
-    const monthlyUsage = monthlyUsageAgg._sum.amount || 0;
-    console.log("[Billing Page] Monthly usage: $", monthlyUsage);
+        _sum: {
+          amount: true,
+        },
+      });
+      monthlyUsage = monthlyUsageAgg._sum.amount || 0;
+      console.log("[Billing Page] Monthly usage: $", monthlyUsage);
+    } catch (error) {
+      console.warn("[Billing Page] Could not calculate monthly usage (migration may be pending):", error);
+      // Continue with 0 usage if the amount column doesn't exist yet
+      monthlyUsage = 0;
+    }
     
     // Get any notifications
-    const notifications = await db.notification.findMany({
-      where: {
-        shop,
-        type: 'USAGE_CAP_WARNING',
-        read: false,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 5,
-    });
+    let notifications = [];
+    try {
+      notifications = await db.notification.findMany({
+        where: {
+          shop,
+          type: 'USAGE_CAP_WARNING',
+          read: false,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 5,
+      });
+    } catch (error) {
+      console.warn("[Billing Page] Could not fetch notifications (table may not exist yet):", error);
+      // Continue with empty notifications if the table doesn't exist
+      notifications = [];
+    }
 
     // Calculate metrics
     const daysRemaining = billingPlan?.currentPeriodEnd 
