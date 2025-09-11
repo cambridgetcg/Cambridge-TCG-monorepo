@@ -1,0 +1,360 @@
+/**
+ * Tier styling CSS
+ * Provides consistent visual styling for tier badges and cards
+ */
+
+/* Base tier styles */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 500;
+  border: none;
+  outline: none;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tier-badge--small {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.tier-badge--medium {
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.tier-badge--large {
+  font-size: 16px;
+  padding: 8px 16px;
+  border-radius: 10px;
+}
+
+/* Tier card styles */
+.tier-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.tier-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.tier-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tier-card:hover::before {
+  opacity: 1;
+}
+
+/* Tier-specific color themes */
+.tier--diamond {
+  --tier-primary: #8B5CF6;
+  --tier-secondary: #7C3AED;
+  --tier-bg: rgba(139, 92, 246, 0.1);
+  --tier-border: rgba(139, 92, 246, 0.3);
+}
+
+.tier--platinum {
+  --tier-primary: #6B7280;
+  --tier-secondary: #4B5563;
+  --tier-bg: rgba(107, 114, 128, 0.1);
+  --tier-border: rgba(107, 114, 128, 0.3);
+}
+
+.tier--gold {
+  --tier-primary: #F59E0B;
+  --tier-secondary: #D97706;
+  --tier-bg: rgba(245, 158, 11, 0.1);
+  --tier-border: rgba(245, 158, 11, 0.3);
+}
+
+.tier--silver {
+  --tier-primary: #9CA3AF;
+  --tier-secondary: #6B7280;
+  --tier-bg: rgba(156, 163, 175, 0.1);
+  --tier-border: rgba(156, 163, 175, 0.3);
+}
+
+.tier--bronze {
+  --tier-primary: #92400E;
+  --tier-secondary: #78350F;
+  --tier-bg: rgba(146, 64, 14, 0.1);
+  --tier-border: rgba(146, 64, 14, 0.3);
+}
+
+.tier--vip {
+  --tier-primary: #DC2626;
+  --tier-secondary: #B91C1C;
+  --tier-bg: rgba(220, 38, 38, 0.1);
+  --tier-border: rgba(220, 38, 38, 0.3);
+}
+
+.tier--elite {
+  --tier-primary: #7C3AED;
+  --tier-secondary: #6D28D9;
+  --tier-bg: rgba(124, 58, 237, 0.1);
+  --tier-border: rgba(124, 58, 237, 0.3);
+}
+
+.tier--premium {
+  --tier-primary: #0891B2;
+  --tier-secondary: #0E7490;
+  --tier-bg: rgba(8, 145, 178, 0.1);
+  --tier-border: rgba(8, 145, 178, 0.3);
+}
+
+.tier--member {
+  --tier-primary: #059669;
+  --tier-secondary: #047857;
+  --tier-bg: rgba(5, 150, 105, 0.1);
+  --tier-border: rgba(5, 150, 105, 0.3);
+}
+
+.tier--basic {
+  --tier-primary: #3B82F6;
+  --tier-secondary: #2563EB;
+  --tier-bg: rgba(59, 130, 246, 0.1);
+  --tier-border: rgba(59, 130, 246, 0.3);
+}
+
+.tier--starter {
+  --tier-primary: #10B981;
+  --tier-secondary: #059669;
+  --tier-bg: rgba(16, 185, 129, 0.1);
+  --tier-border: rgba(16, 185, 129, 0.3);
+}
+
+.tier--none {
+  --tier-primary: #6B7280;
+  --tier-secondary: #4B5563;
+  --tier-bg: rgba(107, 114, 128, 0.1);
+  --tier-border: rgba(107, 114, 128, 0.3);
+}
+
+/* Tier progress bar */
+.tier-progress {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tier-progress__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--tier-primary), var(--tier-secondary));
+}
+
+.tier-progress__milestone {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 2px solid var(--tier-primary);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* Tier indicator dot */
+.tier-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tier-indicator__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tier-primary);
+  flex-shrink: 0;
+}
+
+/* Tier icon container */
+.tier-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--tier-bg);
+  color: var(--tier-primary);
+}
+
+.tier-icon--small {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.tier-icon--large {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+/* Tier comparison styles */
+.tier-comparison {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.tier-comparison__item {
+  flex: 1;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--tier-border);
+  background: var(--tier-bg);
+  transition: all 0.2s ease;
+}
+
+.tier-comparison__item--current {
+  opacity: 0.8;
+}
+
+.tier-comparison__item--suggested {
+  border-width: 2px;
+  position: relative;
+}
+
+.tier-comparison__item--suggested::before {
+  content: 'Recommended';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--tier-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Tier grid layout */
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.tier-grid__item {
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--tier-border);
+  background: var(--tier-bg);
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.tier-grid__item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--tier-primary);
+}
+
+.tier-grid__item--selected {
+  border-color: var(--tier-primary);
+  border-width: 2px;
+  background: linear-gradient(135deg, var(--tier-bg), transparent);
+}
+
+/* Animation classes */
+.tier-badge--pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--tier-primary);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+.tier-badge--glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px var(--tier-primary);
+  }
+  to {
+    box-shadow: 0 0 20px var(--tier-primary), 0 0 30px var(--tier-secondary);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tier-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  
+  .tier-comparison {
+    flex-direction: column;
+  }
+  
+  .tier-card {
+    padding: 12px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .tier-progress {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .tier-card {
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
+  .tier--diamond,
+  .tier--platinum,
+  .tier--gold,
+  .tier--silver,
+  .tier--bronze,
+  .tier--vip,
+  .tier--elite,
+  .tier--premium,
+  .tier--member,
+  .tier--basic,
+  .tier--starter {
+    --tier-bg: rgba(255, 255, 255, 0.05);
+  }
+}

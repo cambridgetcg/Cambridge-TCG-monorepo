@@ -49,6 +49,8 @@ import {
   LightbulbIcon,
   MinusIcon,
 } from "@shopify/polaris-icons";
+import { TierBadge, TierIndicator, TierProgress } from "~/components/TierBadge";
+import { getTierStyle, sortTiersByPriority, formatTierName } from "~/utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
@@ -952,14 +954,13 @@ export default function AnalyticsPage() {
                             'Retention',
                             'Credit Balance',
                           ]}
-                          rows={data.tierPerformance.map(tier => [
-                            <InlineStack gap="200">
-                              <Icon source={StarFilledIcon} tone="warning" />
-                              <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                {tier.name}
-                              </Text>
-                              <Badge>{`${tier.cashbackPercent}% cashback`}</Badge>
-                            </InlineStack>,
+                          rows={sortTiersByPriority(data.tierPerformance).map(tier => [
+                            <TierBadge
+                              tierName={tier.name}
+                              size="small"
+                              showIcon={true}
+                              cashbackPercent={tier.cashbackPercent}
+                            />,
                             tier.members,
                             formatAmount(tier.revenue).toString(),
                             formatAmount(tier.avgSpend),

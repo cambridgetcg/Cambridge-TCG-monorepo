@@ -24,7 +24,6 @@ import {
 import {
   PersonIcon,
   CashDollarIcon,
-  StarFilledIcon,
   ChartVerticalIcon,
   PlusIcon,
   SettingsIcon,
@@ -34,6 +33,9 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
+import { TierBadge, TierIndicator } from "../components/TierBadge";
+import { getTierStyle, sortTiersByPriority } from "../utils/tier-styles";
+import "../styles/tiers.css";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -375,7 +377,15 @@ export default function Dashboard() {
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="200">
-                      <Icon source={StarFilledIcon} tone="warning" />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {data.tierDistribution.slice(0, 3).map(tier => {
+                          if (tier.name === "No Tier") return null;
+                          const style = getTierStyle(tier.name);
+                          return (
+                            <Icon key={tier.id} source={style.icon} tone="base" />
+                          );
+                        })}
+                      </div>
                       <BlockStack gap="100">
                         <Text variant="bodySm" tone="subdued" as="p">
                           Active Tiers
@@ -422,23 +432,28 @@ export default function Dashboard() {
                         </Text>
                         {data.tierDistribution.length > 0 ? (
                           <BlockStack gap="300">
-                            {data.tierDistribution.map((tier) => (
+                            {sortTiersByPriority(data.tierDistribution).map((tier) => (
                               <BlockStack key={tier.id} gap="200">
                                 <InlineStack align="space-between">
                                   <InlineStack gap="300" align="start">
-                                    <Icon 
-                                      source={tier.name === "No Tier" ? AlertTriangleIcon : StarFilledIcon}
-                                      tone={tier.name === "No Tier" ? "caution" : "base"}
-                                    />
+                                    {tier.name === "No Tier" ? (
+                                      <Icon source={AlertTriangleIcon} tone="caution" />
+                                    ) : (
+                                      <TierIndicator tierName={tier.name} showLabel={false} />
+                                    )}
                                     <BlockStack gap="100">
                                       <InlineStack gap="200" align="start">
-                                        <Text variant="bodyMd" fontWeight="semibold" as="p">
-                                          {tier.name}
-                                        </Text>
-                                        {tier.cashbackPercent > 0 && (
-                                          <Badge tone="info">
-                                            {`${tier.cashbackPercent}% cashback`}
-                                          </Badge>
+                                        {tier.name === "No Tier" ? (
+                                          <Text variant="bodyMd" fontWeight="semibold" as="p">
+                                            {tier.name}
+                                          </Text>
+                                        ) : (
+                                          <TierBadge
+                                            tierName={tier.name}
+                                            size="small"
+                                            showIcon={false}
+                                            cashbackPercent={tier.cashbackPercent}
+                                          />
                                         )}
                                       </InlineStack>
                                       <Text variant="bodySm" tone="subdued" as="p">
@@ -481,7 +496,15 @@ export default function Dashboard() {
                             headings={["Customer", "Tier", "Store Credit"]}
                             rows={data.topCustomers.map(customer => [
                               customer.email,
-                              customer.tierName || "No Tier",
+                              customer.tierName ? (
+                                <TierBadge
+                                  tierName={customer.tierName}
+                                  size="small"
+                                  showIcon={true}
+                                />
+                              ) : (
+                                <Badge tone="new">No Tier</Badge>
+                              ),
                               formatAmount(customer.storeCredit),
                             ])}
                           />
@@ -622,7 +645,14 @@ export default function Dashboard() {
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="300">
-                      <Icon source={StarFilledIcon} tone="base" />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {['Diamond', 'Gold', 'Silver'].map(tierName => {
+                          const style = getTierStyle(tierName);
+                          return (
+                            <Icon key={tierName} source={style.icon} tone="base" />
+                          );
+                        })}
+                      </div>
                       <Text variant="headingMd" as="h3">
                         Manage Tiers
                       </Text>
