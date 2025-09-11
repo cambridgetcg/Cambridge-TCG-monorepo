@@ -3,8 +3,14 @@ import {
   ApiVersion,
   AppDistribution,
   shopifyApp,
+  BillingInterval,
 } from "@shopify/shopify-app-remix/server";
 import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
+
+// Define billing plan names (should match Partner Dashboard configuration)
+export const MONTHLY_PLAN = "RewardsPro Monthly";
+export const ANNUAL_PLAN = "RewardsPro Annual";
+export const USAGE_PLAN = "RewardsPro Usage";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -15,6 +21,52 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: createDataAPISessionStorage(),
   distribution: AppDistribution.AppStore,
+  // Billing configuration for managed pricing
+  billing: {
+    [MONTHLY_PLAN]: {
+      lineItems: [
+        {
+          amount: 49,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    [ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 490, // ~17% discount from monthly
+          currencyCode: 'USD',
+          interval: BillingInterval.Annual,
+        }
+      ],
+    },
+    // Usage-based billing for overages
+    [USAGE_PLAN]: {
+      lineItems: [
+        {
+          amount: 0.01, // Per order overage charge
+          currencyCode: 'USD',
+          interval: BillingInterval.Usage,
+        }
+      ],
+    },
+  },
+  webhooks: {
+    // Billing-related webhooks
+    APP_SUBSCRIPTIONS_UPDATE: {
+      deliveryMethod: "http",
+      callbackUrl: "/webhooks/subscriptions/update",
+    },
+    APP_SUBSCRIPTIONS_APPROACHING_CAPPED_AMOUNT: {
+      deliveryMethod: "http",
+      callbackUrl: "/webhooks/subscriptions/approaching-cap",
+    },
+    APP_UNINSTALLED: {
+      deliveryMethod: "http",
+      callbackUrl: "/webhooks/app/uninstalled",
+    },
+  },
   future: {
     unstable_newEmbeddedAuthStrategy: true,
     removeRest: true,

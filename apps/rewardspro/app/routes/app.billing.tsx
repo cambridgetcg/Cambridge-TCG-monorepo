@@ -17,118 +17,95 @@ import {
   Box,
   Divider,
   CalloutCard,
+  DataTable,
+  Spinner,
 } from "@shopify/polaris";
 import {
   CheckIcon,
   AlertTriangleIcon,
   CalendarIcon,
   CreditCardIcon,
+  MegaphoneIcon,
+  LightbulbIcon,
+  ChartIcon,
 } from "@shopify/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
-import { authenticate } from "../shopify.server";
+import { authenticate, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
 import db from "../db.server";
 
 // ============= TYPES =============
-type PlanName = "free" | "starter" | "growth" | "plus";
-
 type BillingPlan = {
   id: string;
   shop: string;
-  planName: PlanName;
-  status: "active" | "cancelled" | "past_due";
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  ordersUsed: number;
-  ordersLimit: number;
-  priceMonthly: number;
-  overageRate: number | null;
+  planName: string;
+  status: string;
+  monthlyPrice: number;
+  usageCap: number | null;
+  currentPeriodEnd: string | null;
+  cap80AlertSent: boolean;
+  cap90AlertSent: boolean;
+  lastCapAlert: string | null;
+  metadata: any;
   createdAt: string;
   updatedAt: string;
 };
 
-type PlanDetails = {
-  name: string;
-  displayName: string;
-  price: number;
-  ordersIncluded: number;
-  overageRate: number | null;
-  features: string[];
-  recommended?: boolean;
+type UsageRecord = {
+  id: string;
+  description: string;
+  amount: number;
+  processedAt: string;
+  currencyCode: string;
 };
 
 type LoaderData = {
-  currentPlan: BillingPlan;
-  ordersThisMonth: number;
-  daysRemaining: number;
+  currentPlan: BillingPlan | null;
+  activeSubscription: any;
+  monthlyUsage: number;
+  usageRecords: UsageRecord[];
   usagePercentage: number;
+  daysRemaining: number;
+  notifications: any[];
   shop: string;
 };
 
 // ============= CONSTANTS =============
-const PLAN_DETAILS: Record<PlanName, PlanDetails> = {
-  free: {
-    name: "free",
-    displayName: "Free",
-    price: 0,
-    ordersIncluded: 200,
-    overageRate: null,
-    features: [
-      "Up to 200 orders/month",
-      "Basic loyalty tiers",
-      "Customer management",
-      "Store credit tracking",
-      "Email support",
-    ],
-  },
-  starter: {
-    name: "starter",
-    displayName: "Starter",
+const MANAGED_PLANS = {
+  [MONTHLY_PLAN]: {
+    name: MONTHLY_PLAN,
+    displayName: "RewardsPro Monthly",
     price: 49,
-    ordersIncluded: 500,
-    overageRate: null,
+    interval: "month",
+    ordersIncluded: 1000,
+    overageRate: 0.01, // $0.01 per order
     features: [
-      "Up to 500 orders/month",
+      "1,000 orders included",
+      "$0.01 per additional order",
       "Unlimited loyalty tiers",
-      "Customizable emails",
-      "Basic analytics & reports",
-      "Priority email support",
-      "Automated tier progression",
+      "Advanced analytics",
+      "Custom email templates",
+      "Priority support",
+      "API access",
+      "Webhook integrations",
     ],
     recommended: true,
   },
-  growth: {
-    name: "growth",
-    displayName: "Growth",
-    price: 199,
-    ordersIncluded: 2500,
-    overageRate: 20, // $20 per 100 orders
+  [ANNUAL_PLAN]: {
+    name: ANNUAL_PLAN,
+    displayName: "RewardsPro Annual",
+    price: 490,
+    interval: "year",
+    ordersIncluded: 12000,
+    overageRate: 0.01,
     features: [
-      "2,500 orders included",
-      "$20 per additional 100 orders",
-      "Advanced analytics & reporting",
-      "VIP tier features",
-      "Bonus point events",
-      "Custom email templates",
-      "API webhooks",
-      "Phone & email support",
-    ],
-  },
-  plus: {
-    name: "plus",
-    displayName: "Plus",
-    price: 999,
-    ordersIncluded: 7500,
-    overageRate: 5, // $5 per 100 orders
-    features: [
-      "7,500 orders included",
-      "$5 per additional 100 orders",
-      "Custom reporting",
-      "API access & developer tools",
-      "Priority phone support",
-      "Quarterly program monitoring",
-      "Security review support",
-      "Dedicated success manager",
-      "White-glove onboarding",
+      "12,000 orders included (1,000/month)",
+      "$0.01 per additional order",
+      "Save ~17% compared to monthly",
+      "All monthly features included",
+      "Annual billing cycle",
+      "Dedicated onboarding",
+      "Quarterly business reviews",
+      "Custom integrations support",
     ],
   },
 };
@@ -162,151 +139,8 @@ const getCurrentMonthName = (): string => {
 
 // ============= LOADER =============
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  console.log("=".repeat(80));
-  console.log("💳 BILLING PAGE LOADER START");
-  console.log("=".repeat(80));
+  console.log("[Billing Page] Loading billing information...");
   
-  try {
-    console.log("Step 1: Authenticating admin session...");
-    const { session } = await authenticate.admin(request);
-    console.log("Session authenticated:", session ? "YES" : "NO");
-    
-    if (!session?.shop) {
-      console.error("ERROR: No shop in session");
-      throw new Response("Unauthorized", { status: 401 });
-    }
-
-    const shop = session.shop;
-    console.log("Shop:", shop);
-
-    // Try to fetch existing billing plan
-    console.log("Step 2: Fetching billing plan for shop...");
-    let billingPlan;
-    try {
-      billingPlan = await db.billingPlan.findUnique({
-        where: { shop },
-      });
-      console.log("Billing plan found:", billingPlan ? "YES" : "NO");
-    } catch (dbError: any) {
-      console.error("DATABASE ERROR fetching billing plan:", dbError);
-      console.error("Error stack:", dbError.stack);
-      throw dbError;
-    }
-
-    // If no billing plan exists, create a free plan
-    if (!billingPlan) {
-      console.log("Step 3: Creating new free plan...");
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
-      billingPlan = await db.billingPlan.create({
-        data: {
-          id: crypto.randomUUID(),
-          shop,
-          planName: "free",
-          status: "active",
-          currentPeriodStart: startOfMonth,
-          currentPeriodEnd: endOfMonth,
-          ordersUsed: 0,
-          ordersLimit: 200,
-          priceMonthly: 0,
-          overageRate: null,
-          createdAt: now,
-          updatedAt: now,
-        },
-      });
-      console.log("Free plan created successfully");
-    }
-
-    // Calculate current month's order usage
-    console.log("Step 4: Calculating usage records...");
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    let ordersThisMonth = 0;
-    try {
-      ordersThisMonth = await db.usageRecord.count({
-        where: {
-          shop,
-          processedAt: {
-            gte: startOfMonth,
-          },
-        },
-      });
-      console.log("Orders this month:", ordersThisMonth);
-    } catch (countError: any) {
-      console.error("DATABASE ERROR counting usage records:", countError);
-      console.error("Error stack:", countError.stack);
-      // Continue with 0 if count fails
-    }
-
-    // Update orders used if different
-    if (ordersThisMonth !== billingPlan.ordersUsed) {
-      console.log("Step 5: Updating order count in billing plan...");
-      try {
-        billingPlan = await db.billingPlan.update({
-          where: { shop },
-          data: { 
-            ordersUsed: ordersThisMonth,
-            updatedAt: new Date(),
-          },
-        });
-        console.log("Billing plan updated with new order count");
-      } catch (updateError: any) {
-        console.error("DATABASE ERROR updating billing plan:", updateError);
-        console.error("Error stack:", updateError.stack);
-        // Continue with existing billing plan if update fails
-      }
-    }
-
-    // Calculate metrics
-    console.log("Step 6: Calculating metrics...");
-    const daysRemaining = calculateDaysRemaining(billingPlan.currentPeriodEnd.toString());
-    const usagePercentage = calculateUsagePercentage(billingPlan.ordersUsed, billingPlan.ordersLimit);
-    console.log("Days remaining:", daysRemaining);
-    console.log("Usage percentage:", usagePercentage + "%");
-
-    // Serialize dates for JSON - handle both Date objects and strings
-    const serializedPlan = {
-      ...billingPlan,
-      planName: String(billingPlan.planName) as PlanName,
-      status: String(billingPlan.status) as "active" | "cancelled" | "past_due",
-      priceMonthly: Number(billingPlan.priceMonthly),
-      overageRate: billingPlan.overageRate ? Number(billingPlan.overageRate) : null,
-      currentPeriodStart: billingPlan.currentPeriodStart instanceof Date
-        ? billingPlan.currentPeriodStart.toISOString()
-        : String(billingPlan.currentPeriodStart),
-      currentPeriodEnd: billingPlan.currentPeriodEnd instanceof Date
-        ? billingPlan.currentPeriodEnd.toISOString()
-        : String(billingPlan.currentPeriodEnd),
-      createdAt: billingPlan.createdAt instanceof Date
-        ? billingPlan.createdAt.toISOString()
-        : String(billingPlan.createdAt),
-      updatedAt: billingPlan.updatedAt instanceof Date
-        ? billingPlan.updatedAt.toISOString()
-        : String(billingPlan.updatedAt),
-    };
-
-    return json<LoaderData>({
-      currentPlan: serializedPlan as BillingPlan,
-      ordersThisMonth,
-      daysRemaining,
-      usagePercentage,
-      shop,
-    });
-  } catch (error: any) {
-    console.error("=".repeat(80));
-    console.error("❌ BILLING LOADER ERROR");
-    console.error("=".repeat(80));
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
-    console.error("Error object:", error);
-    console.error("=".repeat(80));
-    throw new Response("Failed to load billing information", { status: 500 });
-  }
-};
-
-// ============= ACTION =============
-export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { session, billing } = await authenticate.admin(request);
     
@@ -315,73 +149,238 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     const shop = session.shop;
+    console.log("[Billing Page] Shop:", shop);
+
+    // Check active subscription with Shopify
+    let activeSubscription = null;
+    if (billing) {
+      try {
+        const { hasActivePayment, appSubscriptions } = await billing.check({
+          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
+          isTest: process.env.NODE_ENV === 'development',
+        });
+        
+        if (hasActivePayment && appSubscriptions?.length > 0) {
+          activeSubscription = appSubscriptions[0];
+          console.log("[Billing Page] Active subscription found:", activeSubscription.name);
+        }
+      } catch (error) {
+        console.error("[Billing Page] Error checking subscription:", error);
+      }
+    }
+    
+    // Fetch billing plan from database
+    const billingPlan = await db.billingPlan.findUnique({
+      where: { shop },
+    });
+
+    // Calculate current month's usage
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    
+    // Get usage records for this month
+    const usageRecords = await db.usageRecord.findMany({
+      where: {
+        shop,
+        processedAt: {
+          gte: startOfMonth,
+        },
+      },
+      orderBy: {
+        processedAt: 'desc',
+      },
+      take: 10, // Last 10 usage records
+    });
+    
+    // Calculate total monthly usage
+    const monthlyUsageAgg = await db.usageRecord.aggregate({
+      where: {
+        shop,
+        processedAt: {
+          gte: startOfMonth,
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+    
+    const monthlyUsage = monthlyUsageAgg._sum.amount || 0;
+    console.log("[Billing Page] Monthly usage: $", monthlyUsage);
+    
+    // Get any notifications
+    const notifications = await db.notification.findMany({
+      where: {
+        shop,
+        type: 'USAGE_CAP_WARNING',
+        read: false,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 5,
+    });
+
+    // Calculate metrics
+    const daysRemaining = billingPlan?.currentPeriodEnd 
+      ? calculateDaysRemaining(billingPlan.currentPeriodEnd.toString())
+      : 30;
+    
+    const usagePercentage = billingPlan?.usageCap
+      ? Math.min(Math.round((monthlyUsage / Number(billingPlan.usageCap)) * 100), 100)
+      : 0;
+    
+    // Serialize data for JSON
+    const serializedPlan = billingPlan ? {
+      ...billingPlan,
+      monthlyPrice: Number(billingPlan.monthlyPrice || 0),
+      usageCap: billingPlan.usageCap ? Number(billingPlan.usageCap) : null,
+      currentPeriodEnd: billingPlan.currentPeriodEnd instanceof Date
+        ? billingPlan.currentPeriodEnd.toISOString()
+        : billingPlan.currentPeriodEnd,
+      lastCapAlert: billingPlan.lastCapAlert instanceof Date
+        ? billingPlan.lastCapAlert.toISOString()
+        : billingPlan.lastCapAlert,
+      createdAt: billingPlan.createdAt instanceof Date
+        ? billingPlan.createdAt.toISOString()
+        : String(billingPlan.createdAt),
+      updatedAt: billingPlan.updatedAt instanceof Date
+        ? billingPlan.updatedAt.toISOString()
+        : String(billingPlan.updatedAt),
+    } : null;
+    
+    const serializedRecords = usageRecords.map(record => ({
+      ...record,
+      amount: Number(record.amount),
+      processedAt: record.processedAt instanceof Date
+        ? record.processedAt.toISOString()
+        : String(record.processedAt),
+    }));
+
+    return json<LoaderData>({
+      currentPlan: serializedPlan,
+      activeSubscription,
+      monthlyUsage: Number(monthlyUsage),
+      usageRecords: serializedRecords,
+      usagePercentage,
+      daysRemaining,
+      notifications,
+      shop,
+    });
+  } catch (error: any) {
+    console.error("[Billing Page] Error:", error);
+    throw new Response("Failed to load billing information", { status: 500 });
+  }
+};
+
+// ============= ACTION =============
+export const action = async ({ request }: ActionFunctionArgs) => {
+  try {
+    const { session, billing, redirect } = await authenticate.admin(request);
+    
+    if (!session?.shop) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+
+    const shop = session.shop;
     const formData = await request.formData();
     const intent = formData.get("intent") as string;
-    const planName = formData.get("planName") as PlanName;
 
-    if (intent === "upgrade" && planName) {
-      // TODO: Implement Shopify billing API integration
-      // For now, just update the database
-      const planDetails = PLAN_DETAILS[planName];
+    if (intent === "upgrade") {
+      // Redirect to Shopify-hosted pricing page for managed pricing
+      const shopDomain = session.shop;
+      const storeHandle = shopDomain.replace(".myshopify.com", "");
+      const appHandle = process.env.SHOPIFY_APP_HANDLE || "rewardspro";
       
-      if (!planDetails) {
-        return json({ error: "Invalid plan selected" }, { status: 400 });
-      }
-
-      // Update billing plan
-      await db.billingPlan.update({
-        where: { shop },
-        data: {
-          planName,
-          priceMonthly: planDetails.price,
-          ordersLimit: planDetails.ordersIncluded,
-          overageRate: planDetails.overageRate,
-          updatedAt: new Date(),
+      const pricingPageUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+      
+      return redirect(pricingPageUrl, { target: "_top" });
+    }
+    
+    if (intent === "create-usage-charge") {
+      // Example of creating a usage charge
+      const description = formData.get("description") as string;
+      const amount = parseFloat(formData.get("amount") as string);
+      
+      const response = await fetch(`${process.env.SHOPIFY_APP_URL}/api/billing/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shop-Domain': shop,
         },
+        body: JSON.stringify({
+          description,
+          amount,
+        }),
       });
-
-      return json({ success: true, message: `Upgraded to ${planDetails.displayName} plan` });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        return json({ error: error.error || "Failed to create usage charge" }, { status: 400 });
+      }
+      
+      return json({ success: true, message: "Usage charge created successfully" });
+    }
+    
+    if (intent === "mark-notification-read") {
+      const notificationId = formData.get("notificationId") as string;
+      
+      await db.notification.update({
+        where: { id: notificationId },
+        data: { read: true },
+      });
+      
+      return json({ success: true });
     }
 
     return json({ error: "Invalid action" }, { status: 400 });
   } catch (error) {
-    console.error("Billing action error:", error);
+    console.error("[Billing Action] Error:", error);
     return json({ error: "Failed to process billing action" }, { status: 500 });
   }
 };
 
 // ============= COMPONENT =============
 export default function BillingPage() {
-  const { currentPlan, ordersThisMonth, daysRemaining, usagePercentage, shop } = useLoaderData<LoaderData>();
+  const { 
+    currentPlan, 
+    activeSubscription, 
+    monthlyUsage, 
+    usageRecords,
+    usagePercentage, 
+    daysRemaining,
+    notifications,
+    shop 
+  } = useLoaderData<LoaderData>();
+  
   const fetcher = useFetcher();
   const navigate = useNavigate();
   
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showUsageHistory, setShowUsageHistory] = useState(false);
   
-  const planDetails = PLAN_DETAILS[currentPlan.planName];
   const usageTone = getUsageTone(usagePercentage);
   const currentMonth = getCurrentMonthName();
 
-  // Calculate overage if applicable
-  const overage = Math.max(0, currentPlan.ordersUsed - currentPlan.ordersLimit);
-  const overageCost = overage > 0 && currentPlan.overageRate
-    ? Math.ceil(overage / 100) * currentPlan.overageRate
-    : 0;
-
+  // Determine current plan details
+  const activePlanName = activeSubscription?.name || currentPlan?.planName || "No active plan";
+  const planDetails = MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS];
+  const hasActivePlan = activeSubscription || currentPlan?.status === "active";
+  
   const handleUpgrade = useCallback(() => {
-    navigate("/app/billing/upgrade");
-  }, [navigate]);
+    fetcher.submit(
+      { intent: "upgrade" },
+      { method: "post" }
+    );
+  }, [fetcher]);
 
   // Show success/error messages
   const actionData = fetcher.data as { error?: string; success?: boolean; message?: string } | undefined;
 
   return (
     <Page
-      title="Billing"
+      title="Billing & Usage"
       primaryAction={{
-        content: "Upgrade plan",
+        content: hasActivePlan ? "Change plan" : "Choose a plan",
         onAction: handleUpgrade,
-        disabled: currentPlan.planName === "plus",
       }}
     >
       <Layout>
@@ -399,173 +398,277 @@ export default function BillingPage() {
               </Banner>
             )}
 
+            {/* Notifications */}
+            {notifications.map((notification) => (
+              <Banner 
+                key={notification.id}
+                tone={notification.severity === 'WARNING' ? 'warning' : 'critical'}
+                title={notification.title}
+                onDismiss={() => {
+                  fetcher.submit(
+                    { intent: "mark-notification-read", notificationId: notification.id },
+                    { method: "post" }
+                  );
+                }}
+              >
+                <p>{notification.message}</p>
+              </Banner>
+            ))}
+            
             {/* Usage Alert Banners */}
-            {usagePercentage >= 90 && (
-              <Banner tone="critical" title="Usage limit approaching">
+            {currentPlan?.usageCap && usagePercentage >= 90 && (
+              <Banner tone="critical" title="Usage cap approaching">
                 <p>
-                  You've used {usagePercentage}% of your monthly order limit. 
-                  Consider upgrading to avoid service interruption.
+                  You've used {usagePercentage}% of your monthly usage allowance (${monthlyUsage.toFixed(2)} of ${currentPlan.usageCap}). 
+                  Additional charges will be capped to prevent overspending.
                 </p>
               </Banner>
             )}
-            {usagePercentage >= 80 && usagePercentage < 90 && (
+            {currentPlan?.usageCap && usagePercentage >= 80 && usagePercentage < 90 && (
               <Banner tone="warning" title="High usage detected">
                 <p>
-                  You've used {usagePercentage}% of your monthly order limit. 
-                  You may want to consider upgrading your plan.
+                  You've used {usagePercentage}% of your monthly usage allowance. 
+                  Consider monitoring your usage to stay within your cap.
                 </p>
               </Banner>
             )}
 
-            {/* Plan Details Card */}
-            <Card>
-              <BlockStack gap="400">
-                <InlineStack align="space-between">
-                  <BlockStack gap="200">
-                    <Text as="h2" variant="headingLg">
-                      Plan Details
-                    </Text>
-                    <Text as="p" variant="bodyMd" tone="subdued">
-                      Showing usage for the current month of {currentMonth}.
-                    </Text>
-                  </BlockStack>
-                  {currentPlan.planName !== "plus" && (
-                    <Button onClick={handleUpgrade}>Upgrade plan</Button>
-                  )}
-                </InlineStack>
+            {/* Active Subscription Card */}
+            {hasActivePlan ? (
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <BlockStack gap="200">
+                      <Text as="h2" variant="headingLg">
+                        Current Subscription
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Managed through Shopify Billing
+                      </Text>
+                    </BlockStack>
+                    <Button onClick={handleUpgrade}>Change plan</Button>
+                  </InlineStack>
 
-                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between">
-                      <BlockStack gap="100">
-                        <Text as="h3" variant="headingXl">
-                          {planDetails.displayName}
-                        </Text>
-                        <Text as="p" variant="headingLg">
-                          ${planDetails.price} <Text as="span" variant="bodyMd" tone="subdued">USD/month</Text>
-                        </Text>
-                      </BlockStack>
-                      <BlockStack gap="100" align="end">
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Free plan limit
-                        </Text>
-                        <Text as="p" variant="headingMd">
-                          {currentPlan.ordersLimit.toLocaleString()} orders
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
-
-                    <Box>
-                      <BlockStack gap="200">
-                        <InlineStack align="space-between">
-                          <Text as="p" variant="bodyMd">
-                            <Icon source={CheckIcon} tone="base" />
-                            {" "}Current: {currentPlan.ordersUsed.toLocaleString()} orders
-                          </Text>
-                          <Text as="p" variant="bodySm" tone="subdued">
-                            {usagePercentage}% used
-                          </Text>
-                        </InlineStack>
-                        <ProgressBar 
-                          progress={usagePercentage} 
-                          tone={usageTone}
-                          size="small"
-                        />
-                      </BlockStack>
-                    </Box>
-
-                    {overage > 0 && currentPlan.overageRate && (
-                      <Box padding="300" background="bg-surface-warning" borderRadius="200">
+                  <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
                         <BlockStack gap="100">
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
-                            <Icon source={AlertTriangleIcon} tone="warning" />
-                            {" "}Overage charges apply
-                          </Text>
-                          <Text as="p" variant="bodySm">
-                            {overage.toLocaleString()} additional orders × ${currentPlan.overageRate}/100 orders = ${overageCost}
-                          </Text>
-                        </BlockStack>
-                      </Box>
-                    )}
-
-                    <InlineStack gap="400">
-                      <Box>
-                        <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">
-                            <Icon source={CalendarIcon} tone="subdued" />
-                            {" "}Billing period
-                          </Text>
-                          <Text as="p" variant="bodyMd">
-                            {new Date(currentPlan.currentPeriodStart).toLocaleDateString()} - {new Date(currentPlan.currentPeriodEnd).toLocaleDateString()}
+                          <InlineStack gap="200">
+                            <Text as="h3" variant="headingXl">
+                              {planDetails?.displayName || activePlanName}
+                            </Text>
+                            {activeSubscription?.test && (
+                              <Badge tone="info">Test Mode</Badge>
+                            )}
+                          </InlineStack>
+                          <Text as="p" variant="headingLg">
+                            ${planDetails?.price || currentPlan?.monthlyPrice || 0} 
+                            <Text as="span" variant="bodyMd" tone="subdued">
+                              USD/{planDetails?.interval || 'month'}
+                            </Text>
                           </Text>
                         </BlockStack>
-                      </Box>
-                      <Box>
-                        <BlockStack gap="050">
-                          <Text as="p" variant="bodySm" tone="subdued">
-                            Days remaining
+                        <BlockStack gap="100" align="end">
+                          <Text as="p" variant="bodyMd" tone="subdued">
+                            Status
                           </Text>
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
-                            {daysRemaining} days
-                          </Text>
+                          <Badge tone={currentPlan?.status === "active" ? "success" : "critical"}>
+                            {currentPlan?.status || "No plan"}
+                          </Badge>
                         </BlockStack>
-                      </Box>
-                    </InlineStack>
-                  </BlockStack>
-                </Box>
+                      </InlineStack>
 
-                <Box paddingBlockStart="200">
-                  <Text as="p" variant="bodyMd">
-                    <Icon source={CreditCardIcon} tone="base" />
-                    {" "}{ordersThisMonth.toLocaleString()} orders have been placed at your store so far in {currentMonth}.
-                  </Text>
-                </Box>
-              </BlockStack>
-            </Card>
+                      {/* Usage Progress */}
+                      {currentPlan?.usageCap && (
+                        <Box>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between">
+                              <Text as="p" variant="bodyMd">
+                                <Icon source={ChartIcon} tone="base" />
+                                {" "}Usage: ${monthlyUsage.toFixed(2)}
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {usagePercentage}% of ${currentPlan.usageCap} cap
+                              </Text>
+                            </InlineStack>
+                            <ProgressBar 
+                              progress={usagePercentage} 
+                              tone={usageTone}
+                              size="small"
+                            />
+                            {currentPlan.cap90AlertSent && (
+                              <InlineStack gap="100">
+                                <Icon source={AlertTriangleIcon} tone="warning" />
+                                <Text as="p" variant="bodySm" tone="warning">
+                                  90% cap alert sent
+                                </Text>
+                              </InlineStack>
+                            )}
+                          </BlockStack>
+                        </Box>
+                      )}
 
-            {/* Quick Actions */}
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Billing Management
-                </Text>
-                <BlockStack gap="200">
-                  <InlineStack gap="200">
-                    <Button onClick={() => navigate("/app/billing/upgrade")}>
-                      View all plans
-                    </Button>
-                    <Button variant="plain">
-                      View invoice history
-                    </Button>
-                    <Button variant="plain">
-                      Update payment method
+                      {/* Period Information */}
+                      <InlineStack gap="400">
+                        <Box>
+                          <BlockStack gap="050">
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              <Icon source={CalendarIcon} tone="subdued" />
+                              {" "}Billing period
+                            </Text>
+                            <Text as="p" variant="bodyMd">
+                              {currentPlan?.currentPeriodEnd 
+                                ? `Ends ${new Date(currentPlan.currentPeriodEnd).toLocaleDateString()}`
+                                : "Not set"
+                              }
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                        <Box>
+                          <BlockStack gap="050">
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Days remaining
+                            </Text>
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              {daysRemaining} days
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </InlineStack>
+
+                    </BlockStack>
+                  </Box>
+
+                  <Box paddingBlockStart="200">
+                    <Text as="p" variant="bodyMd">
+                      <Icon source={CreditCardIcon} tone="base" />
+                      {" "}Total usage charges this month: ${monthlyUsage.toFixed(2)} USD
+                    </Text>
+                  </Box>
+                </BlockStack>
+              </Card>
+            ) : (
+              <CalloutCard
+                title="No Active Subscription"
+                illustration="https://cdn.shopify.com/s/files/1/0583/9399/8427/files/empty-state.svg"
+                primaryAction={{
+                  content: "Choose a plan",
+                  onAction: handleUpgrade,
+                }}
+              >
+                <p>Select a billing plan to start using RewardsPro and unlock all features.</p>
+              </CalloutCard>
+            )}
+
+            {/* Usage History */}
+            {usageRecords.length > 0 && (
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text as="h2" variant="headingMd">
+                      Recent Usage Charges
+                    </Text>
+                    <Button 
+                      variant="plain" 
+                      onClick={() => setShowUsageHistory(!showUsageHistory)}
+                    >
+                      {showUsageHistory ? "Hide" : "Show"} details
                     </Button>
                   </InlineStack>
+                  
+                  {showUsageHistory && (
+                    <DataTable
+                      columnContentTypes={[
+                        'text',
+                        'text',
+                        'numeric',
+                        'text',
+                      ]}
+                      headings={[
+                        'Date',
+                        'Description',
+                        'Amount',
+                        'Currency',
+                      ]}
+                      rows={usageRecords.map(record => [
+                        new Date(record.processedAt).toLocaleDateString(),
+                        record.description,
+                        `$${record.amount.toFixed(2)}`,
+                        record.currencyCode,
+                      ])}
+                    />
+                  )}
+                  
+                  {!showUsageHistory && (
+                    <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                      <Text as="p" variant="bodyMd">
+                        {usageRecords.length} usage charges this month • Total: ${monthlyUsage.toFixed(2)} USD
+                      </Text>
+                    </Box>
+                  )}
                 </BlockStack>
-              </BlockStack>
-            </Card>
+              </Card>
+            )}
 
-            {/* Current Plan Features */}
+            {/* Plan Features */}
+            {planDetails && (
+              <Card>
+                <BlockStack gap="400">
+                  <Text as="h2" variant="headingMd">
+                    {planDetails.displayName} Features
+                  </Text>
+                  <BlockStack gap="200">
+                    {planDetails.features.map((feature, index) => (
+                      <InlineStack key={index} gap="200">
+                        <Icon source={CheckIcon} tone="success" />
+                        <Text as="p" variant="bodyMd">{feature}</Text>
+                      </InlineStack>
+                    ))}
+                  </BlockStack>
+                </BlockStack>
+              </Card>
+            )}
+            
+            {/* Plan Comparison */}
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">
-                  Your {planDetails.displayName} Plan Features
+                  Available Plans
                 </Text>
-                <BlockStack gap="200">
-                  {planDetails.features.map((feature, index) => (
-                    <InlineStack key={index} gap="200">
-                      <Icon source={CheckIcon} tone="success" />
-                      <Text as="p" variant="bodyMd">{feature}</Text>
-                    </InlineStack>
+                <BlockStack gap="300">
+                  {Object.values(MANAGED_PLANS).map(plan => (
+                    <Box 
+                      key={plan.name}
+                      padding="300" 
+                      background={plan.name === activePlanName ? "bg-surface-success" : "bg-surface-secondary"}
+                      borderRadius="200"
+                    >
+                      <InlineStack align="space-between">
+                        <BlockStack gap="100">
+                          <InlineStack gap="200">
+                            <Text as="p" variant="headingMd">
+                              {plan.displayName}
+                            </Text>
+                            {plan.recommended && (
+                              <Badge tone="info">Recommended</Badge>
+                            )}
+                            {plan.name === activePlanName && (
+                              <Badge tone="success">Current Plan</Badge>
+                            )}
+                          </InlineStack>
+                          <Text as="p" variant="bodyMd" tone="subdued">
+                            ${plan.price}/{plan.interval} • {plan.ordersIncluded.toLocaleString()} orders
+                          </Text>
+                        </BlockStack>
+                        {plan.name !== activePlanName && (
+                          <Button onClick={handleUpgrade}>
+                            Select
+                          </Button>
+                        )}
+                      </InlineStack>
+                    </Box>
                   ))}
                 </BlockStack>
-                {currentPlan.planName !== "plus" && (
-                  <Box paddingBlockStart="200">
-                    <Button variant="plain" onClick={handleUpgrade}>
-                      See what you're missing →
-                    </Button>
-                  </Box>
-                )}
               </BlockStack>
             </Card>
           </BlockStack>
@@ -597,26 +700,34 @@ export default function BillingPage() {
                 <BlockStack gap="300">
                   <BlockStack gap="100">
                     <Text as="p" variant="bodyMd" fontWeight="semibold">
-                      When will I be charged?
+                      How does managed pricing work?
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      You'll be charged monthly through your Shopify invoice.
+                      Shopify handles all billing directly through your Shopify invoice.
                     </Text>
                   </BlockStack>
                   <BlockStack gap="100">
                     <Text as="p" variant="bodyMd" fontWeight="semibold">
-                      Can I change plans anytime?
+                      What are usage charges?
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Yes, you can upgrade or downgrade at any time. Changes are prorated.
+                      Usage charges are for order processing beyond your plan's included amount.
                     </Text>
                   </BlockStack>
                   <BlockStack gap="100">
                     <Text as="p" variant="bodyMd" fontWeight="semibold">
-                      What counts as an order?
+                      Are there usage caps?
                     </Text>
                     <Text as="p" variant="bodySm" tone="subdued">
-                      Any paid order that triggers cashback or tier evaluation.
+                      Yes, usage is capped to prevent unexpected charges. You'll be notified at 80% and 90%.
+                    </Text>
+                  </BlockStack>
+                  <BlockStack gap="100">
+                    <Text as="p" variant="bodyMd" fontWeight="semibold">
+                      Can I switch between monthly and annual?
+                    </Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Yes, you can switch anytime. Annual plans save ~17% compared to monthly.
                     </Text>
                   </BlockStack>
                 </BlockStack>

@@ -6,7 +6,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
-import { authenticate } from "../shopify.server";
+import { authenticate, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
 import { combineHeaders } from "../utils/security-headers";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
@@ -20,7 +20,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   
   try {
     console.log("[App Loader] Authenticating request...");
-    const { session, admin } = await authenticate.admin(request);
+    const { session, admin, billing, redirect } = await authenticate.admin(request);
     
     // Log Shopify context
     logShopifyContext({
@@ -37,6 +37,45 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
     
     console.log(`[App Loader] Authenticated for shop: ${session.shop}`);
+    
+    // Check if billing is configured (only check on main app route, not all sub-routes)
+    const url = new URL(request.url);
+    const isMainAppRoute = url.pathname === '/app' || url.pathname === '/app/';
+    const isBillingRoute = url.pathname.includes('/billing');
+    
+    // Only check billing on main app route and not on billing pages themselves
+    if (isMainAppRoute && !isBillingRoute && billing) {
+      console.log("[App Loader] Checking billing status...");
+      
+      try {
+        const { hasActivePayment, appSubscriptions } = await billing.check({
+          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
+          isTest: process.env.NODE_ENV === 'development',
+        });
+        
+        console.log("[App Loader] Billing check result:", { hasActivePayment });
+        
+        // If no active payment and not on a billing-related page, redirect to billing
+        if (!hasActivePayment) {
+          console.log("[App Loader] No active subscription found, redirecting to billing...");
+          
+          // For managed pricing, redirect to the Shopify-hosted pricing page
+          const shopDomain = session.shop;
+          const storeHandle = shopDomain.replace(".myshopify.com", "");
+          const appHandle = process.env.SHOPIFY_APP_HANDLE || "rewardspro"; // Get from env or use default
+          
+          // Construct the managed pricing page URL
+          const pricingPageUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+          
+          // Use the redirect helper to ensure proper iframe breakout
+          return redirect(pricingPageUrl, { target: "_top" });
+        }
+      } catch (billingError) {
+        // Log billing check errors but don't block app access
+        console.error("[App Loader] Billing check error:", billingError);
+        // Continue loading the app even if billing check fails
+      }
+    }
     
     const response = json(
       { 
