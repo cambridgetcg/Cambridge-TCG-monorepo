@@ -167,57 +167,108 @@ model BillingPlan {
   shop              String              @unique  // One billing plan per shop
   
   // Plan details
-  planName          String              // free, starter, growth, plus
+  planName          String              // RewardsPro Monthly, RewardsPro Annual, etc
   status            String              // active, cancelled, past_due
   
-  // Billing period
-  currentPeriodStart DateTime           // Start of current billing period
-  currentPeriodEnd   DateTime           // End of current billing period
-  
-  // Usage tracking
-  ordersUsed        Int                 @default(0)  // Orders processed this period
-  ordersLimit       Int                 // Maximum orders for this plan
-  
   // Pricing
-  priceMonthly      Decimal             @db.Decimal(10, 2)  // Monthly subscription price
-  overageRate       Decimal?            @db.Decimal(10, 2)  // Cost per 100 additional orders
+  monthlyPrice      Decimal?            @db.Decimal(10, 2)  // Monthly subscription price
+  usageCap          Decimal?            @db.Decimal(10, 2)  // Monthly usage cap
   
-  // Shopify billing reference
-  shopifyChargeId   String?             // Shopify recurring charge ID
+  // Billing period
+  currentPeriodEnd  DateTime?           // End of current billing period
+  
+  // Usage alerts
+  cap80AlertSent    Boolean             @default(false)
+  cap90AlertSent    Boolean             @default(false)
+  lastCapAlert      DateTime?
   
   // Metadata
+  metadata          Json?               // Store webhook data and additional info
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   
   // Relations
-  usageRecords      UsageRecord[]       // Track individual order usage
+  usageRecords      UsageRecord[]       // Track usage charges
+  billingHistory    BillingHistory[]    // Track billing events
   
   @@index([shop])
   @@index([status])
 }
 
 model UsageRecord {
-  id                String              @id @default(uuid())
-  shop              String
+  id                   String              @id @default(uuid())
+  shop                 String
   
-  // Order tracking
-  orderId           String              @unique  // Shopify order ID to prevent duplicates
-  orderNumber       String?             // Human-readable order number
-  orderAmount       Decimal?            @db.Decimal(10, 2)  // Order total for analytics
+  // Shopify reference
+  shopifyUsageRecordId String?             // Shopify's usage record ID
+  
+  // Usage details
+  description          String              // Description of the usage
+  amount               Decimal             @db.Decimal(10, 2)  // Amount charged
+  currencyCode         String              @default("USD")
+  
+  // Idempotency
+  idempotencyKey       String              // Prevent duplicate charges
   
   // Processing details
-  processedAt       DateTime            @default(now())  // When we counted this order
-  billingPlanId     String              // Link to billing plan
+  processedAt          DateTime            @default(now())  // When charge was created
+  metadata             Json?               // Additional data
+  
+  // Timestamps
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
   
   // Relations
-  billingPlan       BillingPlan         @relation(fields: [billingPlanId], references: [id])
+  billingPlanId        String?
+  billingPlan          BillingPlan?        @relation(fields: [billingPlanId], references: [id])
   
   // Indexes for queries
   @@index([shop, processedAt(sort: Desc)])  // Recent usage by shop
+  @@index([shop, idempotencyKey])           // For idempotency checks
   @@index([billingPlanId])                  // Usage by billing plan
-  @@unique([shop, orderId])                 // Prevent duplicate order counting
 }
 
+
+model BillingHistory {
+  id                String              @id @default(uuid())
+  shop              String
+  
+  // Event details
+  eventType         String              // SUBSCRIPTION_UPDATE, APPROACHING_CAP, etc
+  planName          String              // Plan name at time of event
+  status            String              // Status at time of event
+  amount            Decimal?            @db.Decimal(10, 2)  // Amount if applicable
+  
+  // Metadata
+  metadata          Json?               // Additional event data
+  createdAt         DateTime            @default(now())
+  
+  // Relations
+  billingPlanId     String?
+  billingPlan       BillingPlan?        @relation(fields: [billingPlanId], references: [id])
+  
+  @@index([shop, createdAt(sort: Desc)])
+  @@index([eventType])
+}
+
+model Notification {
+  id                String              @id @default(uuid())
+  shop              String
+  
+  // Notification details
+  type              String              // USAGE_CAP_WARNING, etc
+  title             String
+  message           String
+  severity          String              // INFO, WARNING, ERROR
+  read              Boolean             @default(false)
+  
+  // Metadata
+  metadata          Json?               // Additional data
+  createdAt         DateTime            @default(now())
+  
+  @@index([shop, read])
+  @@index([shop, createdAt(sort: Desc)])
+}
 
 //Enums
 
