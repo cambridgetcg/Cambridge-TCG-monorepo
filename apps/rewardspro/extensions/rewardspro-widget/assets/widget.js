@@ -354,6 +354,55 @@
       this.manageFocus();
     }
 
+    // Create not enrolled content (for logged-in but not enrolled customers)
+    createNotEnrolledContent() {
+      const container = this.createElement('div', {
+        className: 'rp-not-enrolled'
+      });
+
+      // Icon
+      container.appendChild(this.createElement('div', {
+        className: 'rp-not-enrolled-icon',
+        textContent: '🎁'
+      }));
+
+      // Message
+      const message = this.state.data?.message || 'Join our rewards program to start earning cashback!';
+      container.appendChild(this.createElement('p', {
+        className: 'rp-not-enrolled-message',
+        textContent: message
+      }));
+
+      // Benefits list
+      if (this.state.data?.benefits && this.state.data.benefits.length > 0) {
+        const benefitsList = this.createElement('ul', {
+          className: 'rp-benefits-list'
+        });
+        
+        this.state.data.benefits.forEach(benefit => {
+          const li = this.createElement('li', {
+            textContent: benefit
+          });
+          benefitsList.appendChild(li);
+        });
+        
+        container.appendChild(benefitsList);
+      }
+
+      // Join button
+      const joinBtn = this.createElement('button', {
+        className: 'rp-button rp-button-primary',
+        textContent: 'Join Rewards Program',
+        onclick: () => {
+          // You could add enrollment logic here or redirect to enrollment page
+          window.location.href = this.config.urls?.account || '/account';
+        }
+      });
+      container.appendChild(joinBtn);
+
+      return container;
+    }
+
     // Create guest content
     createGuestContent() {
       const container = this.createElement('div', {
@@ -473,6 +522,12 @@
     // Create member content
     createMemberContent() {
       const data = this.state.data;
+      
+      // If not enrolled, show enrollment prompt
+      if (data && data.enrolled === false) {
+        return this.createNotEnrolledContent();
+      }
+      
       const container = this.createElement('div', {
         className: 'rp-rewards-info'
       });
@@ -692,9 +747,27 @@
           return;
         }
 
+        // Check if customer is enrolled
+        if (data.enrolled === false) {
+          console.log('RewardsPro: Customer not enrolled in rewards program');
+          // Store the not enrolled state
+          this.setState({ 
+            data: {
+              enrolled: false,
+              message: data.message || 'Join our rewards program!',
+              benefits: data.benefits || []
+            },
+            isLoading: false,
+            error: null
+          });
+          this.updateContent();
+          return;
+        }
+
         // Success - Handle the nested memberData structure from API
         const memberData = data.memberData || {};
         const processedData = {
+          enrolled: true,
           ...data,
           formattedCredit: memberData.storeCredit || '$0.00',
           tierName: memberData.tierName || 'No Tier',
