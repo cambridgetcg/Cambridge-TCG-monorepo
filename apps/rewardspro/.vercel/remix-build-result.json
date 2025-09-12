@@ -27,13 +27,8 @@
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.webhook-tester-advanced": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.graphql-customer-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.webhook-test-simple": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.webhook-tester": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -210,33 +205,6 @@
         "path": "app",
         "config": {}
       },
-      "routes/app.webhook-tester-advanced": {
-        "id": "routes/app.webhook-tester-advanced",
-        "parentId": "routes/app",
-        "file": "app/routes/app.webhook-tester-advanced.tsx",
-        "path": "webhook-tester-advanced",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.graphql-customer-test": {
-        "id": "routes/app.graphql-customer-test",
-        "parentId": "routes/app",
-        "file": "app/routes/app.graphql-customer-test.tsx",
-        "path": "graphql-customer-test",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.webhook-test-simple": {
-        "id": "routes/app.webhook-test-simple",
-        "parentId": "routes/app",
-        "file": "app/routes/app.webhook-test-simple.tsx",
-        "path": "webhook-test-simple",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/app.credit-management": {
         "id": "routes/app.credit-management",
         "parentId": "routes/app",
@@ -251,24 +219,6 @@
         "parentId": "routes/app",
         "file": "app/routes/app.design-showcase.tsx",
         "path": "design-showcase",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.webhook-tester": {
-        "id": "routes/app.webhook-tester",
-        "parentId": "routes/app",
-        "file": "app/routes/app.webhook-tester.tsx",
-        "path": "webhook-tester",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.graphql-test": {
-        "id": "routes/app.graphql-test",
-        "parentId": "routes/app",
-        "file": "app/routes/app.graphql-test.tsx",
-        "path": "graphql-test",
         "config": {
           "runtime": "nodejs"
         }
@@ -474,24 +424,6 @@
         "file": "routes/app.tsx",
         "path": "app"
       },
-      "routes/app.webhook-tester-advanced": {
-        "id": "routes/app.webhook-tester-advanced",
-        "parentId": "routes/app",
-        "file": "routes/app.webhook-tester-advanced.tsx",
-        "path": "webhook-tester-advanced"
-      },
-      "routes/app.graphql-customer-test": {
-        "id": "routes/app.graphql-customer-test",
-        "parentId": "routes/app",
-        "file": "routes/app.graphql-customer-test.tsx",
-        "path": "graphql-customer-test"
-      },
-      "routes/app.webhook-test-simple": {
-        "id": "routes/app.webhook-test-simple",
-        "parentId": "routes/app",
-        "file": "routes/app.webhook-test-simple.tsx",
-        "path": "webhook-test-simple"
-      },
       "routes/app.credit-management": {
         "id": "routes/app.credit-management",
         "parentId": "routes/app",
@@ -503,18 +435,6 @@
         "parentId": "routes/app",
         "file": "routes/app.design-showcase.tsx",
         "path": "design-showcase"
-      },
-      "routes/app.webhook-tester": {
-        "id": "routes/app.webhook-tester",
-        "parentId": "routes/app",
-        "file": "routes/app.webhook-tester.tsx",
-        "path": "webhook-tester"
-      },
-      "routes/app.graphql-test": {
-        "id": "routes/app.graphql-test",
-        "parentId": "routes/app",
-        "file": "routes/app.graphql-test.tsx",
-        "path": "graphql-test"
       },
       "routes/app.proxy-test": {
         "id": "routes/app.proxy-test",

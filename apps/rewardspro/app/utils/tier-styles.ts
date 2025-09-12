@@ -10,18 +10,7 @@
  */
 
 import {
-  StarFilledIcon,
-  HeartIcon,
-  GlobeIcon,
-  FlowerFilledIcon,
   RewardIcon,
-  TargetFilledIcon,
-  LightbulbIcon,
-  MegaphoneIcon,
-  TipJarIcon,
-  WalletFilledIcon,
-  CashDollarFilledIcon,
-  GiftCardFilledIcon,
 } from "@shopify/polaris-icons";
 
 export interface TierStyle {
@@ -54,7 +43,7 @@ export interface TierConfig {
 export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   // Premium/Luxury Tiers (Warm colors, high visual weight)
   DIAMOND: {
-    icon: FlowerFilledIcon, // Luxury, elegance
+    icon: RewardIcon, // Unified tier icon
     color: '#7C3AED', // Rich purple (luxury, creativity)
     badgeTone: 'new',
     backgroundColor: 'rgba(124, 58, 237, 0.08)',
@@ -67,7 +56,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   PLATINUM: {
-    icon: MegaphoneIcon, // Leadership, top tier
+    icon: RewardIcon, // Unified tier icon
     color: '#4B5563', // Sophisticated gray-blue
     badgeTone: 'enabled',
     backgroundColor: 'rgba(75, 85, 99, 0.08)',
@@ -80,7 +69,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   GOLD: {
-    icon: TargetFilledIcon, // Achievement, goals
+    icon: RewardIcon, // Unified tier icon
     color: '#F59E0B', // Warm amber (prosperity, success)
     badgeTone: 'warning',
     backgroundColor: 'rgba(245, 158, 11, 0.08)',
@@ -94,7 +83,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   
   // Mid-tier (Balanced colors)
   SILVER: {
-    icon: RewardIcon, // Recognition, achievement
+    icon: RewardIcon, // Unified tier icon
     color: '#6B7280', // Neutral gray (professional)
     badgeTone: 'read-only',
     backgroundColor: 'rgba(107, 114, 128, 0.08)',
@@ -107,7 +96,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   BRONZE: {
-    icon: StarFilledIcon, // Basic achievement
+    icon: RewardIcon, // Unified tier icon
     color: '#92400E', // Earthy brown (grounded, stable)
     badgeTone: 'attention',
     backgroundColor: 'rgba(146, 64, 14, 0.08)',
@@ -121,7 +110,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   
   // Status-based tiers (Strong identity colors)
   VIP: {
-    icon: GiftCardFilledIcon, // Special, exclusive
+    icon: RewardIcon, // Unified tier icon
     color: '#DC2626', // Vibrant red (importance, priority)
     badgeTone: 'critical',
     backgroundColor: 'rgba(220, 38, 38, 0.08)',
@@ -134,7 +123,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   ELITE: {
-    icon: LightbulbIcon, // Innovation, excellence
+    icon: RewardIcon, // Unified tier icon
     color: '#0891B2', // Cyan (fresh, modern)
     badgeTone: 'info',
     backgroundColor: 'rgba(8, 145, 178, 0.08)',
@@ -147,7 +136,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   PREMIUM: {
-    icon: WalletFilledIcon, // Value, benefits
+    icon: RewardIcon, // Unified tier icon
     color: '#0066FF', // Shopify blue (trust, reliability)
     badgeTone: 'info',
     backgroundColor: 'rgba(0, 102, 255, 0.08)',
@@ -161,7 +150,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   
   // Basic tiers (Cool colors, approachable)
   MEMBER: {
-    icon: HeartIcon, // Community, belonging
+    icon: RewardIcon, // Unified tier icon
     color: '#059669', // Emerald (growth, positivity)
     badgeTone: 'success',
     backgroundColor: 'rgba(5, 150, 105, 0.08)',
@@ -174,7 +163,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   BASIC: {
-    icon: StarFilledIcon, // Starting point
+    icon: RewardIcon, // Unified tier icon
     color: '#3B82F6', // Friendly blue (approachable)
     badgeTone: 'info',
     backgroundColor: 'rgba(59, 130, 246, 0.08)',
@@ -187,7 +176,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   STARTER: {
-    icon: GlobeIcon, // Welcome, beginning
+    icon: RewardIcon, // Unified tier icon
     color: '#10B981', // Green (fresh start)
     badgeTone: 'success',
     backgroundColor: 'rgba(16, 185, 129, 0.08)',
@@ -201,7 +190,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   
   // Special purpose tiers
   INSIDER: {
-    icon: TipJarIcon, // Exclusive tips, special access
+    icon: RewardIcon, // Unified tier icon
     color: '#8B5CF6', // Purple (exclusive, special)
     badgeTone: 'new',
     backgroundColor: 'rgba(139, 92, 246, 0.08)',
@@ -214,7 +203,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   },
   
   LOYAL: {
-    icon: CashDollarFilledIcon, // Rewards, cashback
+    icon: RewardIcon, // Unified tier icon
     color: '#EA580C', // Orange (energy, enthusiasm)
     badgeTone: 'attention',
     backgroundColor: 'rgba(234, 88, 12, 0.08)',
@@ -228,7 +217,7 @@ export const DEFAULT_TIER_STYLES: Record<string, TierStyle> = {
   
   // Default/No tier
   NONE: {
-    icon: StarFilledIcon,
+    icon: RewardIcon,
     color: '#9CA3AF', // Light gray (neutral)
     badgeTone: 'read-only',
     backgroundColor: 'rgba(156, 163, 175, 0.08)',
@@ -470,21 +459,7 @@ export function tierNeedsDarkText(tierName: string | null | undefined): boolean 
   return lightTiers.some(tier => normalizedName.includes(tier));
 }
 
-// Export for use in components
-export type { TierStyle, TierConfig };
-
-// Re-export icons for convenience
+// Re-export icon for convenience
 export { 
-  FlowerFilledIcon,
-  StarFilledIcon,
-  TargetFilledIcon,
   RewardIcon,
-  MegaphoneIcon,
-  HeartIcon,
-  LightbulbIcon,
-  GlobeIcon,
-  TipJarIcon,
-  WalletFilledIcon,
-  CashDollarFilledIcon,
-  GiftCardFilledIcon,
 };

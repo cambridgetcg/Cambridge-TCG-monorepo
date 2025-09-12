@@ -32,7 +32,7 @@ import {
   PersonIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  StarFilledIcon,
+  RewardIcon,
   ChartVerticalIcon,
   ExportIcon,
   RefreshIcon,
@@ -46,7 +46,6 @@ import {
   TargetIcon,
   CartIcon,
   ReceiptRefundIcon,
-  LightbulbIcon,
   MinusIcon,
 } from "@shopify/polaris-icons";
 import { TierBadge, TierIndicator, TierProgress } from "~/components/TierBadge";

@@ -28,7 +28,7 @@ import {
   PlusIcon,
   EditIcon,
   DeleteIcon,
-  StarFilledIcon,
+  RewardIcon,
   CashDollarIcon,
   CalendarIcon,
   PersonIcon,

@@ -37,7 +37,7 @@ import {
   PersonIcon,
   RefreshIcon,
   ChartVerticalIcon,
-  StarFilledIcon,
+  RewardIcon,
   CashDollarIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
@@ -1042,7 +1042,7 @@ export default function Customers() {
                             </InlineStack>
 
                             <InlineStack gap="200" align="start">
-                              <Icon source={StarFilledIcon} tone="success" />
+                              <Icon source={RewardIcon} tone="success" />
                               <BlockStack gap="050">
                                 <Text variant="bodyMd" fontWeight="medium" as="span">
                                   Tier Assignment
