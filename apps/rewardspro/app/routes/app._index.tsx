@@ -22,8 +22,6 @@ import {
   Banner,
 } from "@shopify/polaris";
 import {
-  CashDollarIcon,
-  ChartVerticalIcon,
   PlusIcon,
   RefreshIcon,
   AlertTriangleIcon,
@@ -322,19 +320,16 @@ export default function Dashboard() {
           {/* Key Metrics - Following 60-30-10 rule */}
           <BlockStack gap="500">
             <Grid>
-              {/* Primary Metrics (60% visual weight) */}
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+              {/* Primary Metrics */}
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="200">
-                      <InlineStack align="space-between">
-                        <Text variant="heading2xl" as="h3">👥</Text>
-                        {data.metrics.customersWithTiers > 0 && (
-                          <Badge tone="success">
-                            {`${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% in tiers`}
-                          </Badge>
-                        )}
-                      </InlineStack>
+                      {data.metrics.customersWithTiers > 0 && (
+                        <Badge tone="success">
+                          {`${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% in tiers`}
+                        </Badge>
+                      )}
                       <BlockStack gap="100">
                         <Text variant="bodySm" tone="subdued" as="p">
                           Total Customers
@@ -348,18 +343,15 @@ export default function Dashboard() {
                 </Card>
               </Grid.Cell>
 
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="200">
-                      <InlineStack align="space-between">
-                        <Icon source={CashDollarIcon} tone="success" />
-                        {data.metrics.customersWithCredit > 0 && (
-                          <Badge tone="info">
-                            {`${data.metrics.customersWithCredit} active`}
-                          </Badge>
-                        )}
-                      </InlineStack>
+                      {data.metrics.customersWithCredit > 0 && (
+                        <Badge tone="info">
+                          {`${data.metrics.customersWithCredit} active`}
+                        </Badge>
+                      )}
                       <BlockStack gap="100">
                         <Text variant="bodySm" tone="subdued" as="p">
                           Total Store Credit
@@ -373,64 +365,7 @@ export default function Dashboard() {
                 </Card>
               </Grid.Cell>
 
-              {/* Secondary Metrics (30% visual weight) */}
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        {data.tierDistribution.slice(0, 3).map(tier => {
-                          if (tier.name === "No Tier") return null;
-                          const style = getTierStyle(tier.name);
-                          return (
-                            <div 
-                              key={tier.id}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                background: style.backgroundColor,
-                                border: `1px solid ${style.borderColor}`,
-                              }}
-                            >
-                              <Icon source={style.icon} tone="base" />
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <BlockStack gap="100">
-                        <Text variant="bodySm" tone="subdued" as="p">
-                          Active Tiers
-                        </Text>
-                        <Text variant="heading2xl" as="h3">
-                          {data.metrics.activeTiers}
-                        </Text>
-                      </BlockStack>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 3, lg: 3, xl: 3 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <Icon source={ChartVerticalIcon} tone="info" />
-                      <BlockStack gap="100">
-                        <Text variant="bodySm" tone="subdued" as="p">
-                          Average Credit
-                        </Text>
-                        <Text variant="heading2xl" as="h3">
-                          {formatAmount(data.metrics.averageCredit)}
-                        </Text>
-                      </BlockStack>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
+              {/* Removed secondary metrics for cleaner UI */}
             </Grid>
 
             {/* Tabbed Content Area */}
