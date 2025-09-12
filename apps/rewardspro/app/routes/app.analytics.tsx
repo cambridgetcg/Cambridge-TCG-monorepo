@@ -619,7 +619,7 @@ function MetricCard({
 function InsightCard({ insight }: { insight: Insight }) {
   const getIcon = () => {
     switch (insight.type) {
-      case 'opportunity': return LightbulbIcon;
+      case 'opportunity': return InfoIcon;
       case 'warning': return AlertTriangleIcon;
       case 'success': return CheckCircleIcon;
       default: return InfoIcon;
@@ -1184,7 +1184,7 @@ export default function AnalyticsPage() {
                     {data.insights.opportunities.length > 0 && (
                       <BlockStack gap="400">
                         <InlineStack gap="200">
-                          <Icon source={LightbulbIcon} tone="magic" />
+                          <Icon source={InfoIcon} tone="info" />
                           <Text variant="headingMd" as="h2">
                             Opportunities
                           </Text>

@@ -183,7 +183,7 @@ export default function WebhooksStatus() {
   const eventBridgeRows = data.eventBridgeWebhooks.map((webhook: any) => [
     webhook.topic,
     webhook.format,
-    <Badge tone="success">Active</Badge>,
+    'Active',
     new Date(webhook.createdAt).toLocaleDateString(),
   ]);
 
@@ -191,7 +191,7 @@ export default function WebhooksStatus() {
   const httpRows = data.httpWebhooks.map((webhook: any) => [
     webhook.topic,
     webhook.format,
-    <Badge tone="info">Active</Badge>,
+    'Active',
     webhook.endpoint.replace(process.env.SHOPIFY_APP_URL || '', ''),
   ]);
 

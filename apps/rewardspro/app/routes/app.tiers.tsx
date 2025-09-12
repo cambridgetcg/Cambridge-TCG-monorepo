@@ -925,7 +925,7 @@ export default function TiersPage() {
                             background: getTierStyle(tier.name).backgroundColor,
                             border: `1px solid ${getTierStyle(tier.name).borderColor}`,
                           }}>
-                            <Text variant="bodySm" tone="base">{`${tier.cashbackPercent}%`}</Text>
+                            <Text variant="bodySm" tone="base" as="span">{`${tier.cashbackPercent}%`}</Text>
                           </div>
                         </InlineStack>
                       ))}

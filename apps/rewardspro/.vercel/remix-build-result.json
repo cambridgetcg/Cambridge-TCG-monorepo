@@ -15,9 +15,12 @@
       "routes/webhooks.subscriptions.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.proxy.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -29,6 +32,7 @@
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.webhooks-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -90,6 +94,24 @@
           "runtime": "nodejs"
         }
       },
+      "routes/webhooks.customers.create": {
+        "id": "routes/webhooks.customers.create",
+        "parentId": "root",
+        "file": "app/routes/webhooks.customers.create.tsx",
+        "path": "webhooks/customers/create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.customers.update": {
+        "id": "routes/webhooks.customers.update",
+        "parentId": "root",
+        "file": "app/routes/webhooks.customers.update.tsx",
+        "path": "webhooks/customers/update",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.customer-details.$id": {
         "id": "routes/api.customer-details.$id",
         "parentId": "root",
@@ -113,6 +135,15 @@
         "parentId": "root",
         "file": "app/routes/api.proxy.membership.tsx",
         "path": "api/proxy/membership",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.webhook-register": {
+        "id": "routes/api.webhook-register",
+        "parentId": "root",
+        "file": "app/routes/api.webhook-register.tsx",
+        "path": "api/webhook-register",
         "config": {
           "runtime": "nodejs"
         }
@@ -219,6 +250,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.design-showcase.tsx",
         "path": "design-showcase",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.webhooks-status": {
+        "id": "routes/app.webhooks-status",
+        "parentId": "routes/app",
+        "file": "app/routes/app.webhooks-status.tsx",
+        "path": "webhooks-status",
         "config": {
           "runtime": "nodejs"
         }
@@ -346,6 +386,18 @@
         "file": "routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update"
       },
+      "routes/webhooks.customers.create": {
+        "id": "routes/webhooks.customers.create",
+        "parentId": "root",
+        "file": "routes/webhooks.customers.create.tsx",
+        "path": "webhooks/customers/create"
+      },
+      "routes/webhooks.customers.update": {
+        "id": "routes/webhooks.customers.update",
+        "parentId": "root",
+        "file": "routes/webhooks.customers.update.tsx",
+        "path": "webhooks/customers/update"
+      },
       "routes/api.customer-details.$id": {
         "id": "routes/api.customer-details.$id",
         "parentId": "root",
@@ -363,6 +415,12 @@
         "parentId": "root",
         "file": "routes/api.proxy.membership.tsx",
         "path": "api/proxy/membership"
+      },
+      "routes/api.webhook-register": {
+        "id": "routes/api.webhook-register",
+        "parentId": "root",
+        "file": "routes/api.webhook-register.tsx",
+        "path": "api/webhook-register"
       },
       "routes/webhooks.orders.paid": {
         "id": "routes/webhooks.orders.paid",
@@ -435,6 +493,12 @@
         "parentId": "routes/app",
         "file": "routes/app.design-showcase.tsx",
         "path": "design-showcase"
+      },
+      "routes/app.webhooks-status": {
+        "id": "routes/app.webhooks-status",
+        "parentId": "routes/app",
+        "file": "routes/app.webhooks-status.tsx",
+        "path": "webhooks-status"
       },
       "routes/app.proxy-test": {
         "id": "routes/app.proxy-test",

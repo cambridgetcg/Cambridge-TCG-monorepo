@@ -54,7 +54,7 @@ export function SymmetricalHeroSection() {
           
           {/* Centered description */}
           <Box maxWidth="600px">
-            <Text variant="bodyLg" tone="subdued" alignment="center">
+            <Text variant="bodyLg" tone="subdued" alignment="center" as="p">
               Build lasting customer relationships with our powerful loyalty program. 
               Increase retention, boost sales, and reward your best customers.
             </Text>
@@ -109,11 +109,11 @@ export function AsymmetricalDashboard() {
                   <Text variant="headingMd" as="h3">Activity Feed</Text>
                   <BlockStack gap="200">
                     <InlineStack align="space-between">
-                      <Text>Cashback earned</Text>
+                      <Text as="span">Cashback earned</Text>
                       <Badge tone="success">+$25.00</Badge>
                     </InlineStack>
                     <InlineStack align="space-between">
-                      <Text>Credit redeemed</Text>
+                      <Text as="span">Credit redeemed</Text>
                       <Badge>-$10.00</Badge>
                     </InlineStack>
                   </BlockStack>
@@ -132,16 +132,16 @@ export function AsymmetricalDashboard() {
                   <Text variant="headingMd" as="h3">Quick Stats</Text>
                   <BlockStack gap="200">
                     <InlineStack align="space-between">
-                      <Text tone="subdued">Total Customers</Text>
-                      <Text fontWeight="semibold">1,234</Text>
+                      <Text tone="subdued" as="span">Total Customers</Text>
+                      <Text fontWeight="semibold" as="span">1,234</Text>
                     </InlineStack>
                     <InlineStack align="space-between">
-                      <Text tone="subdued">Active Tiers</Text>
-                      <Text fontWeight="semibold">3</Text>
+                      <Text tone="subdued" as="span">Active Tiers</Text>
+                      <Text fontWeight="semibold" as="span">3</Text>
                     </InlineStack>
                     <InlineStack align="space-between">
-                      <Text tone="subdued">Avg. Credit</Text>
-                      <Text fontWeight="semibold">$75.50</Text>
+                      <Text tone="subdued" as="span">Avg. Credit</Text>
+                      <Text fontWeight="semibold" as="span">$75.50</Text>
                     </InlineStack>
                   </BlockStack>
                 </BlockStack>
@@ -196,7 +196,7 @@ export function RadialMetricsDisplay() {
                 </Box>
                 
                 {/* Metric label */}
-                <Text variant="bodySm" tone="subdued" alignment="center">
+                <Text variant="bodySm" tone="subdued" alignment="center" as="p">
                   {metric.label}
                 </Text>
                 
@@ -233,12 +233,12 @@ export function GoldenRatioLayout() {
           <Box padding="600">
             <BlockStack gap="400">
               <Text variant="headingLg" as="h2">Main Content Area</Text>
-              <Text>
+              <Text as="p">
                 This section uses the golden ratio for optimal visual balance. 
                 The width relationship creates a naturally pleasing proportion.
               </Text>
               <Box background="bg-surface-secondary" padding="400" borderRadius="200">
-                <Text>Content goes here...</Text>
+                <Text as="p">Content goes here...</Text>
               </Box>
             </BlockStack>
           </Box>
@@ -249,7 +249,7 @@ export function GoldenRatioLayout() {
           <Box padding="400">
             <BlockStack gap="300">
               <Text variant="headingMd" as="h3">Supporting Content</Text>
-              <Text variant="bodySm" tone="subdued">
+              <Text variant="bodySm" tone="subdued" as="p">
                 This sidebar complements the main content using golden ratio proportions.
               </Text>
               <Button fullWidth>Action</Button>
@@ -276,16 +276,15 @@ export function ResponsiveSymmetryLayout() {
           <InlineStack 
             gap="300" 
             wrap={false}
-            direction={{xs: 'column', md: 'row'}}
-            align={{xs: 'stretch', md: 'center'}}
+            align="center"
           >
-            <Button fullWidth={{xs: true, md: false}} variant="primary">
+            <Button variant="primary">
               Primary Action
             </Button>
-            <Button fullWidth={{xs: true, md: false}} variant="secondary">
+            <Button>
               Secondary Action
             </Button>
-            <Button fullWidth={{xs: true, md: false}} variant="plain">
+            <Button variant="plain">
               Tertiary Action
             </Button>
           </InlineStack>
@@ -294,17 +293,17 @@ export function ResponsiveSymmetryLayout() {
           <Grid columns={{xs: 1, sm: 2, md: 3}}>
             <Grid.Cell>
               <Box background="bg-surface-secondary" padding="400" borderRadius="100">
-                <Text alignment="center">Item 1</Text>
+                <Text alignment="center" as="p">Item 1</Text>
               </Box>
             </Grid.Cell>
             <Grid.Cell>
               <Box background="bg-surface-secondary" padding="400" borderRadius="100">
-                <Text alignment="center">Item 2</Text>
+                <Text alignment="center" as="p">Item 2</Text>
               </Box>
             </Grid.Cell>
             <Grid.Cell>
               <Box background="bg-surface-secondary" padding="400" borderRadius="100">
-                <Text alignment="center">Item 3</Text>
+                <Text alignment="center" as="p">Item 3</Text>
               </Box>
             </Grid.Cell>
           </Grid>
@@ -387,7 +386,7 @@ export function BalancedLoadingState() {
             <Box width="100px">
               <SkeletonThumbnail size="large" />
             </Box>
-            <BlockStack gap="200" fill>
+            <BlockStack gap="200">
               <SkeletonDisplayText size="small" />
               <SkeletonBodyText lines={3} />
             </BlockStack>
@@ -442,7 +441,7 @@ export function FilteredDataView() {
               <TextField
                 label="Search"
                 placeholder="Name or email"
-                prefix={<Icon source={SearchIcon} />}
+                autoComplete="off"
               />
               
               <Select

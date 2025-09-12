@@ -10,7 +10,7 @@
  * Body: { "topic": "customers/create" }
  */
 
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 
@@ -112,7 +112,7 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     );
 
-    const result = await response.json();
+    const result = await response.json() as any;
     
     // Check for GraphQL errors
     if (result.errors) {
@@ -212,7 +212,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }`
     );
 
-    const result = await response.json();
+    const result = await response.json() as any;
     
     if (result.errors) {
       return json({ 
