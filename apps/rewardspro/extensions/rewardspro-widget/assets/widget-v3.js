@@ -13,7 +13,8 @@
   class RewardsWidget {
     constructor() {
       // Log version for debugging
-      console.log('[RewardsWidget v2.0.1] Initializing new version with proper text display');
+      console.log('[RewardsWidget v3.0.0] Latest version - No translation keys, direct text display');
+      console.log('[RewardsWidget v3.0.0] If you see translation keys, clear your browser cache!');
       
       // Configuration from page
       this.config = window.RewardsProConfig || {};
