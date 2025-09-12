@@ -291,7 +291,7 @@
       
       const balanceLabel = document.createElement('div');
       balanceLabel.className = 'rewards-balance-label';
-      balanceLabel.textContent = 'Store Credit Balance';
+      balanceLabel.textContent = '💰 YOUR STORE CREDIT 💰';
       balanceCard.appendChild(balanceLabel);
       
       const balanceAmount = document.createElement('div');
@@ -369,7 +369,7 @@
       
       const earnedLabel = document.createElement('div');
       earnedLabel.className = 'rewards-stat-label';
-      earnedLabel.textContent = 'Total Earned';
+      earnedLabel.textContent = '✅ EARNED (NEW!)';
       earnedStat.appendChild(earnedLabel);
       
       stats.appendChild(earnedStat);
@@ -385,18 +385,18 @@
       
       const spentLabel = document.createElement('div');
       spentLabel.className = 'rewards-stat-label';
-      spentLabel.textContent = 'Total Spent';
+      spentLabel.textContent = '💸 SPENT (NEW!)';
       spentStat.appendChild(spentLabel);
       
       stats.appendChild(spentStat);
       
       div.appendChild(stats);
       
-      // View Dashboard Button
+      // View Dashboard Button - UPDATED TEXT FOR TESTING
       const dashboardBtn = document.createElement('a');
       dashboardBtn.href = '/account';
       dashboardBtn.className = 'rewards-btn rewards-btn-primary';
-      dashboardBtn.textContent = 'View Full Dashboard';
+      dashboardBtn.textContent = '🚀 CLICK HERE - NEW VERSION LOADED! 🚀';
       div.appendChild(dashboardBtn);
       
       return div;
