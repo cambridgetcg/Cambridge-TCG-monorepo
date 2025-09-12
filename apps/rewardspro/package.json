@@ -24,7 +24,10 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "tunnel:setup": "./scripts/setup-aurora-tunnel.sh"
+    "tunnel:setup": "./scripts/setup-aurora-tunnel.sh",
+    "lambda:build": "cd lambda && npm install --production",
+    "lambda:zip": "cd lambda && zip -r ../lambda-deployment.zip .",
+    "lambda:deploy": "npm run lambda:build && npm run lambda:zip && echo 'Upload lambda-deployment.zip to AWS Lambda'"
   },
   "type": "module",
   "engines": {

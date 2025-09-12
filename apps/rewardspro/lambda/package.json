@@ -1,0 +1,15 @@
+{
+  "name": "rewardspro-webhooks-lambda",
+  "version": "1.0.0",
+  "description": "Lambda functions for processing RewardsPro Shopify webhooks via EventBridge",
+  "main": "process-customer-webhook.js",
+  "scripts": {
+    "test": "node test-handler.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.879.0"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
