@@ -22,25 +22,19 @@ import {
   Banner,
 } from "@shopify/polaris";
 import {
-  PersonIcon,
   CashDollarIcon,
   ChartVerticalIcon,
   PlusIcon,
-  SettingsIcon,
   RefreshIcon,
   AlertTriangleIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
-import { TierBadge, TierIndicator } from "../components/TierBadge";
+import { TierBadge } from "../components/TierBadge";
 import { 
   getTierStyle, 
-  sortTiersByPriority, 
-  getTierGradientCSS, 
-  getTierTextColor,
-  getTierEmoji,
-  formatTierName 
+  sortTiersByPriority
 } from "../utils/tier-styles";
 import "../styles/tiers.css";
 
@@ -334,7 +328,7 @@ export default function Dashboard() {
                   <Box padding="400">
                     <BlockStack gap="200">
                       <InlineStack align="space-between">
-                        <Icon source={PersonIcon} tone="base" />
+                        <Text variant="heading2xl" as="h3">👥</Text>
                         {data.metrics.customersWithTiers > 0 && (
                           <Badge tone="success">
                             {`${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% in tiers`}
@@ -680,14 +674,6 @@ export default function Dashboard() {
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="300">
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {['Diamond', 'Gold', 'Silver'].map(tierName => {
-                          const style = getTierStyle(tierName);
-                          return (
-                            <Icon key={tierName} source={style.icon} tone="base" />
-                          );
-                        })}
-                      </div>
                       <Text variant="headingMd" as="h3">
                         Manage Tiers
                       </Text>
@@ -706,7 +692,6 @@ export default function Dashboard() {
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="300">
-                      <Icon source={PersonIcon} tone="base" />
                       <Text variant="headingMd" as="h3">
                         View Customers
                       </Text>
@@ -725,7 +710,6 @@ export default function Dashboard() {
                 <Card>
                   <Box padding="400">
                     <BlockStack gap="300">
-                      <Icon source={SettingsIcon} tone="base" />
                       <Text variant="headingMd" as="h3">
                         Settings
                       </Text>
