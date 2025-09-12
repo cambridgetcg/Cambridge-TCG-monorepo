@@ -207,7 +207,7 @@ export async function action({ request }: ActionFunctionArgs) {
           shop: shop,
           amount: totalStoreCredit,
           balance: totalStoreCredit,
-          type: "SHOPIFY_SYNC",
+          type: "ORDER_PAYMENT",
           metadata: {
             source: 'orders/create webhook',
             orderId: order.id,
@@ -235,7 +235,7 @@ export async function action({ request }: ActionFunctionArgs) {
             shop: shop,
             amount: totalStoreCredit - previousBalance,
             balance: totalStoreCredit,
-            type: "SHOPIFY_SYNC",
+            type: "ORDER_PAYMENT",
             metadata: {
               source: 'orders/create webhook',
               orderId: order.id,
