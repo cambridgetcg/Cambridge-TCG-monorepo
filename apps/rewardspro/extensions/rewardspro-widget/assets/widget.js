@@ -488,7 +488,7 @@
 
       balance.appendChild(this.createElement('div', {
         className: 'rp-balance-label',
-        textContent: this.t('widget.member.balance.label')
+        textContent: this.t('widget.member.balance.label') || 'Store Credit Balance'
       }));
 
       balance.appendChild(this.createElement('div', {
@@ -592,7 +592,7 @@
         }));
         stat.appendChild(this.createElement('span', {
           className: 'rp-stat-label',
-          textContent: this.t('widget.member.stats.earned.label')
+          textContent: this.t('widget.member.stats.earned.label') || 'Lifetime Earned'
         }));
         stats.appendChild(stat);
       }
@@ -607,7 +607,7 @@
         }));
         stat.appendChild(this.createElement('span', {
           className: 'rp-stat-label',
-          textContent: this.t('widget.member.stats.spent.label')
+          textContent: this.t('widget.member.stats.spent.label') || 'Total Spent'
         }));
         stats.appendChild(stat);
       }
@@ -622,7 +622,7 @@
         }));
         stat.appendChild(this.createElement('span', {
           className: 'rp-stat-label',
-          textContent: this.t('widget.member.stats.rewards.label')
+          textContent: this.t('widget.member.stats.rewards.label') || 'Available Rewards'
         }));
         stats.appendChild(stat);
       }
@@ -637,7 +637,7 @@
       actions.appendChild(this.createElement('a', {
         href: this.config.urls?.account || '/account',
         className: 'rp-button rp-button-primary',
-        textContent: this.t('widget.member.actions.dashboard')
+        textContent: this.t('widget.member.actions.dashboard') || 'View Full Dashboard'
       }));
 
       container.appendChild(actions);
@@ -692,14 +692,19 @@
           return;
         }
 
-        // Success
+        // Success - Handle the nested memberData structure from API
+        const memberData = data.memberData || {};
         const processedData = {
           ...data,
-          formattedCredit: data.formattedCredit || '$0.00',
-          tierName: data.tierName || 'No Tier',
-          cashbackRate: data.cashbackRate || 0,
-          lifetimeEarned: data.lifetimeEarned || '$0.00',
-          lifetimeSpent: data.lifetimeSpent || '$0.00'
+          formattedCredit: memberData.storeCredit || '$0.00',
+          tierName: memberData.tierName || 'No Tier',
+          cashbackRate: memberData.cashbackRate || 0,
+          lifetimeEarned: memberData.lifetimeEarned || '$0.00',
+          lifetimeSpent: memberData.lifetimeSpent || '$0.00',
+          progressToNextTier: memberData.progressToNextTier || 0,
+          remainingToNextTier: memberData.remainingToNextTier || null,
+          nextTier: memberData.nextTier || null,
+          availableRewards: memberData.availableRewards || 0
         };
         
         console.log('RewardsPro: Data loaded successfully', processedData);
