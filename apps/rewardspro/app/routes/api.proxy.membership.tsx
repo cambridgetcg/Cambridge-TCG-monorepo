@@ -201,8 +201,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
     
     // Calculate spending based on cashback rate (reverse calculation)
-    const totalSpent = lifetimeSpending._sum.amount && customer.currentTier?.cashbackPercent
-      ? (lifetimeSpending._sum.amount.toNumber() / customer.currentTier.cashbackPercent) * 100
+    const lifetimeSpendingValue = lifetimeSpending._sum.amount
+      ? (typeof lifetimeSpending._sum.amount === 'object' && lifetimeSpending._sum.amount?.toNumber
+          ? lifetimeSpending._sum.amount.toNumber()
+          : Number(lifetimeSpending._sum.amount))
+      : 0;
+    
+    const totalSpent = lifetimeSpendingValue && customer.currentTier?.cashbackPercent
+      ? (lifetimeSpendingValue / customer.currentTier.cashbackPercent) * 100
       : 0;
     
     // Step 11: Calculate next tier progress
@@ -252,7 +258,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
     
     // Step 12: Count available rewards (placeholder - implement based on your rewards system)
-    const availableRewards = customer.storeCredit.toNumber() > 0 ? 1 : 0;
+    // Handle storeCredit as either a Decimal object or a number
+    const storeCreditValue = typeof customer.storeCredit === 'object' && customer.storeCredit?.toNumber 
+      ? customer.storeCredit.toNumber() 
+      : Number(customer.storeCredit);
+    
+    const availableRewards = storeCreditValue > 0 ? 1 : 0;
     
     // Step 13: Build and return member response
     const memberResponse = {
@@ -261,10 +272,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       memberData: {
         // Balance information
         storeCredit: formatCurrency(
-          customer.storeCredit.toNumber(),
+          storeCreditValue,
           shopSettings
         ),
-        storeCreditRaw: customer.storeCredit.toNumber(),
+        storeCreditRaw: storeCreditValue,
         
         // Tier information
         tierName: customer.currentTier?.name || "No Tier",
@@ -279,7 +290,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
         
         // Lifetime statistics
         lifetimeEarned: lifetimeEarned._sum.amount 
-          ? formatCurrency(lifetimeEarned._sum.amount.toNumber(), shopSettings)
+          ? formatCurrency(
+              typeof lifetimeEarned._sum.amount === 'object' && lifetimeEarned._sum.amount?.toNumber
+                ? lifetimeEarned._sum.amount.toNumber()
+                : Number(lifetimeEarned._sum.amount),
+              shopSettings
+            )
           : formatCurrency(0, shopSettings),
         lifetimeSpent: formatCurrency(totalSpent, shopSettings),
         
