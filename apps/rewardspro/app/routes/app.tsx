@@ -19,7 +19,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   
   try {
     console.log("[App Loader] Authenticating request...");
-    const { session, admin, billing, redirect } = await authenticate.admin(request);
+    
+    let authResult;
+    try {
+      authResult = await authenticate.admin(request);
+    } catch (authError: any) {
+      // If authenticate.admin throws a Response (like a billing redirect), return it
+      if (authError instanceof Response) {
+        console.log("[App Loader] Auth threw a Response, returning it");
+        return authError;
+      }
+      throw authError;
+    }
+    
+    const { session, admin, billing, redirect } = authResult;
     
     // Log Shopify context
     logShopifyContext({
@@ -75,6 +88,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const reauthorizeUrl = billingError.headers?.get('x-shopify-api-request-failure-reauthorize-url');
           if (reauthorizeUrl) {
             console.log("[App Loader] Billing auth failed, redirecting to:", reauthorizeUrl);
+            // Return the redirect response directly, don't throw it
             return redirect(reauthorizeUrl, { target: "_top" });
           }
         }
@@ -100,7 +114,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     logResponse(response, 'App Route Loader', startTime, requestId);
     return response;
-  } catch (error) {
+  } catch (error: any) {
+    // Check if this is a redirect response from billing check
+    if (error instanceof Response) {
+      // If it's a redirect response (301/302) or has a redirect header, return it
+      if (error.status === 301 || error.status === 302 || error.headers?.get('x-shopify-api-request-failure-reauthorize-url')) {
+        console.log("[App Loader] Returning redirect response from error handler");
+        return error;
+      }
+    }
+    
     logError(error, 'App Route Loader', requestId);
     console.error("[App Loader] Authentication error:", error);
     throw error;
