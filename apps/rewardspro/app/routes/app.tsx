@@ -71,25 +71,45 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         if (!hasActivePayment) {
           console.log("[App Loader] No active subscription found, redirecting to billing...");
           
-          // For managed pricing, redirect to the Shopify-hosted pricing page
-          const shopDomain = session.shop;
-          const storeHandle = shopDomain.replace(".myshopify.com", "");
-          const appHandle = process.env.SHOPIFY_APP_HANDLE || "rewardspro"; // Get from env or use default
-          
-          // Construct the managed pricing page URL
-          const pricingPageUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
-          
-          // Use the redirect helper to ensure proper iframe breakout
-          return redirect(pricingPageUrl, { target: "_top" });
+          try {
+            // Use the billing.request method to redirect to billing page
+            // This returns a proper redirect response that breaks out of the iframe
+            const billingResponse = await billing.request({
+              plan: MONTHLY_PLAN as any,
+              isTest: process.env.NODE_ENV === 'development',
+              returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
+            });
+            
+            console.log("[App Loader] Billing request successful, returning redirect");
+            // Return the billing redirect response
+            return billingResponse;
+          } catch (billingRequestError: any) {
+            // If billing.request throws a Response, return it
+            if (billingRequestError instanceof Response) {
+              console.log("[App Loader] Billing request returned Response, forwarding it");
+              return billingRequestError;
+            }
+            // Otherwise, throw it to be caught by outer catch
+            throw billingRequestError;
+          }
         }
       } catch (billingError: any) {
-        // Check if this is a Shopify authentication error with a redirect URL
-        if (billingError instanceof Response && billingError.status === 401) {
-          const reauthorizeUrl = billingError.headers?.get('x-shopify-api-request-failure-reauthorize-url');
-          if (reauthorizeUrl) {
-            console.log("[App Loader] Billing auth failed, redirecting to:", reauthorizeUrl);
-            // Return the redirect response directly, don't throw it
-            return redirect(reauthorizeUrl, { target: "_top" });
+        // Check if this is a Response object (redirect or billing page)
+        if (billingError instanceof Response) {
+          // Check for specific redirect scenarios
+          if (billingError.status === 401) {
+            // Authentication error with redirect URL
+            const reauthorizeUrl = billingError.headers?.get('x-shopify-api-request-failure-reauthorize-url');
+            if (reauthorizeUrl) {
+              console.log("[App Loader] Billing auth failed, redirecting to:", reauthorizeUrl);
+              return redirect(reauthorizeUrl, { target: "_top" });
+            }
+          }
+          
+          // If it's a 200 response with HTML (billing redirect page), return it
+          if (billingError.status === 200 || billingError.status === 302 || billingError.status === 303) {
+            console.log("[App Loader] Returning billing redirect response");
+            return billingError;
           }
         }
         
