@@ -61,7 +61,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       
       try {
         const { hasActivePayment } = await billing.check({
-          plans: [MONTHLY_PLAN, ANNUAL_PLAN] as any,
+          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
           isTest: process.env.NODE_ENV === 'development',
         });
         
@@ -75,7 +75,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             // Use the billing.request method to redirect to billing page
             // This returns a proper redirect response that breaks out of the iframe
             const billingResponse = await billing.request({
-              plan: MONTHLY_PLAN as any,
+              plan: MONTHLY_PLAN,
               isTest: process.env.NODE_ENV === 'development',
               returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
             });

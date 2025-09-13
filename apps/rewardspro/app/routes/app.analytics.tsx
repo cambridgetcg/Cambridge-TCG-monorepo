@@ -14,7 +14,6 @@ import {
   Tabs,
   BlockStack,
   InlineStack,
-  Icon,
   Banner,
   Box,
   Divider,
@@ -27,27 +26,6 @@ import {
   Popover,
   DatePicker,
 } from "@shopify/polaris";
-import {
-  CashDollarIcon,
-  PersonIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-  RewardIcon,
-  ChartVerticalIcon,
-  ExportIcon,
-  RefreshIcon,
-  CalendarIcon,
-  CheckCircleIcon,
-  AlertTriangleIcon,
-  InfoIcon,
-  StarIcon,
-  GiftCardIcon,
-  ClockIcon,
-  TargetIcon,
-  CartIcon,
-  ReceiptRefundIcon,
-  MinusIcon,
-} from "@shopify/polaris-icons";
 import { TierBadge, TierIndicator, TierProgress } from "~/components/TierBadge";
 import { getTierStyle, sortTiersByPriority, formatTierName } from "~/utils/tier-styles";
 import { authenticate } from "../shopify.server";
@@ -541,8 +519,6 @@ function MetricCard({
   value, 
   change, 
   trend, 
-  icon, 
-  tone, 
   loading, 
   delay = 0 
 }: {
@@ -550,8 +526,6 @@ function MetricCard({
   value: string | number;
   change?: number;
   trend?: 'up' | 'down' | 'neutral';
-  icon: any;
-  tone?: 'success' | 'critical' | 'warning' | 'info';
   loading?: boolean;
   delay?: number;
 }) {
@@ -569,11 +543,6 @@ function MetricCard({
     );
   }
 
-  const getTrendIcon = () => {
-    if (trend === 'up') return ChevronUpIcon;
-    if (trend === 'down') return ChevronDownIcon;
-    return MinusIcon;
-  };
 
   const getTrendTone = () => {
     if (trend === 'up') return 'success';
@@ -591,14 +560,13 @@ function MetricCard({
       <Card>
         <Box padding="400">
           <BlockStack gap="300">
-            <InlineStack align="space-between">
-              <Icon source={icon} tone={tone || 'base'} />
-              {change !== undefined && (
+            {change !== undefined && (
+              <InlineStack align="end">
                 <Badge tone={getTrendTone() as any}>
-                  {`${Math.abs(change)}%`}
+                  {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '–'} {Math.abs(change)}%
                 </Badge>
-              )}
-            </InlineStack>
+              </InlineStack>
+            )}
             
             <BlockStack gap="100">
               <Text variant="bodySm" tone="subdued" as="p">
@@ -617,14 +585,6 @@ function MetricCard({
 
 
 function InsightCard({ insight }: { insight: Insight }) {
-  const getIcon = () => {
-    switch (insight.type) {
-      case 'opportunity': return InfoIcon;
-      case 'warning': return AlertTriangleIcon;
-      case 'success': return CheckCircleIcon;
-      default: return InfoIcon;
-    }
-  };
 
   const getTone = () => {
     switch (insight.type) {
@@ -645,12 +605,9 @@ function InsightCard({ insight }: { insight: Insight }) {
     >
       <BlockStack gap="300">
         <InlineStack align="space-between">
-          <InlineStack gap="200">
-            <Icon source={getIcon()} tone={getTone() as any} />
-            <Text variant="headingSm" as="h4">
-              {insight.title}
-            </Text>
-          </InlineStack>
+          <Text variant="headingSm" as="h4">
+            {insight.title}
+          </Text>
           {insight.priority && (
             <Badge tone="critical">
               {`${insight.priority} priority`}
@@ -759,13 +716,11 @@ export default function AnalyticsPage() {
       subtitle="Track your loyalty program performance"
       primaryAction={{
         content: 'Export Report',
-        icon: ExportIcon,
         onAction: () => console.log('Export report'),
       }}
       secondaryActions={[
         {
           content: 'Refresh',
-          icon: RefreshIcon,
           loading: revalidator.state === "loading",
           onAction: () => revalidator.revalidate(),
         },
@@ -814,7 +769,6 @@ export default function AnalyticsPage() {
                   active={showDatePicker}
                   activator={
                     <Button 
-                      icon={CalendarIcon}
                       pressed={selectedDateRange === 'custom'}
                       onClick={() => setShowDatePicker(!showDatePicker)}
                       disclosure={showDatePicker ? 'up' : 'down'}
@@ -832,18 +786,9 @@ export default function AnalyticsPage() {
                           Date range selection is coming soon. This will allow you to:
                         </Text>
                         <BlockStack gap="200">
-                          <InlineStack gap="200">
-                            <Icon source={CheckCircleIcon} tone="success" />
-                            <Text variant="bodySm" as="span">Select custom start and end dates</Text>
-                          </InlineStack>
-                          <InlineStack gap="200">
-                            <Icon source={CheckCircleIcon} tone="success" />
-                            <Text variant="bodySm" as="span">Compare periods</Text>
-                          </InlineStack>
-                          <InlineStack gap="200">
-                            <Icon source={CheckCircleIcon} tone="success" />
-                            <Text variant="bodySm" as="span">Export data for selected range</Text>
-                          </InlineStack>
+                          <Text variant="bodySm" as="p">• Select custom start and end dates</Text>
+                          <Text variant="bodySm" as="p">• Compare periods</Text>
+                          <Text variant="bodySm" as="p">• Export data for selected range</Text>
                         </BlockStack>
                       </BlockStack>
                       <Button 
@@ -866,12 +811,9 @@ export default function AnalyticsPage() {
         {/* Selected Date Range Indicator */}
         <Layout.Section>
           <Banner tone="info">
-            <InlineStack gap="200" align="start">
-              <Icon source={CalendarIcon} />
-              <Text variant="bodyMd" as="span">
-                Showing data for: <Text as="span" fontWeight="semibold">{getDateRangeText()}</Text>
-              </Text>
-            </InlineStack>
+            <Text variant="bodyMd" as="p">
+              Showing data for: <Text as="span" fontWeight="semibold">{getDateRangeText()}</Text>
+            </Text>
           </Banner>
         </Layout.Section>
 
@@ -884,8 +826,6 @@ export default function AnalyticsPage() {
                 value={formatAmount(data.revenueImpact)}
                 change={data.comparison.change}
                 trend={data.comparison.change > 0 ? 'up' : 'down'}
-                icon={CashDollarIcon}
-                tone="success"
                 loading={isLoading}
                 delay={0}
               />
@@ -896,8 +836,6 @@ export default function AnalyticsPage() {
                 value={`${data.activeMembers} / ${data.totalMembers}`}
                 change={12}
                 trend="up"
-                icon={PersonIcon}
-                tone="info"
                 loading={isLoading}
                 delay={50}
               />
@@ -908,8 +846,6 @@ export default function AnalyticsPage() {
                 value={formatAmount(data.avgOrderValue)}
                 change={8}
                 trend="up"
-                icon={CartIcon}
-                tone="success"
                 loading={isLoading}
                 delay={100}
               />
@@ -920,8 +856,6 @@ export default function AnalyticsPage() {
                 value={`${data.conversionRate.toFixed(1)}%`}
                 change={-2}
                 trend="down"
-                icon={ChevronUpIcon}
-                tone="warning"
                 loading={isLoading}
                 delay={150}
               />
@@ -989,10 +923,7 @@ export default function AnalyticsPage() {
                           <Card>
                             <Box padding="300">
                               <BlockStack gap="200">
-                                <InlineStack gap="100">
-                                  <Icon source={GiftCardIcon} tone="magic" />
-                                  <Text variant="headingSm" as="h3">VIP Customers</Text>
-                                </InlineStack>
+                                <Text variant="headingSm" as="h3">VIP Customers</Text>
                                 <Text variant="headingLg" as="p">{data.segments.vip.count}</Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
                                   Avg credit: {formatAmount(data.segments.vip.avgCredit)}
@@ -1005,10 +936,7 @@ export default function AnalyticsPage() {
                           <Card>
                             <Box padding="300">
                               <BlockStack gap="200">
-                                <InlineStack gap="100">
-                                  <Icon source={AlertTriangleIcon} tone="warning" />
-                                  <Text variant="headingSm" as="h3">At Risk</Text>
-                                </InlineStack>
+                                <Text variant="headingSm" as="h3">At Risk</Text>
                                 <Text variant="headingLg" as="p">{data.segments.atRisk.count}</Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
                                   Churn risk: {data.segments.atRisk.churnRisk}%
@@ -1021,10 +949,7 @@ export default function AnalyticsPage() {
                           <Card>
                             <Box padding="300">
                               <BlockStack gap="200">
-                                <InlineStack gap="100">
-                                  <Icon source={PersonIcon} tone="success" />
-                                  <Text variant="headingSm" as="h3">New Members</Text>
-                                </InlineStack>
+                                <Text variant="headingSm" as="h3">New Members</Text>
                                 <Text variant="headingLg" as="p">{data.segments.new.count}</Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
                                   Activation: {data.segments.new.activationRate}%
@@ -1037,10 +962,7 @@ export default function AnalyticsPage() {
                           <Card>
                             <Box padding="300">
                               <BlockStack gap="200">
-                                <InlineStack gap="100">
-                                  <Icon source={ClockIcon} tone="critical" />
-                                  <Text variant="headingSm" as="h3">Dormant</Text>
-                                </InlineStack>
+                                <Text variant="headingSm" as="h3">Dormant</Text>
                                 <Text variant="headingLg" as="p">{data.segments.dormant.count}</Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
                                   {data.segments.dormant.daysSinceLastOrder} days inactive
@@ -1183,12 +1105,9 @@ export default function AnalyticsPage() {
                     {/* Opportunities */}
                     {data.insights.opportunities.length > 0 && (
                       <BlockStack gap="400">
-                        <InlineStack gap="200">
-                          <Icon source={InfoIcon} tone="info" />
-                          <Text variant="headingMd" as="h2">
-                            Opportunities
-                          </Text>
-                        </InlineStack>
+                        <Text variant="headingMd" as="h2">
+                          Opportunities
+                        </Text>
                         <BlockStack gap="300">
                           {data.insights.opportunities.map(insight => (
                             <InsightCard key={insight.id} insight={insight} />
@@ -1200,12 +1119,9 @@ export default function AnalyticsPage() {
                     {/* Warnings */}
                     {data.insights.warnings.length > 0 && (
                       <BlockStack gap="400">
-                        <InlineStack gap="200">
-                          <Icon source={AlertTriangleIcon} tone="warning" />
-                          <Text variant="headingMd" as="h2">
-                            Warnings
-                          </Text>
-                        </InlineStack>
+                        <Text variant="headingMd" as="h2">
+                          Warnings
+                        </Text>
                         <BlockStack gap="300">
                           {data.insights.warnings.map(insight => (
                             <InsightCard key={insight.id} insight={insight} />
@@ -1217,12 +1133,9 @@ export default function AnalyticsPage() {
                     {/* Successes */}
                     {data.insights.successes.length > 0 && (
                       <BlockStack gap="400">
-                        <InlineStack gap="200">
-                          <Icon source={CheckCircleIcon} tone="success" />
-                          <Text variant="headingMd" as="h2">
-                            Successes
-                          </Text>
-                        </InlineStack>
+                        <Text variant="headingMd" as="h2">
+                          Successes
+                        </Text>
                         <BlockStack gap="300">
                           {data.insights.successes.map(insight => (
                             <InsightCard key={insight.id} insight={insight} />
