@@ -6,7 +6,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
-import { authenticate, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
+import { authenticate, FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
@@ -61,7 +61,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       
       try {
         const { hasActivePayment } = await billing.check({
-          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
+          plans: [FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
           isTest: process.env.NODE_ENV === 'development',
         });
         
@@ -69,13 +69,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         
         // If no active payment and not on a billing-related page, redirect to billing
         if (!hasActivePayment) {
-          console.log("[App Loader] No active subscription found, redirecting to billing...");
+          console.log("[App Loader] No active subscription found, offering free trial...");
           
           try {
             // Use the billing.request method to redirect to billing page
-            // This returns a proper redirect response that breaks out of the iframe
+            // Start with the FREE_PLAN which includes a 14-day trial
             const billingResponse = await billing.request({
-              plan: MONTHLY_PLAN,
+              plan: FREE_PLAN,
               isTest: process.env.NODE_ENV === 'development',
               returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
             });

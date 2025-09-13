@@ -71,6 +71,26 @@ type LoaderData = {
 
 // ============= CONSTANTS =============
 const MANAGED_PLANS = {
+  "RewardsPro Free Trial": {
+    name: "RewardsPro Free Trial",
+    displayName: "Free Trial",
+    price: 0,
+    interval: "14 days",
+    ordersIncluded: 1000,
+    overageRate: 0,
+    features: [
+      "14-day free trial",
+      "1,000 orders included",
+      "Full access to all features",
+      "No credit card required",
+      "Automatically converts to monthly plan",
+      "Cancel anytime",
+      "Priority support during trial",
+      "Full onboarding assistance",
+    ],
+    recommended: false,
+    isTrial: true,
+  },
   "RewardsPro Monthly": {
     name: "RewardsPro Monthly",
     displayName: "RewardsPro Monthly",
@@ -142,7 +162,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log("[Billing Page] Loading billing information...");
   
   // Import plan names from server module inside loader
-  const { MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+  const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
   
   try {
     const { session, billing } = await authenticate.admin(request);
@@ -159,7 +179,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (billing) {
       try {
         const { hasActivePayment, appSubscriptions } = await billing.check({
-          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
+          plans: [FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
           isTest: process.env.NODE_ENV === 'development',
         });
         
