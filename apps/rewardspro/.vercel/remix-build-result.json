@@ -42,8 +42,7 @@
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing.upgrade": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing.plans": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
+      "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
     "routes": {
       "root": {
@@ -351,15 +350,6 @@
         "config": {
           "runtime": "nodejs"
         }
-      },
-      "routes/app.tiers": {
-        "id": "routes/app.tiers",
-        "parentId": "routes/app",
-        "file": "app/routes/app.tiers.tsx",
-        "path": "tiers",
-        "config": {
-          "runtime": "nodejs"
-        }
       }
     }
   },
@@ -587,12 +577,6 @@
         "parentId": "routes/app",
         "file": "routes/app._index.tsx",
         "index": true
-      },
-      "routes/app.tiers": {
-        "id": "routes/app.tiers",
-        "parentId": "routes/app",
-        "file": "routes/app.tiers.tsx",
-        "path": "tiers"
       }
     },
     "serverBuildFile": "index.js",

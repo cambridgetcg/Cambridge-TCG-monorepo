@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigation, useRevalidator } from "@remix-run/react";
+import { useLoaderData, useNavigation } from "@remix-run/react";
 import { useState, useCallback, useMemo } from "react";
 import {
   Page,
@@ -689,7 +689,6 @@ function InsightCard({ insight }: { insight: Insight }) {
 export default function AnalyticsPage() {
   const data = useLoaderData<typeof loader>();
   const navigation = useNavigation();
-  const revalidator = useRevalidator();
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedDateRange, setSelectedDateRange] = useState('30days');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -698,7 +697,7 @@ export default function AnalyticsPage() {
     end: Date | null;
   }>({ start: null, end: null });
   
-  const isLoading = navigation.state === "loading" || revalidator.state === "loading";
+  const isLoading = navigation.state === "loading";
   
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
@@ -758,13 +757,6 @@ export default function AnalyticsPage() {
         content: 'Export Report',
         onAction: () => console.log('Export report'),
       }}
-      secondaryActions={[
-        {
-          content: 'Refresh',
-          loading: revalidator.state === "loading",
-          onAction: () => revalidator.revalidate(),
-        },
-      ]}
     >
       <Layout>
         {/* Date Range Selector */}
