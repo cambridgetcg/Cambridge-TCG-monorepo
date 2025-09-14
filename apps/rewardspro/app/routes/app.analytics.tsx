@@ -225,9 +225,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ? (totalCashbackEarned / (avgCashbackRate / 100))
       : 0;
     
-    // Add actual credit redemptions
-    const revenueImpact = estimatedRevenueFromCashback + totalCreditRedeemed;
-    const avgOrderValue = activeMembers > 0 ? revenueImpact / activeMembers : 0;
+    // Add actual credit redemptions and round to 2 decimal places
+    const revenueImpact = Math.round((estimatedRevenueFromCashback + totalCreditRedeemed) * 100) / 100;
+    const avgOrderValue = activeMembers > 0 ? Math.round((revenueImpact / activeMembers) * 100) / 100 : 0;
     const conversionRate = activeMembers > 0 ? (activeMembers / totalMembers) * 100 : 0;
     
     
@@ -246,28 +246,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tierPerformance
     );
     
-    // Calculate financial breakdown
+    // Calculate financial breakdown with rounding
     const financial = {
-      directRevenue: revenueImpact,
-      creditIssued: totalCreditIssued,
-      creditRedeemed: totalCreditRedeemed,
-      netValue: revenueImpact - totalCreditIssued,
-      roi: totalCreditIssued > 0 ? ((revenueImpact - totalCreditIssued) / totalCreditIssued) * 100 : 0,
+      directRevenue: Math.round(revenueImpact * 100) / 100,
+      creditIssued: Math.round(totalCreditIssued * 100) / 100,
+      creditRedeemed: Math.round(totalCreditRedeemed * 100) / 100,
+      netValue: Math.round((revenueImpact - totalCreditIssued) * 100) / 100,
+      roi: totalCreditIssued > 0 ? Math.round(((revenueImpact - totalCreditIssued) / totalCreditIssued) * 100 * 100) / 100 : 0,
       costBreakdown: {
-        creditCost: totalCreditIssued,
-        operationalCost: totalCreditIssued * 0.1, // Assume 10% operational cost
+        creditCost: Math.round(totalCreditIssued * 100) / 100,
+        operationalCost: Math.round(totalCreditIssued * 0.1 * 100) / 100, // Assume 10% operational cost
       },
     };
     
     // Calculate customer segments
     const segments = calculateCustomerSegments(customers, allTransactions);
     
-    // Calculate comparison (vs previous period)
+    // Calculate comparison (vs previous period) with rounding
+    const previousRevenue = Math.round(revenueImpact * 0.85 * 100) / 100; // Mock data - would calculate from historical
     const comparison = {
       period: 'month' as const,
-      current: revenueImpact,
-      previous: revenueImpact * 0.85, // Mock data - would calculate from historical
-      change: revenueImpact * 0.85 > 0 ? ((revenueImpact - (revenueImpact * 0.85)) / (revenueImpact * 0.85)) * 100 : 0,
+      current: Math.round(revenueImpact * 100) / 100,
+      previous: previousRevenue,
+      change: previousRevenue > 0 ? Math.round(((revenueImpact - previousRevenue) / previousRevenue) * 100 * 100) / 100 : 0,
     };
     
     const analyticsData: AnalyticsData = {
@@ -371,15 +372,15 @@ function calculateTierPerformance(
       .filter(t => t.type === 'ORDER_PAYMENT')
       .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
     
-    // Total revenue is estimated from cashback + credit redemptions
-    const revenue = estimatedRevenue + creditRedeemed;
+    // Total revenue is estimated from cashback + credit redemptions (rounded)
+    const revenue = Math.round((estimatedRevenue + creditRedeemed) * 100) / 100;
     
-    const creditBalance = tierCustomers.reduce((sum, c) => 
+    const creditBalance = Math.round(tierCustomers.reduce((sum, c) => 
       sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
-    );
+    ) * 100) / 100;
     
-    // Calculate average spend per customer
-    const avgSpend = tierCustomers.length > 0 ? revenue / tierCustomers.length : 0;
+    // Calculate average spend per customer (rounded)
+    const avgSpend = tierCustomers.length > 0 ? Math.round((revenue / tierCustomers.length) * 100) / 100 : 0;
     
     return {
       id: tier.id,
