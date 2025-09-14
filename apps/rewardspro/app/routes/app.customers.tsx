@@ -2,7 +2,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import {
   Page,
   Layout,
@@ -63,6 +63,11 @@ import {
   calculateTiersForCustomers,
   calculateAllCustomerTiers 
 } from "../services/tier-calculation.server";
+import {
+  assignCustomerToTier,
+  hasManualOverride,
+  getTierHistory
+} from "../services/manual-tier-assignment.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { TierBadge } from "../components/TierBadge";
 import { 
@@ -90,6 +95,12 @@ interface Customer {
   } | null;
   createdAt: string;
   updatedAt: string;
+  hasManualOverride?: boolean;
+  lastTierChange?: {
+    triggerType: string;
+    createdAt: string;
+    note?: string;
+  } | null;
 }
 
 interface LoaderData {
@@ -372,6 +383,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           return json({ success: true, message: "Tier deleted successfully" });
         }
+      }
+    }
+    
+    // Manual tier assignment
+    if (action === "manual-tier-assignment") {
+      const customerId = formData.get("customerId") as string;
+      const tierId = formData.get("tierId") as string | null;
+      const reason = formData.get("reason") as string;
+      const permanentOverride = formData.get("permanentOverride") === "true";
+      
+      const result = await assignCustomerToTier(
+        shop,
+        customerId,
+        tierId === "none" ? null : tierId,
+        session.userId?.toString() || "admin",
+        reason,
+        { permanentOverride }
+      );
+      
+      if (result.success) {
+        return json({ 
+          success: true, 
+          message: result.message || "Tier manually assigned successfully"
+        });
+      } else {
+        return json({ 
+          error: result.error || "Failed to assign tier" 
+        }, { status: 400 });
       }
     }
 
@@ -681,6 +720,13 @@ export default function Customers() {
     evaluationPeriod: "ANNUAL" as "ANNUAL" | "LIFETIME",
   });
   
+  // Manual tier assignment modal state
+  const [manualTierModalActive, setManualTierModalActive] = useState(false);
+  const [manualTierCustomer, setManualTierCustomer] = useState<Customer | null>(null);
+  const [manualTierSelection, setManualTierSelection] = useState<string>("");
+  const [manualTierReason, setManualTierReason] = useState("");
+  const [permanentOverride, setPermanentOverride] = useState(false);
+  
   // Animation refs
   const tableRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -757,6 +803,36 @@ export default function Customers() {
     setSelectedCustomerId(customerId);
     setModalOpen(true);
   }, []);
+  
+  // Open manual tier assignment modal
+  const handleManualTierAssignment = useCallback((customer: Customer) => {
+    setManualTierCustomer(customer);
+    setManualTierSelection(customer.currentTier?.id || "none");
+    setManualTierReason("");
+    setPermanentOverride(false);
+    setManualTierModalActive(true);
+  }, []);
+  
+  // Submit manual tier assignment
+  const handleSubmitManualTier = useCallback(() => {
+    if (!manualTierCustomer || !manualTierReason.trim()) {
+      setToast({
+        active: true,
+        content: "Please provide a reason for the manual tier change",
+      });
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append("action", "manual-tier-assignment");
+    formData.append("customerId", manualTierCustomer.id);
+    formData.append("tierId", manualTierSelection);
+    formData.append("reason", manualTierReason);
+    formData.append("permanentOverride", permanentOverride.toString());
+    
+    submit(formData, { method: "post" });
+    setManualTierModalActive(false);
+  }, [manualTierCustomer, manualTierSelection, manualTierReason, permanentOverride, submit]);
 
   // Tier management handlers
   const handleSaveTier = useCallback(() => {
@@ -913,19 +989,36 @@ export default function Customers() {
           </BlockStack>
         </InlineStack>
       </div>,
-      customer.currentTier ? (
+      <BlockStack gap="100">
         <InlineStack gap="100" align="center">
-          <TierIcon tierName={customer.currentTier.name} />
-          <Badge tone="success">
-            {`${customer.currentTier.name}`}
-          </Badge>
-          <Text variant="bodySm" tone="subdued" as="span">
-            {String(customer.currentTier.cashbackPercent)}%
-          </Text>
+          {customer.currentTier ? (
+            <>
+              <TierIcon tierName={customer.currentTier.name} />
+              <Badge tone="success">
+                {`${customer.currentTier.name}`}
+              </Badge>
+              <Text variant="bodySm" tone="subdued" as="span">
+                {String(customer.currentTier.cashbackPercent)}%
+              </Text>
+            </>
+          ) : (
+            <Badge tone="attention">No tier</Badge>
+          )}
         </InlineStack>
-      ) : (
-        <Badge tone="attention">No tier</Badge>
-      ),
+        {customer.hasManualOverride && (
+          <InlineStack gap="100" align="center">
+            <Icon source={EditIcon} />
+            <Text variant="bodySm" tone="warning" as="span">
+              Manual
+            </Text>
+          </InlineStack>
+        )}
+        {customer.lastTierChange?.triggerType === 'MANUAL_ADMIN' && (
+          <Text variant="bodySm" tone="subdued" as="span">
+            {customer.lastTierChange.note || 'Manually assigned'}
+          </Text>
+        )}
+      </BlockStack>,
       <BlockStack gap="050">
         <Text variant="bodyMd" fontWeight="semibold" as="span">
           {formatAmount(customer.storeCredit)}
@@ -938,6 +1031,15 @@ export default function Customers() {
         <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
           View
         </Button>
+        <Tooltip content="Change tier manually">
+          <Button 
+            size="slim" 
+            variant="plain" 
+            onClick={() => handleManualTierAssignment(customer)}
+            accessibilityLabel={`Manually assign tier for ${customer.email}`}
+            icon={EditIcon}
+          />
+        </Tooltip>
         <Tooltip content="Recalculate tier">
           <Button 
             size="slim" 
@@ -1458,6 +1560,124 @@ export default function Customers() {
             <Text as="p">
               Are you sure you want to delete this tier? This action cannot be undone.
             </Text>
+          </Modal.Section>
+        </Modal>
+        
+        {/* Manual Tier Assignment Modal */}
+        <Modal
+          open={manualTierModalActive}
+          onClose={() => {
+            setManualTierModalActive(false);
+            setManualTierCustomer(null);
+            setManualTierReason("");
+            setPermanentOverride(false);
+          }}
+          title="Manually Assign Tier"
+          primaryAction={{
+            content: "Assign Tier",
+            onAction: handleSubmitManualTier,
+            disabled: !manualTierReason.trim(),
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setManualTierModalActive(false);
+                setManualTierCustomer(null);
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              {manualTierCustomer && (
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <BlockStack gap="100">
+                      <Text variant="headingMd" as="h3">
+                        Customer
+                      </Text>
+                      <Text variant="bodyMd" as="p">
+                        {manualTierCustomer.email}
+                      </Text>
+                    </BlockStack>
+                    {manualTierCustomer.currentTier && (
+                      <BlockStack gap="100">
+                        <Text variant="headingMd" as="h3">
+                          Current Tier
+                        </Text>
+                        <Badge tone="success">
+                          {manualTierCustomer.currentTier.name}
+                        </Badge>
+                      </BlockStack>
+                    )}
+                  </InlineStack>
+                  
+                  {manualTierCustomer.hasManualOverride && (
+                    <Banner
+                      title="This customer has a manual tier override"
+                      tone="warning"
+                      icon={AlertTriangleIcon}
+                    >
+                      <p>Previous manual assignment is active. Setting a new tier will replace it.</p>
+                    </Banner>
+                  )}
+                  
+                  <Divider />
+                </BlockStack>
+              )}
+              
+              <Select
+                label="Select New Tier"
+                options={[
+                  { label: "No tier (remove from program)", value: "none" },
+                  ...data.tiers.map(tier => ({
+                    label: `${tier.name} (${tier.cashbackPercent}% cashback)`,
+                    value: tier.id,
+                  })),
+                ]}
+                value={manualTierSelection}
+                onChange={setManualTierSelection}
+                helpText="This will override automatic tier calculation"
+              />
+              
+              <TextField
+                label="Reason for Change"
+                value={manualTierReason}
+                onChange={setManualTierReason}
+                multiline={3}
+                helpText="Required: Document why this manual change is being made"
+                placeholder="e.g., VIP customer upgrade, promotional offer, customer service resolution"
+                autoComplete="off"
+              />
+              
+              <Checkbox
+                label="Permanent override"
+                checked={permanentOverride}
+                onChange={setPermanentOverride}
+                helpText="When enabled, automatic tier recalculation will be disabled for this customer"
+              />
+              
+              <Banner
+                title="Manual Assignment Impact"
+                tone="info"
+                icon={InfoIcon}
+              >
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodySm">
+                    • Customer will immediately receive the selected tier's benefits
+                  </Text>
+                  <Text as="p" variant="bodySm">
+                    • Change will be logged in the tier history with your admin ID
+                  </Text>
+                  <Text as="p" variant="bodySm">
+                    • {permanentOverride 
+                      ? "Automatic recalculation will be disabled until manually re-enabled" 
+                      : "Tier may change automatically based on future spending"}
+                  </Text>
+                </BlockStack>
+              </Banner>
+            </FormLayout>
           </Modal.Section>
         </Modal>
         
