@@ -37,6 +37,24 @@ import {
 import "../styles/tiers.css";
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+const formatTransactionType = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    'CASHBACK_EARNED': 'Cashback Earned',
+    'ORDER_PAYMENT': 'Order Payment',
+    'REFUND_CREDIT': 'Refund Credit',
+    'MANUAL_ADJUSTMENT': 'Manual Adjustment',
+    'SHOPIFY_SYNC': 'Shopify Sync',
+    'ADMIN_ADJUSTMENT': 'Admin Adjustment',
+    'TIER_BONUS': 'Tier Bonus',
+  };
+  
+  return typeMap[type] || type.replace(/_/g, ' ').toLowerCase();
+};
+
+// ============================================
 // TYPE DEFINITIONS
 // ============================================
 
@@ -133,6 +151,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             select: {
               email: true,
               shopifyCustomerId: true,
+              firstName: true,
+              lastName: true,
             },
           },
         },
@@ -201,15 +221,45 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }));
 
     // Format recent transactions for display
-    const formattedTransactions = recentTransactions.map(tx => ({
-      id: tx.id,
-      type: tx.type,
-      amount: parseFloat(tx.amount.toString()),
-      balance: parseFloat(tx.balance.toString()),
-      customerEmail: tx.customer?.email || "Unknown",
-      createdAt: new Date(tx.createdAt).toLocaleDateString(),
-      metadata: tx.metadata,
-    }));
+    const formattedTransactions = recentTransactions.map(tx => {
+      // Build customer display name
+      let customerDisplay = "Unknown Customer";
+      
+      if (tx.customer) {
+        // Check if we have a name
+        if (tx.customer.firstName || tx.customer.lastName) {
+          const name = [tx.customer.firstName, tx.customer.lastName]
+            .filter(Boolean)
+            .join(' ');
+          customerDisplay = name || tx.customer.email;
+        } else if (tx.customer.email) {
+          customerDisplay = tx.customer.email;
+        }
+      } else {
+        // Log orphaned transactions for debugging
+        console.warn(`[Dashboard] Transaction ${tx.id} has no associated customer`);
+        
+        // Try to extract info from metadata if available
+        if (tx.metadata && typeof tx.metadata === 'object') {
+          const meta = tx.metadata as any;
+          if (meta.customerEmail) {
+            customerDisplay = meta.customerEmail;
+          } else if (meta.customerId) {
+            customerDisplay = `Customer #${meta.customerId}`;
+          }
+        }
+      }
+      
+      return {
+        id: tx.id,
+        type: tx.type,
+        amount: parseFloat(tx.amount.toString()),
+        balance: parseFloat(tx.balance.toString()),
+        customerEmail: customerDisplay,
+        createdAt: new Date(tx.createdAt).toLocaleDateString(),
+        metadata: tx.metadata,
+      };
+    });
 
     // Check if setup is complete
     const setupComplete = tiers.length > 0;
@@ -491,7 +541,7 @@ export default function Dashboard() {
                           headings={["Customer", "Type", "Amount", "Balance", "Date"]}
                           rows={data.recentTransactions.slice(0, 10).map(tx => [
                             tx.customerEmail,
-                            tx.type.replace(/_/g, ' ').toLowerCase(),
+                            formatTransactionType(tx.type),
                             formatAmount(tx.amount),
                             formatAmount(tx.balance),
                             tx.createdAt,
