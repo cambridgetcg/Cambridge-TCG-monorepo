@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigation, useNavigate, useSearchParams } from "@remix-run/react";
 import { useState, useCallback, useMemo } from "react";
 import {
   Page,
@@ -140,9 +140,36 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   
   const shop = session.shop;
   
+  // Get date range from URL parameters
+  const url = new URL(request.url);
+  const dateRange = url.searchParams.get('range') || '30days';
+  
   try {
-    // Get date 30 days ago as ISO string for Data API
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Calculate date range based on selection
+    let startDate: Date;
+    const now = new Date();
+    
+    switch (dateRange) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case '7days':
+        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30days':
+        startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'quarter':
+        startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    }
+    
+    const startDateISO = startDate.toISOString();
     
     // Fetch all necessary data
     const [
@@ -177,10 +204,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
     
-    // Filter recent transactions (last 30 days) since we can't use date comparison in query
-    const thirtyDaysAgoDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // Filter transactions based on selected date range
     const filteredRecentTransactions = recentTransactions.filter(
-      t => new Date(t.createdAt) >= thirtyDaysAgoDate
+      t => new Date(t.createdAt) >= startDate
+    );
+    
+    // Filter all transactions for the selected period
+    const filteredAllTransactions = allTransactions.filter(
+      t => new Date(t.createdAt) >= startDate
     );
     
     // Calculate metrics
@@ -193,11 +224,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
     );
     
-    const totalCreditIssued = allTransactions
+    const totalCreditIssued = filteredAllTransactions
       .filter(t => t.type === 'CASHBACK_EARNED' || t.type === 'MANUAL_ADJUSTMENT')
       .reduce((sum, t) => sum + Math.max(0, t.amount ? parseFloat(t.amount.toString()) : 0), 0);
     
-    const totalCreditRedeemed = allTransactions
+    const totalCreditRedeemed = filteredAllTransactions
       .filter(t => t.type === 'ORDER_PAYMENT')
       .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
     
@@ -208,7 +239,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // TODO: In production, fetch actual order data from Shopify GraphQL API
     // Currently estimating revenue based on cashback earned (reverse calculation)
     // If customers earned cashback, we can estimate the order values
-    const totalCashbackEarned = allTransactions
+    const totalCashbackEarned = filteredAllTransactions
       .filter(t => t.type === 'CASHBACK_EARNED')
       .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
     
@@ -235,7 +266,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const trends = generateTrendData(customers, filteredRecentTransactions);
     
     // Calculate tier performance
-    const tierPerformance = calculateTierPerformance(tiers, customers, allTransactions);
+    const tierPerformance = calculateTierPerformance(tiers, customers, filteredAllTransactions);
     
     // Generate insights
     const insights = generateInsights(
@@ -260,7 +291,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     };
     
     // Calculate customer segments
-    const segments = calculateCustomerSegments(customers, allTransactions);
+    const segments = calculateCustomerSegments(customers, filteredAllTransactions);
     
     // Calculate comparison (vs previous period) with rounding
     const previousRevenue = Math.round(revenueImpact * 0.85 * 100) / 100; // Mock data - would calculate from historical
@@ -690,8 +721,13 @@ function InsightCard({ insight }: { insight: Insight }) {
 export default function AnalyticsPage() {
   const data = useLoaderData<typeof loader>();
   const navigation = useNavigation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
   const [selectedTab, setSelectedTab] = useState(0);
-  const [selectedDateRange, setSelectedDateRange] = useState('30days');
+  const [selectedDateRange, setSelectedDateRange] = useState(
+    searchParams.get('range') || '30days'
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customDateRange, setCustomDateRange] = useState<{
     start: Date | null;
@@ -710,10 +746,9 @@ export default function AnalyticsPage() {
     setSelectedDateRange(range);
     setShowDatePicker(false);
     
-    // In a real implementation, this would trigger a data reload
-    // For now, we'll just update the UI state
-    console.log('Selected date range:', range);
-  }, []);
+    // Navigate with the new date range parameter
+    navigate(`?range=${range}`);
+  }, [navigate]);
   
   // Get date range display text
   const getDateRangeText = useCallback(() => {
