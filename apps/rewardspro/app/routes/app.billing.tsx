@@ -379,14 +379,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const intent = formData.get("intent") as string;
 
     if (intent === "upgrade") {
-      // Redirect to Shopify-hosted pricing page for managed pricing
-      const shopDomain = session.shop;
-      const storeHandle = shopDomain.replace(".myshopify.com", "");
-      const appHandle = process.env.SHOPIFY_APP_HANDLE || "rewardspro";
+      // Use Shopify billing API to request a plan upgrade
+      const planName = formData.get("plan") as string;
       
-      const pricingPageUrl = `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+      if (!billing) {
+        return json({ error: "Billing not configured" }, { status: 500 });
+      }
       
-      return redirect(pricingPageUrl, { target: "_top" });
+      try {
+        // Import plan names
+        const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+        
+        // Determine which plan to request
+        let requestPlan = MONTHLY_PLAN; // Default to monthly
+        if (planName === "RewardsPro Annual") {
+          requestPlan = ANNUAL_PLAN;
+        } else if (planName === "RewardsPro Free") {
+          requestPlan = FREE_PLAN;
+        }
+        
+        // Request the billing plan
+        const billingResponse = await billing.request({
+          plan: requestPlan,
+          isTest: process.env.NODE_ENV === 'development',
+          returnUrl: `${process.env.SHOPIFY_APP_URL}/app/billing`,
+        });
+        
+        // This will return a redirect response to Shopify's billing page
+        return billingResponse;
+      } catch (billingError: any) {
+        // If billing.request throws a Response, return it
+        if (billingError instanceof Response) {
+          console.log("[Billing Action] Billing request returned Response, forwarding it");
+          return billingError;
+        }
+        
+        console.error("[Billing Action] Error requesting plan:", billingError);
+        return json({ error: "Failed to request billing plan" }, { status: 500 });
+      }
     }
     
     if (intent === "create-usage-charge") {
@@ -475,9 +505,12 @@ export default function BillingPage() {
   const planDetails = MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS];
   const hasActivePlan = activeSubscription || currentPlan?.status === "active";
   
-  const handleUpgrade = useCallback(() => {
+  const handleUpgrade = useCallback((planName?: string) => {
     fetcher.submit(
-      { intent: "upgrade" },
+      { 
+        intent: "upgrade",
+        plan: planName || "RewardsPro Monthly" // Default to monthly plan
+      },
       { method: "post" }
     );
   }, [fetcher]);
@@ -490,7 +523,7 @@ export default function BillingPage() {
       title="Billing & Usage"
       primaryAction={{
         content: hasActivePlan ? "Change plan" : "Choose a plan",
-        onAction: handleUpgrade,
+        onAction: () => handleUpgrade(),
       }}
     >
       <Layout>
@@ -578,7 +611,7 @@ export default function BillingPage() {
                         Managed through Shopify Billing
                       </Text>
                     </BlockStack>
-                    <Button onClick={handleUpgrade}>Change plan</Button>
+                    <Button onClick={() => handleUpgrade()}>Change plan</Button>
                   </InlineStack>
 
                   <Box padding="400" background="bg-surface-secondary" borderRadius="200">
@@ -715,7 +748,7 @@ export default function BillingPage() {
                 illustration="https://cdn.shopify.com/s/files/1/0583/9399/8427/files/empty-state.svg"
                 primaryAction={{
                   content: "Choose a plan",
-                  onAction: handleUpgrade,
+                  onAction: () => handleUpgrade(),
                 }}
               >
                 <p>Select a billing plan to start using RewardsPro and unlock all features.</p>
@@ -823,7 +856,7 @@ export default function BillingPage() {
                           </Text>
                         </BlockStack>
                         {plan.name !== activePlanName && (
-                          <Button onClick={handleUpgrade}>
+                          <Button onClick={() => handleUpgrade(plan.name)}>
                             Select
                           </Button>
                         )}
