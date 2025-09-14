@@ -1065,6 +1065,9 @@ export default function Customers() {
                                           <Text variant="headingMd" as="h3">
                                             {tier.name}
                                           </Text>
+                                          <Badge tone="success">
+                                            {tier.cashbackPercent}% Cashback
+                                          </Badge>
                                           {customerCount > 0 && (
                                             <Badge tone="info">
                                               {`${customerCount} ${customerCount === 1 ? 'customer' : 'customers'}`}
@@ -1082,17 +1085,6 @@ export default function Customers() {
                                               {' min spend'}
                                             </Text>
                                           </InlineStack>
-                                          
-                                          <Box borderInlineStartWidth="025" borderColor="border">
-                                            <Box paddingInlineStart="400">
-                                              <TierBadge 
-                                                tierName={tier.name}
-                                                size="medium"
-                                                showIcon={false}
-                                                cashbackPercent={tier.cashbackPercent}
-                                              />
-                                            </Box>
-                                          </Box>
                                           
                                           <Box borderInlineStartWidth="025" borderColor="border">
                                             <Box paddingInlineStart="400">
