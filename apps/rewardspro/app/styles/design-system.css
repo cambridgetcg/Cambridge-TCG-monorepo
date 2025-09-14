@@ -89,11 +89,10 @@
 .rp-metric-card {
   background: var(--rp-color-surface-default);
   border-radius: var(--rp-radius-md);
-  padding: var(--rp-space-600);
   text-align: center;
   transition: all var(--rp-motion-base) var(--rp-ease-out);
   position: relative;
-  overflow: hidden;
+  min-width: 200px;
 }
 
 .rp-metric-card:hover {

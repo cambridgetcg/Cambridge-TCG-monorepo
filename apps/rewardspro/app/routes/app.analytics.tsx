@@ -875,8 +875,8 @@ export default function AnalyticsPage() {
 
         {/* Key Metrics Grid */}
         <Layout.Section>
-          <Grid>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+          <InlineStack gap="400" wrap={false}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
               <AnalyticsMetricCard
                 title="Total Revenue Impact"
                 value={formatAmount(data.revenueImpact)}
@@ -885,8 +885,8 @@ export default function AnalyticsPage() {
                 loading={isLoading}
                 delay={0}
               />
-            </Grid.Cell>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            </div>
+            <div style={{ flex: 1, minWidth: '220px' }}>
               <AnalyticsMetricCard
                 title="Active Members"
                 value={`${data.activeMembers} / ${data.totalMembers}`}
@@ -895,8 +895,8 @@ export default function AnalyticsPage() {
                 loading={isLoading}
                 delay={50}
               />
-            </Grid.Cell>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            </div>
+            <div style={{ flex: 1, minWidth: '220px' }}>
               <AnalyticsMetricCard
                 title="Avg Order Value"
                 value={formatAmount(data.avgOrderValue)}
@@ -905,8 +905,8 @@ export default function AnalyticsPage() {
                 loading={isLoading}
                 delay={100}
               />
-            </Grid.Cell>
-            <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+            </div>
+            <div style={{ flex: 1, minWidth: '220px' }}>
               <AnalyticsMetricCard
                 title="Conversion Rate"
                 value={`${data.conversionRate.toFixed(1)}%`}
@@ -915,8 +915,8 @@ export default function AnalyticsPage() {
                 loading={isLoading}
                 delay={150}
               />
-            </Grid.Cell>
-          </Grid>
+            </div>
+          </InlineStack>
         </Layout.Section>
 
         {/* Tabbed Content */}

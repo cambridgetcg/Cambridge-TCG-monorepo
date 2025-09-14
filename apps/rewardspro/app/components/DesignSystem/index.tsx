@@ -84,7 +84,7 @@ export function MetricCard({
     return (
       <Card>
         <Box padding="400">
-          <BlockStack gap="300" align="center">
+          <BlockStack gap="300">
             <SkeletonDisplayText size="small" />
             <SkeletonBodyText lines={2} />
           </BlockStack>
@@ -99,23 +99,31 @@ export function MetricCard({
         <div
           onClick={onClick}
           style={{ cursor: onClick ? 'pointer' : 'default' }}
-          className="rp-metric-card"
         >
-          <BlockStack gap="200" align="center">
-            <div 
-              className="rp-metric-icon"
-              style={{ background: toneColors[tone] }}
-            >
-              <Icon source={icon} />
-            </div>
-            <Text variant="heading2xl" as="h3" fontWeight="bold">
+          <BlockStack gap="200">
+            <InlineStack align="center" blockAlign="center" gap="200">
+              <div 
+                className="rp-metric-icon"
+                style={{ 
+                  background: toneColors[tone],
+                  borderRadius: '8px',
+                  padding: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Icon source={icon} />
+              </div>
+            </InlineStack>
+            <Text variant="headingLg" as="h3" fontWeight="bold" alignment="center">
               {value}
             </Text>
-            <Text variant="bodySm" tone="subdued" as="p">
+            <Text variant="bodyMd" tone="subdued" as="p" alignment="center">
               {title}
             </Text>
             {change !== undefined && (
-              <InlineStack gap="100" align="center">
+              <InlineStack gap="100" align="center" blockAlign="center">
                 <Icon
                   source={change > 0 ? ArrowUpIcon : ArrowDownIcon}
                   tone={change > 0 ? 'success' : 'critical'}
@@ -566,29 +574,29 @@ interface StatsOverviewProps {
 export function StatsOverview({ stats, loading = false }: StatsOverviewProps) {
   if (loading) {
     return (
-      <Grid columns={{ xs: 1, sm: 2, md: 4 }}>
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Grid.Cell key={i}>
+      <InlineStack gap="400" wrap={false}>
+        {Array.from({ length: Math.min(4, stats?.length || 4) }).map((_, i) => (
+          <div key={i} style={{ flex: 1, minWidth: '200px' }}>
             <LoadingSkeleton type="card" lines={2} />
-          </Grid.Cell>
+          </div>
         ))}
-      </Grid>
+      </InlineStack>
     );
   }
 
   return (
-    <Grid columns={{ xs: 1, sm: 2, md: stats.length }}>
+    <InlineStack gap="400" wrap={false}>
       {stats.map((stat, index) => (
-        <Grid.Cell key={index}>
+        <div key={index} style={{ flex: 1, minWidth: '200px' }}>
           <MetricCard
             title={stat.label}
             value={stat.value}
             change={stat.change}
             icon={stat.icon}
           />
-        </Grid.Cell>
+        </div>
       ))}
-    </Grid>
+    </InlineStack>
   );
 }
 
