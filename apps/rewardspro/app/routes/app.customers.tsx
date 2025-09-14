@@ -30,7 +30,6 @@ import {
   SkeletonDisplayText,
   Toast,
   Frame,
-  Collapsible,
   FormLayout,
   Checkbox,
 } from "@shopify/polaris";
@@ -44,13 +43,10 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   InfoIcon,
-  ClockIcon,
   StarIcon,
   CheckIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   PlusIcon,
   EditIcon,
   DeleteIcon,
@@ -674,7 +670,6 @@ export default function Customers() {
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
   const [toast, setToast] = useState<ToastState>({ active: false, content: '' });
   
@@ -1312,121 +1307,6 @@ export default function Customers() {
                 />
               )}
 
-              {/* Collapsible Advanced Section */}
-              <Card>
-                <Box padding="400">
-                  <Button
-                    fullWidth
-                    textAlign="left"
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    ariaExpanded={showAdvanced}
-                    ariaControls="advanced-info"
-                    icon={showAdvanced ? ChevronUpIcon : ChevronDownIcon}
-                  >
-                    {showAdvanced ? 'Hide' : 'Show'} Calculation Details
-                  </Button>
-                </Box>
-                
-                <Collapsible
-                  open={showAdvanced}
-                  id="advanced-info"
-                  transition={{ duration: '200ms', timingFunction: 'ease-out' }}
-                >
-                  <Box padding="400">
-                    <Grid columns={{ xs: 1, sm: 1, md: 2, lg: 2, xl: 2 }}>
-                      <Grid.Cell>
-                        <BlockStack gap="400">
-                          <InlineStack align="space-between">
-                            <Text variant="headingMd" as="h3">
-                              How Customer Management Works
-                            </Text>
-                            <Icon source={InfoIcon} tone="base" />
-                          </InlineStack>
-                          
-                          <BlockStack gap="300">
-                            <InlineStack gap="200" align="start">
-                              <Icon source={RefreshIcon} tone="success" />
-                              <BlockStack gap="050">
-                                <Text variant="bodyMd" fontWeight="medium" as="span">
-                                  Sync from Shopify
-                                </Text>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  Import all your existing customers with one click
-                                </Text>
-                              </BlockStack>
-                            </InlineStack>
-
-                            <InlineStack gap="200" align="start">
-                              <Icon source={CheckCircleIcon} tone="success" />
-                              <BlockStack gap="050">
-                                <Text variant="bodyMd" fontWeight="medium" as="span">
-                                  Automatic Updates
-                                </Text>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  Customer profiles sync automatically with new orders
-                                </Text>
-                              </BlockStack>
-                            </InlineStack>
-
-                            <InlineStack gap="200" align="start">
-                              <Icon source={RewardIcon} tone="success" />
-                              <BlockStack gap="050">
-                                <Text variant="bodyMd" fontWeight="medium" as="span">
-                                  Tier Assignment
-                                </Text>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  Respects annual or lifetime evaluation
-                                </Text>
-                              </BlockStack>
-                            </InlineStack>
-                          </BlockStack>
-                        </BlockStack>
-                      </Grid.Cell>
-
-                      <Grid.Cell>
-                        <BlockStack gap="400">
-                          <InlineStack align="space-between">
-                            <Text variant="headingMd" as="h3">
-                              Quick Actions
-                            </Text>
-                            <Icon source={ClockIcon} tone="base" />
-                          </InlineStack>
-                          
-                          <BlockStack gap="300">
-                            <Button fullWidth onClick={handleSyncCustomers} loading={isLoading} icon={RefreshIcon}>
-                              Sync Customers from Shopify
-                            </Button>
-                            
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Import all your existing customers from Shopify. New customers are automatically 
-                              added when they place orders, but use this to import your existing customer base.
-                            </Text>
-
-                            <Divider />
-                            
-                            <Button fullWidth onClick={handleCalculateAll} loading={isLoading} variant="secondary">
-                              Recalculate All Tiers
-                            </Button>
-                            
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Updates all customer tiers based on their order history and current tier settings.
-                            </Text>
-
-                            <Divider />
-
-                            <InlineStack gap="200">
-                              <Badge tone="info">Tip</Badge>
-                              <Text variant="bodySm" as="span">
-                                Click on any customer to manage their store credit
-                              </Text>
-                            </InlineStack>
-                          </BlockStack>
-                        </BlockStack>
-                      </Grid.Cell>
-                    </Grid>
-                  </Box>
-                </Collapsible>
-              </Card>
             </BlockStack>
           </Layout.Section>
         </Layout>
