@@ -35,6 +35,7 @@
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.webhooks-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -279,6 +280,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.webhooks-status.tsx",
         "path": "webhooks-status",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.tier-products": {
+        "id": "routes/app.tier-products",
+        "parentId": "routes/app",
+        "file": "app/routes/app.tier-products.tsx",
+        "path": "tier-products",
         "config": {
           "runtime": "nodejs"
         }
@@ -529,6 +539,12 @@
         "parentId": "routes/app",
         "file": "routes/app.webhooks-status.tsx",
         "path": "webhooks-status"
+      },
+      "routes/app.tier-products": {
+        "id": "routes/app.tier-products",
+        "parentId": "routes/app",
+        "file": "routes/app.tier-products.tsx",
+        "path": "tier-products"
       },
       "routes/app.proxy-test": {
         "id": "routes/app.proxy-test",
