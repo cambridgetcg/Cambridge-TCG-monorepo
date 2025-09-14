@@ -341,6 +341,114 @@ export async function action({ request }: ActionFunctionArgs) {
       });
     }
 
+    // Track monthly order usage for free plan limits
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // JavaScript months are 0-based
+    
+    // Get or create monthly usage record
+    let monthlyUsage = await db.monthlyOrderUsage.findUnique({
+      where: {
+        shop_year_month: {
+          shop,
+          year,
+          month
+        }
+      }
+    });
+    
+    // Check current plan to determine limits
+    const { billing } = await authenticate.admin(request);
+    let currentPlanName = 'RewardsPro Free'; // Default to free plan
+    let planLimit = 100; // Free plan limit
+    
+    if (billing) {
+      try {
+        const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("~/shopify.server");
+        const { hasActivePayment, appSubscriptions } = await billing.check({
+          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
+          isTest: false,
+        });
+        
+        if (hasActivePayment && appSubscriptions?.length > 0) {
+          currentPlanName = appSubscriptions[0].name;
+          planLimit = currentPlanName === 'RewardsPro Annual' ? 12000 : 1000; // Annual gets 12000, monthly gets 1000
+        }
+      } catch (error) {
+        console.warn('[OrdersPaidWebhook] Could not check billing status:', error);
+      }
+    }
+    
+    // Create or update monthly usage
+    if (!monthlyUsage) {
+      monthlyUsage = await db.monthlyOrderUsage.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          year,
+          month,
+          orderCount: 1,
+          planLimit,
+          planName: currentPlanName,
+          lastOrderDate: now,
+          createdAt: now,
+          updatedAt: now
+        }
+      });
+      console.log('[OrdersPaidWebhook] Created monthly usage record:', monthlyUsage);
+    } else {
+      // Update existing usage
+      monthlyUsage = await db.monthlyOrderUsage.update({
+        where: {
+          id: monthlyUsage.id
+        },
+        data: {
+          orderCount: monthlyUsage.orderCount + 1,
+          planLimit,
+          planName: currentPlanName,
+          lastOrderDate: now,
+          updatedAt: now
+        }
+      });
+      console.log('[OrdersPaidWebhook] Updated monthly usage:', {
+        orderCount: monthlyUsage.orderCount,
+        planLimit: monthlyUsage.planLimit,
+        remaining: monthlyUsage.planLimit - monthlyUsage.orderCount
+      });
+    }
+    
+    // Check if free plan limit exceeded
+    if (currentPlanName === 'RewardsPro Free' && monthlyUsage.orderCount > 100) {
+      console.warn('[OrdersPaidWebhook] ⚠️ Free plan limit exceeded!', {
+        shop,
+        orderCount: monthlyUsage.orderCount,
+        limit: 100
+      });
+      
+      // Create notification for merchant
+      await db.notification.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          type: 'FREE_PLAN_LIMIT_EXCEEDED',
+          title: 'Free Plan Limit Exceeded',
+          message: `You've processed ${monthlyUsage.orderCount} orders this month, exceeding your free plan limit of 100 orders. Please upgrade to continue earning cashback rewards.`,
+          severity: 'WARNING',
+          read: false,
+          createdAt: now
+        }
+      });
+      
+      // Don't process cashback for orders over the limit
+      return json({
+        success: false,
+        message: "Free plan limit exceeded. Upgrade required.",
+        orderId,
+        orderCount: monthlyUsage.orderCount,
+        limit: 100
+      });
+    }
+
     // Get shop settings for store currency
     const shopSettings = await db.shopSettings.findUnique({
       where: { shop }

@@ -10,6 +10,7 @@ import { authenticate, FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.s
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
+import db from "../db.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -60,37 +61,70 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.log("[App Loader] Checking billing status...");
       
       try {
-        const { hasActivePayment } = await billing.check({
-          plans: [FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
+        // First check if they have any paid plan
+        const { hasActivePayment, appSubscriptions } = await billing.check({
+          plans: [MONTHLY_PLAN, ANNUAL_PLAN],
           isTest: process.env.NODE_ENV === 'development',
         });
         
-        console.log("[App Loader] Billing check result:", { hasActivePayment });
+        console.log("[App Loader] Billing check result:", { hasActivePayment, plans: appSubscriptions?.map(s => s.name) });
         
-        // If no active payment and not on a billing-related page, redirect to billing
-        if (!hasActivePayment) {
-          console.log("[App Loader] No active subscription found, offering free trial...");
+        // If they have a paid plan, continue
+        if (hasActivePayment) {
+          console.log("[App Loader] Active paid subscription found, continuing...");
+        } else {
+          // Check if they're on the free plan
+          const { hasActivePayment: hasFreePayment } = await billing.check({
+            plans: [FREE_PLAN],
+            isTest: process.env.NODE_ENV === 'development',
+          });
           
-          try {
-            // Use the billing.request method to redirect to billing page
-            // Start with the FREE_PLAN which includes a 14-day trial
-            const billingResponse = await billing.request({
-              plan: FREE_PLAN,
-              isTest: process.env.NODE_ENV === 'development',
-              returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
+          if (!hasFreePayment) {
+            // No plan at all - activate free plan
+            console.log("[App Loader] No subscription found, activating free plan...");
+            
+            try {
+              // Request the free plan (which is $0)
+              const billingResponse = await billing.request({
+                plan: FREE_PLAN,
+                isTest: process.env.NODE_ENV === 'development',
+                returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
+              });
+              
+              console.log("[App Loader] Free plan activation requested");
+              // Return the billing redirect response
+              return billingResponse;
+            } catch (billingRequestError: any) {
+              // If billing.request throws a Response, return it
+              if (billingRequestError instanceof Response) {
+                console.log("[App Loader] Billing request returned Response, forwarding it");
+                return billingRequestError;
+              }
+              // Otherwise, throw it to be caught by outer catch
+              throw billingRequestError;
+            }
+          } else {
+            console.log("[App Loader] Free plan active, checking usage limits...");
+            
+            // They're on free plan - check if they've exceeded limits
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            
+            const monthlyUsage = await db.monthlyOrderUsage.findUnique({
+              where: {
+                shop_year_month: {
+                  shop: session.shop,
+                  year,
+                  month
+                }
+              }
             });
             
-            console.log("[App Loader] Billing request successful, returning redirect");
-            // Return the billing redirect response
-            return billingResponse;
-          } catch (billingRequestError: any) {
-            // If billing.request throws a Response, return it
-            if (billingRequestError instanceof Response) {
-              console.log("[App Loader] Billing request returned Response, forwarding it");
-              return billingRequestError;
+            if (monthlyUsage && monthlyUsage.orderCount >= 100) {
+              console.log("[App Loader] Free plan limit reached, showing upgrade prompt");
+              // Don't force redirect, just log - let them access billing page to upgrade
             }
-            // Otherwise, throw it to be caught by outer catch
-            throw billingRequestError;
           }
         }
       } catch (billingError: any) {

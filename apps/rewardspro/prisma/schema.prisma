@@ -270,6 +270,28 @@ model Notification {
   @@index([shop, createdAt(sort: Desc)])
 }
 
+model MonthlyOrderUsage {
+  id                String              @id @default(uuid())
+  shop              String
+  
+  // Period tracking
+  year              Int                 // e.g., 2025
+  month             Int                 // 1-12
+  
+  // Usage tracking
+  orderCount        Int                 @default(0)
+  planLimit         Int                 // 100 for free, 1000 for paid
+  planName          String              // Current plan name
+  
+  // Metadata
+  lastOrderDate     DateTime?           // Last order processed
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@unique([shop, year, month])
+  @@index([shop, year, month])
+}
+
 //Enums
 
 enum Currency {

@@ -8,7 +8,7 @@ import {
 import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
 
 // Define billing plan names (should match Partner Dashboard configuration)
-export const FREE_PLAN = "RewardsPro Free Trial";
+export const FREE_PLAN = "RewardsPro Free";
 export const MONTHLY_PLAN = "RewardsPro Monthly";
 export const ANNUAL_PLAN = "RewardsPro Annual";
 export const USAGE_PLAN = "RewardsPro Usage";
@@ -24,16 +24,15 @@ const shopify = shopifyApp({
   distribution: AppDistribution.AppStore,
   // Billing configuration for managed pricing
   billing: {
-    // Free trial plan - 14 days free, then converts to monthly
+    // Free plan - permanently free with 100 orders/month limit
     [FREE_PLAN]: {
       lineItems: [
         {
-          amount: 49,
+          amount: 0,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
         }
       ],
-      trialDays: 14, // 14-day free trial
     },
     [MONTHLY_PLAN]: {
       lineItems: [

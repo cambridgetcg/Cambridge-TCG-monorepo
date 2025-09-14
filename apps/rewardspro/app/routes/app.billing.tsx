@@ -67,29 +67,34 @@ type LoaderData = {
   daysRemaining: number;
   notifications: any[];
   shop: string;
+  monthlyOrderUsage: {
+    orderCount: number;
+    planLimit: number;
+    planName: string;
+  } | null;
 };
 
 // ============= CONSTANTS =============
 const MANAGED_PLANS = {
-  "RewardsPro Free Trial": {
-    name: "RewardsPro Free Trial",
-    displayName: "Free Trial",
+  "RewardsPro Free": {
+    name: "RewardsPro Free",
+    displayName: "Free Plan",
     price: 0,
-    interval: "14 days",
-    ordersIncluded: 1000,
+    interval: "month",
+    ordersIncluded: 100,
     overageRate: 0,
     features: [
-      "14-day free trial",
-      "1,000 orders included",
-      "Full access to all features",
+      "100 orders per month",
+      "All core features included",
+      "Unlimited loyalty tiers",
+      "Customer management",
+      "Store credit tracking",
+      "Basic analytics",
       "No credit card required",
-      "Automatically converts to monthly plan",
-      "Cancel anytime",
-      "Priority support during trial",
-      "Full onboarding assistance",
+      "Community support",
     ],
     recommended: false,
-    isTrial: true,
+    isFree: true,
   },
   "RewardsPro Monthly": {
     name: "RewardsPro Monthly",
@@ -298,6 +303,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         ? record.processedAt.toISOString()
         : String(record.processedAt),
     }));
+    
+    // Get monthly order usage for free plan tracking
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    
+    let monthlyOrderUsage = null;
+    try {
+      const orderUsage = await db.monthlyOrderUsage.findUnique({
+        where: {
+          shop_year_month: {
+            shop,
+            year,
+            month
+          }
+        }
+      });
+      
+      if (orderUsage) {
+        monthlyOrderUsage = {
+          orderCount: orderUsage.orderCount,
+          planLimit: orderUsage.planLimit,
+          planName: orderUsage.planName
+        };
+      }
+    } catch (error) {
+      console.warn("[Billing Page] Could not fetch monthly order usage:", error);
+    }
 
     return json<LoaderData>({
       currentPlan: serializedPlan,
@@ -308,6 +341,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       daysRemaining,
       notifications,
       shop,
+      monthlyOrderUsage,
     });
   } catch (error: any) {
     console.error("[Billing Page] Error:", error);
@@ -424,7 +458,8 @@ export default function BillingPage() {
     usagePercentage, 
     daysRemaining,
     notifications,
-    shop 
+    shop,
+    monthlyOrderUsage 
   } = useLoaderData<LoaderData>();
   
   const fetcher = useFetcher();
@@ -490,6 +525,28 @@ export default function BillingPage() {
               </Banner>
             ))}
             
+            {/* Free Plan Order Usage Alert */}
+            {monthlyOrderUsage && monthlyOrderUsage.planName === 'RewardsPro Free' && (
+              <>
+                {monthlyOrderUsage.orderCount >= 100 && (
+                  <Banner tone="critical" title="Free plan limit exceeded">
+                    <p>
+                      You've processed {monthlyOrderUsage.orderCount} orders this month, exceeding your free plan limit of 100 orders. 
+                      Please upgrade to continue earning cashback rewards on new orders.
+                    </p>
+                  </Banner>
+                )}
+                {monthlyOrderUsage.orderCount >= 80 && monthlyOrderUsage.orderCount < 100 && (
+                  <Banner tone="warning" title="Approaching free plan limit">
+                    <p>
+                      You've processed {monthlyOrderUsage.orderCount} of 100 orders this month. 
+                      Consider upgrading to a paid plan to avoid interruption.
+                    </p>
+                  </Banner>
+                )}
+              </>
+            )}
+            
             {/* Usage Alert Banners */}
             {currentPlan?.usageCap && usagePercentage >= 90 && (
               <Banner tone="critical" title="Usage cap approaching">
@@ -553,6 +610,36 @@ export default function BillingPage() {
                         </BlockStack>
                       </InlineStack>
 
+                      {/* Free Plan Order Usage */}
+                      {monthlyOrderUsage && monthlyOrderUsage.planName === 'RewardsPro Free' && (
+                        <Box>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between">
+                              <Text as="p" variant="bodyMd">
+                                <Icon source={ChartVerticalIcon} tone="base" />
+                                {" "}Orders: {monthlyOrderUsage.orderCount}
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {Math.round((monthlyOrderUsage.orderCount / monthlyOrderUsage.planLimit) * 100)}% of {monthlyOrderUsage.planLimit} limit
+                              </Text>
+                            </InlineStack>
+                            <ProgressBar 
+                              progress={Math.min((monthlyOrderUsage.orderCount / monthlyOrderUsage.planLimit) * 100, 100)} 
+                              tone={monthlyOrderUsage.orderCount >= 100 ? "critical" : monthlyOrderUsage.orderCount >= 80 ? "warning" : "success"}
+                              size="small"
+                            />
+                            {monthlyOrderUsage.orderCount >= 100 && (
+                              <InlineStack gap="100">
+                                <Icon source={AlertTriangleIcon} tone="critical" />
+                                <Text as="p" variant="bodySm" tone="critical">
+                                  Limit exceeded - upgrade required
+                                </Text>
+                              </InlineStack>
+                            )}
+                          </BlockStack>
+                        </Box>
+                      )}
+                      
                       {/* Usage Progress */}
                       {currentPlan?.usageCap && (
                         <Box>
