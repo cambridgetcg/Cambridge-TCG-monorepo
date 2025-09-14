@@ -208,7 +208,6 @@ export default function App() {
           <Link to="/app/tier-products">Tier Products</Link>
           <Link to="/app/credit-management">Credit Management</Link>
           <Link to="/app/settings">Settings</Link>
-          <Link to="/app/webhooks-status">Webhooks</Link>
           <Link to="/app/billing">Billing</Link>
         </NavMenu>
         <Outlet />
