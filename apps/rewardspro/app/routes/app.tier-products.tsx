@@ -87,30 +87,39 @@ interface LoaderData {
 
 // Generate a unique SKU for tier products
 function generateTierSKU(tierName: string, duration: string, shop: string): string {
-  // Clean the tier name for SKU
+  // Get shop name without .myshopify.com
+  const shopName = shop.split('.')[0];
+  
+  // Clean and get first 4-6 chars of shop name
+  const shopPrefix = shopName
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .substring(0, Math.min(6, Math.max(4, shopName.length)));
+  
+  // Clean the tier name for SKU (3-4 chars)
   const cleanTierName = tierName
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
-    .substring(0, 6);
-  
-  // Get shop prefix (first 3 letters of shop name)
-  const shopPrefix = shop
-    .split('.')[0]
-    .toUpperCase()
-    .substring(0, 3);
+    .substring(0, 4);
   
   // Duration code
   const durationCode = {
     'MONTHLY': 'M',
-    'QUARTERLY': 'Q',
+    'QUARTERLY': 'Q', 
     'ANNUAL': 'A',
     'LIFETIME': 'L'
   }[duration] || 'X';
   
-  // Random suffix for uniqueness
-  const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  // Date-based component for uniqueness (YYMM)
+  const now = new Date();
+  const dateCode = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
   
-  return `${shopPrefix}-${cleanTierName}-${durationCode}-${randomSuffix}`;
+  // Random suffix for additional uniqueness (3 chars)
+  const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+  
+  // Format: SHOP-TIER-DUR-DATE-RND
+  // Example: ACME-GOLD-A-2501-X9K
+  return `${shopPrefix}-${cleanTierName}-${durationCode}-${dateCode}-${randomSuffix}`;
 }
 
 // Format duration for display
@@ -262,130 +271,83 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       const product = createResult.data.productCreate.product;
       
-      // Step 2: Update the product variant with price and SKU
-      const updateVariantResponse = await admin.graphql(
+      // Step 2: Get the default variant ID first
+      const getVariantResponse = await admin.graphql(
         `#graphql
-        mutation updateProductVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-            productVariants {
-              id
-              sku
-              price
-            }
-            userErrors {
-              field
-              message
+        query getProductVariant($id: ID!) {
+          product(id: $id) {
+            variants(first: 1) {
+              edges {
+                node {
+                  id
+                }
+              }
             }
           }
         }`,
         {
-          variables: {
-            productId: product.id,
-            variants: [{
-              id: null, // null for first variant update
-              price: price.toString(),
-              sku: sku,
-              inventoryPolicy: "CONTINUE", // Digital product, always available
-              inventoryManagement: null, // No inventory tracking
-              requiresShipping: false, // Digital product
-              taxable: true, // Usually taxable based on jurisdiction
-            }]
-          }
+          variables: { id: product.id }
         }
       );
       
-      const updateResult = await updateVariantResponse.json();
+      const variantResult = await getVariantResponse.json();
+      const variantId = variantResult.data?.product?.variants?.edges?.[0]?.node?.id;
       
-      // If bulk update doesn't work, try fetching the default variant and updating it
-      if (updateResult.data?.productVariantsBulkUpdate?.userErrors?.length > 0) {
-        // Get the default variant ID first
-        const getVariantResponse = await admin.graphql(
+      if (variantId) {
+        // Step 3: Update the variant with price and SKU
+        const updateVariantResponse = await admin.graphql(
           `#graphql
-          query getProductVariant($id: ID!) {
-            product(id: $id) {
-              variants(first: 1) {
-                edges {
-                  node {
-                    id
-                  }
-                }
+          mutation updateVariant($input: ProductVariantInput!) {
+            productVariantUpdate(input: $input) {
+              productVariant {
+                id
+                sku
+                price
+              }
+              userErrors {
+                field
+                message
               }
             }
           }`,
           {
-            variables: { id: product.id }
+            variables: {
+              input: {
+                id: variantId,
+                price: price.toString(),
+                sku: sku,
+                inventoryPolicy: "CONTINUE",
+                taxable: true,
+              }
+            }
           }
         );
         
-        const variantResult = await getVariantResponse.json();
-        const variantId = variantResult.data?.product?.variants?.edges?.[0]?.node?.id;
+        const updateResult = await updateVariantResponse.json();
         
-        if (variantId) {
-          // Update the specific variant
-          const updateSingleVariantResponse = await admin.graphql(
-            `#graphql
-            mutation updateVariant($input: ProductVariantInput!) {
-              productVariantUpdate(input: $input) {
-                productVariant {
-                  id
-                  sku
-                  price
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }`,
-            {
-              variables: {
-                input: {
-                  id: variantId,
-                  price: price.toString(),
-                  sku: sku,
-                  inventoryPolicy: "CONTINUE",
-                  requiresShipping: false,
-                  taxable: true,
-                }
-              }
-            }
-          );
-          
-          const singleUpdateResult = await updateSingleVariantResponse.json();
-          
-          if (singleUpdateResult.data?.productVariantUpdate?.productVariant) {
-            const variant = singleUpdateResult.data.productVariantUpdate.productVariant;
-            return json({
-              success: true,
-              message: "Product created successfully",
-              product: {
-                id: product.id,
-                title: product.title,
-                handle: product.handle,
-                variantId: variant.id,
-                sku: variant.sku,
-                price: variant.price,
-              }
-            });
-          }
+        if (updateResult.data?.productVariantUpdate?.userErrors?.length > 0) {
+          const errors = updateResult.data.productVariantUpdate.userErrors.map((e: any) => e.message).join(", ");
+          return json({ 
+            success: false, 
+            error: `Failed to update product variant: ${errors}` 
+          }, { status: 400 });
         }
-      }
-      
-      // If variant update succeeded with bulk update
-      if (updateResult.data?.productVariantsBulkUpdate?.productVariants?.length > 0) {
-        const variant = updateResult.data.productVariantsBulkUpdate.productVariants[0];
-        return json({
-          success: true,
-          message: "Product created successfully",
-          product: {
-            id: product.id,
-            title: product.title,
-            handle: product.handle,
-            variantId: variant.id,
-            sku: variant.sku,
-            price: variant.price,
-          }
-        });
+        
+        if (updateResult.data?.productVariantUpdate?.productVariant) {
+          const variant = updateResult.data.productVariantUpdate.productVariant;
+          return json({
+            success: true,
+            message: "Product created successfully",
+            product: {
+              id: product.id,
+              title: product.title,
+              handle: product.handle,
+              variantId: variant.id,
+              sku: variant.sku,
+              price: variant.price,
+            }
+          });
+        }
       }
       
       return json({ 
