@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, useRevalidator } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import {
   Page,
@@ -154,7 +154,7 @@ function getSubscriptionInterval(duration: string): { interval: string; interval
 // ============================================
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   
   if (!session?.shop) {
     throw new Response("Unauthorized", { status: 401 });
@@ -174,9 +174,83 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
     
-    // For now, we'll return empty tier products since we haven't created the model yet
-    // In production, you would fetch from a TierProduct model
+    // Fetch tier products from Shopify using GraphQL
+    const productsResponse = await admin.graphql(
+      `#graphql
+      query getTierProducts {
+        products(first: 100, query: "tag:tier-membership") {
+          edges {
+            node {
+              id
+              title
+              handle
+              status
+              tags
+              productType
+              variants(first: 10) {
+                edges {
+                  node {
+                    id
+                    sku
+                    price
+                    title
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`
+    );
+    
+    const productsResult = await productsResponse.json();
+    
+    // Transform Shopify products to our TierProduct format
     const tierProducts: TierProduct[] = [];
+    
+    if (productsResult.data?.products?.edges) {
+      for (const edge of productsResult.data.products.edges) {
+        const product = edge.node;
+        const variant = product.variants.edges[0]?.node;
+        
+        if (variant) {
+          // Extract tier name and duration from tags or title
+          const tags = product.tags || [];
+          let duration = 'MONTHLY' as TierProduct['duration'];
+          
+          // Check tags for duration
+          if (tags.includes('monthly')) duration = 'MONTHLY';
+          else if (tags.includes('quarterly')) duration = 'QUARTERLY';
+          else if (tags.includes('annual')) duration = 'ANNUAL';
+          else if (tags.includes('lifetime')) duration = 'LIFETIME';
+          
+          // Extract tier name from title (assuming format: "TierName Tier Membership - Duration")
+          const tierNameMatch = product.title.match(/^(.+?)\s+Tier\s+Membership/);
+          const tierName = tierNameMatch ? tierNameMatch[1] : product.title;
+          
+          // Find matching tier
+          const matchingTier = tiers.find(t => 
+            product.title.toLowerCase().includes(t.name.toLowerCase())
+          );
+          
+          tierProducts.push({
+            id: product.id,
+            tierId: matchingTier?.id || '',
+            tierName: tierName,
+            shopifyProductId: product.id,
+            shopifyVariantId: variant.id,
+            productHandle: product.handle,
+            sku: variant.sku || '',
+            price: parseFloat(variant.price || '0'),
+            duration: duration,
+            features: [], // Would need to parse from description or metafields
+            isActive: product.status === 'ACTIVE',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
     
     return json<LoaderData>({
       tiers,
@@ -570,6 +644,7 @@ export default function TierProducts() {
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
+  const { revalidate } = useRevalidator();
   
   // State
   const [modalActive, setModalActive] = useState(false);
@@ -663,8 +738,13 @@ export default function TierProducts() {
         content: 'message' in actionData ? actionData.message : (actionData.success ? "Operation successful" : actionData.error || "Operation failed"),
         error: !actionData.success,
       });
+      
+      // Refresh the product list after successful creation
+      if (actionData.success) {
+        revalidate();
+      }
     }
-  }, [actionData]);
+  }, [actionData, revalidate]);
   
   // Tier options for select
   const tierOptions = data.tiers.map(tier => ({
@@ -727,7 +807,8 @@ export default function TierProducts() {
           {
             content: "Refresh",
             icon: RefreshIcon,
-            disabled: isLoading,
+            disabled: isLoading || navigation.state === "loading",
+            onAction: () => revalidate(),
           }
         ]}
       >
