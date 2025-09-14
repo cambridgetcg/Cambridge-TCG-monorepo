@@ -294,15 +294,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const variantId = variantResult.data?.product?.variants?.edges?.[0]?.node?.id;
       
       if (variantId) {
-        // Step 3: Update the variant with price and SKU
+        // Step 3: Update the variant with price and SKU using productSet
         const updateVariantResponse = await admin.graphql(
           `#graphql
-          mutation updateVariant($input: ProductVariantInput!) {
-            productVariantUpdate(input: $input) {
-              productVariant {
+          mutation productSet($input: ProductSetInput!) {
+            productSet(input: $input) {
+              product {
                 id
-                sku
-                price
+                title
+                handle
+                variants(first: 1) {
+                  edges {
+                    node {
+                      id
+                      sku
+                      price
+                    }
+                  }
+                }
               }
               userErrors {
                 field
@@ -313,11 +322,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           {
             variables: {
               input: {
-                id: variantId,
-                price: price.toString(),
-                sku: sku,
-                inventoryPolicy: "CONTINUE",
-                taxable: true,
+                id: product.id,
+                variants: [{
+                  id: variantId,
+                  price: price.toString(),
+                  sku: sku,
+                  inventoryPolicy: "CONTINUE",
+                  taxable: true,
+                  inventoryQuantities: {
+                    availableQuantity: 999999,
+                    locationId: "gid://shopify/Location/1"  // This may need adjustment
+                  }
+                }]
               }
             }
           }
@@ -325,28 +341,94 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         
         const updateResult = await updateVariantResponse.json();
         
-        if (updateResult.data?.productVariantUpdate?.userErrors?.length > 0) {
-          const errors = updateResult.data.productVariantUpdate.userErrors.map((e: any) => e.message).join(", ");
+        if (updateResult.data?.productSet?.userErrors?.length > 0) {
+          const errors = updateResult.data.productSet.userErrors.map((e: any) => e.message).join(", ");
+          
+          // If location error, try without inventory quantities
+          if (errors.includes("location") || errors.includes("inventory")) {
+            const retryResponse = await admin.graphql(
+              `#graphql
+              mutation productSet($input: ProductSetInput!) {
+                productSet(input: $input) {
+                  product {
+                    id
+                    title
+                    handle
+                    variants(first: 1) {
+                      edges {
+                        node {
+                          id
+                          sku
+                          price
+                        }
+                      }
+                    }
+                  }
+                  userErrors {
+                    field
+                    message
+                  }
+                }
+              }`,
+              {
+                variables: {
+                  input: {
+                    id: product.id,
+                    variants: [{
+                      id: variantId,
+                      price: price.toString(),
+                      sku: sku,
+                      inventoryPolicy: "CONTINUE",
+                      taxable: true,
+                    }]
+                  }
+                }
+              }
+            );
+            
+            const retryResult = await retryResponse.json();
+            
+            if (retryResult.data?.productSet?.product) {
+              const variant = retryResult.data.productSet.product.variants.edges[0]?.node;
+              if (variant) {
+                return json({
+                  success: true,
+                  message: "Product created successfully",
+                  product: {
+                    id: product.id,
+                    title: product.title,
+                    handle: product.handle,
+                    variantId: variant.id,
+                    sku: variant.sku,
+                    price: variant.price,
+                  }
+                });
+              }
+            }
+          }
+          
           return json({ 
             success: false, 
             error: `Failed to update product variant: ${errors}` 
           }, { status: 400 });
         }
         
-        if (updateResult.data?.productVariantUpdate?.productVariant) {
-          const variant = updateResult.data.productVariantUpdate.productVariant;
-          return json({
-            success: true,
-            message: "Product created successfully",
-            product: {
-              id: product.id,
-              title: product.title,
-              handle: product.handle,
-              variantId: variant.id,
-              sku: variant.sku,
-              price: variant.price,
-            }
-          });
+        if (updateResult.data?.productSet?.product) {
+          const variant = updateResult.data.productSet.product.variants.edges[0]?.node;
+          if (variant) {
+            return json({
+              success: true,
+              message: "Product created successfully",
+              product: {
+                id: product.id,
+                title: product.title,
+                handle: product.handle,
+                variantId: variant.id,
+                sku: variant.sku,
+                price: variant.price,
+              }
+            });
+          }
         }
       }
       
