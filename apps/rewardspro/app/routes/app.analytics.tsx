@@ -205,9 +205,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ? (totalCreditRedeemed / totalCreditIssued) * 100 
       : 0;
     
-    // Calculate revenue impact (simplified - in real app, would need order data)
-    const revenueImpact = totalCreditRedeemed * 10; // Assume 10x multiplier
-    const avgOrderValue = revenueImpact / Math.max(1, activeMembers);
+    // TODO: In production, fetch actual order data from Shopify GraphQL API
+    // Currently estimating revenue based on cashback earned (reverse calculation)
+    // If customers earned cashback, we can estimate the order values
+    const totalCashbackEarned = allTransactions
+      .filter(t => t.type === 'CASHBACK_EARNED')
+      .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
+    
+    // Get average cashback rate across all tiers weighted by customer count
+    const avgCashbackRate = tiers.length > 0
+      ? tiers.reduce((sum, tier) => {
+          const tierCustomerCount = customers.filter(c => c.currentTierId === tier.id).length;
+          return sum + (tier.cashbackPercent * tierCustomerCount);
+        }, 0) / Math.max(1, customers.length)
+      : 5; // Default 5% if no tiers
+    
+    // Estimate total revenue from cashback earned
+    const estimatedRevenueFromCashback = avgCashbackRate > 0 
+      ? (totalCashbackEarned / (avgCashbackRate / 100))
+      : 0;
+    
+    // Add actual credit redemptions
+    const revenueImpact = estimatedRevenueFromCashback + totalCreditRedeemed;
+    const avgOrderValue = activeMembers > 0 ? revenueImpact / activeMembers : 0;
     const conversionRate = activeMembers > 0 ? (activeMembers / totalMembers) * 100 : 0;
     
     
@@ -333,20 +353,40 @@ function calculateTierPerformance(
       tierCustomers.some(c => c.id === t.customerId)
     );
     
-    const revenue = tierTransactions
+    // TODO: In production, fetch actual order data from Shopify GraphQL API
+    // Currently estimating revenue based on cashback earned (reverse calculation)
+    // If a customer earned X cashback at Y% rate, the order value was X / (Y/100)
+    const cashbackEarned = tierTransactions
+      .filter(t => t.type === 'CASHBACK_EARNED')
+      .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
+    
+    // Calculate estimated revenue from cashback
+    // If no cashback rate, use 0 to avoid division by zero
+    const estimatedRevenue = tier.cashbackPercent > 0 
+      ? (cashbackEarned / (tier.cashbackPercent / 100))
+      : 0;
+    
+    // Also add revenue from store credit redemptions (actual spending)
+    const creditRedeemed = tierTransactions
       .filter(t => t.type === 'ORDER_PAYMENT')
-      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount.toString())), 0) * 10;
+      .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
+    
+    // Total revenue is estimated from cashback + credit redemptions
+    const revenue = estimatedRevenue + creditRedeemed;
     
     const creditBalance = tierCustomers.reduce((sum, c) => 
       sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
     );
+    
+    // Calculate average spend per customer
+    const avgSpend = tierCustomers.length > 0 ? revenue / tierCustomers.length : 0;
     
     return {
       id: tier.id,
       name: tier.name,
       members: tierCustomers.length,
       revenue,
-      avgSpend: tierCustomers.length > 0 ? revenue / tierCustomers.length : 0,
+      avgSpend,
       retention: 75 + Math.random() * 20, // Mock retention rate
       creditBalance,
       cashbackPercent: tier.cashbackPercent,

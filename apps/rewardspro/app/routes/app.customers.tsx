@@ -816,30 +816,6 @@ export default function Customers() {
         <Layout>
           <Layout.Section>
             <BlockStack gap="600">
-              {/* Stats Overview with Staggered Animation */}
-              <Grid columns={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2 }}>
-                <Grid.Cell>
-                  <MetricCard
-                    title="Total Customers"
-                    value={data.totalCustomers}
-                    icon={PersonIcon}
-                    badge={{ content: "All time", tone: "info" }}
-                    delay={0}
-                  />
-                </Grid.Cell>
-
-
-                <Grid.Cell>
-                  <MetricCard
-                    title="Total Store Credit"
-                    value={formatAmount(data.customers.reduce((sum, c) => sum + c.storeCredit, 0))}
-                    icon={CashDollarIcon}
-                    tone="emphasis"
-                    delay={50}
-                  />
-                </Grid.Cell>
-              </Grid>
-
               {/* Tier Distribution with Smooth Animations */}
               <Card>
                 <Box padding="400">
