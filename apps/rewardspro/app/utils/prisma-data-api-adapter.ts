@@ -852,6 +852,9 @@ export function createDataAPIPrismaClient() {
     tierChangeLog: new DataAPIModelProxy("TierChangeLog", client),
     billingPlan: new DataAPIModelProxy("BillingPlan", client),
     usageRecord: new DataAPIModelProxy("UsageRecord", client),
+    monthlyOrderUsage: new DataAPIModelProxy("MonthlyOrderUsage", client),
+    notification: new DataAPIModelProxy("Notification", client),
+    billingHistory: new DataAPIModelProxy("BillingHistory", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

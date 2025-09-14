@@ -63,7 +63,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       try {
         // First check if they have any paid plan
         const { hasActivePayment, appSubscriptions } = await billing.check({
-          plans: [STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
+          plans: [STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
           isTest: process.env.NODE_ENV === 'development',
         });
         
@@ -75,7 +75,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         } else {
           // Check if they're on the free plan
           const { hasActivePayment: hasFreePayment } = await billing.check({
-            plans: [FREE_PLAN],
+            plans: [FREE_PLAN] as any,
             isTest: process.env.NODE_ENV === 'development',
           });
           
@@ -85,7 +85,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             
             try {
               // Request the free plan (which is $0)
-              const billingResponse = await billing.request({
+              const billingResponse = await (billing as any).request({
                 plan: FREE_PLAN,
                 isTest: process.env.NODE_ENV === 'development',
                 returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
