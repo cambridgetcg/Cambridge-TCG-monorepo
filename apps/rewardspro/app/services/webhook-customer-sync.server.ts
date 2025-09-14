@@ -8,6 +8,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from '~/db.server';
 import { calculateCustomerTier } from './tier-calculation.server';
+import { hasManualOverride } from './manual-tier-assignment.server';
 import type { Customer, Tier } from '@prisma/client';
 
 /**
@@ -235,6 +236,24 @@ async function calculateAndAssignTier(
   shop: string,
   totalSpent: number
 ): Promise<Tier | null> {
+  // Check if customer has a manual override
+  const hasOverride = await hasManualOverride(customerId);
+  if (hasOverride) {
+    console.log(`[CustomerSync] Customer ${customerId} has manual override - skipping tier calculation`);
+    // Return current tier without changes
+    const customer = await db.customer.findUnique({
+      where: { id: customerId },
+      select: { tierId: true },
+    });
+    if (customer?.tierId) {
+      const currentTier = await db.tier.findUnique({
+        where: { id: customer.tierId },
+      });
+      return currentTier;
+    }
+    return null;
+  }
+  
   // Get all tiers for this shop, ordered by minSpend descending
   const tiers = await db.tier.findMany({
     where: {

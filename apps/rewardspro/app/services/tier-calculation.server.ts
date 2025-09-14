@@ -14,6 +14,7 @@ type AdminApiContextWithRest = AdminApiContext & {
 type AdminApiContextType = AdminApiContext | AdminApiContextWithRest;
 import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
+import { hasManualOverride } from "./manual-tier-assignment.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -52,6 +53,38 @@ export async function calculateCustomerTier(
 ): Promise<TierCalculationResult> {
   try {
     console.log(`[TierCalc] Calculating tier for customer ${customerId}`);
+    
+    // Check if customer has a manual override
+    const hasOverride = await hasManualOverride(customerId);
+    if (hasOverride) {
+      console.log(`[TierCalc] Customer ${customerId} has manual override - skipping calculation`);
+      
+      // Get customer data to return current state
+      const customer = await db.customer.findFirst({
+        where: { 
+          id: customerId,
+          shop: shop 
+        }
+      });
+      
+      let currentTier = null;
+      if (customer?.currentTierId) {
+        currentTier = await db.tier.findUnique({
+          where: { id: customer.currentTierId }
+        });
+      }
+      
+      return {
+        customerId,
+        previousTierId: customer?.currentTierId || null,
+        previousTierName: currentTier?.name || null,
+        newTierId: customer?.currentTierId || null,
+        newTierName: currentTier?.name || null,
+        totalSpending: 0,
+        changed: false,
+        error: "Customer has manual tier override - calculation skipped"
+      };
+    }
     
     // Get customer data
     const customer = await db.customer.findFirst({
