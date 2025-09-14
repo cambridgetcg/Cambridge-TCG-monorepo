@@ -372,7 +372,29 @@ export async function action({ request }: ActionFunctionArgs) {
         
         if (hasActivePayment && appSubscriptions?.length > 0) {
           currentPlanName = appSubscriptions[0].name;
-          planLimit = currentPlanName === 'RewardsPro Annual' ? 12000 : 1000; // Annual gets 12000, monthly gets 1000
+          // Set plan limits based on plan type
+          switch(currentPlanName) {
+            case 'RewardsPro Free':
+              planLimit = 100;
+              break;
+            case 'RewardsPro Starter':
+              planLimit = 500;
+              break;
+            case 'RewardsPro Growth':
+              planLimit = 2000;
+              break;
+            case 'RewardsPro Enterprise':
+              planLimit = 10000;
+              break;
+            case 'RewardsPro Annual':
+              planLimit = 12000;
+              break;
+            case 'RewardsPro Monthly':
+              planLimit = 1000;
+              break;
+            default:
+              planLimit = 100; // Default to free plan limit
+          }
         }
       } catch (error) {
         console.warn('[OrdersPaidWebhook] Could not check billing status:', error);

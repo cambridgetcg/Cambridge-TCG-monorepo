@@ -522,9 +522,15 @@ export default function BillingPage() {
     <Page
       title="Billing & Usage"
       primaryAction={{
-        content: hasActivePlan ? "Change plan" : "Choose a plan",
-        onAction: () => handleUpgrade(),
+        content: "View All Plans",
+        onAction: () => navigate("/app/billing/plans"),
       }}
+      secondaryActions={[
+        {
+          content: hasActivePlan ? "Change plan" : "Choose a plan",
+          onAction: () => handleUpgrade(),
+        }
+      ]}
     >
       <Layout>
         <Layout.Section>
@@ -747,13 +753,36 @@ export default function BillingPage() {
                 title="No Active Subscription"
                 illustration="https://cdn.shopify.com/s/files/1/0583/9399/8427/files/empty-state.svg"
                 primaryAction={{
-                  content: "Choose a plan",
+                  content: "View All Plans",
+                  onAction: () => navigate("/app/billing/plans"),
+                }}
+                secondaryAction={{
+                  content: "Quick Upgrade",
                   onAction: () => handleUpgrade(),
                 }}
               >
                 <p>Select a billing plan to start using RewardsPro and unlock all features.</p>
               </CalloutCard>
             )}
+
+            {/* Compare Plans Card */}
+            <Card>
+              <Box padding="400">
+                <InlineStack align="space-between">
+                  <BlockStack gap="200">
+                    <Text as="h2" variant="headingMd">
+                      Compare Plans
+                    </Text>
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      Explore our different pricing tiers to find the perfect fit for your store
+                    </Text>
+                  </BlockStack>
+                  <Button onClick={() => navigate("/app/billing/plans")}>
+                    View All Plans
+                  </Button>
+                </InlineStack>
+              </Box>
+            </Card>
 
             {/* Usage History */}
             {usageRecords.length > 0 && (

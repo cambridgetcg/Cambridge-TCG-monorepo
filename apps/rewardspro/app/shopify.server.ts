@@ -9,8 +9,11 @@ import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
 
 // Define billing plan names (should match Partner Dashboard configuration)
 export const FREE_PLAN = "RewardsPro Free";
-export const MONTHLY_PLAN = "RewardsPro Monthly";
-export const ANNUAL_PLAN = "RewardsPro Annual";
+export const STARTER_PLAN = "RewardsPro Starter";
+export const GROWTH_PLAN = "RewardsPro Growth";
+export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
+export const MONTHLY_PLAN = "RewardsPro Monthly"; // Legacy - keeping for compatibility
+export const ANNUAL_PLAN = "RewardsPro Annual"; // Legacy - keeping for compatibility
 export const USAGE_PLAN = "RewardsPro Usage";
 
 const shopify = shopifyApp({
@@ -34,6 +37,37 @@ const shopify = shopifyApp({
         }
       ],
     },
+    // Starter plan - $29/month
+    [STARTER_PLAN]: {
+      lineItems: [
+        {
+          amount: 29,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Growth plan - $79/month
+    [GROWTH_PLAN]: {
+      lineItems: [
+        {
+          amount: 79,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Enterprise plan - $299/month
+    [ENTERPRISE_PLAN]: {
+      lineItems: [
+        {
+          amount: 299,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Legacy plans - keeping for backward compatibility
     [MONTHLY_PLAN]: {
       lineItems: [
         {

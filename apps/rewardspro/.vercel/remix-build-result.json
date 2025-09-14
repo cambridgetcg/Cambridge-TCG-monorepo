@@ -41,6 +41,7 @@
       "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing.upgrade": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.billing.plans": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
@@ -335,6 +336,13 @@
         "path": "upgrade",
         "config": {}
       },
+      "routes/app.billing.plans": {
+        "id": "routes/app.billing.plans",
+        "parentId": "routes/app.billing",
+        "file": "app/routes/app.billing.plans.tsx",
+        "path": "plans",
+        "config": {}
+      },
       "routes/app._index": {
         "id": "routes/app._index",
         "parentId": "routes/app",
@@ -567,6 +575,12 @@
         "parentId": "routes/app.billing",
         "file": "routes/app.billing.upgrade.tsx",
         "path": "upgrade"
+      },
+      "routes/app.billing.plans": {
+        "id": "routes/app.billing.plans",
+        "parentId": "routes/app.billing",
+        "file": "routes/app.billing.plans.tsx",
+        "path": "plans"
       },
       "routes/app._index": {
         "id": "routes/app._index",
