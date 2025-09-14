@@ -212,24 +212,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const sku = generateTierSKU(tierName, duration, shop);
       
       // Create product in Shopify using GraphQL
-      const productInput = {
-        title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-        descriptionHtml: description || `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
-        productType: "Membership",
-        vendor: shop.split('.')[0],
-        tags: ["tier-membership", tierName.toLowerCase(), duration.toLowerCase()],
-        status: "ACTIVE",
-        variants: [{
-          price: price.toString(),
-          sku: sku,
-          inventoryPolicy: "CONTINUE", // Digital product - always available
-          requiresShipping: false,
-          taxable: true,
-        }]
-      };
-      
-      // GraphQL mutation to create product
-      const response = await admin.graphql(
+      // Step 1: Create the product without variants
+      const createProductResponse = await admin.graphql(
         `#graphql
         mutation createProduct($input: ProductInput!) {
           productCreate(input: $input) {
@@ -238,15 +222,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               title
               handle
               status
-              variants(first: 1) {
-                edges {
-                  node {
-                    id
-                    sku
-                    price
-                  }
-                }
-              }
             }
             userErrors {
               field
@@ -256,28 +231,149 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }`,
         {
           variables: {
-            input: productInput,
+            input: {
+              title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
+              descriptionHtml: description || `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
+              productType: "Membership",
+              vendor: shop.split('.')[0],
+              tags: ["tier-membership", tierName.toLowerCase(), duration.toLowerCase()],
+              status: "ACTIVE",
+            }
           },
         }
       );
       
-      const result = await response.json();
+      const createResult = await createProductResponse.json();
       
-      if (result.data?.productCreate?.userErrors?.length > 0) {
-        const errors = result.data.productCreate.userErrors.map((e: any) => e.message).join(", ");
+      if (createResult.data?.productCreate?.userErrors?.length > 0) {
+        const errors = createResult.data.productCreate.userErrors.map((e: any) => e.message).join(", ");
         return json({ 
           success: false, 
           error: `Failed to create product: ${errors}` 
         }, { status: 400 });
       }
       
-      if (result.data?.productCreate?.product) {
-        const product = result.data.productCreate.product;
-        const variant = product.variants.edges[0]?.node;
+      if (!createResult.data?.productCreate?.product) {
+        return json({ 
+          success: false, 
+          error: "Failed to create product" 
+        }, { status: 500 });
+      }
+      
+      const product = createResult.data.productCreate.product;
+      
+      // Step 2: Update the product variant with price and SKU
+      const updateVariantResponse = await admin.graphql(
+        `#graphql
+        mutation updateProductVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+            productVariants {
+              id
+              sku
+              price
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }`,
+        {
+          variables: {
+            productId: product.id,
+            variants: [{
+              id: null, // null for first variant update
+              price: price.toString(),
+              sku: sku,
+              inventoryPolicy: "CONTINUE", // Digital product, always available
+              inventoryManagement: null, // No inventory tracking
+              requiresShipping: false, // Digital product
+              taxable: true, // Usually taxable based on jurisdiction
+            }]
+          }
+        }
+      );
+      
+      const updateResult = await updateVariantResponse.json();
+      
+      // If bulk update doesn't work, try fetching the default variant and updating it
+      if (updateResult.data?.productVariantsBulkUpdate?.userErrors?.length > 0) {
+        // Get the default variant ID first
+        const getVariantResponse = await admin.graphql(
+          `#graphql
+          query getProductVariant($id: ID!) {
+            product(id: $id) {
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                  }
+                }
+              }
+            }
+          }`,
+          {
+            variables: { id: product.id }
+          }
+        );
         
-        // Store the product reference in our database (would need a TierProduct model)
-        // For now, just return success
+        const variantResult = await getVariantResponse.json();
+        const variantId = variantResult.data?.product?.variants?.edges?.[0]?.node?.id;
         
+        if (variantId) {
+          // Update the specific variant
+          const updateSingleVariantResponse = await admin.graphql(
+            `#graphql
+            mutation updateVariant($input: ProductVariantInput!) {
+              productVariantUpdate(input: $input) {
+                productVariant {
+                  id
+                  sku
+                  price
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }`,
+            {
+              variables: {
+                input: {
+                  id: variantId,
+                  price: price.toString(),
+                  sku: sku,
+                  inventoryPolicy: "CONTINUE",
+                  requiresShipping: false,
+                  taxable: true,
+                }
+              }
+            }
+          );
+          
+          const singleUpdateResult = await updateSingleVariantResponse.json();
+          
+          if (singleUpdateResult.data?.productVariantUpdate?.productVariant) {
+            const variant = singleUpdateResult.data.productVariantUpdate.productVariant;
+            return json({
+              success: true,
+              message: "Product created successfully",
+              product: {
+                id: product.id,
+                title: product.title,
+                handle: product.handle,
+                variantId: variant.id,
+                sku: variant.sku,
+                price: variant.price,
+              }
+            });
+          }
+        }
+      }
+      
+      // If variant update succeeded with bulk update
+      if (updateResult.data?.productVariantsBulkUpdate?.productVariants?.length > 0) {
+        const variant = updateResult.data.productVariantsBulkUpdate.productVariants[0];
         return json({
           success: true,
           message: "Product created successfully",
@@ -285,9 +381,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             id: product.id,
             title: product.title,
             handle: product.handle,
-            variantId: variant?.id,
-            sku: variant?.sku,
-            price: variant?.price,
+            variantId: variant.id,
+            sku: variant.sku,
+            price: variant.price,
           }
         });
       }
@@ -490,7 +586,7 @@ export default function TierProducts() {
     if (actionData) {
       setToast({
         active: true,
-        content: actionData.message || (actionData.success ? "Operation successful" : "Operation failed"),
+        content: 'message' in actionData ? actionData.message : (actionData.success ? "Operation successful" : actionData.error || "Operation failed"),
         error: !actionData.success,
       });
     }
