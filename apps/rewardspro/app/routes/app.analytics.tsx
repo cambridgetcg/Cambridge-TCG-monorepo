@@ -26,6 +26,21 @@ import {
   Popover,
   DatePicker,
 } from "@shopify/polaris";
+import {
+  MetricCard,
+  StatsOverview,
+  EnhancedDataTable,
+  LoadingSkeleton,
+  ActionBanner,
+} from "../components/DesignSystem";
+import {
+  ChartVerticalIcon,
+  PersonIcon,
+  CashDollarIcon,
+  RewardIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+} from "@shopify/polaris-icons";
 import { TierBadge, TierIndicator, TierProgress } from "~/components/TierBadge";
 import { getTierStyle, sortTiersByPriority, formatTierName } from "~/utils/tier-styles";
 import { authenticate } from "../shopify.server";
@@ -586,7 +601,7 @@ function calculateCustomerSegments(customers: any[], transactions: any[]): Analy
 // COMPONENTS
 // ============================================
 
-function MetricCard({ 
+function AnalyticsMetricCard({ 
   title, 
   value, 
   change, 
@@ -602,56 +617,29 @@ function MetricCard({
   delay?: number;
 }) {
   if (loading) {
-    return (
-      <Card>
-        <Box padding="400">
-          <BlockStack gap="200">
-            <SkeletonBodyText lines={1} />
-            <SkeletonDisplayText size="large" />
-            <SkeletonBodyText lines={1} />
-          </BlockStack>
-        </Box>
-      </Card>
-    );
+    return <LoadingSkeleton type="card" lines={3} />;
   }
 
+  const getTrendIcon = () => {
+    if (trend === 'up') return ArrowUpIcon;
+    if (trend === 'down') return ArrowDownIcon;
+    return ChartVerticalIcon;
+  };
 
-  const getTrendTone = () => {
+  const getTone = () => {
     if (trend === 'up') return 'success';
     if (trend === 'down') return 'critical';
-    return 'subdued';
+    return 'default';
   };
 
   return (
-    <div
-      style={{
-        opacity: 0,
-        animation: `fadeInUp 300ms ease-out ${delay}ms forwards`,
-      }}
-    >
-      <Card>
-        <Box padding="400">
-          <BlockStack gap="300">
-            {change !== undefined && (
-              <InlineStack align="end">
-                <Badge tone={getTrendTone() as any}>
-                  {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '–'} {Math.abs(change)}%
-                </Badge>
-              </InlineStack>
-            )}
-            
-            <BlockStack gap="100">
-              <Text variant="bodySm" tone="subdued" as="p">
-                {title}
-              </Text>
-              <Text variant="heading2xl" as="h3">
-                {value}
-              </Text>
-            </BlockStack>
-          </BlockStack>
-        </Box>
-      </Card>
-    </div>
+    <MetricCard
+      title={title}
+      value={value.toString()}
+      change={change}
+      icon={getTrendIcon()}
+      tone={getTone() as any}
+    />
   );
 }
 
@@ -889,7 +877,7 @@ export default function AnalyticsPage() {
         <Layout.Section>
           <Grid>
             <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-              <MetricCard
+              <AnalyticsMetricCard
                 title="Total Revenue Impact"
                 value={formatAmount(data.revenueImpact)}
                 change={data.comparison.change}
@@ -899,7 +887,7 @@ export default function AnalyticsPage() {
               />
             </Grid.Cell>
             <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-              <MetricCard
+              <AnalyticsMetricCard
                 title="Active Members"
                 value={`${data.activeMembers} / ${data.totalMembers}`}
                 change={12}
@@ -909,7 +897,7 @@ export default function AnalyticsPage() {
               />
             </Grid.Cell>
             <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-              <MetricCard
+              <AnalyticsMetricCard
                 title="Avg Order Value"
                 value={formatAmount(data.avgOrderValue)}
                 change={8}
@@ -919,7 +907,7 @@ export default function AnalyticsPage() {
               />
             </Grid.Cell>
             <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
-              <MetricCard
+              <AnalyticsMetricCard
                 title="Conversion Rate"
                 value={`${data.conversionRate.toFixed(1)}%`}
                 change={-2}

@@ -10,10 +10,12 @@ import type { LoaderFunctionArgs, LinksFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { detectDevice } from "./utils/device-detection.server";
 import responsiveStyles from "./styles/responsive.css?url";
+import designSystemStyles from "./styles/design-system.css?url";
 import crypto from "crypto";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: responsiveStyles },
+  { rel: "stylesheet", href: designSystemStyles },
   // Preload critical fonts
   { rel: "preload", href: "https://cdn.shopify.com/static/fonts/inter/v4/styles.css", as: "style" },
 ];

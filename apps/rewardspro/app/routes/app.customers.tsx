@@ -32,6 +32,7 @@ import {
   Frame,
   Collapsible,
   FormLayout,
+  Checkbox,
 } from "@shopify/polaris";
 import {
   SearchIcon,
@@ -54,7 +55,19 @@ import {
   EditIcon,
   DeleteIcon,
   CalendarIcon,
+  ExportIcon,
+  ImportIcon,
 } from "@shopify/polaris-icons";
+import {
+  MetricCard,
+  EnhancedDataTable,
+  CustomerCard,
+  SearchFilterBar,
+  TierProgressCard,
+  LoadingSkeleton,
+  StatsOverview,
+  ActionBanner,
+} from "../components/DesignSystem";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
@@ -641,49 +654,6 @@ function CustomerAvatar({ email }: { email: string }) {
   );
 }
 
-// Animated metric card component
-function MetricCard({ title, value, icon, tone, badge, progress, delay = 0 }: any) {
-  const [visible, setVisible] = useState(false);
-  
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), delay);
-    return () => clearTimeout(timer);
-  }, [delay]);
-  
-  return (
-    <div 
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(10px)',
-        transition: 'all 300ms ease-out',
-      }}
-    >
-      <Card>
-        <Box padding="400">
-          <BlockStack gap="200">
-            <InlineStack align="space-between">
-              <Text variant="bodySm" tone="subdued" as="p">
-                {title}
-              </Text>
-              <Icon source={icon} tone={tone || "base"} />
-            </InlineStack>
-            <Text variant="headingXl" as="h3">
-              {value}
-            </Text>
-            {badge && <Badge tone={badge.tone}>{badge.content}</Badge>}
-            {progress !== undefined && (
-              <ProgressBar 
-                progress={progress} 
-                size="small"
-                tone={tone || "primary"}
-              />
-            )}
-          </BlockStack>
-        </Box>
-      </Card>
-    </div>
-  );
-}
 
 // ============================================
 // MAIN COMPONENT
@@ -1086,6 +1056,35 @@ export default function Customers() {
         ]}
       >
         <Layout>
+          {/* Stats Overview */}
+          <Layout.Section>
+            <StatsOverview
+              stats={[
+                {
+                  label: "Total Customers",
+                  value: data.totalCustomers.toString(),
+                  icon: PersonIcon,
+                },
+                {
+                  label: "Active Tiers",
+                  value: data.tiers.length.toString(),
+                  icon: RewardIcon,
+                },
+                {
+                  label: "With Store Credit",
+                  value: data.customers.filter(c => c.storeCredit > 0).length.toString(),
+                  icon: CashDollarIcon,
+                },
+                {
+                  label: "Tier Coverage",
+                  value: `${Math.round((data.customers.filter(c => c.currentTier).length / Math.max(data.totalCustomers, 1)) * 100)}%`,
+                  icon: ChartVerticalIcon,
+                },
+              ]}
+              loading={navigation.state === "loading"}
+            />
+          </Layout.Section>
+
           <Layout.Section>
             <BlockStack gap="600">
               {/* Loyalty Tiers Management */}
@@ -1248,93 +1247,70 @@ export default function Customers() {
                 </Box>
               </Card>
 
-              {/* Filters with Better Visual Design */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="400">
-                    <Text variant="headingMd" as="h2">
-                      Search & Filter
-                    </Text>
-                    <InlineStack gap="300">
-                      <div style={{ flex: 1 }}>
-                        <TextField
-                          label="Search customers"
-                          labelHidden
-                          placeholder="Search by email or customer ID..."
-                          value={searchQuery}
-                          onChange={handleSearch}
-                          prefix={<Icon source={SearchIcon} />}
-                          clearButton
-                          onClearButtonClick={() => setSearchQuery("")}
-                          autoComplete="off"
-                        />
-                      </div>
-                      <Select
-                        label="Filter by tier"
-                        labelHidden
-                        options={tierOptions}
-                        value={tierFilter}
-                        onChange={handleTierFilter}
-                      />
-                    </InlineStack>
-                  </BlockStack>
-                </Box>
-              </Card>
+              {/* Search and Filter Bar */}
+              <SearchFilterBar
+                searchValue={searchQuery}
+                onSearchChange={handleSearch}
+                filters={[
+                  {
+                    label: "Tier",
+                    value: tierFilter,
+                    options: tierOptions,
+                    onChange: handleTierFilter,
+                  },
+                ]}
+                actions={[
+                  {
+                    content: "Export",
+                    icon: ExportIcon,
+                    onAction: () => {
+                      setToast({
+                        active: true,
+                        content: "Export feature coming soon!",
+                        error: false,
+                        duration: 3000,
+                      });
+                    },
+                  },
+                ]}
+              />
 
               {/* Sync Information Banner */}
               {data.totalCustomers === 0 && (
-                <Banner
+                <ActionBanner
                   title="Import your customers from Shopify"
+                  content="Click 'Sync from Shopify' to import all your existing customers. This will create customer profiles in the rewards system so you can track store credit and assign loyalty tiers."
                   tone="info"
                   action={{
                     content: "Sync from Shopify",
                     onAction: handleSyncCustomers,
                   }}
-                >
-                  <p>
-                    Click "Sync from Shopify" to import all your existing customers. 
-                    This will create customer profiles in the rewards system so you can 
-                    track store credit and assign loyalty tiers.
-                  </p>
-                </Banner>
+                />
               )}
 
-              {/* Enhanced Customer Table with Animations */}
-              <Card>
-                <div ref={tableRef}>
-                  {isLoading && filteredCustomers.length === 0 ? (
-                    <Box padding="400">
-                      <BlockStack gap="300">
-                        <SkeletonDisplayText size="small" />
-                        <SkeletonBodyText lines={5} />
-                      </BlockStack>
-                    </Box>
-                  ) : filteredCustomers.length > 0 ? (
-                    <DataTable
-                      columnContentTypes={["text", "text", "numeric", "text"]}
-                      headings={[
-                        "Customer",
-                        "Current Tier",
-                        "Store Credit",
-                        "Actions",
-                      ]}
-                      rows={rows}
-                      hoverable
-                    />
-                  ) : (
-                    <EmptyState
-                      heading="No customers found"
-                      image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                      action={{
-                        content: "Sync from Shopify",
-                        onAction: handleSyncCustomers,
-                      }}
-                    >
-                      <p>Import your existing customers from Shopify to start tracking their rewards and tier status.</p>
-                    </EmptyState>
-                  )}
-                </div>
-              </Card>
+              {/* Enhanced Customer Table */}
+              {isLoading && filteredCustomers.length === 0 ? (
+                <LoadingSkeleton type="table" lines={5} />
+              ) : (
+                <EnhancedDataTable
+                  columns={[
+                    { header: "Customer", type: "text" },
+                    { header: "Current Tier", type: "text" },
+                    { header: "Store Credit", type: "numeric" },
+                    { header: "Actions", type: "actions" },
+                  ]}
+                  rows={rows}
+                  loading={isLoading}
+                  emptyState={{
+                    heading: "No customers found",
+                    content: "Import your existing customers from Shopify to start tracking their rewards and tier status.",
+                    action: {
+                      content: "Sync from Shopify",
+                      onAction: handleSyncCustomers,
+                    },
+                  }}
+                />
+              )}
 
               {/* Collapsible Advanced Section */}
               <Card>

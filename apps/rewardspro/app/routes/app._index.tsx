@@ -25,7 +25,21 @@ import {
   PlusIcon,
   RefreshIcon,
   AlertTriangleIcon,
+  PersonIcon,
+  CashDollarIcon,
+  RewardIcon,
+  ChartVerticalIcon,
+  SettingsIcon,
+  PersonIcon as CustomersIcon,
 } from "@shopify/polaris-icons";
+import {
+  MetricCard,
+  StatsOverview,
+  EnhancedDataTable,
+  LoadingSkeleton,
+  ActionBanner,
+  TierProgressCard,
+} from "../components/DesignSystem";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
@@ -366,57 +380,40 @@ export default function Dashboard() {
       ]}
     >
       <Layout>
+        {/* Key Metrics Overview */}
         <Layout.Section>
-          {/* Key Metrics - Following 60-30-10 rule */}
+          <StatsOverview
+            stats={[
+              {
+                label: "Total Customers",
+                value: data.metrics.totalCustomers.toString(),
+                icon: PersonIcon,
+                change: data.metrics.customersWithTiers > 0 
+                  ? Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)
+                  : undefined,
+              },
+              {
+                label: "Total Store Credit",
+                value: formatAmount(data.metrics.totalStoreCredit),
+                icon: CashDollarIcon,
+              },
+              {
+                label: "Active Tiers",
+                value: data.metrics.activeTiers.toString(),
+                icon: RewardIcon,
+              },
+              {
+                label: "Average Credit",
+                value: formatAmount(data.metrics.averageCredit),
+                icon: ChartVerticalIcon,
+              },
+            ]}
+            loading={isRefreshing}
+          />
+        </Layout.Section>
+        
+        <Layout.Section>
           <BlockStack gap="500">
-            <Grid>
-              {/* Primary Metrics */}
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      {data.metrics.customersWithTiers > 0 && (
-                        <Badge tone="success">
-                          {`${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% in tiers`}
-                        </Badge>
-                      )}
-                      <BlockStack gap="100">
-                        <Text variant="bodySm" tone="subdued" as="p">
-                          Total Customers
-                        </Text>
-                        <Text variant="heading2xl" as="h3">
-                          {data.metrics.totalCustomers}
-                        </Text>
-                      </BlockStack>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      {data.metrics.customersWithCredit > 0 && (
-                        <Badge tone="info">
-                          {`${data.metrics.customersWithCredit} active`}
-                        </Badge>
-                      )}
-                      <BlockStack gap="100">
-                        <Text variant="bodySm" tone="subdued" as="p">
-                          Total Store Credit
-                        </Text>
-                        <Text variant="heading2xl" as="h3">
-                          {formatAmount(data.metrics.totalStoreCredit)}
-                        </Text>
-                      </BlockStack>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-
-              {/* Removed secondary metrics for cleaner UI */}
-            </Grid>
 
             {/* Tabbed Content Area */}
             <Card>
@@ -505,9 +502,12 @@ export default function Dashboard() {
                           <Text variant="headingMd" as="h2">
                             Top Customers by Credit
                           </Text>
-                          <DataTable
-                            columnContentTypes={["text", "text", "numeric"]}
-                            headings={["Customer", "Tier", "Store Credit"]}
+                          <EnhancedDataTable
+                            columns={[
+                              { header: "Customer", type: "text" },
+                              { header: "Tier", type: "badge" },
+                              { header: "Store Credit", type: "numeric" },
+                            ]}
                             rows={data.topCustomers.map(customer => [
                               customer.email,
                               customer.tierName ? (
@@ -536,9 +536,14 @@ export default function Dashboard() {
                         Recent Transactions
                       </Text>
                       {data.recentTransactions.length > 0 ? (
-                        <DataTable
-                          columnContentTypes={["text", "text", "numeric", "numeric", "text"]}
-                          headings={["Customer", "Type", "Amount", "Balance", "Date"]}
+                        <EnhancedDataTable
+                          columns={[
+                            { header: "Customer", type: "text" },
+                            { header: "Type", type: "text" },
+                            { header: "Amount", type: "numeric" },
+                            { header: "Balance", type: "numeric" },
+                            { header: "Date", type: "text" },
+                          ]}
                           rows={data.recentTransactions.slice(0, 10).map(tx => [
                             tx.customerEmail,
                             formatTransactionType(tx.type),
@@ -571,32 +576,29 @@ export default function Dashboard() {
                         {/* Insights Cards */}
                         <BlockStack gap="300">
                           {data.metrics.customersWithTiers < data.metrics.totalCustomers * 0.5 && (
-                            <Banner
+                            <ActionBanner
                               title="Opportunity: Increase tier participation"
+                              content={`Only ${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% of your customers are in a tier. Consider reviewing tier thresholds or running a campaign.`}
                               tone="info"
-                              action={{ content: "View customers", url: "/app/customers" }}
-                            >
-                              <p>Only {Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% of your customers are in a tier. Consider reviewing tier thresholds or running a campaign.</p>
-                            </Banner>
+                              action={{ content: "View customers", onAction: () => window.location.href = "/app/customers" }}
+                            />
                           )}
 
                           {data.metrics.averageCredit > 50 && (
-                            <Banner
+                            <ActionBanner
                               title="High average credit balance"
+                              content={`Your customers have an average of ${formatAmount(data.metrics.averageCredit)} in store credit. This indicates strong engagement with your rewards program.`}
                               tone="success"
-                            >
-                              <p>Your customers have an average of {formatAmount(data.metrics.averageCredit)} in store credit. This indicates strong engagement with your rewards program.</p>
-                            </Banner>
+                            />
                           )}
 
                           {data.tierDistribution.find(t => t.name === "No Tier" && t.percentage > 30) && (
-                            <Banner
+                            <ActionBanner
                               title="Many customers without tiers"
+                              content={`${data.tierDistribution.find(t => t.name === "No Tier")?.percentage.toFixed(0)}% of customers aren't in a tier. Consider adjusting your tier requirements.`}
                               tone="warning"
-                              action={{ content: "Manage tiers", url: "/app/tiers" }}
-                            >
-                              <p>{data.tierDistribution.find(t => t.name === "No Tier")?.percentage.toFixed(0)}% of customers aren't in a tier. Consider adjusting your tier requirements.</p>
-                            </Banner>
+                              action={{ content: "Manage tiers", onAction: () => window.location.href = "/app/tiers" }}
+                            />
                           )}
                         </BlockStack>
                       </BlockStack>
@@ -653,60 +655,34 @@ export default function Dashboard() {
               </Tabs>
             </Card>
 
-            {/* Quick Actions - Following visual hierarchy */}
-            <Grid>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="300">
-                      <Text variant="headingMd" as="h3">
-                        Manage Tiers
-                      </Text>
-                      <Text variant="bodySm" tone="subdued" as="p">
-                        Create and configure loyalty tiers with cashback percentages
-                      </Text>
-                      <Button url="/app/tiers" fullWidth>
-                        Go to Tiers
-                      </Button>
-                    </BlockStack>
-                  </Box>
-                </Card>
+            {/* Quick Actions */}
+            <Grid columns={{ xs: 1, sm: 1, md: 3, lg: 3, xl: 3 }}>
+              <Grid.Cell>
+                <MetricCard
+                  title="Manage Tiers"
+                  value="Configure"
+                  icon={RewardIcon}
+                  tone="default"
+                  onClick={() => window.location.href = "/app/tiers"}
+                />
               </Grid.Cell>
-
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="300">
-                      <Text variant="headingMd" as="h3">
-                        View Customers
-                      </Text>
-                      <Text variant="bodySm" tone="subdued" as="p">
-                        Manage customer tiers, view balances, and adjust credits
-                      </Text>
-                      <Button url="/app/customers" fullWidth>
-                        Go to Customers
-                      </Button>
-                    </BlockStack>
-                  </Box>
-                </Card>
+              <Grid.Cell>
+                <MetricCard
+                  title="View Customers"
+                  value="Manage"
+                  icon={CustomersIcon}
+                  tone="default"
+                  onClick={() => window.location.href = "/app/customers"}
+                />
               </Grid.Cell>
-
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="300">
-                      <Text variant="headingMd" as="h3">
-                        Settings
-                      </Text>
-                      <Text variant="bodySm" tone="subdued" as="p">
-                        Configure store settings, currency, and preferences
-                      </Text>
-                      <Button url="/app/settings" fullWidth>
-                        Go to Settings
-                      </Button>
-                    </BlockStack>
-                  </Box>
-                </Card>
+              <Grid.Cell>
+                <MetricCard
+                  title="Settings"
+                  value="Configure"
+                  icon={SettingsIcon}
+                  tone="default"
+                  onClick={() => window.location.href = "/app/settings"}
+                />
               </Grid.Cell>
             </Grid>
           </BlockStack>
