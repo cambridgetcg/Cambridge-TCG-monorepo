@@ -29,16 +29,11 @@ import {
   CashDollarIcon,
   RewardIcon,
   ChartVerticalIcon,
-  SettingsIcon,
-  PersonIcon as CustomersIcon,
 } from "@shopify/polaris-icons";
 import {
-  MetricCard,
   StatsOverview,
   EnhancedDataTable,
-  LoadingSkeleton,
   ActionBanner,
-  TierProgressCard,
 } from "../components/DesignSystem";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -388,9 +383,6 @@ export default function Dashboard() {
                 label: "Total Customers",
                 value: data.metrics.totalCustomers.toString(),
                 icon: PersonIcon,
-                change: data.metrics.customersWithTiers > 0 
-                  ? Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)
-                  : undefined,
               },
               {
                 label: "Total Store Credit",
@@ -654,37 +646,6 @@ export default function Dashboard() {
                 )}
               </Tabs>
             </Card>
-
-            {/* Quick Actions */}
-            <Grid columns={{ xs: 1, sm: 1, md: 3, lg: 3, xl: 3 }}>
-              <Grid.Cell>
-                <MetricCard
-                  title="Manage Tiers"
-                  value="Configure"
-                  icon={RewardIcon}
-                  tone="default"
-                  onClick={() => window.location.href = "/app/tiers"}
-                />
-              </Grid.Cell>
-              <Grid.Cell>
-                <MetricCard
-                  title="View Customers"
-                  value="Manage"
-                  icon={CustomersIcon}
-                  tone="default"
-                  onClick={() => window.location.href = "/app/customers"}
-                />
-              </Grid.Cell>
-              <Grid.Cell>
-                <MetricCard
-                  title="Settings"
-                  value="Configure"
-                  icon={SettingsIcon}
-                  tone="default"
-                  onClick={() => window.location.href = "/app/settings"}
-                />
-              </Grid.Cell>
-            </Grid>
           </BlockStack>
         </Layout.Section>
       </Layout>
