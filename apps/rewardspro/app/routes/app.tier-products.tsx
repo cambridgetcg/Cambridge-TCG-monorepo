@@ -26,6 +26,7 @@ import {
   Thumbnail,
   Toast,
   Frame,
+  Spinner,
 } from "@shopify/polaris";
 import {
   ProductIcon,
@@ -664,6 +665,7 @@ export default function TierProducts() {
   });
   
   const isLoading = navigation.state === "submitting";
+  const isRefreshing = navigation.state === "loading";
   
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
@@ -713,6 +715,9 @@ export default function TierProducts() {
     formData.append("description", description);
     formData.append("features", JSON.stringify(features));
     
+    // Mark that we're creating a product for auto-refresh
+    sessionStorage.setItem('tier-product-created', Date.now().toString());
+    
     submit(formData, { method: "post" });
     handleModalClose();
   }, [selectedTier, price, duration, description, features, data.tiers, submit, handleModalClose]);
@@ -741,10 +746,42 @@ export default function TierProducts() {
       
       // Refresh the product list after successful creation
       if (actionData.success) {
-        revalidate();
+        // Add a small delay to ensure Shopify has indexed the new product
+        setTimeout(() => {
+          revalidate();
+        }, 1000);
       }
     }
   }, [actionData, revalidate]);
+  
+  // Auto-refresh every 30 seconds if there are no products (initial setup)
+  useEffect(() => {
+    if (data.tierProducts.length === 0) {
+      const interval = setInterval(() => {
+        revalidate();
+      }, 30000); // 30 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [data.tierProducts.length, revalidate]);
+  
+  // Refresh on page focus if products were recently created
+  useEffect(() => {
+    const handleFocus = () => {
+      // Check if we should refresh (e.g., if modal was recently closed)
+      const lastCreation = sessionStorage.getItem('tier-product-created');
+      if (lastCreation) {
+        const timeSinceCreation = Date.now() - parseInt(lastCreation);
+        if (timeSinceCreation < 60000) { // Within last minute
+          revalidate();
+          sessionStorage.removeItem('tier-product-created');
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [revalidate]);
   
   // Tier options for select
   const tierOptions = data.tiers.map(tier => ({
@@ -760,38 +797,15 @@ export default function TierProducts() {
     { label: "Lifetime (one-time)", value: "LIFETIME" },
   ];
   
-  // Table rows for existing products
-  const rows = data.tierProducts.map(product => [
-    <InlineStack gap="200" align="center">
-      <Thumbnail
-        source={ProductIcon}
-        size="small"
-        alt={product.tierName}
-      />
-      <BlockStack gap="050">
-        <Text variant="bodyMd" fontWeight="medium" as="span">
-          {product.tierName} - {formatDuration(product.duration)}
-        </Text>
-        <Text variant="bodySm" tone="subdued" as="span">
-          SKU: {product.sku}
-        </Text>
-      </BlockStack>
-    </InlineStack>,
-    <Badge tone={product.isActive ? "success" : "attention"}>
-      {product.isActive ? "Active" : "Draft"}
-    </Badge>,
-    <Text variant="bodyMd" fontWeight="semibold" as="span">
-      {formatAmount(product.price)}
-    </Text>,
-    <InlineStack gap="200">
-      <Button size="slim" icon={EditIcon} onClick={() => console.log("Edit", product.id)}>
-        Edit
-      </Button>
-      <Button size="slim" tone="critical" icon={DeleteIcon} onClick={() => console.log("Delete", product.id)}>
-        Delete
-      </Button>
-    </InlineStack>
-  ]);
+  // Handle delete product
+  const handleDeleteProduct = useCallback((productId: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      const formData = new FormData();
+      formData.append("intent", "delete-product");
+      formData.append("productId", productId);
+      submit(formData, { method: "post" });
+    }
+  }, [submit]);
   
   return (
     <Frame>
@@ -827,16 +841,31 @@ export default function TierProducts() {
             </Banner>
           </Layout.Section>
           
-          {/* Stats Cards */}
+          {/* Symmetrical Stats Cards Grid */}
           <Layout.Section>
-            <InlineStack gap="400">
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 'var(--p-space-400)',
+            }}>
               <Card>
                 <Box padding="400">
-                  <BlockStack gap="200">
-                    <Text variant="headingLg" as="h3">
+                  <BlockStack gap="200" align="center">
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--p-color-bg-surface-info)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Icon source={CashDollarIcon} />
+                    </div>
+                    <Text variant="heading2xl" as="h3">
                       {data.tiers.length}
                     </Text>
-                    <Text variant="bodySm" tone="subdued" as="p">
+                    <Text variant="bodySm" tone="subdued" as="p" alignment="center">
                       Available Tiers
                     </Text>
                   </BlockStack>
@@ -845,11 +874,22 @@ export default function TierProducts() {
               
               <Card>
                 <Box padding="400">
-                  <BlockStack gap="200">
-                    <Text variant="headingLg" as="h3">
+                  <BlockStack gap="200" align="center">
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--p-color-bg-surface-info)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Icon source={PackageIcon} />
+                    </div>
+                    <Text variant="heading2xl" as="h3">
                       {data.tierProducts.length}
                     </Text>
-                    <Text variant="bodySm" tone="subdued" as="p">
+                    <Text variant="bodySm" tone="subdued" as="p" alignment="center">
                       Tier Products
                     </Text>
                   </BlockStack>
@@ -858,23 +898,44 @@ export default function TierProducts() {
               
               <Card>
                 <Box padding="400">
-                  <BlockStack gap="200">
-                    <Text variant="headingLg" as="h3">
+                  <BlockStack gap="200" align="center">
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--p-color-bg-surface-success)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Icon source={CheckCircleIcon} />
+                    </div>
+                    <Text variant="heading2xl" as="h3">
                       {data.tierProducts.filter(p => p.isActive).length}
                     </Text>
-                    <Text variant="bodySm" tone="subdued" as="p">
+                    <Text variant="bodySm" tone="subdued" as="p" alignment="center">
                       Active Products
                     </Text>
                   </BlockStack>
                 </Box>
               </Card>
-            </InlineStack>
+            </div>
           </Layout.Section>
           
-          {/* Products Table */}
+          {/* Products Grid - Symmetric Card Layout */}
           <Layout.Section>
-            <Card>
-              {data.tierProducts.length === 0 ? (
+            {isRefreshing && data.tierProducts.length === 0 ? (
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="300">
+                    <SkeletonBodyText lines={1} />
+                    <SkeletonBodyText lines={3} />
+                    <SkeletonBodyText lines={2} />
+                  </BlockStack>
+                </Box>
+              </Card>
+            ) : data.tierProducts.length === 0 ? (
+              <Card>
                 <EmptyState
                   heading="No tier products yet"
                   action={{
@@ -886,75 +947,265 @@ export default function TierProducts() {
                   <p>
                     Start creating membership products that customers can purchase to unlock tier benefits.
                   </p>
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Products will appear here automatically after creation. Refreshing every 30 seconds...
+                  </Text>
                 </EmptyState>
-              ) : (
-                <DataTable
-                  columnContentTypes={["text", "text", "numeric", "text"]}
-                  headings={["Product", "Status", "Price", "Actions"]}
-                  rows={rows}
-                />
-              )}
-            </Card>
+              </Card>
+            ) : (
+              <>
+                {isRefreshing && (
+                  <Box paddingBlockEnd="400">
+                    <InlineStack align="center" gap="200">
+                      <Spinner size="small" />
+                      <Text variant="bodySm" tone="subdued" as="span">
+                        Refreshing products...
+                      </Text>
+                    </InlineStack>
+                  </Box>
+                )}
+                
+                {/* Symmetric Product Cards Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: 'var(--p-space-400)',
+                }}>
+                  {data.tierProducts.map((product) => {
+                    const tier = data.tiers.find(t => t.id === product.tierId);
+                    const tierStyle = tier ? getTierStyle(tier.name) : { gradient: '', icon: '🏆' };
+                    
+                    return (
+                      <Card key={product.id}>
+                        <Box padding="400">
+                          <BlockStack gap="400">
+                            {/* Product Header - Symmetrical */}
+                            <InlineStack align="space-between" blockAlign="start">
+                              <BlockStack gap="200">
+                                <InlineStack gap="200" align="start">
+                                  <div style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '8px',
+                                    background: tierStyle.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '20px'
+                                  }}>
+                                    {tierStyle.icon}
+                                  </div>
+                                  <BlockStack gap="050">
+                                    <Text variant="headingMd" as="h3">
+                                      {product.tierName}
+                                    </Text>
+                                    <Badge tone={product.isActive ? "success" : "attention"}>
+                                      {product.isActive ? "Active" : "Draft"}
+                                    </Badge>
+                                  </BlockStack>
+                                </InlineStack>
+                              </BlockStack>
+                            </InlineStack>
+                            
+                            <Divider />
+                            
+                            {/* Product Details - Balanced Layout */}
+                            <BlockStack gap="300">
+                              <InlineStack align="space-between">
+                                <Text variant="bodySm" tone="subdued" as="span">Duration</Text>
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                  {formatDuration(product.duration)}
+                                </Text>
+                              </InlineStack>
+                              
+                              <InlineStack align="space-between">
+                                <Text variant="bodySm" tone="subdued" as="span">Price</Text>
+                                <Text variant="headingMd" as="span" fontWeight="bold">
+                                  {formatAmount(product.price)}
+                                </Text>
+                              </InlineStack>
+                              
+                              <InlineStack align="space-between">
+                                <Text variant="bodySm" tone="subdued" as="span">SKU</Text>
+                                <Text variant="bodySm" as="code" fontWeight="medium">
+                                  {product.sku}
+                                </Text>
+                              </InlineStack>
+                              
+                              {tier && (
+                                <InlineStack align="space-between">
+                                  <Text variant="bodySm" tone="subdued" as="span">Cashback</Text>
+                                  <Badge tone="info">
+                                    {tier.cashbackPercent}%
+                                  </Badge>
+                                </InlineStack>
+                              )}
+                            </BlockStack>
+                            
+                            <Divider />
+                            
+                            {/* Action Buttons - Symmetrical */}
+                            <InlineStack gap="200" align="stretch">
+                              <div style={{ flex: 1 }}>
+                                <Button 
+                                  fullWidth
+                                  icon={EditIcon}
+                                  onClick={() => {
+                                    // TODO: Implement edit functionality
+                                    console.log("Edit", product.id);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Button 
+                                  fullWidth
+                                  tone="critical"
+                                  icon={DeleteIcon}
+                                  onClick={() => handleDeleteProduct(product.id)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </InlineStack>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </Layout.Section>
           
-          {/* How It Works Section */}
+          {/* How It Works Section - Symmetric Grid Layout */}
           <Layout.Section>
             <Card>
               <Box padding="400">
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">
+                  <Text variant="headingMd" as="h2" alignment="center">
                     How Tier Products Work
                   </Text>
                   
-                  <BlockStack gap="300">
-                    <InlineStack gap="200" align="start">
-                      <Badge>1</Badge>
-                      <BlockStack gap="100">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">
-                          Create Product
-                        </Text>
-                        <Text variant="bodyMd" tone="subdued" as="p">
-                          Select a tier and create a Shopify product with custom pricing and duration.
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
+                  {/* Symmetric 2x2 Grid for Steps */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: 'var(--p-space-400)',
+                  }}>
+                    {/* Step 1 */}
+                    <Card>
+                      <Box padding="300">
+                        <BlockStack gap="200" align="center">
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--p-color-bg-surface-brand)',
+                            color: 'var(--p-color-text-on-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '18px'
+                          }}>
+                            1
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="h4" alignment="center">
+                            Create Product
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                            Select a tier and create a Shopify product with custom pricing and duration.
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    </Card>
                     
-                    <InlineStack gap="200" align="start">
-                      <Badge>2</Badge>
-                      <BlockStack gap="100">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">
-                          Customer Purchase
-                        </Text>
-                        <Text variant="bodyMd" tone="subdued" as="p">
-                          Customers buy the product through your store like any other item.
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
+                    {/* Step 2 */}
+                    <Card>
+                      <Box padding="300">
+                        <BlockStack gap="200" align="center">
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--p-color-bg-surface-brand)',
+                            color: 'var(--p-color-text-on-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '18px'
+                          }}>
+                            2
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="h4" alignment="center">
+                            Customer Purchase
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                            Customers buy the product through your store like any other item.
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    </Card>
                     
-                    <InlineStack gap="200" align="start">
-                      <Badge>3</Badge>
-                      <BlockStack gap="100">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">
-                          Automatic Tier Assignment
-                        </Text>
-                        <Text variant="bodyMd" tone="subdued" as="p">
-                          Upon purchase completion, the customer is automatically assigned to the tier.
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
+                    {/* Step 3 */}
+                    <Card>
+                      <Box padding="300">
+                        <BlockStack gap="200" align="center">
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--p-color-bg-surface-brand)',
+                            color: 'var(--p-color-text-on-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '18px'
+                          }}>
+                            3
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="h4" alignment="center">
+                            Automatic Assignment
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                            Upon purchase completion, the customer is automatically assigned to the tier.
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    </Card>
                     
-                    <InlineStack gap="200" align="start">
-                      <Badge>4</Badge>
-                      <BlockStack gap="100">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">
-                          Benefits Activated
-                        </Text>
-                        <Text variant="bodyMd" tone="subdued" as="p">
-                          Customer immediately receives all tier benefits including cashback rates.
-                        </Text>
-                      </BlockStack>
-                    </InlineStack>
-                  </BlockStack>
+                    {/* Step 4 */}
+                    <Card>
+                      <Box padding="300">
+                        <BlockStack gap="200" align="center">
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--p-color-bg-surface-success)',
+                            color: 'var(--p-color-text-on-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '18px'
+                          }}>
+                            ✓
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="h4" alignment="center">
+                            Benefits Activated
+                          </Text>
+                          <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+                            Customer immediately receives all tier benefits including cashback rates.
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    </Card>
+                  </div>
                 </BlockStack>
               </Box>
             </Card>
