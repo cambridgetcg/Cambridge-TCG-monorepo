@@ -221,7 +221,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const sku = generateTierSKU(tierName, duration, shop);
       
       // Create product in Shopify using GraphQL
-      // Step 1: Create the product without variants
+      // Step 1: Create the product with default option
       const createProductResponse = await admin.graphql(
         `#graphql
         mutation createProduct($input: ProductInput!) {
@@ -231,6 +231,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               title
               handle
               status
+              options {
+                id
+                name
+                position
+              }
             }
             userErrors {
               field
@@ -247,6 +252,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               vendor: shop.split('.')[0],
               tags: ["tier-membership", tierName.toLowerCase(), duration.toLowerCase()],
               status: "ACTIVE",
+              productOptions: [
+                {
+                  name: "Title",
+                  values: [{ name: "Default Title" }]
+                }
+              ]
             }
           },
         }
@@ -270,6 +281,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
       
       const product = createResult.data.productCreate.product;
+      const productOptions = product.options || [];
       
       // Step 2: Get the default variant ID first
       const getVariantResponse = await admin.graphql(
@@ -280,6 +292,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               edges {
                 node {
                   id
+                  selectedOptions {
+                    name
+                    value
+                  }
                 }
               }
             }
@@ -291,51 +307,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       );
       
       const variantResult = await getVariantResponse.json();
-      const variantId = variantResult.data?.product?.variants?.edges?.[0]?.node?.id;
+      const variantData = variantResult.data?.product?.variants?.edges?.[0]?.node;
+      const variantId = variantData?.id;
       
       if (variantId) {
-        // Step 3: Get the first variant's option values
-        const getVariantDetailsResponse = await admin.graphql(
-          `#graphql
-          query getVariantDetails($id: ID!) {
-            product(id: $id) {
-              options {
-                id
-                name
-                values
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    id
-                    selectedOptions {
-                      name
-                      value
-                    }
-                  }
-                }
-              }
-            }
-          }`,
-          {
-            variables: { id: product.id }
-          }
-        );
+        // Build optionValues array using the product's options
+        const optionValues = productOptions.map((option: any) => ({
+          optionName: option.name,
+          name: "Default Title" // Use the default value for the option
+        }));
         
-        const variantDetails = await getVariantDetailsResponse.json();
-        const variant = variantDetails.data?.product?.variants?.edges?.[0]?.node;
-        const options = variantDetails.data?.product?.options || [];
-        
-        // Build optionValues array from the variant's selectedOptions
-        const optionValues = variant?.selectedOptions?.map((opt: any) => {
-          const option = options.find((o: any) => o.name === opt.name);
-          return {
-            optionName: opt.name,
-            name: opt.value
-          };
-        }) || [];
-        
-        // Step 4: Update the variant with price and SKU using productSet
+        // Step 3: Update the variant with price and SKU using productSet
+        // Include productOptions in the input to satisfy the requirement
         const updateVariantResponse = await admin.graphql(
           `#graphql
           mutation productSet($input: ProductSetInput!) {
@@ -364,18 +347,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             variables: {
               input: {
                 id: product.id,
+                productOptions: productOptions.map((opt: any) => ({
+                  name: opt.name,
+                  values: [{ name: "Default Title" }]
+                })),
                 variants: [{
                   id: variantId,
                   price: price.toString(),
                   sku: sku,
                   inventoryPolicy: "CONTINUE",
                   taxable: true,
-                  optionValues: optionValues.length > 0 ? optionValues : [{ optionName: "Title", name: "Default Title" }],
-                  inventoryQuantities: [{
-                    locationId: "gid://shopify/Location/1",  // This may need adjustment based on actual location
-                    name: "available",
-                    quantity: 999999
-                  }]
+                  optionValues: optionValues
                 }]
               }
             }
@@ -417,13 +399,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 variables: {
                   input: {
                     id: product.id,
+                    productOptions: productOptions.map((opt: any) => ({
+                      name: opt.name,
+                      values: [{ name: "Default Title" }]
+                    })),
                     variants: [{
                       id: variantId,
                       price: price.toString(),
                       sku: sku,
                       inventoryPolicy: "CONTINUE",
                       taxable: true,
-                      optionValues: optionValues.length > 0 ? optionValues : [{ optionName: "Title", name: "Default Title" }]
+                      optionValues: optionValues
                     }]
                   }
                 }
