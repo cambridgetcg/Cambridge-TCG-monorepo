@@ -83,11 +83,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
       where: {
         shop,
         shopifyCustomerId: customerId
-      },
-      include: {
-        currentTier: true
       }
     });
+    
+    // Fetch tier separately if customer exists
+    let currentTier = null;
+    if (customer && customer.currentTierId) {
+      currentTier = await db.tier.findFirst({
+        where: {
+          id: customer.currentTierId,
+          shop
+        }
+      });
+    }
     
     // 5. If customer doesn't exist, create them with defaults
     if (!customer) {
@@ -101,9 +109,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
           storeCredit: 0,
           createdAt: new Date(),
           updatedAt: new Date()
-        },
-        include: {
-          currentTier: true
         }
       });
     }

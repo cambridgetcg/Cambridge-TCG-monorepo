@@ -132,33 +132,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
     
     // Step 6: Fetch customer data with shop scoping
+    // Note: Data API adapter doesn't support select/include, fetch separately
     const customer = await db.customer.findFirst({
       where: {
         shopifyCustomerId: customerId,
         shop: validatedShop // CRITICAL: Always scope to shop
-      },
-      select: {
-        id: true,
-        storeCredit: true,
-        lifetimeEarned: true,
-        createdAt: true,
-        tier: {
-          select: {
-            name: true,
-            cashbackRate: true,
-            minimumSpend: true
-          }
-        }
       }
     });
     
+    // Fetch tier data separately if customer has a tier
+    let tier = null;
+    if (customer && customer.currentTierId) {
+      tier = await db.tier.findFirst({
+        where: {
+          id: customer.currentTierId,
+          shop: validatedShop
+        }
+      });
+    }
+    
     // Step 7: Get shop settings for currency formatting
+    // Note: Data API adapter doesn't support select
     const shopSettings = await db.shopSettings.findUnique({
-      where: { shop: validatedShop },
-      select: {
-        currency: true,
-        currencyFormat: true
-      }
+      where: { shop: validatedShop }
     });
     
     // Step 8: Build response based on enrollment status
@@ -180,21 +176,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     
     // Step 9: Calculate progress to next tier (if applicable)
     let nextTierInfo = undefined;
-    if (customer.tier) {
+    if (tier) {
       // Fetch next tier
+      // Note: Data API adapter doesn't support select
       const nextTier = await db.tier.findFirst({
         where: {
           shop: validatedShop,
-          minimumSpend: {
-            gt: customer.tier.minimumSpend
+          minSpend: {
+            gt: tier.minSpend
           }
         },
         orderBy: {
-          minimumSpend: 'asc'
-        },
-        select: {
-          name: true,
-          minimumSpend: true
+          minSpend: 'asc'
         }
       });
       
@@ -218,15 +211,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
       enrolled: true,
       memberData: {
         storeCredit: formatCurrency(
-          customer.storeCredit.toNumber(),
+          parseFloat(customer.storeCredit.toString()),
           shopSettings
         ),
-        tierName: customer.tier?.name || 'No Tier',
-        cashbackRate: customer.tier?.cashbackRate || 0,
+        tierName: tier?.name || 'No Tier',
+        cashbackRate: tier?.cashbackPercent || 0,
         nextTier: nextTierInfo?.name,
         progressToNextTier: nextTierInfo?.progress,
         lifetimeEarned: customer.lifetimeEarned 
-          ? formatCurrency(customer.lifetimeEarned.toNumber(), shopSettings)
+          ? formatCurrency(parseFloat(customer.lifetimeEarned.toString()), shopSettings)
           : undefined,
         memberSince: customer.createdAt.toISOString()
       }

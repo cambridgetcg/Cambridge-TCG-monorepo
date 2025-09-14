@@ -134,24 +134,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
     console.log(`Fetching data for customer ${customerId} from shop ${shop}`);
     
     // Step 6: Fetch customer data scoped to shop (CRITICAL for security)
+    // Note: Data API adapter doesn't support include, fetch separately
     const customer = await db.customer.findFirst({
       where: {
         shopifyCustomerId: customerId,
         shop: shop // CRITICAL: Always scope to authenticated shop
-      },
-      include: {
-        currentTier: true
       }
     });
     
+    // Fetch tier data separately if customer has a tier
+    let currentTier = null;
+    if (customer && customer.currentTierId) {
+      currentTier = await db.tier.findFirst({
+        where: {
+          id: customer.currentTierId,
+          shop: shop
+        }
+      });
+    }
+    
     // Step 7: Get shop settings for formatting
+    // Note: Data API adapter doesn't support select
     const shopSettings = await db.shopSettings.findUnique({
-      where: { shop },
-      select: {
-        storeCurrency: true,
-        currencyDisplayType: true,
-        storeName: true
-      }
+      where: { shop }
     });
     
     // Step 8: Handle non-enrolled customers
@@ -207,17 +212,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
           : Number(lifetimeSpending._sum.amount))
       : 0;
     
-    const totalSpent = lifetimeSpendingValue && customer.currentTier?.cashbackPercent
-      ? (lifetimeSpendingValue / customer.currentTier.cashbackPercent) * 100
+    const totalSpent = lifetimeSpendingValue && currentTier?.cashbackPercent
+      ? (lifetimeSpendingValue / currentTier.cashbackPercent) * 100
       : 0;
     
     // Step 11: Calculate next tier progress
     let nextTierInfo = null;
-    if (customer.currentTier) {
+    if (currentTier) {
       const nextTier = await db.tier.findFirst({
         where: {
           shop,
-          minSpend: { gt: customer.currentTier.minSpend }
+          minSpend: { gt: currentTier.minSpend }
         },
         orderBy: { minSpend: 'asc' }
       });
@@ -278,8 +283,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         storeCreditRaw: storeCreditValue,
         
         // Tier information
-        tierName: customer.currentTier?.name || "No Tier",
-        cashbackRate: customer.currentTier?.cashbackPercent || 0,
+        tierName: currentTier?.name || "No Tier",
+        cashbackRate: currentTier?.cashbackPercent || 0,
         
         // Progress information
         nextTier: nextTierInfo?.name,
