@@ -294,7 +294,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const variantId = variantResult.data?.product?.variants?.edges?.[0]?.node?.id;
       
       if (variantId) {
-        // Step 3: Update the variant with price and SKU using productSet
+        // Step 3: Get the first variant's option values
+        const getVariantDetailsResponse = await admin.graphql(
+          `#graphql
+          query getVariantDetails($id: ID!) {
+            product(id: $id) {
+              options {
+                id
+                name
+                values
+              }
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    selectedOptions {
+                      name
+                      value
+                    }
+                  }
+                }
+              }
+            }
+          }`,
+          {
+            variables: { id: product.id }
+          }
+        );
+        
+        const variantDetails = await getVariantDetailsResponse.json();
+        const variant = variantDetails.data?.product?.variants?.edges?.[0]?.node;
+        const options = variantDetails.data?.product?.options || [];
+        
+        // Build optionValues array from the variant's selectedOptions
+        const optionValues = variant?.selectedOptions?.map((opt: any) => {
+          const option = options.find((o: any) => o.name === opt.name);
+          return {
+            optionName: opt.name,
+            name: opt.value
+          };
+        }) || [];
+        
+        // Step 4: Update the variant with price and SKU using productSet
         const updateVariantResponse = await admin.graphql(
           `#graphql
           mutation productSet($input: ProductSetInput!) {
@@ -329,10 +370,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   sku: sku,
                   inventoryPolicy: "CONTINUE",
                   taxable: true,
-                  inventoryQuantities: {
-                    availableQuantity: 999999,
-                    locationId: "gid://shopify/Location/1"  // This may need adjustment
-                  }
+                  optionValues: optionValues.length > 0 ? optionValues : [{ optionName: "Title", name: "Default Title" }],
+                  inventoryQuantities: [{
+                    locationId: "gid://shopify/Location/1",  // This may need adjustment based on actual location
+                    name: "available",
+                    quantity: 999999
+                  }]
                 }]
               }
             }
@@ -345,7 +388,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const errors = updateResult.data.productSet.userErrors.map((e: any) => e.message).join(", ");
           
           // If location error, try without inventory quantities
-          if (errors.includes("location") || errors.includes("inventory")) {
+          if (errors.includes("location") || errors.includes("inventory") || errors.includes("Location")) {
             const retryResponse = await admin.graphql(
               `#graphql
               mutation productSet($input: ProductSetInput!) {
@@ -380,6 +423,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                       sku: sku,
                       inventoryPolicy: "CONTINUE",
                       taxable: true,
+                      optionValues: optionValues.length > 0 ? optionValues : [{ optionName: "Title", name: "Default Title" }]
                     }]
                   }
                 }
