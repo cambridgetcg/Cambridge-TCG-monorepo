@@ -40,31 +40,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if subscriptions are enabled
   const subscriptionsEnabled = isSubscriptionEnabled();
 
-  // Initialize default values
-  let totalSubscriptions = 0;
-  let activeSubscriptions = 0;
-  let failedSubscriptions = 0;
-  let revenue = { _sum: { amount: null } };
-  let subscriptions: any[] = [];
-  let sellingPlanGroup = null;
-
   try {
-    // Get subscription stats - wrap in try/catch in case tables don't exist yet
-    [totalSubscriptions, activeSubscriptions, failedSubscriptions, revenue] = await Promise.all([
-      db.tierSubscription.count({ where: { shop: session.shop } }).catch(() => 0),
-      db.tierSubscription.count({ where: { shop: session.shop, status: 'ACTIVE' } }).catch(() => 0),
-      db.tierSubscription.count({ where: { shop: session.shop, status: 'FAILED' } }).catch(() => 0),
+    // Try to load subscription data
+    const [totalSubscriptions, activeSubscriptions, failedSubscriptions, revenue] = await Promise.all([
+      db.tierSubscription.count({ where: { shop: session.shop } }),
+      db.tierSubscription.count({ where: { shop: session.shop, status: 'ACTIVE' } }),
+      db.tierSubscription.count({ where: { shop: session.shop, status: 'FAILED' } }),
       db.subscriptionBillingAttempt.aggregate({
         where: { 
           subscription: { shop: session.shop },
           status: 'SUCCESS',
         },
         _sum: { amount: true },
-      }).catch(() => ({ _sum: { amount: null } })),
+      }),
     ]);
 
     // Get recent subscriptions
-    subscriptions = await db.tierSubscription.findMany({
+    const subscriptions = await db.tierSubscription.findMany({
       where: { shop: session.shop },
       include: {
         customer: true,
@@ -76,42 +68,54 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
       orderBy: { createdAt: 'desc' },
       take: 20,
-    }).catch(() => []);
+    });
 
     // Check if selling plans exist
-    sellingPlanGroup = await db.sellingPlanGroup.findFirst({
+    const sellingPlanGroup = await db.sellingPlanGroup.findFirst({
       where: { shop: session.shop },
       include: { sellingPlans: true },
-    }).catch(() => null);
-  } catch (error) {
-    console.error("[Subscriptions Loader] Error loading subscription data:", error);
-    // Continue with defaults - the page will still render
-  }
+    });
 
-  return json({
-    subscriptionsEnabled,
-    stats: {
-      total: totalSubscriptions,
-      active: activeSubscriptions,
-      failed: failedSubscriptions,
-      revenue: revenue._sum.amount || 0,
-    },
-    subscriptions: subscriptions.map(sub => ({
-      id: sub.id,
-      customerEmail: sub.customer.email,
-      customerName: sub.customer.firstName 
-        ? `${sub.customer.firstName} ${sub.customer.lastName || ''}`.trim()
-        : sub.customer.email,
-      tierName: sub.tier.name,
-      status: sub.status,
-      billingInterval: sub.billingInterval,
-      monthlyPrice: sub.monthlyPrice?.toNumber() || 0,
-      nextBillingDate: sub.nextBillingDate?.toISOString(),
-      failureCount: sub.failureCount,
-      lastBillingStatus: sub.billingAttempts[0]?.status || 'PENDING',
-    })),
-    hasSellingPlans: !!sellingPlanGroup,
-  });
+    return json({
+      subscriptionsEnabled,
+      stats: {
+        total: totalSubscriptions,
+        active: activeSubscriptions,
+        failed: failedSubscriptions,
+        revenue: revenue._sum.amount || 0,
+      },
+      subscriptions: subscriptions.map(sub => ({
+        id: sub.id,
+        customerEmail: sub.customer.email,
+        customerName: sub.customer.firstName 
+          ? `${sub.customer.firstName} ${sub.customer.lastName || ''}`.trim()
+          : sub.customer.email,
+        tierName: sub.tier.name,
+        status: sub.status,
+        billingInterval: sub.billingInterval,
+        monthlyPrice: sub.monthlyPrice?.toNumber() || 0,
+        nextBillingDate: sub.nextBillingDate?.toISOString(),
+        failureCount: sub.failureCount,
+        lastBillingStatus: sub.billingAttempts[0]?.status || 'PENDING',
+      })),
+      hasSellingPlans: !!sellingPlanGroup,
+    });
+  } catch (error: any) {
+    // If tables don't exist or any other error, return defaults
+    console.log("[Subscriptions Loader] Tables not yet created or error loading data:", error.message);
+    
+    return json({
+      subscriptionsEnabled,
+      stats: {
+        total: 0,
+        active: 0,
+        failed: 0,
+        revenue: 0,
+      },
+      subscriptions: [],
+      hasSellingPlans: false,
+    });
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {

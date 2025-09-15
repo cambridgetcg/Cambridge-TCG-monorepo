@@ -70,13 +70,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (maxPrice) where.monthlyPrice.lte = parseFloat(maxPrice);
   }
 
-  // Initialize default values
-  let subscriptions: any[] = [];
-  let stats: any[] = [];
-
   try {
     // Get subscriptions with detailed info
-    subscriptions = await db.tierSubscription.findMany({
+    const subscriptions = await db.tierSubscription.findMany({
       where,
       include: {
         customer: true,
@@ -87,55 +83,60 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         },
       },
       orderBy: { createdAt: 'desc' },
-    }).catch(() => []);
+    });
 
     // Get aggregate stats
-    stats = await db.tierSubscription.groupBy({
+    const stats = await db.tierSubscription.groupBy({
       by: ['status'],
       where: { shop: session.shop },
       _count: true,
-    }).catch(() => []);
-  } catch (error) {
-    console.error("[Contracts Loader] Error loading subscription data:", error);
-    // Continue with empty data - the page will still render
-  }
+    });
 
-  return json({
-    subscriptions: subscriptions.map(sub => ({
-      id: sub.id,
-      subscriptionContractId: sub.subscriptionContractId,
-      customerId: sub.customerId,
-      customerEmail: sub.customer.email,
-      customerName: sub.customer.firstName 
-        ? `${sub.customer.firstName} ${sub.customer.lastName || ''}`.trim()
-        : sub.customer.email,
-      tierName: sub.tier.name,
-      status: sub.status,
-      billingInterval: sub.billingInterval,
-      monthlyPrice: sub.monthlyPrice?.toNumber() || 0,
-      currentPrice: sub.currentPrice?.toNumber() || 0,
-      nextBillingDate: sub.nextBillingDate?.toISOString(),
-      lastBillingDate: sub.lastBillingDate?.toISOString(),
-      startDate: sub.startDate.toISOString(),
-      endDate: sub.endDate?.toISOString(),
-      failureCount: sub.failureCount,
-      totalBilled: sub.totalBilled?.toNumber() || 0,
-      pausedAt: sub.pausedAt?.toISOString(),
-      pausedReason: sub.pausedReason,
-      cancelledAt: sub.cancelledAt?.toISOString(),
-      cancellationReason: sub.cancellationReason,
-      billingHistory: sub.billingAttempts.map(attempt => ({
-        id: attempt.id,
-        status: attempt.status,
-        amount: attempt.amount?.toNumber() || 0,
-        createdAt: attempt.createdAt.toISOString(),
-        errorMessage: attempt.errorMessage,
+    return json({
+      subscriptions: subscriptions.map(sub => ({
+        id: sub.id,
+        subscriptionContractId: sub.subscriptionContractId,
+        customerId: sub.customerId,
+        customerEmail: sub.customer.email,
+        customerName: sub.customer.firstName 
+          ? `${sub.customer.firstName} ${sub.customer.lastName || ''}`.trim()
+          : sub.customer.email,
+        tierName: sub.tier.name,
+        status: sub.status,
+        billingInterval: sub.billingInterval,
+        monthlyPrice: sub.monthlyPrice?.toNumber() || 0,
+        currentPrice: sub.currentPrice?.toNumber() || 0,
+        nextBillingDate: sub.nextBillingDate?.toISOString(),
+        lastBillingDate: sub.lastBillingDate?.toISOString(),
+        startDate: sub.startDate.toISOString(),
+        endDate: sub.endDate?.toISOString(),
+        failureCount: sub.failureCount,
+        totalBilled: sub.totalBilled?.toNumber() || 0,
+        pausedAt: sub.pausedAt?.toISOString(),
+        pausedReason: sub.pausedReason,
+        cancelledAt: sub.cancelledAt?.toISOString(),
+        cancellationReason: sub.cancellationReason,
+        billingHistory: sub.billingAttempts.map(attempt => ({
+          id: attempt.id,
+          status: attempt.status,
+          amount: attempt.amount?.toNumber() || 0,
+          createdAt: attempt.createdAt.toISOString(),
+          errorMessage: attempt.errorMessage,
+        })),
       })),
-    })),
-    statusCounts: Object.fromEntries(
-      stats.map(s => [s.status, s._count])
-    ),
-  });
+      statusCounts: Object.fromEntries(
+        stats.map(s => [s.status, s._count])
+      ),
+    });
+  } catch (error: any) {
+    // If tables don't exist or any other error, return defaults
+    console.log("[Contracts Loader] Tables not yet created or error loading data:", error.message);
+    
+    return json({
+      subscriptions: [],
+      statusCounts: {},
+    });
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
