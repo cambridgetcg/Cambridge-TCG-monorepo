@@ -73,58 +73,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         if (hasActivePayment) {
           console.log("[App Loader] Active paid subscription found, continuing...");
         } else {
-          // Check if they're on the free plan
-          const { hasActivePayment: hasFreePayment } = await billing.check({
-            plans: [FREE_PLAN] as any,
-            isTest: process.env.NODE_ENV === 'development',
+          // No paid plan - treat as free plan (no billing needed for $0)
+          console.log("[App Loader] No paid subscription found, using free plan...");
+          
+          // Check if they've exceeded free plan limits
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          
+          const monthlyUsage = await db.monthlyOrderUsage.findUnique({
+            where: {
+              shop_year_month: {
+                shop: session.shop,
+                year,
+                month
+              }
+            }
           });
           
-          if (!hasFreePayment) {
-            // No plan at all - activate free plan
-            console.log("[App Loader] No subscription found, activating free plan...");
-            
-            try {
-              // Request the free plan (which is $0)
-              const billingResponse = await (billing as any).request({
-                plan: FREE_PLAN,
-                isTest: process.env.NODE_ENV === 'development',
-                returnUrl: `${process.env.SHOPIFY_APP_URL}/app`,
-              });
-              
-              console.log("[App Loader] Free plan activation requested");
-              // Return the billing redirect response
-              return billingResponse;
-            } catch (billingRequestError: any) {
-              // If billing.request throws a Response, return it
-              if (billingRequestError instanceof Response) {
-                console.log("[App Loader] Billing request returned Response, forwarding it");
-                return billingRequestError;
-              }
-              // Otherwise, throw it to be caught by outer catch
-              throw billingRequestError;
-            }
-          } else {
-            console.log("[App Loader] Free plan active, checking usage limits...");
-            
-            // They're on free plan - check if they've exceeded limits
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            
-            const monthlyUsage = await db.monthlyOrderUsage.findUnique({
-              where: {
-                shop_year_month: {
-                  shop: session.shop,
-                  year,
-                  month
-                }
-              }
-            });
-            
-            if (monthlyUsage && monthlyUsage.orderCount >= 100) {
-              console.log("[App Loader] Free plan limit reached, showing upgrade prompt");
-              // Don't force redirect, just log - let them access billing page to upgrade
-            }
+          if (monthlyUsage && monthlyUsage.orderCount >= 100) {
+            console.log("[App Loader] Free plan limit reached, showing upgrade prompt");
+            // Don't force redirect, just log - let them access billing page to upgrade
           }
         }
       } catch (billingError: any) {
@@ -208,6 +177,8 @@ export default function App() {
           <Link to="/app/tiers">Tiers</Link>
           <Link to="/app/tier-products">Tier Products</Link>
           <Link to="/app/subscriptions">Subscriptions</Link>
+          <Link to="/app/subscriptions/setup">Subscription Setup</Link>
+          <Link to="/app/subscriptions/contracts">Active Subscriptions</Link>
           <Link to="/app/credit-management">Credit Management</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
