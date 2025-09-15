@@ -25,7 +25,8 @@ import {
 import { authenticate } from "~/shopify.server";
 import { db } from "~/db.server";
 import { useState, useCallback } from "react";
-import { v4 as uuidv4 } from 'crypto';
+import crypto from 'crypto';
+const uuidv4 = () => crypto.randomUUID();
 import { SubscriptionContractService } from "~/services/subscription/subscription-contract.server";
 import { BillingScheduler } from "~/services/subscription/billing-scheduler.server";
 

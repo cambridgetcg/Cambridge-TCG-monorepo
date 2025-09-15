@@ -6,7 +6,8 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { db } from "~/db.server";
 import { authenticate } from "~/shopify.server";
-import { v4 as uuidv4 } from 'crypto';
+import crypto from 'crypto';
+const uuidv4 = () => crypto.randomUUID();
 import { getNextBillingDate } from "~/services/subscription/config.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {

@@ -7,7 +7,8 @@
 import { db } from "~/db.server";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { SUBSCRIPTION_CONFIG, getNextBillingDate } from "./config.server";
-import { v4 as uuidv4 } from 'crypto';
+import crypto from 'crypto';
+const uuidv4 = () => crypto.randomUUID();
 
 interface BillingResult {
   subscriptionId: string;

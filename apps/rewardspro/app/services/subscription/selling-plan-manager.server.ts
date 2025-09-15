@@ -7,7 +7,8 @@ import { GraphqlQueryError } from "@shopify/shopify-api";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import { SUBSCRIPTION_CONFIG, type BillingInterval } from "./config.server";
-import { v4 as uuidv4 } from 'crypto';
+import crypto from 'crypto';
+const uuidv4 = () => crypto.randomUUID();
 
 interface CreateSellingPlanGroupInput {
   shop: string;

@@ -5,7 +5,8 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
-import { v4 as uuidv4 } from 'crypto';
+import crypto from 'crypto';
+const uuidv4 = () => crypto.randomUUID();
 import { SUBSCRIPTION_CONFIG, getNextBillingDate, type BillingInterval } from "./config.server";
 import type { Customer, Tier } from "@prisma/client";
 
