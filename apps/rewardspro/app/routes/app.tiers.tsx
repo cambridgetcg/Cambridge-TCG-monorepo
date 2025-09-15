@@ -62,7 +62,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       cashbackPercent: tier.cashbackPercent,
       evaluationPeriod: tier.evaluationPeriod,
       monthlyPrice: tier.monthlyPrice?.toNumber() || null,
-      customerCount: tier._count.customers,
+      customerCount: tier._count?.customers || 0,
     })),
     shopSettings,
     subscriptionsEnabled,
@@ -171,7 +171,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         include: { _count: { select: { customers: true } } },
       });
 
-      if (tier && tier._count.customers > 0) {
+      if (tier && tier._count?.customers && tier._count.customers > 0) {
         return json({ 
           success: false, 
           error: `Cannot delete tier with ${tier._count.customers} customers` 
