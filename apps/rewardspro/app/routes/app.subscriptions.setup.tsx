@@ -5,7 +5,7 @@
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -24,7 +24,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import { db } from "~/db.server";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { SellingPlanManager } from "~/services/subscription/selling-plan-manager.server";
 
 // Billing interval configuration for client-side display
@@ -143,69 +143,99 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const action = formData.get("action");
 
-  switch (action) {
-    case "create": {
-      // Get selected products
-      const selectedProductIds = formData.getAll("productIds") as string[];
-      
-      if (selectedProductIds.length === 0) {
-        return json({ 
-          success: false, 
-          error: "Please select at least one tier product" 
-        });
+  try {
+    switch (action) {
+      case "create": {
+        // Get selected products
+        const selectedProductIds = formData.getAll("productIds") as string[];
+        
+        if (selectedProductIds.length === 0) {
+          return json({ 
+            success: false, 
+            error: "Please select at least one tier product" 
+          });
+        }
+
+        // Create product variant map
+        const productVariantMap = new Map<string, string>();
+        for (const productData of selectedProductIds) {
+          const [tierId, variantId] = productData.split(":");
+          if (tierId && variantId) {
+            productVariantMap.set(tierId, variantId);
+          }
+        }
+
+        try {
+          // Check if SellingPlanManager service is available
+          if (!SellingPlanManager || !SellingPlanManager.createSellingPlanGroup) {
+            console.error('[Setup Action] SellingPlanManager not available');
+            return json({ 
+              success: false, 
+              error: "Subscription service not available. Please ensure database migration is applied." 
+            });
+          }
+
+          // Create selling plan group
+          const result = await SellingPlanManager.createSellingPlanGroup({
+            shop: session.shop,
+            admin,
+            tierIds: Array.from(productVariantMap.keys()),
+            productVariantMap,
+          });
+
+          return json({ 
+            success: true, 
+            message: `Created selling plan group with ${result.sellingPlans?.length || 0} plans`,
+            reload: true // Signal to reload the page
+          });
+        } catch (error: any) {
+          console.error('[Setup Action] Error creating selling plans:', error);
+          return json({ 
+            success: false, 
+            error: error.message || "Failed to create selling plans. Ensure subscription tables exist." 
+          });
+        }
       }
 
-      // Create product variant map
-      const productVariantMap = new Map<string, string>();
-      for (const productData of selectedProductIds) {
-        const [tierId, variantId] = productData.split(":");
-        productVariantMap.set(tierId, variantId);
+      case "remove": {
+        try {
+          // Check if SellingPlanManager service is available
+          if (!SellingPlanManager || !SellingPlanManager.removeSellingPlanGroup) {
+            console.error('[Setup Action] SellingPlanManager not available');
+            return json({ 
+              success: false, 
+              error: "Subscription service not available. Please ensure database migration is applied." 
+            });
+          }
+
+          await SellingPlanManager.removeSellingPlanGroup({
+            shop: session.shop,
+            admin,
+          });
+
+          return json({ 
+            success: true, 
+            message: "Selling plans removed successfully",
+            reload: true // Signal to reload the page
+          });
+        } catch (error: any) {
+          console.error('[Setup Action] Error removing selling plans:', error);
+          return json({ 
+            success: false, 
+            error: error.message || "Failed to remove selling plans" 
+          });
+        }
       }
 
-      try {
-        // Create selling plan group
-        const result = await SellingPlanManager.createSellingPlanGroup({
-          shop: session.shop,
-          admin,
-          tierIds: Array.from(productVariantMap.keys()),
-          productVariantMap,
-        });
-
-        return json({ 
-          success: true, 
-          message: `Created selling plan group with ${result.sellingPlans.length} plans` 
-        });
-      } catch (error: any) {
-        console.error('Error creating selling plans:', error);
-        return json({ 
-          success: false, 
-          error: error.message || "Failed to create selling plans" 
-        });
-      }
+      default:
+        return json({ success: false, error: "Invalid action" }, { status: 400 });
     }
-
-    case "remove": {
-      try {
-        await SellingPlanManager.removeSellingPlanGroup({
-          shop: session.shop,
-          admin,
-        });
-
-        return json({ 
-          success: true, 
-          message: "Selling plans removed successfully" 
-        });
-      } catch (error: any) {
-        console.error('Error removing selling plans:', error);
-        return json({ 
-          success: false, 
-          error: error.message || "Failed to remove selling plans" 
-        });
-      }
-    }
-
-    default:
-      return json({ success: false, error: "Invalid action" }, { status: 400 });
+  } catch (error: any) {
+    console.error('[Setup Action] Unexpected error:', error);
+    return json({ 
+      success: false, 
+      error: "An unexpected error occurred. Please try again." 
+    });
   }
 };
 
@@ -251,11 +281,23 @@ function extractTierIdFromProduct(product: any): string | null {
 
 export default function SubscriptionSetup() {
   const { hasSellingPlanGroup, sellingPlanGroup, tiers, tierProducts } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   
   const isLoading = navigation.state !== "idle";
+
+  // Handle action responses
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success && actionData.reload) {
+        // Reload the page to show updated state
+        window.location.reload();
+      }
+    }
+  }, [actionData]);
 
   const handleProductToggle = useCallback((productData: string) => {
     setSelectedProducts(prev => {
@@ -368,6 +410,30 @@ export default function SubscriptionSetup() {
             </p>
           </Banner>
         </Layout.Section>
+
+        {actionData?.error && (
+          <Layout.Section>
+            <Banner
+              title="Error"
+              tone="critical"
+              onDismiss={() => {}}
+            >
+              <p>{actionData.error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {actionData?.success && actionData?.message && (
+          <Layout.Section>
+            <Banner
+              title="Success"
+              tone="success"
+              onDismiss={() => {}}
+            >
+              <p>{actionData.message}</p>
+            </Banner>
+          </Layout.Section>
+        )}
 
         <Layout.Section>
           <Card>
