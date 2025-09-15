@@ -26,7 +26,22 @@ import { authenticate } from "~/shopify.server";
 import { db } from "~/db.server";
 import { useState, useCallback } from "react";
 import { SellingPlanManager } from "~/services/subscription/selling-plan-manager.server";
-import { SUBSCRIPTION_CONFIG } from "~/services/subscription/config.server";
+
+// Billing interval configuration for client-side display
+const BILLING_INTERVALS = {
+  MONTHLY: {
+    label: 'Monthly',
+    discountPercentage: 0,
+  },
+  QUARTERLY: {
+    label: 'Quarterly',
+    discountPercentage: 5,
+  },
+  ANNUAL: {
+    label: 'Annual',
+    discountPercentage: 15,
+  },
+};
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -338,7 +353,7 @@ export default function SubscriptionSetup() {
                     The following billing options will be created:
                   </Text>
                   <List>
-                    {Object.entries(SUBSCRIPTION_CONFIG.BILLING_INTERVALS).map(([key, interval]) => (
+                    {Object.entries(BILLING_INTERVALS).map(([key, interval]) => (
                       <List.Item key={key}>
                         <strong>{interval.label}</strong> - {interval.discountPercentage}% discount
                       </List.Item>
