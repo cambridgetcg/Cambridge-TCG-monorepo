@@ -38,7 +38,6 @@ import {
   CashDollarIcon,
   CalendarIcon,
   PackageIcon,
-  RefreshIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -542,6 +541,150 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         error: "Failed to create product" 
       }, { status: 500 });
       
+    } else if (intent === "update-product") {
+      const productId = formData.get("productId") as string;
+      const price = parseFloat(formData.get("price") as string);
+      const description = formData.get("description") as string;
+      const tierName = formData.get("tierName") as string;
+      const duration = formData.get("duration") as string;
+      
+      // Update product using productUpdate mutation
+      const updateProductResponse = await admin.graphql(
+        `#graphql
+        mutation updateProduct($input: ProductInput!) {
+          productUpdate(input: $input) {
+            product {
+              id
+              title
+              handle
+              status
+              descriptionHtml
+              variants(first: 1) {
+                edges {
+                  node {
+                    id
+                    price
+                    sku
+                  }
+                }
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }`,
+        {
+          variables: {
+            input: {
+              id: productId,
+              title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
+              descriptionHtml: description || `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
+              status: "ACTIVE",
+            }
+          },
+        }
+      );
+      
+      const updateResult = await updateProductResponse.json();
+      
+      if (updateResult.data?.productUpdate?.userErrors?.length > 0) {
+        const errors = updateResult.data.productUpdate.userErrors.map((e: any) => e.message).join(", ");
+        return json({ 
+          success: false, 
+          error: `Failed to update product: ${errors}` 
+        }, { status: 400 });
+      }
+      
+      // Update variant price if changed
+      if (updateResult.data?.productUpdate?.product) {
+        const product = updateResult.data.productUpdate.product;
+        const variant = product.variants.edges[0]?.node;
+        
+        if (variant && variant.price !== price.toString()) {
+          // Get product options first
+          const getOptionsResponse = await admin.graphql(
+            `#graphql
+            query getProductOptions($id: ID!) {
+              product(id: $id) {
+                options {
+                  id
+                  name
+                  position
+                  values
+                }
+              }
+            }`,
+            {
+              variables: { id: productId }
+            }
+          );
+          
+          const optionsResult = await getOptionsResponse.json();
+          const productOptions = optionsResult.data?.product?.options || [];
+          
+          // Build optionValues array
+          const optionValues = productOptions.map((option: any) => ({
+            optionName: option.name,
+            name: option.values[0] || "Default Title"
+          }));
+          
+          // Update variant price using productSet
+          const updateVariantResponse = await admin.graphql(
+            `#graphql
+            mutation productSet($input: ProductSetInput!) {
+              productSet(input: $input) {
+                product {
+                  id
+                  variants(first: 1) {
+                    edges {
+                      node {
+                        id
+                        price
+                      }
+                    }
+                  }
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }`,
+            {
+              variables: {
+                input: {
+                  id: productId,
+                  productOptions: productOptions.map((opt: any) => ({
+                    name: opt.name,
+                    values: opt.values.map((v: string) => ({ name: v }))
+                  })),
+                  variants: [{
+                    id: variant.id,
+                    price: price.toString(),
+                    optionValues: optionValues
+                  }]
+                }
+              }
+            }
+          );
+          
+          const variantResult = await updateVariantResponse.json();
+          
+          if (variantResult.data?.productSet?.userErrors?.length > 0) {
+            const errors = variantResult.data.productSet.userErrors.map((e: any) => e.message).join(", ");
+            console.error("Failed to update variant price:", errors);
+          }
+        }
+      }
+      
+      return json({
+        success: true,
+        message: "Product updated successfully",
+        product: updateResult.data?.productUpdate?.product,
+      });
+      
     } else if (intent === "sync-product") {
       const productId = formData.get("productId") as string;
       
@@ -649,6 +792,8 @@ export default function TierProducts() {
   
   // State
   const [modalActive, setModalActive] = useState(false);
+  const [editModalActive, setEditModalActive] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<TierProduct | null>(null);
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<string>("MONTHLY");
@@ -692,6 +837,27 @@ export default function TierProducts() {
     setModalActive(false);
   }, []);
   
+  // Handle edit modal open
+  const handleEditModalOpen = useCallback((product: TierProduct) => {
+    setEditingProduct(product);
+    setSelectedTier(product.tierId);
+    setPrice(product.price.toString());
+    setDuration(product.duration);
+    setDescription(""); // Would need to fetch from Shopify if needed
+    setFeatures(product.features || [
+      "Access to exclusive tier benefits",
+      "Cashback rewards on purchases",
+      "Priority customer support"
+    ]);
+    setEditModalActive(true);
+  }, []);
+  
+  // Handle edit modal close
+  const handleEditModalClose = useCallback(() => {
+    setEditModalActive(false);
+    setEditingProduct(null);
+  }, []);
+  
   // Handle create product
   const handleCreateProduct = useCallback(() => {
     if (!selectedTier || !price) {
@@ -715,12 +881,33 @@ export default function TierProducts() {
     formData.append("description", description);
     formData.append("features", JSON.stringify(features));
     
-    // Mark that we're creating a product for auto-refresh
-    sessionStorage.setItem('tier-product-created', Date.now().toString());
-    
     submit(formData, { method: "post" });
     handleModalClose();
   }, [selectedTier, price, duration, description, features, data.tiers, submit, handleModalClose]);
+  
+  // Handle update product
+  const handleUpdateProduct = useCallback(() => {
+    if (!editingProduct || !price) {
+      setToast({
+        active: true,
+        content: "Please enter a valid price",
+        error: true,
+      });
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append("intent", "update-product");
+    formData.append("productId", editingProduct.id);
+    formData.append("tierName", editingProduct.tierName);
+    formData.append("price", price);
+    formData.append("duration", duration);
+    formData.append("description", description);
+    formData.append("features", JSON.stringify(features));
+    
+    submit(formData, { method: "post" });
+    handleEditModalClose();
+  }, [editingProduct, price, duration, description, features, submit, handleEditModalClose]);
   
   // Handle add feature
   const handleAddFeature = useCallback(() => {
@@ -744,44 +931,10 @@ export default function TierProducts() {
         error: !actionData.success,
       });
       
-      // Refresh the product list after successful creation
-      if (actionData.success) {
-        // Add a small delay to ensure Shopify has indexed the new product
-        setTimeout(() => {
-          revalidate();
-        }, 1000);
-      }
+      // Product created successfully
     }
   }, [actionData, revalidate]);
   
-  // Auto-refresh every 30 seconds if there are no products (initial setup)
-  useEffect(() => {
-    if (data.tierProducts.length === 0) {
-      const interval = setInterval(() => {
-        revalidate();
-      }, 30000); // 30 seconds
-      
-      return () => clearInterval(interval);
-    }
-  }, [data.tierProducts.length, revalidate]);
-  
-  // Refresh on page focus if products were recently created
-  useEffect(() => {
-    const handleFocus = () => {
-      // Check if we should refresh (e.g., if modal was recently closed)
-      const lastCreation = sessionStorage.getItem('tier-product-created');
-      if (lastCreation) {
-        const timeSinceCreation = Date.now() - parseInt(lastCreation);
-        if (timeSinceCreation < 60000) { // Within last minute
-          revalidate();
-          sessionStorage.removeItem('tier-product-created');
-        }
-      }
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [revalidate]);
   
   // Tier options for select
   const tierOptions = data.tiers.map(tier => ({
@@ -817,14 +970,6 @@ export default function TierProducts() {
           icon: PlusIcon,
           onAction: handleModalOpen,
         }}
-        secondaryActions={[
-          {
-            content: "Refresh",
-            icon: RefreshIcon,
-            disabled: isLoading || navigation.state === "loading",
-            onAction: () => revalidate(),
-          }
-        ]}
       >
         <Layout>
           {/* Information Banner */}
@@ -895,30 +1040,6 @@ export default function TierProducts() {
                   </BlockStack>
                 </Box>
               </Card>
-              
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="200" align="center">
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--p-color-bg-surface-success)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Icon source={CheckCircleIcon} />
-                    </div>
-                    <Text variant="heading2xl" as="h3">
-                      {data.tierProducts.filter(p => p.isActive).length}
-                    </Text>
-                    <Text variant="bodySm" tone="subdued" as="p" alignment="center">
-                      Active Products
-                    </Text>
-                  </BlockStack>
-                </Box>
-              </Card>
             </div>
           </Layout.Section>
           
@@ -947,23 +1068,10 @@ export default function TierProducts() {
                   <p>
                     Start creating membership products that customers can purchase to unlock tier benefits.
                   </p>
-                  <Text variant="bodySm" tone="subdued" as="p">
-                    Products will appear here automatically after creation. Refreshing every 30 seconds...
-                  </Text>
                 </EmptyState>
               </Card>
             ) : (
               <>
-                {isRefreshing && (
-                  <Box paddingBlockEnd="400">
-                    <InlineStack align="center" gap="200">
-                      <Spinner size="small" />
-                      <Text variant="bodySm" tone="subdued" as="span">
-                        Refreshing products...
-                      </Text>
-                    </InlineStack>
-                  </Box>
-                )}
                 
                 {/* Symmetric Product Cards Grid */}
                 <div style={{
@@ -1050,10 +1158,7 @@ export default function TierProducts() {
                                 <Button 
                                   fullWidth
                                   icon={EditIcon}
-                                  onClick={() => {
-                                    // TODO: Implement edit functionality
-                                    console.log("Edit", product.id);
-                                  }}
+                                  onClick={() => handleEditModalOpen(product)}
                                 >
                                   Edit
                                 </Button>
@@ -1300,6 +1405,105 @@ export default function TierProducts() {
                   <Button onClick={handleAddFeature}>Add</Button>
                 </InlineStack>
               </BlockStack>
+            </FormLayout>
+          </Modal.Section>
+        </Modal>
+        
+        {/* Edit Product Modal */}
+        <Modal
+          open={editModalActive}
+          onClose={handleEditModalClose}
+          title="Edit Tier Product"
+          primaryAction={{
+            content: "Update Product",
+            onAction: handleUpdateProduct,
+            loading: isLoading,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: handleEditModalClose,
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              {editingProduct && (
+                <>
+                  <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between">
+                        <Text variant="bodyMd" fontWeight="semibold" as="span">
+                          Current Product
+                        </Text>
+                        <Badge>{editingProduct.tierName}</Badge>
+                      </InlineStack>
+                      <Text variant="bodySm" tone="subdued" as="p">
+                        {editingProduct.tierName} Tier Membership - {formatDuration(editingProduct.duration)}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                  
+                  <TextField
+                    label="Price"
+                    type="number"
+                    value={price}
+                    onChange={setPrice}
+                    prefix={data.shopSettings?.storeCurrency || "USD"}
+                    helpText="Update the price for this membership"
+                    autoComplete="off"
+                  />
+                  
+                  <Select
+                    label="Duration"
+                    options={durationOptions}
+                    value={duration}
+                    onChange={setDuration}
+                    helpText="Change how long the membership lasts"
+                  />
+                  
+                  <TextField
+                    label="Description"
+                    value={description}
+                    onChange={setDescription}
+                    multiline={4}
+                    helpText="Update the product description"
+                    autoComplete="off"
+                  />
+                  
+                  <BlockStack gap="200">
+                    <Text variant="bodyMd" fontWeight="semibold" as="span">
+                      Membership Features
+                    </Text>
+                    
+                    {features.map((feature, index) => (
+                      <InlineStack key={index} gap="200" align="space-between">
+                        <Text variant="bodyMd" as="span">• {feature}</Text>
+                        <Button
+                          size="slim"
+                          plain
+                          onClick={() => handleRemoveFeature(index)}
+                        >
+                          Remove
+                        </Button>
+                      </InlineStack>
+                    ))}
+                    
+                    <InlineStack gap="200">
+                      <div style={{ flex: 1 }}>
+                        <TextField
+                          label=""
+                          value={newFeature}
+                          onChange={setNewFeature}
+                          placeholder="Add a feature..."
+                          autoComplete="off"
+                        />
+                      </div>
+                      <Button onClick={handleAddFeature}>Add</Button>
+                    </InlineStack>
+                  </BlockStack>
+                </>
+              )}
             </FormLayout>
           </Modal.Section>
         </Modal>
