@@ -47,6 +47,7 @@ type ShopSettings = {
 type LoaderData = {
   settings: ShopSettings;
   shop: string;
+  shopifyTimezone?: string;
 };
 
 // ============= CONSTANTS =============
@@ -85,37 +86,7 @@ const CURRENCY_OPTIONS = [
   { label: "🇲🇾 Malaysian Ringgit (MYR)", value: "MYR", symbol: "RM" },
 ];
 
-const TIMEZONE_OPTIONS = [
-  { label: "-- Americas --", value: "", disabled: true },
-  { label: "Eastern Time (New York)", value: "America/New_York" },
-  { label: "Central Time (Chicago)", value: "America/Chicago" },
-  { label: "Mountain Time (Denver)", value: "America/Denver" },
-  { label: "Pacific Time (Los Angeles)", value: "America/Los_Angeles" },
-  { label: "Atlantic Time (Halifax)", value: "America/Halifax" },
-  { label: "Brasília Time", value: "America/Sao_Paulo" },
-  { label: "Buenos Aires Time", value: "America/Argentina/Buenos_Aires" },
-  { label: "Mexico City Time", value: "America/Mexico_City" },
-  { label: "-- Europe --", value: "", disabled: true },
-  { label: "London Time", value: "Europe/London" },
-  { label: "Central European Time (Paris)", value: "Europe/Paris" },
-  { label: "Eastern European Time (Athens)", value: "Europe/Athens" },
-  { label: "Moscow Time", value: "Europe/Moscow" },
-  { label: "Stockholm Time", value: "Europe/Stockholm" },
-  { label: "-- Asia-Pacific --", value: "", disabled: true },
-  { label: "Tokyo Time", value: "Asia/Tokyo" },
-  { label: "Beijing Time", value: "Asia/Shanghai" },
-  { label: "Hong Kong Time", value: "Asia/Hong_Kong" },
-  { label: "Singapore Time", value: "Asia/Singapore" },
-  { label: "India Time (Mumbai)", value: "Asia/Kolkata" },
-  { label: "Sydney Time", value: "Australia/Sydney" },
-  { label: "Auckland Time", value: "Pacific/Auckland" },
-  { label: "-- Middle East & Africa --", value: "", disabled: true },
-  { label: "Dubai Time", value: "Asia/Dubai" },
-  { label: "Israel Time", value: "Asia/Jerusalem" },
-  { label: "South Africa Time", value: "Africa/Johannesburg" },
-  { label: "-- UTC --", value: "", disabled: true },
-  { label: "UTC (Coordinated Universal Time)", value: "UTC" },
-];
+// Timezone options removed - now automatically synced from Shopify
 
 // ============= HELPERS =============
 const getCurrencySymbol = (currency: Currency): string => {
@@ -134,17 +105,7 @@ const formatCurrencyExample = (currency: Currency, displayType: CurrencyDisplayT
   }
 };
 
-const getCurrentTimeInTimezone = (timezone: string): string => {
-  try {
-    return new Date().toLocaleString("en-US", { 
-      timeZone: timezone,
-      dateStyle: "medium",
-      timeStyle: "short"
-    });
-  } catch (e) {
-    return "Invalid timezone";
-  }
-};
+// getCurrentTimeInTimezone function removed - timezone display simplified
 
 const validateUrl = (url: string): boolean => {
   try {
@@ -179,7 +140,7 @@ const checkRateLimit = (shop: string) => {
 // ============= LOADER =============
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { session } = await authenticate.admin(request);
+    const { session, admin } = await authenticate.admin(request);
     
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
@@ -187,27 +148,71 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const shop = session.shop;
 
+    // Fetch shop details from Shopify to get timezone and currency
+    let shopifyTimezone = "America/New_York"; // Default fallback
+    let shopifyCurrency = "USD"; // Default fallback
+    let shopName = shop.split('.')[0];
+    
+    try {
+      const shopQuery = `#graphql
+        query getShopDetails {
+          shop {
+            name
+            currencyCode
+            ianaTimezone
+            url
+            billingAddress {
+              country
+            }
+          }
+        }
+      `;
+      
+      const response = await admin.graphql(shopQuery);
+      const shopData = await response.json();
+      
+      if (shopData.data?.shop) {
+        shopifyTimezone = shopData.data.shop.ianaTimezone || shopifyTimezone;
+        shopifyCurrency = shopData.data.shop.currencyCode || shopifyCurrency;
+        shopName = shopData.data.shop.name || shopName;
+      }
+    } catch (error) {
+      console.error("Failed to fetch shop details from Shopify:", error);
+      // Continue with defaults
+    }
+
     // Try to fetch existing settings
     let settings = await db.shopSettings.findUnique({
       where: { shop },
     });
 
-    // If no settings exist, create default settings
+    // If no settings exist, create with Shopify defaults
     if (!settings) {
       const now = new Date();
       settings = await db.shopSettings.create({
         data: {
-          id: crypto.randomUUID(), // Generate UUID for id
+          id: crypto.randomUUID(),
           shop,
-          storeName: shop.split('.')[0], // Extract store name from domain
+          storeName: shopName,
           storeUrl: `https://${shop}`,
-          storeCurrency: "USD",
+          storeCurrency: shopifyCurrency as Currency,
           currencyDisplayType: "SYMBOL",
-          timezone: "America/New_York",
+          timezone: shopifyTimezone,
           createdAt: now,
           updatedAt: now,
         },
       });
+    } else {
+      // Update timezone if it differs from Shopify
+      if (settings.timezone !== shopifyTimezone) {
+        settings = await db.shopSettings.update({
+          where: { id: settings.id },
+          data: {
+            timezone: shopifyTimezone,
+            updatedAt: new Date(),
+          },
+        });
+      }
     }
 
     // Serialize dates for JSON
@@ -223,7 +228,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json<LoaderData>({ 
       settings: serializedSettings as ShopSettings, 
-      shop 
+      shop,
+      shopifyTimezone // Pass Shopify's timezone to show it's synced
     });
   } catch (error) {
     console.error("Settings loader error:", error);
@@ -257,7 +263,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const storeUrl = formData.get("storeUrl") as string;
     const storeCurrency = formData.get("storeCurrency") as Currency;
     const currencyDisplayType = formData.get("currencyDisplayType") as CurrencyDisplayType;
-    const timezone = formData.get("timezone") as string;
+    // Timezone is now synced from Shopify and not editable
 
     // Validation
     const errors: string[] = [];
@@ -280,15 +286,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       errors.push("Invalid currency display type");
     }
 
-    if (!TIMEZONE_OPTIONS.some(opt => opt.value === timezone)) {
-      errors.push("Invalid timezone selected");
-    }
-
     if (errors.length > 0) {
       return json({ error: errors.join(", ") }, { status: 400 });
     }
 
-    // Update settings
+    // Update settings (timezone stays as-is, synced from Shopify)
     const updatedSettings = await db.shopSettings.update({
       where: { shop },
       data: {
@@ -296,7 +298,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         storeUrl: storeUrl.trim(),
         storeCurrency,
         currencyDisplayType,
-        timezone,
+        // timezone is synced from Shopify, not updated here
         updatedAt: new Date(),
       },
     });
@@ -322,7 +324,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 // ============= COMPONENT =============
 export default function SettingsPage() {
-  const { settings, shop } = useLoaderData<LoaderData>();
+  const { settings, shop, shopifyTimezone } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
   const navigation = useNavigation();
   
@@ -331,11 +333,11 @@ export default function SettingsPage() {
   const [storeUrl, setStoreUrl] = useState(settings.storeUrl);
   const [storeCurrency, setStoreCurrency] = useState<Currency>(settings.storeCurrency);
   const [currencyDisplayType, setCurrencyDisplayType] = useState<CurrencyDisplayType>(settings.currencyDisplayType);
-  const [timezone, setTimezone] = useState(settings.timezone);
+  // Timezone is now read-only from Shopify
+  const timezone = shopifyTimezone || settings.timezone;
   
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [currentTime, setCurrentTime] = useState("");
 
   // Check for unsaved changes
   useEffect(() => {
@@ -343,23 +345,12 @@ export default function SettingsPage() {
       storeName !== settings.storeName ||
       storeUrl !== settings.storeUrl ||
       storeCurrency !== settings.storeCurrency ||
-      currencyDisplayType !== settings.currencyDisplayType ||
-      timezone !== settings.timezone;
+      currencyDisplayType !== settings.currencyDisplayType;
     
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, timezone, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, settings]);
 
-  // Update current time display
-  useEffect(() => {
-    const updateTime = () => {
-      setCurrentTime(getCurrentTimeInTimezone(timezone));
-    };
-    
-    updateTime();
-    const interval = setInterval(updateTime, 60000); // Update every minute
-    
-    return () => clearInterval(interval);
-  }, [timezone]);
+  // Removed time display - timezone is now just shown as text
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
@@ -369,10 +360,10 @@ export default function SettingsPage() {
     formData.append("storeUrl", storeUrl);
     formData.append("storeCurrency", storeCurrency);
     formData.append("currencyDisplayType", currencyDisplayType);
-    formData.append("timezone", timezone);
+    // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, timezone, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -380,7 +371,7 @@ export default function SettingsPage() {
     setStoreUrl(settings.storeUrl);
     setStoreCurrency(settings.storeCurrency);
     setCurrencyDisplayType(settings.currencyDisplayType);
-    setTimezone(settings.timezone);
+    // Timezone is read-only, no need to reset
   }, [settings]);
 
   // Show success/error messages
@@ -521,26 +512,13 @@ export default function SettingsPage() {
                   Timezone Settings
                 </Text>
                 <FormLayout>
-                  <Select
+                  <TextField
                     label="Store Timezone"
-                    options={TIMEZONE_OPTIONS}
-                    value={timezone}
-                    onChange={setTimezone}
-                    helpText="Used for scheduling and time-based calculations"
+                    value={shopifyTimezone || timezone}
+                    disabled
+                    autoComplete="off"
+                    helpText="Automatically synced from your Shopify store settings"
                   />
-                  
-                  {currentTime && (
-                    <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                      <BlockStack gap="200">
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Current time in selected timezone
-                        </Text>
-                        <Text as="p" variant="headingMd">
-                          {currentTime}
-                        </Text>
-                      </BlockStack>
-                    </Box>
-                  )}
                 </FormLayout>
               </BlockStack>
             </Card>

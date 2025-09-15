@@ -22,13 +22,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log(`[Shop Update] Cleared ${deletedSessions.count} sessions for ${shop}`);
     console.log("[Shop Update] App will re-authenticate on next access");
     
-    // You could also store currency here in a new Shop settings table
-    // For now, just log it
+    // Update shop settings with new timezone and currency if they exist
+    const shopSettings = await db.shopSettings.findUnique({
+      where: { shop }
+    });
+    
+    if (shopSettings) {
+      const updates: any = {};
+      
+      // Update timezone if provided (using iana_timezone or timezone)
+      if (payload.iana_timezone) {
+        updates.timezone = payload.iana_timezone;
+        console.log(`[Shop Update] Updating timezone to: ${payload.iana_timezone}`);
+      } else if (payload.timezone) {
+        updates.timezone = payload.timezone;
+        console.log(`[Shop Update] Updating timezone to: ${payload.timezone}`);
+      }
+      
+      // Update currency if provided and valid
+      if (payload.currency) {
+        updates.storeCurrency = payload.currency;
+        console.log(`[Shop Update] Updating currency to: ${payload.currency}`);
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date();
+        
+        await db.shopSettings.update({
+          where: { id: shopSettings.id },
+          data: updates
+        });
+        
+        console.log(`[Shop Update] Updated shop settings for ${shop}`);
+      }
+    }
+    
     console.log(`[Shop Update] Shop details:`, {
       currency: payload.currency,
       money_format: payload.money_format,
       money_with_currency_format: payload.money_with_currency_format,
       timezone: payload.timezone,
+      iana_timezone: payload.iana_timezone,
       country_code: payload.country_code
     });
     
