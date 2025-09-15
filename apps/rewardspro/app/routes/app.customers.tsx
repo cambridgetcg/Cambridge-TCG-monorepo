@@ -56,13 +56,10 @@ import {
 } from "@shopify/polaris-icons";
 import {
   MetricCard,
-  EnhancedDataTable,
   CustomerCard,
-  SearchFilterBar,
   TierProgressCard,
   LoadingSkeleton,
   StatsOverview,
-  ActionBanner,
 } from "../components/DesignSystem";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -1278,70 +1275,137 @@ export default function Customers() {
                 </Box>
               </Card>
 
-              {/* Search and Filter Bar */}
-              <SearchFilterBar
-                searchValue={searchQuery}
-                onSearchChange={handleSearch}
-                filters={[
-                  {
-                    label: "Tier",
-                    value: tierFilter,
-                    options: tierOptions,
-                    onChange: handleTierFilter,
-                  },
-                ]}
-                actions={[
-                  {
-                    content: "Export",
-                    icon: ExportIcon,
-                    onAction: () => {
-                      setToast({
-                        active: true,
-                        content: "Export feature coming soon!",
-                        error: false,
-                        duration: 3000,
-                      });
-                    },
-                  },
-                ]}
-              />
+              {/* Customer Management Module - Integrated with Search */}
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    {/* Header with title and actions */}
+                    <InlineStack align="space-between">
+                      <Text variant="headingLg" as="h2">
+                        Customer Management
+                      </Text>
+                      <InlineStack gap="200">
+                        <Button
+                          icon={ExportIcon}
+                          onClick={() => {
+                            setToast({
+                              active: true,
+                              content: "Export feature coming soon!",
+                              error: false,
+                              duration: 3000,
+                            });
+                          }}
+                        >
+                          Export
+                        </Button>
+                      </InlineStack>
+                    </InlineStack>
 
-              {/* Sync Information Banner */}
-              {data.totalCustomers === 0 && (
-                <ActionBanner
-                  title="Import your customers from Shopify"
-                  content="Click 'Sync from Shopify' to import all your existing customers. This will create customer profiles in the rewards system so you can track store credit and assign loyalty tiers."
-                  tone="info"
-                  action={{
-                    content: "Sync from Shopify",
-                    onAction: handleSyncCustomers,
-                  }}
-                />
-              )}
+                    {/* Integrated Search and Filter Bar */}
+                    <Box background="bg-surface-secondary" padding="300" borderRadius="200">
+                      <InlineStack gap="300" align="start" blockAlign="center">
+                        <div style={{ flex: 1 }}>
+                          <TextField
+                            label="Search customers"
+                            labelHidden
+                            value={searchQuery}
+                            onChange={handleSearch}
+                            placeholder="Search by email or customer ID..."
+                            prefix={<Icon source={SearchIcon} />}
+                            clearButton
+                            onClearButtonClick={() => handleSearch("")}
+                            autoComplete="off"
+                          />
+                        </div>
+                        <Select
+                          label="Filter by tier"
+                          labelHidden
+                          options={tierOptions}
+                          value={tierFilter}
+                          onChange={handleTierFilter}
+                        />
+                      </InlineStack>
+                    </Box>
 
-              {/* Enhanced Customer Table */}
-              {isLoading && filteredCustomers.length === 0 ? (
-                <LoadingSkeleton type="table" lines={5} />
-              ) : (
-                <EnhancedDataTable
-                  columns={[
-                    { header: "Customer", type: "text" },
-                    { header: "Current Tier", type: "text" },
-                    { header: "Store Credit", type: "numeric" },
-                    { header: "Actions", type: "actions" },
-                  ]}
-                  rows={rows}
-                  loading={isLoading}
-                  emptyState={{
-                    heading: "No customers found",
-                    content: "Import your existing customers from Shopify to start tracking their rewards and tier status.",
-                    action: {
-                      content: "Sync from Shopify",
-                      onAction: handleSyncCustomers,
-                    },
-                  }}
-                />
-              )}
+                    {/* Results summary */}
+                    {searchQuery || tierFilter !== "all" ? (
+                      <InlineStack align="space-between">
+                        <Text variant="bodySm" tone="subdued" as="span">
+                          Showing {filteredCustomers.length} of {data.totalCustomers} customers
+                        </Text>
+                        {(searchQuery || tierFilter !== "all") && (
+                          <Button
+                            variant="plain"
+                            onClick={() => {
+                              handleSearch("");
+                              handleTierFilter("all");
+                            }}
+                          >
+                            Clear filters
+                          </Button>
+                        )}
+                      </InlineStack>
+                    ) : null}
+
+                    {/* Sync Information Banner */}
+                    {data.totalCustomers === 0 && (
+                      <Banner
+                        title="Import your customers from Shopify"
+                        tone="info"
+                        icon={InfoIcon}
+                      >
+                        <p>Click 'Sync from Shopify' to import all your existing customers. This will create customer profiles in the rewards system so you can track store credit and assign loyalty tiers.</p>
+                      </Banner>
+                    )}
+
+                    {/* Customer Table */}
+                    {isLoading && filteredCustomers.length === 0 ? (
+                      <LoadingSkeleton type="table" lines={5} />
+                    ) : filteredCustomers.length === 0 ? (
+                      <EmptyState
+                        heading={searchQuery || tierFilter !== "all" ? "No customers match your filters" : "No customers found"}
+                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                        action={
+                          searchQuery || tierFilter !== "all" ? {
+                            content: "Clear filters",
+                            onAction: () => {
+                              handleSearch("");
+                              handleTierFilter("all");
+                            }
+                          } : {
+                            content: "Sync from Shopify",
+                            onAction: handleSyncCustomers,
+                          }
+                        }
+                      >
+                        <p>
+                          {searchQuery || tierFilter !== "all" 
+                            ? "Try adjusting your search or filter criteria."
+                            : "Import your existing customers from Shopify to start tracking their rewards and tier status."}
+                        </p>
+                      </EmptyState>
+                    ) : (
+                      <DataTable
+                        columnContentTypes={[
+                          "text",
+                          "text",
+                          "numeric",
+                          "text",
+                        ]}
+                        headings={[
+                          "Customer",
+                          "Current Tier",
+                          "Store Credit",
+                          "Actions",
+                        ]}
+                        rows={rows}
+                        hoverable
+                        truncate
+                      />
+                    )}
+                  </BlockStack>
+                </Box>
+              </Card>
 
             </BlockStack>
           </Layout.Section>
