@@ -70,26 +70,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (maxPrice) where.monthlyPrice.lte = parseFloat(maxPrice);
   }
 
-  // Get subscriptions with detailed info
-  const subscriptions = await db.tierSubscription.findMany({
-    where,
-    include: {
-      customer: true,
-      tier: true,
-      billingAttempts: {
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  // Initialize default values
+  let subscriptions: any[] = [];
+  let stats: any[] = [];
 
-  // Get aggregate stats
-  const stats = await db.tierSubscription.groupBy({
-    by: ['status'],
-    where: { shop: session.shop },
-    _count: true,
-  });
+  try {
+    // Get subscriptions with detailed info
+    subscriptions = await db.tierSubscription.findMany({
+      where,
+      include: {
+        customer: true,
+        tier: true,
+        billingAttempts: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }).catch(() => []);
+
+    // Get aggregate stats
+    stats = await db.tierSubscription.groupBy({
+      by: ['status'],
+      where: { shop: session.shop },
+      _count: true,
+    }).catch(() => []);
+  } catch (error) {
+    console.error("[Contracts Loader] Error loading subscription data:", error);
+    // Continue with empty data - the page will still render
+  }
 
   return json({
     subscriptions: subscriptions.map(sub => ({

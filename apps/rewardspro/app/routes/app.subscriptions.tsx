@@ -40,40 +40,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if subscriptions are enabled
   const subscriptionsEnabled = isSubscriptionEnabled();
 
-  // Get subscription stats
-  const [totalSubscriptions, activeSubscriptions, failedSubscriptions, revenue] = await Promise.all([
-    db.tierSubscription.count({ where: { shop: session.shop } }),
-    db.tierSubscription.count({ where: { shop: session.shop, status: 'ACTIVE' } }),
-    db.tierSubscription.count({ where: { shop: session.shop, status: 'FAILED' } }),
-    db.subscriptionBillingAttempt.aggregate({
-      where: { 
-        subscription: { shop: session.shop },
-        status: 'SUCCESS',
-      },
-      _sum: { amount: true },
-    }),
-  ]);
+  // Initialize default values
+  let totalSubscriptions = 0;
+  let activeSubscriptions = 0;
+  let failedSubscriptions = 0;
+  let revenue = { _sum: { amount: null } };
+  let subscriptions: any[] = [];
+  let sellingPlanGroup = null;
 
-  // Get recent subscriptions
-  const subscriptions = await db.tierSubscription.findMany({
-    where: { shop: session.shop },
-    include: {
-      customer: true,
-      tier: true,
-      billingAttempts: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-  });
+  try {
+    // Get subscription stats - wrap in try/catch in case tables don't exist yet
+    [totalSubscriptions, activeSubscriptions, failedSubscriptions, revenue] = await Promise.all([
+      db.tierSubscription.count({ where: { shop: session.shop } }).catch(() => 0),
+      db.tierSubscription.count({ where: { shop: session.shop, status: 'ACTIVE' } }).catch(() => 0),
+      db.tierSubscription.count({ where: { shop: session.shop, status: 'FAILED' } }).catch(() => 0),
+      db.subscriptionBillingAttempt.aggregate({
+        where: { 
+          subscription: { shop: session.shop },
+          status: 'SUCCESS',
+        },
+        _sum: { amount: true },
+      }).catch(() => ({ _sum: { amount: null } })),
+    ]);
 
-  // Check if selling plans exist
-  const sellingPlanGroup = await db.sellingPlanGroup.findFirst({
-    where: { shop: session.shop },
-    include: { sellingPlans: true },
-  });
+    // Get recent subscriptions
+    subscriptions = await db.tierSubscription.findMany({
+      where: { shop: session.shop },
+      include: {
+        customer: true,
+        tier: true,
+        billingAttempts: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    }).catch(() => []);
+
+    // Check if selling plans exist
+    sellingPlanGroup = await db.sellingPlanGroup.findFirst({
+      where: { shop: session.shop },
+      include: { sellingPlans: true },
+    }).catch(() => null);
+  } catch (error) {
+    console.error("[Subscriptions Loader] Error loading subscription data:", error);
+    // Continue with defaults - the page will still render
+  }
 
   return json({
     subscriptionsEnabled,
