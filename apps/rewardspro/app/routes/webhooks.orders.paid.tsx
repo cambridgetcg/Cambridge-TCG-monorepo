@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
 import { authenticate } from "~/shopify.server";
 import { v4 as uuidv4 } from 'uuid';
+import { processTierProductPurchase } from "~/services/tier-product-purchase.server";
 
 // Initialize Prisma client
 const db = createDataAPIPrismaClient();
@@ -286,12 +287,75 @@ export async function action({ request }: ActionFunctionArgs) {
     const customerId = payload.customer?.id?.toString();
     const customerEmail = payload.customer?.email;
     const webhookTotalPrice = parseFloat(payload.total_price || '0');
+    const lineItems = payload.line_items || [];
 
     // Validate required fields
     if (!orderId || !customerId) {
       console.error('[OrdersPaidWebhook] Missing required fields');
       return json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    // ========================================================================
+    // PROCESS TIER PRODUCT PURCHASES
+    // ========================================================================
+    
+    console.log('[OrdersPaidWebhook] 🎯 Checking for tier product purchases...');
+    
+    for (const lineItem of lineItems) {
+      const productId = lineItem.product_id?.toString();
+      const variantId = lineItem.variant_id?.toString();
+      const sku = lineItem.sku || '';
+      const productTitle = lineItem.title || '';
+      
+      if (!productId) continue;
+      
+      try {
+        // Fetch product details to get tags
+        const productQuery = `#graphql
+          query getProduct($id: ID!) {
+            product(id: $id) {
+              tags
+            }
+          }
+        `;
+        
+        const productResponse = await admin.graphql(productQuery, {
+          variables: { id: `gid://shopify/Product/${productId}` }
+        });
+        
+        const productData = await productResponse.json();
+        const tags = productData.data?.product?.tags || [];
+        
+        // Check if this is a tier product
+        if (tags.includes('tier-membership')) {
+          console.log(`[OrdersPaidWebhook] 🏆 Found tier product: ${productTitle}`);
+          
+          const purchaseResult = await processTierProductPurchase(
+            shop,
+            customerId,
+            orderId,
+            productId,
+            variantId,
+            sku,
+            tags,
+            productTitle,
+            admin
+          );
+          
+          if (purchaseResult.success) {
+            console.log(`[OrdersPaidWebhook] ✅ Tier ${purchaseResult.tierName} assigned to customer via purchase`);
+            console.log(`[OrdersPaidWebhook] Duration: ${purchaseResult.duration}, Expires: ${purchaseResult.expiresAt || 'Never'}`);
+          } else {
+            console.error(`[OrdersPaidWebhook] ❌ Failed to assign tier: ${purchaseResult.error}`);
+          }
+        }
+      } catch (error) {
+        console.error(`[OrdersPaidWebhook] Error processing tier product ${productId}:`, error);
+        // Continue processing other items even if one fails
+      }
+    }
+    
+    console.log('[OrdersPaidWebhook] 🎯 Tier product processing complete');
 
     // ========================================================================
     // FETCH TRANSACTION DETAILS FOR ACCURATE CASHBACK CALCULATION

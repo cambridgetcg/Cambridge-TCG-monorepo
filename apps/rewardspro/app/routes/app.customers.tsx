@@ -77,6 +77,7 @@ import {
   hasManualOverride,
   getTierHistory
 } from "../services/manual-tier-assignment.server";
+import { checkTierMembershipExpiry } from "../services/tier-product-purchase.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { TierBadge } from "../components/TierBadge";
 import { 
@@ -227,20 +228,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tierDistribution,
     };
 
-    // Format customers for display
-    const formattedCustomers = customers.map(customer => ({
-      id: customer.id,
-      shopifyCustomerId: customer.shopifyCustomerId,
-      email: customer.email,
-      storeCredit: parseFloat(customer.storeCredit.toString()),
-      currentTier: customer.currentTier ? {
-        id: customer.currentTier.id,
-        name: customer.currentTier.name,
-        cashbackPercent: customer.currentTier.cashbackPercent,
-        minSpend: customer.currentTier.minSpend,
-      } : null,
-      createdAt: customer.createdAt.toISOString(),
-      updatedAt: customer.updatedAt.toISOString(),
+    // Format customers for display with membership status
+    const formattedCustomers = await Promise.all(customers.map(async customer => {
+      // Check tier membership status (purchased or manual)
+      const membershipStatus = await checkTierMembershipExpiry(customer.id);
+      
+      return {
+        id: customer.id,
+        shopifyCustomerId: customer.shopifyCustomerId,
+        email: customer.email,
+        storeCredit: parseFloat(customer.storeCredit.toString()),
+        currentTier: customer.currentTier ? {
+          id: customer.currentTier.id,
+          name: customer.currentTier.name,
+          cashbackPercent: customer.currentTier.cashbackPercent,
+          minSpend: customer.currentTier.minSpend,
+        } : null,
+        // Add membership status
+        membershipStatus: {
+          isPurchased: membershipStatus.isPurchased,
+          needsRenewal: membershipStatus.needsRenewal,
+          expiresAt: membershipStatus.expiresAt?.toISOString() || null,
+          daysRemaining: membershipStatus.daysRemaining,
+        },
+        createdAt: customer.createdAt.toISOString(),
+        updatedAt: customer.updatedAt.toISOString(),
+      };
     }));
 
     return json({
@@ -959,7 +972,7 @@ export default function Customers() {
           {customer.currentTier ? (
             <>
               <TierIcon tierName={customer.currentTier.name} />
-              <Badge tone="success">
+              <Badge tone={customer.membershipStatus?.isPurchased ? "info" : "success"}>
                 {`${customer.currentTier.name}`}
               </Badge>
               <Text variant="bodySm" tone="subdued" as="span">
@@ -970,6 +983,29 @@ export default function Customers() {
             <Badge tone="attention">No tier</Badge>
           )}
         </InlineStack>
+        {customer.membershipStatus?.isPurchased && (
+          <InlineStack gap="100" align="center">
+            <Icon source={CheckCircleIcon} />
+            <Text variant="bodySm" tone="subdued" as="span">
+              Purchased
+            </Text>
+            {customer.membershipStatus.expiresAt && (
+              <>
+                {customer.membershipStatus.needsRenewal ? (
+                  <Badge tone="warning">
+                    {customer.membershipStatus.daysRemaining} days left
+                  </Badge>
+                ) : (
+                  <Text variant="bodySm" tone="subdued" as="span">
+                    {customer.membershipStatus.daysRemaining ? 
+                      `${customer.membershipStatus.daysRemaining} days` : 
+                      'Lifetime'}
+                  </Text>
+                )}
+              </>
+            )}
+          </InlineStack>
+        )}
         {customer.hasManualOverride && (
           <InlineStack gap="100" align="center">
             <Icon source={EditIcon} />

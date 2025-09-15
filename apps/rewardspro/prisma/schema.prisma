@@ -358,4 +358,5 @@ enum TierTriggerType {
   PERIODIC_REVIEW     // System periodic evaluation
   SPENDING_MILESTONE  // Hit specific spending threshold
   MANUAL_ADMIN        // Manual change by admin
+  PRODUCT_PURCHASE    // Tier assigned via product purchase
 }
