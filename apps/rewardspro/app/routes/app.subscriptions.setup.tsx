@@ -50,59 +50,87 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  // Check current setup status
-  const [sellingPlanGroup, tiers, tierProducts] = await Promise.all([
-    db.sellingPlanGroup.findFirst({
-      where: { shop: session.shop },
-      include: { sellingPlans: true },
-    }),
-    db.tier.findMany({
-      where: { shop: session.shop },
-      orderBy: { minSpend: 'asc' },
-    }),
-    // Get tier products from Shopify
-    getTierProducts(admin, session.shop),
-  ]);
+  try {
+    // Initialize defaults
+    let sellingPlanGroup = null;
+    let tiers: any[] = [];
+    let tierProducts: any[] = [];
 
-  // Check which products have selling plans
-  const productsWithPlans = new Set<string>();
-  if (sellingPlanGroup) {
-    for (const product of tierProducts) {
-      const hasPlans = await SellingPlanManager.productHasSellingPlans({
-        admin,
-        productId: product.id,
-      });
-      if (hasPlans) {
-        productsWithPlans.add(product.id);
+    try {
+      // Check current setup status
+      [sellingPlanGroup, tiers, tierProducts] = await Promise.all([
+        // Check if sellingPlanGroup model exists before querying
+        db.sellingPlanGroup ? 
+          db.sellingPlanGroup.findFirst({
+            where: { shop: session.shop },
+            include: { sellingPlans: true },
+          }).catch(() => null) : 
+          Promise.resolve(null),
+        db.tier.findMany({
+          where: { shop: session.shop },
+          orderBy: { minSpend: 'asc' },
+        }).catch(() => []),
+        // Get tier products from Shopify
+        getTierProducts(admin, session.shop).catch(() => []),
+      ]);
+    } catch (error: any) {
+      console.log("[Setup Loader] Error loading initial data:", error.message);
+      // Continue with defaults
+    }
+
+    // Check which products have selling plans
+    const productsWithPlans = new Set<string>();
+    if (sellingPlanGroup && tierProducts.length > 0) {
+      try {
+        for (const product of tierProducts) {
+          const hasPlans = await SellingPlanManager.productHasSellingPlans({
+            admin,
+            productId: product.id,
+          });
+          if (hasPlans) {
+            productsWithPlans.add(product.id);
+          }
+        }
+      } catch (error: any) {
+        console.log("[Setup Loader] Error checking product plans:", error.message);
       }
     }
-  }
 
-  return json({
-    hasSellingPlanGroup: !!sellingPlanGroup,
-    sellingPlanGroup: sellingPlanGroup ? {
-      id: sellingPlanGroup.id,
-      name: sellingPlanGroup.name,
-      plansCount: sellingPlanGroup.sellingPlans.length,
-      plans: sellingPlanGroup.sellingPlans.map(plan => ({
-        name: plan.name,
-        interval: plan.billingInterval,
-        discount: plan.discountValue?.toNumber() || 0,
+    return json({
+      hasSellingPlanGroup: !!sellingPlanGroup,
+      sellingPlanGroup: sellingPlanGroup ? {
+        id: sellingPlanGroup.id,
+        name: sellingPlanGroup.name,
+        plansCount: sellingPlanGroup.sellingPlans?.length || 0,
+        plans: (sellingPlanGroup.sellingPlans || []).map(plan => ({
+          name: plan.name,
+          interval: plan.billingInterval,
+          discount: plan.discountValue?.toNumber() || 0,
+        })),
+      } : null,
+      tiers: tiers.map(tier => ({
+        id: tier.id,
+        name: tier.name,
+        cashbackPercent: tier.cashbackPercent,
       })),
-    } : null,
-    tiers: tiers.map(tier => ({
-      id: tier.id,
-      name: tier.name,
-      cashbackPercent: tier.cashbackPercent,
-    })),
-    tierProducts: tierProducts.map(product => ({
-      id: product.id,
-      title: product.title,
-      variantId: product.variants.edges[0]?.node.id,
-      hasSellingPlans: productsWithPlans.has(product.id),
-      tierId: extractTierIdFromProduct(product),
-    })),
-  });
+      tierProducts: tierProducts.map(product => ({
+        id: product.id,
+        title: product.title,
+        variantId: product.variants?.edges?.[0]?.node?.id || null,
+        hasSellingPlans: productsWithPlans.has(product.id),
+        tierId: extractTierIdFromProduct(product),
+      })),
+    });
+  } catch (error: any) {
+    console.log("[Setup Loader] Fatal error:", error.message);
+    // Return minimal valid response on any error
+    return json({
+      hasSellingPlanGroup: false,
+      sellingPlanGroup: null,
+      tiers: [],
+      tierProducts: [],
+    });
+  }
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
