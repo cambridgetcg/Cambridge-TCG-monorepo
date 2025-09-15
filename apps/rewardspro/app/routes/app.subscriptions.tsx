@@ -40,6 +40,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if subscriptions are enabled
   const subscriptionsEnabled = isSubscriptionEnabled();
 
+  // Default response for when tables don't exist
+  const defaultResponse = {
+    subscriptionsEnabled,
+    stats: {
+      total: 0,
+      active: 0,
+      failed: 0,
+      revenue: 0,
+    },
+    subscriptions: [],
+    hasSellingPlans: false,
+  };
+
+  // Check if the subscription models exist in the Prisma client
+  // If they don't, the tables haven't been created yet
+  if (!db.tierSubscription || !db.subscriptionBillingAttempt || !db.sellingPlanGroup) {
+    console.log("[Subscriptions Loader] Subscription tables not yet created in database");
+    return json(defaultResponse);
+  }
+
   try {
     // Try to load subscription data
     const [totalSubscriptions, activeSubscriptions, failedSubscriptions, revenue] = await Promise.all([
@@ -101,20 +121,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       hasSellingPlans: !!sellingPlanGroup,
     });
   } catch (error: any) {
-    // If tables don't exist or any other error, return defaults
-    console.log("[Subscriptions Loader] Tables not yet created or error loading data:", error.message);
-    
-    return json({
-      subscriptionsEnabled,
-      stats: {
-        total: 0,
-        active: 0,
-        failed: 0,
-        revenue: 0,
-      },
-      subscriptions: [],
-      hasSellingPlans: false,
-    });
+    // If any error occurs (e.g., tables exist but query fails), return defaults
+    console.log("[Subscriptions Loader] Error loading subscription data:", error.message);
+    return json(defaultResponse);
   }
 };
 

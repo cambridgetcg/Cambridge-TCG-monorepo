@@ -50,6 +50,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("Unauthorized", { status: 401 });
   }
 
+  // Check if the subscription models exist
+  if (!db.sellingPlanGroup) {
+    console.log("[Setup Loader] Subscription tables not yet created in database");
+    return json({
+      hasSellingPlanGroup: false,
+      sellingPlanGroup: null,
+      tiers: [],
+      tierProducts: [],
+    });
+  }
+
   try {
     // Initialize defaults
     let sellingPlanGroup = null;
@@ -59,13 +70,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       // Check current setup status
       [sellingPlanGroup, tiers, tierProducts] = await Promise.all([
-        // Check if sellingPlanGroup model exists before querying
-        db.sellingPlanGroup ? 
-          db.sellingPlanGroup.findFirst({
-            where: { shop: session.shop },
-            include: { sellingPlans: true },
-          }).catch(() => null) : 
-          Promise.resolve(null),
+        db.sellingPlanGroup.findFirst({
+          where: { shop: session.shop },
+          include: { sellingPlans: true },
+        }).catch(() => null),
         db.tier.findMany({
           where: { shop: session.shop },
           orderBy: { minSpend: 'asc' },

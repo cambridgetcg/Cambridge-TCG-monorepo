@@ -53,6 +53,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const minPrice = searchParams.get("minPrice");
   const maxPrice = searchParams.get("maxPrice");
 
+  // Check if the subscription models exist
+  if (!db.tierSubscription) {
+    console.log("[Contracts Loader] Subscription tables not yet created in database");
+    return json({
+      subscriptions: [],
+      statusCounts: {},
+    });
+  }
+
   // Build where clause
   const where: any = { shop: session.shop };
   
