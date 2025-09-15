@@ -38,9 +38,39 @@ api_version = "2025-07"
   compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
   uri = "/webhooks/compliance"
 
+  # Subscription webhooks (pending scope approval)
+  [[webhooks.subscriptions]]
+  topics = ["subscription_contracts/create"]
+  uri = "/webhooks/subscriptions/created"
+  
+  [[webhooks.subscriptions]]
+  topics = ["subscription_contracts/update"]
+  uri = "/webhooks/subscriptions/updated"
+  
+  [[webhooks.subscriptions]]
+  topics = ["subscription_billing_attempts/success"]
+  uri = "/webhooks/subscriptions/billing_success"
+  
+  [[webhooks.subscriptions]]
+  topics = ["subscription_billing_attempts/failure"]
+  uri = "/webhooks/subscriptions/billing_failed"
+  
+  [[webhooks.subscriptions]]
+  topics = ["subscription_contracts/activate"]
+  uri = "/webhooks/subscriptions/activated"
+  
+  [[webhooks.subscriptions]]
+  topics = ["subscription_contracts/pause"]
+  uri = "/webhooks/subscriptions/paused"
+  
+  [[webhooks.subscriptions]]
+  topics = ["subscription_contracts/cancel"]
+  uri = "/webhooks/subscriptions/cancelled"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,write_customers,read_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts,write_app_proxy,write_products"
+# Base scopes for tier management and rewards + Subscription scopes (pending approval)
+scopes = "read_customers,write_customers,read_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts,write_app_proxy,write_products,read_products,write_purchase_options,read_purchase_options,write_own_subscription_contracts,read_own_subscription_contracts,read_customer_payment_methods"
 
 [auth]
 redirect_urls = ["https://rewardspro-production-nnwf.vercel.app/auth/callback", "https://rewardspro-production-nnwf.vercel.app/auth/shopify/callback", "https://rewardspro-production-nnwf.vercel.app/api/auth/callback"]

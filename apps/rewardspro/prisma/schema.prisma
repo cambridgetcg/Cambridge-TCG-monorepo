@@ -65,10 +65,17 @@ model Tier {
   minSpend          Int
   cashbackPercent   Int
   evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
+  
+  // Subscription pricing
+  monthlyPrice      Decimal?            @db.Decimal(10, 2)  // Monthly subscription price
+  billingInterval   BillingInterval?    // Billing interval for subscriptions
+  discountPercentage Decimal?           @db.Decimal(5, 2)   // Discount for subscriptions
+  
   createdAt         DateTime            @default(now())
   
   // Relations
   customers         Customer[]  // Customers currently in this tier
+  subscriptions     TierSubscription[]  // Subscriptions for this tier
 
   // Constraints
   @@unique([shop, name])  // Combination must be unique
@@ -93,6 +100,7 @@ model Customer {
   // Relations
   creditLedger      StoreCreditLedger[]
   tierChangeLogs    TierChangeLog[]
+  subscriptions     TierSubscription[]  // Customer's tier subscriptions
   
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -146,6 +154,7 @@ model TierChangeLog {
   
   // Additional context
   orderId           String?             // If triggered by an order
+  subscriptionId    String?             // If triggered by subscription
   note              String?             // Manual notes or system messages
   metadata          Json?               // Additional data (order details, calculation breakdown, etc.)
   
@@ -154,6 +163,7 @@ model TierChangeLog {
   
   // Relations
   customer          Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  subscription      TierSubscription?   @relation(fields: [subscriptionId], references: [id])
   
   // Indexes for common queries
   @@index([customerId, createdAt(sort: Desc)])  // Customer's tier history
@@ -292,6 +302,160 @@ model MonthlyOrderUsage {
   @@index([shop, year, month])
 }
 
+// ============================================
+// SUBSCRIPTION MODELS
+// ============================================
+
+model TierSubscription {
+  id                    String   @id @default(uuid())
+  shop                  String
+  customerId            String
+  customer              Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tierId                String
+  tier                  Tier     @relation(fields: [tierId], references: [id])
+  
+  // Shopify Integration
+  subscriptionContractId String  @unique  // Shopify's subscription contract ID
+  sellingPlanId         String            // Which selling plan (monthly/annual/etc)
+  sellingPlanGroupId    String            // Group containing all plans
+  productVariantId      String            // The tier product variant
+  
+  // Subscription Details
+  status                SubscriptionStatus @default(PENDING)
+  billingInterval       BillingInterval
+  deliveryInterval      BillingInterval    // Usually same as billing
+  
+  // Pricing
+  basePrice            Decimal  @db.Decimal(10, 2)
+  discountPercentage   Int      @default(0)  // e.g., 15% for annual
+  finalPrice           Decimal  @db.Decimal(10, 2)
+  currency             Currency @default(USD)
+  
+  // Period Tracking
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  nextBillingDate      DateTime?
+  lastBillingDate      DateTime?
+  
+  // Lifecycle
+  trialEndsAt          DateTime?  // Optional trial period
+  startedAt            DateTime?
+  pausedAt             DateTime?
+  resumedAt            DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
+  
+  // Billing
+  billingAttempts      SubscriptionBillingAttempt[]
+  failedPaymentCount   Int      @default(0)
+  
+  // Relations to track history
+  tierChangeLogs       TierChangeLog[]  // Tier changes related to this subscription
+  
+  // Metadata
+  metadata             Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([shop, customerId])
+  @@index([shop, status])
+  @@index([subscriptionContractId])
+  @@index([status, nextBillingDate])  // For billing scheduler
+}
+
+model SubscriptionBillingAttempt {
+  id                    String   @id @default(uuid())
+  subscriptionId        String
+  subscription          TierSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  // Attempt Details
+  attemptNumber         Int      @default(1)
+  idempotencyKey       String   @unique  // Prevent duplicate charges
+  
+  // Status
+  status               BillingStatus @default(PENDING)
+  
+  // Financial
+  amount               Decimal  @db.Decimal(10, 2)
+  currency             Currency @default(USD)
+  
+  // Shopify References
+  shopifyOrderId       String?  // Created order if successful
+  shopifyBillingAttemptId String?
+  shopifyInvoiceUrl    String?  // For customer payment completion
+  
+  // Error Tracking
+  errorCode            String?
+  errorMessage         String?
+  errorDetails         Json?
+  
+  // Timestamps
+  scheduledFor         DateTime
+  attemptedAt          DateTime?
+  succeededAt          DateTime?
+  failedAt             DateTime?
+  
+  createdAt           DateTime @default(now())
+  
+  @@index([subscriptionId, status])
+  @@index([scheduledFor])
+  @@index([idempotencyKey])
+}
+
+model SellingPlanGroup {
+  id                    String   @id @default(uuid())
+  shop                  String
+  shopifyGroupId        String   @unique  // Shopify's selling plan group ID
+  
+  // Configuration
+  name                  String   // e.g., "Gold Tier Subscription Plans"
+  merchantCode          String   // e.g., "tier-gold-subscription"
+  
+  // Associated Products
+  tierProducts          Json     // Array of product/variant IDs
+  
+  // Plans in this group
+  plans                 SellingPlan[]
+  
+  // Metadata
+  metadata              Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@index([shop])
+  @@index([shopifyGroupId])
+}
+
+model SellingPlan {
+  id                    String   @id @default(uuid())
+  groupId               String
+  group                 SellingPlanGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  shopifyPlanId         String   @unique  // Shopify's selling plan ID
+  
+  // Plan Details
+  name                  String   // e.g., "Monthly", "Annual"
+  position              Int      // Display order
+  
+  // Billing Configuration
+  billingInterval       BillingInterval
+  intervalCount         Int      @default(1)  // e.g., 3 for quarterly (3 months)
+  
+  // Pricing
+  discountType          DiscountType?  // PERCENTAGE or FIXED_AMOUNT
+  discountValue         Decimal?  @db.Decimal(10, 2)
+  
+  // Options
+  options               Json     // Customer-facing options
+  
+  // Metadata
+  metadata              Json?
+  createdAt            DateTime @default(now())
+  
+  @@index([groupId])
+  @@index([shopifyPlanId])
+}
+
 //Enums
 
 enum Currency {
@@ -359,4 +523,43 @@ enum TierTriggerType {
   SPENDING_MILESTONE  // Hit specific spending threshold
   MANUAL_ADMIN        // Manual change by admin
   PRODUCT_PURCHASE    // Tier assigned via product purchase
+  SUBSCRIPTION_STARTED    // Initial subscription activation
+  SUBSCRIPTION_RENEWED    // Subscription renewal
+  SUBSCRIPTION_UPGRADED   // Plan upgrade
+  SUBSCRIPTION_DOWNGRADED // Plan downgrade
+}
+
+// ============================================
+// SUBSCRIPTION ENUMS
+// ============================================
+
+enum SubscriptionStatus {
+  PENDING              // Created but not yet activated
+  ACTIVE              // Currently active and billing
+  PAUSED              // Temporarily suspended
+  CANCELLED           // Permanently cancelled
+  EXPIRED             // Past end date
+  FAILED              // Payment failures exceeded threshold
+}
+
+enum BillingInterval {
+  WEEKLY
+  MONTHLY
+  QUARTERLY          // 3 months
+  SEMIANNUAL        // 6 months
+  ANNUAL            // 12 months
+}
+
+enum BillingStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REQUIRES_ACTION    // e.g., 3D Secure
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
 }

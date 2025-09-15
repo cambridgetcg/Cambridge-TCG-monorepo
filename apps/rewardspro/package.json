@@ -21,6 +21,8 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "migrate:data-api": "node scripts/migrate-via-data-api.mjs",
+    "migrate:subscription": "node scripts/apply-subscription-migration.mjs",
+    "migrate:subscription:test": "node scripts/test-subscription-migration.mjs",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
