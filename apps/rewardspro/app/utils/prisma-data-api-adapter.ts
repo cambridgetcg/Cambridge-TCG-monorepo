@@ -103,8 +103,17 @@ export class DataAPIModelProxy<T = any> {
           // Handle { in: [...] } (IN clause)
           const inValues = value.in;
           if (Array.isArray(inValues) && inValues.length > 0) {
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
-            conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
+            
+            // Check if this field is an enum type that needs casting
+            if (enumFields.includes(key)) {
+              // Cast enum types explicitly for PostgreSQL IN clause
+              conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
+            } else {
+              conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
+            }
+            
             inValues.forEach((val, i) => {
               params.push(AuroraDataAPI.buildParameter(`param${index}_${i}`, val));
             });

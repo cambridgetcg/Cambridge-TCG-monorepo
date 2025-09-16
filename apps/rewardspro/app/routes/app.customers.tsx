@@ -237,7 +237,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const membershipStatus = await checkTierMembershipExpiry(customer.id);
       
       // Check if customer has manual override
-      const hasManualOverride = await hasManualOverride(customer.id);
+      const hasManualOverrideStatus = await hasManualOverride(customer.id);
       
       // Get tier history for last change
       const tierHistory = await getTierHistory(customer.id, 1);
@@ -265,7 +265,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           expiresAt: membershipStatus.expiresAt?.toISOString() || null,
           daysRemaining: membershipStatus.daysRemaining,
         },
-        hasManualOverride,
+        hasManualOverride: hasManualOverrideStatus,
         lastTierChange,
         createdAt: customer.createdAt.toISOString(),
         updatedAt: customer.updatedAt.toISOString(),
