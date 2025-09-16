@@ -10,20 +10,16 @@
       }
     },
     "routeIdToServerBundleId": {
-      "routes/webhooks.subscriptions.approaching-cap": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/webhooks.subscriptions.billing_success": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/webhooks.subscriptions.billing_failed": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.subscriptions.process-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.tier-subscription.cancelled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.tier-subscription.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.tier-subscription.created": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.locales.$locale": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/webhooks.subscriptions.created": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/webhooks.subscriptions.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.proxy.subscription": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.proxy.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -40,12 +36,6 @@
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.subscriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.subscriptions.contracts": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.subscriptions.pricing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.subscriptions.setup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.subscriptions.setup.old": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.subscriptions.test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -64,38 +54,29 @@
         "file": "app/root.tsx",
         "config": {}
       },
-      "routes/webhooks.subscriptions.approaching-cap": {
-        "id": "routes/webhooks.subscriptions.approaching-cap",
+      "routes/webhooks.tier-subscription.cancelled": {
+        "id": "routes/webhooks.tier-subscription.cancelled",
         "parentId": "root",
-        "file": "app/routes/webhooks.subscriptions.approaching-cap.tsx",
-        "path": "webhooks/subscriptions/approaching-cap",
+        "file": "app/routes/webhooks.tier-subscription.cancelled.tsx",
+        "path": "webhooks/tier-subscription/cancelled",
         "config": {
           "runtime": "nodejs"
         }
       },
-      "routes/webhooks.subscriptions.billing_success": {
-        "id": "routes/webhooks.subscriptions.billing_success",
+      "routes/webhooks.tier-subscription.billing": {
+        "id": "routes/webhooks.tier-subscription.billing",
         "parentId": "root",
-        "file": "app/routes/webhooks.subscriptions.billing_success.tsx",
-        "path": "webhooks/subscriptions/billing_success",
+        "file": "app/routes/webhooks.tier-subscription.billing.tsx",
+        "path": "webhooks/tier-subscription/billing",
         "config": {
           "runtime": "nodejs"
         }
       },
-      "routes/webhooks.subscriptions.billing_failed": {
-        "id": "routes/webhooks.subscriptions.billing_failed",
+      "routes/webhooks.tier-subscription.created": {
+        "id": "routes/webhooks.tier-subscription.created",
         "parentId": "root",
-        "file": "app/routes/webhooks.subscriptions.billing_failed.tsx",
-        "path": "webhooks/subscriptions/billing_failed",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.subscriptions.process-billing": {
-        "id": "routes/api.subscriptions.process-billing",
-        "parentId": "root",
-        "file": "app/routes/api.subscriptions.process-billing.tsx",
-        "path": "api/subscriptions/process-billing",
+        "file": "app/routes/webhooks.tier-subscription.created.tsx",
+        "path": "webhooks/tier-subscription/created",
         "config": {
           "runtime": "nodejs"
         }
@@ -105,24 +86,6 @@
         "parentId": "root",
         "file": "app/routes/apps.rewardspro.locales.$locale.tsx",
         "path": "apps/rewardspro/locales/:locale",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/webhooks.subscriptions.created": {
-        "id": "routes/webhooks.subscriptions.created",
-        "parentId": "root",
-        "file": "app/routes/webhooks.subscriptions.created.tsx",
-        "path": "webhooks/subscriptions/created",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/webhooks.subscriptions.update": {
-        "id": "routes/webhooks.subscriptions.update",
-        "parentId": "root",
-        "file": "app/routes/webhooks.subscriptions.update.tsx",
-        "path": "webhooks/subscriptions/update",
         "config": {
           "runtime": "nodejs"
         }
@@ -177,15 +140,6 @@
         "parentId": "root",
         "file": "app/routes/webhooks.app.uninstalled.tsx",
         "path": "webhooks/app/uninstalled",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.proxy.subscription": {
-        "id": "routes/api.proxy.subscription",
-        "parentId": "root",
-        "file": "app/routes/api.proxy.subscription.tsx",
-        "path": "api/proxy/subscription",
         "config": {
           "runtime": "nodejs"
         }
@@ -339,50 +293,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.subscriptions": {
-        "id": "routes/app.subscriptions",
-        "parentId": "routes/app",
-        "file": "app/routes/app.subscriptions.tsx",
-        "path": "subscriptions",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.subscriptions.contracts": {
-        "id": "routes/app.subscriptions.contracts",
-        "parentId": "routes/app.subscriptions",
-        "file": "app/routes/app.subscriptions.contracts.tsx",
-        "path": "contracts",
-        "config": {}
-      },
-      "routes/app.subscriptions.pricing": {
-        "id": "routes/app.subscriptions.pricing",
-        "parentId": "routes/app.subscriptions",
-        "file": "app/routes/app.subscriptions.pricing.tsx",
-        "path": "pricing",
-        "config": {}
-      },
-      "routes/app.subscriptions.setup": {
-        "id": "routes/app.subscriptions.setup",
-        "parentId": "routes/app.subscriptions",
-        "file": "app/routes/app.subscriptions.setup.tsx",
-        "path": "setup",
-        "config": {}
-      },
-      "routes/app.subscriptions.setup.old": {
-        "id": "routes/app.subscriptions.setup.old",
-        "parentId": "routes/app.subscriptions.setup",
-        "file": "app/routes/app.subscriptions.setup.old.tsx",
-        "path": "old",
-        "config": {}
-      },
-      "routes/app.subscriptions.test": {
-        "id": "routes/app.subscriptions.test",
-        "parentId": "routes/app.subscriptions",
-        "file": "app/routes/app.subscriptions.test.tsx",
-        "path": "test",
-        "config": {}
-      },
       "routes/app.tier-products": {
         "id": "routes/app.tier-products",
         "parentId": "routes/app",
@@ -492,47 +402,29 @@
         "id": "root",
         "file": "root.tsx"
       },
-      "routes/webhooks.subscriptions.approaching-cap": {
-        "id": "routes/webhooks.subscriptions.approaching-cap",
+      "routes/webhooks.tier-subscription.cancelled": {
+        "id": "routes/webhooks.tier-subscription.cancelled",
         "parentId": "root",
-        "file": "routes/webhooks.subscriptions.approaching-cap.tsx",
-        "path": "webhooks/subscriptions/approaching-cap"
+        "file": "routes/webhooks.tier-subscription.cancelled.tsx",
+        "path": "webhooks/tier-subscription/cancelled"
       },
-      "routes/webhooks.subscriptions.billing_success": {
-        "id": "routes/webhooks.subscriptions.billing_success",
+      "routes/webhooks.tier-subscription.billing": {
+        "id": "routes/webhooks.tier-subscription.billing",
         "parentId": "root",
-        "file": "routes/webhooks.subscriptions.billing_success.tsx",
-        "path": "webhooks/subscriptions/billing_success"
+        "file": "routes/webhooks.tier-subscription.billing.tsx",
+        "path": "webhooks/tier-subscription/billing"
       },
-      "routes/webhooks.subscriptions.billing_failed": {
-        "id": "routes/webhooks.subscriptions.billing_failed",
+      "routes/webhooks.tier-subscription.created": {
+        "id": "routes/webhooks.tier-subscription.created",
         "parentId": "root",
-        "file": "routes/webhooks.subscriptions.billing_failed.tsx",
-        "path": "webhooks/subscriptions/billing_failed"
-      },
-      "routes/api.subscriptions.process-billing": {
-        "id": "routes/api.subscriptions.process-billing",
-        "parentId": "root",
-        "file": "routes/api.subscriptions.process-billing.tsx",
-        "path": "api/subscriptions/process-billing"
+        "file": "routes/webhooks.tier-subscription.created.tsx",
+        "path": "webhooks/tier-subscription/created"
       },
       "routes/apps.rewardspro.locales.$locale": {
         "id": "routes/apps.rewardspro.locales.$locale",
         "parentId": "root",
         "file": "routes/apps.rewardspro.locales.$locale.tsx",
         "path": "apps/rewardspro/locales/:locale"
-      },
-      "routes/webhooks.subscriptions.created": {
-        "id": "routes/webhooks.subscriptions.created",
-        "parentId": "root",
-        "file": "routes/webhooks.subscriptions.created.tsx",
-        "path": "webhooks/subscriptions/created"
-      },
-      "routes/webhooks.subscriptions.update": {
-        "id": "routes/webhooks.subscriptions.update",
-        "parentId": "root",
-        "file": "routes/webhooks.subscriptions.update.tsx",
-        "path": "webhooks/subscriptions/update"
       },
       "routes/apps.rewardspro.membership": {
         "id": "routes/apps.rewardspro.membership",
@@ -569,12 +461,6 @@
         "parentId": "root",
         "file": "routes/webhooks.app.uninstalled.tsx",
         "path": "webhooks/app/uninstalled"
-      },
-      "routes/api.proxy.subscription": {
-        "id": "routes/api.proxy.subscription",
-        "parentId": "root",
-        "file": "routes/api.proxy.subscription.tsx",
-        "path": "api/proxy/subscription"
       },
       "routes/webhooks.orders.create": {
         "id": "routes/webhooks.orders.create",
@@ -677,42 +563,6 @@
         "parentId": "routes/app",
         "file": "routes/app.design-showcase.tsx",
         "path": "design-showcase"
-      },
-      "routes/app.subscriptions": {
-        "id": "routes/app.subscriptions",
-        "parentId": "routes/app",
-        "file": "routes/app.subscriptions.tsx",
-        "path": "subscriptions"
-      },
-      "routes/app.subscriptions.contracts": {
-        "id": "routes/app.subscriptions.contracts",
-        "parentId": "routes/app.subscriptions",
-        "file": "routes/app.subscriptions.contracts.tsx",
-        "path": "contracts"
-      },
-      "routes/app.subscriptions.pricing": {
-        "id": "routes/app.subscriptions.pricing",
-        "parentId": "routes/app.subscriptions",
-        "file": "routes/app.subscriptions.pricing.tsx",
-        "path": "pricing"
-      },
-      "routes/app.subscriptions.setup": {
-        "id": "routes/app.subscriptions.setup",
-        "parentId": "routes/app.subscriptions",
-        "file": "routes/app.subscriptions.setup.tsx",
-        "path": "setup"
-      },
-      "routes/app.subscriptions.setup.old": {
-        "id": "routes/app.subscriptions.setup.old",
-        "parentId": "routes/app.subscriptions.setup",
-        "file": "routes/app.subscriptions.setup.old.tsx",
-        "path": "old"
-      },
-      "routes/app.subscriptions.test": {
-        "id": "routes/app.subscriptions.test",
-        "parentId": "routes/app.subscriptions",
-        "file": "routes/app.subscriptions.test.tsx",
-        "path": "test"
       },
       "routes/app.tier-products": {
         "id": "routes/app.tier-products",
