@@ -1,7 +1,7 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import crypto from "crypto";
-import db from "~/db.server";
-import { formatCurrency } from "~/utils/currency";
+import db from "../db.server";
+import { formatCurrency } from "../utils/currency";
 
 /**
  * App Proxy Route for Membership Data

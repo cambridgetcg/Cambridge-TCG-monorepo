@@ -4,8 +4,8 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { db } from "~/db.server";
-import { authenticate } from "~/shopify.server";
+import db from "../db.server";
+import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -32,13 +32,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find subscription in our database
     const subscription = await db.tierSubscription.findFirst({
       where: { shopifyContractId: contractId },
-      include: { customer: true, tier: true },
     });
 
     if (!subscription) {
       console.log(`[TierBillingWebhook] Subscription not found for contract ${contractId}`);
       return new Response("OK", { status: 200 });
     }
+
+    // Fetch related data separately
+    const [customer, tier] = await Promise.all([
+      db.customer.findUnique({ where: { id: subscription.customerId } }),
+      db.tier.findUnique({ where: { id: subscription.tierId } })
+    ]);
+
+    // Add related data to subscription object for compatibility
+    const subscriptionWithRelations = {
+      ...subscription,
+      customer,
+      tier
+    };
 
     // Create idempotency key
     const idempotencyKey = `${contractId}-${billingAttempt.id}-${billingAttempt.billing_date}`;
@@ -55,10 +67,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (isSuccess) {
       // Handle successful billing
-      await handleSuccessfulBilling(subscription, billingAttempt, idempotencyKey);
+      await handleSuccessfulBilling(subscriptionWithRelations, billingAttempt, idempotencyKey);
     } else {
       // Handle failed billing
-      await handleFailedBilling(subscription, billingAttempt, idempotencyKey, shop);
+      await handleFailedBilling(subscriptionWithRelations, billingAttempt, idempotencyKey, shop);
     }
 
     return new Response("OK", { status: 200 });

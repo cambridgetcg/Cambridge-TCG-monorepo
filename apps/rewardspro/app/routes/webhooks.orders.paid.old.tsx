@@ -1,10 +1,10 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
-import { authenticate } from "~/shopify.server";
+import { createDataAPIPrismaClient } from "../utils/prisma-data-api-adapter";
+import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from 'uuid';
-import { processTierProductPurchase } from "~/services/tier-product-purchase.server";
-import { TierSubscriptionBridgeV2 as TierSubscriptionBridge } from "~/services/subscription/tier-subscription-bridge.server";
+import { processTierProductPurchase } from "../services/tier-product-purchase.server";
+import { TierSubscriptionBridgeV2 as TierSubscriptionBridge } from "../services/subscription/tier-subscription-bridge.server";
 
 // Initialize Prisma client
 const db = createDataAPIPrismaClient();

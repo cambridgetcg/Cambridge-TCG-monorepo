@@ -24,12 +24,12 @@ import {
   Badge,
   Divider,
 } from "@shopify/polaris";
-import { authenticate } from "~/shopify.server";
-import { db } from "~/db.server";
+import { authenticate } from "../shopify.server";
+import db from "../db.server";
 import { useState, useCallback } from "react";
 import crypto from 'crypto';
 const uuidv4 = () => crypto.randomUUID();
-import { isSubscriptionEnabled } from "~/services/subscription/config.server";
+import { isSubscriptionEnabled } from "../services/subscription/config.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);

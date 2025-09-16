@@ -14,9 +14,9 @@
  */
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { authenticate } from "~/shopify.server";
-import { db } from "~/db.server";
-import { formatCurrency } from "~/utils/currency";
+import { authenticate } from "../shopify.server";
+import db from "../db.server";
+import { formatCurrency } from "../utils/currency";
 import { Decimal } from "@prisma/client/runtime/library";
 
 // Simple in-memory rate limiter (consider Redis for production)

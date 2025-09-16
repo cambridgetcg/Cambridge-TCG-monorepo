@@ -7,7 +7,7 @@
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { authenticate } from "~/shopify.server";
+import { authenticate } from "../shopify.server";
 import { Page, Card, Text, Button, Box, Badge, BlockStack, InlineStack, Link } from "@shopify/polaris";
 import { useState, useCallback } from "react";
 

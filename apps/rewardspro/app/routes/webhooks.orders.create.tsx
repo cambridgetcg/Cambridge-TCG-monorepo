@@ -14,8 +14,8 @@
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "~/shopify.server";
-import db from "~/db.server";
+import { authenticate } from "../shopify.server";
+import db from "../db.server";
 import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================================

@@ -4,8 +4,8 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { db } from "~/db.server";
-import { authenticate } from "~/shopify.server";
+import db from "../db.server";
+import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -27,11 +27,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Find subscription in our database
     const dbSubscription = await db.tierSubscription.findFirst({
       where: { shopifyContractId: contractId },
-      include: { 
-        customer: true, 
-        tier: true,
-        tierProduct: true,
-      },
     });
 
     if (!dbSubscription) {
@@ -39,16 +34,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return new Response("OK", { status: 200 });
     }
 
+    // Fetch related data separately
+    const [customer, tier, tierProduct] = await Promise.all([
+      db.customer.findUnique({ where: { id: subscriptionWithRelations.customerId } }),
+      db.tier.findUnique({ where: { id: subscriptionWithRelations.tierId } }),
+      subscriptionWithRelations.tierProductId ? db.tierProduct.findUnique({ where: { id: subscriptionWithRelations.tierProductId } }) : null
+    ]);
+
+    // Add related data to subscription object for compatibility
+    const subscriptionWithRelations = {
+      ...dbSubscription,
+      customer,
+      tier,
+      tierProduct
+    };
+
     const now = new Date();
 
     // Update subscription status
     await db.tierSubscription.update({
-      where: { id: dbSubscription.id },
+      where: { id: subscriptionWithRelations.id },
       data: {
         status: isCancelled ? "CANCELLED" : "EXPIRED",
         endDate: now,
         metadata: {
-          ...(dbSubscription.metadata as any || {}),
+          ...(subscriptionWithRelations.metadata as any || {}),
           cancellationReason: subscription.cancellation_reason || "Customer requested",
           cancelledAt: now.toISOString(),
           cancelledBy: subscription.cancelled_by || "customer",
@@ -60,16 +70,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Remove customer from tier if they don't have another active subscription
     const otherActiveSubscriptions = await db.tierSubscription.findFirst({
       where: {
-        customerId: dbSubscription.customerId,
+        customerId: subscriptionWithRelations.customerId,
         status: "ACTIVE",
-        id: { not: dbSubscription.id },
+        id: { not: subscriptionWithRelations.id },
       },
     });
 
     if (!otherActiveSubscriptions) {
       // No other active subscriptions, remove from tier
       await db.customer.update({
-        where: { id: dbSubscription.customerId },
+        where: { id: subscriptionWithRelations.customerId },
         data: {
           currentTierId: null,
           updatedAt: now,
@@ -80,15 +90,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await db.tierChangeLog.create({
         data: {
           id: uuidv4(),
-          customerId: dbSubscription.customerId,
+          customerId: subscriptionWithRelations.customerId,
           shop,
-          fromTierId: dbSubscription.tierId,
+          fromTierId: subscriptionWithRelations.tierId,
           toTierId: null,
-          fromTierName: dbSubscription.tier.name,
+          fromTierName: subscriptionWithRelations.tier.name,
           toTierName: null,
           changeType: "DOWNGRADE",
           triggerType: isCancelled ? "SUBSCRIPTION_CANCELLED" : "SUBSCRIPTION_EXPIRED",
-          subscriptionId: dbSubscription.id,
+          subscriptionId: subscriptionWithRelations.id,
           metadata: {
             cancellationReason: subscription.cancellation_reason,
             cancelledBy: subscription.cancelled_by,
@@ -98,19 +108,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
 
-      console.log(`[TierCancellationWebhook] Removed customer ${dbSubscription.customerId} from tier ${dbSubscription.tier.name}`);
+      console.log(`[TierCancellationWebhook] Removed customer ${subscriptionWithRelations.customerId} from tier ${subscriptionWithRelations.tier.name}`);
     } else {
       console.log(`[TierCancellationWebhook] Customer has other active subscriptions, keeping tier assignment`);
     }
 
     // Check if this was a trial that ended
     if (subscription.trial_end_date && new Date(subscription.trial_end_date) <= now) {
-      console.log(`[TierCancellationWebhook] Trial period ended for subscription ${dbSubscription.id}`);
+      console.log(`[TierCancellationWebhook] Trial period ended for subscription ${subscriptionWithRelations.id}`);
       
       // You could send a notification here to encourage conversion
     }
 
-    console.log(`[TierCancellationWebhook] Successfully processed ${isCancelled ? "cancellation" : "expiration"} for subscription ${dbSubscription.id}`);
+    console.log(`[TierCancellationWebhook] Successfully processed ${isCancelled ? "cancellation" : "expiration"} for subscription ${subscriptionWithRelations.id}`);
     return new Response("OK", { status: 200 });
   } catch (error) {
     console.error("[TierCancellationWebhook] Error processing webhook:", error);

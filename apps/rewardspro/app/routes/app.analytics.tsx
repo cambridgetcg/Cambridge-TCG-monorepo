@@ -41,8 +41,8 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from "@shopify/polaris-icons";
-import { TierBadge, TierIndicator, TierProgress } from "~/components/TierBadge";
-import { getTierStyle, sortTiersByPriority, formatTierName } from "~/utils/tier-styles";
+import { TierBadge, TierIndicator, TierProgress } from "../components/TierBadge";
+import { getTierStyle, sortTiersByPriority, formatTierName } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";

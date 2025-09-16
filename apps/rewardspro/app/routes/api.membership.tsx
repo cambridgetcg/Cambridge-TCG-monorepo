@@ -14,15 +14,15 @@
  */
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { db } from "~/db.server";
+import db from "../db.server";
 import { 
   verifyAppProxySignature, 
   validateShopDomain,
   logSecurityEvent 
-} from "~/utils/hmac-verification";
-import { formatCurrency } from "~/utils/currency";
-import { appProxyRateLimit } from "~/utils/rate-limiter";
-import { validateCustomerAuth } from "~/utils/widget-session-manager";
+} from "../utils/hmac-verification";
+import { formatCurrency } from "../utils/currency";
+import { appProxyRateLimit } from "../utils/rate-limiter";
+import { validateCustomerAuth } from "../utils/widget-session-manager";
 // Zod schemas removed - this file is deprecated
 // See api.proxy.membership.tsx for the new App Proxy implementation
 

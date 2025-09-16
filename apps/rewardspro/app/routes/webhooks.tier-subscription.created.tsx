@@ -4,8 +4,8 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { db } from "~/db.server";
-import { authenticate } from "~/shopify.server";
+import db from "../db.server";
+import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -45,11 +45,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           { shopifyProductId: productId?.toString() },
         ],
       },
-      include: { tier: true },
     });
 
     if (!tierProduct) {
       console.log(`[TierSubscriptionWebhook] Tier product not found for variant ${variantId}`);
+      return new Response("OK", { status: 200 });
+    }
+
+    // Fetch the related tier separately
+    const tier = await db.tier.findUnique({
+      where: { id: tierId }
+    });
+
+    if (!tier) {
+      console.log(`[TierSubscriptionWebhook] Tier not found for tier product ${tierProduct.id}`);
       return new Response("OK", { status: 200 });
     }
 
@@ -96,7 +105,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         id: uuidv4(),
         shop,
         customerId: customer.id,
-        tierId: tierProduct.tierId,
+        tierId: tierId,
         shopifyContractId: contractId,
         sellingPlanId: sellingPlanId || "",
         status: subscription.status || "ACTIVE",
@@ -108,7 +117,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         currentPrice: parseFloat(line.price || "0"),
         metadata: {
           tierProductId: tierProduct.id,
-          productTitle: tierProduct.tier.name + " Tier Membership",
+          productTitle: tier.name + " Tier Membership",
           sku: tierProduct.sku,
           sellingPlanName,
           originalContractData: subscription,
@@ -123,7 +132,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await db.customer.update({
         where: { id: customer.id },
         data: {
-          currentTierId: tierProduct.tierId,
+          currentTierId: tierId,
           updatedAt: new Date(),
         },
       });
@@ -135,9 +144,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           customerId: customer.id,
           shop,
           fromTierId: customer.currentTierId,
-          toTierId: tierProduct.tierId,
+          toTierId: tierId,
           fromTierName: null,
-          toTierName: tierProduct.tier.name,
+          toTierName: tier.name,
           changeType: customer.currentTierId ? "UPGRADE" : "INITIAL_ASSIGNMENT",
           triggerType: "SUBSCRIPTION_CREATED",
           subscriptionId: newSubscription.id,

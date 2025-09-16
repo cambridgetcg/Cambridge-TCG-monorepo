@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { getAuroraClient } from "~/utils/aurora-data-api";
+import { getAuroraClient } from "../utils/aurora-data-api";
 
 /**
  * Health check endpoint to verify Data API connection

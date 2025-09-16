@@ -6,8 +6,8 @@
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { handleCustomerUpdate, type ShopifyCustomerWebhook } from "~/services/webhook-customer-sync.server";
-import { verifyWebhookHMAC } from "~/utils/webhook-validation.server";
+import { handleCustomerUpdate, type ShopifyCustomerWebhook } from "../services/webhook-customer-sync.server";
+import { verifyWebhookHMAC } from "../utils/webhook-validation.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   console.log("[Webhook] Received customers/update webhook");

@@ -12,7 +12,7 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "~/shopify.server";
+import { authenticate } from "../shopify.server";
 
 // Map REST API topics to GraphQL topics
 const TOPIC_MAPPING: Record<string, string> = {

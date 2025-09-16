@@ -843,18 +843,29 @@ export function createDataAPIPrismaClient() {
       return result.records;
     },
 
-    // Model proxies
+    // Model proxies - All models from schema.prisma
     session: new DataAPIModelProxy("Session", client),
     shopSettings: new DataAPIModelProxy("ShopSettings", client),
     tier: new DataAPIModelProxy("Tier", client),
+    tierProduct: new DataAPIModelProxy("TierProduct", client),
     customer: new DataAPIModelProxy("Customer", client),
     storeCreditLedger: new DataAPIModelProxy("StoreCreditLedger", client),
     tierChangeLog: new DataAPIModelProxy("TierChangeLog", client),
     billingPlan: new DataAPIModelProxy("BillingPlan", client),
     usageRecord: new DataAPIModelProxy("UsageRecord", client),
-    monthlyOrderUsage: new DataAPIModelProxy("MonthlyOrderUsage", client),
-    notification: new DataAPIModelProxy("Notification", client),
     billingHistory: new DataAPIModelProxy("BillingHistory", client),
+    notification: new DataAPIModelProxy("Notification", client),
+    monthlyOrderUsage: new DataAPIModelProxy("MonthlyOrderUsage", client),
+    tierSubscription: new DataAPIModelProxy("TierSubscription", client),
+    subscriptionBillingAttempt: new DataAPIModelProxy("SubscriptionBillingAttempt", client),
+    sellingPlanGroup: new DataAPIModelProxy("SellingPlanGroup", client),
+    sellingPlan: new DataAPIModelProxy("SellingPlan", client),
+    subscriptionPricingHistory: new DataAPIModelProxy("SubscriptionPricingHistory", client),
+    subscriptionPricingConfig: new DataAPIModelProxy("SubscriptionPricingConfig", client),
+    webhookProcess: new DataAPIModelProxy("WebhookProcess", client),
+    webhookError: new DataAPIModelProxy("WebhookError", client),
+    tierPurchase: new DataAPIModelProxy("TierPurchase", client),
+    bulkOperationLog: new DataAPIModelProxy("BulkOperationLog", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {
