@@ -143,18 +143,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error) {
     console.error(`[OrderPaid] Error processing order ${order.id}:`, error);
     
-    // Log error for monitoring
-    await db.webhookError.create({
-      data: {
-        id: uuidv4(),
+    // Log error for monitoring (if model exists)
+    if (db.webhookError) {
+      await db.webhookError.create({
+        data: {
+          id: uuidv4(),
         shop,
         topic: topic || 'orders/paid',
         orderId: order.id,
         error: error instanceof Error ? error.message : 'Unknown error',
         payload: order,
         createdAt: new Date(),
-      }
-    }).catch(console.error);
+        }
+      }).catch(console.error);
+    }
     
     // Return success to prevent Shopify retries for non-recoverable errors
     if (error instanceof Error && 

@@ -71,14 +71,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     };
 
     // Get tier products and their subscription status
+    // Check if models exist before querying (for backward compatibility during migration)
     const [tierProducts, tiers] = await Promise.all([
-      db.tierProduct.findMany({
-        where: { 
-          shop: session.shop,
-          purchaseType: { in: ['SUBSCRIPTION', 'BOTH'] }
-        },
-        include: { tier: true }
-      }).catch(() => []),
+      db.tierProduct ? 
+        db.tierProduct.findMany({
+          where: { 
+            shop: session.shop,
+            purchaseType: { in: ['SUBSCRIPTION', 'BOTH'] }
+          },
+          include: { tier: true }
+        }).catch(() => []) : [],
       db.tier.findMany({
         where: { shop: session.shop },
         orderBy: { minSpend: 'asc' }
@@ -86,11 +88,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ]);
 
     // Get subscription statistics
-    const stats = await db.tierSubscription.groupBy({
-      by: ['status'],
-      where: { shop: session.shop },
-      _count: { status: true }
-    }).catch(() => []);
+    const stats = db.tierSubscription ?
+      await db.tierSubscription.groupBy({
+        by: ['status'],
+        where: { shop: session.shop },
+        _count: { status: true }
+      }).catch(() => []) : [];
 
     const statusCounts = stats.reduce((acc, stat) => {
       acc[stat.status] = stat._count.status;

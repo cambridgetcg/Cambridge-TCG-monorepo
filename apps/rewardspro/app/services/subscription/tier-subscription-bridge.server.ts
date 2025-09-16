@@ -115,6 +115,12 @@ const STATUS_HANDLERS: Record<SubscriptionStatus, (subscription: any) => Promise
     const gracePeriodEnd = new Date();
     gracePeriodEnd.setDate(gracePeriodEnd.getDate() + GRACE_PERIOD_DAYS);
     
+    // Check if model exists before using
+    if (!db.tierSubscription) {
+      console.warn('[TierSubscriptionBridgeV2] tierSubscription model not available');
+      return;
+    }
+    
     await db.tierSubscription.update({
       where: { id: subscription.id },
       data: {
