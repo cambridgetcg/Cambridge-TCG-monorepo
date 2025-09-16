@@ -48,7 +48,7 @@ import {
   InfoIcon,
   RewardIcon,
 } from '@shopify/polaris-icons';
-import type { IconSource } from '@shopify/polaris-icons';
+// IconSource is replaced with Icon component in newer Polaris
 
 // ============================================
 // METRIC CARD COMPONENT
@@ -58,7 +58,7 @@ interface MetricCardProps {
   title: string;
   value: string | number;
   change?: number;
-  icon?: IconSource;
+  icon?: any;
   tone?: 'default' | 'success' | 'warning' | 'critical';
   loading?: boolean;
   onClick?: () => void;
@@ -215,7 +215,7 @@ export function EnhancedDataTable({
     <Card>
       <div className="rp-data-table">
         <DataTable
-          columnContentTypes={columns.map(col => col.type === 'badge' ? 'text' : col.type)}
+          columnContentTypes={columns.map(col => col.type === 'badge' || col.type === 'actions' ? 'text' : col.type as any)}
           headings={columns.map(col => col.header)}
           rows={rows}
           hoverable
@@ -262,12 +262,12 @@ export function CustomerCard({
         <BlockStack gap="400">
           <InlineStack gap="300" align="space-between">
             <InlineStack gap="300">
-              <Avatar customer size="medium" initials={initials} />
+              <Avatar customer size="md" initials={initials} />
               <BlockStack gap="050">
-                <Text variant="bodyMd" fontWeight="semibold">
+                <Text as="span" variant="bodyMd" fontWeight="semibold">
                   {customer.name || customer.email}
                 </Text>
-                <Text variant="bodySm" tone="subdued">
+                <Text as="span" variant="bodySm" tone="subdued">
                   {customer.email}
                 </Text>
               </BlockStack>
@@ -284,10 +284,10 @@ export function CustomerCard({
           <Grid columns={{ xs: 1, sm: 3 }}>
             <Grid.Cell>
               <BlockStack gap="100" align="center">
-                <Text variant="headingMd" fontWeight="bold">
+                <Text as="span" variant="headingMd" fontWeight="bold">
                   {formatCurrency(customer.storeCredit)}
                 </Text>
-                <Text variant="bodySm" tone="subdued">
+                <Text as="span" variant="bodySm" tone="subdued">
                   Store Credit
                 </Text>
               </BlockStack>
@@ -295,10 +295,10 @@ export function CustomerCard({
             {customer.totalSpent !== undefined && (
               <Grid.Cell>
                 <BlockStack gap="100" align="center">
-                  <Text variant="headingMd" fontWeight="bold">
+                  <Text as="span" variant="headingMd" fontWeight="bold">
                     {formatCurrency(customer.totalSpent)}
                   </Text>
-                  <Text variant="bodySm" tone="subdued">
+                  <Text as="span" variant="bodySm" tone="subdued">
                     Total Spent
                   </Text>
                 </BlockStack>
@@ -307,10 +307,10 @@ export function CustomerCard({
             {customer.orderCount !== undefined && (
               <Grid.Cell>
                 <BlockStack gap="100" align="center">
-                  <Text variant="headingMd" fontWeight="bold">
+                  <Text as="span" variant="headingMd" fontWeight="bold">
                     {customer.orderCount}
                   </Text>
-                  <Text variant="bodySm" tone="subdued">
+                  <Text as="span" variant="bodySm" tone="subdued">
                     Orders
                   </Text>
                 </BlockStack>
@@ -318,7 +318,7 @@ export function CustomerCard({
             )}
           </Grid>
 
-          <InlineStack gap="200" align="stretch">
+          <InlineStack gap="200" align="end">
             {onView && (
               <div style={{ flex: 1 }}>
                 <Button fullWidth onClick={() => onView(customer.id)}>
@@ -355,7 +355,7 @@ interface SearchFilterBarProps {
   }>;
   actions?: Array<{
     content: string;
-    icon?: IconSource;
+    icon?: any;
     onAction: () => void;
     loading?: boolean;
   }>;
@@ -456,15 +456,12 @@ export function TierProgressCard({
               </Text>
               <InlineStack gap="200" align="center">
                 <Badge tone="success">
-                  <InlineStack gap="100">
-                    <Icon source={RewardIcon} />
-                    {currentTier}
-                  </InlineStack>
+                  {currentTier}
                 </Badge>
                 {nextTier && (
                   <>
-                    <Text variant="bodySm" tone="subdued">→</Text>
-                    <Text variant="bodySm" fontWeight="semibold">
+                    <Text as="span" variant="bodySm" tone="subdued">→</Text>
+                    <Text as="span" variant="bodySm" fontWeight="semibold">
                       {nextTier.name}
                     </Text>
                   </>
@@ -478,13 +475,13 @@ export function TierProgressCard({
               <ProgressBar 
                 progress={progress} 
                 size="small"
-                tone="emphasis"
+                tone="success"
               />
               <InlineStack align="space-between">
-                <Text variant="bodySm" tone="subdued">
+                <Text as="span" variant="bodySm" tone="subdued">
                   {formatCurrency(currentSpend)} spent
                 </Text>
-                <Text variant="bodySm" tone="subdued">
+                <Text as="span" variant="bodySm" tone="subdued">
                   {formatCurrency(nextTier.minSpend - currentSpend)} to next tier
                 </Text>
               </InlineStack>
@@ -566,7 +563,7 @@ interface StatsOverviewProps {
     label: string;
     value: string | number;
     change?: number;
-    icon?: IconSource;
+    icon?: any;
   }>;
   loading?: boolean;
 }

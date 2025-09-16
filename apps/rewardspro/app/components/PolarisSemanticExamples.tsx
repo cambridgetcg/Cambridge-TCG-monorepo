@@ -47,8 +47,11 @@ import {
   ClockIcon,
   CashDollarIcon,
   PersonIcon,
-  TrophyIcon,
+  // TrophyIcon doesn't exist, using StarFilledIcon instead
+  StarFilledIcon as TrophyIcon,
   StarIcon,
+  StarFilledIcon,
+  PriceListIcon,
   CheckCircleIcon,
   AlertCircleIcon,
   AlertTriangleIcon,
@@ -61,7 +64,8 @@ import {
   ViewIcon,
   PrintIcon,
   EmailIcon,
-  TagIcon,
+  // TagIcon doesn't exist, using PriceListIcon instead
+  PriceListIcon as TagIcon,
   ArchiveIcon,
   PackageIcon,
   CartIcon,

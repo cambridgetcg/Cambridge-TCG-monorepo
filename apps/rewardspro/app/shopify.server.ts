@@ -4,6 +4,7 @@ import {
   AppDistribution,
   shopifyApp,
   BillingInterval,
+  DeliveryMethod,
 } from "@shopify/shopify-app-remix/server";
 import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
 
@@ -93,6 +94,7 @@ const shopify = shopifyApp({
           amount: 0.01, // Per order overage charge
           currencyCode: 'USD',
           interval: BillingInterval.Usage,
+          terms: "Per order overage charge",
         }
       ],
     },
@@ -100,15 +102,15 @@ const shopify = shopifyApp({
   webhooks: {
     // Billing-related webhooks
     APP_SUBSCRIPTIONS_UPDATE: {
-      deliveryMethod: "http",
+      deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/subscriptions/update",
     },
     APP_SUBSCRIPTIONS_APPROACHING_CAPPED_AMOUNT: {
-      deliveryMethod: "http",
+      deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/subscriptions/approaching-cap",
     },
     APP_UNINSTALLED: {
-      deliveryMethod: "http",
+      deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/app/uninstalled",
     },
   },

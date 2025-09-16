@@ -1,5 +1,5 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import {
   Page,
@@ -18,7 +18,6 @@ import {
 } from "@shopify/polaris";
 import {
   CheckIcon,
-  StarIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -154,7 +153,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     if (billing) {
       const { hasActivePayment, appSubscriptions } = await billing.check({
-        plans: [FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
+        plans: [FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
         isTest: process.env.NODE_ENV === 'development',
       });
       
@@ -244,7 +243,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     // Request the billing plan
     const billingResponse = await billing.request({
-      plan: requestPlan,
+      plan: requestPlan as any,
       isTest: process.env.NODE_ENV === 'development',
       returnUrl: `${process.env.SHOPIFY_APP_URL}/app/billing/plans`,
     });
@@ -265,7 +264,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function BillingPlansPage() {
-  const { shop, currentPlan, monthlyOrderUsage, plans } = useLoaderData<typeof loader>();
+  const { currentPlan, monthlyOrderUsage, plans } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const navigate = useNavigate();
 
@@ -305,7 +304,7 @@ export default function BillingPlansPage() {
 
             {/* Plans Grid */}
             <Grid>
-              {plans.map((plan) => {
+              {plans.map((plan: Plan) => {
                 const isCurrentPlan = plan.id === currentPlan;
                 const isUpgrade = PLANS.findIndex(p => p.id === plan.id) > 
                                   PLANS.findIndex(p => p.id === currentPlan);
@@ -318,7 +317,7 @@ export default function BillingPlansPage() {
                       <Box 
                         padding="400"
                         minHeight="500px"
-                        background={isCurrentPlan ? "bg-surface-success-subdued" : undefined}
+                        background={isCurrentPlan ? "bg-surface-success" : undefined}
                       >
                         <BlockStack gap="400">
                           {/* Header */}
@@ -338,7 +337,7 @@ export default function BillingPlansPage() {
                               <Badge tone="success">Current Plan</Badge>
                             )}
 
-                            <Text variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" tone="subdued">
                               {plan.description}
                             </Text>
                           </BlockStack>
@@ -349,11 +348,11 @@ export default function BillingPlansPage() {
                               <Text variant="heading2xl" as="p">
                                 ${plan.price}
                               </Text>
-                              <Text variant="bodyMd" tone="subdued">
+                              <Text as="span" variant="bodyMd" tone="subdued">
                                 /{plan.interval}
                               </Text>
                             </InlineStack>
-                            <Text variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" tone="subdued">
                               {plan.ordersIncluded.toLocaleString()} orders/month
                             </Text>
                           </Box>
@@ -364,14 +363,14 @@ export default function BillingPlansPage() {
                               Features
                             </Text>
                             <List type="bullet">
-                              {plan.features.slice(0, 6).map((feature, index) => (
+                              {plan.features.slice(0, 6).map((feature: string, index: number) => (
                                 <List.Item key={index}>
-                                  <Text variant="bodyMd">{feature}</Text>
+                                  <Text as="span" variant="bodyMd">{feature}</Text>
                                 </List.Item>
                               ))}
                               {plan.features.length > 6 && (
                                 <List.Item>
-                                  <Text variant="bodyMd" tone="subdued">
+                                  <Text as="span" variant="bodyMd" tone="subdued">
                                     +{plan.features.length - 6} more features
                                   </Text>
                                 </List.Item>
@@ -412,7 +411,7 @@ export default function BillingPlansPage() {
                     Plan Comparison
                   </Text>
                   
-                  <Box overflowX="auto">
+                  <Box>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
@@ -510,13 +509,13 @@ export default function BillingPlansPage() {
                             <Text variant="bodyMd" as="span">—</Text>
                           </td>
                           <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Icon source={CheckIcon} tone="positive" />
+                            <Icon source={CheckIcon} tone="success" />
                           </td>
                           <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Icon source={CheckIcon} tone="positive" />
+                            <Icon source={CheckIcon} tone="success" />
                           </td>
                           <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Icon source={CheckIcon} tone="positive" />
+                            <Icon source={CheckIcon} tone="success" />
                           </td>
                         </tr>
                       </tbody>
@@ -539,7 +538,7 @@ export default function BillingPlansPage() {
                       <Text variant="headingSm" as="h3">
                         Can I change plans anytime?
                       </Text>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text as="p" variant="bodyMd" tone="subdued">
                         Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and billing is prorated.
                       </Text>
                     </BlockStack>
@@ -548,7 +547,7 @@ export default function BillingPlansPage() {
                       <Text variant="headingSm" as="h3">
                         What happens if I exceed my order limit?
                       </Text>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text as="p" variant="bodyMd" tone="subdued">
                         On the free plan, cashback processing stops after 100 orders. On paid plans, you can process additional orders at $0.02 per order.
                       </Text>
                     </BlockStack>
@@ -557,7 +556,7 @@ export default function BillingPlansPage() {
                       <Text variant="headingSm" as="h3">
                         Do you offer annual billing?
                       </Text>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text as="p" variant="bodyMd" tone="subdued">
                         Yes! Contact our sales team for annual billing options with up to 20% discount.
                       </Text>
                     </BlockStack>
@@ -566,7 +565,7 @@ export default function BillingPlansPage() {
                       <Text variant="headingSm" as="h3">
                         Is there a setup fee?
                       </Text>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text as="p" variant="bodyMd" tone="subdued">
                         No, there are no setup fees or hidden charges. You only pay the monthly subscription fee.
                       </Text>
                     </BlockStack>

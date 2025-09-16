@@ -41,7 +41,9 @@ import {
   CashDollarIcon,
   CalendarIcon,
   ClockIcon,
-  TrophyIcon,
+  // TrophyIcon doesn't exist, using StarFilledIcon instead
+  StarFilledIcon as TrophyIcon,
+  StarFilledIcon,
   ChevronUpIcon,
   ChevronDownIcon,
   ArrowUpIcon,
@@ -802,15 +804,4 @@ export const SemanticAnnouncement: React.FC<AnnouncementProps> = ({
   );
 };
 
-// Export all components
-export {
-  StatusIndicator,
-  TierBadge,
-  MoneyDisplay,
-  DateDisplay,
-  CustomerAvatar,
-  SemanticField,
-  LoadingSkeleton,
-  SemanticEmptyState,
-  SemanticAnnouncement,
-};
+// All components are already exported individually above

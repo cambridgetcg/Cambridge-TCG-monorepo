@@ -664,7 +664,7 @@ export default function BillingPage() {
                             </InlineStack>
                             <ProgressBar 
                               progress={Math.min((monthlyOrderUsage.orderCount / monthlyOrderUsage.planLimit) * 100, 100)} 
-                              tone={monthlyOrderUsage.orderCount >= 100 ? "critical" : monthlyOrderUsage.orderCount >= 80 ? "warning" : "success"}
+                              tone={monthlyOrderUsage.orderCount >= 100 ? "critical" : monthlyOrderUsage.orderCount >= 80 ? "critical" : "success"}
                               size="small"
                             />
                             {monthlyOrderUsage.orderCount >= 100 && (
@@ -699,8 +699,8 @@ export default function BillingPage() {
                             />
                             {currentPlan.cap90AlertSent && (
                               <InlineStack gap="100">
-                                <Icon source={AlertTriangleIcon} tone="warning" />
-                                <Text as="p" variant="bodySm" tone="warning">
+                                <Icon source={AlertTriangleIcon} tone="critical" />
+                                <Text as="p" variant="bodySm" tone="critical">
                                   90% cap alert sent
                                 </Text>
                               </InlineStack>

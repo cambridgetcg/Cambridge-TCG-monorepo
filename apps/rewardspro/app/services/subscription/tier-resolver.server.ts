@@ -37,24 +37,38 @@ export class TierResolver {
     customerId: string,
     strategy: TierConflictStrategy = DEFAULT_STRATEGY
   ): Promise<TierResolutionResult> {
-    // Fetch customer with all tier relationships
+    // Fetch customer
     const customer = await db.customer.findUnique({
       where: { id: customerId },
-      include: {
-        currentTier: true,
-        tierSubscriptions: {
-          where: { 
-            status: { in: ['ACTIVE', 'PAUSED'] }
-          },
-          include: { tier: true },
-          orderBy: { createdAt: 'desc' }
-        },
-        creditLedger: {
-          take: 1,
-          orderBy: { createdAt: 'desc' }
-        }
-      }
     });
+    
+    if (!customer) {
+      throw new Error(`Customer not found: ${customerId}`);
+    }
+    
+    // Fetch related data separately
+    const [currentTier, tierSubscriptions, latestCredit] = await Promise.all([
+      customer.currentTierId ? db.tier.findUnique({ where: { id: customer.currentTierId } }) : null,
+      db.tierSubscription.findMany({
+        where: { 
+          customerId,
+          status: { in: ['ACTIVE', 'PAUSED'] }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      db.storeCreditLedger.findFirst({
+        where: { customerId },
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+    
+    // Fetch tiers for each subscription
+    const subscriptionsWithTiers = await Promise.all(
+      tierSubscriptions.map(async (sub) => ({
+        ...sub,
+        tier: await db.tier.findUnique({ where: { id: sub.tierId } })
+      }))
+    );
 
     if (!customer) {
       return {
@@ -69,8 +83,8 @@ export class TierResolver {
     }
 
     // Get all possible tiers
-    const subscriptionTier = await this.getHighestSubscriptionTier(customer.tierSubscriptions);
-    const spendingTier = customer.currentTier;
+    const subscriptionTier = await this.getHighestSubscriptionTier(subscriptionsWithTiers);
+    const spendingTier = currentTier;
     const defaultTier = await this.getDefaultTier(customer.shop);
 
     // Calculate current spending for context
@@ -136,7 +150,7 @@ export class TierResolver {
         subscriptionTier: subscriptionTier || undefined,
         spendingTier: spendingTier || undefined,
         defaultTier: defaultTier || undefined,
-        activeSubscriptions: customer.tierSubscriptions.filter(s => s.status === 'ACTIVE').length,
+        activeSubscriptions: subscriptionsWithTiers.filter((s: any) => s.status === 'ACTIVE').length,
         currentSpending,
       }
     };
@@ -276,25 +290,31 @@ export class TierResolver {
   ): Promise<number> {
     const customer = await db.customer.findUnique({
       where: { id: customerId },
-      include: {
-        creditLedger: {
-          where: {
-            type: 'CASHBACK_EARNED',
-            createdAt: period === 'ANNUAL' ? {
-              gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
-            } : undefined
-          }
-        }
-      }
     });
 
     if (!customer) return 0;
+    
+    // Fetch credit ledger entries separately
+    const creditLedgerConditions: any = {
+      customerId,
+      type: 'CASHBACK_EARNED',
+    };
+    
+    if (period === 'ANNUAL') {
+      creditLedgerConditions.createdAt = {
+        gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+      };
+    }
+    
+    const creditLedger = await db.storeCreditLedger.findMany({
+      where: creditLedgerConditions
+    });
 
     // Sum up spending from ledger entries
     // Assuming cashback earned entries contain order amount in metadata
     let totalSpending = 0;
     
-    for (const entry of customer.creditLedger) {
+    for (const entry of creditLedger) {
       const metadata = entry.metadata as any;
       if (metadata?.orderAmount) {
         totalSpending += parseFloat(metadata.orderAmount);
@@ -361,22 +381,43 @@ export class TierResolver {
     subscriptionTier: string;
     spendingTier: string;
   }>> {
-    const customersWithConflicts = await db.customer.findMany({
+    const customers = await db.customer.findMany({
       where: {
         shop,
         currentTierId: { not: null },
-        tierSubscriptions: {
-          some: { status: 'ACTIVE' }
-        }
-      },
-      include: {
-        currentTier: true,
-        tierSubscriptions: {
-          where: { status: 'ACTIVE' },
-          include: { tier: true }
-        }
       }
     });
+    
+    // Filter to only customers with active subscriptions
+    const customersWithConflicts = [];
+    
+    for (const customer of customers) {
+      const activeSubscriptions = await db.tierSubscription.findMany({
+        where: { 
+          customerId: customer.id,
+          status: 'ACTIVE'
+        }
+      });
+      
+      if (activeSubscriptions.length > 0) {
+        // Fetch current tier and subscription tiers
+        const currentTier = customer.currentTierId ? 
+          await db.tier.findUnique({ where: { id: customer.currentTierId } }) : null;
+        
+        const tierSubscriptionsWithTiers = await Promise.all(
+          activeSubscriptions.map(async (sub) => ({
+            ...sub,
+            tier: await db.tier.findUnique({ where: { id: sub.tierId } })
+          }))
+        );
+        
+        customersWithConflicts.push({
+          ...customer,
+          currentTier,
+          tierSubscriptions: tierSubscriptionsWithTiers
+        });
+      }
+    }
 
     const conflicts = [];
 

@@ -41,12 +41,16 @@ export class SellingPlanManager {
     // Check if selling plan group already exists
     const existingGroup = await db.sellingPlanGroup.findFirst({
       where: { shop, merchantCode: SUBSCRIPTION_CONFIG.SELLING_PLAN.MERCHANT_CODE },
-      include: { sellingPlans: true },
     });
+    
+    // Fetch related selling plans separately
+    const sellingPlans = existingGroup ? await db.sellingPlan.findMany({
+      where: { sellingPlanGroupId: existingGroup.id }
+    }) : [];
 
     if (existingGroup) {
       console.log('Selling plan group already exists, updating...');
-      return this.updateSellingPlanGroup({ shop, admin, existingGroup, productVariantMap });
+      return this.updateSellingPlanGroup({ shop, admin, existingGroup: { ...existingGroup, sellingPlans }, productVariantMap });
     }
 
     // Create selling plans for each interval
@@ -379,7 +383,6 @@ export class SellingPlanManager {
     // Get or create selling plan group
     const existingGroup = await db.sellingPlanGroup.findFirst({
       where: { shop, merchantCode: SUBSCRIPTION_CONFIG.SELLING_PLAN.MERCHANT_CODE },
-      include: { sellingPlans: true },
     });
 
     let sellingPlanGroupId: string;
@@ -388,7 +391,10 @@ export class SellingPlanManager {
     if (existingGroup) {
       // Use existing group
       sellingPlanGroupId = existingGroup.shopifySellingPlanGroupId;
-      sellingPlans = existingGroup.sellingPlans;
+      // Fetch selling plans separately
+      sellingPlans = await db.sellingPlan.findMany({
+        where: { sellingPlanGroupId: existingGroup.id }
+      });
       
       // Add product to existing group
       await this.associateProductsWithSellingPlanGroup({

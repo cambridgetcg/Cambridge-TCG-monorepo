@@ -257,7 +257,7 @@ export function CustomerDetailModal({
                           </InlineStack>
                           {details.tier && (
                             <Badge tone="success">
-                              {details.tier.name} ({details.tier.cashbackPercent.toString()}% cashback)
+                              {`${details.tier.name} (${details.tier.cashbackPercent.toString()}% cashback)`}
                             </Badge>
                           )}
                         </InlineStack>

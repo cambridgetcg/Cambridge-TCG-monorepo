@@ -762,6 +762,31 @@ export class DataAPIModelProxy<T = any> {
     
     return response;
   }
+
+  /**
+   * Upsert operation - insert or update
+   */
+  async upsert(args: {
+    where: Record<string, any>;
+    update: Record<string, any>;
+    create: Record<string, any>;
+  }): Promise<T> {
+    // First try to find the record
+    const existing = await this.findUnique({ where: args.where });
+    
+    if (existing) {
+      // Update the existing record
+      return await this.update({
+        where: args.where,
+        data: args.update
+      });
+    } else {
+      // Create a new record
+      return await this.create({
+        data: args.create
+      });
+    }
+  }
 }
 
 /**

@@ -108,6 +108,12 @@ interface Customer {
     createdAt: string;
     note?: string;
   } | null;
+  membershipStatus?: {
+    isPurchased: boolean;
+    needsRenewal: boolean;
+    expiresAt: string | null;
+    daysRemaining: number | null;
+  };
 }
 
 interface LoaderData {
@@ -230,6 +236,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Check tier membership status (purchased or manual)
       const membershipStatus = await checkTierMembershipExpiry(customer.id);
       
+      // Check if customer has manual override
+      const hasManualOverride = await hasManualOverride(customer.id);
+      
+      // Get tier history for last change
+      const tierHistory = await getTierHistory(customer.id, 1);
+      const lastTierChange = tierHistory.length > 0 ? {
+        triggerType: tierHistory[0].triggerType,
+        createdAt: tierHistory[0].createdAt.toISOString(),
+        note: tierHistory[0].note || undefined,
+      } : null;
+      
       return {
         id: customer.id,
         shopifyCustomerId: customer.shopifyCustomerId,
@@ -248,6 +265,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           expiresAt: membershipStatus.expiresAt?.toISOString() || null,
           daysRemaining: membershipStatus.daysRemaining,
         },
+        hasManualOverride,
+        lastTierChange,
         createdAt: customer.createdAt.toISOString(),
         updatedAt: customer.updatedAt.toISOString(),
       };
@@ -989,7 +1008,7 @@ export default function Customers() {
             {customer.membershipStatus.expiresAt && (
               <>
                 {customer.membershipStatus.needsRenewal ? (
-                  <Badge tone="warning">
+                  <Badge tone="attention">
                     {customer.membershipStatus.daysRemaining} days left
                   </Badge>
                 ) : (
@@ -1006,7 +1025,7 @@ export default function Customers() {
         {customer.hasManualOverride && (
           <InlineStack gap="100" align="center">
             <Icon source={EditIcon} />
-            <Text variant="bodySm" tone="warning" as="span">
+            <Text variant="bodySm" tone="critical" as="span">
               Manual
             </Text>
           </InlineStack>
