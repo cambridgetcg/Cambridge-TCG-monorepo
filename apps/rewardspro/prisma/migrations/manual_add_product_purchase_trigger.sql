@@ -1,2 +1,0 @@
--- Add PRODUCT_PURCHASE to TierTriggerType enum
-ALTER TYPE "TierTriggerType" ADD VALUE 'PRODUCT_PURCHASE';
