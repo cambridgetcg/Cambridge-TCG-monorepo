@@ -478,6 +478,93 @@
       // Progress Section - Show after stats
       div.appendChild(progressSection);
       
+      // Transaction History Section
+      if (data.transactions && data.transactions.length > 0) {
+        const historySection = document.createElement('div');
+        historySection.className = 'rewards-history-section';
+        
+        const historyHeader = document.createElement('div');
+        historyHeader.className = 'rewards-history-header';
+        
+        const historyTitle = document.createElement('h3');
+        historyTitle.textContent = 'Recent Activity';
+        historyHeader.appendChild(historyTitle);
+        
+        historySection.appendChild(historyHeader);
+        
+        const transactionList = document.createElement('div');
+        transactionList.className = 'rewards-transaction-list';
+        
+        data.transactions.forEach(transaction => {
+          const txItem = document.createElement('div');
+          txItem.className = 'rewards-transaction-item';
+          
+          const txLeft = document.createElement('div');
+          txLeft.className = 'rewards-transaction-left';
+          
+          const txIcon = document.createElement('div');
+          txIcon.className = 'rewards-transaction-icon';
+          // Set icon based on transaction type
+          if (transaction.type === 'CASHBACK_EARNED') {
+            txIcon.textContent = '+';
+            txIcon.classList.add('rewards-transaction-icon-earned');
+          } else if (transaction.type === 'ORDER_PAYMENT') {
+            txIcon.textContent = '-';
+            txIcon.classList.add('rewards-transaction-icon-used');
+          } else if (transaction.type === 'REFUND_CREDIT') {
+            txIcon.textContent = '↺';
+            txIcon.classList.add('rewards-transaction-icon-refund');
+          } else {
+            txIcon.textContent = '•';
+          }
+          txLeft.appendChild(txIcon);
+          
+          const txDetails = document.createElement('div');
+          txDetails.className = 'rewards-transaction-details';
+          
+          const txDescription = document.createElement('div');
+          txDescription.className = 'rewards-transaction-description';
+          txDescription.textContent = transaction.description;
+          txDetails.appendChild(txDescription);
+          
+          const txDate = document.createElement('div');
+          txDate.className = 'rewards-transaction-date';
+          txDate.textContent = transaction.formattedDate;
+          txDetails.appendChild(txDate);
+          
+          txLeft.appendChild(txDetails);
+          txItem.appendChild(txLeft);
+          
+          const txRight = document.createElement('div');
+          txRight.className = 'rewards-transaction-right';
+          
+          const txAmount = document.createElement('div');
+          txAmount.className = 'rewards-transaction-amount';
+          // Add + or - prefix based on transaction type
+          if (transaction.type === 'CASHBACK_EARNED' || transaction.type === 'REFUND_CREDIT') {
+            txAmount.textContent = `+${transaction.amount}`;
+            txAmount.classList.add('rewards-transaction-amount-positive');
+          } else if (transaction.type === 'ORDER_PAYMENT') {
+            txAmount.textContent = `-${transaction.amount}`;
+            txAmount.classList.add('rewards-transaction-amount-negative');
+          } else {
+            txAmount.textContent = transaction.amount;
+          }
+          txRight.appendChild(txAmount);
+          
+          const txBalance = document.createElement('div');
+          txBalance.className = 'rewards-transaction-balance';
+          txBalance.textContent = `Balance: ${transaction.balance}`;
+          txRight.appendChild(txBalance);
+          
+          txItem.appendChild(txRight);
+          transactionList.appendChild(txItem);
+        });
+        
+        historySection.appendChild(transactionList);
+        div.appendChild(historySection);
+      }
+      
       // View Dashboard Button
       const dashboardBtn = document.createElement('a');
       dashboardBtn.href = '/account';

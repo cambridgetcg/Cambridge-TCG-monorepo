@@ -43,6 +43,29 @@ function checkRateLimit(shop: string, limit = 60): boolean {
   return true;
 }
 
+function getTransactionDescription(type: string, metadata: any): string {
+  switch (type) {
+    case 'CASHBACK_EARNED':
+      return metadata?.orderName 
+        ? `Cashback earned on order ${metadata.orderName}`
+        : 'Cashback earned';
+    case 'ORDER_PAYMENT':
+      return metadata?.orderName
+        ? `Store credit used for order ${metadata.orderName}`
+        : 'Store credit used';
+    case 'REFUND_CREDIT':
+      return metadata?.orderName
+        ? `Refund for order ${metadata.orderName}`
+        : 'Store credit refund';
+    case 'MANUAL_ADJUSTMENT':
+      return metadata?.reason || 'Manual adjustment';
+    case 'SHOPIFY_SYNC':
+      return 'Balance sync';
+    default:
+      return type.replace(/_/g, ' ').toLowerCase();
+  }
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const startTime = Date.now();
   
@@ -288,7 +311,48 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
     
-    // Step 12: Count available rewards (placeholder - implement based on your rewards system)
+    // Step 12: Get recent transaction history
+    const recentTransactions = await db.storeCreditLedger.findMany({
+      where: {
+        customerId: customer.id,
+        shop: shop
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: 10 // Last 10 transactions
+    });
+    
+    // Format transactions for display
+    const formattedTransactions = recentTransactions.map(tx => {
+      const metadata = tx.metadata as any;
+      const amountValue = typeof tx.amount === 'object' && tx.amount?.toNumber 
+        ? tx.amount.toNumber() 
+        : Number(tx.amount);
+      const balanceValue = typeof tx.balance === 'object' && tx.balance?.toNumber 
+        ? tx.balance.toNumber() 
+        : Number(tx.balance);
+      
+      return {
+        id: tx.id,
+        type: tx.type,
+        amount: formatCurrency(Math.abs(amountValue), shopSettings),
+        amountRaw: amountValue,
+        balance: formatCurrency(balanceValue, shopSettings),
+        balanceRaw: balanceValue,
+        description: metadata?.description || getTransactionDescription(tx.type, metadata),
+        orderName: metadata?.orderName,
+        orderId: metadata?.orderId || tx.shopifyOrderId,
+        date: tx.createdAt.toISOString(),
+        formattedDate: new Date(tx.createdAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
+      };
+    });
+    
+    // Step 13: Count available rewards (placeholder - implement based on your rewards system)
     // Handle storeCredit as either a Decimal object or a number
     const storeCreditValue = typeof customer.storeCredit === 'object' && customer.storeCredit?.toNumber 
       ? customer.storeCredit.toNumber() 
@@ -296,7 +360,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     
     const availableRewards = storeCreditValue > 0 ? 1 : 0;
     
-    // Step 13: Build and return member response
+    // Step 14: Build and return member response
     const memberResponse = {
       success: true,
       enrolled: true,
@@ -343,7 +407,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
         // Other info
         availableRewards,
         memberSince: customer.createdAt.toISOString(),
-        lastUpdated: customer.updatedAt.toISOString()
+        lastUpdated: customer.updatedAt.toISOString(),
+        
+        // Transaction history
+        transactions: formattedTransactions
       },
       shopInfo: {
         name: shopSettings?.storeName || shop.replace('.myshopify.com', ''),

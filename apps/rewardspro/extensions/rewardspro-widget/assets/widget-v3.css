@@ -515,3 +515,145 @@
 .rewards-widget-content::-webkit-scrollbar-thumb:hover {
   background: #a0aec0;
 }
+
+/* Transaction History Styles */
+.rewards-history-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.rewards-history-header {
+  margin-bottom: 16px;
+}
+
+.rewards-history-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.rewards-transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.rewards-transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.rewards-transaction-item:hover {
+  background: #f3f4f6;
+}
+
+.rewards-transaction-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rewards-transaction-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  background: white;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.rewards-transaction-icon-earned {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.rewards-transaction-icon-used {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.rewards-transaction-icon-refund {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.rewards-transaction-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.rewards-transaction-description {
+  font-size: 14px;
+  color: #111827;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rewards-transaction-date {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.rewards-transaction-right {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.rewards-transaction-amount {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.rewards-transaction-amount-positive {
+  color: #16a34a;
+}
+
+.rewards-transaction-amount-negative {
+  color: #dc2626;
+}
+
+.rewards-transaction-balance {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* Transaction list scrollbar */
+.rewards-transaction-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rewards-transaction-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rewards-transaction-list::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 2px;
+}
+
+.rewards-transaction-list::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
