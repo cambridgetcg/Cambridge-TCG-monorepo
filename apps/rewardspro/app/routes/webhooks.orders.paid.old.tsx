@@ -4,7 +4,7 @@ import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
 import { authenticate } from "~/shopify.server";
 import { v4 as uuidv4 } from 'uuid';
 import { processTierProductPurchase } from "~/services/tier-product-purchase.server";
-import { TierSubscriptionBridge } from "~/services/subscription/tier-subscription-bridge.server";
+import { TierSubscriptionBridgeV2 as TierSubscriptionBridge } from "~/services/subscription/tier-subscription-bridge.server";
 
 // Initialize Prisma client
 const db = createDataAPIPrismaClient();
