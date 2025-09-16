@@ -44,6 +44,7 @@
       "routes/app.subscriptions.contracts": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscriptions.pricing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscriptions.setup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.subscriptions.setup.old": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscriptions.test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -366,6 +367,13 @@
         "parentId": "routes/app.subscriptions",
         "file": "app/routes/app.subscriptions.setup.tsx",
         "path": "setup",
+        "config": {}
+      },
+      "routes/app.subscriptions.setup.old": {
+        "id": "routes/app.subscriptions.setup.old",
+        "parentId": "routes/app.subscriptions.setup",
+        "file": "app/routes/app.subscriptions.setup.old.tsx",
+        "path": "old",
         "config": {}
       },
       "routes/app.subscriptions.test": {
@@ -693,6 +701,12 @@
         "parentId": "routes/app.subscriptions",
         "file": "routes/app.subscriptions.setup.tsx",
         "path": "setup"
+      },
+      "routes/app.subscriptions.setup.old": {
+        "id": "routes/app.subscriptions.setup.old",
+        "parentId": "routes/app.subscriptions.setup",
+        "file": "routes/app.subscriptions.setup.old.tsx",
+        "path": "old"
       },
       "routes/app.subscriptions.test": {
         "id": "routes/app.subscriptions.test",

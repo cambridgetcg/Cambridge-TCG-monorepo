@@ -50,6 +50,12 @@ export const SUBSCRIPTION_CONFIG = {
     GRACE_PERIOD_HOURS: 24, // Grace period before first retry
   },
 
+  // Grace period configuration
+  GRACE_PERIOD: {
+    DAYS: 3, // Days to wait before cancelling subscription
+    HOURS: 72, // Same as days but in hours
+  },
+
   // Selling plan configuration
   SELLING_PLAN: {
     GROUP_NAME: 'Tier Membership Subscriptions',
@@ -153,4 +159,20 @@ export function getNextBillingDate(
   }
   
   return nextDate;
+}
+
+/**
+ * Update subscription configuration
+ * Note: In production, this would update environment variables or database settings
+ */
+export function updateSubscriptionConfig(config: {
+  trialPeriodsEnabled?: boolean;
+  automaticDunningEnabled?: boolean;
+  gracePeriodDays?: number;
+  maxRetryAttempts?: number;
+}): void {
+  // In production, this would update the configuration
+  console.log('[Config] Updating subscription configuration:', config);
+  // This is a placeholder - actual implementation would update environment variables
+  // or store in database settings
 }
