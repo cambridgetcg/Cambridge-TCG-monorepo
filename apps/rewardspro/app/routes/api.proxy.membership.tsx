@@ -58,7 +58,7 @@ function getTransactionDescription(type: string, metadata: any): string {
         ? `Refund for order ${metadata.orderName}`
         : 'Store credit refund';
     case 'MANUAL_ADJUSTMENT':
-      return metadata?.reason || 'Manual adjustment';
+      return metadata?.reason || metadata?.note || metadata?.description || 'Manual credit adjustment';
     case 'SHOPIFY_SYNC':
       return 'Balance sync';
     default:
@@ -202,17 +202,34 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
     }
     
-    // Step 9: Calculate lifetime earned (sum of all cashback earned)
-    const lifetimeEarned = await db.storeCreditLedger.aggregate({
+    // Step 9: Calculate lifetime earned (sum of all positive credit entries)
+    // This includes cashback, refunds, and positive manual adjustments
+    const allCreditEntries = await db.storeCreditLedger.findMany({
       where: {
         customerId: customer.id,
         shop: shop,
-        type: "CASHBACK_EARNED"
+        type: {
+          in: ["CASHBACK_EARNED", "REFUND_CREDIT", "MANUAL_ADJUSTMENT"]
+        }
       },
-      _sum: {
-        amount: true
+      select: {
+        amount: true,
+        type: true
       }
     });
+    
+    // Sum up all positive amounts (credits to the account)
+    let totalEarned = 0;
+    for (const entry of allCreditEntries) {
+      const amountValue = typeof entry.amount === 'object' && entry.amount?.toNumber 
+        ? entry.amount.toNumber() 
+        : Number(entry.amount);
+      
+      // Only include positive amounts (credits)
+      if (amountValue > 0) {
+        totalEarned += amountValue;
+      }
+    }
     
     // Calculate how much store credit has been used (spent)
     const storeCreditUsed = await db.storeCreditLedger.aggregate({
@@ -254,15 +271,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
     
     // If no order amounts in metadata, fallback to estimate from cashback
     // This is only for backwards compatibility with old data
-    if (totalSpent === 0 && lifetimeEarned._sum.amount) {
-      const earnedValue = typeof lifetimeEarned._sum.amount === 'object' && lifetimeEarned._sum.amount?.toNumber
-        ? lifetimeEarned._sum.amount.toNumber()
-        : Number(lifetimeEarned._sum.amount);
+    if (totalSpent === 0 && totalEarned > 0) {
+      // Only count cashback earned (not manual adjustments) for the estimate
+      const cashbackOnlyTotal = allCreditEntries
+        .filter(e => e.type === 'CASHBACK_EARNED')
+        .reduce((sum, entry) => {
+          const amountValue = typeof entry.amount === 'object' && entry.amount?.toNumber 
+            ? entry.amount.toNumber() 
+            : Number(entry.amount);
+          return sum + Math.max(0, amountValue);
+        }, 0);
       
       // Estimate based on average cashback rate (fallback only)
-      totalSpent = currentTier?.cashbackPercent 
-        ? (earnedValue / currentTier.cashbackPercent) * 100
-        : earnedValue * 10; // Assume 10% if no tier
+      if (cashbackOnlyTotal > 0) {
+        totalSpent = currentTier?.cashbackPercent 
+          ? (cashbackOnlyTotal / currentTier.cashbackPercent) * 100
+          : cashbackOnlyTotal * 10; // Assume 10% if no tier
+      }
     }
     
     // Step 11: Calculate next tier progress
@@ -384,14 +409,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         nextTierCashbackRate: nextTierInfo?.cashbackRate,
         
         // Lifetime statistics
-        lifetimeEarned: lifetimeEarned._sum.amount 
-          ? formatCurrency(
-              typeof lifetimeEarned._sum.amount === 'object' && lifetimeEarned._sum.amount?.toNumber
-                ? lifetimeEarned._sum.amount.toNumber()
-                : Number(lifetimeEarned._sum.amount),
-              shopSettings
-            )
-          : formatCurrency(0, shopSettings),
+        lifetimeEarned: formatCurrency(totalEarned, shopSettings),
         // Total spent should show actual order values, not store credit used
         lifetimeSpent: formatCurrency(totalSpent, shopSettings),
         // Store credit used/redeemed

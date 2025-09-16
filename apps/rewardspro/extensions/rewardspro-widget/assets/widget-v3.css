@@ -594,6 +594,16 @@
   color: #4f46e5;
 }
 
+.rewards-transaction-icon-adjustment-positive {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.rewards-transaction-icon-adjustment-negative {
+  background: #fce7f3;
+  color: #ec4899;
+}
+
 .rewards-transaction-details {
   flex: 1;
   min-width: 0;

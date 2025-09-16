@@ -514,6 +514,15 @@
           } else if (transaction.type === 'REFUND_CREDIT') {
             txIcon.textContent = '↺';
             txIcon.classList.add('rewards-transaction-icon-refund');
+          } else if (transaction.type === 'MANUAL_ADJUSTMENT') {
+            // Check if it's a positive or negative adjustment
+            if (transaction.amountRaw > 0) {
+              txIcon.textContent = '+';
+              txIcon.classList.add('rewards-transaction-icon-adjustment-positive');
+            } else {
+              txIcon.textContent = '-';
+              txIcon.classList.add('rewards-transaction-icon-adjustment-negative');
+            }
           } else {
             txIcon.textContent = '•';
           }
@@ -540,13 +549,22 @@
           
           const txAmount = document.createElement('div');
           txAmount.className = 'rewards-transaction-amount';
-          // Add + or - prefix based on transaction type
+          // Add + or - prefix based on transaction type and amount
           if (transaction.type === 'CASHBACK_EARNED' || transaction.type === 'REFUND_CREDIT') {
             txAmount.textContent = `+${transaction.amount}`;
             txAmount.classList.add('rewards-transaction-amount-positive');
           } else if (transaction.type === 'ORDER_PAYMENT') {
             txAmount.textContent = `-${transaction.amount}`;
             txAmount.classList.add('rewards-transaction-amount-negative');
+          } else if (transaction.type === 'MANUAL_ADJUSTMENT') {
+            // Manual adjustments can be positive or negative
+            if (transaction.amountRaw > 0) {
+              txAmount.textContent = `+${transaction.amount}`;
+              txAmount.classList.add('rewards-transaction-amount-positive');
+            } else {
+              txAmount.textContent = `-${transaction.amount}`;
+              txAmount.classList.add('rewards-transaction-amount-negative');
+            }
           } else {
             txAmount.textContent = transaction.amount;
           }

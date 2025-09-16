@@ -144,6 +144,14 @@ model Customer {
   email             String          @db.VarChar(255)
   storeCredit       Decimal         @default(0) @db.Decimal(10, 2)
   
+  // Spending tracking fields
+  totalSpent            Decimal     @default(0) @db.Decimal(10, 2)  // Total order value
+  totalCashbackEarned   Decimal     @default(0) @db.Decimal(10, 2)  // Total cashback earned
+  totalRefunded         Decimal     @default(0) @db.Decimal(10, 2)  // Total refunds received
+  netSpent              Decimal     @default(0) @db.Decimal(10, 2)  // totalSpent - totalRefunded
+  orderCount            Int         @default(0)                      // Number of orders
+  lastOrderDate         DateTime?   // Date of most recent order
+  
   // Current tier relationship
   currentTierId     String?
   currentTier       Tier?           @relation(fields: [currentTierId], references: [id], onDelete: SetNull)
@@ -156,6 +164,7 @@ model Customer {
   tierChangeLogs    TierChangeLog[]
   subscriptions     TierSubscription[]  // Customer's tier subscriptions
   tierPurchases     TierPurchase[]      // One-time tier purchases
+  orders            Order[]              // Customer's order history
   
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -165,7 +174,7 @@ model Customer {
 model StoreCreditLedger {
   id                String      @id @default(uuid())
   customerId        String
-  shop        String
+  shop              String
   
   // Core transaction data
   amount            Decimal     @db.Decimal(10, 2)  // Positive for credit, negative for debit
@@ -174,6 +183,13 @@ model StoreCreditLedger {
   
   // Reference & deduplication  
   shopifyOrderId    String?     // Prevents double-crediting, links to orders
+  
+  // Order relations
+  orderId           String?
+  order             Order?      @relation("OrderLedgerEntries", fields: [orderId], references: [id])
+  
+  refundId          String?     @unique
+  refund            OrderRefund? @relation("RefundLedgerEntry", fields: [refundId], references: [id])
   
   // Flexible data field
   metadata          Json?       // Store everything else here (cashback %, order amount, description, etc.)
@@ -633,6 +649,152 @@ model BulkOperationLog {
   @@index([shop, operationType, createdAt])
 }
 
+// ============================================
+// ORDER TRACKING MODELS
+// ============================================
+
+model Order {
+  id                    String      @id @default(uuid())
+  shop                  String
+  shopifyOrderId        String      // Shopify order ID (e.g., "5843219374293")
+  shopifyOrderNumber    String      // Order number visible to customer (e.g., "#1234")
+  shopifyOrderName      String      // Order name (e.g., "#1234" or "SHOP-1234")
+  
+  // Customer relationship
+  customerId            String
+  customer              Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Order details
+  email                 String
+  currency              String      // Currency code (USD, EUR, etc.)
+  
+  // Financial data - stored as Decimal for precision
+  subtotalPrice         Decimal     @db.Decimal(10, 2)  // Before discounts/shipping/tax
+  totalDiscounts        Decimal     @db.Decimal(10, 2)  // Total discounts applied
+  totalShipping         Decimal     @db.Decimal(10, 2)  // Shipping cost
+  totalTax              Decimal     @db.Decimal(10, 2)  // Tax amount
+  totalPrice            Decimal     @db.Decimal(10, 2)  // Final total paid by customer
+  
+  // Refund tracking
+  totalRefunded         Decimal     @default(0) @db.Decimal(10, 2)  // Amount refunded
+  netAmount             Decimal     @db.Decimal(10, 2)  // totalPrice - totalRefunded
+  
+  // Status tracking
+  financialStatus       OrderFinancialStatus  // paid, pending, refunded, etc.
+  fulfillmentStatus     String?               // fulfilled, partial, unfulfilled, null
+  
+  // Cashback calculation data
+  cashbackEligible      Boolean     @default(true)    // Some orders may be excluded
+  cashbackPercent       Int?        // Cashback rate at time of order
+  cashbackAmount        Decimal?    @db.Decimal(10, 2) // Cashback earned
+  cashbackProcessed     Boolean     @default(false)    // Has cashback been credited
+  
+  // Tier data at time of order
+  tierIdAtOrder         String?     // Customer's tier when order was placed
+  tierNameAtOrder       String?     // Store tier name for historical reference
+  
+  // Dates
+  shopifyCreatedAt      DateTime    // When order was created in Shopify
+  shopifyUpdatedAt      DateTime    // Last update in Shopify
+  processedAt           DateTime?   // When we processed the order
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  
+  // Relations
+  lineItems             OrderLineItem[]
+  refunds               OrderRefund[]
+  creditLedgerEntries   StoreCreditLedger[]  @relation("OrderLedgerEntries")
+  
+  // Indexes
+  @@unique([shop, shopifyOrderId])
+  @@index([shop, customerId])
+  @@index([shop, shopifyCreatedAt])
+  @@index([shop, financialStatus])
+  @@index([customerId, shopifyCreatedAt])
+}
+
+model OrderLineItem {
+  id                    String      @id @default(uuid())
+  orderId               String
+  order                 Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  shopifyLineItemId     String      // Shopify line item ID
+  shopifyProductId      String?     // Product ID
+  shopifyVariantId      String?     // Variant ID
+  
+  // Item details
+  title                 String      // Product title
+  variantTitle          String?     // Variant title
+  sku                   String?     // SKU
+  vendor                String?     // Vendor name
+  
+  // Quantities and pricing
+  quantity              Int         // Quantity ordered
+  price                 Decimal     @db.Decimal(10, 2)  // Unit price
+  totalPrice            Decimal     @db.Decimal(10, 2)  // quantity * price
+  totalDiscount         Decimal     @db.Decimal(10, 2)  // Discounts on this item
+  
+  // Flags
+  requiresShipping      Boolean     @default(true)
+  taxable               Boolean     @default(true)
+  giftCard              Boolean     @default(false)
+  
+  // Tier product tracking
+  isTierProduct         Boolean     @default(false)
+  tierProductId         String?     // Link to TierProduct if applicable
+  
+  createdAt             DateTime    @default(now())
+  
+  @@unique([orderId, shopifyLineItemId])
+  @@index([orderId])
+}
+
+model OrderRefund {
+  id                    String      @id @default(uuid())
+  orderId               String
+  order                 Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  shopifyRefundId       String      // Shopify refund ID
+  
+  // Refund amounts
+  amount                Decimal     @db.Decimal(10, 2)  // Total refund amount
+  shippingAmount        Decimal     @db.Decimal(10, 2)  // Shipping refunded
+  taxAmount             Decimal     @db.Decimal(10, 2)  // Tax refunded
+  
+  // Reason and notes
+  reason                String?     // restock, customer, damage, other
+  note                  String?     // Admin note
+  
+  // Cashback adjustment
+  cashbackAdjustment    Decimal?    @db.Decimal(10, 2)  // Cashback to reverse
+  cashbackProcessed     Boolean     @default(false)
+  
+  shopifyCreatedAt      DateTime    // When refund was created in Shopify
+  processedAt           DateTime?   // When we processed the refund
+  createdAt             DateTime    @default(now())
+  
+  // Relations
+  refundLineItems       OrderRefundLineItem[]
+  creditLedgerEntry     StoreCreditLedger?  @relation("RefundLedgerEntry")
+  
+  @@unique([orderId, shopifyRefundId])
+  @@index([orderId])
+}
+
+model OrderRefundLineItem {
+  id                    String      @id @default(uuid())
+  refundId              String
+  refund                OrderRefund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  
+  shopifyLineItemId     String      // Original line item ID
+  quantity              Int         // Quantity refunded
+  subtotal              Decimal     @db.Decimal(10, 2)  // Refund amount for this item
+  
+  createdAt             DateTime    @default(now())
+  
+  @@index([refundId])
+}
+
 //Enums
 
 enum Currency {
@@ -762,4 +924,14 @@ enum ProductDuration {
   SEMIANNUAL       // 180 days
   ANNUAL           // 365 days
   LIFETIME         // Permanent
+}
+
+enum OrderFinancialStatus {
+  PENDING
+  AUTHORIZED
+  PARTIALLY_PAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  VOIDED
 }
