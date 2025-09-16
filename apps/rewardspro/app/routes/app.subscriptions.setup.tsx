@@ -282,10 +282,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             tierId: formData.get("tierId") as string,
             shopifyProductId: formData.get("productId") as string,
             shopifyVariantId: formData.get("variantId") as string,
+            productHandle: formData.get("productHandle") as string || '',
             purchaseType: formData.get("purchaseType") as any,
             price: parseFloat(formData.get("price") as string),
             sku: formData.get("sku") as string,
             duration: formData.get("duration") as any,
+            hasSubscription: formData.get("purchaseType") !== 'ONE_TIME',
+            isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),
           }
