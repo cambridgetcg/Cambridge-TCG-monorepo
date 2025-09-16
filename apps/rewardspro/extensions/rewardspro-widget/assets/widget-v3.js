@@ -324,35 +324,88 @@
       
       div.appendChild(tierBadge);
       
-      // Progress to next tier (if applicable)
+      // Membership Progress Section - Always show for members
+      const progressSection = document.createElement('div');
+      progressSection.className = 'rewards-progress-section';
+      
+      // Progress header with tier info
+      const progressHeader = document.createElement('div');
+      progressHeader.className = 'rewards-progress-header';
+      
+      const progressLabel = document.createElement('div');
+      progressLabel.className = 'rewards-progress-label';
+      if (data.nextTier) {
+        progressLabel.textContent = `Next Tier: ${data.nextTier}`;
+      } else {
+        progressLabel.textContent = 'Maximum Tier Reached';
+      }
+      progressHeader.appendChild(progressLabel);
+      
+      if (data.nextTierCashbackRate && data.nextTier) {
+        const nextBenefit = document.createElement('div');
+        nextBenefit.className = 'rewards-next-benefit';
+        nextBenefit.textContent = `${data.nextTierCashbackRate}% cashback`;
+        progressHeader.appendChild(nextBenefit);
+      }
+      
+      progressSection.appendChild(progressHeader);
+      
+      // Only show progress bar if there's a next tier
       if (data.nextTier && data.progressToNextTier !== undefined) {
-        const progressSection = document.createElement('div');
-        progressSection.className = 'rewards-progress-section';
-        
-        const progressLabel = document.createElement('div');
-        progressLabel.className = 'rewards-progress-label';
-        progressLabel.textContent = `Progress to ${data.nextTier}`;
-        progressSection.appendChild(progressLabel);
+        // Progress bar container
+        const progressBarContainer = document.createElement('div');
+        progressBarContainer.className = 'rewards-progress-container';
         
         const progressBar = document.createElement('div');
         progressBar.className = 'rewards-progress-bar';
         
         const progressFill = document.createElement('div');
         progressFill.className = 'rewards-progress-fill';
-        progressFill.style.width = `${Math.min(100, data.progressToNextTier || 0)}%`;
-        progressBar.appendChild(progressFill);
+        const progress = Math.min(100, Math.max(0, data.progressToNextTier || 0));
+        progressFill.style.width = `${progress}%`;
         
-        progressSection.appendChild(progressBar);
-        
-        if (data.remainingToNextTier) {
-          const remaining = document.createElement('div');
-          remaining.className = 'rewards-progress-remaining';
-          remaining.textContent = `${data.remainingToNextTier} to reach next tier`;
-          progressSection.appendChild(remaining);
+        // Add percentage text inside the bar if progress > 20%
+        if (progress > 20) {
+          const progressPercent = document.createElement('span');
+          progressPercent.className = 'rewards-progress-percent';
+          progressPercent.textContent = `${Math.round(progress)}%`;
+          progressFill.appendChild(progressPercent);
         }
         
-        div.appendChild(progressSection);
+        progressBar.appendChild(progressFill);
+        progressBarContainer.appendChild(progressBar);
+        
+        // Show percentage outside if progress <= 20%
+        if (progress <= 20) {
+          const progressPercent = document.createElement('span');
+          progressPercent.className = 'rewards-progress-percent-outside';
+          progressPercent.textContent = `${Math.round(progress)}%`;
+          progressBarContainer.appendChild(progressPercent);
+        }
+        
+        progressSection.appendChild(progressBarContainer);
+        
+        // Spending info
+        if (data.remainingToNextTier) {
+          const spendingInfo = document.createElement('div');
+          spendingInfo.className = 'rewards-spending-info';
+          
+          const remaining = document.createElement('span');
+          remaining.className = 'rewards-progress-remaining';
+          remaining.textContent = `Spend ${data.remainingToNextTier} more to unlock`;
+          spendingInfo.appendChild(remaining);
+          
+          progressSection.appendChild(spendingInfo);
+        }
+      } else if (!data.nextTier) {
+        // Max tier reached message
+        const maxTierMessage = document.createElement('div');
+        maxTierMessage.className = 'rewards-max-tier-message';
+        maxTierMessage.innerHTML = '🎉 Congratulations! You\'ve reached the highest tier!';
+        progressSection.appendChild(maxTierMessage);
       }
+      
+      div.appendChild(progressSection);
       
       // Stats Grid
       const stats = document.createElement('div');
@@ -369,7 +422,7 @@
       
       const earnedLabel = document.createElement('div');
       earnedLabel.className = 'rewards-stat-label';
-      earnedLabel.textContent = '✅ EARNED (NEW!)';
+      earnedLabel.textContent = 'Total Earned';
       earnedStat.appendChild(earnedLabel);
       
       stats.appendChild(earnedStat);
@@ -385,18 +438,18 @@
       
       const spentLabel = document.createElement('div');
       spentLabel.className = 'rewards-stat-label';
-      spentLabel.textContent = '💸 SPENT (NEW!)';
+      spentLabel.textContent = 'Total Spent';
       spentStat.appendChild(spentLabel);
       
       stats.appendChild(spentStat);
       
       div.appendChild(stats);
       
-      // View Dashboard Button - UPDATED TEXT FOR TESTING
+      // View Dashboard Button
       const dashboardBtn = document.createElement('a');
       dashboardBtn.href = '/account';
       dashboardBtn.className = 'rewards-btn rewards-btn-primary';
-      dashboardBtn.textContent = '🚀 CLICK HERE - NEW VERSION LOADED! 🚀';
+      dashboardBtn.textContent = 'View Account Dashboard';
       div.appendChild(dashboardBtn);
       
       return div;
