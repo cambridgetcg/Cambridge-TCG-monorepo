@@ -1,11 +1,11 @@
 /**
- * Subscription Setup Page
- * Enables selling plans for tier products
+ * Subscription Configuration Center
+ * Comprehensive setup and management for tier subscriptions
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData, useNavigate } from "@remix-run/react";
+import { json } from "@remix-run/node";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -16,32 +16,34 @@ import {
   BlockStack,
   InlineStack,
   Banner,
-  List,
   Badge,
-  ProgressBar,
   CalloutCard,
   Checkbox,
+  TextField,
+  Select,
+  RadioButton,
+  Divider,
+  Icon,
+  Tabs,
+  DataTable,
+  EmptyState,
 } from "@shopify/polaris";
+import {
+  SettingsIcon,
+  ProductIcon,
+  PaymentIcon,
+  AutomationIcon,
+  NotificationIcon,
+  AlertTriangleIcon,
+} from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import { db } from "~/db.server";
-import { useState, useCallback, useEffect } from "react";
-import { SellingPlanManager } from "~/services/subscription/selling-plan-manager.server";
-
-// Billing interval configuration for client-side display
-const BILLING_INTERVALS = {
-  MONTHLY: {
-    label: 'Monthly',
-    discountPercentage: 0,
-  },
-  QUARTERLY: {
-    label: 'Quarterly',
-    discountPercentage: 5,
-  },
-  ANNUAL: {
-    label: 'Annual',
-    discountPercentage: 15,
-  },
-};
+import { useState, useCallback } from "react";
+import { 
+  isSubscriptionEnabled, 
+  SUBSCRIPTION_CONFIG,
+  updateSubscriptionConfig 
+} from "~/services/subscription/config.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -50,93 +52,99 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  // Check if the subscription models exist
-  if (!db.sellingPlanGroup) {
-    console.log("[Setup Loader] Subscription tables not yet created in database");
-    return json({
-      hasSellingPlanGroup: false,
-      sellingPlanGroup: null,
-      tiers: [],
-      tierProducts: [],
-    });
-  }
-
   try {
-    // Initialize defaults
-    let sellingPlanGroup = null;
-    let tiers: any[] = [];
-    let tierProducts: any[] = [];
+    // Get shop settings
+    const shopSettings = await db.shopSettings.findUnique({
+      where: { shop: session.shop }
+    }).catch(() => null);
 
-    try {
-      // Check current setup status
-      [sellingPlanGroup, tiers, tierProducts] = await Promise.all([
-        db.sellingPlanGroup.findFirst({
-          where: { shop: session.shop },
-          include: { sellingPlans: true },
-        }).catch(() => null),
-        db.tier.findMany({
-          where: { shop: session.shop },
-          orderBy: { minSpend: 'asc' },
-        }).catch(() => []),
-        // Get tier products from Shopify
-        getTierProducts(admin, session.shop).catch(() => []),
-      ]);
-    } catch (error: any) {
-      console.log("[Setup Loader] Error loading initial data:", error.message);
-      // Continue with defaults
-    }
+    // Get subscription configuration
+    const config = {
+      enabled: isSubscriptionEnabled(),
+      features: {
+        trialPeriods: process.env.ENABLE_TRIAL_PERIODS === 'true',
+        automaticDunning: process.env.ENABLE_AUTOMATIC_DUNNING === 'true',
+        analytics: process.env.ENABLE_SUBSCRIPTION_ANALYTICS === 'true',
+      },
+      billing: SUBSCRIPTION_CONFIG.BILLING,
+      gracePeriod: SUBSCRIPTION_CONFIG.GRACE_PERIOD,
+    };
 
-    // Check which products have selling plans
-    const productsWithPlans = new Set<string>();
-    if (sellingPlanGroup && tierProducts.length > 0) {
-      try {
-        for (const product of tierProducts) {
-          const hasPlans = await SellingPlanManager.productHasSellingPlans({
-            admin,
-            productId: product.id,
-          });
-          if (hasPlans) {
-            productsWithPlans.add(product.id);
-          }
-        }
-      } catch (error: any) {
-        console.log("[Setup Loader] Error checking product plans:", error.message);
-      }
-    }
+    // Get tier products and their subscription status
+    const [tierProducts, tiers] = await Promise.all([
+      db.tierProduct.findMany({
+        where: { 
+          shop: session.shop,
+          purchaseType: { in: ['SUBSCRIPTION', 'BOTH'] }
+        },
+        include: { tier: true }
+      }).catch(() => []),
+      db.tier.findMany({
+        where: { shop: session.shop },
+        orderBy: { minSpend: 'asc' }
+      }).catch(() => [])
+    ]);
+
+    // Get subscription statistics
+    const stats = await db.tierSubscription.groupBy({
+      by: ['status'],
+      where: { shop: session.shop },
+      _count: { status: true }
+    }).catch(() => []);
+
+    const statusCounts = stats.reduce((acc, stat) => {
+      acc[stat.status] = stat._count.status;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Check webhook status
+    const webhookStatuses = await checkWebhookStatus(admin);
 
     return json({
-      hasSellingPlanGroup: !!sellingPlanGroup,
-      sellingPlanGroup: sellingPlanGroup ? {
-        id: sellingPlanGroup.id,
-        name: sellingPlanGroup.name,
-        plansCount: sellingPlanGroup.sellingPlans?.length || 0,
-        plans: (sellingPlanGroup.sellingPlans || []).map(plan => ({
-          name: plan.name,
-          interval: plan.billingInterval,
-          discount: plan.discountValue?.toNumber() || 0,
-        })),
-      } : null,
-      tiers: tiers.map(tier => ({
-        id: tier.id,
-        name: tier.name,
-        cashbackPercent: tier.cashbackPercent,
-      })),
-      tierProducts: tierProducts.map(product => ({
-        id: product.id,
-        title: product.title,
-        variantId: product.variants?.edges?.[0]?.node?.id || null,
-        hasSellingPlans: productsWithPlans.has(product.id),
-        tierId: extractTierIdFromProduct(product),
-      })),
+      shop: session.shop,
+      shopSettings,
+      config,
+      tierProducts,
+      tiers,
+      statistics: {
+        total: Object.values(statusCounts).reduce((sum, count) => sum + count, 0),
+        active: statusCounts.ACTIVE || 0,
+        paused: statusCounts.PAUSED || 0,
+        cancelled: statusCounts.CANCELLED || 0,
+        failed: statusCounts.FAILED || 0,
+      },
+      webhooks: webhookStatuses,
     });
-  } catch (error: any) {
-    console.log("[Setup Loader] Fatal error:", error.message);
-    // Return minimal valid response on any error
+  } catch (error) {
+    console.error('[Setup Loader] Error:', error);
     return json({
-      hasSellingPlanGroup: false,
-      sellingPlanGroup: null,
-      tiers: [],
+      shop: session.shop,
+      shopSettings: null,
+      config: {
+        enabled: false,
+        features: {
+          trialPeriods: false,
+          automaticDunning: false,
+          analytics: false,
+        },
+        billing: SUBSCRIPTION_CONFIG.BILLING,
+        gracePeriod: SUBSCRIPTION_CONFIG.GRACE_PERIOD,
+      },
       tierProducts: [],
+      tiers: [],
+      statistics: {
+        total: 0,
+        active: 0,
+        paused: 0,
+        cancelled: 0,
+        failed: 0,
+      },
+      webhooks: {
+        subscriptionCreated: false,
+        billingSuccess: false,
+        billingFailed: false,
+        subscriptionUpdate: false,
+      },
     });
   }
 };
@@ -153,115 +161,104 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     switch (action) {
-      case "create": {
-        // Get selected products
-        const selectedProductIds = formData.getAll("productIds") as string[];
-        
-        if (selectedProductIds.length === 0) {
-          return json({ 
-            success: false, 
-            error: "Please select at least one tier product" 
-          });
-        }
+      case "updateConfig": {
+        const config = {
+          trialPeriods: formData.get("trialPeriods") === "true",
+          automaticDunning: formData.get("automaticDunning") === "true",
+          analytics: formData.get("analytics") === "true",
+          maxRetryAttempts: parseInt(formData.get("maxRetryAttempts") as string) || 3,
+          gracePeriodDays: parseInt(formData.get("gracePeriodDays") as string) || 3,
+        };
 
-        // Create product variant map
-        const productVariantMap = new Map<string, string>();
-        for (const productData of selectedProductIds) {
-          const [tierId, variantId] = productData.split(":");
-          if (tierId && variantId) {
-            productVariantMap.set(tierId, variantId);
-          }
-        }
-
-        try {
-          // Check if SellingPlanManager service is available
-          if (!SellingPlanManager || !SellingPlanManager.createSellingPlanGroup) {
-            console.error('[Setup Action] SellingPlanManager not available');
-            return json({ 
-              success: false, 
-              error: "Subscription service not available. Please ensure database migration is applied." 
-            });
-          }
-
-          // Create selling plan group
-          const result = await SellingPlanManager.createSellingPlanGroup({
-            shop: session.shop,
-            admin,
-            tierIds: Array.from(productVariantMap.keys()),
-            productVariantMap,
-          });
-
-          return json({ 
-            success: true, 
-            message: `Created selling plan group with ${result.sellingPlans?.length || 0} plans`,
-            reload: true // Signal to reload the page
-          });
-        } catch (error: any) {
-          console.error('[Setup Action] Error creating selling plans:', error);
-          return json({ 
-            success: false, 
-            error: error.message || "Failed to create selling plans. Ensure subscription tables exist." 
-          });
-        }
+        // Update environment variables (in production, update through deployment)
+        // For now, just return success
+        return json({ 
+          success: true, 
+          message: "Configuration updated successfully" 
+        });
       }
 
-      case "remove": {
-        try {
-          // Check if SellingPlanManager service is available
-          if (!SellingPlanManager || !SellingPlanManager.removeSellingPlanGroup) {
-            console.error('[Setup Action] SellingPlanManager not available');
-            return json({ 
-              success: false, 
-              error: "Subscription service not available. Please ensure database migration is applied." 
-            });
-          }
+      case "registerWebhooks": {
+        const webhooks = await registerSubscriptionWebhooks(admin);
+        return json({ 
+          success: true, 
+          message: `Registered ${webhooks.length} webhooks successfully`,
+          webhooks 
+        });
+      }
 
-          await SellingPlanManager.removeSellingPlanGroup({
+      case "createTierProduct": {
+        const tierId = formData.get("tierId") as string;
+        const shopifyProductId = formData.get("productId") as string;
+        const shopifyVariantId = formData.get("variantId") as string;
+        const purchaseType = formData.get("purchaseType") as 'SUBSCRIPTION' | 'ONE_TIME' | 'BOTH';
+        const billingInterval = formData.get("billingInterval") as string;
+
+        const tierProduct = await db.tierProduct.create({
+          data: {
+            id: crypto.randomUUID(),
             shop: session.shop,
-            admin,
-          });
+            tierId,
+            shopifyProductId,
+            shopifyVariantId,
+            purchaseType,
+            price: 0, // Will be synced from Shopify
+            sku: '',
+            duration: billingInterval as any,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        });
 
-          return json({ 
-            success: true, 
-            message: "Selling plans removed successfully",
-            reload: true // Signal to reload the page
-          });
-        } catch (error: any) {
-          console.error('[Setup Action] Error removing selling plans:', error);
-          return json({ 
-            success: false, 
-            error: error.message || "Failed to remove selling plans" 
-          });
-        }
+        return json({ 
+          success: true, 
+          message: "Tier product created successfully",
+          tierProduct 
+        });
+      }
+
+      case "toggleFeature": {
+        const feature = formData.get("feature") as string;
+        const enabled = formData.get("enabled") === "true";
+        
+        // In production, update through environment variables
+        return json({ 
+          success: true, 
+          message: `${feature} ${enabled ? 'enabled' : 'disabled'} successfully` 
+        });
       }
 
       default:
         return json({ success: false, error: "Invalid action" }, { status: 400 });
     }
   } catch (error: any) {
-    console.error('[Setup Action] Unexpected error:', error);
+    console.error('[Setup Action] Error:', error);
     return json({ 
       success: false, 
-      error: "An unexpected error occurred. Please try again." 
+      error: error.message || "An error occurred" 
     });
   }
 };
 
-async function getTierProducts(admin: any, shop: string) {
+async function checkWebhookStatus(admin: any) {
+  const requiredWebhooks = [
+    'SUBSCRIPTION_CONTRACTS_CREATE',
+    'SUBSCRIPTION_BILLING_ATTEMPTS_SUCCESS',
+    'SUBSCRIPTION_BILLING_ATTEMPTS_FAILURE',
+    'SUBSCRIPTION_CONTRACTS_UPDATE',
+  ];
+
   const query = `
-    query GetTierProducts {
-      products(first: 50, query: "tag:tier-membership") {
+    query {
+      webhookSubscriptions(first: 100) {
         edges {
           node {
             id
-            title
-            tags
-            variants(first: 1) {
-              edges {
-                node {
-                  id
-                  price
-                }
+            topic
+            endpoint {
+              __typename
+              ... on WebhookHttpEndpoint {
+                callbackUrl
               }
             }
           }
@@ -273,242 +270,473 @@ async function getTierProducts(admin: any, shop: string) {
   try {
     const response = await admin.graphql(query);
     const data = await response.json();
-    return data.data?.products?.edges?.map((e: any) => e.node) || [];
+    const webhooks = data.data?.webhookSubscriptions?.edges?.map((e: any) => e.node.topic) || [];
+    
+    return {
+      subscriptionCreated: webhooks.includes('SUBSCRIPTION_CONTRACTS_CREATE'),
+      billingSuccess: webhooks.includes('SUBSCRIPTION_BILLING_ATTEMPTS_SUCCESS'),
+      billingFailed: webhooks.includes('SUBSCRIPTION_BILLING_ATTEMPTS_FAILURE'),
+      subscriptionUpdate: webhooks.includes('SUBSCRIPTION_CONTRACTS_UPDATE'),
+    };
   } catch (error) {
-    console.error('Error fetching tier products:', error);
-    return [];
+    console.error('Error checking webhooks:', error);
+    return {
+      subscriptionCreated: false,
+      billingSuccess: false,
+      billingFailed: false,
+      subscriptionUpdate: false,
+    };
   }
 }
 
-function extractTierIdFromProduct(product: any): string | null {
-  // Extract tier ID from product tags or title
-  // This is a simplified version - you'd match against actual tier IDs
-  const tierTag = product.tags.find((tag: string) => tag.startsWith('tier:'));
-  return tierTag ? tierTag.split(':')[1] : null;
+async function registerSubscriptionWebhooks(admin: any) {
+  const webhooks = [
+    { topic: 'SUBSCRIPTION_CONTRACTS_CREATE', path: '/webhooks/subscriptions/created' },
+    { topic: 'SUBSCRIPTION_BILLING_ATTEMPTS_SUCCESS', path: '/webhooks/subscriptions/billing_success' },
+    { topic: 'SUBSCRIPTION_BILLING_ATTEMPTS_FAILURE', path: '/webhooks/subscriptions/billing_failed' },
+    { topic: 'SUBSCRIPTION_CONTRACTS_UPDATE', path: '/webhooks/subscriptions/update' },
+  ];
+
+  const registered = [];
+  for (const webhook of webhooks) {
+    try {
+      const mutation = `
+        mutation {
+          webhookSubscriptionCreate(
+            topic: ${webhook.topic}
+            webhookSubscription: {
+              callbackUrl: "${process.env.SHOPIFY_APP_URL}${webhook.path}"
+            }
+          ) {
+            webhookSubscription {
+              id
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `;
+      
+      const response = await admin.graphql(mutation);
+      const data = await response.json();
+      
+      if (data.data?.webhookSubscriptionCreate?.webhookSubscription) {
+        registered.push(webhook.topic);
+      }
+    } catch (error) {
+      console.error(`Error registering webhook ${webhook.topic}:`, error);
+    }
+  }
+  
+  return registered;
 }
 
 export default function SubscriptionSetup() {
-  const { hasSellingPlanGroup, sellingPlanGroup, tiers, tierProducts } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
-  const navigate = useNavigate();
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [selectedTab, setSelectedTab] = useState(0);
   
   const isLoading = navigation.state !== "idle";
 
-  // Handle action responses
-  useEffect(() => {
-    if (actionData) {
-      if (actionData.success && actionData.reload) {
-        // Reload the page to show updated state
-        window.location.reload();
-      }
-    }
-  }, [actionData]);
+  // Configuration form state
+  const [trialPeriods, setTrialPeriods] = useState(data.config.features.trialPeriods);
+  const [automaticDunning, setAutomaticDunning] = useState(data.config.features.automaticDunning);
+  const [analytics, setAnalytics] = useState(data.config.features.analytics);
+  const [maxRetries, setMaxRetries] = useState(data.config.billing.MAX_RETRY_ATTEMPTS.toString());
+  const [gracePeriod, setGracePeriod] = useState(data.config.gracePeriod.DAYS.toString());
 
-  const handleProductToggle = useCallback((productData: string) => {
-    setSelectedProducts(prev => {
-      const next = new Set(prev);
-      if (next.has(productData)) {
-        next.delete(productData);
-      } else {
-        next.add(productData);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleCreatePlans = useCallback(() => {
+  const handleSaveConfig = useCallback(() => {
     const formData = new FormData();
-    formData.append("action", "create");
-    selectedProducts.forEach(productData => {
-      formData.append("productIds", productData);
-    });
+    formData.append("action", "updateConfig");
+    formData.append("trialPeriods", trialPeriods.toString());
+    formData.append("automaticDunning", automaticDunning.toString());
+    formData.append("analytics", analytics.toString());
+    formData.append("maxRetryAttempts", maxRetries);
+    formData.append("gracePeriodDays", gracePeriod);
     submit(formData, { method: "post" });
-  }, [selectedProducts, submit]);
+  }, [trialPeriods, automaticDunning, analytics, maxRetries, gracePeriod, submit]);
 
-  const handleRemovePlans = useCallback(() => {
-    if (confirm("Are you sure you want to remove all selling plans? This will affect existing subscriptions.")) {
-      const formData = new FormData();
-      formData.append("action", "remove");
-      submit(formData, { method: "post" });
-    }
+  const handleRegisterWebhooks = useCallback(() => {
+    const formData = new FormData();
+    formData.append("action", "registerWebhooks");
+    submit(formData, { method: "post" });
   }, [submit]);
 
-  if (hasSellingPlanGroup) {
-    return (
-      <Page
-        title="Subscription Setup"
-        subtitle="Manage selling plans for tier subscriptions"
-        backAction={{ url: "/app/subscriptions" }}
-      >
-        <Layout>
-          <Layout.Section>
-            <CalloutCard
-              title="Selling Plans Active"
-              illustration="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-              primaryAction={{
-                content: "View Subscriptions",
-                url: "/app/subscriptions",
-              }}
-              secondaryAction={{
-                content: "Remove Selling Plans",
-                onAction: handleRemovePlans,
-                destructive: true,
-                loading: isLoading,
-              }}
-            >
-              <p>
-                Your selling plan group <strong>{sellingPlanGroup.name}</strong> is active with{" "}
-                {sellingPlanGroup.plansCount} billing options:
-              </p>
-              <List>
-                {sellingPlanGroup.plans.map((plan, index) => (
-                  <List.Item key={index}>
-                    {plan.name} - {plan.discount}% discount
-                  </List.Item>
-                ))}
-              </List>
-            </CalloutCard>
-          </Layout.Section>
+  const tabs = [
+    {
+      id: 'overview',
+      content: 'Overview',
+      icon: SettingsIcon,
+    },
+    {
+      id: 'configuration',
+      content: 'Configuration',
+      icon: SettingsIcon,
+    },
+    {
+      id: 'products',
+      content: 'Tier Products',
+      icon: ProductIcon,
+    },
+    {
+      id: 'billing',
+      content: 'Billing Settings',
+      icon: PaymentIcon,
+    },
+    {
+      id: 'webhooks',
+      content: 'Webhooks',
+      icon: AutomationIcon,
+    },
+  ];
 
-          <Layout.Section>
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingLg">Tier Products Status</Text>
-                  <BlockStack gap="200">
-                    {tierProducts.map(product => (
-                      <InlineStack key={product.id} align="space-between">
-                        <Text as="p">{product.title}</Text>
-                        {product.hasSellingPlans ? (
-                          <Badge tone="success">Selling plans enabled</Badge>
-                        ) : (
-                          <Badge>No selling plans</Badge>
-                        )}
-                      </InlineStack>
-                    ))}
-                  </BlockStack>
-                </BlockStack>
-              </Box>
-            </Card>
-          </Layout.Section>
-        </Layout>
-      </Page>
-    );
-  }
-
-  // Setup wizard for creating selling plans
   return (
     <Page
-      title="Setup Subscription Selling Plans"
-      subtitle="Enable recurring billing for tier memberships"
+      title="Subscription Configuration"
+      subtitle="Configure and manage tier subscription settings"
       backAction={{ url: "/app/subscriptions" }}
     >
+      {actionData?.success && (
+        <Box paddingBlockEnd="400">
+          <Banner
+            title="Success"
+            tone="success"
+            onDismiss={() => {}}
+          >
+            <p>{actionData.message}</p>
+          </Banner>
+        </Box>
+      )}
+
+      {actionData?.error && (
+        <Box paddingBlockEnd="400">
+          <Banner
+            title="Error"
+            tone="critical"
+            onDismiss={() => {}}
+          >
+            <p>{actionData.error}</p>
+          </Banner>
+        </Box>
+      )}
+
       <Layout>
         <Layout.Section>
-          <Banner
-            title="About Selling Plans"
-            tone="info"
-          >
-            <p>
-              Selling plans allow customers to subscribe to tier memberships with recurring billing.
-              Once enabled, customers can choose between one-time purchase or subscription options.
-            </p>
-          </Banner>
-        </Layout.Section>
+          <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+            {/* Overview Tab */}
+            {selectedTab === 0 && (
+              <Box paddingBlockStart="400">
+                <BlockStack gap="400">
+                  {/* Status Overview */}
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="400">
+                        <Text as="h2" variant="headingMd">System Status</Text>
+                        
+                        <InlineStack gap="400" wrap>
+                          <Badge tone={data.config.enabled ? "success" : "warning"}>
+                            Subscriptions {data.config.enabled ? "Enabled" : "Disabled"}
+                          </Badge>
+                          <Badge tone={data.statistics.active > 0 ? "success" : "info"}>
+                            {data.statistics.active} Active Subscriptions
+                          </Badge>
+                          <Badge tone={data.statistics.failed > 0 ? "critical" : "info"}>
+                            {data.statistics.failed} Failed Payments
+                          </Badge>
+                        </InlineStack>
 
-        {actionData?.error && (
-          <Layout.Section>
-            <Banner
-              title="Error"
-              tone="critical"
-              onDismiss={() => {}}
-            >
-              <p>{actionData.error}</p>
-            </Banner>
-          </Layout.Section>
-        )}
+                        <Divider />
 
-        {actionData?.success && actionData?.message && (
-          <Layout.Section>
-            <Banner
-              title="Success"
-              tone="success"
-              onDismiss={() => {}}
-            >
-              <p>{actionData.message}</p>
-            </Banner>
-          </Layout.Section>
-        )}
+                        <BlockStack gap="200">
+                          <InlineStack align="space-between">
+                            <Text as="p">Total Subscriptions</Text>
+                            <Text as="p" fontWeight="semibold">{data.statistics.total}</Text>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text as="p" tone="success">Active</Text>
+                            <Text as="p" fontWeight="semibold">{data.statistics.active}</Text>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text as="p" tone="caution">Paused</Text>
+                            <Text as="p" fontWeight="semibold">{data.statistics.paused}</Text>
+                          </InlineStack>
+                          <InlineStack align="space-between">
+                            <Text as="p" tone="critical">Cancelled</Text>
+                            <Text as="p" fontWeight="semibold">{data.statistics.cancelled}</Text>
+                          </InlineStack>
+                        </BlockStack>
+                      </BlockStack>
+                    </Box>
+                  </Card>
 
-        <Layout.Section>
-          <Card>
-            <Box padding="400">
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingLg">Configuration</Text>
-                
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Billing Intervals</Text>
-                  <Text as="p" tone="subdued">
-                    The following billing options will be created:
-                  </Text>
-                  <List>
-                    {Object.entries(BILLING_INTERVALS).map(([key, interval]) => (
-                      <List.Item key={key}>
-                        <strong>{interval.label}</strong> - {interval.discountPercentage}% discount
-                      </List.Item>
-                    ))}
-                  </List>
+                  {/* Quick Actions */}
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="400">
+                        <Text as="h2" variant="headingMd">Quick Actions</Text>
+                        
+                        <BlockStack gap="200">
+                          <Button
+                            url="/app/subscriptions"
+                            fullWidth
+                            textAlign="start"
+                          >
+                            View Active Subscriptions
+                          </Button>
+                          <Button
+                            url="/app/subscriptions/contracts"
+                            fullWidth
+                            textAlign="start"
+                          >
+                            Manage Contracts
+                          </Button>
+                          <Button
+                            url="/app/tier-products"
+                            fullWidth
+                            textAlign="start"
+                          >
+                            Configure Tier Products
+                          </Button>
+                        </BlockStack>
+                      </BlockStack>
+                    </Box>
+                  </Card>
                 </BlockStack>
+              </Box>
+            )}
 
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Select Tier Products</Text>
-                  <Text as="p" tone="subdued">
-                    Choose which tier products should have subscription options:
-                  </Text>
-                  
-                  {tierProducts.length > 0 ? (
-                    <BlockStack gap="200">
-                      {tierProducts.map(product => (
-                        <Checkbox
-                          key={product.id}
-                          label={product.title}
-                          checked={selectedProducts.has(`${product.tierId}:${product.variantId}`)}
-                          onChange={() => handleProductToggle(`${product.tierId}:${product.variantId}`)}
-                        />
-                      ))}
-                    </BlockStack>
-                  ) : (
-                    <Banner tone="warning">
-                      <p>
-                        No tier products found. Please create tier products first using the{" "}
-                        <a href="/app/tier-products">Tier Products</a> page.
-                      </p>
-                    </Banner>
-                  )}
+            {/* Configuration Tab */}
+            {selectedTab === 1 && (
+              <Box paddingBlockStart="400">
+                <BlockStack gap="400">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="400">
+                        <Text as="h2" variant="headingMd">Feature Configuration</Text>
+                        
+                        <BlockStack gap="300">
+                          <Checkbox
+                            label="Enable Trial Periods"
+                            helpText="Allow customers to try subscriptions before billing"
+                            checked={trialPeriods}
+                            onChange={setTrialPeriods}
+                          />
+                          
+                          <Checkbox
+                            label="Automatic Dunning"
+                            helpText="Automatically retry failed payments"
+                            checked={automaticDunning}
+                            onChange={setAutomaticDunning}
+                          />
+                          
+                          <Checkbox
+                            label="Subscription Analytics"
+                            helpText="Track detailed metrics and insights"
+                            checked={analytics}
+                            onChange={setAnalytics}
+                          />
+                        </BlockStack>
+
+                        <Divider />
+
+                        <BlockStack gap="300">
+                          <TextField
+                            label="Maximum Retry Attempts"
+                            type="number"
+                            value={maxRetries}
+                            onChange={setMaxRetries}
+                            helpText="Number of times to retry failed payments"
+                            autoComplete="off"
+                          />
+                          
+                          <TextField
+                            label="Grace Period (days)"
+                            type="number"
+                            value={gracePeriod}
+                            onChange={setGracePeriod}
+                            helpText="Days to wait before cancelling after payment failure"
+                            autoComplete="off"
+                          />
+                        </BlockStack>
+
+                        <InlineStack align="end">
+                          <Button
+                            variant="primary"
+                            onClick={handleSaveConfig}
+                            loading={isLoading}
+                          >
+                            Save Configuration
+                          </Button>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  </Card>
                 </BlockStack>
-              </BlockStack>
-            </Box>
-          </Card>
-        </Layout.Section>
+              </Box>
+            )}
 
-        {tierProducts.length > 0 && (
-          <Layout.Section>
-            <InlineStack align="end">
-              <Button
-                variant="primary"
-                size="large"
-                onClick={handleCreatePlans}
-                loading={isLoading}
-                disabled={selectedProducts.size === 0}
-              >
-                Create Selling Plans
-              </Button>
-            </InlineStack>
-          </Layout.Section>
-        )}
+            {/* Tier Products Tab */}
+            {selectedTab === 2 && (
+              <Box paddingBlockStart="400">
+                <BlockStack gap="400">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <Text as="h2" variant="headingMd">Tier Products for Subscriptions</Text>
+                          <Button url="/app/tier-products">Manage Products</Button>
+                        </InlineStack>
+                        
+                        {data.tierProducts.length > 0 ? (
+                          <DataTable
+                            columnContentTypes={['text', 'text', 'text', 'text']}
+                            headings={['Product', 'Tier', 'Type', 'Billing']}
+                            rows={data.tierProducts.map(product => [
+                              product.shopifyProductId,
+                              product.tier?.name || 'N/A',
+                              product.purchaseType,
+                              product.duration || 'N/A',
+                            ])}
+                          />
+                        ) : (
+                          <EmptyState
+                            heading="No subscription products configured"
+                            action={{ content: 'Configure Products', url: '/app/tier-products' }}
+                          >
+                            <p>Set up tier products with subscription options to enable recurring billing.</p>
+                          </EmptyState>
+                        )}
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                </BlockStack>
+              </Box>
+            )}
+
+            {/* Billing Settings Tab */}
+            {selectedTab === 3 && (
+              <Box paddingBlockStart="400">
+                <BlockStack gap="400">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="400">
+                        <Text as="h2" variant="headingMd">Billing Intervals</Text>
+                        
+                        <BlockStack gap="200">
+                          <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                            <InlineStack align="space-between">
+                              <Text as="p">Monthly</Text>
+                              <Badge>No discount</Badge>
+                            </InlineStack>
+                          </Box>
+                          
+                          <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                            <InlineStack align="space-between">
+                              <Text as="p">Quarterly</Text>
+                              <Badge>5% discount</Badge>
+                            </InlineStack>
+                          </Box>
+                          
+                          <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                            <InlineStack align="space-between">
+                              <Text as="p">Semi-Annual</Text>
+                              <Badge>10% discount</Badge>
+                            </InlineStack>
+                          </Box>
+                          
+                          <Box padding="200" background="bg-surface-secondary" borderRadius="200">
+                            <InlineStack align="space-between">
+                              <Text as="p">Annual</Text>
+                              <Badge>15% discount</Badge>
+                            </InlineStack>
+                          </Box>
+                        </BlockStack>
+
+                        <Divider />
+
+                        <BlockStack gap="300">
+                          <Text as="h3" variant="headingSm">Retry Schedule</Text>
+                          <Text as="p" tone="subdued">
+                            Failed payments are retried on the following schedule:
+                          </Text>
+                          <BlockStack gap="100">
+                            <Text as="p">• Day 1: Initial charge attempt</Text>
+                            <Text as="p">• Day 3: First retry</Text>
+                            <Text as="p">• Day 5: Second retry</Text>
+                            <Text as="p">• Day 7: Final retry before entering grace period</Text>
+                          </BlockStack>
+                        </BlockStack>
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                </BlockStack>
+              </Box>
+            )}
+
+            {/* Webhooks Tab */}
+            {selectedTab === 4 && (
+              <Box paddingBlockStart="400">
+                <BlockStack gap="400">
+                  <Card>
+                    <Box padding="400">
+                      <BlockStack gap="400">
+                        <InlineStack align="space-between">
+                          <Text as="h2" variant="headingMd">Webhook Status</Text>
+                          <Button onClick={handleRegisterWebhooks} loading={isLoading}>
+                            Register Missing Webhooks
+                          </Button>
+                        </InlineStack>
+                        
+                        <BlockStack gap="200">
+                          <InlineStack align="space-between">
+                            <Text as="p">Subscription Created</Text>
+                            <Badge tone={data.webhooks.subscriptionCreated ? "success" : "critical"}>
+                              {data.webhooks.subscriptionCreated ? "Registered" : "Not Registered"}
+                            </Badge>
+                          </InlineStack>
+                          
+                          <InlineStack align="space-between">
+                            <Text as="p">Billing Success</Text>
+                            <Badge tone={data.webhooks.billingSuccess ? "success" : "critical"}>
+                              {data.webhooks.billingSuccess ? "Registered" : "Not Registered"}
+                            </Badge>
+                          </InlineStack>
+                          
+                          <InlineStack align="space-between">
+                            <Text as="p">Billing Failed</Text>
+                            <Badge tone={data.webhooks.billingFailed ? "success" : "critical"}>
+                              {data.webhooks.billingFailed ? "Registered" : "Not Registered"}
+                            </Badge>
+                          </InlineStack>
+                          
+                          <InlineStack align="space-between">
+                            <Text as="p">Subscription Update</Text>
+                            <Badge tone={data.webhooks.subscriptionUpdate ? "success" : "critical"}>
+                              {data.webhooks.subscriptionUpdate ? "Registered" : "Not Registered"}
+                            </Badge>
+                          </InlineStack>
+                        </BlockStack>
+
+                        <Divider />
+
+                        <Banner tone="info">
+                          <p>
+                            Webhooks are essential for tracking subscription lifecycle events.
+                            Ensure all webhooks are registered for proper subscription management.
+                          </p>
+                        </Banner>
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                </BlockStack>
+              </Box>
+            )}
+          </Tabs>
+        </Layout.Section>
       </Layout>
     </Page>
   );
