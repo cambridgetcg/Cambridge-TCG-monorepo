@@ -285,13 +285,13 @@
       const div = document.createElement('div');
       div.className = 'rewards-enrolled';
       
-      // Store Credit Balance
+      // Store Credit Balance - Primary Focus
       const balanceCard = document.createElement('div');
       balanceCard.className = 'rewards-balance-card';
       
       const balanceLabel = document.createElement('div');
       balanceLabel.className = 'rewards-balance-label';
-      balanceLabel.textContent = '💰 YOUR STORE CREDIT 💰';
+      balanceLabel.textContent = 'Your Store Credit';
       balanceCard.appendChild(balanceLabel);
       
       const balanceAmount = document.createElement('div');
@@ -301,27 +301,26 @@
       
       div.appendChild(balanceCard);
       
-      // Tier Badge
+      // Tier Badge with Cashback Rate
       const tierBadge = document.createElement('div');
       tierBadge.className = 'rewards-tier-badge';
       
-      const tierIcon = document.createElement('span');
-      tierIcon.className = 'rewards-tier-icon';
-      tierIcon.textContent = '👤';
-      tierBadge.appendChild(tierIcon);
+      const tierInfo = document.createElement('div');
+      tierInfo.className = 'rewards-tier-info';
       
       const tierName = document.createElement('span');
       tierName.className = 'rewards-tier-name';
       tierName.textContent = data.tierName || 'Member';
-      tierBadge.appendChild(tierName);
+      tierInfo.appendChild(tierName);
       
       if (data.cashbackRate > 0) {
-        const cashback = document.createElement('span');
-        cashback.className = 'rewards-tier-cashback';
-        cashback.textContent = ` (${data.cashbackRate}% cashback)`;
-        tierBadge.appendChild(cashback);
+        const cashbackBadge = document.createElement('span');
+        cashbackBadge.className = 'rewards-tier-cashback-badge';
+        cashbackBadge.textContent = `${data.cashbackRate}% cashback`;
+        tierInfo.appendChild(cashbackBadge);
       }
       
+      tierBadge.appendChild(tierInfo);
       div.appendChild(tierBadge);
       
       // Membership Progress Section - Always show for members
@@ -405,15 +404,18 @@
         progressSection.appendChild(maxTierMessage);
       }
       
-      div.appendChild(progressSection);
-      
-      // Stats Grid
+      // Stats Grid - Show before progress
       const stats = document.createElement('div');
       stats.className = 'rewards-stats';
       
       // Lifetime Earned
       const earnedStat = document.createElement('div');
       earnedStat.className = 'rewards-stat';
+      
+      const earnedIcon = document.createElement('div');
+      earnedIcon.className = 'rewards-stat-icon';
+      earnedIcon.textContent = '✓';
+      earnedStat.appendChild(earnedIcon);
       
       const earnedValue = document.createElement('div');
       earnedValue.className = 'rewards-stat-value';
@@ -422,7 +424,7 @@
       
       const earnedLabel = document.createElement('div');
       earnedLabel.className = 'rewards-stat-label';
-      earnedLabel.textContent = 'Total Earned';
+      earnedLabel.textContent = 'Earned';
       earnedStat.appendChild(earnedLabel);
       
       stats.appendChild(earnedStat);
@@ -431,6 +433,11 @@
       const spentStat = document.createElement('div');
       spentStat.className = 'rewards-stat';
       
+      const spentIcon = document.createElement('div');
+      spentIcon.className = 'rewards-stat-icon';
+      spentIcon.textContent = '↗';
+      spentStat.appendChild(spentIcon);
+      
       const spentValue = document.createElement('div');
       spentValue.className = 'rewards-stat-value';
       spentValue.textContent = data.lifetimeSpent || '$0.00';
@@ -438,12 +445,15 @@
       
       const spentLabel = document.createElement('div');
       spentLabel.className = 'rewards-stat-label';
-      spentLabel.textContent = 'Total Spent';
+      spentLabel.textContent = 'Spent';
       spentStat.appendChild(spentLabel);
       
       stats.appendChild(spentStat);
       
       div.appendChild(stats);
+      
+      // Progress Section - Show after stats
+      div.appendChild(progressSection);
       
       // View Dashboard Button
       const dashboardBtn = document.createElement('a');
