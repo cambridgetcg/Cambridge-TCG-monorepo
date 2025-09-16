@@ -191,30 +191,56 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     });
     
-    // Step 10: Calculate lifetime spent (for tier progress)
-    const lifetimeSpending = await db.storeCreditLedger.aggregate({
+    // Calculate how much store credit has been used (spent)
+    const storeCreditUsed = await db.storeCreditLedger.aggregate({
       where: {
         customerId: customer.id,
         shop: shop,
-        type: {
-          in: ["CASHBACK_EARNED"] // Base spending on cashback earned (which is based on order totals)
-        }
+        type: "ORDER_PAYMENT"
       },
       _sum: {
         amount: true
       }
     });
     
-    // Calculate spending based on cashback rate (reverse calculation)
-    const lifetimeSpendingValue = lifetimeSpending._sum.amount
-      ? (typeof lifetimeSpending._sum.amount === 'object' && lifetimeSpending._sum.amount?.toNumber
-          ? lifetimeSpending._sum.amount.toNumber()
-          : Number(lifetimeSpending._sum.amount))
-      : 0;
+    // Step 10: Calculate lifetime spent from order metadata
+    // We need to get the actual order amounts from the metadata field
+    const cashbackEntries = await db.storeCreditLedger.findMany({
+      where: {
+        customerId: customer.id,
+        shop: shop,
+        type: "CASHBACK_EARNED"
+      },
+      select: {
+        metadata: true
+      }
+    });
     
-    const totalSpent = lifetimeSpendingValue && currentTier?.cashbackPercent
-      ? (lifetimeSpendingValue / currentTier.cashbackPercent) * 100
-      : 0;
+    // Sum up the actual order amounts from metadata
+    let totalSpent = 0;
+    for (const entry of cashbackEntries) {
+      const metadata = entry.metadata as any;
+      // Check both orderTotal (new) and orderAmount (legacy) fields
+      if (metadata) {
+        const amount = metadata.orderTotal || metadata.orderAmount;
+        if (amount) {
+          totalSpent += parseFloat(amount) || 0;
+        }
+      }
+    }
+    
+    // If no order amounts in metadata, fallback to estimate from cashback
+    // This is only for backwards compatibility with old data
+    if (totalSpent === 0 && lifetimeEarned._sum.amount) {
+      const earnedValue = typeof lifetimeEarned._sum.amount === 'object' && lifetimeEarned._sum.amount?.toNumber
+        ? lifetimeEarned._sum.amount.toNumber()
+        : Number(lifetimeEarned._sum.amount);
+      
+      // Estimate based on average cashback rate (fallback only)
+      totalSpent = currentTier?.cashbackPercent 
+        ? (earnedValue / currentTier.cashbackPercent) * 100
+        : earnedValue * 10; // Assume 10% if no tier
+    }
     
     // Step 11: Calculate next tier progress
     let nextTierInfo = null;
@@ -302,7 +328,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
               shopSettings
             )
           : formatCurrency(0, shopSettings),
-        lifetimeSpent: formatCurrency(totalSpent, shopSettings),
+        lifetimeSpent: storeCreditUsed._sum.amount
+          ? formatCurrency(
+              Math.abs(typeof storeCreditUsed._sum.amount === 'object' && storeCreditUsed._sum.amount?.toNumber
+                ? storeCreditUsed._sum.amount.toNumber()
+                : Number(storeCreditUsed._sum.amount)),
+              shopSettings
+            )
+          : formatCurrency(0, shopSettings),
+        // Also provide the total order value for reference
+        totalOrderValue: formatCurrency(totalSpent, shopSettings),
         
         // Other info
         availableRewards,
