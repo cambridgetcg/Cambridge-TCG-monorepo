@@ -24,8 +24,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const subscriptionContractId = billingAttempt.subscription_contract.admin_graphql_api_id;
     
     // Find subscription in our database
-    const subscription = await db.tierSubscription.findUnique({
-      where: { subscriptionContractId },
+    const subscription = await db.tierSubscription.findFirst({
+      where: { shopifyContractId: subscriptionContractId },
       include: { customer: true },
     });
 

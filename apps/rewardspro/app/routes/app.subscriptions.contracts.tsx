@@ -104,7 +104,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({
       subscriptions: subscriptions.map(sub => ({
         id: sub.id,
-        subscriptionContractId: sub.subscriptionContractId,
+        subscriptionContractId: sub.shopifyContractId,
         customerId: sub.customerId,
         customerEmail: sub.customer.email,
         customerName: sub.customer.firstName 
@@ -286,7 +286,7 @@ export default function SubscriptionContracts() {
   }, [subscriptions]);
 
   const rows = filteredSubscriptions.map(sub => [
-    sub.subscriptionContractId,
+    sub.shopifyContractId,
     sub.customerName,
     sub.tierName,
     getStatusBadge(sub.status),
@@ -493,7 +493,7 @@ export default function SubscriptionContracts() {
                     items={[
                       {
                         term: "Contract ID",
-                        description: selectedSubscription.subscriptionContractId,
+                        description: selectedSubscription.shopifyContractId,
                       },
                       {
                         term: "Status",

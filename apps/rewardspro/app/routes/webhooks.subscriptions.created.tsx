@@ -22,8 +22,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const subscription = payload as any;
     
     // Check if we already have this subscription
-    const existingSubscription = await db.tierSubscription.findUnique({
-      where: { subscriptionContractId: subscription.admin_graphql_api_id },
+    const existingSubscription = await db.tierSubscription.findFirst({
+      where: { shopifyContractId: subscription.admin_graphql_api_id },
     });
 
     if (existingSubscription) {
@@ -70,7 +70,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         shop,
         customerId: customer.id,
         tierId: tierInfo.tierId,
-        subscriptionContractId: subscription.admin_graphql_api_id,
+        shopifyContractId: subscription.admin_graphql_api_id,
         sellingPlanId,
         status: subscription.status,
         billingInterval,
@@ -95,7 +95,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await db.customer.update({
         where: { id: customer.id },
         data: {
-          currentSubscriptionId: newSubscription.id,
           currentTierId: tierInfo.tierId,
           updatedAt: new Date(),
         },
@@ -113,7 +112,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           triggerType: 'SUBSCRIPTION_CREATED',
           subscriptionId: newSubscription.id,
           metadata: {
-            subscriptionContractId: subscription.admin_graphql_api_id,
+            shopifyContractId: subscription.admin_graphql_api_id,
             billingInterval,
           },
           createdAt: new Date(),

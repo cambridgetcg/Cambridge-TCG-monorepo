@@ -30,8 +30,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const result = await withRetry(
       async () => {
         // Find subscription in our database
-        const subscription = await db.tierSubscription.findUnique({
-          where: { subscriptionContractId },
+        const subscription = await db.tierSubscription.findFirst({
+          where: { shopifyContractId: subscriptionContractId },
           include: { 
             customer: true,
             billingAttempts: {

@@ -138,7 +138,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             shop: session.shop,
             customerId,
             tierId,
-            subscriptionContractId: `test-${uuidv4()}`,
+            shopifyContractId: `test-${uuidv4()}`,
             sellingPlanId: sellingPlanId || `test-plan-${uuidv4()}`,
             status: 'ACTIVE',
             billingInterval: 'MONTHLY',

@@ -98,7 +98,7 @@ export class BillingScheduler {
       // Create billing charge in Shopify
       const charge = await this.createSubscriptionCharge(
         admin,
-        subscription.subscriptionContractId,
+        subscription.shopifyContractId,
         subscription.lastBillingAmount || subscription.monthlyPrice
       );
 

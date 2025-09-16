@@ -605,7 +605,7 @@ export class SubscriptionPricingManager {
       try {
         await this.updateSubscriptionContract({
           admin,
-          contractId: subscription.subscriptionContractId,
+          contractId: subscription.shopifyContractId,
           newPrice,
           effectiveDate,
         });

@@ -158,7 +158,7 @@ export class SubscriptionContractService {
           shop,
           customerId: customer.id,
           tierId: tier.id,
-          subscriptionContractId: subscriptionId,
+          shopifyContractId: subscriptionId,
           sellingPlanId,
           status: 'ACTIVE',
           billingInterval: billingInterval as any,
@@ -183,7 +183,8 @@ export class SubscriptionContractService {
       await db.customer.update({
         where: { id: customer.id },
         data: {
-          currentSubscriptionId: dbSubscription.id,
+          // Note: currentSubscriptionId field doesn't exist in schema
+          // currentSubscriptionId: dbSubscription.id,
           updatedAt: new Date(),
         },
       });
@@ -272,7 +273,7 @@ export class SubscriptionContractService {
     console.log(`Cancelling subscription: ${subscriptionId}`);
 
     const dbSubscription = await db.tierSubscription.findFirst({
-      where: { shop, subscriptionContractId: subscriptionId },
+      where: { shop, shopifyContractId: subscriptionId },
     });
 
     if (!dbSubscription) {
@@ -350,7 +351,8 @@ export class SubscriptionContractService {
       await db.customer.update({
         where: { id: dbSubscription.customerId },
         data: {
-          currentSubscriptionId: null,
+          // Note: currentSubscriptionId field doesn't exist in schema
+          // currentSubscriptionId: null,
           updatedAt: new Date(),
         },
       });
@@ -393,7 +395,7 @@ export class SubscriptionContractService {
     console.log(`Pausing subscription: ${subscriptionId}`);
 
     const dbSubscription = await db.tierSubscription.findFirst({
-      where: { shop, subscriptionContractId: subscriptionId },
+      where: { shop, shopifyContractId: subscriptionId },
     });
 
     if (!dbSubscription) {
