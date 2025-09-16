@@ -79,23 +79,53 @@
   font-weight: 600;
 }
 
+.rewards-widget-refresh,
 .rewards-widget-close {
   width: 32px;
   height: 32px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.2);
   border: none;
   border-radius: 50%;
   color: white;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
 }
 
+.rewards-widget-refresh {
+  margin-right: 8px;
+}
+
+.rewards-widget-close {
+  font-size: 24px;
+}
+
+.rewards-widget-refresh:hover:not(:disabled),
 .rewards-widget-close:hover {
   background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.rewards-widget-refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Refresh button spinning animation */
+@keyframes rewards-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rewards-widget-refresh-spinning {
+  animation: rewards-spin 1s linear infinite;
 }
 
 /* Content */

@@ -23,8 +23,10 @@
       this.state = {
         isOpen: false,
         isLoading: false,
+        isRefreshing: false,
         data: null,
-        error: null
+        error: null,
+        lastFetchTime: null
       };
       
       // API endpoint (uses Shopify App Proxy)
@@ -112,13 +114,34 @@
       title.textContent = 'Your Rewards';
       header.appendChild(title);
       
+      // Header actions container
+      const headerActions = document.createElement('div');
+      headerActions.className = 'rewards-widget-header-actions';
+      
+      // Refresh button
+      const refreshBtn = document.createElement('button');
+      refreshBtn.className = 'rewards-widget-refresh';
+      refreshBtn.setAttribute('aria-label', 'Refresh rewards data');
+      refreshBtn.innerHTML = '↻';
+      refreshBtn.onclick = () => this.refresh();
+      
+      // Add loading state to refresh button
+      if (this.state.isRefreshing) {
+        refreshBtn.classList.add('rewards-widget-refresh-spinning');
+        refreshBtn.disabled = true;
+      }
+      
+      headerActions.appendChild(refreshBtn);
+      
+      // Close button
       const closeBtn = document.createElement('button');
       closeBtn.className = 'rewards-widget-close';
       closeBtn.setAttribute('aria-label', 'Close rewards panel');
       closeBtn.textContent = '×';
       closeBtn.onclick = () => this.close();
-      header.appendChild(closeBtn);
+      headerActions.appendChild(closeBtn);
       
+      header.appendChild(headerActions);
       panel.appendChild(header);
       
       // Content
@@ -545,6 +568,55 @@
       // Load data if authenticated and not already loaded
       if (this.config.isAuthenticated && !this.state.data && !this.state.isLoading) {
         this.loadCustomerData();
+      }
+    }
+    
+    /**
+     * Refresh customer data
+     */
+    async refresh() {
+      console.log('[RewardsWidget] Refreshing customer data...');
+      
+      // Prevent multiple concurrent refreshes
+      if (this.state.isRefreshing) {
+        console.log('[RewardsWidget] Already refreshing, skipping...');
+        return;
+      }
+      
+      // Set refreshing state
+      this.state.isRefreshing = true;
+      
+      // Update UI to show spinning refresh button
+      if (this.state.isOpen) {
+        const refreshBtn = this.container.querySelector('.rewards-widget-refresh');
+        if (refreshBtn) {
+          refreshBtn.classList.add('rewards-widget-refresh-spinning');
+          refreshBtn.disabled = true;
+        }
+      }
+      
+      try {
+        // Reload customer data
+        await this.loadCustomerData();
+        
+        // Update last fetch time
+        this.state.lastFetchTime = Date.now();
+        
+        console.log('[RewardsWidget] Data refreshed successfully');
+      } catch (error) {
+        console.error('[RewardsWidget] Refresh failed:', error);
+      } finally {
+        // Clear refreshing state
+        this.state.isRefreshing = false;
+        
+        // Update UI to remove spinning state
+        if (this.state.isOpen) {
+          const refreshBtn = this.container.querySelector('.rewards-widget-refresh');
+          if (refreshBtn) {
+            refreshBtn.classList.remove('rewards-widget-refresh-spinning');
+            refreshBtn.disabled = false;
+          }
+        }
       }
     }
     
