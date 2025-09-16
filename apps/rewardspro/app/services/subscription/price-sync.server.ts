@@ -5,7 +5,7 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
-import { PricingManager } from "./pricing-manager.server";
+import { SubscriptionPricingManager } from "./pricing-manager.server";
 
 interface SyncPriceInput {
   shop: string;
