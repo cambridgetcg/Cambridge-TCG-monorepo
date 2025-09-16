@@ -176,10 +176,7 @@ export default function App() {
           <Link to="/app/customers">Customers</Link>
           <Link to="/app/tiers">Tiers</Link>
           <Link to="/app/tier-products">Tier Products</Link>
-          <Link to="/app/subscriptions">Subscriptions</Link>
-          <Link to="/app/subscriptions/setup">Subscription Setup</Link>
-          <Link to="/app/subscriptions/contracts">Active Subscriptions</Link>
-          <Link to="/app/credit-management">Credit Management</Link>
+          <Link to="/app/credit-management">Store Credit</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
         </NavMenu>
