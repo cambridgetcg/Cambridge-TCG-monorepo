@@ -328,7 +328,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
               shopSettings
             )
           : formatCurrency(0, shopSettings),
-        lifetimeSpent: storeCreditUsed._sum.amount
+        // Total spent should show actual order values, not store credit used
+        lifetimeSpent: formatCurrency(totalSpent, shopSettings),
+        // Store credit used/redeemed
+        storeCreditRedeemed: storeCreditUsed._sum.amount
           ? formatCurrency(
               Math.abs(typeof storeCreditUsed._sum.amount === 'object' && storeCreditUsed._sum.amount?.toNumber
                 ? storeCreditUsed._sum.amount.toNumber()
@@ -336,8 +339,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
               shopSettings
             )
           : formatCurrency(0, shopSettings),
-        // Also provide the total order value for reference
-        totalOrderValue: formatCurrency(totalSpent, shopSettings),
         
         // Other info
         availableRewards,

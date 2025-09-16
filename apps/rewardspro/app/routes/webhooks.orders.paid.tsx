@@ -253,8 +253,6 @@ async function processOneTimeTierPurchase(tx: any, params: {
       shop,
       shopifyCustomerId: order.customer?.id?.toString() || '',
       email: order.customer?.email || order.email || '',
-      firstName: order.customer?.first_name || '',
-      lastName: order.customer?.last_name || '',
       storeCredit: 0,
       currentTierId: null,
       createdAt: new Date(),
@@ -404,7 +402,6 @@ async function processCashback(tx: any, params: {
         amount: cashbackAmount,
         balance: newBalance,
         type: 'CASHBACK_EARNED',
-        description: `${customer.currentTier.cashbackPercent}% cashback on order ${order.name}`,
         shopifyOrderId: order.id.toString(),
         metadata: {
           idempotencyKey: ledgerIdempotencyKey,
@@ -413,9 +410,9 @@ async function processCashback(tx: any, params: {
           orderTotal,
           cashbackPercent: customer.currentTier.cashbackPercent,
           tierName: customer.currentTier.name,
+          description: `${customer.currentTier.cashbackPercent}% cashback on order ${order.name}`,
         },
         createdAt: new Date(),
-        updatedAt: new Date(),
       }
     });
     
@@ -440,7 +437,7 @@ async function updateCustomerSpending(tx: any, params: {
     return;
   }
   
-  // Update customer lifetime spending
+  // Update customer's updatedAt timestamp to track activity
   const customer = await tx.customer.findUnique({
     where: {
       shop_shopifyCustomerId: {
@@ -451,14 +448,12 @@ async function updateCustomerSpending(tx: any, params: {
   });
   
   if (customer) {
-    const orderTotal = parseFloat(order.total_price || '0');
-    
+    // Since Customer model doesn't have totalSpent, ordersCount, or lastOrderDate fields,
+    // we'll just update the updatedAt timestamp. The actual spending data is tracked
+    // in the StoreCreditLedger metadata.
     await tx.customer.update({
       where: { id: customer.id },
       data: {
-        totalSpent: (customer.totalSpent || 0) + orderTotal,
-        ordersCount: (customer.ordersCount || 0) + 1,
-        lastOrderDate: new Date(),
         updatedAt: new Date(),
       }
     });
