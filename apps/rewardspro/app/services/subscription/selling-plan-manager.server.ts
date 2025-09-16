@@ -356,6 +356,67 @@ export class SellingPlanManager {
   }
 
   /**
+   * Associate a single product with existing selling plan group
+   */
+  static async associateProductWithSellingPlanGroup({
+    shop,
+    admin,
+    productId,
+    variantId,
+    tierId,
+  }: {
+    shop: string;
+    admin: AdminApiContext;
+    productId: string;
+    variantId: string;
+    tierId: string;
+  }): Promise<{
+    sellingPlanGroupId: string;
+    sellingPlanIds: string[];
+  }> {
+    console.log(`Associating product ${productId} with selling plan group`);
+
+    // Get or create selling plan group
+    const existingGroup = await db.sellingPlanGroup.findFirst({
+      where: { shop, merchantCode: SUBSCRIPTION_CONFIG.SELLING_PLAN.MERCHANT_CODE },
+      include: { sellingPlans: true },
+    });
+
+    let sellingPlanGroupId: string;
+    let sellingPlans: any[];
+
+    if (existingGroup) {
+      // Use existing group
+      sellingPlanGroupId = existingGroup.shopifySellingPlanGroupId;
+      sellingPlans = existingGroup.sellingPlans;
+      
+      // Add product to existing group
+      await this.associateProductsWithSellingPlanGroup({
+        admin,
+        sellingPlanGroupId,
+        productVariantIds: [variantId],
+      });
+    } else {
+      // Create new group with this product
+      const productVariantMap = new Map([[tierId, variantId]]);
+      const result = await this.createSellingPlanGroup({
+        shop,
+        admin,
+        tierIds: [tierId],
+        productVariantMap,
+      });
+      
+      sellingPlanGroupId = result.id;
+      sellingPlans = result.sellingPlans;
+    }
+
+    return {
+      sellingPlanGroupId,
+      sellingPlanIds: sellingPlans.map(plan => plan.shopifySellingPlanId || plan.id),
+    };
+  }
+
+  /**
    * Check if a product has selling plans
    */
   static async productHasSellingPlans({

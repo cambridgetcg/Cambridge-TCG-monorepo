@@ -44,6 +44,9 @@ import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { TierBadge } from "../components/TierBadge";
 import { getTierStyle } from "../utils/tier-styles";
+import { SellingPlanManager } from "../services/subscription/selling-plan-manager.server";
+import { PriceSyncService } from "../services/subscription/price-sync.server";
+import { v4 as uuidv4 } from 'uuid';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -290,6 +293,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const duration = formData.get("duration") as string;
       const description = formData.get("description") as string;
       const features = JSON.parse(formData.get("features") as string || "[]");
+      const enableSubscription = formData.get("enableSubscription") === "true";
       
       // Generate SKU
       const sku = generateTierSKU(tierName, duration, shop);
@@ -520,9 +524,63 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         if (updateResult.data?.productSet?.product) {
           const variant = updateResult.data.productSet.product.variants.edges[0]?.node;
           if (variant) {
+            // Create TierProduct record in database
+            const tierProduct = await db.tierProduct.create({
+              data: {
+                id: uuidv4(),
+                shop,
+                tierId,
+                shopifyProductId: product.id.replace('gid://shopify/Product/', ''),
+                shopifyVariantId: variant.id.replace('gid://shopify/ProductVariant/', ''),
+                productHandle: product.handle,
+                sku: variant.sku,
+                purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
+                duration: duration as any,
+                hasSubscription: enableSubscription,
+                oneTimePrice: price,
+                monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
+                quarterlyPrice: enableSubscription && duration === "QUARTERLY" ? price : null,
+                annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
+                features: features.length > 0 ? features : null,
+                description,
+                isActive: true,
+              }
+            });
+
+            // Create selling plans if subscription is enabled
+            if (enableSubscription) {
+              try {
+                const sellingPlanResult = await SellingPlanManager.associateProductWithSellingPlanGroup({
+                  shop,
+                  admin,
+                  productVariantIds: [variant.id],
+                });
+
+                if (sellingPlanResult.success) {
+                  // Update TierProduct with selling plan IDs
+                  await db.tierProduct.update({
+                    where: { id: tierProduct.id },
+                    data: {
+                      sellingPlanGroupId: sellingPlanResult.sellingPlanGroupId,
+                      subscriptionPlanIds: sellingPlanResult.sellingPlanIds,
+                    }
+                  });
+
+                  console.log(`[TierProducts] Created selling plans for product ${product.id}`);
+                } else {
+                  console.error(`[TierProducts] Failed to create selling plans: ${sellingPlanResult.error}`);
+                }
+              } catch (error) {
+                console.error("[TierProducts] Error creating selling plans:", error);
+                // Continue even if selling plan creation fails
+              }
+            }
+
             return json({
               success: true,
-              message: "Product created successfully",
+              message: enableSubscription 
+                ? "Product created with subscription options" 
+                : "Product created successfully",
               product: {
                 id: product.id,
                 title: product.title,
@@ -530,6 +588,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 variantId: variant.id,
                 sku: variant.sku,
                 price: variant.price,
+                hasSubscription: enableSubscription,
               }
             });
           }
@@ -730,8 +789,60 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         error: "Product not found" 
       }, { status: 404 });
       
+    } else if (intent === "sync-prices") {
+      const productId = formData.get("productId") as string;
+      const variantId = formData.get("variantId") as string;
+      const newPrice = parseFloat(formData.get("price") as string);
+      
+      // Get tier product to find selling plan group
+      const tierProduct = await db.tierProduct.findFirst({
+        where: {
+          shop,
+          shopifyProductId: productId,
+        },
+      });
+      
+      if (!tierProduct) {
+        return json({ 
+          success: false, 
+          error: "Tier product not found" 
+        }, { status: 404 });
+      }
+      
+      // Sync prices between product and selling plans
+      const syncResult = await PriceSyncService.syncProductWithSellingPlans({
+        shop,
+        admin,
+        productId,
+        variantId,
+        newPrice,
+        sellingPlanGroupId: tierProduct.sellingPlanGroupId || undefined,
+        discountPercentage: 10, // Default discount, could be made configurable
+      });
+      
+      if (!syncResult.success) {
+        return json({ 
+          success: false, 
+          error: `Failed to sync prices: ${syncResult.errors?.join(", ")}` 
+        }, { status: 400 });
+      }
+      
+      return json({
+        success: true,
+        message: "Prices synchronized successfully",
+        data: syncResult,
+      });
+      
     } else if (intent === "delete-product") {
       const productId = formData.get("productId") as string;
+      
+      // Delete tier product record first
+      await db.tierProduct.deleteMany({
+        where: {
+          shop,
+          shopifyProductId: productId,
+        },
+      });
       
       // Delete product from Shopify
       const response = await admin.graphql(
@@ -804,6 +915,8 @@ export default function TierProducts() {
     "Priority customer support"
   ]);
   const [newFeature, setNewFeature] = useState<string>("");
+  const [enableSubscription, setEnableSubscription] = useState(false);
+  const [subscriptionDiscountPercent, setSubscriptionDiscountPercent] = useState("10");
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
     active: false,
     content: "",
@@ -835,6 +948,8 @@ export default function TierProducts() {
   // Handle modal close
   const handleModalClose = useCallback(() => {
     setModalActive(false);
+    setEnableSubscription(false);
+    setSubscriptionDiscountPercent("10");
   }, []);
   
   // Handle edit modal open
@@ -880,6 +995,10 @@ export default function TierProducts() {
     formData.append("duration", duration);
     formData.append("description", description);
     formData.append("features", JSON.stringify(features));
+    formData.append("enableSubscription", enableSubscription.toString());
+    if (enableSubscription) {
+      formData.append("subscriptionDiscountPercent", subscriptionDiscountPercent);
+    }
     
     submit(formData, { method: "post" });
     handleModalClose();
@@ -904,6 +1023,10 @@ export default function TierProducts() {
     formData.append("duration", duration);
     formData.append("description", description);
     formData.append("features", JSON.stringify(features));
+    formData.append("enableSubscription", enableSubscription.toString());
+    if (enableSubscription) {
+      formData.append("subscriptionDiscountPercent", subscriptionDiscountPercent);
+    }
     
     submit(formData, { method: "post" });
     handleEditModalClose();
@@ -1373,6 +1496,51 @@ export default function TierProducts() {
                 helpText="Optional product description"
                 autoComplete="off"
               />
+              
+              <Divider />
+              
+              <BlockStack gap="300">
+                <Text variant="headingSm" as="h3">
+                  Subscription Options
+                </Text>
+                
+                <Checkbox
+                  label="Enable recurring subscription"
+                  checked={enableSubscription}
+                  onChange={setEnableSubscription}
+                  helpText="Allow customers to subscribe for automatic renewal"
+                />
+                
+                {enableSubscription && (
+                  <Box paddingInlineStart="600">
+                    <BlockStack gap="300">
+                      <TextField
+                        label="Subscription Discount (%)"
+                        type="number"
+                        value={subscriptionDiscountPercent}
+                        onChange={setSubscriptionDiscountPercent}
+                        suffix="%"
+                        helpText="Discount percentage for subscription vs one-time purchase"
+                        autoComplete="off"
+                        min="0"
+                        max="100"
+                      />
+                      
+                      <Banner status="info">
+                        <p>
+                          When enabled, customers can choose between:
+                        </p>
+                        <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+                          <li>One-time purchase at {data.shopSettings?.storeCurrency || "USD"} {price}</li>
+                          <li>Subscription with {subscriptionDiscountPercent}% discount: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price) * (1 - parseFloat(subscriptionDiscountPercent) / 100)).toFixed(2)}/{duration.toLowerCase()}</li>
+                        </ul>
+                      </Banner>
+                    </BlockStack>
+                  </Box>
+                )}
+              </BlockStack>
+              
+              <Divider />
               
               <BlockStack gap="200">
                 <Text variant="bodyMd" fontWeight="semibold" as="span">

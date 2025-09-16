@@ -311,10 +311,21 @@ export default function Subscriptions() {
       title="Subscriptions"
       subtitle="Manage tier membership subscriptions"
       primaryAction={
-        hasSellingPlans ? undefined : {
+        hasSellingPlans ? {
+          content: "Manage Pricing",
+          url: "/app/subscriptions/pricing",
+        } : {
           content: "Setup Selling Plans",
           url: "/app/subscriptions/setup",
         }
+      }
+      secondaryActions={
+        hasSellingPlans ? [
+          {
+            content: "Setup",
+            url: "/app/subscriptions/setup",
+          }
+        ] : undefined
       }
     >
       <Layout>

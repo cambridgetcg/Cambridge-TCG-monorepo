@@ -9,6 +9,9 @@ import { authenticate } from "~/shopify.server";
 import crypto from 'crypto';
 const uuidv4 = () => crypto.randomUUID();
 import { SUBSCRIPTION_CONFIG } from "~/services/subscription/config.server";
+import { TierSubscriptionBridgeV2 } from "~/services/subscription/tier-subscription-bridge.server";
+import { withRetry } from "~/utils/retry";
+import { validatePrice } from "~/utils/price-validation";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop, payload } = await authenticate.webhook(request);
@@ -23,48 +26,57 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const billingAttempt = payload as any;
     const subscriptionContractId = billingAttempt.subscription_contract.admin_graphql_api_id;
     
-    // Find subscription in our database
-    const subscription = await db.tierSubscription.findUnique({
-      where: { subscriptionContractId },
-      include: { 
-        customer: true,
-        billingAttempts: {
-          where: { status: 'FAILED' },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+    // Use retry logic for database operations
+    const result = await withRetry(
+      async () => {
+        // Find subscription in our database
+        const subscription = await db.tierSubscription.findUnique({
+          where: { subscriptionContractId },
+          include: { 
+            customer: true,
+            billingAttempts: {
+              where: { status: 'FAILED' },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
 
-    if (!subscription) {
-      console.error(`Subscription not found: ${subscriptionContractId}`);
-      return new Response("Subscription not found", { status: 404 });
-    }
+        if (!subscription) {
+          console.error(`Subscription not found: ${subscriptionContractId}`);
+          throw new Error("Subscription not found");
+        }
 
-    // Create idempotency key
-    const idempotencyKey = `${subscriptionContractId}-${billingAttempt.id}-${billingAttempt.billing_date}-failed`;
+        // Create idempotency key
+        const idempotencyKey = `${subscriptionContractId}-${billingAttempt.id}-${billingAttempt.billing_date}-failed`;
 
-    // Check if we already processed this failure
-    const existingAttempt = await db.subscriptionBillingAttempt.findUnique({
-      where: { idempotencyKey },
-    });
+        // Check if we already processed this failure
+        const existingAttempt = await db.subscriptionBillingAttempt.findUnique({
+          where: { idempotencyKey },
+        });
 
-    if (existingAttempt) {
-      console.log('Billing failure already processed, skipping');
-      return new Response("OK", { status: 200 });
-    }
+        if (existingAttempt) {
+          console.log('Billing failure already processed, skipping');
+          return { success: true, message: "Already processed" };
+        }
 
-    // Calculate attempt number
-    const attemptNumber = subscription.billingAttempts.length + 1;
+        // Calculate attempt number
+        const attemptNumber = subscription.billingAttempts.length + 1;
 
-    // Record failed billing attempt
-    await db.subscriptionBillingAttempt.create({
-      data: {
-        id: uuidv4(),
-        subscriptionId: subscription.id,
-        idempotencyKey,
-        status: 'FAILED',
-        amount: parseFloat(billingAttempt.total_price || '0'),
-        currency: billingAttempt.currency || 'USD',
+        // Validate and sanitize price
+        const priceValidation = validatePrice(billingAttempt.total_price, billingAttempt.currency || 'USD');
+        if (!priceValidation.valid) {
+          throw new Error(`Invalid price: ${priceValidation.error}`);
+        }
+
+        // Record failed billing attempt
+        await db.subscriptionBillingAttempt.create({
+          data: {
+            id: uuidv4(),
+            subscriptionId: subscription.id,
+            idempotencyKey,
+            status: 'FAILED',
+            amount: priceValidation.sanitizedPrice!,
+            currency: billingAttempt.currency || 'USD',
         billingDate: new Date(billingAttempt.billing_date),
         shopifyChargeId: billingAttempt.id,
         attemptNumber,
@@ -79,66 +91,78 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    // Update subscription with failure information
-    const newFailureCount = subscription.failureCount + 1;
-    const maxRetries = SUBSCRIPTION_CONFIG.BILLING.MAX_RETRY_ATTEMPTS;
-
-    await db.tierSubscription.update({
-      where: { id: subscription.id },
-      data: {
-        failureCount: newFailureCount,
-        lastFailureReason: billingAttempt.error_message || 'Payment failed',
-        status: newFailureCount >= maxRetries ? 'FAILED' : subscription.status,
-        updatedAt: new Date(),
-      },
-    });
-
-    // If max retries exceeded, handle subscription failure
-    if (newFailureCount >= maxRetries) {
-      console.log(`Subscription ${subscription.id} exceeded max retries, marking as failed`);
-
-      // Remove tier from customer if subscription failed
-      await db.customer.update({
-        where: { id: subscription.customerId },
-        data: {
-          currentTierId: null,
-          currentSubscriptionId: null,
-          updatedAt: new Date(),
-        },
-      });
-
-      // Log tier removal due to payment failure
-      await db.tierChangeLog.create({
-        data: {
-          id: uuidv4(),
-          customerId: subscription.customerId,
+        // Use TierSubscriptionBridge to handle payment failure
+        await TierSubscriptionBridgeV2.handlePaymentFailure(
           shop,
-          fromTierId: subscription.tierId,
-          toTierId: null,
-          changeType: 'DOWNGRADE',
-          triggerType: 'SUBSCRIPTION_EXPIRED',
-          subscriptionId: subscription.id,
-          metadata: {
-            reason: 'Payment failure after max retries',
-            failureCount: newFailureCount,
-            lastError: billingAttempt.error_message,
-          },
-          createdAt: new Date(),
-        },
-      });
+          subscription.id,
+          billingAttempt.error_message || 'Payment failed'
+        );
 
-      // TODO: Send notification to customer about subscription failure
-      // This would integrate with your email service
-    } else {
-      console.log(`Billing failure ${attemptNumber} for subscription ${subscription.id}, will retry`);
-      
-      // TODO: Send payment failure notification with retry information
-      // Calculate next retry date based on RETRY_INTERVALS_DAYS
-    }
+        // Check if we should mark as permanently failed
+        const newFailureCount = subscription.failureCount + 1;
+        const maxRetries = SUBSCRIPTION_CONFIG.BILLING.MAX_RETRY_ATTEMPTS;
+
+        if (newFailureCount >= maxRetries) {
+          console.log(`Subscription ${subscription.id} exceeded max retries, marking as cancelled`);
+          
+          // Use TierSubscriptionBridge to handle status change
+          await TierSubscriptionBridgeV2.handleStatusChange({
+            shop,
+            subscriptionId: subscription.id,
+            newStatus: 'CANCELLED',
+            reason: 'Exceeded maximum retry attempts',
+            metadata: {
+              maxRetries,
+              failureCount: newFailureCount,
+              lastError: billingAttempt.error_message,
+            }
+          });
+
+          // TODO: Send notification to customer about subscription failure
+          // This would integrate with your email service
+        } else {
+          console.log(`Billing failure ${attemptNumber} for subscription ${subscription.id}, will retry`);
+          
+          // TODO: Send payment failure notification with retry information
+          // Calculate next retry date based on RETRY_INTERVALS_DAYS
+        }
+
+        return { success: true };
+      },
+      {
+        maxAttempts: 3,
+        shouldRetry: (error) => {
+          // Don't retry if subscription not found
+          if (error.message?.includes('not found')) {
+            return false;
+          }
+          return true;
+        }
+      }
+    );
 
     return new Response("OK", { status: 200 });
   } catch (error) {
     console.error('Error processing billing failure webhook:', error);
+    
+    // Log error for monitoring
+    await db.webhookError.create({
+      data: {
+        id: uuidv4(),
+        shop,
+        topic: 'SUBSCRIPTION_BILLING_ATTEMPTS_FAILURE',
+        orderId: payload?.subscription_contract?.admin_graphql_api_id || 'unknown',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        payload,
+        createdAt: new Date(),
+      }
+    }).catch(console.error);
+    
+    // Return success to prevent Shopify retries for non-recoverable errors
+    if (error instanceof Error && error.message?.includes('not found')) {
+      return new Response("OK", { status: 200 });
+    }
+    
     return new Response("Internal Server Error", { status: 500 });
   }
 };

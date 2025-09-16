@@ -76,11 +76,65 @@ model Tier {
   // Relations
   customers         Customer[]  // Customers currently in this tier
   subscriptions     TierSubscription[]  // Subscriptions for this tier
+  pricingHistory    SubscriptionPricingHistory[] // Pricing change history
+  tierProducts      TierProduct[]  // Products for purchasing this tier
+  tierPurchases     TierPurchase[]    // One-time purchases of this tier
 
   // Constraints
   @@unique([shop, name])  // Combination must be unique
   @@index([shop])         // Speed up queries by shop
   @@index([cashbackPercent])    // Speed up sorting by cashback
+}
+
+// ============================================
+// TIER PRODUCT MODEL - Links tiers to Shopify products
+// ============================================
+
+model TierProduct {
+  id                    String   @id @default(uuid())
+  shop                  String
+  tierId                String
+  tier                  Tier     @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  
+  // Shopify Product Information
+  shopifyProductId      String
+  shopifyVariantId      String
+  productHandle         String
+  sku                   String
+  
+  // Purchase Options
+  purchaseType          PurchaseType  // ONE_TIME, SUBSCRIPTION, or BOTH
+  duration              ProductDuration? // For one-time purchases
+  
+  // Subscription Configuration
+  hasSubscription       Boolean  @default(false)
+  sellingPlanGroupId    String?  // Links to selling plan group
+  subscriptionPlanIds   Json?    // Array of selling plan IDs
+  
+  // Pricing
+  price                 Decimal   @db.Decimal(10, 2) // Current price
+  oneTimePrice          Decimal?  @db.Decimal(10, 2)
+  monthlyPrice          Decimal?  @db.Decimal(10, 2)
+  quarterlyPrice        Decimal?  @db.Decimal(10, 2)
+  annualPrice           Decimal?  @db.Decimal(10, 2)
+  
+  // Features & Description
+  features              Json?    // Array of feature strings
+  description           String?
+  
+  // Status
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  subscriptions         TierSubscription[]
+  tierPurchases         TierPurchase[]
+  
+  @@unique([shop, shopifyProductId])
+  @@unique([shop, shopifyVariantId])
+  @@index([shop, tierId])
+  @@index([shop, isActive])
 }
 
 model Customer {
@@ -101,6 +155,7 @@ model Customer {
   creditLedger      StoreCreditLedger[]
   tierChangeLogs    TierChangeLog[]
   subscriptions     TierSubscription[]  // Customer's tier subscriptions
+  tierPurchases     TierPurchase[]      // One-time tier purchases
   
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -314,6 +369,10 @@ model TierSubscription {
   tierId                String
   tier                  Tier     @relation(fields: [tierId], references: [id])
   
+  // NEW: Link to tier product
+  tierProductId         String?
+  tierProduct           TierProduct? @relation(fields: [tierProductId], references: [id], onDelete: SetNull)
+  
   // Shopify Integration
   subscriptionContractId String  @unique  // Shopify's subscription contract ID
   sellingPlanId         String            // Which selling plan (monthly/annual/etc)
@@ -452,8 +511,126 @@ model SellingPlan {
   metadata              Json?
   createdAt            DateTime @default(now())
   
+  // Pricing management fields
+  basePrice            Decimal?  @db.Decimal(10, 2)
+  currentDiscount      Decimal?  @db.Decimal(5, 2)
+  lastPriceUpdate      DateTime?
+  
+  // Relations
+  pricingHistory       SubscriptionPricingHistory[] // Pricing change history
+  
   @@index([groupId])
   @@index([shopifyPlanId])
+}
+
+// ============================================
+// PRICING MANAGEMENT MODELS
+// ============================================
+
+model SubscriptionPricingHistory {
+  id                String    @id @default(uuid())
+  shop              String
+  sellingPlanId     String?
+  sellingPlan       SellingPlan? @relation(fields: [sellingPlanId], references: [id], onDelete: SetNull)
+  tierId            String?
+  tier              Tier?     @relation(fields: [tierId], references: [id], onDelete: SetNull)
+  billingInterval   BillingInterval
+  previousPrice     Decimal   @db.Decimal(10, 2)
+  newPrice          Decimal   @db.Decimal(10, 2)
+  previousDiscount  Decimal   @db.Decimal(5, 2)
+  newDiscount       Decimal   @db.Decimal(5, 2)
+  changedBy         String    // Admin user ID
+  changeReason      String?
+  effectiveDate     DateTime
+  appliedToActive   Boolean   @default(false) // Whether applied to active subscriptions
+  affectedCount     Int       @default(0)     // Number of affected subscriptions
+  revenueImpact     Decimal?  @db.Decimal(10, 2) // Estimated revenue impact
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  
+  @@index([shop, sellingPlanId])
+  @@index([shop, tierId])
+  @@index([shop, effectiveDate])
+}
+
+model SubscriptionPricingConfig {
+  id                  String    @id @default(uuid())
+  shop                String    @unique
+  allowPriceEditing   Boolean   @default(true)
+  requireApproval     Boolean   @default(false)
+  minDiscountPercent  Decimal   @db.Decimal(5, 2) @default(0)
+  maxDiscountPercent  Decimal   @db.Decimal(5, 2) @default(50)
+  priceChangeNotice   Int       @default(30) // Days notice for price increases
+  allowGrandfathering Boolean   @default(true) // Keep existing subs at old price
+  autoSyncPrices      Boolean   @default(true) // Auto-sync with Shopify
+  notifyCustomers     Boolean   @default(true) // Send price change notifications
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+// Webhook idempotency tracking
+model WebhookProcess {
+  id              String    @id @default(uuid())
+  shop            String
+  topic           String
+  idempotencyKey  String    @unique
+  payload         Json
+  processedAt     DateTime  @default(now())
+  
+  @@index([shop, topic, processedAt])
+}
+
+// Webhook error tracking
+model WebhookError {
+  id              String    @id @default(uuid())
+  shop            String
+  topic           String
+  orderId         String?
+  error           String
+  payload         Json?
+  createdAt       DateTime  @default(now())
+  
+  @@index([shop, createdAt])
+}
+
+// Tier purchase records (one-time purchases)
+model TierPurchase {
+  id                  String    @id @default(uuid())
+  shop                String
+  customerId          String
+  customer            Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tierId              String
+  tier                Tier      @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  tierProductId       String
+  tierProduct         TierProduct @relation(fields: [tierProductId], references: [id])
+  shopifyOrderId      String
+  shopifyLineItemId   String
+  purchasePrice       Decimal   @db.Decimal(10, 2)
+  currency            String
+  startDate           DateTime
+  endDate             DateTime? // NULL for lifetime
+  status              PurchaseStatus @default(ACTIVE)
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  @@unique([shop, shopifyOrderId, shopifyLineItemId])
+  @@index([customerId, status])
+  @@index([shop, status, endDate])
+}
+
+// Bulk operation logs
+model BulkOperationLog {
+  id              String    @id @default(uuid())
+  shop            String
+  operationType   String
+  report          Json
+  successful      Int
+  failed          Int
+  total           Int
+  createdAt       DateTime  @default(now())
+  
+  @@index([shop, operationType, createdAt])
 }
 
 //Enums
@@ -527,6 +704,15 @@ enum TierTriggerType {
   SUBSCRIPTION_RENEWED    // Subscription renewal
   SUBSCRIPTION_UPGRADED   // Plan upgrade
   SUBSCRIPTION_DOWNGRADED // Plan downgrade
+  SUBSCRIPTION_CANCELLED  // Subscription cancelled
+  SUBSCRIPTION_PURCHASE   // Purchase of subscription tier
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  REFUNDED
 }
 
 // ============================================
@@ -562,4 +748,18 @@ enum BillingStatus {
 enum DiscountType {
   PERCENTAGE
   FIXED_AMOUNT
+}
+
+enum PurchaseType {
+  ONE_TIME           // One-time purchase only
+  SUBSCRIPTION       // Subscription only
+  BOTH              // Supports both purchase types
+}
+
+enum ProductDuration {
+  MONTHLY           // 30 days
+  QUARTERLY         // 90 days
+  SEMIANNUAL       // 180 days
+  ANNUAL           // 365 days
+  LIFETIME         // Permanent
 }
