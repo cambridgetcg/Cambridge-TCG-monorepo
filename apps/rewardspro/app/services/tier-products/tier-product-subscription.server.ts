@@ -61,6 +61,9 @@ interface SubscriptionContractInput {
   tierProduct: TierProduct;
   billingInterval: BillingInterval;
   paymentMethodId?: string;
+  shopSettings?: {
+    storeCurrency: string;
+  };
 }
 
 // ============================================
@@ -474,7 +477,7 @@ export class TierProductSubscriptionService {
         input: {
           customerId: `gid://shopify/Customer/${input.customer.shopifyCustomerId}`,
           nextBillingDate: this.getNextBillingDate(input.billingInterval),
-          currencyCode: "USD", // TODO: Get from shop settings
+          currencyCode: input.shopSettings?.storeCurrency || "USD",
           contract: {
             status: "ACTIVE",
             billingPolicy: {

@@ -44,7 +44,8 @@ import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { TierBadge } from "../components/TierBadge";
 import { getTierStyle } from "../utils/tier-styles";
-import { SellingPlanManager } from "../services/subscription/selling-plan-manager.server";
+import { SellingPlanManagerEnhanced } from "../services/subscription/selling-plan-manager-enhanced.server";
+import { TierProductManagerEnhanced } from "../services/tier-products/tier-product-manager-enhanced.server";
 import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -592,7 +593,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             if (enableSubscription && subscriptionOptions) {
               try {
                 // First, create or get the selling plan group for this tier
-                const sellingPlanResult = await SellingPlanManager.associateProductWithSellingPlanGroup({
+                const sellingPlanResult = await SellingPlanManagerEnhanced.associateProductWithSellingPlanGroup({
                   shop,
                   admin,
                   productId: product.id,
@@ -962,11 +963,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Reset all selling plans to use new descriptions
       console.log("[TierProducts] Resetting selling plans with new descriptions");
       
-      // Import the selling plan manager
-      const { SellingPlanManager } = await import("~/services/subscription/selling-plan-manager.server");
-      
       // First, remove existing selling plan group
-      await SellingPlanManager.removeSellingPlanGroup({ shop, admin });
+      await SellingPlanManagerEnhanced.removeSellingPlanGroup({ shop, admin });
       
       // Get all tier products from Shopify
       const productsQuery = `#graphql
@@ -1011,7 +1009,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             productVariantMap.set(tierIds[index], variantId);
           });
           
-          await SellingPlanManager.createSellingPlanGroup({
+          await SellingPlanManagerEnhanced.createSellingPlanGroup({
             shop,
             admin,
             tierIds,
