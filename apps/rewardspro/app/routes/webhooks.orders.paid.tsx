@@ -103,14 +103,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             results.push(itemResult);
           }
           
+          // Create or update Order record
+          await createOrderRecord(tx, {
+            shop,
+            order,
+          });
+          
           // Process cashback for regular items
           await processCashback(tx, {
             shop,
             order,
           });
           
-          // Update customer spending totals
-          await updateCustomerSpending(tx, {
+          // Update customer spending totals from Order data
+          await updateCustomerSpendingFromOrders(tx, {
             shop,
             order,
           });
@@ -380,6 +386,19 @@ async function processCashback(tx: any, params: {
     return;
   }
   
+  // Get the Order record we just created
+  const orderRecord = await tx.order.findFirst({
+    where: {
+      shop,
+      shopifyOrderId: order.id.toString()
+    }
+  });
+  
+  if (!orderRecord) {
+    console.error('[OrderPaid] Order record not found after creation');
+    return;
+  }
+  
   // Create ledger entry with idempotency
   const ledgerIdempotencyKey = `cashback-${order.id}`;
   
@@ -403,6 +422,7 @@ async function processCashback(tx: any, params: {
         balance: newBalance,
         type: 'CASHBACK_EARNED',
         shopifyOrderId: order.id.toString(),
+        orderId: orderRecord.id, // Link to Order record
         metadata: {
           idempotencyKey: ledgerIdempotencyKey,
           orderId: order.id,
@@ -424,10 +444,143 @@ async function processCashback(tx: any, params: {
         updatedAt: new Date(),
       }
     });
+    
+    // Mark cashback as processed in Order record
+    await tx.order.update({
+      where: { id: orderRecord.id },
+      data: {
+        cashbackProcessed: true,
+        updatedAt: new Date()
+      }
+    });
   }
 }
 
-async function updateCustomerSpending(tx: any, params: {
+async function createOrderRecord(tx: any, params: {
+  shop: string;
+  order: any;
+}) {
+  const { shop, order } = params;
+  
+  // Extract Shopify order ID
+  const shopifyOrderId = order.id.toString();
+  
+  // Check if order already exists
+  const existingOrder = await tx.order.findFirst({
+    where: {
+      shop,
+      shopifyOrderId
+    }
+  });
+  
+  if (existingOrder) {
+    console.log(`[OrderPaid] Order ${order.name} already exists in database`);
+    return existingOrder;
+  }
+  
+  // Get customer if exists
+  let customer = null;
+  if (order.customer?.id) {
+    customer = await tx.customer.findFirst({
+      where: {
+        shop,
+        shopifyCustomerId: order.customer.id.toString()
+      },
+      include: {
+        currentTier: true
+      }
+    });
+  }
+  
+  // Calculate cashback based on current tier
+  let cashbackPercent = 0;
+  let cashbackAmount = 0;
+  let tierIdAtOrder = null;
+  let tierNameAtOrder = null;
+  
+  if (customer?.currentTier) {
+    cashbackPercent = customer.currentTier.cashbackPercent;
+    tierIdAtOrder = customer.currentTier.id;
+    tierNameAtOrder = customer.currentTier.name;
+    
+    // Calculate cashback on subtotal after discounts
+    const subtotal = parseFloat(order.subtotal_price || '0');
+    const discounts = parseFloat(order.total_discounts || '0');
+    const netAmount = subtotal - discounts;
+    cashbackAmount = (netAmount * cashbackPercent) / 100;
+  }
+  
+  // Create Order record
+  const orderId = uuidv4();
+  const now = new Date();
+  
+  const newOrder = await tx.order.create({
+    data: {
+      id: orderId,
+      shop,
+      shopifyOrderId,
+      shopifyOrderNumber: order.order_number?.toString() || order.number?.toString() || '',
+      shopifyOrderName: order.name || '',
+      customerId: customer?.id || 'unknown',
+      email: order.email || order.customer?.email || '',
+      currency: order.currency || 'USD',
+      subtotalPrice: parseFloat(order.subtotal_price || '0'),
+      totalDiscounts: parseFloat(order.total_discounts || '0'),
+      totalShipping: parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),
+      totalTax: parseFloat(order.total_tax || '0'),
+      totalPrice: parseFloat(order.total_price || '0'),
+      totalRefunded: 0, // Will be updated when refunds are processed
+      netAmount: parseFloat(order.total_price || '0'),
+      financialStatus: 'PAID', // This webhook only fires for paid orders
+      fulfillmentStatus: order.fulfillment_status || null,
+      cashbackEligible: true,
+      cashbackPercent,
+      cashbackAmount,
+      cashbackProcessed: false, // Will be marked true when cashback is credited
+      tierIdAtOrder,
+      tierNameAtOrder,
+      shopifyCreatedAt: new Date(order.created_at),
+      shopifyUpdatedAt: new Date(order.updated_at || order.created_at),
+      processedAt: order.processed_at ? new Date(order.processed_at) : now,
+      createdAt: now,
+      updatedAt: now
+    }
+  });
+  
+  // Create OrderLineItem records
+  if (order.line_items && order.line_items.length > 0) {
+    for (const item of order.line_items) {
+      await tx.orderLineItem.create({
+        data: {
+          id: uuidv4(),
+          orderId,
+          shopifyLineItemId: item.id.toString(),
+          shopifyProductId: item.product_id?.toString() || null,
+          shopifyVariantId: item.variant_id?.toString() || null,
+          title: item.title || item.name || '',
+          variantTitle: item.variant_title || null,
+          sku: item.sku || null,
+          vendor: item.vendor || null,
+          quantity: item.quantity || 1,
+          price: parseFloat(item.price || '0'),
+          totalPrice: parseFloat(item.price || '0') * (item.quantity || 1),
+          totalDiscount: parseFloat(item.total_discount || '0'),
+          requiresShipping: item.requires_shipping !== false,
+          taxable: item.taxable !== false,
+          giftCard: item.gift_card === true,
+          isTierProduct: false, // Will be checked separately
+          tierProductId: null,
+          createdAt: now
+        }
+      });
+    }
+  }
+  
+  console.log(`[OrderPaid] Created Order record ${orderId} for Shopify order ${order.name}`);
+  return newOrder;
+}
+
+async function updateCustomerSpendingFromOrders(tx: any, params: {
   shop: string;
   order: any;
 }) {
@@ -437,27 +590,53 @@ async function updateCustomerSpending(tx: any, params: {
     return;
   }
   
-  // Update customer's updatedAt timestamp to track activity
-  const customer = await tx.customer.findUnique({
+  // Get customer
+  const customer = await tx.customer.findFirst({
     where: {
-      shop_shopifyCustomerId: {
-        shop,
-        shopifyCustomerId: order.customer.id.toString(),
-      }
+      shop,
+      shopifyCustomerId: order.customer.id.toString(),
     }
   });
   
-  if (customer) {
-    // Since Customer model doesn't have totalSpent, ordersCount, or lastOrderDate fields,
-    // we'll just update the updatedAt timestamp. The actual spending data is tracked
-    // in the StoreCreditLedger metadata.
-    await tx.customer.update({
-      where: { id: customer.id },
-      data: {
-        updatedAt: new Date(),
-      }
-    });
+  if (!customer) {
+    return;
   }
+  
+  // Calculate totals from Order records
+  const orderStats = await tx.order.aggregate({
+    where: {
+      shop,
+      customerId: customer.id,
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+    },
+    _sum: {
+      totalPrice: true,
+      totalRefunded: true,
+      cashbackAmount: true
+    },
+    _count: {
+      id: true
+    },
+    _max: {
+      shopifyCreatedAt: true
+    }
+  });
+  
+  // Update customer spending totals
+  await tx.customer.update({
+    where: { id: customer.id },
+    data: {
+      totalSpent: orderStats._sum.totalPrice || 0,
+      totalRefunded: orderStats._sum.totalRefunded || 0,
+      totalCashbackEarned: orderStats._sum.cashbackAmount || 0,
+      netSpent: (orderStats._sum.totalPrice || 0) - (orderStats._sum.totalRefunded || 0),
+      orderCount: orderStats._count.id || 0,
+      lastOrderDate: orderStats._max.shopifyCreatedAt || null,
+      updatedAt: new Date()
+    }
+  });
+  
+  console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
 }
 
 async function checkTierProgression(tx: any, params: {

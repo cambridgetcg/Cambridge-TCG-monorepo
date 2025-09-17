@@ -64,6 +64,8 @@ interface TierProduct {
   duration: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'LIFETIME';
   features: string[];
   isActive: boolean;
+  hasSubscription?: boolean;
+  sellingPlanGroupId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -177,6 +179,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
     
+    // Fetch tier products from database first
+    const dbTierProducts = await db.tierProduct.findMany({
+      where: { shop },
+      include: {
+        tier: true,
+      }
+    });
+    
     // Fetch tier products from Shopify using GraphQL
     const productsResponse = await admin.graphql(
       `#graphql
@@ -197,6 +207,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                     sku
                     price
                     title
+                  }
+                }
+              }
+              sellingPlanGroups(first: 1) {
+                edges {
+                  node {
+                    id
+                    name
                   }
                 }
               }
@@ -236,20 +254,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             product.title.toLowerCase().includes(t.name.toLowerCase())
           );
           
+          // Check if this product exists in database
+          const dbProduct = dbTierProducts.find(p => 
+            p.shopifyProductId === product.id.replace('gid://shopify/Product/', '')
+          );
+          
+          const hasSubscription = product.sellingPlanGroups?.edges?.length > 0 || dbProduct?.hasSubscription;
+          const sellingPlanGroupId = product.sellingPlanGroups?.edges?.[0]?.node?.id || dbProduct?.sellingPlanGroupId;
+          
           tierProducts.push({
             id: product.id,
-            tierId: matchingTier?.id || '',
-            tierName: tierName,
+            tierId: matchingTier?.id || dbProduct?.tierId || '',
+            tierName: dbProduct?.tier?.name || tierName,
             shopifyProductId: product.id,
             shopifyVariantId: variant.id,
             productHandle: product.handle,
-            sku: variant.sku || '',
+            sku: variant.sku || dbProduct?.sku || '',
             price: parseFloat(variant.price || '0'),
-            duration: duration,
-            features: [], // Would need to parse from description or metafields
+            duration: dbProduct?.duration || duration,
+            features: dbProduct?.features || [],
             isActive: product.status === 'ACTIVE',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            hasSubscription,
+            sellingPlanGroupId,
+            createdAt: dbProduct?.createdAt?.toISOString() || new Date().toISOString(),
+            updatedAt: dbProduct?.updatedAt?.toISOString() || new Date().toISOString(),
           });
         }
       }
@@ -294,6 +322,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const description = formData.get("description") as string;
       const features = JSON.parse(formData.get("features") as string || "[]");
       const enableSubscription = formData.get("enableSubscription") === "true";
+      const subscriptionOptions = enableSubscription ? JSON.parse(formData.get("subscriptionOptions") as string || "{}") : null;
       
       // Generate SKU
       const sku = generateTierSKU(tierName, duration, shop);
@@ -548,15 +577,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             });
 
             // Create selling plans if subscription is enabled
-            if (enableSubscription) {
+            if (enableSubscription && subscriptionOptions) {
               try {
+                // First, create or get the selling plan group for this tier
                 const sellingPlanResult = await SellingPlanManager.associateProductWithSellingPlanGroup({
                   shop,
                   admin,
-                  productVariantIds: [variant.id],
+                  productId: product.id,
+                  variantId: variant.id,
+                  tierId: tierProduct.tierId,
                 });
 
-                if (sellingPlanResult.success) {
+                if (sellingPlanResult.sellingPlanGroupId) {
                   // Update TierProduct with selling plan IDs
                   await db.tierProduct.update({
                     where: { id: tierProduct.id },
@@ -566,9 +598,41 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     }
                   });
 
-                  console.log(`[TierProducts] Created selling plans for product ${product.id}`);
+                  console.log(`[TierProducts] Associated product ${product.id} with selling plan group ${sellingPlanResult.sellingPlanGroupId}`);
+                  
+                  // Configure the subscription pricing based on options
+                  const pricingUpdates = [];
+                  if (subscriptionOptions.enableMonthly) {
+                    pricingUpdates.push({
+                      interval: 'MONTHLY',
+                      discount: parseFloat(subscriptionOptions.monthlyDiscount || '0')
+                    });
+                  }
+                  if (subscriptionOptions.enableQuarterly) {
+                    pricingUpdates.push({
+                      interval: 'QUARTERLY',
+                      discount: parseFloat(subscriptionOptions.quarterlyDiscount || '5')
+                    });
+                  }
+                  if (subscriptionOptions.enableAnnual) {
+                    pricingUpdates.push({
+                      interval: 'ANNUAL',
+                      discount: parseFloat(subscriptionOptions.annualDiscount || '15')
+                    });
+                  }
+                  
+                  // Store subscription configuration in TierProduct metadata
+                  await db.tierProduct.update({
+                    where: { id: tierProduct.id },
+                    data: {
+                      subscriptionConfig: {
+                        options: subscriptionOptions,
+                        pricingUpdates
+                      }
+                    }
+                  });
                 } else {
-                  console.error(`[TierProducts] Failed to create selling plans: ${sellingPlanResult.error}`);
+                  console.error(`[TierProducts] Failed to associate product with selling plan group`);
                 }
               } catch (error) {
                 console.error("[TierProducts] Error creating selling plans:", error);
@@ -997,12 +1061,12 @@ export default function TierProducts() {
     formData.append("features", JSON.stringify(features));
     formData.append("enableSubscription", enableSubscription.toString());
     if (enableSubscription) {
-      formData.append("subscriptionDiscountPercent", subscriptionDiscountPercent);
+      formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
     }
     
     submit(formData, { method: "post" });
     handleModalClose();
-  }, [selectedTier, price, duration, description, features, data.tiers, submit, handleModalClose]);
+  }, [selectedTier, price, duration, description, features, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose]);
   
   // Handle update product
   const handleUpdateProduct = useCallback(() => {
@@ -1025,12 +1089,12 @@ export default function TierProducts() {
     formData.append("features", JSON.stringify(features));
     formData.append("enableSubscription", enableSubscription.toString());
     if (enableSubscription) {
-      formData.append("subscriptionDiscountPercent", subscriptionDiscountPercent);
+      formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
     }
     
     submit(formData, { method: "post" });
     handleEditModalClose();
-  }, [editingProduct, price, duration, description, features, submit, handleEditModalClose]);
+  }, [editingProduct, price, duration, description, features, enableSubscription, subscriptionOptions, submit, handleEditModalClose]);
   
   // Handle add feature
   const handleAddFeature = useCallback(() => {
@@ -1230,9 +1294,16 @@ export default function TierProducts() {
                                     <Text variant="headingMd" as="h3">
                                       {product.tierName}
                                     </Text>
-                                    <Badge tone={product.isActive ? "success" : "attention"}>
-                                      {product.isActive ? "Active" : "Draft"}
-                                    </Badge>
+                                    <InlineStack gap="100">
+                                      <Badge tone={product.isActive ? "success" : "attention"}>
+                                        {product.isActive ? "Active" : "Draft"}
+                                      </Badge>
+                                      {product.hasSubscription && (
+                                        <Badge tone="info" icon={CalendarIcon}>
+                                          Subscription
+                                        </Badge>
+                                      )}
+                                    </InlineStack>
                                   </BlockStack>
                                 </InlineStack>
                               </BlockStack>
@@ -1270,6 +1341,17 @@ export default function TierProducts() {
                                     {tier.cashbackPercent}%
                                   </Badge>
                                 </InlineStack>
+                              )}
+                              
+                              {product.hasSubscription && (
+                                <Box background="bg-surface-info" padding="200" borderRadius="100">
+                                  <InlineStack gap="200" align="start">
+                                    <Icon source={CheckCircleIcon} tone="info" />
+                                    <Text variant="bodySm" as="span">
+                                      Subscription plans available
+                                    </Text>
+                                  </InlineStack>
+                                </Box>
                               )}
                             </BlockStack>
                             
