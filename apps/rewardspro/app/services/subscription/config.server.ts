@@ -58,10 +58,10 @@ export const SUBSCRIPTION_CONFIG = {
 
   // Selling plan configuration
   SELLING_PLAN: {
-    GROUP_NAME: 'Tier Membership Subscriptions',
+    GROUP_NAME: 'Tier Membership Subscription',
     MERCHANT_CODE: 'TIER_SUB',
     POSITION: 999, // Display at end of options
-    OPTIONS_TITLE: 'Billing Frequency',
+    OPTIONS_TITLE: 'Membership Billing',
   },
 
   // GraphQL API configuration

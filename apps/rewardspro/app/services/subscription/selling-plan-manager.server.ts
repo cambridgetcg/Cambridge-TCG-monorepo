@@ -56,8 +56,8 @@ export class SellingPlanManager {
     // Create selling plans for each interval
     const sellingPlansToCreate = Object.entries(SUBSCRIPTION_CONFIG.BILLING_INTERVALS).map(
       ([key, interval]) => ({
-        name: interval.label,
-        options: [`Every ${interval.label.toLowerCase()}`],
+        name: `${interval.label} Membership`,
+        options: [`Tier membership billed ${interval.label.toLowerCase()}`],
         position: interval.days, // Sort by duration
         billingPolicy: {
           recurring: {
@@ -69,6 +69,7 @@ export class SellingPlanManager {
           recurring: {
             interval: interval.interval,
             intervalCount: interval.intervalCount,
+            anchors: []  // No physical delivery needed
           },
         },
         pricingPolicies: [
@@ -120,7 +121,7 @@ export class SellingPlanManager {
           input: {
             name: SUBSCRIPTION_CONFIG.SELLING_PLAN.GROUP_NAME,
             merchantCode: SUBSCRIPTION_CONFIG.SELLING_PLAN.MERCHANT_CODE,
-            description: 'Recurring billing for tier membership subscriptions',
+            description: 'Exclusive tier membership with recurring billing',
             options: [SUBSCRIPTION_CONFIG.SELLING_PLAN.OPTIONS_TITLE],
             position: SUBSCRIPTION_CONFIG.SELLING_PLAN.POSITION,
             sellingPlansToCreate,
