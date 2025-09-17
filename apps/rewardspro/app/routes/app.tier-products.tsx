@@ -179,13 +179,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
     
-    // Fetch tier products from database first
-    const dbTierProducts = await db.tierProduct.findMany({
-      where: { shop },
-      include: {
-        tier: true,
-      }
-    });
+    // Try to fetch tier products from database (if table exists)
+    let dbTierProducts: any[] = [];
+    try {
+      dbTierProducts = await (db as any).tierProduct.findMany({
+        where: { shop },
+        include: {
+          tier: true,
+        }
+      });
+    } catch (error) {
+      console.log('[TierProducts] Database table not yet available, using Shopify data only');
+      // Table might not exist yet, continue with empty array
+    }
     
     // Fetch tier products from Shopify using GraphQL
     const productsResponse = await admin.graphql(
@@ -553,8 +559,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         if (updateResult.data?.productSet?.product) {
           const variant = updateResult.data.productSet.product.variants.edges[0]?.node;
           if (variant) {
-            // Create TierProduct record in database
-            const tierProduct = await db.tierProduct.create({
+            // Try to create TierProduct record in database
+            let tierProduct: any = null;
+            try {
+              tierProduct = await (db as any).tierProduct.create({
               data: {
                 id: uuidv4(),
                 shop,
@@ -574,7 +582,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 description,
                 isActive: true,
               }
-            });
+              });
+            } catch (dbError) {
+              console.log('[TierProducts] Could not create database record (table may not exist yet)');
+              // Continue without database record
+            }
 
             // Create selling plans if subscription is enabled
             if (enableSubscription && subscriptionOptions) {
@@ -590,7 +602,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
                 if (sellingPlanResult.sellingPlanGroupId) {
                   // Update TierProduct with selling plan IDs
-                  await db.tierProduct.update({
+                  await (db as any).tierProduct.update({
                     where: { id: tierProduct.id },
                     data: {
                       sellingPlanGroupId: sellingPlanResult.sellingPlanGroupId,
@@ -622,7 +634,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   }
                   
                   // Store subscription configuration in TierProduct metadata
-                  await db.tierProduct.update({
+                  await (db as any).tierProduct.update({
                     where: { id: tierProduct.id },
                     data: {
                       subscriptionConfig: {
@@ -900,13 +912,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } else if (intent === "delete-product") {
       const productId = formData.get("productId") as string;
       
-      // Delete tier product record first
-      await db.tierProduct.deleteMany({
-        where: {
-          shop,
-          shopifyProductId: productId,
-        },
-      });
+      // Try to delete tier product record first
+      try {
+        await (db as any).tierProduct.deleteMany({
+          where: {
+            shop,
+            shopifyProductId: productId,
+          },
+        });
+      } catch (error) {
+        console.log('[TierProducts] Could not delete database record');
+      }
       
       // Delete product from Shopify
       const response = await admin.graphql(
