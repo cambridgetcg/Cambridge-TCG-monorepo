@@ -37,6 +37,7 @@
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -298,6 +299,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.tier-products.tsx",
         "path": "tier-products",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.orders-sync": {
+        "id": "routes/app.orders-sync",
+        "parentId": "routes/app",
+        "file": "app/routes/app.orders-sync.tsx",
+        "path": "orders-sync",
         "config": {
           "runtime": "nodejs"
         }
@@ -569,6 +579,12 @@
         "parentId": "routes/app",
         "file": "routes/app.tier-products.tsx",
         "path": "tier-products"
+      },
+      "routes/app.orders-sync": {
+        "id": "routes/app.orders-sync",
+        "parentId": "routes/app",
+        "file": "routes/app.orders-sync.tsx",
+        "path": "orders-sync"
       },
       "routes/app.proxy-test": {
         "id": "routes/app.proxy-test",

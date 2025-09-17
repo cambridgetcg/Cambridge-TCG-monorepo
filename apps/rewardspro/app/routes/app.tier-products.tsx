@@ -997,6 +997,14 @@ export default function TierProducts() {
   const [newFeature, setNewFeature] = useState<string>("");
   const [enableSubscription, setEnableSubscription] = useState(false);
   const [subscriptionDiscountPercent, setSubscriptionDiscountPercent] = useState("10");
+  const [subscriptionOptions, setSubscriptionOptions] = useState({
+    enableMonthly: true,
+    enableQuarterly: true,
+    enableAnnual: true,
+    monthlyDiscount: "0",
+    quarterlyDiscount: "5",
+    annualDiscount: "15",
+  });
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
     active: false,
     content: "",
@@ -1023,6 +1031,16 @@ export default function TierProducts() {
       "Cashback rewards on purchases",
       "Priority customer support"
     ]);
+    setEnableSubscription(false);
+    setSubscriptionDiscountPercent("10");
+    setSubscriptionOptions({
+      enableMonthly: true,
+      enableQuarterly: true,
+      enableAnnual: true,
+      monthlyDiscount: "0",
+      quarterlyDiscount: "5",
+      annualDiscount: "15",
+    });
   }, []);
   
   // Handle modal close
@@ -1030,6 +1048,14 @@ export default function TierProducts() {
     setModalActive(false);
     setEnableSubscription(false);
     setSubscriptionDiscountPercent("10");
+    setSubscriptionOptions({
+      enableMonthly: true,
+      enableQuarterly: true,
+      enableAnnual: true,
+      monthlyDiscount: "0",
+      quarterlyDiscount: "5",
+      annualDiscount: "15",
+    });
   }, []);
   
   // Handle edit modal open
@@ -1051,6 +1077,16 @@ export default function TierProducts() {
   const handleEditModalClose = useCallback(() => {
     setEditModalActive(false);
     setEditingProduct(null);
+    setEnableSubscription(false);
+    setSubscriptionDiscountPercent("10");
+    setSubscriptionOptions({
+      enableMonthly: true,
+      enableQuarterly: true,
+      enableAnnual: true,
+      monthlyDiscount: "0",
+      quarterlyDiscount: "5",
+      annualDiscount: "15",
+    });
   }, []);
   
   // Handle create product
@@ -1611,26 +1647,84 @@ export default function TierProducts() {
                 
                 {enableSubscription && (
                   <Box paddingInlineStart="600">
-                    <BlockStack gap="300">
-                      <TextField
-                        label="Subscription Discount (%)"
-                        type="number"
-                        value={subscriptionDiscountPercent}
-                        onChange={setSubscriptionDiscountPercent}
-                        suffix="%"
-                        helpText="Discount percentage for subscription vs one-time purchase"
-                        autoComplete="off"
-                        min="0"
-                        max="100"
-                      />
+                    <BlockStack gap="400">
+                      <Text variant="bodyMd" fontWeight="semibold" as="span">
+                        Subscription Billing Options
+                      </Text>
+                      
+                      <BlockStack gap="300">
+                        <InlineStack gap="400" align="space-between">
+                          <Checkbox
+                            label="Monthly billing"
+                            checked={subscriptionOptions.enableMonthly}
+                            onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableMonthly: value})}
+                          />
+                          <div style={{ width: '120px' }}>
+                            <TextField
+                              label=""
+                              type="number"
+                              value={subscriptionOptions.monthlyDiscount}
+                              onChange={(value) => setSubscriptionOptions({...subscriptionOptions, monthlyDiscount: value})}
+                              suffix="% off"
+                              disabled={!subscriptionOptions.enableMonthly}
+                              autoComplete="off"
+                            />
+                          </div>
+                        </InlineStack>
+                        
+                        <InlineStack gap="400" align="space-between">
+                          <Checkbox
+                            label="Quarterly billing (3 months)"
+                            checked={subscriptionOptions.enableQuarterly}
+                            onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableQuarterly: value})}
+                          />
+                          <div style={{ width: '120px' }}>
+                            <TextField
+                              label=""
+                              type="number"
+                              value={subscriptionOptions.quarterlyDiscount}
+                              onChange={(value) => setSubscriptionOptions({...subscriptionOptions, quarterlyDiscount: value})}
+                              suffix="% off"
+                              disabled={!subscriptionOptions.enableQuarterly}
+                              autoComplete="off"
+                            />
+                          </div>
+                        </InlineStack>
+                        
+                        <InlineStack gap="400" align="space-between">
+                          <Checkbox
+                            label="Annual billing (12 months)"
+                            checked={subscriptionOptions.enableAnnual}
+                            onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableAnnual: value})}
+                          />
+                          <div style={{ width: '120px' }}>
+                            <TextField
+                              label=""
+                              type="number"
+                              value={subscriptionOptions.annualDiscount}
+                              onChange={(value) => setSubscriptionOptions({...subscriptionOptions, annualDiscount: value})}
+                              suffix="% off"
+                              disabled={!subscriptionOptions.enableAnnual}
+                              autoComplete="off"
+                            />
+                          </div>
+                        </InlineStack>
+                      </BlockStack>
                       
                       <Banner status="info">
                         <p>
-                          When enabled, customers can choose between:
+                          Customers will be able to choose from the enabled billing frequencies:
                         </p>
                         <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
-                          <li>One-time purchase at {data.shopSettings?.storeCurrency || "USD"} {price}</li>
-                          <li>Subscription with {subscriptionDiscountPercent}% discount: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price) * (1 - parseFloat(subscriptionDiscountPercent) / 100)).toFixed(2)}/{duration.toLowerCase()}</li>
+                          {subscriptionOptions.enableMonthly && (
+                            <li>Monthly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * (1 - parseFloat(subscriptionOptions.monthlyDiscount) / 100)).toFixed(2)}/month</li>
+                          )}
+                          {subscriptionOptions.enableQuarterly && (
+                            <li>Quarterly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 3 * (1 - parseFloat(subscriptionOptions.quarterlyDiscount) / 100)).toFixed(2)} every 3 months</li>
+                          )}
+                          {subscriptionOptions.enableAnnual && (
+                            <li>Annual: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 12 * (1 - parseFloat(subscriptionOptions.annualDiscount) / 100)).toFixed(2)}/year</li>
+                          )}
                         </ul>
                       </Banner>
                     </BlockStack>
@@ -1736,6 +1830,105 @@ export default function TierProducts() {
                     helpText="Update the product description"
                     autoComplete="off"
                   />
+                  
+                  <BlockStack gap="200">
+                    <Divider />
+                    
+                    <Checkbox
+                      label="Enable recurring subscription"
+                      checked={enableSubscription}
+                      onChange={setEnableSubscription}
+                      helpText="Allow customers to subscribe for automatic renewal"
+                    />
+                    
+                    {enableSubscription && (
+                      <Box paddingInlineStart="600">
+                        <BlockStack gap="400">
+                          <Text variant="bodyMd" fontWeight="semibold" as="span">
+                            Subscription Billing Options
+                          </Text>
+                          
+                          <BlockStack gap="300">
+                            <InlineStack gap="400" align="space-between">
+                              <Checkbox
+                                label="Monthly billing"
+                                checked={subscriptionOptions.enableMonthly}
+                                onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableMonthly: value})}
+                              />
+                              <div style={{ width: '120px' }}>
+                                <TextField
+                                  label=""
+                                  type="number"
+                                  value={subscriptionOptions.monthlyDiscount}
+                                  onChange={(value) => setSubscriptionOptions({...subscriptionOptions, monthlyDiscount: value})}
+                                  suffix="% off"
+                                  disabled={!subscriptionOptions.enableMonthly}
+                                  autoComplete="off"
+                                />
+                              </div>
+                            </InlineStack>
+                            
+                            <InlineStack gap="400" align="space-between">
+                              <Checkbox
+                                label="Quarterly billing (3 months)"
+                                checked={subscriptionOptions.enableQuarterly}
+                                onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableQuarterly: value})}
+                              />
+                              <div style={{ width: '120px' }}>
+                                <TextField
+                                  label=""
+                                  type="number"
+                                  value={subscriptionOptions.quarterlyDiscount}
+                                  onChange={(value) => setSubscriptionOptions({...subscriptionOptions, quarterlyDiscount: value})}
+                                  suffix="% off"
+                                  disabled={!subscriptionOptions.enableQuarterly}
+                                  autoComplete="off"
+                                />
+                              </div>
+                            </InlineStack>
+                            
+                            <InlineStack gap="400" align="space-between">
+                              <Checkbox
+                                label="Annual billing (12 months)"
+                                checked={subscriptionOptions.enableAnnual}
+                                onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableAnnual: value})}
+                              />
+                              <div style={{ width: '120px' }}>
+                                <TextField
+                                  label=""
+                                  type="number"
+                                  value={subscriptionOptions.annualDiscount}
+                                  onChange={(value) => setSubscriptionOptions({...subscriptionOptions, annualDiscount: value})}
+                                  suffix="% off"
+                                  disabled={!subscriptionOptions.enableAnnual}
+                                  autoComplete="off"
+                                />
+                              </div>
+                            </InlineStack>
+                          </BlockStack>
+                          
+                          <Banner status="info">
+                            <p>
+                              Customers will be able to choose from the enabled billing frequencies:
+                            </p>
+                            <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+                              {subscriptionOptions.enableMonthly && (
+                                <li>Monthly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * (1 - parseFloat(subscriptionOptions.monthlyDiscount) / 100)).toFixed(2)}/month</li>
+                              )}
+                              {subscriptionOptions.enableQuarterly && (
+                                <li>Quarterly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 3 * (1 - parseFloat(subscriptionOptions.quarterlyDiscount) / 100)).toFixed(2)} every 3 months</li>
+                              )}
+                              {subscriptionOptions.enableAnnual && (
+                                <li>Annual: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 12 * (1 - parseFloat(subscriptionOptions.annualDiscount) / 100)).toFixed(2)}/year</li>
+                              )}
+                            </ul>
+                          </Banner>
+                        </BlockStack>
+                      </Box>
+                    )}
+                  </BlockStack>
+                  
+                  <Divider />
                   
                   <BlockStack gap="200">
                     <Text variant="bodyMd" fontWeight="semibold" as="span">
