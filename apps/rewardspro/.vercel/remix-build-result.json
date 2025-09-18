@@ -10,6 +10,8 @@
       }
     },
     "routeIdToServerBundleId": {
+      "routes/webhooks.subscription-billing-failure": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.subscription-billing-success": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.cancelled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.created": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -35,6 +37,7 @@
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.credit-management": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.subscription-demo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -54,6 +57,24 @@
         "id": "root",
         "file": "app/root.tsx",
         "config": {}
+      },
+      "routes/webhooks.subscription-billing-failure": {
+        "id": "routes/webhooks.subscription-billing-failure",
+        "parentId": "root",
+        "file": "app/routes/webhooks.subscription-billing-failure.tsx",
+        "path": "webhooks/subscription-billing-failure",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.subscription-billing-success": {
+        "id": "routes/webhooks.subscription-billing-success",
+        "parentId": "root",
+        "file": "app/routes/webhooks.subscription-billing-success.tsx",
+        "path": "webhooks/subscription-billing-success",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/webhooks.tier-subscription.cancelled": {
         "id": "routes/webhooks.tier-subscription.cancelled",
@@ -285,6 +306,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.subscription-demo": {
+        "id": "routes/app.subscription-demo",
+        "parentId": "routes/app",
+        "file": "app/routes/app.subscription-demo.tsx",
+        "path": "subscription-demo",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.design-showcase": {
         "id": "routes/app.design-showcase",
         "parentId": "routes/app",
@@ -411,6 +441,18 @@
         "path": "",
         "id": "root",
         "file": "root.tsx"
+      },
+      "routes/webhooks.subscription-billing-failure": {
+        "id": "routes/webhooks.subscription-billing-failure",
+        "parentId": "root",
+        "file": "routes/webhooks.subscription-billing-failure.tsx",
+        "path": "webhooks/subscription-billing-failure"
+      },
+      "routes/webhooks.subscription-billing-success": {
+        "id": "routes/webhooks.subscription-billing-success",
+        "parentId": "root",
+        "file": "routes/webhooks.subscription-billing-success.tsx",
+        "path": "webhooks/subscription-billing-success"
       },
       "routes/webhooks.tier-subscription.cancelled": {
         "id": "routes/webhooks.tier-subscription.cancelled",
@@ -567,6 +609,12 @@
         "parentId": "routes/app",
         "file": "routes/app.credit-management.tsx",
         "path": "credit-management"
+      },
+      "routes/app.subscription-demo": {
+        "id": "routes/app.subscription-demo",
+        "parentId": "routes/app",
+        "file": "routes/app.subscription-demo.tsx",
+        "path": "subscription-demo"
       },
       "routes/app.design-showcase": {
         "id": "routes/app.design-showcase",

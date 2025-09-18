@@ -47,6 +47,7 @@ import { getTierStyle } from "../utils/tier-styles";
 import { SellingPlanManagerEnhanced } from "../services/subscription/selling-plan-manager-enhanced.server";
 import { TierProductManagerEnhanced } from "../services/tier-products/tier-product-manager-enhanced.server";
 import { PriceSyncService } from "../services/subscription/price-sync.server";
+import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
 
 // ============================================
@@ -331,11 +332,74 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const enableSubscription = formData.get("enableSubscription") === "true";
       const subscriptionOptions = enableSubscription ? JSON.parse(formData.get("subscriptionOptions") as string || "{}") : null;
       
+      // Fetch tier and shop settings for currency
+      const [tier, shopSettings] = await Promise.all([
+        db.tier.findFirst({
+          where: { id: tierId, shop }
+        }),
+        db.shopSettings.findUnique({
+          where: { shop }
+        })
+      ]);
+      
+      if (!tier) {
+        return json({ 
+          success: false, 
+          error: "Tier not found" 
+        }, { status: 404 });
+      }
+      
+      if (!shopSettings) {
+        return json({ 
+          success: false, 
+          error: "Shop settings not found. Please configure your shop settings first." 
+        }, { status: 400 });
+      }
+      
       // Generate SKU
       const sku = generateTierSKU(tierName, duration, shop);
       
-      // Create product in Shopify using GraphQL
-      // Step 1: Create the product with default option
+      // Use enhanced manager with transaction support
+      const result = await TierProductManagerEnhanced.createTierProductWithTransaction(
+        admin,
+        {
+          shop,
+          shopSettings,
+          tier,
+          product: {
+            title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
+            description: description || `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
+            price,
+            sku,
+            features
+          },
+          subscriptionOptions: enableSubscription ? {
+            enableMonthly: subscriptionOptions.enableMonthly,
+            enableQuarterly: subscriptionOptions.enableQuarterly, 
+            enableAnnual: subscriptionOptions.enableAnnual,
+            monthlyDiscount: parseFloat(subscriptionOptions.monthlyDiscount || "0"),
+            quarterlyDiscount: parseFloat(subscriptionOptions.quarterlyDiscount || "0"),
+            annualDiscount: parseFloat(subscriptionOptions.annualDiscount || "0")
+          } : undefined,
+          oneTimeDurations: !enableSubscription ? [duration as any] : undefined
+        }
+      );
+      
+      if (!result.success) {
+        return json({ 
+          success: false, 
+          error: result.error 
+        }, { status: 400 });
+      }
+      
+      return json({ 
+        success: true, 
+        message: enableSubscription 
+          ? `Product created with subscription options for ${tierName} tier`
+          : `Product created successfully for ${tierName} tier`,
+        productId: result.shopifyProductId,
+        hasSubscription: enableSubscription
+      });
       const createProductResponse = await admin.graphql(
         `#graphql
         mutation createProduct($input: ProductInput!) {
@@ -1710,104 +1774,16 @@ export default function TierProducts() {
               
               <Divider />
               
-              <BlockStack gap="300">
-                <Text variant="headingSm" as="h3">
-                  Subscription Options
-                </Text>
-                
-                <Checkbox
-                  label="Enable recurring subscription"
-                  checked={enableSubscription}
-                  onChange={setEnableSubscription}
-                  helpText="Allow customers to subscribe for automatic renewal"
-                />
-                
-                {enableSubscription && (
-                  <Box paddingInlineStart="600">
-                    <BlockStack gap="400">
-                      <Text variant="bodyMd" fontWeight="semibold" as="span">
-                        Subscription Billing Options
-                      </Text>
-                      
-                      <BlockStack gap="300">
-                        <InlineStack gap="400" align="space-between">
-                          <Checkbox
-                            label="Monthly billing"
-                            checked={subscriptionOptions.enableMonthly}
-                            onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableMonthly: value})}
-                          />
-                          <div style={{ width: '120px' }}>
-                            <TextField
-                              label=""
-                              type="number"
-                              value={subscriptionOptions.monthlyDiscount}
-                              onChange={(value) => setSubscriptionOptions({...subscriptionOptions, monthlyDiscount: value})}
-                              suffix="% off"
-                              disabled={!subscriptionOptions.enableMonthly}
-                              autoComplete="off"
-                            />
-                          </div>
-                        </InlineStack>
-                        
-                        <InlineStack gap="400" align="space-between">
-                          <Checkbox
-                            label="Quarterly billing (3 months)"
-                            checked={subscriptionOptions.enableQuarterly}
-                            onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableQuarterly: value})}
-                          />
-                          <div style={{ width: '120px' }}>
-                            <TextField
-                              label=""
-                              type="number"
-                              value={subscriptionOptions.quarterlyDiscount}
-                              onChange={(value) => setSubscriptionOptions({...subscriptionOptions, quarterlyDiscount: value})}
-                              suffix="% off"
-                              disabled={!subscriptionOptions.enableQuarterly}
-                              autoComplete="off"
-                            />
-                          </div>
-                        </InlineStack>
-                        
-                        <InlineStack gap="400" align="space-between">
-                          <Checkbox
-                            label="Annual billing (12 months)"
-                            checked={subscriptionOptions.enableAnnual}
-                            onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableAnnual: value})}
-                          />
-                          <div style={{ width: '120px' }}>
-                            <TextField
-                              label=""
-                              type="number"
-                              value={subscriptionOptions.annualDiscount}
-                              onChange={(value) => setSubscriptionOptions({...subscriptionOptions, annualDiscount: value})}
-                              suffix="% off"
-                              disabled={!subscriptionOptions.enableAnnual}
-                              autoComplete="off"
-                            />
-                          </div>
-                        </InlineStack>
-                      </BlockStack>
-                      
-                      <Banner status="info">
-                        <p>
-                          Customers will be able to choose from the enabled billing frequencies:
-                        </p>
-                        <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
-                          {subscriptionOptions.enableMonthly && (
-                            <li>Monthly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * (1 - parseFloat(subscriptionOptions.monthlyDiscount) / 100)).toFixed(2)}/month</li>
-                          )}
-                          {subscriptionOptions.enableQuarterly && (
-                            <li>Quarterly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 3 * (1 - parseFloat(subscriptionOptions.quarterlyDiscount) / 100)).toFixed(2)} every 3 months</li>
-                          )}
-                          {subscriptionOptions.enableAnnual && (
-                            <li>Annual: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 12 * (1 - parseFloat(subscriptionOptions.annualDiscount) / 100)).toFixed(2)}/year</li>
-                          )}
-                        </ul>
-                      </Banner>
-                    </BlockStack>
-                  </Box>
-                )}
-              </BlockStack>
+              <SubscriptionOptionsManager
+                enabled={enableSubscription}
+                onEnabledChange={setEnableSubscription}
+                options={subscriptionOptions as SubscriptionOption}
+                onOptionsChange={setSubscriptionOptions}
+                basePrice={price}
+                currency={data.shopSettings?.storeCurrency || "USD"}
+                showAdvanced={false}
+                compactMode={true}
+              />
               
               <Divider />
               
