@@ -13,6 +13,7 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { SellingPlanManager as SellingPlanManagerEnhanced } from "../subscription/selling-plan-manager-enhanced.server";
+import { ProductPublisher } from "./product-publisher.server";
 import type { 
   TierProduct, 
   Tier, 
@@ -251,6 +252,15 @@ export class TierProductManagerEnhanced {
         handle: product.handle,
         variantId
       });
+
+      // Publish product to online store sales channel using ProductPublisher service
+      const publishResult = await ProductPublisher.ensurePublishedToOnlineStore(admin, product.id);
+      if (!publishResult.success) {
+        console.warn(`${this.SERVICE_PREFIX} Product created but could not automatically publish to online store:`, publishResult.error);
+        // Don't fail the transaction, just warn - the product can be published manually
+      } else {
+        console.log(`${this.SERVICE_PREFIX} Product successfully published to online store`);
+      }
 
       return { success: true };
 
@@ -710,4 +720,5 @@ export class TierProductManagerEnhanced {
       };
     }
   }
+
 }

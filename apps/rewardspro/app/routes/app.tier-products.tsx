@@ -46,6 +46,7 @@ import { TierBadge } from "../components/TierBadge";
 import { getTierStyle } from "../utils/tier-styles";
 import { SellingPlanManagerEnhanced } from "../services/subscription/selling-plan-manager-enhanced.server";
 import { TierProductManagerEnhanced } from "../services/tier-products/tier-product-manager-enhanced.server";
+import { ProductCreatorV2 } from "../services/tier-products/product-creator-v2.server";
 import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
@@ -359,8 +360,103 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Generate SKU
       const sku = generateTierSKU(tierName, duration, shop);
       
-      // Use enhanced manager with transaction support
-      const result = await TierProductManagerEnhanced.createTierProductWithTransaction(
+      // Use V2 creator for better publication support (toggle this flag to switch implementations)
+      const USE_V2_CREATOR = true;
+      
+      if (USE_V2_CREATOR) {
+        // Use the new ProductCreatorV2 with proper productCreate mutation
+        const result = await ProductCreatorV2.createAndPublishProduct(admin, {
+          title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
+          description: description || `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
+          vendor: shop.split('.')[0],
+          productType: "Tier Membership",
+          price: price.toString(),
+          sku,
+          tags: [
+            "tier-membership",
+            tierName.toLowerCase(),
+            duration.toLowerCase(),
+            enableSubscription ? "subscription-enabled" : "one-time"
+          ],
+          status: "ACTIVE",
+          requiresShipping: false,
+          taxable: true
+        });
+        
+        if (!result.success) {
+          return json({ 
+            success: false, 
+            error: result.error || "Failed to create product"
+          }, { status: 400 });
+        }
+        
+        // Store in database if successful
+        if (result.productId && result.variantId) {
+          try {
+            await (db as any).tierProduct.create({
+              data: {
+                id: uuidv4(),
+                shop,
+                tierId,
+                shopifyProductId: result.productId.replace('gid://shopify/Product/', ''),
+                shopifyVariantId: result.variantId.replace('gid://shopify/ProductVariant/', ''),
+                productHandle: result.handle || sku,
+                sku,
+                purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
+                duration: duration as any,
+                hasSubscription: enableSubscription,
+                oneTimePrice: price,
+                monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
+                quarterlyPrice: enableSubscription && duration === "QUARTERLY" ? price : null,
+                annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
+                features: features.length > 0 ? features : null,
+                description,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+            
+            // If subscription is enabled, create selling plans
+            if (enableSubscription && subscriptionOptions) {
+              const sellingPlanResult = await SellingPlanManagerEnhanced.createOrUpdateSellingPlanGroup({
+                shop,
+                admin,
+                name: `${tierName} Tier Subscription`,
+                merchantCode: `TIER_${tierName.toUpperCase()}`,
+                description: `Subscription plans for ${tierName} tier membership`,
+                options: [duration as "MONTHLY" | "QUARTERLY" | "ANNUAL"],
+                products: [result.productId]
+              });
+              
+              if (!sellingPlanResult.success) {
+                console.warn('[TierProducts] Could not create selling plans:', sellingPlanResult.error);
+              }
+            }
+          } catch (dbError) {
+            console.log('[TierProducts] Could not create database record:', dbError);
+          }
+        }
+        
+        // Verify publication status
+        const publicationStatus = await ProductCreatorV2.verifyPublication(admin, result.productId!);
+        
+        return json({ 
+          success: true, 
+          message: publicationStatus.onlineStorePublished 
+            ? `Product created and published to online store for ${tierName} tier`
+            : `Product created successfully for ${tierName} tier (manual publication may be required)`,
+          productId: result.productId,
+          hasSubscription: enableSubscription,
+          publicationStatus: {
+            onlineStore: publicationStatus.onlineStorePublished,
+            totalChannels: publicationStatus.publicationCount
+          }
+        });
+        
+      } else {
+        // Original implementation using enhanced manager
+        const result = await TierProductManagerEnhanced.createTierProductWithTransaction(
         admin,
         {
           shop,
@@ -392,58 +488,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400 });
       }
       
-      return json({ 
-        success: true, 
-        message: enableSubscription 
-          ? `Product created with subscription options for ${tierName} tier`
-          : `Product created successfully for ${tierName} tier`,
-        productId: result.shopifyProductId,
-        hasSubscription: enableSubscription
-      });
-      const createProductResponse = await admin.graphql(
-        `#graphql
-        mutation createProduct($input: ProductInput!) {
-          productCreate(input: $input) {
-            product {
-              id
-              title
-              handle
-              status
-              options {
-                id
-                name
-                position
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }`,
-        {
-          variables: {
-            input: {
-              title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-              descriptionHtml: description || `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
-              productType: "Membership",
-              vendor: shop.split('.')[0],
-              tags: ["tier-membership", tierName.toLowerCase(), duration.toLowerCase()],
-              status: "ACTIVE",
-              productOptions: [
-                {
-                  name: "Title",
-                  values: [{ name: "Default Title" }]
-                }
-              ]
-            }
-          },
-        }
-      );
+        return json({ 
+          success: true, 
+          message: enableSubscription 
+            ? `Product created with subscription options for ${tierName} tier`
+            : `Product created successfully for ${tierName} tier`,
+          productId: result.shopifyProductId,
+          hasSubscription: enableSubscription
+        });
+      }
       
-      const createResult = await createProductResponse.json();
-      
-      if (createResult.data?.productCreate?.userErrors?.length > 0) {
         const errors = createResult.data.productCreate.userErrors.map((e: any) => e.message).join(", ");
         return json({ 
           success: false, 
@@ -732,15 +786,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 hasSubscription: enableSubscription,
               }
             });
-          }
-        }
-      }
-      
-      return json({ 
-        success: false, 
-        error: "Failed to create product" 
-      }, { status: 500 });
-      
     } else if (intent === "update-product") {
       const productId = formData.get("productId") as string;
       const price = parseFloat(formData.get("price") as string);
