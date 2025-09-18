@@ -171,6 +171,7 @@ model Customer {
   subscriptions     TierSubscription[]  // Customer's tier subscriptions
   tierPurchases     TierPurchase[]      // One-time tier purchases
   orders            Order[]              // Customer's order history
+  subscriptionEvents SubscriptionEvent[]  // Subscription event history
   
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -429,10 +430,18 @@ model TierSubscription {
   // Billing
   billingAttempts      SubscriptionBillingAttempt[]
   failedPaymentCount   Int      @default(0)
+  lastPaymentFailure   DateTime?
+  
+  // Dunning & Retry Management
+  pauseReason          String?
+  skipCount            Int      @default(0)
+  lastSkipDate         DateTime?
   
   // Relations to track history
   tierChangeLogs       TierChangeLog[]  // Tier changes related to this subscription
   customerAsCurrent    Customer? @relation("CurrentSubscription")  // Reverse relation for currentSubscriptionId
+  retryAttempts        SubscriptionRetry[]  // Payment retry attempts
+  events               SubscriptionEvent[]  // Subscription events
   
   // Metadata
   metadata             Json?
@@ -654,6 +663,57 @@ model BulkOperationLog {
   createdAt       DateTime  @default(now())
   
   @@index([shop, operationType, createdAt])
+}
+
+// ============================================
+// SUBSCRIPTION MANAGEMENT MODELS
+// ============================================
+
+// Subscription retry tracking for failed payments
+model SubscriptionRetry {
+  id              String        @id @default(uuid())
+  shop            String
+  contractId      String        // Shopify subscription contract ID
+  subscriptionId  String?       // Local TierSubscription ID
+  attemptNumber   Int
+  scheduledFor    DateTime
+  executedAt      DateTime?
+  status          RetryStatus
+  errorCode       String?
+  errorMessage    String?
+  billingAmount   Decimal?      @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  subscription    TierSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  
+  @@index([shop, status])
+  @@index([contractId, status])
+  @@index([scheduledFor])
+  @@index([shop, contractId, attemptNumber])
+}
+
+// Subscription event logging
+model SubscriptionEvent {
+  id              String                @id @default(uuid())
+  shop            String
+  contractId      String                // Shopify subscription contract ID
+  subscriptionId  String?               // Local TierSubscription ID
+  customerId      String?
+  eventType       SubscriptionEventType
+  eventData       Json?                 // Additional event-specific data
+  processedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  
+  // Relations
+  subscription    TierSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  @@index([contractId])
+  @@index([eventType, processedAt])
+  @@index([shop, eventType, createdAt])
+  @@index([customerId, eventType])
 }
 
 // ============================================
@@ -941,4 +1001,30 @@ enum OrderFinancialStatus {
   PARTIALLY_REFUNDED
   REFUNDED
   VOIDED
+}
+
+// ============================================
+// SUBSCRIPTION MANAGEMENT ENUMS
+// ============================================
+
+enum RetryStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum SubscriptionEventType {
+  CREATED
+  ACTIVATED
+  PAUSED
+  RESUMED
+  CANCELLED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PAYMENT_RETRY_SCHEDULED
+  DELIVERY_SKIPPED
+  BILLING_UPDATED
+  PLAN_CHANGED
 }
