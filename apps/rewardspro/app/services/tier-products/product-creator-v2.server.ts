@@ -108,8 +108,6 @@ export class ProductCreatorV2 {
                   id
                   sku
                   price
-                  inventoryPolicy
-                  inventoryManagement
                   requiresShipping
                   taxable
                 }
@@ -256,7 +254,6 @@ export class ProductCreatorV2 {
             id
             sku
             price
-            inventoryPolicy
             requiresShipping
             taxable
           }
@@ -276,7 +273,6 @@ export class ProductCreatorV2 {
             price: price,
             sku: sku,
             inventoryPolicy: "CONTINUE",
-            inventoryManagement: null,
             requiresShipping: options.requiresShipping,
             taxable: options.taxable
           }
