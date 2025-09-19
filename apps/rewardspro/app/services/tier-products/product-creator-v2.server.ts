@@ -133,7 +133,7 @@ export class ProductCreatorV2 {
     config: ProductCreateConfig
   ): Promise<ProductCreateResult> {
     const mutation = `#graphql
-      mutation productCreate($product: ProductCreateInput!, $media: [ProductCreateMediaInput!]) {
+      mutation productCreate($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
         productCreate(product: $product, media: $media) {
           product {
             id
