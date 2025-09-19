@@ -137,10 +137,16 @@ export class ProductCreatorV2 {
       status: config.status || "ACTIVE",
       tags: config.tags || [],
       requiresSellingPlan: false, // Will be set later if subscriptions are enabled
-      productOptions: productOptions.map(option => ({
-        name: option.name,
-        values: option.values.map(value => ({ name: value }))
-      }))
+      variants: [
+        {
+          price: config.price,
+          sku: config.sku,
+          inventoryPolicy: "CONTINUE",
+          inventoryItem: {
+            tracked: false
+          }
+        }
+      ]
     };
 
     // Remove undefined values for cleaner mutation
@@ -189,22 +195,8 @@ export class ProductCreatorV2 {
         };
       }
 
-      // Get the first variant
+      // Get the first variant (should already have price and SKU from creation)
       const variant = product.variants?.edges?.[0]?.node;
-      
-      // Now update the variant with price and SKU using productVariantUpdate
-      if (variant) {
-        const updateResult = await this.updateVariantPriceAndSku(
-          admin,
-          variant.id,
-          config.price,
-          config.sku
-        );
-
-        if (!updateResult.success) {
-          console.warn(`${this.SERVICE_PREFIX} Could not update variant price/SKU:`, updateResult.error);
-        }
-      }
 
       console.log(`${this.SERVICE_PREFIX} Product created successfully:`, {
         id: product.id,
@@ -224,69 +216,6 @@ export class ProductCreatorV2 {
       return {
         success: false,
         error: error instanceof Error ? error.message : "Failed to create product"
-      };
-    }
-  }
-
-  /**
-   * Update variant with price and SKU
-   */
-  private static async updateVariantPriceAndSku(
-    admin: AdminApiContext,
-    variantId: string,
-    price: string,
-    sku: string
-  ): Promise<{ success: boolean; error?: string }> {
-    const mutation = `
-      mutation UpdateVariant($input: ProductVariantInput!) {
-        productVariantUpdate(input: $input) {
-          productVariant {
-            id
-            sku
-            price
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `;
-
-    try {
-      const response = await admin.graphql(mutation, {
-        variables: {
-          input: {
-            id: variantId,
-            price: price,
-            sku: sku,
-            inventoryPolicy: "CONTINUE"
-          }
-        }
-      });
-
-      const data = await response.json() as any;
-
-      if (data.errors) {
-        console.error(`${this.SERVICE_PREFIX} GraphQL errors updating variant:`, data.errors);
-        return { success: false, error: "Failed to update variant" };
-      }
-
-      if (data.data?.productVariantUpdate?.userErrors?.length > 0) {
-        const errors = data.data.productVariantUpdate.userErrors;
-        return {
-          success: false,
-          error: errors.map((e: any) => e.message).join(", ")
-        };
-      }
-
-      return { success: true };
-
-    } catch (error) {
-      console.error(`${this.SERVICE_PREFIX} Error updating variant:`, error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to update variant"
       };
     }
   }

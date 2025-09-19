@@ -406,7 +406,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
 
-        // Prepare product input with proper structure
+        // Prepare product input with proper structure including variant
         const productInput = {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
           descriptionHtml: description ? `<p>${description}</p>` : `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
@@ -420,10 +420,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             enableSubscription ? "subscription-enabled" : "one-time"
           ],
           requiresSellingPlan: enableSubscription,
-          productOptions: [
+          variants: [
             {
-              name: "Title",
-              values: [{ name: "Default Title" }]
+              price: price.toString(),
+              sku,
+              inventoryPolicy: "CONTINUE",
+              inventoryItem: {
+                tracked: false
+              }
             }
           ]
         };
@@ -456,40 +460,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         const variant = product.variants?.edges?.[0]?.node;
 
-        // Update variant with price and SKU
-        if (variant) {
-          const updateVariantMutation = `#graphql
-            mutation productVariantUpdate($input: ProductVariantInput!) {
-              productVariantUpdate(input: $input) {
-                productVariant {
-                  id
-                  sku
-                  price
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-          `;
-
-          const variantResponse = await admin.graphql(updateVariantMutation, {
-            variables: {
-              input: {
-                id: variant.id,
-                price: price.toString(),
-                sku,
-                inventoryPolicy: "CONTINUE"
-              }
-            }
-          });
-
-          const variantResult = await variantResponse.json();
-
-          if (variantResult.data?.productVariantUpdate?.userErrors?.length > 0) {
-            console.warn('[TierProducts] Could not update variant:', variantResult.data.productVariantUpdate.userErrors);
-          }
+        // Variant should already have price and SKU from creation
+        if (!variant) {
+          console.warn('[TierProducts] No variant found on created product');
         }
 
         // Store in database
