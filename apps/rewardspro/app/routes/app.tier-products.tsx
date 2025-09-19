@@ -361,7 +361,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const sku = generateTierSKU(tierName, duration, shop);
       
       // Direct productCreate mutation implementation
-      const USE_DIRECT_MUTATION = true;
+      const USE_DIRECT_MUTATION = false;  // Use ProductCreatorV2 service instead
 
       if (USE_DIRECT_MUTATION) {
         // Use the productCreate mutation directly as per Shopify documentation
@@ -626,6 +626,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       } else {
         // Use the new ProductCreatorV2 with retry logic for reliability
+        console.log(`[TierProducts] Creating product with price: ${price}, SKU: ${sku}`);
         const result = await ProductCreatorV2.createAndPublishProductWithRetry(admin, {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
           description: description || `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,

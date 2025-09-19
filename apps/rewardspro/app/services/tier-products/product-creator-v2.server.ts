@@ -241,6 +241,7 @@ export class ProductCreatorV2 {
 
       // Update variant with price and SKU using productSet
       if (variant && config.price && config.sku) {
+        console.log(`${this.SERVICE_PREFIX} Updating variant with price: ${config.price}, SKU: ${config.sku}`);
         const updateResult = await this.updateVariantPriceAndSku(
           admin,
           product.id,
@@ -251,7 +252,11 @@ export class ProductCreatorV2 {
 
         if (!updateResult.success) {
           console.warn(`${this.SERVICE_PREFIX} Could not update variant price/SKU:`, updateResult.error);
+        } else {
+          console.log(`${this.SERVICE_PREFIX} Successfully updated variant price to: ${config.price}`);
         }
+      } else {
+        console.warn(`${this.SERVICE_PREFIX} Skipping variant update - variant: ${!!variant}, price: ${config.price}, sku: ${config.sku}`);
       }
 
       console.log(`${this.SERVICE_PREFIX} Product created successfully:`, {
@@ -348,7 +353,8 @@ export class ProductCreatorV2 {
         };
       }
 
-      console.log(`${this.SERVICE_PREFIX} Variant updated with price and SKU`);
+      const updatedVariant = data.data?.productSet?.product?.variants?.edges?.[0]?.node;
+      console.log(`${this.SERVICE_PREFIX} Variant updated with price and SKU. New price: ${updatedVariant?.price}`);
       return { success: true };
 
     } catch (error) {
