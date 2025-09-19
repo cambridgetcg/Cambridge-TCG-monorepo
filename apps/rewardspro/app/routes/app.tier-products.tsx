@@ -66,6 +66,7 @@ interface TierProduct {
   price: number;
   duration: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'LIFETIME';
   features: string[];
+  publishedAt?: string | null;
   isActive: boolean;
   hasSubscription?: boolean;
   sellingPlanGroupId?: string;
@@ -209,6 +210,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               status
               tags
               productType
+              publishedAt
               variants(first: 10) {
                 edges {
                   node {
@@ -285,6 +287,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             isActive: product.status === 'ACTIVE',
             hasSubscription,
             sellingPlanGroupId,
+            publishedAt: product.publishedAt,
             createdAt: dbProduct?.createdAt?.toISOString() || new Date().toISOString(),
             updatedAt: dbProduct?.updatedAt?.toISOString() || new Date().toISOString(),
           });
@@ -935,6 +938,137 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         data: syncResult,
       });
       
+    } else if (intent === "publish-product") {
+      const productId = formData.get("productId") as string;
+      const publish = formData.get("publish") === "true";
+
+      console.log(`[TierProducts] ${publish ? 'Publishing' : 'Unpublishing'} product: ${productId}`);
+
+      // First, get the available publications
+      const publicationsQuery = `#graphql
+        query getPublications {
+          publications(first: 10) {
+            edges {
+              node {
+                id
+                name
+                supportsFuturePublishing
+              }
+            }
+          }
+        }
+      `;
+
+      const pubResponse = await admin.graphql(publicationsQuery);
+      const pubData = await pubResponse.json() as any;
+
+      // Find the Online Store publication
+      const onlineStore = pubData.data?.publications?.edges?.find(
+        (edge: any) => edge.node.name === "Online Store"
+      );
+
+      if (!onlineStore) {
+        return json({
+          success: false,
+          error: "Online Store publication not found"
+        }, { status: 404 });
+      }
+
+      if (publish) {
+        // Publish the product
+        const publishMutation = `#graphql
+          mutation productPublish($input: ProductPublishInput!) {
+            productPublish(input: $input) {
+              product {
+                id
+                title
+                publishedOnCurrentPublication
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        const publishResponse = await admin.graphql(publishMutation, {
+          variables: {
+            input: {
+              id: productId,
+              productPublications: [
+                {
+                  publicationId: onlineStore.node.id,
+                  publishDate: new Date().toISOString()
+                }
+              ]
+            }
+          }
+        });
+
+        const publishResult = await publishResponse.json() as any;
+
+        if (publishResult.data?.productPublish?.userErrors?.length > 0) {
+          const errors = publishResult.data.productPublish.userErrors.map((e: any) => e.message).join(", ");
+          return json({
+            success: false,
+            error: `Failed to publish product: ${errors}`
+          }, { status: 400 });
+        }
+
+        return json({
+          success: true,
+          message: "Product published successfully to Online Store",
+          published: true
+        });
+      } else {
+        // Unpublish the product
+        const unpublishMutation = `#graphql
+          mutation productUnpublish($input: ProductUnpublishInput!) {
+            productUnpublish(input: $input) {
+              product {
+                id
+                title
+                publishedOnCurrentPublication
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        const unpublishResponse = await admin.graphql(unpublishMutation, {
+          variables: {
+            input: {
+              id: productId,
+              productPublications: [
+                {
+                  publicationId: onlineStore.node.id
+                }
+              ]
+            }
+          }
+        });
+
+        const unpublishResult = await unpublishResponse.json() as any;
+
+        if (unpublishResult.data?.productUnpublish?.userErrors?.length > 0) {
+          const errors = unpublishResult.data.productUnpublish.userErrors.map((e: any) => e.message).join(", ");
+          return json({
+            success: false,
+            error: `Failed to unpublish product: ${errors}`
+          }, { status: 400 });
+        }
+
+        return json({
+          success: true,
+          message: "Product unpublished from Online Store",
+          published: false
+        });
+      }
+
     } else if (intent === "delete-product") {
       const productId = formData.get("productId") as string;
       
@@ -1504,6 +1638,9 @@ export default function TierProducts() {
                                       <Badge tone={product.isActive ? "success" : "attention"}>
                                         {product.isActive ? "Active" : "Draft"}
                                       </Badge>
+                                      <Badge tone={product.publishedAt ? "success" : "info"}>
+                                        {product.publishedAt ? "Published" : "Unpublished"}
+                                      </Badge>
                                       {product.hasSubscription && (
                                         <Badge tone="info" icon={CalendarIcon}>
                                           Subscription
@@ -1564,27 +1701,43 @@ export default function TierProducts() {
                             <Divider />
                             
                             {/* Action Buttons - Symmetrical */}
-                            <InlineStack gap="200" align="stretch">
-                              <div style={{ flex: 1 }}>
-                                <Button 
-                                  fullWidth
-                                  icon={EditIcon}
-                                  onClick={() => handleEditModalOpen(product)}
-                                >
-                                  Edit
-                                </Button>
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <Button 
-                                  fullWidth
-                                  tone="critical"
-                                  icon={DeleteIcon}
-                                  onClick={() => handleDeleteProduct(product.id)}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </InlineStack>
+                            <BlockStack gap="200">
+                              <InlineStack gap="200" align="stretch">
+                                <div style={{ flex: 1 }}>
+                                  <Button
+                                    fullWidth
+                                    icon={EditIcon}
+                                    onClick={() => handleEditModalOpen(product)}
+                                  >
+                                    Edit
+                                  </Button>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <Button
+                                    fullWidth
+                                    tone="critical"
+                                    icon={DeleteIcon}
+                                    onClick={() => handleDeleteProduct(product.id)}
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
+                              </InlineStack>
+                              <Button
+                                fullWidth
+                                tone={product.publishedAt ? "critical" : "success"}
+                                onClick={() => {
+                                  const formData = new FormData();
+                                  formData.append("intent", "publish-product");
+                                  formData.append("productId", product.id);
+                                  formData.append("publish", product.publishedAt ? "false" : "true");
+                                  submit(formData, { method: "post" });
+                                }}
+                                loading={navigation.state === "submitting" && navigation.formData?.get("productId") === product.id}
+                              >
+                                {product.publishedAt ? "Unpublish Product" : "Publish Product"}
+                              </Button>
+                            </BlockStack>
                           </BlockStack>
                         </Box>
                       </Card>
