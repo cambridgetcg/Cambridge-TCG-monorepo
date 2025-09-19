@@ -453,20 +453,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         const variant = product.variants?.edges?.[0]?.node;
 
-        // Update variant with price and SKU using productSet mutation
+        // Update variant with price and SKU using productSet mutation (best practice from 2025-01)
         if (variant) {
           const updateVariantMutation = `#graphql
-            mutation productSet($input: ProductSetInput!) {
-              productSet(input: $input) {
+            mutation updateProductVariantPricing($input: ProductSetInput!, $synchronous: Boolean!, $identifier: ProductSetIdentifiers) {
+              productSet(synchronous: $synchronous, input: $input, identifier: $identifier) {
                 product {
                   id
-                  variants(first: 1) {
-                    edges {
-                      node {
-                        id
-                        sku
-                        price
-                      }
+                  variants(first: 5) {
+                    nodes {
+                      id
+                      price
+                      compareAtPrice
+                      sku
                     }
                   }
                 }
@@ -478,28 +477,65 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
           `;
 
-          const variantUpdate = await admin.graphql(updateVariantMutation, {
-            variables: {
-              input: {
-                id: product.id,
-                variants: [
-                  {
-                    id: variant.id,
-                    price: price.toString(),
-                    sku: sku,
-                    inventoryPolicy: "CONTINUE"
+          // Retry logic with exponential backoff
+          let updateSuccess = false;
+          let retryCount = 0;
+          const maxRetries = 3;
+
+          while (!updateSuccess && retryCount < maxRetries) {
+            try {
+              const variantUpdate = await admin.graphql(updateVariantMutation, {
+                variables: {
+                  synchronous: true,
+                  identifier: { id: product.id },
+                  input: {
+                    variants: [
+                      {
+                        id: variant.id,
+                        price: price.toString(),
+                        sku: sku,
+                        inventoryPolicy: "CONTINUE"
+                      }
+                    ]
                   }
-                ]
+                }
+              });
+
+              const updateResult = await variantUpdate.json();
+
+              // Handle both userErrors and GraphQL errors as per best practice
+              if (updateResult.errors?.length > 0) {
+                const errors = updateResult.errors.map((e: any) => e.message).join(', ');
+                throw new Error(`GraphQL Errors: ${errors}`);
+              }
+
+              if (updateResult.data?.productSet?.userErrors?.length > 0) {
+                const errors = updateResult.data.productSet.userErrors.map((e: any) =>
+                  `${e.field}: ${e.message}`
+                ).join(', ');
+                console.warn('[TierProducts] User errors updating variant:', errors);
+
+                // Don't retry on validation errors
+                if (errors.includes('invalid') || errors.includes('required')) {
+                  break;
+                }
+                throw new Error(`GraphQL User Errors: ${errors}`);
+              }
+
+              console.log('[TierProducts] Variant updated successfully with price and SKU');
+              updateSuccess = true;
+
+            } catch (error) {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                // Exponential backoff with jitter
+                const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 30000) + Math.random() * 1000;
+                console.log(`[TierProducts] Retrying variant update (attempt ${retryCount + 1}/${maxRetries}) after ${delay}ms`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+              } else {
+                console.error('[TierProducts] Failed to update variant after retries:', error);
               }
             }
-          });
-
-          const updateResult = await variantUpdate.json();
-
-          if (updateResult.data?.productSet?.userErrors?.length > 0) {
-            console.warn('[TierProducts] Could not update variant:', updateResult.data.productSet.userErrors);
-          } else {
-            console.log('[TierProducts] Variant updated with price and SKU');
           }
         } else {
           console.warn('[TierProducts] No variant found on created product');

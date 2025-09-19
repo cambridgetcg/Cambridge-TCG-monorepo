@@ -286,8 +286,9 @@ export class ProductCreatorV2 {
   }
 
   /**
-   * Update variant with price and SKU using productVariantsBulkUpdate
-   * According to Shopify docs, this is the preferred method for updating variant prices
+   * Update variant with price and SKU using productSet mutation
+   * According to Shopify 2025-01 docs, productSet is the preferred method for price updates
+   * productVariantUpdate was deprecated in 2024-10 and removed in 2025-01
    */
   private static async updateVariantPriceAndSku(
     admin: AdminApiContext,
@@ -304,16 +305,21 @@ export class ProductCreatorV2 {
       console.error(`${this.SERVICE_PREFIX} Invalid variant ID format: ${variantId}`);
     }
 
-    // Use productVariantsBulkUpdate for updating variant price and SKU
+    // Use productSet for updating variant price and SKU (best practice from 2025-01)
     const mutation = `#graphql
-      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-          productVariants {
+      mutation updateProductVariantPricing($input: ProductSetInput!, $synchronous: Boolean!, $identifier: ProductSetIdentifiers) {
+        productSet(synchronous: $synchronous, input: $input, identifier: $identifier) {
+          product {
             id
-            sku
-            price
-            inventoryPolicy
-            inventoryQuantity
+            variants(first: 5) {
+              nodes {
+                id
+                price
+                compareAtPrice
+                sku
+                inventoryPolicy
+              }
+            }
           }
           userErrors {
             field
@@ -323,60 +329,111 @@ export class ProductCreatorV2 {
       }
     `;
 
-    try {
-      console.log(`${this.SERVICE_PREFIX} Updating variant ${variantId} with price: ${price}, SKU: ${sku}`);
+    // Implement retry logic with exponential backoff
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      const response = await admin.graphql(mutation, {
-        variables: {
-          productId: productId,
-          variants: [
-            {
-              id: variantId,
-              price: price,
-              sku: sku,
-              inventoryPolicy: "CONTINUE",
-              inventoryQuantity: {
-                availableQuantity: 999999  // Unlimited inventory for tier products
-              }
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`${this.SERVICE_PREFIX} Updating variant ${variantId} with price: ${price}, SKU: ${sku}`);
+
+        const response = await admin.graphql(mutation, {
+          variables: {
+            synchronous: true,
+            identifier: { id: productId },
+            input: {
+              variants: [
+                {
+                  id: variantId,
+                  price: price,
+                  sku: sku,
+                  inventoryPolicy: "CONTINUE"
+                }
+              ]
             }
-          ]
+          }
+        });
+
+        const data = await response.json() as any;
+
+        // Handle GraphQL errors first
+        if (data.errors?.length > 0) {
+          const errorMsg = data.errors.map((e: any) => e.message).join(', ');
+          console.error(`${this.SERVICE_PREFIX} GraphQL errors updating variant:`, errorMsg);
+
+          // Check if it's a rate limit error (retryable)
+          if (errorMsg.toLowerCase().includes('throttled') || errorMsg.toLowerCase().includes('rate')) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              // Exponential backoff with jitter
+              const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 30000) + Math.random() * 1000;
+              console.log(`${this.SERVICE_PREFIX} Rate limited. Retrying (attempt ${retryCount + 1}/${maxRetries}) after ${delay}ms`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+
+          return { success: false, error: errorMsg };
         }
-      });
 
-      const data = await response.json() as any;
+        // Handle user errors
+        if (data.data?.productSet?.userErrors?.length > 0) {
+          const errors = data.data.productSet.userErrors;
+          const errorMsg = errors.map((e: any) => `${e.field}: ${e.message}`).join(", ");
+          console.error(`${this.SERVICE_PREFIX} User errors updating variant:`, errorMsg);
 
-      if (data.errors) {
-        console.error(`${this.SERVICE_PREFIX} GraphQL errors updating variant:`, data.errors);
-        return { success: false, error: "Failed to update variant" };
-      }
+          // Don't retry on validation errors
+          if (errorMsg.includes('invalid') || errorMsg.includes('required') || errorMsg.includes('not found')) {
+            return { success: false, error: errorMsg };
+          }
 
-      if (data.data?.productVariantsBulkUpdate?.userErrors?.length > 0) {
-        const errors = data.data.productVariantsBulkUpdate.userErrors;
-        console.error(`${this.SERVICE_PREFIX} User errors updating variant:`, errors);
-        return {
-          success: false,
-          error: errors.map((e: any) => `${e.field}: ${e.message}`).join(", ")
-        };
-      }
+          // Retry on transient errors
+          retryCount++;
+          if (retryCount < maxRetries) {
+            const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 30000) + Math.random() * 1000;
+            console.log(`${this.SERVICE_PREFIX} Transient error. Retrying (attempt ${retryCount + 1}/${maxRetries}) after ${delay}ms`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
 
-      const updatedVariants = data.data?.productVariantsBulkUpdate?.productVariants;
-      if (updatedVariants && updatedVariants.length > 0) {
-        console.log(`${this.SERVICE_PREFIX} Variant updated successfully. New price: ${updatedVariants[0].price}, SKU: ${updatedVariants[0].sku}`);
+          return { success: false, error: errorMsg };
+        }
+
+        // Success case - verify the variant was updated
+        const updatedVariants = data.data?.productSet?.product?.variants?.nodes;
+        if (updatedVariants && updatedVariants.length > 0) {
+          const updatedVariant = updatedVariants.find((v: any) => v.id === variantId);
+          if (updatedVariant) {
+            console.log(`${this.SERVICE_PREFIX} Variant updated successfully. New price: ${updatedVariant.price}, SKU: ${updatedVariant.sku}`);
+            return { success: true };
+          }
+        }
+
+        console.log(`${this.SERVICE_PREFIX} Variant update completed`);
         return { success: true };
+
+      } catch (error) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          // Network or other transient errors - retry with backoff
+          const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 30000) + Math.random() * 1000;
+          console.error(`${this.SERVICE_PREFIX} Error updating variant (attempt ${retryCount}/${maxRetries}):`, error);
+          console.log(`${this.SERVICE_PREFIX} Retrying after ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.error(`${this.SERVICE_PREFIX} Failed to update variant after ${maxRetries} attempts:`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed to update variant"
+          };
+        }
       }
-
-      return {
-        success: false,
-        error: "No variants returned from update"
-      };
-
-    } catch (error) {
-      console.error(`${this.SERVICE_PREFIX} Error updating variant:`, error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to update variant"
-      };
     }
+
+    return {
+      success: false,
+      error: "Failed to update variant after all retries"
+    };
   }
 
   /**
