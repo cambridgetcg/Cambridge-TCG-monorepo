@@ -705,51 +705,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             totalChannels: publicationStatus.publicationCount
           }
         });
-        
-      } else {
-        // Original implementation using enhanced manager
-        const result = await TierProductManagerEnhanced.createTierProductWithTransaction(
-        admin,
-        {
-          shop,
-          shopSettings,
-          tier,
-          product: {
-            title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-            description: description || `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
-            price,
-            sku,
-            features
-          },
-          subscriptionOptions: enableSubscription ? {
-            enableMonthly: subscriptionOptions.enableMonthly,
-            enableQuarterly: subscriptionOptions.enableQuarterly, 
-            enableAnnual: subscriptionOptions.enableAnnual,
-            monthlyDiscount: parseFloat(subscriptionOptions.monthlyDiscount || "0"),
-            quarterlyDiscount: parseFloat(subscriptionOptions.quarterlyDiscount || "0"),
-            annualDiscount: parseFloat(subscriptionOptions.annualDiscount || "0")
-          } : undefined,
-          oneTimeDurations: !enableSubscription ? [duration as any] : undefined
-        }
-      );
-      
-      if (!result.success) {
-        return json({ 
-          success: false, 
-          error: result.error 
-        }, { status: 400 });
       }
-      
-        return json({ 
-          success: true, 
-          message: enableSubscription 
-            ? `Product created with subscription options for ${tierName} tier`
-            : `Product created successfully for ${tierName} tier`,
-          productId: result.shopifyProductId,
-          hasSubscription: enableSubscription
-        });
-      }
-      
     } else if (intent === "update-product") {
       const productId = formData.get("productId") as string;
       const price = parseFloat(formData.get("price") as string);
