@@ -346,8 +346,8 @@ export class ProductCreatorV2 {
                 {
                   id: variantId,
                   price: price,
-                  sku: sku,
-                  inventoryPolicy: "CONTINUE"
+                  sku: sku
+                  // Note: inventoryPolicy removed - not valid at variant level in productSet
                 }
               ]
             }

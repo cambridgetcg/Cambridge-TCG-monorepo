@@ -493,8 +493,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                       {
                         id: variant.id,
                         price: price.toString(),
-                        sku: sku,
-                        inventoryPolicy: "CONTINUE"
+                        sku: sku
+                        // Note: inventoryPolicy removed - not valid at variant level in productSet
                       }
                     ]
                   }
@@ -862,8 +862,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   variants: [{
                     id: variant.id,
                     price: price.toString(),
-                    sku: variant.sku || updatedSku,  // Keep existing SKU or use new one
-                    inventoryPolicy: "CONTINUE"
+                    sku: variant.sku || updatedSku  // Keep existing SKU or use new one
+                    // Note: inventoryPolicy removed - not valid at variant level in productSet
                   }]
                 }
               }
