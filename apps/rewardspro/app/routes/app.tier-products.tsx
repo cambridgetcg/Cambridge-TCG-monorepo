@@ -406,7 +406,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
 
-        // Prepare product input with proper structure including variant
+        // Prepare product input with proper structure
         const productInput = {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
           descriptionHtml: description ? `<p>${description}</p>` : `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
@@ -419,17 +419,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             duration.toLowerCase(),
             enableSubscription ? "subscription-enabled" : "one-time"
           ],
-          requiresSellingPlan: enableSubscription,
-          variants: [
-            {
-              price: price.toString(),
-              sku,
-              inventoryPolicy: "CONTINUE",
-              inventoryItem: {
-                tracked: false
-              }
-            }
-          ]
+          requiresSellingPlan: enableSubscription
         };
 
         // Create the product
@@ -460,8 +450,55 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         const variant = product.variants?.edges?.[0]?.node;
 
-        // Variant should already have price and SKU from creation
-        if (!variant) {
+        // Update variant with price and SKU using productSet mutation
+        if (variant) {
+          const updateVariantMutation = `#graphql
+            mutation productSet($input: ProductSetInput!) {
+              productSet(input: $input) {
+                product {
+                  id
+                  variants(first: 1) {
+                    edges {
+                      node {
+                        id
+                        sku
+                        price
+                      }
+                    }
+                  }
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `;
+
+          const variantUpdate = await admin.graphql(updateVariantMutation, {
+            variables: {
+              input: {
+                id: product.id,
+                variants: [
+                  {
+                    id: variant.id,
+                    price: price.toString(),
+                    sku: sku,
+                    inventoryPolicy: "CONTINUE"
+                  }
+                ]
+              }
+            }
+          });
+
+          const updateResult = await variantUpdate.json();
+
+          if (updateResult.data?.productSet?.userErrors?.length > 0) {
+            console.warn('[TierProducts] Could not update variant:', updateResult.data.productSet.userErrors);
+          } else {
+            console.log('[TierProducts] Variant updated with price and SKU');
+          }
+        } else {
           console.warn('[TierProducts] No variant found on created product');
         }
 

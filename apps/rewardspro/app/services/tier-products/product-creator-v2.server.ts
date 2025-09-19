@@ -136,17 +136,7 @@ export class ProductCreatorV2 {
       productType: config.productType || "Tier Membership",
       status: config.status || "ACTIVE",
       tags: config.tags || [],
-      requiresSellingPlan: false, // Will be set later if subscriptions are enabled
-      variants: [
-        {
-          price: config.price,
-          sku: config.sku,
-          inventoryPolicy: "CONTINUE",
-          inventoryItem: {
-            tracked: false
-          }
-        }
-      ]
+      requiresSellingPlan: false // Will be set later if subscriptions are enabled
     };
 
     // Remove undefined values for cleaner mutation
@@ -195,8 +185,23 @@ export class ProductCreatorV2 {
         };
       }
 
-      // Get the first variant (should already have price and SKU from creation)
+      // Get the first variant
       const variant = product.variants?.edges?.[0]?.node;
+
+      // Update variant with price and SKU using productSet
+      if (variant && config.price && config.sku) {
+        const updateResult = await this.updateVariantPriceAndSku(
+          admin,
+          product.id,
+          variant.id,
+          config.price,
+          config.sku
+        );
+
+        if (!updateResult.success) {
+          console.warn(`${this.SERVICE_PREFIX} Could not update variant price/SKU:`, updateResult.error);
+        }
+      }
 
       console.log(`${this.SERVICE_PREFIX} Product created successfully:`, {
         id: product.id,
@@ -216,6 +221,83 @@ export class ProductCreatorV2 {
       return {
         success: false,
         error: error instanceof Error ? error.message : "Failed to create product"
+      };
+    }
+  }
+
+  /**
+   * Update variant with price and SKU using productSet
+   */
+  private static async updateVariantPriceAndSku(
+    admin: AdminApiContext,
+    productId: string,
+    variantId: string,
+    price: string,
+    sku: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const mutation = `#graphql
+      mutation productSet($input: ProductSetInput!) {
+        productSet(input: $input) {
+          product {
+            id
+            variants(first: 1) {
+              edges {
+                node {
+                  id
+                  sku
+                  price
+                }
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    try {
+      const response = await admin.graphql(mutation, {
+        variables: {
+          input: {
+            id: productId,
+            variants: [
+              {
+                id: variantId,
+                price: price,
+                sku: sku,
+                inventoryPolicy: "CONTINUE"
+              }
+            ]
+          }
+        }
+      });
+
+      const data = await response.json() as any;
+
+      if (data.errors) {
+        console.error(`${this.SERVICE_PREFIX} GraphQL errors updating variant:`, data.errors);
+        return { success: false, error: "Failed to update variant" };
+      }
+
+      if (data.data?.productSet?.userErrors?.length > 0) {
+        const errors = data.data.productSet.userErrors;
+        return {
+          success: false,
+          error: errors.map((e: any) => e.message).join(", ")
+        };
+      }
+
+      console.log(`${this.SERVICE_PREFIX} Variant updated with price and SKU`);
+      return { success: true };
+
+    } catch (error) {
+      console.error(`${this.SERVICE_PREFIX} Error updating variant:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update variant"
       };
     }
   }
