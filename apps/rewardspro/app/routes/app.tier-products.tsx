@@ -642,12 +642,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           status: "ACTIVE",
           requiresShipping: false,
           taxable: true
-        });
+        }, 3); // Max 3 retries with exponential backoff
         
         if (!result.success) {
-          return json({ 
-            success: false, 
-            error: result.error || "Failed to create product"
+          // Provide more detailed error messages for common issues
+          let errorMessage = result.error || "Failed to create product";
+
+          // Check for specific GraphQL errors and provide helpful messages
+          if (errorMessage.includes("already exists")) {
+            errorMessage = "A product with this SKU already exists. Please use a different tier or duration.";
+          } else if (errorMessage.includes("invalid")) {
+            errorMessage = "Invalid product data. Please check your inputs and try again.";
+          } else if (errorMessage.includes("permission")) {
+            errorMessage = "Your app doesn't have permission to create products. Please reinstall the app.";
+          }
+
+          return json({
+            success: false,
+            error: errorMessage
           }, { status: 400 });
         }
         
@@ -1194,10 +1206,31 @@ export default function TierProducts() {
   
   // Handle create product
   const handleCreateProduct = useCallback(() => {
-    if (!selectedTier || !price) {
+    // Validate inputs
+    if (!selectedTier) {
       setToast({
         active: true,
-        content: "Please select a tier and enter a price",
+        content: "Please select a tier for this membership product",
+        error: true,
+      });
+      return;
+    }
+
+    if (!price || parseFloat(price) <= 0) {
+      setToast({
+        active: true,
+        content: "Please enter a valid price greater than 0",
+        error: true,
+      });
+      return;
+    }
+
+    // Validate price format (max 2 decimal places)
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum !== Math.round(priceNum * 100) / 100) {
+      setToast({
+        active: true,
+        content: "Price must be a valid number with up to 2 decimal places",
         error: true,
       });
       return;
@@ -1267,13 +1300,28 @@ export default function TierProducts() {
   // Handle action response
   useEffect(() => {
     if (actionData) {
+      // Construct appropriate toast message
+      let toastContent = '';
+      let toastError = false;
+
+      if ('message' in actionData) {
+        toastContent = actionData.message;
+        toastError = !actionData.success;
+      } else if (actionData.success) {
+        toastContent = "Product created successfully! The product is now available in your Shopify admin.";
+        toastError = false;
+        // Reload data on success
+        setTimeout(() => revalidate(), 1000);
+      } else {
+        toastContent = actionData.error || "Operation failed. Please try again.";
+        toastError = true;
+      }
+
       setToast({
         active: true,
-        content: 'message' in actionData ? actionData.message : (actionData.success ? "Operation successful" : actionData.error || "Operation failed"),
-        error: !actionData.success,
+        content: toastContent,
+        error: toastError,
       });
-      
-      // Product created successfully
     }
   }, [actionData, revalidate]);
   
@@ -1326,6 +1374,22 @@ export default function TierProducts() {
         ]}
       >
         <Layout>
+          {/* Loading State Banner */}
+          {isLoading && (
+            <Layout.Section>
+              <Banner tone="info">
+                <InlineStack gap="400" align="start">
+                  <Spinner size="small" />
+                  <Text as="span">
+                    {navigation.formData?.get("intent") === "create-product"
+                      ? "Creating product in Shopify... This may take a few seconds."
+                      : "Processing your request..."}
+                  </Text>
+                </InlineStack>
+              </Banner>
+            </Layout.Section>
+          )}
+
           {/* Information Banner */}
           <Layout.Section>
             <Banner
