@@ -433,6 +433,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Update variant with price and SKU using productSet mutation (best practice from 2025-01)
         if (variant) {
+          // First, fetch the product's existing options (required for productSet)
+          const getOptionsQuery = `#graphql
+            query getProductOptions($id: ID!) {
+              product(id: $id) {
+                options {
+                  id
+                  name
+                  position
+                  values
+                }
+              }
+            }
+          `;
+
+          const optionsResponse = await admin.graphql(getOptionsQuery, {
+            variables: { id: product.id }
+          });
+
+          const optionsResult = await optionsResponse.json();
+          const productOptions = optionsResult.data?.product?.options || [
+            { name: "Title", values: ["Default Title"] }
+          ];
+
+          // Build optionValues array for the variant
+          const optionValues = productOptions.map((option: any) => ({
+            optionName: option.name,
+            name: option.values?.[0] || "Default Title"
+          }));
+
           const updateVariantMutation = `#graphql
             mutation updateProductVariantPricing($input: ProductSetInput!, $synchronous: Boolean!, $identifier: ProductSetIdentifiers) {
               productSet(synchronous: $synchronous, input: $input, identifier: $identifier) {
@@ -467,12 +496,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   synchronous: true,
                   identifier: { id: product.id },
                   input: {
+                    // Include productOptions at the product level
+                    productOptions: productOptions.map((opt: any) => ({
+                      name: opt.name,
+                      values: opt.values?.map((v: string) => ({ name: v })) || [{ name: "Default Title" }]
+                    })),
                     variants: [
                       {
                         id: variant.id,
                         price: price.toString(),
-                        sku: sku
-                        // Note: inventoryPolicy removed - not valid at variant level in productSet
+                        sku: sku,
+                        taxable: true,
+                        // Include optionValues to match product options
+                        optionValues: optionValues
                       }
                     ]
                   }
@@ -810,6 +846,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Generate new SKU for the updated product
           const updatedSku = generateTierSKU(tierName, duration, shop);
 
+          // Fetch product options first (required for productSet)
+          const getOptionsResponse = await admin.graphql(
+            `#graphql
+            query getProductOptions($id: ID!) {
+              product(id: $id) {
+                options {
+                  id
+                  name
+                  position
+                  values
+                }
+              }
+            }`,
+            { variables: { id: productId } }
+          );
+
+          const optionsResult = await getOptionsResponse.json();
+          const productOptions = optionsResult.data?.product?.options || [
+            { name: "Title", values: ["Default Title"] }
+          ];
+
+          // Build optionValues array for the variant
+          const optionValues = productOptions.map((option: any) => ({
+            optionName: option.name,
+            name: option.values?.[0] || "Default Title"
+          }));
+
           // Update variant price and SKU using productSet
           const updateVariantResponse = await admin.graphql(
             `#graphql
@@ -837,11 +900,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               variables: {
                 input: {
                   id: productId,
+                  // Include productOptions at the product level
+                  productOptions: productOptions.map((opt: any) => ({
+                    name: opt.name,
+                    values: opt.values?.map((v: string) => ({ name: v })) || [{ name: "Default Title" }]
+                  })),
                   variants: [{
                     id: variant.id,
                     price: price.toString(),
-                    sku: variant.sku || updatedSku  // Keep existing SKU or use new one
-                    // Note: inventoryPolicy removed - not valid at variant level in productSet
+                    sku: variant.sku || updatedSku,  // Keep existing SKU or use new one
+                    taxable: true,
+                    // Include optionValues to match product options
+                    optionValues: optionValues
                   }]
                 }
               }

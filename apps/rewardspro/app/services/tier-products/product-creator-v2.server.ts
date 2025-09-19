@@ -305,6 +305,58 @@ export class ProductCreatorV2 {
       console.error(`${this.SERVICE_PREFIX} Invalid variant ID format: ${variantId}`);
     }
 
+    // First, fetch the product's current options and variant option values
+    const getProductQuery = `#graphql
+      query getProduct($id: ID!) {
+        product(id: $id) {
+          id
+          productOptions {
+            name
+            values
+          }
+          variants(first: 5) {
+            nodes {
+              id
+              optionValues {
+                name
+                optionName
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    let productOptions: any[] = [];
+    let optionValues: any[] = [];
+
+    try {
+      const productResponse = await admin.graphql(getProductQuery, {
+        variables: { id: productId }
+      });
+
+      const productData = await productResponse.json() as any;
+
+      if (productData.data?.product) {
+        productOptions = productData.data.product.productOptions || [];
+
+        // Find the option values for the specific variant
+        const variants = productData.data.product.variants?.nodes || [];
+        const targetVariant = variants.find((v: any) => v.id === variantId);
+
+        if (targetVariant?.optionValues) {
+          optionValues = targetVariant.optionValues;
+        } else if (productOptions.length === 0) {
+          // If no options exist, use default
+          optionValues = [{ optionName: "Title", name: "Default Title" }];
+        }
+      }
+    } catch (error) {
+      console.error(`${this.SERVICE_PREFIX} Error fetching product options:`, error);
+      // Continue with default values
+      optionValues = [{ optionName: "Title", name: "Default Title" }];
+    }
+
     // Use productSet for updating variant price and SKU (best practice from 2025-01)
     const mutation = `#graphql
       mutation updateProductVariantPricing($input: ProductSetInput!, $synchronous: Boolean!, $identifier: ProductSetIdentifiers) {
@@ -342,11 +394,17 @@ export class ProductCreatorV2 {
             synchronous: true,
             identifier: { id: productId },
             input: {
+              productOptions: productOptions.map((opt: any) => ({
+                name: opt.name,
+                values: opt.values?.map((v: string) => ({ name: v })) || [{ name: "Default Title" }]
+              })),
               variants: [
                 {
                   id: variantId,
                   price: price,
-                  sku: sku
+                  sku: sku,
+                  taxable: true,
+                  optionValues: optionValues
                   // Note: inventoryPolicy removed - not valid at variant level in productSet
                 }
               ]
