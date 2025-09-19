@@ -159,6 +159,8 @@ export class ProductCreatorV2 {
                   id
                   sku
                   price
+                  inventoryPolicy
+                  inventoryQuantity
                 }
               }
             }
@@ -171,15 +173,8 @@ export class ProductCreatorV2 {
       }
     `;
 
-    // Prepare product options with proper structure
-    const productOptions = config.options || [
-      {
-        name: "Title",
-        values: ["Default Title"]
-      }
-    ];
-
     // Build the product input according to Shopify's ProductCreateInput spec
+    // Include the initial variant data directly in the product creation
     const productInput: any = {
       title: config.title,
       descriptionHtml: config.description ? `<p>${config.description}</p>` : undefined,
@@ -187,7 +182,12 @@ export class ProductCreatorV2 {
       productType: config.productType || "Tier Membership",
       status: config.status || "ACTIVE",
       tags: config.tags || [],
-      requiresSellingPlan: false // Will be set later if subscriptions are enabled
+      requiresSellingPlan: config.requiresShipping === false ? false : undefined,
+      // Product options for creating variants (if needed)
+      productOptions: config.options ? config.options.map(opt => ({
+        name: opt.name,
+        values: opt.values.map(v => ({ name: v }))
+      })) : undefined
     };
 
     // Remove undefined values for cleaner mutation
@@ -198,8 +198,12 @@ export class ProductCreatorV2 {
     });
 
     try {
-      console.log(`${this.SERVICE_PREFIX} Creating product with title:`, config.title);
-      console.log(`${this.SERVICE_PREFIX} Product options:`, JSON.stringify(productOptions, null, 2));
+      console.log(`${this.SERVICE_PREFIX} Creating product:`, {
+        title: config.title,
+        price: config.price,
+        sku: config.sku,
+        status: productInput.status
+      });
 
       const response = await admin.graphql(mutation, {
         variables: {
@@ -282,7 +286,8 @@ export class ProductCreatorV2 {
   }
 
   /**
-   * Update variant with price and SKU using productSet
+   * Update variant with price and SKU using productVariantsBulkUpdate
+   * According to Shopify docs, this is the preferred method for updating variant prices
    */
   private static async updateVariantPriceAndSku(
     admin: AdminApiContext,
@@ -298,20 +303,17 @@ export class ProductCreatorV2 {
     if (!this.isValidGID(variantId, 'ProductVariant')) {
       console.error(`${this.SERVICE_PREFIX} Invalid variant ID format: ${variantId}`);
     }
+
+    // Use productVariantsBulkUpdate for updating variant price and SKU
     const mutation = `#graphql
-      mutation productSet($input: ProductSetInput!) {
-        productSet(synchronous: true, input: $input) {
-          product {
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
             id
-            variants(first: 1) {
-              edges {
-                node {
-                  id
-                  sku
-                  price
-                }
-              }
-            }
+            sku
+            price
+            inventoryPolicy
+            inventoryQuantity
           }
           userErrors {
             field
@@ -322,19 +324,22 @@ export class ProductCreatorV2 {
     `;
 
     try {
+      console.log(`${this.SERVICE_PREFIX} Updating variant ${variantId} with price: ${price}, SKU: ${sku}`);
+
       const response = await admin.graphql(mutation, {
         variables: {
-          input: {
-            id: productId,
-            variants: [
-              {
-                id: variantId,
-                price: price,
-                sku: sku,
-                inventoryPolicy: "CONTINUE"
+          productId: productId,
+          variants: [
+            {
+              id: variantId,
+              price: price,
+              sku: sku,
+              inventoryPolicy: "CONTINUE",
+              inventoryQuantity: {
+                availableQuantity: 999999  // Unlimited inventory for tier products
               }
-            ]
-          }
+            }
+          ]
         }
       });
 
@@ -345,17 +350,25 @@ export class ProductCreatorV2 {
         return { success: false, error: "Failed to update variant" };
       }
 
-      if (data.data?.productSet?.userErrors?.length > 0) {
-        const errors = data.data.productSet.userErrors;
+      if (data.data?.productVariantsBulkUpdate?.userErrors?.length > 0) {
+        const errors = data.data.productVariantsBulkUpdate.userErrors;
+        console.error(`${this.SERVICE_PREFIX} User errors updating variant:`, errors);
         return {
           success: false,
-          error: errors.map((e: any) => e.message).join(", ")
+          error: errors.map((e: any) => `${e.field}: ${e.message}`).join(", ")
         };
       }
 
-      const updatedVariant = data.data?.productSet?.product?.variants?.edges?.[0]?.node;
-      console.log(`${this.SERVICE_PREFIX} Variant updated with price and SKU. New price: ${updatedVariant?.price}`);
-      return { success: true };
+      const updatedVariants = data.data?.productVariantsBulkUpdate?.productVariants;
+      if (updatedVariants && updatedVariants.length > 0) {
+        console.log(`${this.SERVICE_PREFIX} Variant updated successfully. New price: ${updatedVariants[0].price}, SKU: ${updatedVariants[0].sku}`);
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        error: "No variants returned from update"
+      };
 
     } catch (error) {
       console.error(`${this.SERVICE_PREFIX} Error updating variant:`, error);
