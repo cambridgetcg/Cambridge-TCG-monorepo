@@ -81,8 +81,8 @@ export class ProductCreatorV2 {
     admin: AdminApiContext,
     config: ProductCreateConfig
   ): Promise<ProductCreateResult> {
-    const mutation = `
-      mutation CreateTierProduct($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
+    const mutation = `#graphql
+      mutation productCreate($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
         productCreate(product: $product, media: $media) {
           product {
             id
@@ -108,8 +108,6 @@ export class ProductCreatorV2 {
                   id
                   sku
                   price
-                  requiresShipping
-                  taxable
                 }
               }
             }
@@ -123,7 +121,7 @@ export class ProductCreatorV2 {
       }
     `;
 
-    // Prepare product options
+    // Prepare product options with proper structure
     const productOptions = config.options || [
       {
         name: "Title",
@@ -131,7 +129,7 @@ export class ProductCreatorV2 {
       }
     ];
 
-    // Prepare the product input
+    // Build the product input according to Shopify's ProductCreateInput spec
     const productInput: any = {
       title: config.title,
       descriptionHtml: config.description ? `<p>${config.description}</p>` : undefined,
@@ -146,7 +144,7 @@ export class ProductCreatorV2 {
       }))
     };
 
-    // Remove undefined values
+    // Remove undefined values for cleaner mutation
     Object.keys(productInput).forEach(key => {
       if (productInput[key] === undefined) {
         delete productInput[key];
@@ -155,15 +153,16 @@ export class ProductCreatorV2 {
 
     try {
       console.log(`${this.SERVICE_PREFIX} Creating product with title:`, config.title);
-      
+      console.log(`${this.SERVICE_PREFIX} Product options:`, JSON.stringify(productOptions, null, 2));
+
       const response = await admin.graphql(mutation, {
         variables: {
           product: productInput,
-          media: [] // Add media support if needed later
+          media: [] // Empty array if no media is provided
         }
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       // Check for errors
       if (data.errors) {
@@ -200,11 +199,7 @@ export class ProductCreatorV2 {
           admin,
           variant.id,
           config.price,
-          config.sku,
-          {
-            requiresShipping: config.requiresShipping ?? false,
-            taxable: config.taxable ?? true
-          }
+          config.sku
         );
 
         if (!updateResult.success) {
@@ -241,11 +236,7 @@ export class ProductCreatorV2 {
     admin: AdminApiContext,
     variantId: string,
     price: string,
-    sku: string,
-    options: {
-      requiresShipping?: boolean;
-      taxable?: boolean;
-    } = {}
+    sku: string
   ): Promise<{ success: boolean; error?: string }> {
     const mutation = `
       mutation UpdateVariant($input: ProductVariantInput!) {
@@ -254,8 +245,6 @@ export class ProductCreatorV2 {
             id
             sku
             price
-            requiresShipping
-            taxable
           }
           userErrors {
             field
@@ -272,14 +261,12 @@ export class ProductCreatorV2 {
             id: variantId,
             price: price,
             sku: sku,
-            inventoryPolicy: "CONTINUE",
-            requiresShipping: options.requiresShipping,
-            taxable: options.taxable
+            inventoryPolicy: "CONTINUE"
           }
         }
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (data.errors) {
         console.error(`${this.SERVICE_PREFIX} GraphQL errors updating variant:`, data.errors);
@@ -332,7 +319,7 @@ export class ProductCreatorV2 {
       `;
 
       const pubResponse = await admin.graphql(publicationsQuery);
-      const pubData = await pubResponse.json();
+      const pubData = await pubResponse.json() as any;
 
       if (pubData.errors) {
         console.error(`${this.SERVICE_PREFIX} Error fetching publications:`, pubData.errors);
@@ -384,7 +371,7 @@ export class ProductCreatorV2 {
         }
       });
 
-      const publishData = await publishResponse.json();
+      const publishData = await publishResponse.json() as any;
 
       if (publishData.errors) {
         console.error(`${this.SERVICE_PREFIX} GraphQL errors publishing:`, publishData.errors);
@@ -446,8 +433,8 @@ export class ProductCreatorV2 {
         variables: { id: productId }
       });
 
-      const data = await response.json();
-      
+      const data = await response.json() as any;
+
       if (!data.errors && !data.data?.publishablePublish?.userErrors?.length) {
         return {
           success: true,
@@ -506,7 +493,7 @@ export class ProductCreatorV2 {
         variables: { id: productId }
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
       const product = data.data?.product;
 
       if (!product) {

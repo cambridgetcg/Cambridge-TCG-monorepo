@@ -360,10 +360,262 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Generate SKU
       const sku = generateTierSKU(tierName, duration, shop);
       
-      // Use V2 creator for better publication support (toggle this flag to switch implementations)
-      const USE_V2_CREATOR = true;
-      
-      if (USE_V2_CREATOR) {
+      // Direct productCreate mutation implementation
+      const USE_DIRECT_MUTATION = true;
+
+      if (USE_DIRECT_MUTATION) {
+        // Use the productCreate mutation directly as per Shopify documentation
+        console.log('[TierProducts] Creating product with productCreate mutation');
+
+        const productCreateMutation = `#graphql
+          mutation productCreate($product: ProductCreateInput!) {
+            productCreate(product: $product) {
+              product {
+                id
+                title
+                handle
+                status
+                vendor
+                productType
+                tags
+                options {
+                  id
+                  name
+                  position
+                  optionValues {
+                    id
+                    name
+                    hasVariants
+                  }
+                }
+                variants(first: 1) {
+                  edges {
+                    node {
+                      id
+                      sku
+                      price
+                    }
+                  }
+                }
+              }
+              userErrors {
+                field
+                message
+                code
+              }
+            }
+          }
+        `;
+
+        // Prepare product input with proper structure
+        const productInput = {
+          title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
+          descriptionHtml: description ? `<p>${description}</p>` : `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
+          vendor: shop.split('.')[0],
+          productType: "Tier Membership",
+          status: "ACTIVE",
+          tags: [
+            "tier-membership",
+            tierName.toLowerCase(),
+            duration.toLowerCase(),
+            enableSubscription ? "subscription-enabled" : "one-time"
+          ],
+          requiresSellingPlan: enableSubscription,
+          productOptions: [
+            {
+              name: "Title",
+              values: [{ name: "Default Title" }]
+            }
+          ]
+        };
+
+        // Create the product
+        const createResponse = await admin.graphql(productCreateMutation, {
+          variables: {
+            product: productInput
+          }
+        });
+
+        const createResult = await createResponse.json();
+
+        // Check for errors
+        if (createResult.data?.productCreate?.userErrors?.length > 0) {
+          const errors = createResult.data.productCreate.userErrors.map((e: any) => e.message).join(", ");
+          return json({
+            success: false,
+            error: `Failed to create product: ${errors}`
+          }, { status: 400 });
+        }
+
+        const product = createResult.data?.productCreate?.product;
+        if (!product) {
+          return json({
+            success: false,
+            error: "Failed to create product"
+          }, { status: 400 });
+        }
+
+        const variant = product.variants?.edges?.[0]?.node;
+
+        // Update variant with price and SKU
+        if (variant) {
+          const updateVariantMutation = `#graphql
+            mutation productVariantUpdate($input: ProductVariantInput!) {
+              productVariantUpdate(input: $input) {
+                productVariant {
+                  id
+                  sku
+                  price
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `;
+
+          const variantResponse = await admin.graphql(updateVariantMutation, {
+            variables: {
+              input: {
+                id: variant.id,
+                price: price.toString(),
+                sku,
+                inventoryPolicy: "CONTINUE"
+              }
+            }
+          });
+
+          const variantResult = await variantResponse.json();
+
+          if (variantResult.data?.productVariantUpdate?.userErrors?.length > 0) {
+            console.warn('[TierProducts] Could not update variant:', variantResult.data.productVariantUpdate.userErrors);
+          }
+        }
+
+        // Store in database
+        if (product.id && variant?.id) {
+          try {
+            await (db as any).tierProduct.create({
+              data: {
+                id: uuidv4(),
+                shop,
+                tierId,
+                shopifyProductId: product.id.replace('gid://shopify/Product/', ''),
+                shopifyVariantId: variant.id.replace('gid://shopify/ProductVariant/', ''),
+                productHandle: product.handle || sku,
+                sku: variant.sku || sku,
+                purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
+                duration: duration as any,
+                hasSubscription: enableSubscription,
+                oneTimePrice: price,
+                monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
+                quarterlyPrice: enableSubscription && duration === "QUARTERLY" ? price : null,
+                annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
+                features: features.length > 0 ? features : null,
+                description,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+
+            // If subscription is enabled, create selling plans
+            if (enableSubscription && subscriptionOptions) {
+              const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
+                shop,
+                admin,
+                name: `${tierName} Tier Subscription`,
+                merchantCode: `TIER_${tierName.toUpperCase()}`,
+                description: `Subscription plans for ${tierName} tier membership`,
+                options: [duration as "MONTHLY" | "QUARTERLY" | "ANNUAL"],
+                products: [product.id]
+              });
+
+              if (!sellingPlanResult.success) {
+                console.warn('[TierProducts] Could not create selling plans:', sellingPlanResult.error);
+              }
+            }
+          } catch (dbError) {
+            console.log('[TierProducts] Could not create database record:', dbError);
+          }
+        }
+
+        // Try to publish to online store
+        const publishMutation = `#graphql
+          mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+            publishablePublish(id: $id, input: $input) {
+              publishable {
+                availablePublicationsCount {
+                  count
+                }
+                resourcePublicationsCount {
+                  count
+                }
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        // Try to get Online Store publication
+        const publicationsQuery = `#graphql
+          query {
+            publications(first: 10) {
+              edges {
+                node {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        `;
+
+        const pubResponse = await admin.graphql(publicationsQuery);
+        const pubData = await pubResponse.json();
+
+        let publicationStatus = {
+          onlineStore: false,
+          totalChannels: 0
+        };
+
+        const onlineStore = pubData.data?.publications?.edges?.find(
+          (edge: any) => edge.node.name === "Online Store"
+        );
+
+        if (onlineStore) {
+          const publishResponse = await admin.graphql(publishMutation, {
+            variables: {
+              id: product.id,
+              input: [{ publicationId: onlineStore.node.id }]
+            }
+          });
+
+          const publishData = await publishResponse.json();
+
+          if (!publishData.data?.publishablePublish?.userErrors?.length) {
+            publicationStatus = {
+              onlineStore: true,
+              totalChannels: publishData.data?.publishablePublish?.publishable?.resourcePublicationsCount?.count || 1
+            };
+          }
+        }
+
+        return json({
+          success: true,
+          message: publicationStatus.onlineStore
+            ? `Product created and published to online store for ${tierName} tier`
+            : `Product created successfully for ${tierName} tier (manual publication may be required)`,
+          productId: product.id,
+          hasSubscription: enableSubscription,
+          publicationStatus
+        });
+
+      } else {
         // Use the new ProductCreatorV2 with proper productCreate mutation
         const result = await ProductCreatorV2.createAndPublishProduct(admin, {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
@@ -419,7 +671,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             
             // If subscription is enabled, create selling plans
             if (enableSubscription && subscriptionOptions) {
-              const sellingPlanResult = await SellingPlanManagerEnhanced.createOrUpdateSellingPlanGroup({
+              const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
                 shop,
                 admin,
                 name: `${tierName} Tier Subscription`,
