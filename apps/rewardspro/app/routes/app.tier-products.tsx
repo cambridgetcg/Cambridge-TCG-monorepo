@@ -625,8 +625,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
       } else {
-        // Use the new ProductCreatorV2 with proper productCreate mutation
-        const result = await ProductCreatorV2.createAndPublishProduct(admin, {
+        // Use the new ProductCreatorV2 with retry logic for reliability
+        const result = await ProductCreatorV2.createAndPublishProductWithRetry(admin, {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
           description: description || `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
           vendor: shop.split('.')[0],

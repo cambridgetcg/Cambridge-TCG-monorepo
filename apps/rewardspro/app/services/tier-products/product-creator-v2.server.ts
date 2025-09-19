@@ -41,6 +41,57 @@ export class ProductCreatorV2 {
   private static readonly SERVICE_PREFIX = "[ProductCreatorV2]";
 
   /**
+   * Validate Shopify GID format
+   */
+  static isValidGID(gid: string, type: string): boolean {
+    const pattern = new RegExp(`^gid://shopify/${type}/\\d+$`);
+    return pattern.test(gid);
+  }
+
+  /**
+   * Main method to create and publish a product with retry logic
+   */
+  static async createAndPublishProductWithRetry(
+    admin: AdminApiContext,
+    config: ProductCreateConfig,
+    maxRetries: number = 3
+  ): Promise<ProductCreateResult> {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const result = await this.createAndPublishProduct(admin, config);
+        if (result.success) return result;
+
+        // Don't retry on validation errors
+        if (result.error?.includes('already exists') ||
+            result.error?.includes('invalid') ||
+            result.error?.includes('required')) {
+          return result;
+        }
+
+        // Wait before retry with exponential backoff
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+          console.log(`${this.SERVICE_PREFIX} Retrying product creation (attempt ${i + 2}/${maxRetries})`);
+        }
+      } catch (error) {
+        if (i === maxRetries - 1) {
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Failed after retries"
+          };
+        }
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      }
+    }
+
+    return {
+      success: false,
+      error: "Failed to create product after all retries"
+    };
+  }
+
+  /**
    * Main method to create and publish a product
    */
   static async createAndPublishProduct(
@@ -82,7 +133,7 @@ export class ProductCreatorV2 {
     config: ProductCreateConfig
   ): Promise<ProductCreateResult> {
     const mutation = `#graphql
-      mutation productCreate($product: ProductCreateInput!, $media: [CreateMediaInput!]) {
+      mutation productCreate($product: ProductCreateInput!, $media: [ProductCreateMediaInput!]) {
         productCreate(product: $product, media: $media) {
           product {
             id
@@ -235,9 +286,16 @@ export class ProductCreatorV2 {
     price: string,
     sku: string
   ): Promise<{ success: boolean; error?: string }> {
+    // Validate GID format
+    if (!this.isValidGID(productId, 'Product')) {
+      console.error(`${this.SERVICE_PREFIX} Invalid product ID format: ${productId}`);
+    }
+    if (!this.isValidGID(variantId, 'ProductVariant')) {
+      console.error(`${this.SERVICE_PREFIX} Invalid variant ID format: ${variantId}`);
+    }
     const mutation = `#graphql
       mutation productSet($input: ProductSetInput!) {
-        productSet(input: $input) {
+        productSet(synchronous: true, input: $input) {
           product {
             id
             variants(first: 1) {
