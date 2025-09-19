@@ -43,7 +43,6 @@ import {
   getTierStyle, 
   sortTiersByPriority
 } from "../utils/tier-styles";
-import "../styles/tiers.css";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -337,8 +336,8 @@ export default function Dashboard() {
             <EmptyState
               heading="Get started with RewardsPro"
               action={{
-                content: "Create your first tier",
-                url: "/app/tiers",
+                content: "Manage customers & tiers",
+                url: "/app/customers",
               }}
               secondaryAction={{
                 content: "Configure settings",
@@ -589,7 +588,7 @@ export default function Dashboard() {
                               title="Many customers without tiers"
                               content={`${data.tierDistribution.find(t => t.name === "No Tier")?.percentage.toFixed(0)}% of customers aren't in a tier. Consider adjusting your tier requirements.`}
                               tone="warning"
-                              action={{ content: "Manage tiers", onAction: () => window.location.href = "/app/tiers" }}
+                              action={{ content: "Manage customers & tiers", onAction: () => window.location.href = "/app/customers" }}
                             />
                           )}
                         </BlockStack>

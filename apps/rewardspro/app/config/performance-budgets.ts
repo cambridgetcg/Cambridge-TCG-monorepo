@@ -130,7 +130,6 @@ export function getRouteBudget(pathname: string): number {
     '/app/customers': PERFORMANCE_BUDGETS.customMetrics.customerListLoad,
     '/app/analytics': PERFORMANCE_BUDGETS.customMetrics.analyticsRender,
     '/app/credit-management': PERFORMANCE_BUDGETS.transitions.routeChange,
-    '/app/tiers': PERFORMANCE_BUDGETS.transitions.routeChange,
     '/app/settings': PERFORMANCE_BUDGETS.transitions.routeChange,
   };
   
