@@ -789,38 +789,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const variant = product.variants.edges[0]?.node;
         
         if (variant && variant.price !== price.toString()) {
-          // Get product options first
-          const getOptionsResponse = await admin.graphql(
-            `#graphql
-            query getProductOptions($id: ID!) {
-              product(id: $id) {
-                options {
-                  id
-                  name
-                  position
-                  values
-                }
-              }
-            }`,
-            {
-              variables: { id: productId }
-            }
-          );
-          
-          const optionsResult = await getOptionsResponse.json();
-          const productOptions = optionsResult.data?.product?.options || [];
-          
-          // Build optionValues array
-          const optionValues = productOptions.map((option: any) => ({
-            optionName: option.name,
-            name: option.values[0] || "Default Title"
-          }));
-          
-          // Update variant price using productSet
+          // Generate new SKU for the updated product
+          const updatedSku = generateTierSKU(tierName, duration, shop);
+
+          // Update variant price and SKU using productSet
           const updateVariantResponse = await admin.graphql(
             `#graphql
             mutation productSet($input: ProductSetInput!) {
-              productSet(input: $input) {
+              productSet(synchronous: true, input: $input) {
                 product {
                   id
                   variants(first: 1) {
@@ -828,6 +804,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                       node {
                         id
                         price
+                        sku
                       }
                     }
                   }
@@ -842,14 +819,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               variables: {
                 input: {
                   id: productId,
-                  productOptions: productOptions.map((opt: any) => ({
-                    name: opt.name,
-                    values: opt.values.map((v: string) => ({ name: v }))
-                  })),
                   variants: [{
                     id: variant.id,
                     price: price.toString(),
-                    optionValues: optionValues
+                    sku: variant.sku || updatedSku,  // Keep existing SKU or use new one
+                    inventoryPolicy: "CONTINUE"
                   }]
                 }
               }
