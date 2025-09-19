@@ -73,7 +73,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             userErrors {
               field
               message
-              code
             }
           }
         }
@@ -304,7 +303,7 @@ export default function AppProxyTest() {
                         <Text as="p" fontWeight="semibold">User Errors:</Text>
                         {(actionData as any).data.data.productCreate.userErrors.map((err: any, idx: number) => (
                           <Text key={idx} as="p">
-                            {err.field}: {err.message} (Code: {err.code})
+                            {err.field}: {err.message}
                           </Text>
                         ))}
                       </BlockStack>

@@ -115,7 +115,6 @@ export class ProductCreatorV2 {
           userErrors {
             field
             message
-            code
           }
         }
       }

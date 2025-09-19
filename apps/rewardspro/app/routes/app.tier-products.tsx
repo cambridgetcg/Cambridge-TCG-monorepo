@@ -401,7 +401,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               userErrors {
                 field
                 message
-                code
               }
             }
           }
