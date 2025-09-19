@@ -50,6 +50,7 @@ import { ProductCreatorV2 } from "../services/tier-products/product-creator-v2.s
 import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
+import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -94,41 +95,18 @@ interface LoaderData {
 // HELPER FUNCTIONS
 // ============================================
 
-// Generate a unique SKU for tier products
+// Generate a unique SKU for tier products using the centralized utility
+// Format: SHOP-TIER-DUR-DATE-RND
+// Example: TESTS-GOLD-MON-2501-X9K (TestStore - Gold - Monthly - Jan 2025 - Random X9K)
 function generateTierSKU(tierName: string, duration: string, shop: string): string {
-  // Get shop name without .myshopify.com
-  const shopName = shop.split('.')[0];
-  
-  // Clean and get first 4-6 chars of shop name
-  const shopPrefix = shopName
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .substring(0, Math.min(6, Math.max(4, shopName.length)));
-  
-  // Clean the tier name for SKU (3-4 chars)
-  const cleanTierName = tierName
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .substring(0, 4);
-  
-  // Duration code
-  const durationCode = {
-    'MONTHLY': 'M',
-    'QUARTERLY': 'Q', 
-    'ANNUAL': 'A',
-    'LIFETIME': 'L'
-  }[duration] || 'X';
-  
-  // Date-based component for uniqueness (YYMM)
-  const now = new Date();
-  const dateCode = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  
-  // Random suffix for additional uniqueness (3 chars)
-  const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
-  
-  // Format: SHOP-TIER-DUR-DATE-RND
-  // Example: ACME-GOLD-A-2501-X9K
-  return `${shopPrefix}-${cleanTierName}-${durationCode}-${dateCode}-${randomSuffix}`;
+  // Use the centralized SKU generator utility
+  return generateSKUFromUtils({
+    tierName,
+    duration,
+    shop,
+    productType: 'tier',
+    includeDate: true
+  });
 }
 
 // Format duration for display
