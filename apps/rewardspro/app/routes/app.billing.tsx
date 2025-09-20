@@ -121,6 +121,64 @@ const MANAGED_PLANS = {
   },
 };
 
+// Plan comparison data for the comparison cards
+const PLAN_COMPARISON = {
+  free: {
+    name: "Starter plan",
+    displayName: "Free",
+    description: "Everything you need to create an on-brand program your customers will love.",
+    price: 0,
+    interval: "month",
+    ordersIncluded: "Up to 200 monthly orders",
+    overageInfo: "",
+    recommended: true,
+    popularFeatures: [
+      "Points program",
+      "Referral program",
+      "Customizable emails",
+      "Store credit tracking",
+      "Basic reports",
+      "Community support",
+    ],
+  },
+  pro: {
+    name: "Growth plan",
+    displayName: "Pro",
+    description: "Level up your loyalty program with extras like advanced analytics and priority support.",
+    price: 49,
+    interval: "month",
+    ordersIncluded: "Includes 1,000 monthly orders",
+    overageInfo: "$0.01 per additional order",
+    recommended: false,
+    popularFeatures: [
+      "Full-feature loyalty hub",
+      "Advanced analytics & reporting",
+      "Custom email templates",
+      "Priority support",
+      "API access",
+      "Unlimited integrations",
+    ],
+  },
+  enterprise: {
+    name: "Plus plan",
+    displayName: "Enterprise",
+    description: "Get the best of RewardsPro with more customization and reporting.",
+    price: 490,
+    interval: "year",
+    ordersIncluded: "Includes 12,000 annual orders",
+    overageInfo: "$0.01 per additional order",
+    recommended: false,
+    popularFeatures: [
+      "Migration and launch plan",
+      "30+ specialized reports",
+      "API access & developer tools",
+      "Priority support",
+      "Quarterly program monitoring",
+      "Security review support",
+    ],
+  },
+};
+
 // ============= HELPERS =============
 const calculateDaysRemaining = (): number => {
   const now = new Date();
@@ -585,24 +643,226 @@ export default function BillingPage() {
               </Box>
             </Card>
 
-            {/* Quick Actions Card */}
-            <Card>
-              <Box padding="400">
-                <InlineStack align="space-between">
-                  <BlockStack gap="200">
-                    <Text as="h2" variant="headingMd">
-                      Need a different plan?
-                    </Text>
-                    <Text as="p" variant="bodyMd" tone="subdued">
-                      Explore our different pricing tiers to find the perfect fit for your store
-                    </Text>
-                  </BlockStack>
-                  <Button onClick={() => navigate("/app/billing/plans")}>
-                    View All Plans
+            {/* Plan Comparison Section */}
+            <BlockStack gap="400">
+              <Text as="h2" variant="headingLg">
+                Pricing plans
+              </Text>
+
+              {/* Plan Cards Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '16px'
+              }}>
+                {/* Starter Plan Card */}
+                <Card>
+                  <Box padding="600">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
+                        <Text as="h3" variant="headingMd">
+                          {PLAN_COMPARISON.free.name}
+                        </Text>
+                        {PLAN_COMPARISON.free.recommended && (
+                          <Badge tone="info">Recommended</Badge>
+                        )}
+                      </InlineStack>
+
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        {PLAN_COMPARISON.free.description}
+                      </Text>
+
+                      <BlockStack gap="200">
+                        <Text as="p" variant="heading2xl">
+                          ${PLAN_COMPARISON.free.price}
+                          <Text as="span" variant="bodyLg" tone="subdued">
+                            {" "}USD/{PLAN_COMPARISON.free.interval}
+                          </Text>
+                        </Text>
+                      </BlockStack>
+
+                      <Button
+                        fullWidth
+                        variant={activePlanName === "RewardsPro Free" ? "secondary" : "primary"}
+                        disabled={activePlanName === "RewardsPro Free"}
+                        onClick={() => handleUpgrade("RewardsPro Free")}
+                      >
+                        {activePlanName === "RewardsPro Free" ? "Current Plan" : "Select Starter"}
+                      </Button>
+
+                      <Box paddingBlockStart="200">
+                        <Text as="p" variant="bodyMd">
+                          {PLAN_COMPARISON.free.ordersIncluded}
+                        </Text>
+                        {PLAN_COMPARISON.free.overageInfo && (
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            {PLAN_COMPARISON.free.overageInfo}
+                          </Text>
+                        )}
+                      </Box>
+
+                      <Divider />
+
+                      <BlockStack gap="300">
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          Popular features
+                        </Text>
+                        <BlockStack gap="200">
+                          {PLAN_COMPARISON.free.popularFeatures.map((feature, index) => (
+                            <InlineStack key={index} gap="200">
+                              <Text as="span" variant="bodyMd">•</Text>
+                              <Text as="span" variant="bodyMd">{feature}</Text>
+                            </InlineStack>
+                          ))}
+                        </BlockStack>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+
+                {/* Growth Plan Card */}
+                <Card>
+                  <Box padding="600">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
+                        <Text as="h3" variant="headingMd">
+                          {PLAN_COMPARISON.pro.name}
+                        </Text>
+                        {PLAN_COMPARISON.pro.recommended && (
+                          <Badge tone="info">Recommended</Badge>
+                        )}
+                      </InlineStack>
+
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        {PLAN_COMPARISON.pro.description}
+                      </Text>
+
+                      <BlockStack gap="200">
+                        <Text as="p" variant="heading2xl">
+                          ${PLAN_COMPARISON.pro.price}
+                          <Text as="span" variant="bodyLg" tone="subdued">
+                            {" "}USD/{PLAN_COMPARISON.pro.interval}
+                          </Text>
+                        </Text>
+                      </BlockStack>
+
+                      <Button
+                        fullWidth
+                        variant={activePlanName === "RewardsPro Monthly" ? "secondary" : "primary"}
+                        disabled={activePlanName === "RewardsPro Monthly"}
+                        onClick={() => handleUpgrade("RewardsPro Monthly")}
+                      >
+                        {activePlanName === "RewardsPro Monthly" ? "Current Plan" : "Select Growth"}
+                      </Button>
+
+                      <Box paddingBlockStart="200">
+                        <Text as="p" variant="bodyMd">
+                          {PLAN_COMPARISON.pro.ordersIncluded}
+                        </Text>
+                        {PLAN_COMPARISON.pro.overageInfo && (
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            {PLAN_COMPARISON.pro.overageInfo}
+                          </Text>
+                        )}
+                      </Box>
+
+                      <Divider />
+
+                      <BlockStack gap="300">
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          Popular features
+                        </Text>
+                        <BlockStack gap="200">
+                          {PLAN_COMPARISON.pro.popularFeatures.map((feature, index) => (
+                            <InlineStack key={index} gap="200">
+                              <Text as="span" variant="bodyMd">•</Text>
+                              <Text as="span" variant="bodyMd">{feature}</Text>
+                            </InlineStack>
+                          ))}
+                        </BlockStack>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+
+                {/* Plus Plan Card */}
+                <Card>
+                  <Box padding="600">
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between">
+                        <Text as="h3" variant="headingMd">
+                          {PLAN_COMPARISON.enterprise.name}
+                        </Text>
+                        {PLAN_COMPARISON.enterprise.recommended && (
+                          <Badge tone="info">Recommended</Badge>
+                        )}
+                      </InlineStack>
+
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        {PLAN_COMPARISON.enterprise.description}
+                      </Text>
+
+                      <BlockStack gap="200">
+                        <Text as="p" variant="heading2xl">
+                          ${PLAN_COMPARISON.enterprise.price}
+                          <Text as="span" variant="bodyLg" tone="subdued">
+                            {" "}USD/{PLAN_COMPARISON.enterprise.interval}
+                          </Text>
+                        </Text>
+                      </BlockStack>
+
+                      <Button
+                        fullWidth
+                        variant={activePlanName === "RewardsPro Annual" ? "secondary" : "primary"}
+                        disabled={activePlanName === "RewardsPro Annual"}
+                        onClick={() => handleUpgrade("RewardsPro Annual")}
+                      >
+                        {activePlanName === "RewardsPro Annual" ? "Current Plan" : "Select Plus"}
+                      </Button>
+
+                      <Box paddingBlockStart="200">
+                        <Text as="p" variant="bodyMd">
+                          {PLAN_COMPARISON.enterprise.ordersIncluded}
+                        </Text>
+                        {PLAN_COMPARISON.enterprise.overageInfo && (
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            {PLAN_COMPARISON.enterprise.overageInfo}
+                          </Text>
+                        )}
+                      </Box>
+
+                      <Divider />
+
+                      <BlockStack gap="300">
+                        <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          Popular features
+                        </Text>
+                        <BlockStack gap="200">
+                          {PLAN_COMPARISON.enterprise.popularFeatures.map((feature, index) => (
+                            <InlineStack key={index} gap="200">
+                              <Text as="span" variant="bodyMd">•</Text>
+                              <Text as="span" variant="bodyMd">{feature}</Text>
+                            </InlineStack>
+                          ))}
+                        </BlockStack>
+                      </BlockStack>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </div>
+
+              {/* View Full Comparison Link */}
+              <Box paddingBlockStart="400">
+                <InlineStack align="center">
+                  <Button variant="plain" onClick={() => navigate("/app/billing/plans")}>
+                    <InlineStack gap="200">
+                      <Icon source={InfoIcon} tone="base" />
+                      <Text as="span" variant="bodyMd">View plan comparison</Text>
+                    </InlineStack>
                   </Button>
                 </InlineStack>
               </Box>
-            </Card>
+            </BlockStack>
 
             {/* Plan Features */}
             {planDetails && (
