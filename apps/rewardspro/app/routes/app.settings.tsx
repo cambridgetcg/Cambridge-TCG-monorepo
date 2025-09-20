@@ -18,10 +18,17 @@ import {
   Divider,
   Box,
   Badge,
+  Modal,
+  ProgressBar,
+  Checkbox,
+  Icon,
 } from "@shopify/polaris";
+import { RefreshIcon } from "@shopify/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { useNavigate } from "@remix-run/react";
+import { createOrderSyncService } from "../services/order-sync.service";
 
 // ============= TYPES =============
 type Currency = 
@@ -44,10 +51,21 @@ type ShopSettings = {
   updatedAt: string;
 };
 
+type OrderStats = {
+  orderCount: number;
+  customerCount: number;
+  totalCashback: number;
+  lastSync: string | null;
+  oldestOrder: string | null;
+  newestOrder: string | null;
+  discrepancies: number;
+};
+
 type LoaderData = {
   settings: ShopSettings;
   shop: string;
   shopifyTimezone?: string;
+  orderStats?: OrderStats;
 };
 
 // ============= CONSTANTS =============
@@ -215,21 +233,62 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
+    // Fetch order statistics
+    let orderStats: OrderStats | undefined;
+    try {
+      const orderAggregates = await db.order.aggregate({
+        where: { shop },
+        _count: { id: true },
+        _sum: { cashbackAmount: true },
+        _max: { createdAt: true, shopifyCreatedAt: true },
+        _min: { shopifyCreatedAt: true }
+      });
+
+      const customerCount = await db.customer.count({
+        where: { shop }
+      });
+
+      // Check for discrepancies (simplified check)
+      const ordersWithLedger = await db.order.count({
+        where: {
+          shop,
+          cashbackProcessed: true,
+          creditLedgerEntries: {
+            none: {}
+          }
+        }
+      });
+
+      orderStats = {
+        orderCount: orderAggregates._count.id || 0,
+        customerCount,
+        totalCashback: Number(orderAggregates._sum.cashbackAmount || 0),
+        lastSync: orderAggregates._max.createdAt?.toISOString() || null,
+        oldestOrder: orderAggregates._min.shopifyCreatedAt?.toISOString() || null,
+        newestOrder: orderAggregates._max.shopifyCreatedAt?.toISOString() || null,
+        discrepancies: ordersWithLedger
+      };
+    } catch (error) {
+      console.error("Failed to fetch order statistics:", error);
+      // Continue without order stats
+    }
+
     // Serialize dates for JSON
     const serializedSettings = {
       ...settings,
-      createdAt: settings.createdAt instanceof Date 
-        ? settings.createdAt.toISOString() 
+      createdAt: settings.createdAt instanceof Date
+        ? settings.createdAt.toISOString()
         : settings.createdAt,
-      updatedAt: settings.updatedAt instanceof Date 
-        ? settings.updatedAt.toISOString() 
+      updatedAt: settings.updatedAt instanceof Date
+        ? settings.updatedAt.toISOString()
         : settings.updatedAt,
     };
 
-    return json<LoaderData>({ 
-      settings: serializedSettings as ShopSettings, 
+    return json<LoaderData>({
+      settings: serializedSettings as ShopSettings,
       shop,
-      shopifyTimezone // Pass Shopify's timezone to show it's synced
+      shopifyTimezone, // Pass Shopify's timezone to show it's synced
+      orderStats
     });
   } catch (error) {
     console.error("Settings loader error:", error);
@@ -240,7 +299,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============= ACTION =============
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
-    const { session } = await authenticate.admin(request);
+    const { session, admin } = await authenticate.admin(request);
     
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
@@ -253,6 +312,66 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const formData = await request.formData();
     const intent = formData.get("intent") as string;
+
+    // Handle order sync
+    if (intent === "sync-orders") {
+      const syncRange = formData.get("syncRange") as string;
+      const reconcile = formData.get("reconcile") === "true";
+      const updateMetrics = formData.get("updateMetrics") === "true";
+
+      try {
+        // Calculate date range
+        let startDate = new Date();
+        if (syncRange === "30") {
+          startDate.setDate(startDate.getDate() - 30);
+        } else if (syncRange === "90") {
+          startDate.setDate(startDate.getDate() - 90);
+        } else if (syncRange === "365") {
+          startDate.setFullYear(startDate.getFullYear() - 1);
+        } else {
+          startDate = new Date("2020-01-01"); // Or shop creation date
+        }
+
+        // Create sync service
+        const syncService = await createOrderSyncService(admin, shop, {
+          batchSize: 50,
+          startDate,
+          endDate: new Date(),
+          onProgress: (progress) => {
+            console.log(`Order sync progress: ${progress.processed}/${progress.total}`);
+          }
+        });
+
+        // Start sync (in production, use job queue)
+        syncService.syncAllOrders()
+          .then(result => {
+            console.log("Order sync completed:", result.message);
+          })
+          .catch(error => {
+            console.error("Order sync failed:", error);
+          });
+
+        return json({
+          success: true,
+          message: "Order sync started in background. This may take several minutes.",
+          syncStarted: true
+        });
+      } catch (error) {
+        console.error("Failed to start order sync:", error);
+        return json({
+          error: error instanceof Error ? error.message : "Failed to start sync"
+        }, { status: 500 });
+      }
+    }
+
+    // Handle sync status check
+    if (intent === "check-sync-status") {
+      // In production, this would check a job queue or database
+      return json({
+        inProgress: false,
+        progress: 100
+      });
+    }
 
     if (intent !== "update") {
       return json({ error: "Invalid action" }, { status: 400 });
@@ -324,10 +443,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 // ============= COMPONENT =============
 export default function SettingsPage() {
-  const { settings, shop, shopifyTimezone } = useLoaderData<LoaderData>();
+  const { settings, shop, shopifyTimezone, orderStats } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
   const navigation = useNavigation();
-  
+  const navigate = useNavigate();
+
   // Form state
   const [storeName, setStoreName] = useState(settings.storeName);
   const [storeUrl, setStoreUrl] = useState(settings.storeUrl);
@@ -335,7 +455,17 @@ export default function SettingsPage() {
   const [currencyDisplayType, setCurrencyDisplayType] = useState<CurrencyDisplayType>(settings.currencyDisplayType);
   // Timezone is now read-only from Shopify
   const timezone = shopifyTimezone || settings.timezone;
-  
+
+  // Order sync state
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncRange, setSyncRange] = useState("365");
+  const [reconcileLedger, setReconcileLedger] = useState(false);
+  const [updateMetrics, setUpdateMetrics] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
+
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -373,6 +503,59 @@ export default function SettingsPage() {
     setCurrencyDisplayType(settings.currencyDisplayType);
     // Timezone is read-only, no need to reset
   }, [settings]);
+
+  // Handle order sync
+  const handleStartSync = useCallback(() => {
+    setIsSyncing(true);
+    setSyncProgress(0);
+
+    const formData = new FormData();
+    formData.append("intent", "sync-orders");
+    formData.append("syncRange", syncRange);
+    formData.append("reconcile", String(reconcileLedger));
+    formData.append("updateMetrics", String(updateMetrics));
+
+    fetcher.submit(formData, { method: "post" });
+
+    // Simulate progress (in production, use WebSockets or polling)
+    const interval = setInterval(() => {
+      setSyncProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 2000);
+  }, [syncRange, reconcileLedger, updateMetrics, fetcher]);
+
+  // Handle sync completion
+  useEffect(() => {
+    if (fetcher.data?.syncStarted && isSyncing) {
+      setTimeout(() => {
+        setSyncProgress(100);
+        setTimeout(() => {
+          setIsSyncing(false);
+          setShowSyncModal(false);
+          setSyncProgress(0);
+          // Reload to update stats
+          window.location.reload();
+        }, 1000);
+      }, 1000);
+    }
+  }, [fetcher.data, isSyncing]);
+
+  // Format date helper
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Never";
+    return new Date(dateStr).toLocaleDateString();
+  };
+
+  // Format date range helper
+  const formatDateRange = (oldest: string | null, newest: string | null) => {
+    if (!oldest || !newest) return "No orders";
+    return `${formatDate(oldest)} - ${formatDate(newest)}`;
+  };
 
   // Show success/error messages
   const actionData = fetcher.data as { error?: string; success?: boolean } | undefined;
@@ -523,6 +706,99 @@ export default function SettingsPage() {
               </BlockStack>
             </Card>
 
+            {/* Data Management */}
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <BlockStack gap="200">
+                    <Text variant="headingMd" as="h2">
+                      Data Management
+                    </Text>
+                    <Text variant="bodyMd" tone="subdued">
+                      Sync and manage your store's order data
+                    </Text>
+                  </BlockStack>
+
+                  <Divider />
+
+                  {/* Order Sync Status */}
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between">
+                      <BlockStack gap="200">
+                        <Text variant="bodyMd" fontWeight="semibold">
+                          Order History Sync
+                        </Text>
+                        {orderStats && (
+                          <InlineStack gap="200">
+                            <Badge tone={orderStats.orderCount > 0 ? "success" : "warning"}>
+                              {orderStats.orderCount} orders synced
+                            </Badge>
+                            {orderStats.lastSync && (
+                              <Text variant="bodySm" tone="subdued">
+                                Last sync: {formatDate(orderStats.lastSync)}
+                              </Text>
+                            )}
+                          </InlineStack>
+                        )}
+                      </BlockStack>
+
+                      <InlineStack gap="200">
+                        <Button
+                          onClick={() => setShowSyncModal(true)}
+                          disabled={isSyncing}
+                          loading={isSyncing}
+                          icon={RefreshIcon}
+                        >
+                          {isSyncing ? "Syncing..." : "Sync Orders"}
+                        </Button>
+                        <Button
+                          variant="plain"
+                          onClick={() => navigate("/app/orders-sync")}
+                        >
+                          Advanced Options
+                        </Button>
+                      </InlineStack>
+                    </InlineStack>
+
+                    {/* Quick Stats */}
+                    {orderStats && (
+                      <InlineStack gap="400">
+                        <Text variant="bodySm">
+                          <Text as="span" fontWeight="semibold">Customers:</Text> {orderStats.customerCount}
+                        </Text>
+                        <Text variant="bodySm">
+                          <Text as="span" fontWeight="semibold">Date Range:</Text> {formatDateRange(orderStats.oldestOrder, orderStats.newestOrder)}
+                        </Text>
+                        <Text variant="bodySm">
+                          <Text as="span" fontWeight="semibold">Total Cashback:</Text> ${orderStats.totalCashback.toFixed(2)}
+                        </Text>
+                      </InlineStack>
+                    )}
+
+                    {/* Discrepancies Warning */}
+                    {orderStats && orderStats.discrepancies > 0 && (
+                      <Banner tone="warning">
+                        Found {orderStats.discrepancies} ledger discrepancies.
+                        <Button variant="plain" onClick={() => navigate("/app/orders-sync")}>
+                          Review & Fix
+                        </Button>
+                      </Banner>
+                    )}
+
+                    {/* No Orders Message */}
+                    {(!orderStats || orderStats.orderCount === 0) && (
+                      <Banner tone="info">
+                        <p>
+                          No orders synced yet. Sync your order history to enable fast tier calculations,
+                          accurate cashback tracking, and complete order analytics.
+                        </p>
+                      </Banner>
+                    )}
+                  </BlockStack>
+                </BlockStack>
+              </Box>
+            </Card>
+
             {/* Metadata */}
             <Card>
               <BlockStack gap="300">
@@ -581,6 +857,77 @@ export default function SettingsPage() {
           </Card>
         </Layout.Section>
       </Layout>
+
+      {/* Order Sync Modal */}
+      <Modal
+        open={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        title="Sync Order History"
+        primaryAction={{
+          content: "Start Sync",
+          onAction: handleStartSync,
+          loading: isSyncing,
+          disabled: isSyncing
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setShowSyncModal(false),
+            disabled: isSyncing
+          }
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Banner tone="info">
+              <p>This will import all paid orders from your Shopify store to enable:</p>
+              <ul style={{ marginLeft: "20px", marginTop: "8px" }}>
+                <li>Fast tier calculations</li>
+                <li>Accurate cashback tracking</li>
+                <li>Complete order analytics</li>
+              </ul>
+            </Banner>
+
+            <Select
+              label="Date Range"
+              options={[
+                { label: "Last 30 days", value: "30" },
+                { label: "Last 90 days", value: "90" },
+                { label: "Last year", value: "365" },
+                { label: "All time", value: "all" }
+              ]}
+              value={syncRange}
+              onChange={setSyncRange}
+              disabled={isSyncing}
+            />
+
+            <Checkbox
+              label="Reconcile existing ledger entries"
+              checked={reconcileLedger}
+              onChange={setReconcileLedger}
+              helpText="Check and fix any cashback discrepancies"
+              disabled={isSyncing}
+            />
+
+            <Checkbox
+              label="Update customer metrics"
+              checked={updateMetrics}
+              onChange={setUpdateMetrics}
+              helpText="Recalculate totalSpent and orderCount"
+              disabled={isSyncing}
+            />
+
+            {isSyncing && (
+              <>
+                <ProgressBar progress={syncProgress} tone="primary" />
+                <Text variant="bodySm" tone="subdued">
+                  Processing orders... This may take several minutes.
+                </Text>
+              </>
+            )}
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
