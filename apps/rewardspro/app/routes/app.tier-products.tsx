@@ -49,6 +49,7 @@ import { TierProductManagerEnhanced } from "../services/tier-products/tier-produ
 import { ProductCreatorV2 } from "../services/tier-products/product-creator-v2.server";
 import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
+import { TryBeforeYouBuyForm } from "../components/TryBeforeYouBuyForm";
 import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
 
@@ -1261,12 +1262,81 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
       
-      return json({ 
-        success: true, 
-        message: "Selling plans have been reset with new descriptions" 
+      return json({
+        success: true,
+        message: "Selling plans have been reset with new descriptions"
+      });
+    } else if (intent === "create-tbyb-selling-plan") {
+      const variables = JSON.parse(formData.get("variables") as string);
+
+      console.log("[TierProducts] Creating Try Before You Buy selling plan with variables:", variables);
+
+      // Use the exact GraphQL mutation format from the example
+      const response = await admin.graphql(
+        `#graphql
+        mutation createSellingPlanGroup($input: SellingPlanGroupInput!, $resources: SellingPlanGroupResourceInput) {
+          sellingPlanGroupCreate(input: $input, resources: $resources) {
+            sellingPlanGroup {
+              id
+              name
+              sellingPlans(first: 1) {
+                edges {
+                  node {
+                    id
+                    name
+                  }
+                }
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }`,
+        { variables }
+      );
+
+      const data = await response.json();
+
+      if (data.data?.sellingPlanGroupCreate?.userErrors?.length > 0) {
+        const errors = data.data.sellingPlanGroupCreate.userErrors
+          .map((e: any) => e.message)
+          .join(', ');
+        throw new Error(`Failed to create selling plan: ${errors}`);
+      }
+
+      const sellingPlanGroup = data.data?.sellingPlanGroupCreate?.sellingPlanGroup;
+      if (!sellingPlanGroup) {
+        throw new Error('No selling plan group returned from mutation');
+      }
+
+      // Store in database for tracking
+      await db.sellingPlanGroup.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          shopifySellingPlanGroupId: sellingPlanGroup.id,
+          name: sellingPlanGroup.name,
+          merchantCode: variables.input.merchantCode,
+          tierProducts: [],
+          metadata: {
+            type: 'TRY_BEFORE_YOU_BUY',
+            createdVia: 'TryBeforeYouBuyForm',
+            createdAt: new Date().toISOString(),
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      return json({
+        success: true,
+        message: "Try Before You Buy plan created successfully",
+        sellingPlanGroup
       });
     }
-    
+
     return json({ success: false, error: "Invalid action" }, { status: 400 });
     
   } catch (error) {
@@ -1293,6 +1363,8 @@ export default function TierProducts() {
   const [modalActive, setModalActive] = useState(false);
   const [editModalActive, setEditModalActive] = useState(false);
   const [editingProduct, setEditingProduct] = useState<TierProduct | null>(null);
+  const [showTryBeforeYouBuy, setShowTryBeforeYouBuy] = useState(false);
+  const [selectedProductForTBYB, setSelectedProductForTBYB] = useState<string | undefined>();
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<string>("MONTHLY");
@@ -1352,6 +1424,14 @@ export default function TierProducts() {
   }, []);
   
   // Handle modal close
+  const handleTBYBSubmit = useCallback(async (variables: any) => {
+    const formData = new FormData();
+    formData.append("intent", "create-tbyb-selling-plan");
+    formData.append("variables", JSON.stringify(variables));
+    submit(formData, { method: "post" });
+    setShowTryBeforeYouBuy(false);
+  }, [submit]);
+
   const handleModalClose = useCallback(() => {
     setModalActive(false);
     setEnableSubscription(false);
@@ -1554,6 +1634,11 @@ export default function TierProducts() {
           onAction: handleModalOpen,
         }}
         secondaryActions={[
+          {
+            content: "Create Try Before You Buy",
+            icon: CalendarIcon,
+            onAction: () => setShowTryBeforeYouBuy(true),
+          },
           {
             content: "Reset Subscription Descriptions",
             onAction: () => {
@@ -2269,7 +2354,27 @@ export default function TierProducts() {
             </FormLayout>
           </Modal.Section>
         </Modal>
-        
+
+        {/* Try Before You Buy Modal */}
+        <Modal
+          open={showTryBeforeYouBuy}
+          onClose={() => setShowTryBeforeYouBuy(false)}
+          title="Create Try Before You Buy Plan"
+          size="large"
+          primaryAction={{
+            content: "Close",
+            onAction: () => setShowTryBeforeYouBuy(false),
+          }}
+        >
+          <Modal.Section>
+            <TryBeforeYouBuyForm
+              productId={selectedProductForTBYB}
+              onSubmit={handleTBYBSubmit}
+              isLoading={isLoading}
+            />
+          </Modal.Section>
+        </Modal>
+
         {/* Toast */}
         {toast.active && (
           <Toast
