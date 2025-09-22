@@ -322,6 +322,34 @@ export class DataAPIModelProxy<T = any> {
           console.error('[DataAPI] Invalid composite key for OrderLineItem:', value);
           processedWhere[key] = value;
         }
+      } else if (key === 'shop_year_month' && this.tableName === 'MonthlyOrderUsage') {
+        // Handle the composite key for MonthlyOrderUsage model
+        let parsed: any;
+
+        if (typeof value === 'string') {
+          try {
+            parsed = JSON.parse(value);
+          } catch (e) {
+            console.error('[DataAPI] Failed to parse MonthlyOrderUsage composite key:', value);
+            processedWhere[key] = value;
+            continue;
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          parsed = value;
+        } else {
+          processedWhere[key] = value;
+          continue;
+        }
+
+        // Extract individual fields
+        if (parsed.shop && parsed.year !== undefined && parsed.month !== undefined) {
+          processedWhere.shop = parsed.shop;
+          processedWhere.year = parsed.year;
+          processedWhere.month = parsed.month;
+        } else {
+          console.error('[DataAPI] Invalid MonthlyOrderUsage composite key structure:', parsed);
+          processedWhere[key] = value;
+        }
       } else if (key.includes('_') && typeof value === 'string') {
         // Check if this might be another composite key (JSON string)
         try {
@@ -902,6 +930,28 @@ export class DataAPIModelProxy<T = any> {
             whereClause = {
               shop: parsed.shop,
               shopifyOrderId: parsed.shopifyOrderId
+            };
+          } catch (e) {
+            // Keep original whereClause
+          }
+        }
+      } else if ('shop_year_month' in whereClause) {
+        // Handle MonthlyOrderUsage composite key
+        const composite = whereClause.shop_year_month;
+        if (typeof composite === 'object' && composite !== null) {
+          whereClause = {
+            shop: composite.shop,
+            year: composite.year,
+            month: composite.month
+          };
+        } else if (typeof composite === 'string') {
+          // Try to parse if it's JSON
+          try {
+            const parsed = JSON.parse(composite);
+            whereClause = {
+              shop: parsed.shop,
+              year: parsed.year,
+              month: parsed.month
             };
           } catch (e) {
             // Keep original whereClause
