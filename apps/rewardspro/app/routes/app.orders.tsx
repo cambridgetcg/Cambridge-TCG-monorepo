@@ -49,16 +49,15 @@ import {
   ExportIcon,
   ImportIcon,
   CalendarIcon,
-  RefundMinorIcon,
-  OrderMinorIcon,
-  CustomerMinorIcon,
+  ReceiptRefundIcon,
+  OrderIcon,
+  PersonIcon,
   ClockIcon,
-  CircleTickIcon,
-  CancelMinorIcon,
+  CheckIcon,
+  XIcon,
   EditIcon,
   ViewIcon,
-  ReceiptRefundIcon,
-} from "@shopify/polaris-icons";
+} from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
@@ -633,7 +632,7 @@ export default function OrdersPage() {
       </IndexTable.Cell>
       <IndexTable.Cell>
         <InlineStack gap="200" align="start">
-          <Icon source={CustomerMinorIcon} />
+          <Icon source={PersonIcon} />
           <BlockStack gap="100">
             <Text variant="bodyMd" as="span">{order.customer.email}</Text>
             {order.customer.currentTier && (

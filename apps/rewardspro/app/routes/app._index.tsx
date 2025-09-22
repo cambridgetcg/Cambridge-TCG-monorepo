@@ -29,7 +29,7 @@ import {
   CashDollarIcon,
   RewardIcon,
   ChartVerticalIcon,
-} from "@shopify/polaris-icons";
+} from "~/utils/polaris-icons";
 import {
   StatsOverview,
   EnhancedDataTable,

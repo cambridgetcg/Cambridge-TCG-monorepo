@@ -19,7 +19,7 @@ import {
 import {
   ChevronLeftIcon,
   CheckIcon,
-} from "@shopify/polaris-icons";
+} from "~/utils/polaris-icons";
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";

@@ -40,7 +40,7 @@ import {
   RewardIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-} from "@shopify/polaris-icons";
+} from "~/utils/polaris-icons";
 import { TierBadge, TierIndicator, TierProgress } from "../components/TierBadge";
 import { getTierStyle, sortTiersByPriority, formatTierName } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";

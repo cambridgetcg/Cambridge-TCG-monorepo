@@ -53,7 +53,7 @@ import {
   CalendarIcon,
   ExportIcon,
   ImportIcon,
-} from "@shopify/polaris-icons";
+} from "~/utils/polaris-icons";
 import {
   MetricCard,
   CustomerCard,

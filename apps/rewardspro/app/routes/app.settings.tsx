@@ -23,7 +23,7 @@ import {
   Checkbox,
   Icon,
 } from "@shopify/polaris";
-import { RefreshIcon } from "@shopify/polaris-icons";
+import { RefreshIcon } from "~/utils/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";

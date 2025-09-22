@@ -18,7 +18,7 @@ import {
 } from "@shopify/polaris";
 import {
   CheckIcon,
-} from "@shopify/polaris-icons";
+} from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
