@@ -82,7 +82,7 @@ interface Order {
       name: string;
       cashbackPercent: number;
     } | null;
-  };
+  } | null;
   email: string;
   currency: string;
   totalPrice: Decimal;
@@ -1001,11 +1001,11 @@ export default function OrdersPage() {
                 <Divider />
 
                 {/* Line Items */}
-                {selectedOrder.lineItems.length > 0 && (
+                {selectedOrder?.lineItems?.length > 0 && (
                   <BlockStack gap="400">
                     <Text variant="headingMd" as="h3">Line Items</Text>
                     <BlockStack gap="200">
-                      {selectedOrder.lineItems.map((item) => (
+                      {selectedOrder.lineItems?.map((item) => (
                         <InlineStack key={item.id} align="space-between">
                           <InlineStack gap="200">
                             <Text variant="bodyMd" as="span">{item.title}</Text>
@@ -1025,11 +1025,11 @@ export default function OrdersPage() {
                 <Divider />
 
                 {/* Refunds */}
-                {selectedOrder.refunds.length > 0 && (
+                {selectedOrder?.refunds?.length > 0 && (
                   <BlockStack gap="400">
                     <Text variant="headingMd" as="h3">Refunds</Text>
                     <BlockStack gap="300">
-                      {selectedOrder.refunds.map((refund) => (
+                      {selectedOrder.refunds?.map((refund) => (
                         <Card key={refund.id}>
                           <Box padding="400">
                             <BlockStack gap="200">
@@ -1069,11 +1069,11 @@ export default function OrdersPage() {
                 <Divider />
 
                 {/* Credit Ledger Entries */}
-                {selectedOrder.creditLedgerEntries.length > 0 && (
+                {selectedOrder?.creditLedgerEntries?.length > 0 && (
                   <BlockStack gap="400">
                     <Text variant="headingMd" as="h3">Credit Ledger Entries</Text>
                     <BlockStack gap="200">
-                      {selectedOrder.creditLedgerEntries.map((entry) => (
+                      {selectedOrder.creditLedgerEntries?.map((entry) => (
                         <InlineStack key={entry.id} align="space-between">
                           <InlineStack gap="200">
                             <Badge tone={entry.amount > 0 ? "success" : "critical"}>
