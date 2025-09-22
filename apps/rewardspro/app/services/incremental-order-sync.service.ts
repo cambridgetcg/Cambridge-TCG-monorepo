@@ -337,7 +337,7 @@ export class IncrementalOrderSync {
       return { updated: true };
     } else {
       // Create new order
-      const customerId = await this.getOrCreateCustomer(shop, orderData.customer);
+      const customerId = await this.getOrCreateCustomer(shop, orderData.customer, orderData.email);
 
       const newOrder = await db.order.create({
         data: {
@@ -428,11 +428,82 @@ export class IncrementalOrderSync {
   /**
    * Get or create customer
    */
-  private async getOrCreateCustomer(shop: string, customerData: any): Promise<string> {
-    if (!customerData) return 'unknown';
+  private async getOrCreateCustomer(shop: string, customerData: any, orderEmail?: string): Promise<string> {
+    // Handle guest customers
+    if (!customerData) {
+      // Try to find or create a guest customer based on email if provided
+      if (orderEmail) {
+        const existingGuest = await db.customer.findFirst({
+          where: {
+            shop,
+            email: orderEmail,
+            shopifyCustomerId: 'guest'
+          }
+        });
 
+        if (existingGuest) return existingGuest.id;
+
+        // Create a guest customer with the email
+        const guestCustomer = await db.customer.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            shopifyCustomerId: 'guest',
+            email: orderEmail,
+            firstName: 'Guest',
+            lastName: 'Customer',
+            storeCredit: 0,
+            totalSpent: 0,
+            totalCashbackEarned: 0,
+            totalRefunded: 0,
+            netSpent: 0,
+            orderCount: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+
+        return guestCustomer.id;
+      }
+
+      // No customer data and no email - create a generic unknown customer
+      const unknownCustomer = await db.customer.findFirst({
+        where: {
+          shop,
+          shopifyCustomerId: 'unknown'
+        }
+      });
+
+      if (unknownCustomer) return unknownCustomer.id;
+
+      const newUnknownCustomer = await db.customer.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          shopifyCustomerId: 'unknown',
+          email: 'unknown@example.com',
+          firstName: 'Unknown',
+          lastName: 'Customer',
+          storeCredit: 0,
+          totalSpent: 0,
+          totalCashbackEarned: 0,
+          totalRefunded: 0,
+          netSpent: 0,
+          orderCount: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+
+      return newUnknownCustomer.id;
+    }
+
+    // Normal customer with data
     const customerId = extractNumericId(customerData.id) || customerData.legacyResourceId;
-    if (!customerId) return 'unknown';
+    if (!customerId) {
+      // Customer data exists but no ID - shouldn't happen but handle it
+      return this.getOrCreateCustomer(shop, null, customerData.email);
+    }
 
     const existingCustomer = await db.customer.findFirst({
       where: { shop, shopifyCustomerId: customerId }
@@ -446,6 +517,8 @@ export class IncrementalOrderSync {
         shop,
         shopifyCustomerId: customerId,
         email: customerData.email || `customer${customerId}@example.com`,
+        firstName: customerData.firstName || '',
+        lastName: customerData.lastName || '',
         storeCredit: 0,
         totalSpent: parseFloat(customerData.amountSpent?.amount || '0'),
         totalCashbackEarned: 0,
