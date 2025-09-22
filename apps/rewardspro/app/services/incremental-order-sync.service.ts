@@ -336,40 +336,61 @@ export class IncrementalOrderSync {
 
       return { updated: true };
     } else {
-      // Create new order
-      const customerId = await this.getOrCreateCustomer(shop, orderData.customer, orderData.email);
+      // Create new order in a transaction
+      return await db.$transaction(async (tx) => {
+        const customerId = await this.getOrCreateCustomer(shop, orderData.customer, orderData.email);
 
-      // Import tier management functions
-      const { assignDefaultTierToCustomer, calculateAndAssignTier } = await import('./tier-management.server');
+        // Import tier management functions
+        const { assignDefaultTierToCustomer, calculateAndAssignTier } = await import('./tier-management.server');
 
-      // Ensure customer has a tier (assign base tier if needed)
-      await assignDefaultTierToCustomer(customerId, shop, true); // skipLog for order processing
+        // Ensure customer has a tier (assign base tier if needed)
+        await assignDefaultTierToCustomer(customerId, shop, true); // skipLog for order processing
 
-      // Get customer with tier to calculate cashback
-      const customer = await db.customer.findUnique({
-        where: { id: customerId },
-        include: { currentTier: true }
-      });
+        // Get customer with tier to calculate cashback
+        const customer = await tx.customer.findUnique({
+          where: { id: customerId },
+          include: { currentTier: true }
+        });
 
-      // Calculate cashback based on customer's tier
-      const netAmount = parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0') -
-                       parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || '0');
-      let cashbackPercent = 0;
-      let cashbackAmount = 0;
-      let tierIdAtOrder: string | null = null;
-      let tierNameAtOrder: string | null = null;
+        // Calculate cashback based on customer's tier with currency normalization
+        const netAmount = parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0') -
+                         parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || '0');
+        const orderCurrency = orderData.currencyCode || 'USD';
 
-      // Customer should always have a tier now (at least base tier)
-      if (customer?.currentTier && !orderData.test) {
-        cashbackPercent = customer.currentTier.cashbackPercent;
-        cashbackAmount = (netAmount * cashbackPercent) / 100;
-        tierIdAtOrder = customer.currentTier.id;
-        tierNameAtOrder = customer.currentTier.name;
-      } else if (!customer?.currentTier) {
-        console.error(`[Order Sync] Customer ${customerId} has no tier assigned - this should not happen`);
-      }
+        // Import currency normalization
+        const { normalizeToBaseCurrency, calculateCashbackInCurrency } = await import('./currency-normalization.server');
 
-      const newOrder = await db.order.create({
+        // Normalize amounts for tier calculation
+        const normalizedNet = normalizeToBaseCurrency(netAmount, orderCurrency, 'USD');
+
+        let cashbackPercent = 0;
+        let cashbackAmount = 0;
+        let cashbackAmountNormalized = 0;
+        let tierIdAtOrder: string | null = null;
+        let tierNameAtOrder: string | null = null;
+
+        // Customer should always have a tier now (at least base tier)
+        if (customer?.currentTier && !orderData.test) {
+          cashbackPercent = customer.currentTier.cashbackPercent;
+
+          // Calculate cashback in order currency
+          const cashbackResult = calculateCashbackInCurrency(
+            netAmount,
+            orderCurrency,
+            cashbackPercent,
+            orderCurrency // Keep cashback in order currency
+          );
+
+          cashbackAmount = cashbackResult.cashbackAmount;
+          cashbackAmountNormalized = cashbackResult.normalizedAmount; // USD amount for aggregation
+
+          tierIdAtOrder = customer.currentTier.id;
+          tierNameAtOrder = customer.currentTier.name;
+        } else if (!customer?.currentTier) {
+          console.error(`[Order Sync] Customer ${customerId} has no tier assigned - this should not happen`);
+        }
+
+        const newOrder = await tx.order.create({
         data: {
           id: uuidv4(),
           shop,
@@ -401,27 +422,59 @@ export class IncrementalOrderSync {
           syncVersion: 1,
           createdAt: new Date(),
           updatedAt: new Date()
+          }
+        });
+
+        // Process line items within transaction
+        if (orderData.lineItems?.edges) {
+          for (const edge of orderData.lineItems.edges) {
+            const lineItem = edge.node;
+            if (!lineItem) continue;
+
+            const isGiftCard = lineItem.title?.toLowerCase().includes('gift card') || false;
+
+            await tx.orderLineItem.create({
+              data: {
+                id: uuidv4(),
+                orderId: newOrder.id,
+                shopifyLineItemId: lineItem.id,
+                shopifyProductId: extractNumericId(lineItem.product?.id),
+                shopifyVariantId: extractNumericId(lineItem.variant?.id),
+                title: lineItem.title || '',
+                variantTitle: lineItem.variantTitle || null,
+                sku: lineItem.sku || lineItem.variant?.sku || null,
+                vendor: lineItem.vendor || null,
+                quantity: lineItem.quantity,
+                price: parseFloat(lineItem.originalUnitPriceSet?.shopMoney?.amount || '0'),
+                totalPrice: parseFloat(lineItem.discountedTotalSet?.shopMoney?.amount || '0'),
+                totalDiscount: (parseFloat(lineItem.originalUnitPriceSet?.shopMoney?.amount || '0') * lineItem.quantity) -
+                              parseFloat(lineItem.discountedTotalSet?.shopMoney?.amount || '0'),
+                requiresShipping: lineItem.requiresShipping || false,
+                taxable: lineItem.taxable || false,
+                giftCard: isGiftCard,
+                isTierProduct: false, // Will be checked separately
+                createdAt: new Date()
+              }
+            });
+          }
         }
+
+        // Update customer spending totals and recalculate tier within transaction
+        await tx.customer.update({
+          where: { id: customerId },
+          data: {
+            totalSpent: { increment: newOrder.totalPrice },
+            netSpent: { increment: newOrder.netAmount },
+            orderCount: { increment: 1 },
+            lastOrderDate: newOrder.shopifyCreatedAt
+          }
+        });
+
+        // Recalculate tier after order
+        await calculateAndAssignTier(shop, customerId, 'ORDER');
+
+        return { created: true };
       });
-
-      // Process line items
-      await this.syncLineItems(newOrder.id, orderData.lineItems?.edges || []);
-
-      // Update customer spending totals and recalculate tier
-      await db.customer.update({
-        where: { id: customerId },
-        data: {
-          totalSpent: { increment: newOrder.totalPrice },
-          netSpent: { increment: newOrder.netAmount },
-          orderCount: { increment: 1 },
-          lastOrderDate: newOrder.shopifyCreatedAt
-        }
-      });
-
-      // Recalculate tier after order
-      await calculateAndAssignTier(shop, customerId, 'ORDER');
-
-      return { created: true };
     }
   }
 
@@ -474,31 +527,72 @@ export class IncrementalOrderSync {
   }
 
   /**
-   * Get or create customer
+   * Get or create customer with transaction support
    */
   private async getOrCreateCustomer(shop: string, customerData: any, orderEmail?: string): Promise<string> {
     // Handle guest customers
     if (!customerData) {
-      // Try to find or create a guest customer based on email if provided
-      if (orderEmail) {
-        const existingGuest = await db.customer.findFirst({
+      return await db.$transaction(async (tx) => {
+        // Try to find or create a guest customer based on email if provided
+        if (orderEmail) {
+          const existingGuest = await tx.customer.findFirst({
+            where: {
+              shop,
+              email: orderEmail,
+              shopifyCustomerId: 'guest'
+            }
+          });
+
+          if (existingGuest) return existingGuest.id;
+
+          // Create a guest customer with the email
+          const guestCustomer = await tx.customer.create({
+            data: {
+              id: uuidv4(),
+              shop,
+              shopifyCustomerId: 'guest',
+              email: orderEmail,
+              firstName: 'Guest',
+              lastName: 'Customer',
+              storeCredit: 0,
+              totalSpent: 0,
+              totalCashbackEarned: 0,
+              totalRefunded: 0,
+              netSpent: 0,
+              orderCount: 0,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          });
+
+          // Assign base tier to guest customer
+          const { ensureBaseTierExists } = await import('./tier-management.server');
+          const baseTier = await ensureBaseTierExists(shop);
+          await tx.customer.update({
+            where: { id: guestCustomer.id },
+            data: { currentTierId: baseTier.id }
+          });
+
+          return guestCustomer.id;
+        }
+
+        // No customer data and no email - create a generic unknown customer
+        const unknownCustomer = await tx.customer.findFirst({
           where: {
             shop,
-            email: orderEmail,
-            shopifyCustomerId: 'guest'
+            shopifyCustomerId: 'unknown'
           }
         });
 
-        if (existingGuest) return existingGuest.id;
+        if (unknownCustomer) return unknownCustomer.id;
 
-        // Create a guest customer with the email
-        const guestCustomer = await db.customer.create({
+        const newUnknownCustomer = await tx.customer.create({
           data: {
             id: uuidv4(),
             shop,
-            shopifyCustomerId: 'guest',
-            email: orderEmail,
-            firstName: 'Guest',
+            shopifyCustomerId: 'unknown',
+            email: 'unknown@example.com',
+            firstName: 'Unknown',
             lastName: 'Customer',
             storeCredit: 0,
             totalSpent: 0,
@@ -511,39 +605,16 @@ export class IncrementalOrderSync {
           }
         });
 
-        return guestCustomer.id;
-      }
+        // Assign base tier
+        const { ensureBaseTierExists } = await import('./tier-management.server');
+        const baseTier = await ensureBaseTierExists(shop);
+        await tx.customer.update({
+          where: { id: newUnknownCustomer.id },
+          data: { currentTierId: baseTier.id }
+        });
 
-      // No customer data and no email - create a generic unknown customer
-      const unknownCustomer = await db.customer.findFirst({
-        where: {
-          shop,
-          shopifyCustomerId: 'unknown'
-        }
+        return newUnknownCustomer.id;
       });
-
-      if (unknownCustomer) return unknownCustomer.id;
-
-      const newUnknownCustomer = await db.customer.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          shopifyCustomerId: 'unknown',
-          email: 'unknown@example.com',
-          firstName: 'Unknown',
-          lastName: 'Customer',
-          storeCredit: 0,
-          totalSpent: 0,
-          totalCashbackEarned: 0,
-          totalRefunded: 0,
-          netSpent: 0,
-          orderCount: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      });
-
-      return newUnknownCustomer.id;
     }
 
     // Normal customer with data
@@ -553,32 +624,42 @@ export class IncrementalOrderSync {
       return this.getOrCreateCustomer(shop, null, customerData.email);
     }
 
-    const existingCustomer = await db.customer.findFirst({
-      where: { shop, shopifyCustomerId: customerId }
+    return await db.$transaction(async (tx) => {
+      const existingCustomer = await tx.customer.findFirst({
+        where: { shop, shopifyCustomerId: customerId }
+      });
+
+      if (existingCustomer) return existingCustomer.id;
+
+      const newCustomer = await tx.customer.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          shopifyCustomerId: customerId,
+          email: customerData.email || `customer${customerId}@example.com`,
+          firstName: customerData.firstName || '',
+          lastName: customerData.lastName || '',
+          storeCredit: 0,
+          totalSpent: parseFloat(customerData.amountSpent?.amount || '0'),
+          totalCashbackEarned: 0,
+          totalRefunded: 0,
+          netSpent: parseFloat(customerData.amountSpent?.amount || '0'),
+          orderCount: customerData.numberOfOrders || 0,
+          createdAt: new Date(customerData.createdAt || Date.now()),
+          updatedAt: new Date()
+        }
+      });
+
+      // Assign base tier to new customer
+      const { ensureBaseTierExists } = await import('./tier-management.server');
+      const baseTier = await ensureBaseTierExists(shop);
+      await tx.customer.update({
+        where: { id: newCustomer.id },
+        data: { currentTierId: baseTier.id }
+      });
+
+      return newCustomer.id;
     });
-
-    if (existingCustomer) return existingCustomer.id;
-
-    const newCustomer = await db.customer.create({
-      data: {
-        id: uuidv4(),
-        shop,
-        shopifyCustomerId: customerId,
-        email: customerData.email || `customer${customerId}@example.com`,
-        firstName: customerData.firstName || '',
-        lastName: customerData.lastName || '',
-        storeCredit: 0,
-        totalSpent: parseFloat(customerData.amountSpent?.amount || '0'),
-        totalCashbackEarned: 0,
-        totalRefunded: 0,
-        netSpent: parseFloat(customerData.amountSpent?.amount || '0'),
-        orderCount: customerData.numberOfOrders || 0,
-        createdAt: new Date(customerData.createdAt || Date.now()),
-        updatedAt: new Date()
-      }
-    });
-
-    return newCustomer.id;
   }
 
   /**

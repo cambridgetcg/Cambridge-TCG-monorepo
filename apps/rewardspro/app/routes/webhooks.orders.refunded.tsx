@@ -220,97 +220,34 @@ export async function action({ request }: ActionFunctionArgs) {
         }
       }
 
-      // 7. Calculate and claw back cashback
-      let cashbackToRemove = new Decimal(0);
+      // 7. Process cashback clawback using refund handler service
+      const { handleRefundClawback } = await import('../services/refund-handler.server');
 
-      if (isFullRefund) {
-        // Full refund - remove all cashback from this order
-        cashbackToRemove = orderRecord.cashbackAmount || new Decimal(0);
+      const clawbackResult = await handleRefundClawback(
+        refund.order_id.toString(),
+        shopDomain,
+        Number(refundAmount),
+        isFullRefund
+      );
+
+      if (!clawbackResult.success) {
+        console.error(`[OrderRefunded] Clawback failed: ${clawbackResult.message}`);
+        // Continue processing even if clawback fails - don't break the whole refund
       } else {
-        // Partial refund - calculate proportional cashback to remove
-        const refundPercentage = refundAmount.div(orderRecord.totalPrice);
-        cashbackToRemove = new Decimal(orderRecord.cashbackAmount || 0).mul(refundPercentage);
+        console.log(`[OrderRefunded] Clawback successful: ${clawbackResult.message}`);
       }
 
-      if (cashbackToRemove.gt(0)) {
-        // Create negative ledger entry for clawback
-        const currentBalance = customer.storeCredit;
-        const newBalance = currentBalance.minus(cashbackToRemove);
-
-        await tx.storeCreditLedger.create({
-          data: {
-            id: uuidv4(),
-            customerId: customer.id,
-            shop: shopDomain,
-            amount: cashbackToRemove.neg(), // Negative amount for deduction
-            balance: newBalance,
-            type: 'REFUND_CLAWBACK',
-            shopifyOrderId: refund.order_id.toString(),
-            metadata: {
-              refundId: refund.id,
-              originalCashback: orderRecord.cashbackAmount?.toString(),
-              refundAmount: refundAmount.toString(),
-              isFullRefund,
-              reason: isFullRefund ? 'Full order refund' : 'Partial order refund'
-            },
-            createdAt: new Date()
-          }
-        });
-
-        // Update customer balance
-        await tx.customer.update({
-          where: { id: customer.id },
-          data: {
-            storeCredit: newBalance,
-            updatedAt: new Date()
-          }
-        });
-
-        console.log(`[OrderRefunded] Clawed back ${cashbackToRemove} cashback from customer ${customer.id}`);
-      }
-
-      // 8. Update order record
-      await tx.order.update({
-        where: { id: orderRecord.id },
-        data: {
-          financialStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-          totalRefunded: orderRecord.totalRefunded.plus(refundAmount),
-          updatedAt: new Date()
-        }
-      });
-
-      // 9. Update customer spending totals
-      const updatedSpending = await tx.order.aggregate({
-        where: {
-          shop: shopDomain,
-          customerId: customer.id,
-          financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] },
-          cashbackEligible: true
-        },
-        _sum: {
-          totalPrice: true,
-          totalRefunded: true,
-          cashbackAmount: true
-        }
-      });
-
-      await tx.customer.update({
-        where: { id: customer.id },
-        data: {
-          totalSpent: updatedSpending._sum.totalPrice || new Decimal(0),
-          totalRefunded: updatedSpending._sum.totalRefunded || new Decimal(0),
-          totalCashbackEarned: updatedSpending._sum.cashbackAmount || new Decimal(0),
-          netSpent: new Decimal(updatedSpending._sum.totalPrice || 0)
-            .minus(updatedSpending._sum.totalRefunded || 0),
-          updatedAt: new Date()
-        }
-      });
+      // Customer spending totals and order updates are now handled by handleRefundClawback
 
       // 10. Re-evaluate tier if membership was refunded or spending changed significantly
       if (tierProductRefunded) {
         await TierResolver.updateEffectiveTier(customer.id);
         console.log(`[OrderRefunded] Re-evaluated tier for customer ${customer.id} after membership refund`);
       }
+
+      // Also recalculate tier based on new spending after refund
+      const { recalculateTierAfterRefund } = await import('../services/refund-handler.server');
+      await recalculateTierAfterRefund(customer.id, shopDomain);
 
       // Log the refund processing
       console.log(`[OrderRefunded] Successfully processed ${isFullRefund ? 'full' : 'partial'} refund:`, {
