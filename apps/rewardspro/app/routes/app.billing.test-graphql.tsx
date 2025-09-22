@@ -17,7 +17,6 @@ import {
   TextField,
   Select,
   Checkbox,
-  CodeBlock,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -466,8 +465,16 @@ export default function BillingTestGraphQL() {
                 <Text variant="bodyMd" as="p">
                   Returned from Shopify confirmation page with these parameters:
                 </Text>
-                <Box padding="200" background="bg-surface-secondary" borderRadius="200">
-                  <CodeBlock language="json" content={JSON.stringify(data.callbackParams, null, 2)} />
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <pre style={{
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    margin: 0
+                  }}>
+                    {JSON.stringify(data.callbackParams, null, 2)}
+                  </pre>
                 </Box>
               </BlockStack>
             </Banner>
@@ -628,9 +635,17 @@ export default function BillingTestGraphQL() {
                   <Box padding="300" background="bg-surface" borderRadius="200">
                     <BlockStack gap="200">
                       <Text variant="headingSm" as="h3">Raw Response</Text>
-                      <CodeBlock
-                        language="json"
-                        content={JSON.stringify(testResult.response || testResult.error, null, 2)}
+                      <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                        <pre style={{
+                          fontFamily: 'monospace',
+                          fontSize: '12px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          margin: 0
+                        }}>
+                          {JSON.stringify(testResult.response || testResult.error, null, 2)}
+                        </pre>
+                      </Box>
                       />
                     </BlockStack>
                   </Box>

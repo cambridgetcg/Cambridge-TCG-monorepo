@@ -19,7 +19,7 @@ const uuidv4 = () => crypto.randomUUID();
 // HMAC Verification
 function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  const webhookSecret = process.env.SHOPIFY_API_SECRET; // Use API secret for HMAC
   
   if (!hmacHeader || !webhookSecret) {
     console.error('[Webhook] Missing HMAC header or webhook secret');
@@ -40,14 +40,34 @@ function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const rawBody = await request.text();
-  
+
+  // Get webhook ID and shop for idempotency
+  const webhookId = request.headers.get("x-shopify-webhook-id");
+  const shopDomain = request.headers.get("x-shopify-shop-domain");
+
   // 1. Verify HMAC
   if (!verifyWebhookHMAC(request, rawBody)) {
     console.error('[OrderPaid] HMAC verification failed');
     return json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   const order = JSON.parse(rawBody);
+
+  // 2. Order state validation - skip ineligible orders
+  if (order.cancelled_at) {
+    console.log('[OrderPaid] Order was cancelled, skipping');
+    return json({ success: true, message: "Cancelled order ignored" });
+  }
+
+  if (order.financial_status !== 'paid') {
+    console.log(`[OrderPaid] Order not paid (status=${order.financial_status}), skipping`);
+    return json({ success: true, message: "Non-paid order ignored" });
+  }
+
+  if (order.test === true) {
+    console.log('[OrderPaid] Test order detected, skipping');
+    return json({ success: true, message: "Test order ignored" });
+  }
   const shop = request.headers.get('X-Shopify-Shop-Domain');
   const topic = request.headers.get('X-Shopify-Topic');
   
@@ -300,7 +320,7 @@ async function processOneTimeTierPurchase(tx: any, params: {
       shopifyOrderId: order.id.toString(),
       shopifyLineItemId: lineItem.id.toString(),
       purchasePrice: priceValidation.sanitizedPrice!,
-      currency: order.currency,
+      currency: order.currency || 'USD',
       startDate: now,
       endDate: tierEndDate,
       status: 'ACTIVE',
@@ -447,7 +467,7 @@ async function processCashback(tx: any, params: {
           idempotencyKey: ledgerIdempotencyKey,
           orderId: order.id,
           orderName: order.name,
-          orderTotal,
+          orderTotal: totalPriceDecimal.toString(),
           cashbackPercent: customer.currentTier.cashbackPercent,
           tierName: customer.currentTier.name,
           description: `${customer.currentTier.cashbackPercent}% cashback on order ${order.name}`,
@@ -559,7 +579,7 @@ async function createOrderRecord(tx: any, params: {
       totalPrice: parseFloat(order.total_price || '0'),
       totalRefunded: 0, // Will be updated when refunds are processed
       netAmount: parseFloat(order.total_price || '0'),
-      financialStatus: 'PAID', // This webhook only fires for paid orders
+      financialStatus: (order.financial_status || 'paid').toUpperCase() as any, // Normalize to uppercase enum
       fulfillmentStatus: order.fulfillment_status || null,
       cashbackEligible,
       cashbackPercent,

@@ -983,11 +983,12 @@ enum EvaluationPeriod {
 }
 
 enum LedgerEntryType {
-  CASHBACK_EARNED     
-  ORDER_PAYMENT       
-  REFUND_CREDIT       
-  MANUAL_ADJUSTMENT   
-  SHOPIFY_SYNC        
+  CASHBACK_EARNED
+  ORDER_PAYMENT
+  REFUND_CREDIT
+  REFUND_CLAWBACK
+  MANUAL_ADJUSTMENT
+  SHOPIFY_SYNC
 }
 
 enum TierChangeType {
@@ -1100,4 +1101,32 @@ enum SubscriptionEventType {
   DELIVERY_SKIPPED
   BILLING_UPDATED
   PLAN_CHANGED
+}
+
+// ============================================
+// WEBHOOK PROCESSING MODELS
+// ============================================
+
+model WebhookProcessed {
+  id          String   @id @default(uuid())
+  webhookId   String   @unique
+  topic       String
+  shop        String
+  processedAt DateTime @default(now())
+
+  @@index([shop, topic])
+}
+
+model DeadLetterQueue {
+  id        String   @id @default(uuid())
+  webhookId String?
+  shop      String
+  topic     String
+  payload   Json
+  attempts  Int
+  error     String?
+  createdAt DateTime @default(now())
+  failedAt  DateTime
+
+  @@index([shop, failedAt])
 }
