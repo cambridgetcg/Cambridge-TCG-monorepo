@@ -9,7 +9,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "~/db.server";
 import { verifyWebhookHMAC } from "~/utils/webhook-validation.server";
-import { roundToCurrencyPrecision } from "~/app/services/currency-formatter.server";
+import { roundToCurrencyPrecision } from "~/services/currency-formatter.server";
 import type { Currency } from "@prisma/client";
 
 export async function action({ request }: ActionFunctionArgs) {
