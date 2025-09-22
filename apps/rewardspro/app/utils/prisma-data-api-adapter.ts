@@ -278,8 +278,78 @@ export class DataAPIModelProxy<T = any> {
   async findUnique(args: {
     where: Record<string, any>;
   }): Promise<T | null> {
+    // Handle composite unique constraints
+    // Prisma may pass composite keys as "field1_field2" with a combined value
+    // We need to detect and split these
+    const processedWhere: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(args.where)) {
+      // Check for composite unique constraint patterns
+      if (key === 'shop_shopifyOrderId' && this.tableName === 'Order') {
+        // Handle the composite key for Order model
+        // The value might be a string (JSON) or an object
+        let parsed: any;
+
+        if (typeof value === 'string') {
+          try {
+            parsed = JSON.parse(value);
+          } catch (e) {
+            console.error('[DataAPI] Failed to parse composite key value:', value);
+            processedWhere[key] = value;
+            continue;
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          parsed = value;
+        } else {
+          processedWhere[key] = value;
+          continue;
+        }
+
+        // Extract individual fields
+        if (parsed.shop && parsed.shopifyOrderId) {
+          processedWhere.shop = parsed.shop;
+          processedWhere.shopifyOrderId = parsed.shopifyOrderId;
+        } else {
+          console.error('[DataAPI] Invalid composite key structure:', parsed);
+          processedWhere[key] = value;
+        }
+      } else if (key === 'orderId_shopifyLineItemId' && this.tableName === 'OrderLineItem') {
+        // Handle the composite key for OrderLineItem model
+        if (typeof value === 'object' && value !== null) {
+          processedWhere.orderId = value.orderId;
+          processedWhere.shopifyLineItemId = value.shopifyLineItemId;
+        } else {
+          console.error('[DataAPI] Invalid composite key for OrderLineItem:', value);
+          processedWhere[key] = value;
+        }
+      } else if (key.includes('_') && typeof value === 'string') {
+        // Check if this might be another composite key (JSON string)
+        try {
+          const parsed = JSON.parse(value);
+          if (typeof parsed === 'object' && parsed !== null) {
+            // Split the key and map to individual fields
+            const parts = key.split('_');
+            if (parts.length === 2 && parsed[parts[0]] && parsed[parts[1]]) {
+              processedWhere[parts[0]] = parsed[parts[0]];
+              processedWhere[parts[1]] = parsed[parts[1]];
+            } else {
+              processedWhere[key] = value;
+            }
+          } else {
+            processedWhere[key] = value;
+          }
+        } catch (e) {
+          // Not JSON, treat as regular field
+          processedWhere[key] = value;
+        }
+      } else {
+        // Regular field
+        processedWhere[key] = value;
+      }
+    }
+
     const results = await this.findMany({
-      where: args.where,
+      where: processedWhere,
       take: 1,
     });
     return results[0] || null;
@@ -781,12 +851,46 @@ export class DataAPIModelProxy<T = any> {
     create: Record<string, any>;
   }): Promise<T> {
     // First try to find the record
+    // Note: findUnique already handles composite keys
     const existing = await this.findUnique({ where: args.where });
-    
+
     if (existing) {
-      // Update the existing record
+      // For update, we need to handle composite keys in the where clause
+      let whereClause = args.where;
+
+      // Check for specific composite key patterns
+      if ('orderId_shopifyLineItemId' in whereClause) {
+        // Handle OrderLineItem composite key
+        const composite = whereClause.orderId_shopifyLineItemId;
+        whereClause = {
+          orderId: composite.orderId,
+          shopifyLineItemId: composite.shopifyLineItemId
+        };
+      } else if ('shop_shopifyOrderId' in whereClause) {
+        // Handle Order composite key (might come as object)
+        const composite = whereClause.shop_shopifyOrderId;
+        if (typeof composite === 'object' && composite !== null) {
+          whereClause = {
+            shop: composite.shop,
+            shopifyOrderId: composite.shopifyOrderId
+          };
+        } else if (typeof composite === 'string') {
+          // Try to parse if it's JSON
+          try {
+            const parsed = JSON.parse(composite);
+            whereClause = {
+              shop: parsed.shop,
+              shopifyOrderId: parsed.shopifyOrderId
+            };
+          } catch (e) {
+            // Keep original whereClause
+          }
+        }
+      }
+
+      // Update the existing record using the ID
       return await this.update({
-        where: args.where,
+        where: { id: (existing as any).id },
         data: args.update
       });
     } else {
@@ -910,6 +1014,7 @@ export function createDataAPIPrismaClient() {
     deadLetterQueue: new DataAPIModelProxy("DeadLetterQueue", client),
     tierPurchase: new DataAPIModelProxy("TierPurchase", client),
     bulkOperationLog: new DataAPIModelProxy("BulkOperationLog", client),
+    syncStatus: new DataAPIModelProxy("SyncStatus", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {
