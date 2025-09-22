@@ -634,8 +634,10 @@ export default function OrdersPage() {
         <InlineStack gap="200" align="start">
           <Icon source={PersonIcon} />
           <BlockStack gap="100">
-            <Text variant="bodyMd" as="span">{order.customer.email}</Text>
-            {order.customer.currentTier && (
+            <Text variant="bodyMd" as="span">
+              {order.customer ? order.customer.email : (order.email || 'Guest')}
+            </Text>
+            {order.customer?.currentTier && (
               <Badge tone="info">{order.customer.currentTier.name}</Badge>
             )}
           </BlockStack>
@@ -926,7 +928,7 @@ export default function OrdersPage() {
                       },
                       {
                         term: "Customer",
-                        description: selectedOrder.customer.email,
+                        description: selectedOrder.customer?.email || selectedOrder.email || 'Guest',
                       },
                       {
                         term: "Financial Status",
