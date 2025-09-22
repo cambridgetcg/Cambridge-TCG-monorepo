@@ -12,6 +12,8 @@ import TierResolver from "../services/tier-resolver.server";
 import TierProductCache from "../services/tier-product-cache.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
+import { validateShopifyOrderCurrency } from "../services/currency-validation.server";
+import { roundToCurrencyPrecision } from "../services/currency-formatter.server";
 import * as crypto from 'crypto';
 
 const uuidv4 = () => crypto.randomUUID();
@@ -258,11 +260,20 @@ async function processOneTimeTierPurchase(tx: any, params: {
 }) {
   const { shop, order, lineItem, tierProduct } = params;
   
+  // Validate and normalize currency
+  const validatedCurrency = validateShopifyOrderCurrency(order);
+
   // Validate price
-  const priceValidation = validatePrice(lineItem.price, order.currency);
+  const priceValidation = validatePrice(lineItem.price, validatedCurrency);
   if (!priceValidation.valid) {
     throw new Error(`Invalid price for tier product: ${priceValidation.error}`);
   }
+
+  // Round price to proper decimal places
+  const roundedPrice = roundToCurrencyPrecision(
+    priceValidation.sanitizedPrice!,
+    validatedCurrency
+  );
   
   // Get or create customer
   const customer = await tx.customer.upsert({
@@ -319,8 +330,8 @@ async function processOneTimeTierPurchase(tx: any, params: {
       tierProductId: tierProduct.id,
       shopifyOrderId: order.id.toString(),
       shopifyLineItemId: lineItem.id.toString(),
-      purchasePrice: priceValidation.sanitizedPrice!,
-      currency: order.currency || 'USD',
+      purchasePrice: roundedPrice,
+      currency: validatedCurrency,
       startDate: now,
       endDate: tierEndDate,
       status: 'ACTIVE',
@@ -557,11 +568,41 @@ async function createOrderRecord(tx: any, params: {
     const netAmount = subtotal - discounts;
     cashbackAmount = (netAmount * cashbackPercent) / 100;
   }
-  
+
+  // Validate and normalize currency
+  const validatedCurrency = validateShopifyOrderCurrency(order);
+
+  // Round cashback amount to proper decimal places
+  if (cashbackAmount > 0) {
+    cashbackAmount = roundToCurrencyPrecision(cashbackAmount, validatedCurrency);
+  }
+
   // Create Order record
   const orderId = uuidv4();
   const now = new Date();
-  
+
+  // Round all amounts to proper decimal places for the currency
+  const subtotalPrice = roundToCurrencyPrecision(
+    parseFloat(order.subtotal_price || '0'),
+    validatedCurrency
+  );
+  const totalDiscounts = roundToCurrencyPrecision(
+    parseFloat(order.total_discounts || '0'),
+    validatedCurrency
+  );
+  const totalShipping = roundToCurrencyPrecision(
+    parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),
+    validatedCurrency
+  );
+  const totalTax = roundToCurrencyPrecision(
+    parseFloat(order.total_tax || '0'),
+    validatedCurrency
+  );
+  const totalPrice = roundToCurrencyPrecision(
+    parseFloat(order.total_price || '0'),
+    validatedCurrency
+  );
+
   const newOrder = await tx.order.create({
     data: {
       id: orderId,
@@ -571,14 +612,14 @@ async function createOrderRecord(tx: any, params: {
       shopifyOrderName: order.name || '',
       customerId: customer?.id || 'unknown',
       email: order.email || order.customer?.email || '',
-      currency: order.currency || 'USD',
-      subtotalPrice: parseFloat(order.subtotal_price || '0'),
-      totalDiscounts: parseFloat(order.total_discounts || '0'),
-      totalShipping: parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),
-      totalTax: parseFloat(order.total_tax || '0'),
-      totalPrice: parseFloat(order.total_price || '0'),
+      currency: validatedCurrency,
+      subtotalPrice,
+      totalDiscounts,
+      totalShipping,
+      totalTax,
+      totalPrice,
       totalRefunded: 0, // Will be updated when refunds are processed
-      netAmount: parseFloat(order.total_price || '0'),
+      netAmount: totalPrice,
       financialStatus: (order.financial_status || 'paid').toUpperCase() as any, // Normalize to uppercase enum
       fulfillmentStatus: order.fulfillment_status || null,
       cashbackEligible,

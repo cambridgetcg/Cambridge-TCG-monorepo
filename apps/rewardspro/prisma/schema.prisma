@@ -168,6 +168,10 @@ model Customer {
   currentSubscriptionId String? @unique
   currentSubscription   TierSubscription? @relation("CurrentSubscription", fields: [currentSubscriptionId], references: [id], onDelete: SetNull)
 
+  // Subscription fields
+  hasActiveSubscription Boolean      @default(false)  // Quick check for active subscription
+  subscriptionTier      String?                        // Current subscription tier name
+
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -178,6 +182,7 @@ model Customer {
   tierPurchases     TierPurchase[]      // One-time tier purchases
   orders            Order[]              // Customer's order history
   subscriptionEvents SubscriptionEvent[]  // Subscription event history
+  appSubscriptions  Subscription[]       // App-level subscriptions
   
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -434,24 +439,146 @@ model Notification {
   @@index([shop, createdAt(sort: Desc)])
 }
 
+// ============================================
+// APP-LEVEL SUBSCRIPTION MODELS
+// ============================================
+
+model Subscription {
+  id                    String                @id @default(uuid())
+  shop                  String
+  customerId            String
+  shopifyContractId     String?               @unique // Shopify subscription contract ID
+
+  // Plan details
+  planName              String
+  status                SubscriptionStatus    @default(PENDING)
+  amount                Decimal               @db.Decimal(10, 2)
+  currency              Currency              @default(USD)
+
+  // Billing details
+  billingInterval       String                // DAY, WEEK, MONTH, YEAR
+  billingIntervalCount  Int                   @default(1)
+  nextBillingDate       DateTime?
+  lastBillingDate       DateTime?
+
+  // Trial information
+  trialDays             Int                   @default(0)
+  trialEndsAt           DateTime?
+
+  // Payment method
+  paymentMethodId       String?
+  lastPaymentStatus     PaymentStatus?
+  failedPaymentCount    Int                   @default(0)
+
+  // Lifecycle dates
+  activatedAt           DateTime?
+  pausedAt              DateTime?
+  resumedAt             DateTime?
+  cancelledAt           DateTime?
+  cancellationReason    String?
+
+  // Features and metadata
+  features              Json?                 // Array of feature strings
+  metadata              Json?                 // Additional subscription data
+
+  // Timestamps
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  // Relations
+  customer              Customer              @relation(fields: [customerId], references: [id])
+  billingAttempts       BillingAttempt[]
+
+  @@unique([shop, customerId, planName])
+  @@index([shop])
+  @@index([customerId])
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+model BillingAttempt {
+  id                    String                @id @default(uuid())
+  subscriptionId        String
+  shop                  String
+
+  // Attempt details
+  attemptNumber         Int                   @default(1)
+  amount                Decimal               @db.Decimal(10, 2)
+  currency              Currency
+
+  // Status
+  status                BillingAttemptStatus
+  errorCode             String?
+  errorMessage          String?
+
+  // Payment details
+  paymentMethodId       String?
+  transactionId         String?               // Shopify transaction ID
+
+  // Retry information
+  nextRetryAt           DateTime?
+  retriesRemaining      Int                   @default(3)
+
+  // Timestamps
+  attemptedAt           DateTime              @default(now())
+  succeededAt           DateTime?
+  failedAt              DateTime?
+
+  // Relations
+  subscription          Subscription          @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([attemptedAt])
+}
+
+model PaymentMethodValidation {
+  id                    String                @id @default(uuid())
+  shop                  String
+  customerId            String
+  paymentMethodId       String
+
+  // Validation results
+  isValid               Boolean
+  errors                Json?                 // Array of error messages
+  warnings              Json?                 // Array of warning messages
+
+  // Method details
+  instrumentType        String?               // CREDIT_CARD, SHOP_PAY, etc.
+  lastDigits           String?
+  expiryMonth          Int?
+  expiryYear           Int?
+  brand                String?
+
+  // Timestamps
+  validatedAt          DateTime              @default(now())
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([customerId, paymentMethodId])
+  @@index([shop])
+  @@index([customerId])
+  @@index([isValid])
+}
+
 model MonthlyOrderUsage {
   id                String              @id @default(uuid())
   shop              String
-  
+
   // Period tracking
   year              Int                 // e.g., 2025
   month             Int                 // 1-12
-  
+
   // Usage tracking
   orderCount        Int                 @default(0)
   planLimit         Int                 // 100 for free, 1000 for paid
   planName          String              // Current plan name
-  
+
   // Metadata
   lastOrderDate     DateTime?           // Last order processed
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-  
+
   @@unique([shop, year, month])
   @@index([shop, year, month])
 }
@@ -1113,6 +1240,24 @@ enum SubscriptionEventType {
   PLAN_CHANGED
 }
 
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum BillingAttemptStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  RETRY_SCHEDULED
+  ABANDONED
+}
+
 // ============================================
 // WEBHOOK PROCESSING MODELS
 // ============================================
@@ -1167,4 +1312,48 @@ enum SyncStatusEnum {
   RUNNING
   FAILED
   COMPLETED
+}
+
+// ============================================
+// EXCHANGE RATE MODELS
+// ============================================
+
+model ExchangeRate {
+  id                String              @id @default(uuid())
+
+  // Rate configuration
+  baseCurrency      Currency            @default(USD)  // Base currency for rates
+  rates             Json                // { EUR: 1.09, GBP: 1.27, ... }
+  provider          String              // "ExchangeRate-API", "Shopify", etc.
+
+  // Timestamps
+  fetchedAt         DateTime            // When rates were fetched from provider
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Metadata
+  metadata          Json?               // Provider response metadata
+
+  @@index([baseCurrency, fetchedAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+model SystemAlert {
+  id                String              @id @default(uuid())
+
+  // Alert details
+  type              String              // EXCHANGE_RATE_STALENESS, etc.
+  severity          String              // INFO, WARNING, CRITICAL
+  message           String              // Alert message
+  details           Json                // Additional context
+
+  // Status
+  resolved          Boolean             @default(false)
+  resolvedAt        DateTime?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+
+  @@index([type, resolved])
+  @@index([severity, createdAt(sort: Desc)])
 }
