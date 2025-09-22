@@ -4,7 +4,7 @@
  * Updates exchange rates from ExchangeRate-API every 6 hours.
  * Monitors for staleness and sends alerts if rates are outdated.
  *
- * Schedule: 0 */6 * * * (every 6 hours)
+ * Schedule: 0 [every 6 hours] * * * (cron pattern)
  */
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
