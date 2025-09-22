@@ -390,8 +390,15 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a timestamp field
-      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
-          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' ||
+          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt' ||
+          field === 'shopifyCreatedAt' || field === 'shopifyUpdatedAt' || field === 'syncedAt' ||
+          field === 'lastSyncAt' || field === 'completedAt' || field === 'lastSuccessAt' ||
+          field === 'cancelledAt' || field === 'closedAt' || field === 'lastActivityAt' ||
+          field === 'tierAssignedAt' || field === 'lastOrderDate' || field === 'verifiedAt' ||
+          field === 'sentAt' || field === 'readAt' || field === 'startAt' || field === 'endAt' ||
+          field === 'processedStartAt' || field === 'processedEndAt' || field === 'originalCreatedAt' ||
+          field === 'originalUpdatedAt' || field.endsWith('At') || field.endsWith('Date')) {
         return `:param${i}::timestamp`;
       }
       
@@ -478,8 +485,15 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a timestamp field
-      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
-          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' ||
+          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt' ||
+          field === 'shopifyCreatedAt' || field === 'shopifyUpdatedAt' || field === 'syncedAt' ||
+          field === 'lastSyncAt' || field === 'completedAt' || field === 'lastSuccessAt' ||
+          field === 'cancelledAt' || field === 'closedAt' || field === 'lastActivityAt' ||
+          field === 'tierAssignedAt' || field === 'lastOrderDate' || field === 'verifiedAt' ||
+          field === 'sentAt' || field === 'readAt' || field === 'startAt' || field === 'endAt' ||
+          field === 'processedStartAt' || field === 'processedEndAt' || field === 'originalCreatedAt' ||
+          field === 'originalUpdatedAt' || field.endsWith('At') || field.endsWith('Date')) {
         return `"${field}" = :set${i}::timestamp`;
       }
       
@@ -537,8 +551,15 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a timestamp field
-      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' || 
-          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt') {
+      if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' ||
+          field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt' ||
+          field === 'shopifyCreatedAt' || field === 'shopifyUpdatedAt' || field === 'syncedAt' ||
+          field === 'lastSyncAt' || field === 'completedAt' || field === 'lastSuccessAt' ||
+          field === 'cancelledAt' || field === 'closedAt' || field === 'lastActivityAt' ||
+          field === 'tierAssignedAt' || field === 'lastOrderDate' || field === 'verifiedAt' ||
+          field === 'sentAt' || field === 'readAt' || field === 'startAt' || field === 'endAt' ||
+          field === 'processedStartAt' || field === 'processedEndAt' || field === 'originalCreatedAt' ||
+          field === 'originalUpdatedAt' || field.endsWith('At') || field.endsWith('Date')) {
         return `"${field}" = :set${i}::timestamp`;
       }
       
