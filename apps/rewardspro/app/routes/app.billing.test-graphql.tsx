@@ -646,7 +646,6 @@ export default function BillingTestGraphQL() {
                           {JSON.stringify(testResult.response || testResult.error, null, 2)}
                         </pre>
                       </Box>
-                      />
                     </BlockStack>
                   </Box>
                 )}
