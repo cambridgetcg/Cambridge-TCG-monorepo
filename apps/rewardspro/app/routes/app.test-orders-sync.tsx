@@ -36,6 +36,35 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// Helper function to map Shopify financial status to our enum
+function mapFinancialStatus(displayStatus: string): 'PENDING' | 'AUTHORIZED' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'PARTIALLY_REFUNDED' | 'VOIDED' | 'EXPIRED' {
+  const statusMap: Record<string, 'PENDING' | 'AUTHORIZED' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'PARTIALLY_REFUNDED' | 'VOIDED' | 'EXPIRED'> = {
+    'PENDING': 'PENDING',
+    'AUTHORIZED': 'AUTHORIZED',
+    'PAID': 'PAID',
+    'PARTIALLY_PAID': 'PARTIALLY_PAID',
+    'REFUNDED': 'REFUNDED',
+    'PARTIALLY_REFUNDED': 'PARTIALLY_REFUNDED',
+    'VOIDED': 'VOIDED',
+    'EXPIRED': 'EXPIRED',
+    // Handle lowercase or alternative formats
+    'pending': 'PENDING',
+    'authorized': 'AUTHORIZED',
+    'paid': 'PAID',
+    'partially_paid': 'PARTIALLY_PAID',
+    'refunded': 'REFUNDED',
+    'partially_refunded': 'PARTIALLY_REFUNDED',
+    'voided': 'VOIDED',
+    'expired': 'EXPIRED'
+  };
+
+  return statusMap[displayStatus] || 'PENDING';
+}
+
+// ============================================
 // GRAPHQL QUERIES & MUTATIONS
 // ============================================
 
@@ -45,25 +74,26 @@ const BULK_ORDERS_QUERY = `#graphql
       edges {
         cursor
         node {
+          # Basic order info
           id
           legacyResourceId
           name
           createdAt
           updatedAt
           processedAt
-          closedAt
           cancelledAt
+          test
+
+          # Financial status
           displayFinancialStatus
           displayFulfillmentStatus
           returnStatus
+
+          # Contact info
           email
-          phone
-          test
-          fullyPaid
-          unpaid
           currencyCode
 
-          # Pricing details
+          # Pricing details - only what we need for our schema
           currentSubtotalPriceSet {
             shopMoney {
               amount
@@ -116,13 +146,12 @@ const BULK_ORDERS_QUERY = `#graphql
             }
             createdAt
             updatedAt
-            state
             verifiedEmail
             tags
           }
 
-          # Line items
-          lineItems(first: 100) {
+          # Line items - only fields that exist
+          lineItems(first: 250) {
             edges {
               node {
                 id
@@ -133,10 +162,9 @@ const BULK_ORDERS_QUERY = `#graphql
                 vendor
                 requiresShipping
                 taxable
-                giftCard
                 fulfillmentStatus
 
-                # Product/variant info
+                # Check if it's a gift card via product type
                 product {
                   id
                   legacyResourceId
@@ -144,11 +172,11 @@ const BULK_ORDERS_QUERY = `#graphql
                   productType
                   tags
                 }
+
                 variant {
                   id
                   legacyResourceId
                   sku
-                  barcode
                   price
                 }
 
@@ -185,11 +213,12 @@ const BULK_ORDERS_QUERY = `#graphql
                 currencyCode
               }
             }
-            refundLineItems(first: 100) {
+            refundLineItems(first: 250) {
               edges {
                 node {
                   lineItem {
                     id
+                    legacyResourceId
                   }
                   quantity
                   subtotalSet {
@@ -203,29 +232,9 @@ const BULK_ORDERS_QUERY = `#graphql
             }
           }
 
-          # Payment info
-          transactions(first: 10) {
-            id
-            kind
-            status
-            test
-            processedAt
-            amountSet {
-              shopMoney {
-                amount
-                currencyCode
-              }
-            }
-            gateway
-          }
-
-          # Tags and metafields
+          # Tags
           tags
           note
-          customAttributes {
-            key
-            value
-          }
         }
       }
       pageInfo {
@@ -481,7 +490,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
             try {
               // Save or update order in database
-              await db.order.upsert({
+              const orderUpsert = await db.order.upsert({
                 where: {
                   shop_shopifyOrderId: {
                     shop: session.shop,
@@ -490,7 +499,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 },
                 update: {
                   shopifyOrderName: order.name,
-                  financialStatus: order.displayFinancialStatus?.toUpperCase() || 'PENDING',
+                  financialStatus: mapFinancialStatus(order.displayFinancialStatus),
                   currency: order.currencyCode || 'USD',
                   totalPrice: parseFloat(order.currentTotalPriceSet?.shopMoney?.amount || '0'),
                   subtotalPrice: parseFloat(order.currentSubtotalPriceSet?.shopMoney?.amount || '0'),
@@ -498,6 +507,8 @@ export async function action({ request }: ActionFunctionArgs) {
                   totalShipping: parseFloat(order.totalShippingPriceSet?.shopMoney?.amount || '0'),
                   totalDiscounts: parseFloat(order.currentTotalDiscountsSet?.shopMoney?.amount || '0'),
                   totalRefunded: parseFloat(order.totalRefundedSet?.shopMoney?.amount || '0'),
+                  netAmount: parseFloat(order.currentTotalPriceSet?.shopMoney?.amount || '0') -
+                            parseFloat(order.totalRefundedSet?.shopMoney?.amount || '0'),
                   shopifyUpdatedAt: new Date(order.updatedAt),
                   updatedAt: new Date()
                 },
@@ -520,7 +531,7 @@ export async function action({ request }: ActionFunctionArgs) {
                   totalRefunded: parseFloat(order.totalRefundedSet?.shopMoney?.amount || '0'),
                   netAmount: parseFloat(order.currentTotalPriceSet?.shopMoney?.amount || '0') -
                             parseFloat(order.totalRefundedSet?.shopMoney?.amount || '0'),
-                  financialStatus: order.displayFinancialStatus?.toUpperCase() || 'PENDING',
+                  financialStatus: mapFinancialStatus(order.displayFinancialStatus),
                   fulfillmentStatus: order.displayFulfillmentStatus || null,
                   cashbackEligible: !order.test,
                   shopifyCreatedAt: new Date(order.createdAt),
@@ -530,6 +541,55 @@ export async function action({ request }: ActionFunctionArgs) {
                   updatedAt: new Date()
                 }
               });
+
+              // Process line items
+              if (order.lineItems?.edges?.length > 0) {
+                for (const lineItemEdge of order.lineItems.edges) {
+                  const lineItem = lineItemEdge.node;
+
+                  // Check if it's a gift card based on product type
+                  const isGiftCard = lineItem.product?.productType?.toLowerCase() === 'gift card' ||
+                                     lineItem.product?.productType?.toLowerCase() === 'gift_card';
+
+                  await db.orderLineItem.upsert({
+                    where: {
+                      orderId_shopifyLineItemId: {
+                        orderId: orderUpsert.id,
+                        shopifyLineItemId: lineItem.id
+                      }
+                    },
+                    update: {
+                      quantity: lineItem.quantity,
+                      price: parseFloat(lineItem.originalUnitPriceSet?.shopMoney?.amount || '0'),
+                      totalPrice: parseFloat(lineItem.discountedTotalSet?.shopMoney?.amount || '0'),
+                      totalDiscount: parseFloat(lineItem.originalUnitPriceSet?.shopMoney?.amount || '0') -
+                                    parseFloat(lineItem.discountedUnitPriceSet?.shopMoney?.amount || '0'),
+                      giftCard: isGiftCard
+                    },
+                    create: {
+                      id: crypto.randomUUID(),
+                      orderId: orderUpsert.id,
+                      shopifyLineItemId: lineItem.id,
+                      shopifyProductId: lineItem.product?.legacyResourceId || null,
+                      shopifyVariantId: lineItem.variant?.legacyResourceId || null,
+                      title: lineItem.title || '',
+                      variantTitle: lineItem.variantTitle || null,
+                      sku: lineItem.sku || lineItem.variant?.sku || null,
+                      vendor: lineItem.vendor || null,
+                      quantity: lineItem.quantity,
+                      price: parseFloat(lineItem.originalUnitPriceSet?.shopMoney?.amount || '0'),
+                      totalPrice: parseFloat(lineItem.discountedTotalSet?.shopMoney?.amount || '0'),
+                      totalDiscount: parseFloat(lineItem.originalUnitPriceSet?.shopMoney?.amount || '0') -
+                                    parseFloat(lineItem.discountedUnitPriceSet?.shopMoney?.amount || '0'),
+                      requiresShipping: lineItem.requiresShipping || false,
+                      taxable: lineItem.taxable || false,
+                      giftCard: isGiftCard,
+                      isTierProduct: false, // Will need to check against tier products separately
+                      createdAt: new Date()
+                    }
+                  });
+                }
+              }
 
               totalProcessed++;
             } catch (error: any) {
