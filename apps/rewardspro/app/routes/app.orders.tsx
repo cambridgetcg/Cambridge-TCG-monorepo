@@ -1,0 +1,1110 @@
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import { useLoaderData, useSubmit, useNavigation, useFetcher, useSearchParams } from "@remix-run/react";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+import {
+  Page,
+  Layout,
+  Card,
+  IndexTable,
+  TextField,
+  Select,
+  Button,
+  Badge,
+  Text,
+  BlockStack,
+  InlineStack,
+  Icon,
+  Banner,
+  Box,
+  EmptyState,
+  Modal,
+  Spinner,
+  Divider,
+  Grid,
+  Tooltip,
+  SkeletonBodyText,
+  Toast,
+  Frame,
+  Filters,
+  ChoiceList,
+  RangeSlider,
+  DatePicker,
+  Popover,
+  LegacyCard,
+  Tabs,
+  DescriptionList,
+  Thumbnail,
+  ButtonGroup,
+  ActionList,
+} from "@shopify/polaris";
+import {
+  SearchIcon,
+  RefreshIcon,
+  CashDollarIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  InfoIcon,
+  ExportIcon,
+  ImportIcon,
+  CalendarIcon,
+  RefundMinorIcon,
+  OrderMinorIcon,
+  CustomerMinorIcon,
+  ClockIcon,
+  CircleTickIcon,
+  CancelMinorIcon,
+  EditIcon,
+  ViewIcon,
+  ReceiptRefundIcon,
+} from "@shopify/polaris-icons";
+import { authenticate } from "../shopify.server";
+import db from "../db.server";
+import { formatCurrency } from "../utils/currency";
+import type { Decimal } from "@prisma/client/runtime/library";
+
+// ============================================
+// TYPE DEFINITIONS
+// ============================================
+
+interface Order {
+  id: string;
+  shopifyOrderId: string;
+  shopifyOrderNumber: string;
+  shopifyOrderName: string;
+  customer: {
+    id: string;
+    email: string;
+    shopifyCustomerId: string;
+    storeCredit: Decimal;
+    currentTier: {
+      id: string;
+      name: string;
+      cashbackPercent: number;
+    } | null;
+  };
+  email: string;
+  currency: string;
+  totalPrice: Decimal;
+  totalRefunded: Decimal;
+  netAmount: Decimal;
+  cashbackAmount: Decimal | null;
+  cashbackProcessed: boolean;
+  cashbackPercent: number | null;
+  financialStatus: string;
+  fulfillmentStatus: string | null;
+  tierNameAtOrder: string | null;
+  shopifyCreatedAt: Date;
+  createdAt: Date;
+  creditLedgerEntries: Array<{
+    id: string;
+    amount: Decimal;
+    type: string;
+    createdAt: Date;
+  }>;
+  lineItems: Array<{
+    id: string;
+    title: string;
+    quantity: number;
+    price: Decimal;
+    isTierProduct: boolean;
+  }>;
+  refunds: Array<{
+    id: string;
+    amount: Decimal;
+    shopifyCreatedAt: Date;
+    cashbackAdjustment: Decimal | null;
+    cashbackProcessed: boolean;
+  }>;
+}
+
+interface LoaderData {
+  orders: Order[];
+  stats: {
+    totalOrders: number;
+    totalCashback: number;
+    pendingCashback: number;
+    processedCashback: number;
+    totalRefunded: number;
+  };
+  shopSettings: {
+    storeCurrency: string;
+    currencyDisplayType: string;
+  } | null;
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalCount: number;
+  };
+}
+
+// ============================================
+// LOADER
+// ============================================
+
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  try {
+    const { session, admin } = await authenticate.admin(request);
+
+    if (!session?.shop) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+
+    const shop = session.shop;
+    const url = new URL(request.url);
+
+    // Parse query parameters
+    const searchQuery = url.searchParams.get("search") || "";
+    const statusFilter = url.searchParams.get("status") || "all";
+    const cashbackFilter = url.searchParams.get("cashback") || "all";
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const pageSize = 50;
+
+    // Build where clause
+    const whereClause: any = { shop };
+
+    if (searchQuery) {
+      whereClause.OR = [
+        { shopifyOrderNumber: { contains: searchQuery, mode: 'insensitive' } },
+        { shopifyOrderName: { contains: searchQuery, mode: 'insensitive' } },
+        { email: { contains: searchQuery, mode: 'insensitive' } },
+      ];
+    }
+
+    if (statusFilter !== "all") {
+      whereClause.financialStatus = statusFilter;
+    }
+
+    if (cashbackFilter === "processed") {
+      whereClause.cashbackProcessed = true;
+    } else if (cashbackFilter === "pending") {
+      whereClause.cashbackProcessed = false;
+      whereClause.cashbackAmount = { not: null };
+    } else if (cashbackFilter === "excluded") {
+      whereClause.cashbackEligible = false;
+    }
+
+    // Fetch orders with pagination
+    const [orders, totalCount, shopSettings] = await Promise.all([
+      db.order.findMany({
+        where: whereClause,
+        include: {
+          customer: {
+            include: {
+              currentTier: true,
+            },
+          },
+          creditLedgerEntries: {
+            orderBy: { createdAt: 'desc' },
+          },
+          lineItems: {
+            take: 5, // Limit for performance
+          },
+          refunds: true,
+        },
+        orderBy: { shopifyCreatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.order.count({ where: whereClause }),
+      db.shopSettings.findUnique({ where: { shop } }),
+    ]);
+
+    // Calculate stats
+    const allOrders = await db.order.findMany({
+      where: { shop },
+      select: {
+        cashbackAmount: true,
+        cashbackProcessed: true,
+        totalRefunded: true,
+      },
+    });
+
+    const stats = {
+      totalOrders: allOrders.length,
+      totalCashback: allOrders.reduce((sum, o) =>
+        sum + (o.cashbackAmount ? Number(o.cashbackAmount) : 0), 0
+      ),
+      pendingCashback: allOrders
+        .filter(o => o.cashbackAmount && !o.cashbackProcessed)
+        .reduce((sum, o) => sum + Number(o.cashbackAmount), 0),
+      processedCashback: allOrders
+        .filter(o => o.cashbackAmount && o.cashbackProcessed)
+        .reduce((sum, o) => sum + Number(o.cashbackAmount), 0),
+      totalRefunded: allOrders.reduce((sum, o) =>
+        sum + Number(o.totalRefunded), 0
+      ),
+    };
+
+    // Calculate pagination
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    return json({
+      orders,
+      stats,
+      shopSettings,
+      pagination: {
+        page,
+        pageSize,
+        totalPages,
+        totalCount,
+      },
+    });
+  } catch (error) {
+    console.error("Error loading orders:", error);
+    throw new Response("Error loading orders", { status: 500 });
+  }
+};
+
+// ============================================
+// ACTION
+// ============================================
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  try {
+    const { session, admin } = await authenticate.admin(request);
+
+    if (!session?.shop) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+
+    const formData = await request.formData();
+    const action = formData.get("action");
+    const shop = session.shop;
+
+    switch (action) {
+      case "process-cashback": {
+        const orderId = formData.get("orderId") as string;
+
+        // Fetch order with customer
+        const order = await db.order.findFirst({
+          where: { id: orderId, shop },
+          include: { customer: true },
+        });
+
+        if (!order) {
+          throw new Error("Order not found");
+        }
+
+        if (order.cashbackProcessed) {
+          throw new Error("Cashback already processed");
+        }
+
+        if (!order.cashbackAmount) {
+          throw new Error("No cashback amount to process");
+        }
+
+        // Get current balance
+        const lastLedger = await db.storeCreditLedger.findFirst({
+          where: { customerId: order.customerId },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const currentBalance = lastLedger ? Number(lastLedger.balance) : 0;
+        const newBalance = currentBalance + Number(order.cashbackAmount);
+
+        // Create ledger entry
+        await db.storeCreditLedger.create({
+          data: {
+            id: uuidv4(),
+            customerId: order.customerId,
+            shop,
+            amount: order.cashbackAmount,
+            balance: newBalance,
+            type: 'CASHBACK_EARNED',
+            shopifyOrderId: order.shopifyOrderId,
+            orderId: order.id,
+            metadata: {
+              orderNumber: order.shopifyOrderNumber,
+              cashbackPercent: order.cashbackPercent,
+              tierName: order.tierNameAtOrder,
+            },
+            createdAt: new Date(),
+          },
+        });
+
+        // Update customer balance
+        await db.customer.update({
+          where: { id: order.customerId },
+          data: {
+            storeCredit: newBalance,
+            totalCashbackEarned: {
+              increment: order.cashbackAmount,
+            },
+          },
+        });
+
+        // Mark order as processed
+        await db.order.update({
+          where: { id: orderId },
+          data: {
+            cashbackProcessed: true,
+            processedAt: new Date(),
+          },
+        });
+
+        return json({
+          success: true,
+          message: `Cashback of ${formatCurrency(Number(order.cashbackAmount), null)} processed successfully`
+        });
+      }
+
+      case "process-refund": {
+        const orderId = formData.get("orderId") as string;
+        const refundId = formData.get("refundId") as string;
+
+        const refund = await db.orderRefund.findFirst({
+          where: { id: refundId, orderId, order: { shop } },
+          include: { order: { include: { customer: true } } },
+        });
+
+        if (!refund || !refund.cashbackAdjustment) {
+          throw new Error("Refund not found or no cashback to adjust");
+        }
+
+        if (refund.cashbackProcessed) {
+          throw new Error("Refund cashback already processed");
+        }
+
+        // Get current balance
+        const lastLedger = await db.storeCreditLedger.findFirst({
+          where: { customerId: refund.order.customerId },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const currentBalance = lastLedger ? Number(lastLedger.balance) : 0;
+        const newBalance = currentBalance - Number(refund.cashbackAdjustment);
+
+        // Create ledger entry for refund
+        await db.storeCreditLedger.create({
+          data: {
+            id: uuidv4(),
+            customerId: refund.order.customerId,
+            shop,
+            amount: -refund.cashbackAdjustment,
+            balance: Math.max(0, newBalance), // Don't go negative
+            type: 'REFUND_CREDIT',
+            shopifyOrderId: refund.order.shopifyOrderId,
+            orderId: refund.orderId,
+            refundId: refund.id,
+            metadata: {
+              refundAmount: Number(refund.amount),
+              orderNumber: refund.order.shopifyOrderNumber,
+            },
+            createdAt: new Date(),
+          },
+        });
+
+        // Update customer balance
+        await db.customer.update({
+          where: { id: refund.order.customerId },
+          data: {
+            storeCredit: Math.max(0, newBalance),
+          },
+        });
+
+        // Mark refund as processed
+        await db.orderRefund.update({
+          where: { id: refundId },
+          data: {
+            cashbackProcessed: true,
+            processedAt: new Date(),
+          },
+        });
+
+        return json({
+          success: true,
+          message: "Refund cashback adjustment processed"
+        });
+      }
+
+      case "sync-orders": {
+        // Import the sync service dynamically
+        const { OrderSyncService } = await import("../services/order-sync.service");
+
+        const syncService = new OrderSyncService(admin, {
+          shop,
+          batchSize: 50,
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+        });
+
+        // Start sync in background (in production, use a queue)
+        syncService.syncAllOrders().catch(console.error);
+
+        return json({
+          success: true,
+          message: "Order sync started. This may take a few minutes."
+        });
+      }
+
+      default:
+        throw new Error("Invalid action");
+    }
+  } catch (error: any) {
+    console.error("Error processing action:", error);
+    return json({
+      success: false,
+      error: error.message || "An error occurred"
+    }, { status: 400 });
+  }
+};
+
+// ============================================
+// COMPONENT
+// ============================================
+
+export default function OrdersPage() {
+  const { orders, stats, shopSettings, pagination } = useLoaderData<LoaderData>();
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const fetcher = useFetcher();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // State
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
+    active: false,
+    content: "",
+  });
+  const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [cashbackFilter, setCashbackFilter] = useState(searchParams.get("cashback") || "all");
+
+  const isLoading = navigation.state === "loading" || navigation.state === "submitting";
+
+  // Selected order for modal
+  const selectedOrder = useMemo(() => {
+    return orders.find(o => o.id === selectedOrderId);
+  }, [orders, selectedOrderId]);
+
+  // Handle search
+  const handleSearch = useCallback((value: string) => {
+    setQueryValue(value);
+    const params = new URLSearchParams(searchParams);
+    if (value) {
+      params.set("search", value);
+    } else {
+      params.delete("search");
+    }
+    params.set("page", "1"); // Reset to first page
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  // Handle status filter
+  const handleStatusFilter = useCallback((value: string[]) => {
+    const newStatus = value[0] || "all";
+    setStatusFilter(newStatus);
+    const params = new URLSearchParams(searchParams);
+    if (newStatus !== "all") {
+      params.set("status", newStatus);
+    } else {
+      params.delete("status");
+    }
+    params.set("page", "1");
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  // Handle cashback filter
+  const handleCashbackFilter = useCallback((value: string[]) => {
+    const newFilter = value[0] || "all";
+    setCashbackFilter(newFilter);
+    const params = new URLSearchParams(searchParams);
+    if (newFilter !== "all") {
+      params.set("cashback", newFilter);
+    } else {
+      params.delete("cashback");
+    }
+    params.set("page", "1");
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  // Handle clear filters
+  const handleClearAll = useCallback(() => {
+    setQueryValue("");
+    setStatusFilter("all");
+    setCashbackFilter("all");
+    setSearchParams({});
+  }, [setSearchParams]);
+
+  // Process cashback for an order
+  const handleProcessCashback = useCallback((orderId: string) => {
+    submit(
+      { action: "process-cashback", orderId },
+      { method: "post" }
+    );
+  }, [submit]);
+
+  // Process refund cashback
+  const handleProcessRefund = useCallback((orderId: string, refundId: string) => {
+    submit(
+      { action: "process-refund", orderId, refundId },
+      { method: "post" }
+    );
+  }, [submit]);
+
+  // Sync orders from Shopify
+  const handleSyncOrders = useCallback(() => {
+    submit(
+      { action: "sync-orders" },
+      { method: "post" }
+    );
+  }, [submit]);
+
+  // Open order detail modal
+  const handleViewOrder = useCallback((orderId: string) => {
+    setSelectedOrderId(orderId);
+    setIsDetailModalOpen(true);
+  }, []);
+
+  // Pagination handlers
+  const handlePreviousPage = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    const currentPage = pagination.page;
+    if (currentPage > 1) {
+      params.set("page", String(currentPage - 1));
+      setSearchParams(params);
+    }
+  }, [searchParams, setSearchParams, pagination.page]);
+
+  const handleNextPage = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    const currentPage = pagination.page;
+    if (currentPage < pagination.totalPages) {
+      params.set("page", String(currentPage + 1));
+      setSearchParams(params);
+    }
+  }, [searchParams, setSearchParams, pagination]);
+
+  // Show toast for action results
+  useEffect(() => {
+    if (fetcher.data) {
+      const data = fetcher.data as any;
+      setToast({
+        active: true,
+        content: data.message || (data.success ? "Action completed" : "Action failed"),
+        error: !data.success,
+      });
+    }
+  }, [fetcher.data]);
+
+  // Financial status badge
+  const getFinancialStatusBadge = (status: string) => {
+    const statusMap: Record<string, { tone: "success" | "warning" | "critical" | "info"; label: string }> = {
+      PAID: { tone: "success", label: "Paid" },
+      PARTIALLY_PAID: { tone: "warning", label: "Partially Paid" },
+      PENDING: { tone: "warning", label: "Pending" },
+      REFUNDED: { tone: "info", label: "Refunded" },
+      PARTIALLY_REFUNDED: { tone: "info", label: "Partially Refunded" },
+      VOIDED: { tone: "critical", label: "Voided" },
+    };
+    const config = statusMap[status] || { tone: "info", label: status };
+    return <Badge tone={config.tone}>{config.label}</Badge>;
+  };
+
+  // Cashback status badge
+  const getCashbackStatusBadge = (order: Order) => {
+    if (!order.cashbackAmount) {
+      return <Badge tone="info">No Cashback</Badge>;
+    }
+    if (order.cashbackProcessed) {
+      return <Badge tone="success">Processed</Badge>;
+    }
+    return <Badge tone="warning">Pending</Badge>;
+  };
+
+  // Table rows
+  const rowMarkup = orders.map((order, index) => (
+    <IndexTable.Row
+      id={order.id}
+      key={order.id}
+      position={index}
+      onClick={() => handleViewOrder(order.id)}
+    >
+      <IndexTable.Cell>
+        <Text variant="bodyMd" as="span" fontWeight="semibold">
+          {order.shopifyOrderName}
+        </Text>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <Text variant="bodyMd" as="span">{new Date(order.shopifyCreatedAt).toLocaleDateString()}</Text>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <InlineStack gap="200" align="start">
+          <Icon source={CustomerMinorIcon} />
+          <BlockStack gap="100">
+            <Text variant="bodyMd" as="span">{order.customer.email}</Text>
+            {order.customer.currentTier && (
+              <Badge tone="info">{order.customer.currentTier.name}</Badge>
+            )}
+          </BlockStack>
+        </InlineStack>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <Text variant="bodyMd" as="span">
+          {formatCurrency(Number(order.totalPrice), shopSettings)}
+        </Text>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <BlockStack gap="100">
+          <Text variant="bodyMd" as="span">
+            {order.cashbackAmount
+              ? formatCurrency(Number(order.cashbackAmount), shopSettings)
+              : "-"
+            }
+          </Text>
+          {order.cashbackPercent && (
+            <Text variant="bodySm" as="span" tone="subdued">
+              {order.cashbackPercent}%
+            </Text>
+          )}
+        </BlockStack>
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        {getFinancialStatusBadge(order.financialStatus)}
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        {getCashbackStatusBadge(order)}
+      </IndexTable.Cell>
+      <IndexTable.Cell>
+        <ButtonGroup>
+          <Button size="slim" onClick={() => handleViewOrder(order.id)}>
+            View
+          </Button>
+          {order.cashbackAmount && !order.cashbackProcessed && (
+            <Button
+              size="slim"
+              variant="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleProcessCashback(order.id);
+              }}
+              loading={navigation.state === "submitting"}
+            >
+              Process
+            </Button>
+          )}
+        </ButtonGroup>
+      </IndexTable.Cell>
+    </IndexTable.Row>
+  ));
+
+  return (
+    <Frame>
+      <Page
+        title="Orders"
+        subtitle="Manage orders and cashback processing"
+        primaryAction={{
+          content: "Sync Orders",
+          icon: RefreshIcon,
+          onAction: handleSyncOrders,
+          loading: navigation.state === "submitting",
+        }}
+      >
+        <Layout>
+          {/* Stats Cards */}
+          <Layout.Section>
+            <Grid>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Text variant="headingMd" as="h3">Total Orders</Text>
+                      <Text variant="heading2xl" as="p">{stats.totalOrders}</Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Text variant="headingMd" as="h3">Total Cashback</Text>
+                      <Text variant="heading2xl" as="p">
+                        {formatCurrency(stats.totalCashback, shopSettings)}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Text variant="headingMd" as="h3">Pending</Text>
+                      <Text variant="heading2xl" as="p" tone="warning">
+                        {formatCurrency(stats.pendingCashback, shopSettings)}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Text variant="headingMd" as="h3">Processed</Text>
+                      <Text variant="heading2xl" as="p" tone="success">
+                        {formatCurrency(stats.processedCashback, shopSettings)}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
+                <Card>
+                  <Box padding="400">
+                    <BlockStack gap="200">
+                      <Text variant="headingMd" as="h3">Refunded</Text>
+                      <Text variant="heading2xl" as="p">
+                        {formatCurrency(stats.totalRefunded, shopSettings)}
+                      </Text>
+                    </BlockStack>
+                  </Box>
+                </Card>
+              </Grid.Cell>
+            </Grid>
+          </Layout.Section>
+
+          {/* Filters and Search */}
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack gap="400" align="start" blockAlign="center">
+                    <Box width="100%">
+                      <TextField
+                        label=""
+                        placeholder="Search by order number, name, or email"
+                        value={queryValue}
+                        onChange={handleSearch}
+                        prefix={<Icon source={SearchIcon} />}
+                        autoComplete="off"
+                        clearButton
+                        onClearButtonClick={() => handleSearch("")}
+                      />
+                    </Box>
+                    <Select
+                      label=""
+                      options={[
+                        { label: "All Statuses", value: "all" },
+                        { label: "Paid", value: "PAID" },
+                        { label: "Pending", value: "PENDING" },
+                        { label: "Partially Paid", value: "PARTIALLY_PAID" },
+                        { label: "Refunded", value: "REFUNDED" },
+                        { label: "Partially Refunded", value: "PARTIALLY_REFUNDED" },
+                      ]}
+                      value={statusFilter}
+                      onChange={(value) => handleStatusFilter([value])}
+                    />
+                    <Select
+                      label=""
+                      options={[
+                        { label: "All Cashback", value: "all" },
+                        { label: "Processed", value: "processed" },
+                        { label: "Pending", value: "pending" },
+                        { label: "Excluded", value: "excluded" },
+                      ]}
+                      value={cashbackFilter}
+                      onChange={(value) => handleCashbackFilter([value])}
+                    />
+                    {(queryValue || statusFilter !== "all" || cashbackFilter !== "all") && (
+                      <Button onClick={handleClearAll} variant="plain">
+                        Clear all
+                      </Button>
+                    )}
+                  </InlineStack>
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+
+          {/* Orders Table */}
+          <Layout.Section>
+            <Card padding="0">
+              {isLoading ? (
+                <Box padding="400">
+                  <BlockStack gap="300">
+                    <SkeletonBodyText lines={10} />
+                  </BlockStack>
+                </Box>
+              ) : orders.length === 0 ? (
+                <EmptyState
+                  heading="No orders found"
+                  image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                  action={{
+                    content: "Sync Orders from Shopify",
+                    onAction: handleSyncOrders,
+                  }}
+                >
+                  <p>
+                    {queryValue || statusFilter !== "all" || cashbackFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "Sync your orders from Shopify to get started"}
+                  </p>
+                </EmptyState>
+              ) : (
+                <>
+                  <IndexTable
+                    resourceName={{
+                      singular: "order",
+                      plural: "orders",
+                    }}
+                    itemCount={orders.length}
+                    headings={[
+                      { title: "Order" },
+                      { title: "Date" },
+                      { title: "Customer" },
+                      { title: "Total" },
+                      { title: "Cashback" },
+                      { title: "Status" },
+                      { title: "Cashback Status" },
+                      { title: "Actions" },
+                    ]}
+                    selectable={false}
+                  >
+                    {rowMarkup}
+                  </IndexTable>
+
+                  {/* Pagination */}
+                  {pagination.totalPages > 1 && (
+                    <Box padding="400">
+                      <InlineStack align="center" blockAlign="center" gap="400">
+                        <Button
+                          onClick={handlePreviousPage}
+                          disabled={pagination.page === 1}
+                          accessibilityLabel="Previous page"
+                        >
+                          Previous
+                        </Button>
+                        <Text variant="bodySm" as="span">
+                          Page {pagination.page} of {pagination.totalPages}
+                        </Text>
+                        <Button
+                          onClick={handleNextPage}
+                          disabled={pagination.page === pagination.totalPages}
+                          accessibilityLabel="Next page"
+                        >
+                          Next
+                        </Button>
+                      </InlineStack>
+                    </Box>
+                  )}
+                </>
+              )}
+            </Card>
+          </Layout.Section>
+        </Layout>
+
+        {/* Order Detail Modal */}
+        <Modal
+          open={isDetailModalOpen}
+          onClose={() => setIsDetailModalOpen(false)}
+          title={`Order ${selectedOrder?.shopifyOrderName || ""}`}
+          primaryAction={{
+            content: "Close",
+            onAction: () => setIsDetailModalOpen(false),
+          }}
+          large
+        >
+          {selectedOrder && (
+            <Modal.Section>
+              <BlockStack gap="600">
+                {/* Order Summary */}
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">Order Summary</Text>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "Order Number",
+                        description: selectedOrder.shopifyOrderName,
+                      },
+                      {
+                        term: "Date",
+                        description: new Date(selectedOrder.shopifyCreatedAt).toLocaleString(),
+                      },
+                      {
+                        term: "Customer",
+                        description: selectedOrder.customer.email,
+                      },
+                      {
+                        term: "Financial Status",
+                        description: (
+                          <Box>
+                            {getFinancialStatusBadge(selectedOrder.financialStatus)}
+                          </Box>
+                        ),
+                      },
+                      {
+                        term: "Total",
+                        description: formatCurrency(Number(selectedOrder.totalPrice), shopSettings),
+                      },
+                      {
+                        term: "Refunded",
+                        description: formatCurrency(Number(selectedOrder.totalRefunded), shopSettings),
+                      },
+                      {
+                        term: "Net Amount",
+                        description: formatCurrency(Number(selectedOrder.netAmount), shopSettings),
+                      },
+                    ]}
+                  />
+                </BlockStack>
+
+                <Divider />
+
+                {/* Cashback Information */}
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">Cashback Information</Text>
+                  <DescriptionList
+                    items={[
+                      {
+                        term: "Tier at Order",
+                        description: selectedOrder.tierNameAtOrder || "No tier",
+                      },
+                      {
+                        term: "Cashback Rate",
+                        description: selectedOrder.cashbackPercent ? `${selectedOrder.cashbackPercent}%` : "N/A",
+                      },
+                      {
+                        term: "Cashback Amount",
+                        description: selectedOrder.cashbackAmount
+                          ? formatCurrency(Number(selectedOrder.cashbackAmount), shopSettings)
+                          : "No cashback",
+                      },
+                      {
+                        term: "Status",
+                        description: (
+                          <Box>
+                            {getCashbackStatusBadge(selectedOrder)}
+                          </Box>
+                        ),
+                      },
+                    ]}
+                  />
+                  {selectedOrder.cashbackAmount && !selectedOrder.cashbackProcessed && (
+                    <Box>
+                      <Button
+                        variant="primary"
+                        onClick={() => handleProcessCashback(selectedOrder.id)}
+                        loading={navigation.state === "submitting"}
+                      >
+                        Process Cashback
+                      </Button>
+                    </Box>
+                  )}
+                </BlockStack>
+
+                <Divider />
+
+                {/* Line Items */}
+                {selectedOrder.lineItems.length > 0 && (
+                  <BlockStack gap="400">
+                    <Text variant="headingMd" as="h3">Line Items</Text>
+                    <BlockStack gap="200">
+                      {selectedOrder.lineItems.map((item) => (
+                        <InlineStack key={item.id} align="space-between">
+                          <InlineStack gap="200">
+                            <Text variant="bodyMd" as="span">{item.title}</Text>
+                            {item.isTierProduct && (
+                              <Badge tone="info">Tier Product</Badge>
+                            )}
+                          </InlineStack>
+                          <Text variant="bodyMd" as="span">
+                            {item.quantity} × {formatCurrency(Number(item.price), shopSettings)}
+                          </Text>
+                        </InlineStack>
+                      ))}
+                    </BlockStack>
+                  </BlockStack>
+                )}
+
+                <Divider />
+
+                {/* Refunds */}
+                {selectedOrder.refunds.length > 0 && (
+                  <BlockStack gap="400">
+                    <Text variant="headingMd" as="h3">Refunds</Text>
+                    <BlockStack gap="300">
+                      {selectedOrder.refunds.map((refund) => (
+                        <Card key={refund.id}>
+                          <Box padding="400">
+                            <BlockStack gap="200">
+                              <InlineStack align="space-between">
+                                <Text variant="bodyMd" as="span">
+                                  Refund Amount: {formatCurrency(Number(refund.amount), shopSettings)}
+                                </Text>
+                                <Text variant="bodySm" as="span" tone="subdued">
+                                  {new Date(refund.shopifyCreatedAt).toLocaleDateString()}
+                                </Text>
+                              </InlineStack>
+                              {refund.cashbackAdjustment && (
+                                <InlineStack align="space-between">
+                                  <Text variant="bodyMd" as="span">
+                                    Cashback Adjustment: -{formatCurrency(Number(refund.cashbackAdjustment), shopSettings)}
+                                  </Text>
+                                  {!refund.cashbackProcessed ? (
+                                    <Button
+                                      size="slim"
+                                      onClick={() => handleProcessRefund(selectedOrder.id, refund.id)}
+                                    >
+                                      Process Adjustment
+                                    </Button>
+                                  ) : (
+                                    <Badge tone="success">Processed</Badge>
+                                  )}
+                                </InlineStack>
+                              )}
+                            </BlockStack>
+                          </Box>
+                        </Card>
+                      ))}
+                    </BlockStack>
+                  </BlockStack>
+                )}
+
+                <Divider />
+
+                {/* Credit Ledger Entries */}
+                {selectedOrder.creditLedgerEntries.length > 0 && (
+                  <BlockStack gap="400">
+                    <Text variant="headingMd" as="h3">Credit Ledger Entries</Text>
+                    <BlockStack gap="200">
+                      {selectedOrder.creditLedgerEntries.map((entry) => (
+                        <InlineStack key={entry.id} align="space-between">
+                          <InlineStack gap="200">
+                            <Badge tone={entry.amount > 0 ? "success" : "critical"}>
+                              {entry.type.replace(/_/g, " ")}
+                            </Badge>
+                            <Text variant="bodySm" as="span" tone="subdued">
+                              {new Date(entry.createdAt).toLocaleString()}
+                            </Text>
+                          </InlineStack>
+                          <Text variant="bodyMd" fontWeight="semibold">
+                            {Number(entry.amount) > 0 ? "+" : ""}
+                            {formatCurrency(Number(entry.amount), shopSettings)}
+                          </Text>
+                        </InlineStack>
+                      ))}
+                    </BlockStack>
+                  </BlockStack>
+                )}
+              </BlockStack>
+            </Modal.Section>
+          )}
+        </Modal>
+
+        {/* Toast Notification */}
+        {toast.active && (
+          <Toast
+            content={toast.content}
+            error={toast.error}
+            onDismiss={() => setToast({ ...toast, active: false })}
+          />
+        )}
+      </Page>
+    </Frame>
+  );
+}

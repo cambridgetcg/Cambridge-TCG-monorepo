@@ -8,7 +8,8 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
-import { TierResolver } from "../services/subscription/tier-resolver.server";
+import TierResolver from "../services/tier-resolver.server";
+import TierProductCache from "../services/tier-product-cache.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import * as crypto from 'crypto';
@@ -361,7 +362,27 @@ async function processCashback(tx: any, params: {
     console.log('[OrderPaid] No customer ID, skipping cashback');
     return;
   }
-  
+
+  // Get tier product IDs from cache for better performance
+  const tierProductIds = await TierProductCache.getTierProductIds(shop);
+
+  // Filter out tier products from cashback calculation
+  const eligibleItems = order.line_items?.filter(item =>
+    !tierProductIds.has(item.product_id?.toString())
+  ) || [];
+
+  // Calculate eligible amount (excluding tier products)
+  const eligibleAmount = eligibleItems.reduce((sum, item) => {
+    const price = parseFloat(item.price || '0');
+    const quantity = item.quantity || 1;
+    return sum + (price * quantity);
+  }, 0);
+
+  if (eligibleAmount <= 0) {
+    console.log('[OrderPaid] No eligible items for cashback (order may contain only tier products)');
+    return;
+  }
+
   // Get customer with current tier
   const customer = await tx.customer.findUnique({
     where: {
@@ -372,15 +393,14 @@ async function processCashback(tx: any, params: {
     },
     include: { currentTier: true }
   });
-  
+
   if (!customer || !customer.currentTier) {
     console.log('[OrderPaid] Customer or tier not found, skipping cashback');
     return;
   }
-  
-  // Calculate cashback amount
-  const orderTotal = parseFloat(order.total_price || '0');
-  const cashbackAmount = (orderTotal * customer.currentTier.cashbackPercent) / 100;
+
+  // Calculate cashback amount on eligible items only
+  const cashbackAmount = (eligibleAmount * customer.currentTier.cashbackPercent) / 100;
   
   if (cashbackAmount <= 0) {
     return;
@@ -491,18 +511,26 @@ async function createOrderRecord(tx: any, params: {
       }
     });
   }
-  
-  // Calculate cashback based on current tier
+
+  // Check if this order contains tier products (affects cashback eligibility)
+  // Use cached tier product IDs for better performance
+  const tierProductIds = await TierProductCache.getTierProductIds(shop);
+  const containsTierProducts = order.line_items?.some(item =>
+    tierProductIds.has(item.product_id?.toString())
+  ) || false;
+
+  // Calculate cashback based on current tier (but not on tier product purchases)
   let cashbackPercent = 0;
   let cashbackAmount = 0;
   let tierIdAtOrder = null;
   let tierNameAtOrder = null;
-  
-  if (customer?.currentTier) {
+  let cashbackEligible = !containsTierProducts; // Tier products don't earn cashback
+
+  if (customer?.currentTier && cashbackEligible) {
     cashbackPercent = customer.currentTier.cashbackPercent;
     tierIdAtOrder = customer.currentTier.id;
     tierNameAtOrder = customer.currentTier.name;
-    
+
     // Calculate cashback on subtotal after discounts
     const subtotal = parseFloat(order.subtotal_price || '0');
     const discounts = parseFloat(order.total_discounts || '0');
@@ -533,7 +561,7 @@ async function createOrderRecord(tx: any, params: {
       netAmount: parseFloat(order.total_price || '0'),
       financialStatus: 'PAID', // This webhook only fires for paid orders
       fulfillmentStatus: order.fulfillment_status || null,
-      cashbackEligible: true,
+      cashbackEligible,
       cashbackPercent,
       cashbackAmount,
       cashbackProcessed: false, // Will be marked true when cashback is credited
@@ -602,12 +630,13 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
     return;
   }
   
-  // Calculate totals from Order records
+  // Calculate totals from Order records (excluding tier product purchases)
   const orderStats = await tx.order.aggregate({
     where: {
       shop,
       customerId: customer.id,
-      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] },
+      cashbackEligible: true  // Only count non-tier-product orders toward spending
     },
     _sum: {
       totalPrice: true,

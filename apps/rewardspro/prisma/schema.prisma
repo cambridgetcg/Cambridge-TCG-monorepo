@@ -50,7 +50,10 @@ model ShopSettings {
   
   // Localization
   timezone                String              @default("America/New_York")  // Time zone
-  
+
+  // Billing
+  billingStatus           String?             @default("INACTIVE")  // ACTIVE, INACTIVE, TRIAL
+
   // Metadata
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
@@ -253,34 +256,79 @@ model TierChangeLog {
 model BillingPlan {
   id                String              @id @default(uuid())
   shop              String              @unique  // One billing plan per shop
-  
+
   // Plan details
   planName          String              // RewardsPro Monthly, RewardsPro Annual, etc
   status            String              // active, cancelled, past_due
-  
+
   // Pricing
   monthlyPrice      Decimal?            @db.Decimal(10, 2)  // Monthly subscription price
   usageCap          Decimal?            @db.Decimal(10, 2)  // Monthly usage cap
-  
+
   // Billing period
   currentPeriodEnd  DateTime?           // End of current billing period
-  
+
   // Usage alerts
   cap80AlertSent    Boolean             @default(false)
   cap90AlertSent    Boolean             @default(false)
   lastCapAlert      DateTime?
-  
+
   // Metadata
   metadata          Json?               // Store webhook data and additional info
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
-  
+
   // Relations
   usageRecords      UsageRecord[]       // Track usage charges
   billingHistory    BillingHistory[]    // Track billing events
-  
+
   @@index([shop])
   @@index([status])
+}
+
+// ============================================
+// GRAPHQL BILLING SUBSCRIPTION MODEL
+// ============================================
+
+model BillingSubscription {
+  id                      String    @id @default(uuid())
+  shop                    String    @unique
+
+  // GraphQL Subscription Info
+  subscriptionId          String?   // Shopify AppSubscription GID
+  subscriptionStatus      String?   // ACTIVE, CANCELLED, EXPIRED, PENDING
+  currentPeriodEnd        DateTime?
+
+  // Line Items
+  recurringLineItemId     String?   // For recurring charge
+  usageLineItemId         String?   // For usage-based charges
+
+  // Pending Charges
+  pendingChargeId         String?
+  pendingChargeCreatedAt  DateTime?
+  confirmationUrl         String?   @db.Text
+
+  // Usage Tracking
+  currentPeriodOrders     Int       @default(0)
+  currentPeriodUsageFee   Decimal   @default(0) @db.Decimal(10, 2)
+  lastUsageReset          DateTime?
+  usageCappedAmount       Decimal?  @db.Decimal(10, 2)
+
+  // Migration Info
+  billingVersion          String    @default("graphql") // "legacy" or "graphql"
+  migratedAt              DateTime?
+
+  // Plan Info
+  planType                String?   // "free", "starter", "growth", "enterprise"
+  trialEndsAt             DateTime?
+
+  // Metadata
+  metadata                Json?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([shop])
+  @@index([subscriptionStatus])
 }
 
 model UsageRecord {
@@ -317,24 +365,49 @@ model UsageRecord {
 }
 
 
+model UsageSummary {
+  id                   String              @id @default(uuid())
+  shop                 String
+
+  // Date and aggregation
+  date                 DateTime            // Date for this summary (UTC midnight)
+  ordersProcessed      Int                 // Number of orders processed
+  cashbackIssued       Decimal             @db.Decimal(10, 2)  // Total cashback issued
+  customersActive      Int                 // Number of active customers
+
+  // Charge details
+  chargeAmount         Decimal             @db.Decimal(10, 2)  // Calculated charge amount
+  chargeId             String?             // Shopify usage record ID if charged
+  charged              Boolean             @default(false)  // Whether charge was created
+
+  // Metadata
+  metadata             Json?               // Additional summary data
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([shop, date])  // One summary per shop per day
+  @@index([shop, date(sort: Desc)])
+  @@index([charged])
+}
+
 model BillingHistory {
   id                String              @id @default(uuid())
   shop              String
-  
+
   // Event details
   eventType         String              // SUBSCRIPTION_UPDATE, APPROACHING_CAP, etc
   planName          String              // Plan name at time of event
   status            String              // Status at time of event
   amount            Decimal?            @db.Decimal(10, 2)  // Amount if applicable
-  
+
   // Metadata
   metadata          Json?               // Additional event data
   createdAt         DateTime            @default(now())
-  
+
   // Relations
   billingPlanId     String?
   billingPlan       BillingPlan?        @relation(fields: [billingPlanId], references: [id])
-  
+
   @@index([shop, createdAt(sort: Desc)])
   @@index([eventType])
 }

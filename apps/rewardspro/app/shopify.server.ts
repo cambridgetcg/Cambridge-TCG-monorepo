@@ -103,7 +103,7 @@ const shopify = shopifyApp({
     // Billing-related webhooks
     APP_SUBSCRIPTIONS_UPDATE: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/subscriptions/update",
+      callbackUrl: "/webhooks/app-subscriptions-update",
     },
     APP_SUBSCRIPTIONS_APPROACHING_CAPPED_AMOUNT: {
       deliveryMethod: DeliveryMethod.Http,

@@ -157,8 +157,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============= ACTION =============
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
-    const { session, billing } = await authenticate.admin(request);
-    
+    const { session, billing, admin } = await authenticate.admin(request);
+
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
     }
@@ -171,36 +171,95 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: "No plan selected" }, { status: 400 });
     }
 
-    const plan = PRICING_PLANS.find(p => p.id === selectedPlan);
-    if (!plan) {
+    // Map old plan IDs to new billing config plan types
+    const planTypeMap: Record<string, 'starter' | 'growth' | 'enterprise'> = {
+      'starter': 'starter',
+      'growth': 'growth',
+      'plus': 'enterprise'
+    };
+
+    const planType = planTypeMap[selectedPlan];
+    if (!planType) {
       return json({ error: "Invalid plan selected" }, { status: 400 });
     }
 
-    // TODO: Integrate with Shopify Billing API
-    // For now, we'll simulate the upgrade process
-
-    // Update the billing plan in database
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    await db.billingPlan.update({
-      where: { shop },
-      data: {
-        planName: plan.id as PlanName,
-        priceMonthly: plan.price,
-        ordersLimit: plan.ordersIncluded,
-        overageRate: plan.overageRate,
-        currentPeriodStart: startOfMonth,
-        currentPeriodEnd: endOfMonth,
-        updatedAt: now,
-      },
+    // Check if using new GraphQL billing
+    const { shouldUseNewBilling } = await import("../utils/billing-config");
+    const billingSubscription = await db.billingSubscription.findUnique({
+      where: { shop }
     });
 
-    // In production, this would redirect to Shopify's billing confirmation page
-    // For now, redirect back to billing page with success message
-    return redirect("/app/billing?upgraded=true");
-    
+    const useNewBilling = await shouldUseNewBilling(shop, billingSubscription?.billingVersion);
+
+    if (useNewBilling) {
+      // Use new GraphQL billing
+      const { GraphQLBillingService } = await import("../services/billing/graphql-billing.service");
+      const billingService = new GraphQLBillingService(admin);
+
+      // Check if this is an upgrade or downgrade
+      const currentPlan = billingSubscription?.planType || 'free';
+      const planOrder = { free: 0, starter: 1, growth: 2, enterprise: 3 };
+      const isUpgrade = planOrder[planType] > planOrder[currentPlan as keyof typeof planOrder];
+
+      // Build return URL with shop parameter
+      const returnUrl = `${process.env.SHOPIFY_APP_URL}/app/billing/callback?shop=${shop}`;
+
+      // Create the subscription
+      const result = await billingService.createSubscription({
+        shop,
+        planType,
+        isUpgrade,
+        returnUrl
+      });
+
+      if (!result.success) {
+        console.error('[Billing Upgrade] Failed to create subscription:', result.error);
+        return json({
+          error: result.error || 'Failed to create subscription'
+        }, { status: 500 });
+      }
+
+      // For JSON responses (AJAX), return the confirmation URL
+      if (request.headers.get('Accept')?.includes('application/json')) {
+        return json({
+          success: true,
+          confirmationUrl: result.confirmationUrl
+        });
+      }
+
+      // For form submissions, redirect to confirmation URL
+      return redirect(result.confirmationUrl!);
+
+    } else {
+      // Use legacy billing (existing code)
+      const plan = PRICING_PLANS.find(p => p.id === selectedPlan);
+      if (!plan) {
+        return json({ error: "Invalid plan selected" }, { status: 400 });
+      }
+
+      // Update the billing plan in database
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      await db.billingPlan.update({
+        where: { shop },
+        data: {
+          planName: plan.id as PlanName,
+          priceMonthly: plan.price,
+          ordersLimit: plan.ordersIncluded,
+          overageRate: plan.overageRate,
+          currentPeriodStart: startOfMonth,
+          currentPeriodEnd: endOfMonth,
+          updatedAt: now,
+        },
+      });
+
+      // In production, this would redirect to Shopify's billing confirmation page
+      // For now, redirect back to billing page with success message
+      return redirect("/app/billing?upgraded=true");
+    }
+
   } catch (error) {
     console.error("Upgrade action error:", error);
     return json({ error: "Failed to process upgrade" }, { status: 500 });

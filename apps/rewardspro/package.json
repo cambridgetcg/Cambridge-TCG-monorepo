@@ -23,6 +23,8 @@
     "migrate:data-api": "node scripts/migrate-via-data-api.mjs",
     "migrate:subscription": "node scripts/apply-subscription-migration.mjs",
     "migrate:subscription:test": "node scripts/test-subscription-migration.mjs",
+    "migrate:usage-summary": "node scripts/apply-usage-summary-migration.mjs",
+    "migrate:test-connection": "node scripts/test-aurora-connection.mjs",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
