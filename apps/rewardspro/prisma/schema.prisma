@@ -144,11 +144,14 @@ model TierProduct {
 
 model Customer {
   id                String          @id @default(uuid())
-  shop              String      
+  shop              String
   shopifyCustomerId String          @db.VarChar(255)
   email             String          @db.VarChar(255)
+  firstName         String?         @db.VarChar(255)  // Added for Shopify sync
+  lastName          String?         @db.VarChar(255)  // Added for Shopify sync
+  tags              String?         @db.Text           // Added for customer tagging
   storeCredit       Decimal         @default(0) @db.Decimal(10, 2)
-  
+
   // Spending tracking fields
   totalSpent            Decimal     @default(0) @db.Decimal(10, 2)  // Total order value
   totalCashbackEarned   Decimal     @default(0) @db.Decimal(10, 2)  // Total cashback earned
@@ -156,7 +159,7 @@ model Customer {
   netSpent              Decimal     @default(0) @db.Decimal(10, 2)  // totalSpent - totalRefunded
   orderCount            Int         @default(0)                      // Number of orders
   lastOrderDate         DateTime?   // Date of most recent order
-  
+
   // Current tier relationship
   currentTierId     String?
   currentTier       Tier?           @relation(fields: [currentTierId], references: [id], onDelete: SetNull)
@@ -826,9 +829,10 @@ model Order {
   // Cashback calculation data
   cashbackEligible      Boolean     @default(true)    // Some orders may be excluded
   cashbackPercent       Int?        // Cashback rate at time of order
+  cashbackPercentAtOrder Int?        // Exact percent used (for recalculation accuracy)
   cashbackAmount        Decimal?    @db.Decimal(10, 2) // Cashback earned
   cashbackProcessed     Boolean     @default(false)    // Has cashback been credited
-  
+
   // Tier data at time of order
   tierIdAtOrder         String?     // Customer's tier when order was placed
   tierNameAtOrder       String?     // Store tier name for historical reference

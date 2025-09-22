@@ -339,6 +339,12 @@ export class IncrementalOrderSync {
       // Create new order
       const customerId = await this.getOrCreateCustomer(shop, orderData.customer, orderData.email);
 
+      // Import tier management functions
+      const { assignDefaultTierToCustomer, calculateAndAssignTier } = await import('./tier-management.server');
+
+      // Ensure customer has a tier (assign base tier if needed)
+      await assignDefaultTierToCustomer(customerId, shop, true); // skipLog for order processing
+
       // Get customer with tier to calculate cashback
       const customer = await db.customer.findUnique({
         where: { id: customerId },
@@ -353,11 +359,14 @@ export class IncrementalOrderSync {
       let tierIdAtOrder: string | null = null;
       let tierNameAtOrder: string | null = null;
 
+      // Customer should always have a tier now (at least base tier)
       if (customer?.currentTier && !orderData.test) {
         cashbackPercent = customer.currentTier.cashbackPercent;
         cashbackAmount = (netAmount * cashbackPercent) / 100;
         tierIdAtOrder = customer.currentTier.id;
         tierNameAtOrder = customer.currentTier.name;
+      } else if (!customer?.currentTier) {
+        console.error(`[Order Sync] Customer ${customerId} has no tier assigned - this should not happen`);
       }
 
       const newOrder = await db.order.create({
@@ -381,6 +390,7 @@ export class IncrementalOrderSync {
           fulfillmentStatus: orderData.displayFulfillmentStatus || null,
           cashbackEligible: !orderData.test,
           cashbackPercent,
+          cashbackPercentAtOrder: cashbackPercent, // Store exact percent for recalculation
           cashbackAmount,
           tierIdAtOrder,
           tierNameAtOrder,
@@ -396,6 +406,20 @@ export class IncrementalOrderSync {
 
       // Process line items
       await this.syncLineItems(newOrder.id, orderData.lineItems?.edges || []);
+
+      // Update customer spending totals and recalculate tier
+      await db.customer.update({
+        where: { id: customerId },
+        data: {
+          totalSpent: { increment: newOrder.totalPrice },
+          netSpent: { increment: newOrder.netAmount },
+          orderCount: { increment: 1 },
+          lastOrderDate: newOrder.shopifyCreatedAt
+        }
+      });
+
+      // Recalculate tier after order
+      await calculateAndAssignTier(shop, customerId, 'ORDER');
 
       return { created: true };
     }

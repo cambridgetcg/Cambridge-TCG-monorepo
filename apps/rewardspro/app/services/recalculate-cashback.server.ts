@@ -29,14 +29,38 @@ export async function recalculateCashbackForAllOrders(shop: string) {
   let totalCashback = 0;
 
   for (const order of orders) {
-    // Skip if no customer or no tier
-    if (!order.customer?.currentTier) {
-      console.log(`[Cashback Recalculation] Skipping order ${order.shopifyOrderName} - no customer tier`);
+    // Determine which cashback percent to use
+    let cashbackPercent = 0;
+    let tierUsed = 'none';
+
+    // Priority 1: Use cashbackPercentAtOrder if available (most accurate)
+    if (order.cashbackPercentAtOrder !== null && order.cashbackPercentAtOrder !== undefined) {
+      cashbackPercent = order.cashbackPercentAtOrder;
+      tierUsed = 'historical-percent';
+    }
+    // Priority 2: Use tierIdAtOrder to look up historical tier
+    else if (order.tierIdAtOrder) {
+      const historicalTier = await db.tier.findUnique({
+        where: { id: order.tierIdAtOrder }
+      });
+      if (historicalTier) {
+        cashbackPercent = historicalTier.cashbackPercent;
+        tierUsed = 'historical-tier';
+      }
+    }
+    // Priority 3: Use customer's current tier (with warning)
+    else if (order.customer?.currentTier) {
+      console.warn(`[Cashback Recalculation] Using current tier for historical order ${order.shopifyOrderName} - may not be accurate`);
+      cashbackPercent = order.customer.currentTier.cashbackPercent;
+      tierUsed = 'current-tier';
+    }
+    // Priority 4: Skip if no tier information available
+    else {
+      console.log(`[Cashback Recalculation] Skipping order ${order.shopifyOrderName} - no tier information available`);
       continue;
     }
 
     // Calculate cashback
-    const cashbackPercent = order.customer.currentTier.cashbackPercent;
     const cashbackAmount = (Number(order.netAmount) * cashbackPercent) / 100;
 
     // Update the order with cashback details
@@ -44,9 +68,13 @@ export async function recalculateCashbackForAllOrders(shop: string) {
       where: { id: order.id },
       data: {
         cashbackPercent,
+        cashbackPercentAtOrder: cashbackPercent, // Store for future reference
         cashbackAmount,
-        tierIdAtOrder: order.customer.currentTier.id,
-        tierNameAtOrder: order.customer.currentTier.name
+        // Only update tier info if we're using current tier (not historical)
+        ...(tierUsed === 'current-tier' && order.customer?.currentTier ? {
+          tierIdAtOrder: order.customer.currentTier.id,
+          tierNameAtOrder: order.customer.currentTier.name
+        } : {})
       }
     });
 

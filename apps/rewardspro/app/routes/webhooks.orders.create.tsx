@@ -190,10 +190,10 @@ export async function action({ request }: ActionFunctionArgs) {
           email: order.customer.email || shopifyCustomer.email || `customer_${shopifyCustomerId}@shop.com`,
           firstName: order.customer.first_name || shopifyCustomer.firstName || null,
           lastName: order.customer.last_name || shopifyCustomer.lastName || null,
+          tags: order.customer.tags || '',
           storeCredit: totalStoreCredit,
           totalSpent: parseFloat(order.customer.total_spent || "0"),
-          ordersCount: order.customer.orders_count || 1,
-          tags: order.customer.tags || '',
+          orderCount: order.customer.orders_count || 1,  // Fixed: orderCount not ordersCount
           createdAt: new Date(),
           updatedAt: new Date()
         }
