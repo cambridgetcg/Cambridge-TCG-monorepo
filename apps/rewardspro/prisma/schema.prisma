@@ -839,7 +839,11 @@ model Order {
   processedAt           DateTime?   // When we processed the order
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
-  
+
+  // Sync tracking fields
+  syncedAt              DateTime?   // When this order was last synced from Shopify
+  syncVersion           Int         @default(1) // Track sync version for updates
+
   // Relations
   lineItems             OrderLineItem[]
   refunds               OrderRefund[]
@@ -851,6 +855,8 @@ model Order {
   @@index([shop, shopifyCreatedAt])
   @@index([shop, financialStatus])
   @@index([customerId, shopifyCreatedAt])
+  @@index([shop, shopifyUpdatedAt])  // For incremental sync queries
+  @@index([shop, syncedAt])           // For tracking sync status
 }
 
 model OrderLineItem {
@@ -1129,4 +1135,32 @@ model DeadLetterQueue {
   failedAt  DateTime
 
   @@index([shop, failedAt])
+}
+
+// ============================================
+// SYNC MANAGEMENT MODELS
+// ============================================
+
+model SyncStatus {
+  id                String          @id @default(uuid())
+  shop              String
+  syncType          String          // "orders", "customers", "products"
+  lastSyncAt        DateTime        // Last time sync ran
+  lastSuccessfulId  String?         // Last successfully synced record ID
+  syncCursor        String?         // GraphQL cursor for pagination
+  status            SyncStatusEnum  // Current sync status
+  errorMessage      String?         // Error details if failed
+  recordsProcessed  Int             @default(0) // Number of records processed
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([shop, syncType])
+  @@index([shop, lastSyncAt])
+}
+
+enum SyncStatusEnum {
+  IDLE
+  RUNNING
+  FAILED
+  COMPLETED
 }
