@@ -6,7 +6,7 @@
 
 import db from '../db.server';
 import { Tier, Customer, TierSubscription, TierPurchase } from '@prisma/client';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@prisma/client/runtime/library';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TierWithDetails extends Tier {
