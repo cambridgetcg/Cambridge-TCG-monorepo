@@ -262,21 +262,20 @@ export class OrderProcessingQueue {
    */
   private static async saveDeadLetter(item: OrderQueueItem): Promise<void> {
     try {
-      // TODO: Implement dead letter queue when model is added
-      console.error('[Queue] Dead letter queue not implemented yet');
-      /* await db.deadLetterQueue.create({
+      await db.deadLetterQueue.create({
         data: {
           id: uuidv4(),
-          webhookId: item.webhookId,
+          webhookId: item.webhookId || null,
           shop: item.shop,
           topic: item.topic,
           payload: item.payload,
           attempts: item.attempts,
-          error: item.error,
+          error: item.error || 'Unknown error',
           createdAt: item.createdAt,
           failedAt: new Date()
         }
-      }); */
+      });
+      console.log(`[Queue] Saved ${item.topic} to dead letter queue (ID: ${item.id})`);
     } catch (error) {
       console.error('[Queue] Failed to save dead letter:', error);
     }

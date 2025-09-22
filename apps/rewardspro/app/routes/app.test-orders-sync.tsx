@@ -64,6 +64,19 @@ function mapFinancialStatus(displayStatus: string): 'PENDING' | 'AUTHORIZED' | '
   return statusMap[displayStatus] || 'PENDING';
 }
 
+// Helper function to extract numeric ID from GraphQL ID
+// e.g., "gid://shopify/Product/7234567890" -> "7234567890"
+function extractNumericId(gid: string | null | undefined): string | null {
+  if (!gid) return null;
+
+  // If it's already a numeric string, return it
+  if (/^\d+$/.test(gid)) return gid;
+
+  // Extract the numeric ID from the GraphQL ID
+  const match = gid.match(/\/(\d+)$/);
+  return match ? match[1] : null;
+}
+
 // ============================================
 // GRAPHQL QUERIES & MUTATIONS
 // ============================================
@@ -167,7 +180,6 @@ const BULK_ORDERS_QUERY = `#graphql
                 # Check if it's a gift card via product type
                 product {
                   id
-                  legacyResourceId
                   handle
                   productType
                   tags
@@ -175,7 +187,6 @@ const BULK_ORDERS_QUERY = `#graphql
 
                 variant {
                   id
-                  legacyResourceId
                   sku
                   price
                 }
@@ -218,7 +229,6 @@ const BULK_ORDERS_QUERY = `#graphql
                 node {
                   lineItem {
                     id
-                    legacyResourceId
                   }
                   quantity
                   subtotalSet {
@@ -518,7 +528,7 @@ export async function action({ request }: ActionFunctionArgs) {
                   shopifyOrderId: order.legacyResourceId,
                   shopifyOrderNumber: order.name.replace('#', ''),
                   shopifyOrderName: order.name,
-                  customerId: order.customer?.legacyResourceId
+                  customerId: order.customer
                     ? await getOrCreateCustomer(session.shop, order.customer, db)
                     : 'unknown',
                   email: order.email || order.customer?.email || '',
@@ -570,8 +580,8 @@ export async function action({ request }: ActionFunctionArgs) {
                       id: crypto.randomUUID(),
                       orderId: orderUpsert.id,
                       shopifyLineItemId: lineItem.id,
-                      shopifyProductId: lineItem.product?.legacyResourceId || null,
-                      shopifyVariantId: lineItem.variant?.legacyResourceId || null,
+                      shopifyProductId: extractNumericId(lineItem.product?.id),
+                      shopifyVariantId: extractNumericId(lineItem.variant?.id),
                       title: lineItem.title || '',
                       variantTitle: lineItem.variantTitle || null,
                       sku: lineItem.sku || lineItem.variant?.sku || null,
@@ -633,14 +643,16 @@ export async function action({ request }: ActionFunctionArgs) {
 
 // Helper function to get or create customer
 async function getOrCreateCustomer(shop: string, customerData: any, db: any): Promise<string> {
-  if (!customerData?.legacyResourceId) {
+  const customerId = extractNumericId(customerData?.id) || customerData?.legacyResourceId;
+
+  if (!customerId) {
     return 'unknown';
   }
 
   const existingCustomer = await db.customer.findFirst({
     where: {
       shop,
-      shopifyCustomerId: customerData.legacyResourceId
+      shopifyCustomerId: customerId
     }
   });
 
@@ -653,8 +665,8 @@ async function getOrCreateCustomer(shop: string, customerData: any, db: any): Pr
     data: {
       id: crypto.randomUUID(),
       shop,
-      shopifyCustomerId: customerData.legacyResourceId,
-      email: customerData.email || `customer${customerData.legacyResourceId}@example.com`,
+      shopifyCustomerId: customerId,
+      email: customerData.email || `customer${customerId}@example.com`,
       storeCredit: 0,
       totalSpent: parseFloat(customerData.amountSpent?.amount || '0'),
       totalCashbackEarned: 0,
