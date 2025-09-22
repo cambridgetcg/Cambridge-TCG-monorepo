@@ -339,6 +339,27 @@ export class IncrementalOrderSync {
       // Create new order
       const customerId = await this.getOrCreateCustomer(shop, orderData.customer, orderData.email);
 
+      // Get customer with tier to calculate cashback
+      const customer = await db.customer.findUnique({
+        where: { id: customerId },
+        include: { currentTier: true }
+      });
+
+      // Calculate cashback based on customer's tier
+      const netAmount = parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0') -
+                       parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || '0');
+      let cashbackPercent = 0;
+      let cashbackAmount = 0;
+      let tierIdAtOrder: string | null = null;
+      let tierNameAtOrder: string | null = null;
+
+      if (customer?.currentTier && !orderData.test) {
+        cashbackPercent = customer.currentTier.cashbackPercent;
+        cashbackAmount = (netAmount * cashbackPercent) / 100;
+        tierIdAtOrder = customer.currentTier.id;
+        tierNameAtOrder = customer.currentTier.name;
+      }
+
       const newOrder = await db.order.create({
         data: {
           id: uuidv4(),
@@ -355,11 +376,14 @@ export class IncrementalOrderSync {
           totalTax: parseFloat(orderData.currentTotalTaxSet?.shopMoney?.amount || '0'),
           totalPrice: parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0'),
           totalRefunded: parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || '0'),
-          netAmount: parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0') -
-                    parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || '0'),
+          netAmount,
           financialStatus: mapFinancialStatus(orderData.displayFinancialStatus),
           fulfillmentStatus: orderData.displayFulfillmentStatus || null,
           cashbackEligible: !orderData.test,
+          cashbackPercent,
+          cashbackAmount,
+          tierIdAtOrder,
+          tierNameAtOrder,
           shopifyCreatedAt: new Date(orderData.createdAt),
           shopifyUpdatedAt: new Date(orderData.updatedAt),
           processedAt: orderData.processedAt ? new Date(orderData.processedAt) : null,
