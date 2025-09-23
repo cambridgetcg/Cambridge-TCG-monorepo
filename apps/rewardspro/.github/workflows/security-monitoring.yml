@@ -1,0 +1,249 @@
+name: Continuous Security Monitoring
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      severity:
+        description: 'Minimum severity level to check'
+        required: false
+        default: 'moderate'
+        type: choice
+        options:
+          - low
+          - moderate
+          - high
+          - critical
+
+jobs:
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: npm-audit
+        run: |
+          npm audit --json > audit-report.json || true
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical' audit-report.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high' audit-report.json)
+          MODERATE=$(jq '.metadata.vulnerabilities.moderate' audit-report.json)
+          
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "moderate=$MODERATE" >> $GITHUB_OUTPUT
+          
+          if [ $CRITICAL -gt 0 ]; then
+            echo "🔴 Found $CRITICAL critical vulnerabilities!"
+            exit 1
+          elif [ $HIGH -gt 0 ]; then
+            echo "🟠 Found $HIGH high vulnerabilities"
+            exit 1
+          elif [ $MODERATE -gt 5 ]; then
+            echo "🟡 Found $MODERATE moderate vulnerabilities (threshold: 5)"
+            exit 1
+          else
+            echo "✅ Dependencies are secure"
+          fi
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: audit-report.json
+
+  secrets-scan:
+    name: Scan for Exposed Secrets
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better scanning
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  code-quality:
+    name: Security Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check authentication patterns
+        run: |
+          echo "Checking authentication patterns..."
+          echo ""
+          echo "Routes with authenticate.admin:"
+          grep -l "authenticate.admin" app/routes/app.*.tsx | wc -l
+          echo ""
+          echo "Webhooks with authenticate.webhook:"
+          grep -l "authenticate.webhook" app/routes/webhooks.*.tsx | wc -l
+          echo ""
+          echo "Routes missing shop scope (potential issue):"
+          for file in app/routes/app.*.tsx; do
+            if [ -f "$file" ]; then
+              if ! grep -q "where.*shop" "$file"; then
+                echo "  - $file"
+              fi
+            fi
+          done
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "Checking for hardcoded secrets..."
+          PATTERNS=(
+            "SHOPIFY_API_SECRET"
+            "ENCRYPTION_KEY"
+            "AWS_SECRET_ACCESS_KEY"
+            "AURORA_SECRET_ARN"
+            "SESSION_SECRET"
+          )
+          
+          for pattern in "${PATTERNS[@]}"; do
+            echo "Checking for $pattern..."
+            if grep -r "$pattern.*=.*['\"]" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.git app/; then
+              echo "🔴 Found hardcoded $pattern!"
+              exit 1
+            fi
+          done
+          echo "✅ No hardcoded secrets found"
+
+  shopify-compliance:
+    name: Shopify Security Compliance
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check HMAC verification
+        run: |
+          echo "Verifying HMAC implementation..."
+          echo ""
+          echo "OAuth routes with HMAC:"
+          grep -l "verifyHMAC\|timingSafeEqual" app/routes/auth.*.tsx || echo "WARNING: No HMAC verification in OAuth!"
+          echo ""
+          echo "Webhook routes with HMAC:"
+          grep -l "verifyWebhookHMAC\|authenticate.webhook" app/routes/webhooks.*.tsx | wc -l
+          echo "Total webhook routes:"
+          ls app/routes/webhooks.*.tsx 2>/dev/null | wc -l
+
+      - name: Check JWT validation
+        run: |
+          echo "Checking JWT session token validation..."
+          echo ""
+          if grep -r "jwt.verify" --include="*.ts" --include="*.tsx" app/; then
+            echo "✅ JWT verification found"
+            echo "Checking for 1-minute expiry..."
+            grep -r "exp.*60" --include="*.ts" --include="*.tsx" app/ || echo "WARNING: Check token expiry!"
+          else
+            echo "🔴 No JWT verification found!"
+          fi
+
+      - name: Check CSP headers
+        run: |
+          echo "Checking Content Security Policy..."
+          if grep -r "Content-Security-Policy" --include="*.ts" --include="*.tsx" app/; then
+            echo "✅ CSP headers found"
+            echo "Checking for frame-ancestors..."
+            grep -r "frame-ancestors" --include="*.ts" --include="*.tsx" app/ || echo "WARNING: Missing frame-ancestors!"
+          else
+            echo "🟡 No CSP headers found"
+          fi
+
+  security-summary:
+    name: Generate Security Summary
+    needs: [dependency-check, secrets-scan, code-quality, shopify-compliance]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Create summary
+        run: |
+          echo "# 🔒 Security Monitoring Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.dependency-check.result }}" == "success" ]; then
+            echo "✅ Dependencies: Secure" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔴 Dependencies: Vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.secrets-scan.result }}" == "success" ]; then
+            echo "✅ Secrets: No exposed secrets" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔴 Secrets: Potential exposure detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.code-quality.result }}" == "success" ]; then
+            echo "✅ Code Quality: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🟠 Code Quality: Issues found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.shopify-compliance.result }}" == "success" ]; then
+            echo "✅ Shopify Compliance: Met" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🟡 Shopify Compliance: Review needed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Known Issues 🔴" >> $GITHUB_STEP_SUMMARY
+          echo "- 9 webhook routes missing authentication" >> $GITHUB_STEP_SUMMARY
+          echo "- Limited rate limiting implementation (1 route)" >> $GITHUB_STEP_SUMMARY
+          echo "- No idempotency keys in production" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Fix webhook authentication gaps" >> $GITHUB_STEP_SUMMARY
+          echo "2. Implement rate limiting middleware" >> $GITHUB_STEP_SUMMARY
+          echo "3. Add idempotency to financial operations" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🔴 Security monitoring detected issues!"
+          echo "Please review the security summary for details."

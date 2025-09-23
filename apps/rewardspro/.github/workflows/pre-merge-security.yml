@@ -1,0 +1,281 @@
+name: Pre-Merge Security Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'app/**/*.ts'
+      - 'app/**/*.tsx'
+      - 'prisma/**/*'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  quick-security-check:
+    name: Quick Security Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check modified files
+        id: files
+        run: |
+          echo "Changed files:"
+          git diff --name-only origin/${{ github.base_ref }}...HEAD
+          
+          # Check for sensitive file changes
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E "(auth|webhook|session|token|hmac|jwt)" > /dev/null; then
+            echo "auth_changed=true" >> $GITHUB_OUTPUT
+            echo "🔐 Authentication-related files changed - running extra checks"
+          else
+            echo "auth_changed=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for webhook changes
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "webhooks" > /dev/null; then
+            echo "webhooks_changed=true" >> $GITHUB_OUTPUT
+            echo "🔔 Webhook files changed - verifying HMAC"
+          else
+            echo "webhooks_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify authentication patterns
+        if: steps.files.outputs.auth_changed == 'true'
+        run: |
+          echo "Checking authentication in changed files..."
+          
+          for file in $(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E "app/routes/app.*\.tsx$"); do
+            if [ -f "$file" ]; then
+              echo "Checking $file..."
+              if ! grep -q "authenticate.admin" "$file"; then
+                echo "🔴 ERROR: $file missing authenticate.admin!"
+                exit 1
+              fi
+              if ! grep -q "where.*shop" "$file"; then
+                echo "⚠️ WARNING: $file may be missing shop scope in queries"
+              fi
+            fi
+          done
+
+      - name: Verify webhook HMAC
+        if: steps.files.outputs.webhooks_changed == 'true'
+        run: |
+          echo "Checking HMAC verification in webhook files..."
+          
+          for file in $(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "app/routes/webhooks.*\.tsx$"); do
+            if [ -f "$file" ]; then
+              echo "Checking $file..."
+              if ! grep -q "authenticate.webhook\|verifyWebhookHMAC" "$file"; then
+                echo "🔴 ERROR: $file missing HMAC verification!"
+                echo "All webhook routes must verify HMAC signatures."
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "Scanning for hardcoded secrets in changed files..."
+          
+          PATTERNS=(
+            "SHOPIFY_API_SECRET="
+            "ENCRYPTION_KEY="
+            "AWS_SECRET_ACCESS_KEY="
+            "AURORA_SECRET_ARN="
+            "SESSION_SECRET="
+            "password.*=.*['\"]\w+['\"]"  # Hardcoded passwords
+            "Bearer\s+[A-Za-z0-9]{20,}"  # Bearer tokens
+          )
+          
+          for pattern in "${PATTERNS[@]}"; do
+            if git diff origin/${{ github.base_ref }}...HEAD | grep -E "$pattern" > /dev/null; then
+              echo "🔴 ERROR: Found potential hardcoded secret matching pattern: $pattern"
+              echo "Please use environment variables for sensitive data."
+              exit 1
+            fi
+          done
+          
+          echo "✅ No hardcoded secrets detected"
+
+      - name: Type check
+        run: |
+          echo "Running TypeScript checks..."
+          DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" npx tsc --noEmit
+
+      - name: Run critical security tests
+        if: steps.files.outputs.auth_changed == 'true' || steps.files.outputs.webhooks_changed == 'true'
+        run: |
+          echo "Running targeted security tests..."
+          
+          if [ "${{ steps.files.outputs.auth_changed }}" == "true" ]; then
+            npm run test:security:oauth
+            npm run test:security:jwt
+          fi
+          
+          if [ "${{ steps.files.outputs.webhooks_changed }}" == "true" ]; then
+            npm run test:security:webhooks
+          fi
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+          SHOPIFY_API_KEY: test-api-key
+          SHOPIFY_API_SECRET: test-api-secret
+          SHOPIFY_WEBHOOK_SECRET: test-webhook-secret
+
+  security-checklist:
+    name: Security Checklist
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Create PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const checklist = `## 🔐 Security Checklist
+            
+            Please ensure the following before merging:
+            
+            ### Authentication & Authorization
+            - [ ] All app routes use \`authenticate.admin()\`
+            - [ ] All webhook routes use \`authenticate.webhook()\` or verify HMAC
+            - [ ] Database queries are scoped to authenticated shop
+            - [ ] No client-supplied shop domain is trusted
+            
+            ### Data Security
+            - [ ] No sensitive data in console.log statements
+            - [ ] No hardcoded secrets or API keys
+            - [ ] Input validation using Zod schemas
+            - [ ] SQL injection prevention (parameterized queries)
+            
+            ### Shopify Specific
+            - [ ] Session tokens have 1-minute expiry
+            - [ ] HMAC verification uses timing-safe comparison
+            - [ ] CSP headers configured for iframe
+            - [ ] Shop domain validation follows regex pattern
+            
+            ### Financial Operations (if applicable)
+            - [ ] Idempotency keys for payment operations
+            - [ ] Decimal precision for monetary values
+            - [ ] Double-entry bookkeeping for credits
+            - [ ] Audit trail for all transactions
+            
+            ### Testing
+            - [ ] Security tests pass for modified components
+            - [ ] No test credentials in production code
+            - [ ] Error messages don't leak sensitive info
+            `;
+            
+            // Check if we already commented
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('🔐 Security Checklist')
+            );
+            
+            if (!botComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: checklist
+              });
+            }
+
+  security-score:
+    name: Calculate Security Score
+    needs: [quick-security-check]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Calculate score
+        run: |
+          SCORE=100
+          DETAILS=""
+          
+          # Check webhook coverage
+          WEBHOOK_COUNT=$(ls app/routes/webhooks.*.tsx 2>/dev/null | wc -l)
+          WEBHOOK_PROTECTED=$(grep -l "authenticate.webhook" app/routes/webhooks.*.tsx 2>/dev/null | wc -l)
+          
+          if [ $WEBHOOK_COUNT -gt 0 ]; then
+            WEBHOOK_PERCENT=$((WEBHOOK_PROTECTED * 100 / WEBHOOK_COUNT))
+            if [ $WEBHOOK_PERCENT -lt 100 ]; then
+              SCORE=$((SCORE - 20))
+              DETAILS="${DETAILS}\n- Webhook protection: ${WEBHOOK_PERCENT}% (-20 points)"
+            fi
+          fi
+          
+          # Check rate limiting
+          RATE_LIMIT_COUNT=$(grep -r "rateLimiter" app/routes/*.tsx 2>/dev/null | wc -l)
+          if [ $RATE_LIMIT_COUNT -lt 5 ]; then
+            SCORE=$((SCORE - 10))
+            DETAILS="${DETAILS}\n- Limited rate limiting: ${RATE_LIMIT_COUNT} routes (-10 points)"
+          fi
+          
+          # Check idempotency
+          IDEMPOTENCY_COUNT=$(grep -r "idempotency" app/ 2>/dev/null | wc -l)
+          if [ $IDEMPOTENCY_COUNT -eq 0 ]; then
+            SCORE=$((SCORE - 15))
+            DETAILS="${DETAILS}\n- No idempotency implementation (-15 points)"
+          fi
+          
+          # Check multi-tenant isolation
+          APP_ROUTES=$(ls app/routes/app.*.tsx 2>/dev/null | wc -l)
+          SHOP_SCOPED=$(grep -l "where.*shop" app/routes/app.*.tsx 2>/dev/null | wc -l)
+          
+          if [ $APP_ROUTES -gt 0 ]; then
+            ISOLATION_PERCENT=$((SHOP_SCOPED * 100 / APP_ROUTES))
+            if [ $ISOLATION_PERCENT -lt 90 ]; then
+              SCORE=$((SCORE - 25))
+              DETAILS="${DETAILS}\n- Shop isolation: ${ISOLATION_PERCENT}% (-25 points)"
+            fi
+          fi
+          
+          # Output score
+          echo "## 🎯 Security Score: ${SCORE}/100" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ $SCORE -ge 90 ]; then
+            echo "🔒 **Grade: A** - Excellent security posture" >> $GITHUB_STEP_SUMMARY
+          elif [ $SCORE -ge 80 ]; then
+            echo "🟢 **Grade: B** - Good security, minor improvements needed" >> $GITHUB_STEP_SUMMARY
+          elif [ $SCORE -ge 70 ]; then
+            echo "🟡 **Grade: C** - Acceptable, but security gaps exist" >> $GITHUB_STEP_SUMMARY
+          elif [ $SCORE -ge 60 ]; then
+            echo "🟠 **Grade: D** - Significant security concerns" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔴 **Grade: F** - Critical security issues!" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -n "$DETAILS" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Deductions:" >> $GITHUB_STEP_SUMMARY
+            echo -e "$DETAILS" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ $SCORE -lt 70 ]; then
+            echo ""
+            echo "🔴 Security score too low. Please address security issues before merging."
+            exit 1
+          fi
