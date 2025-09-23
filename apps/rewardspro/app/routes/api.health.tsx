@@ -1,26 +1,44 @@
 import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { getAuroraClient } from "../utils/aurora-data-api";
+import { DatadogService } from "../services/monitoring/datadog.service";
+import { Logger } from "../services/logger.service";
 
 /**
- * Health check endpoint to verify Data API connection
+ * Health check endpoint to verify Data API connection and system health
  * Access at: /api/health
+ *
+ * Query parameters:
+ * - ?detailed=true - Include detailed health checks
+ * - ?checks=memory,database,monitoring - Specific checks to run
  */
 export async function loader({ request }: LoaderFunctionArgs) {
   const startTime = Date.now();
+  const url = new URL(request.url);
+  const detailed = url.searchParams.get('detailed') === 'true';
+  const specificChecks = url.searchParams.get('checks')?.split(',') || [];
+
   const results = {
     status: "checking",
     timestamp: new Date().toISOString(),
+    responseTime: 0,
     environment: {
       VERCEL_ENV: process.env.VERCEL_ENV || "local",
       NODE_ENV: process.env.NODE_ENV || "development",
       AWS_REGION: process.env.AWS_REGION || "not-set",
+      APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) || "unknown",
     },
+    memory: {} as any,
     dataAPI: {
       configured: false,
       connected: false,
       error: null as string | null,
       responseTime: 0,
+    },
+    monitoring: {
+      datadog: "unknown",
+      sentry: "unknown",
+      logging: "operational",
     },
     aurora: {
       resourceArn: process.env.AURORA_RESOURCE_ARN ? "✅ Set" : "❌ Missing",
@@ -33,6 +51,57 @@ export async function loader({ request }: LoaderFunctionArgs) {
       region: process.env.AWS_REGION || "not-set",
     },
   };
+
+  // Memory health check
+  if (!specificChecks.length || specificChecks.includes('memory')) {
+    const memoryUsage = process.memoryUsage();
+    const formatBytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+
+    results.memory = {
+      heapUsed: formatBytes(memoryUsage.heapUsed),
+      heapTotal: formatBytes(memoryUsage.heapTotal),
+      rss: formatBytes(memoryUsage.rss),
+      external: formatBytes(memoryUsage.external),
+      arrayBuffers: formatBytes(memoryUsage.arrayBuffers),
+      heapUsagePercent: ((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100).toFixed(2) + '%',
+    };
+
+    // Warn if memory usage is high
+    if (memoryUsage.heapUsed / memoryUsage.heapTotal > 0.9) {
+      results.status = "degraded";
+      results.memory.warning = "High memory usage detected";
+
+      // Track metric
+      DatadogService.metrics.gauge('health.memory.heap_usage_percent',
+        (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100
+      );
+    }
+  }
+
+  // Monitoring service checks
+  if (!specificChecks.length || specificChecks.includes('monitoring')) {
+    // Check Datadog
+    if (process.env.DD_API_KEY) {
+      try {
+        // Send a test metric
+        DatadogService.metrics.increment('health.check');
+        results.monitoring.datadog = "operational";
+      } catch (error) {
+        results.monitoring.datadog = "error";
+        Logger.error('Health check: Datadog error', error as Error);
+      }
+    } else {
+      results.monitoring.datadog = "not configured";
+    }
+
+    // Check Sentry
+    if (process.env.SENTRY_DSN) {
+      results.monitoring.sentry = "configured";
+      // Can't easily test Sentry connectivity without sending an actual error
+    } else {
+      results.monitoring.sentry = "not configured";
+    }
+  }
 
   // Check if Data API is configured
   if (
@@ -124,12 +193,32 @@ export async function loader({ request }: LoaderFunctionArgs) {
     results.dataAPI.error = "Missing required environment variables";
   }
 
+  // Calculate final response time
+  results.responseTime = Date.now() - startTime;
+
+  // Log health check result
+  if (results.status !== "healthy") {
+    Logger.warn('Health check failed', {
+      status: results.status,
+      dataAPI: results.dataAPI,
+      memory: results.memory,
+    });
+
+    // Track unhealthy status
+    DatadogService.metrics.increment('health.check.unhealthy');
+  } else {
+    // Track healthy status and response time
+    DatadogService.metrics.increment('health.check.healthy');
+    DatadogService.metrics.timing('health.check.response_time', results.responseTime);
+  }
+
   // Add response headers for monitoring
   return json(results, {
     status: results.status === "healthy" ? 200 : results.status === "unconfigured" ? 503 : 500,
     headers: {
       "Cache-Control": "no-cache, no-store, must-revalidate",
-      "X-Response-Time": `${Date.now() - startTime}ms`,
+      "X-Response-Time": `${results.responseTime}ms`,
+      "X-Health-Status": results.status,
     },
   });
 }

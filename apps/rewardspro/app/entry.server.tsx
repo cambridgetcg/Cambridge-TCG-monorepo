@@ -5,6 +5,94 @@ import type { EntryContext } from "@remix-run/node";
 import { createReadableStreamFromReadable } from "@remix-run/node";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
+import * as Sentry from "@sentry/remix";
+import { initDatadog } from "./services/monitoring/datadog.service";
+
+// Initialize monitoring services
+initDatadog();
+
+// Initialize Sentry for server-side error tracking
+if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+
+    // Performance Monitoring
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+
+    // Set sample rate for profiling
+    profilesSampleRate: 0.1,
+
+    // Attach release information
+    release: process.env.VERCEL_GIT_COMMIT_SHA,
+    dist: process.env.VERCEL_ENV,
+
+    // Filter and sanitize events
+    beforeSend(event, hint) {
+      // Remove sensitive headers
+      if (event.request?.headers) {
+        delete event.request.headers['authorization'];
+        delete event.request.headers['cookie'];
+        delete event.request.headers['x-shopify-access-token'];
+      }
+
+      // Remove sensitive data from query strings
+      if (event.request?.query_string) {
+        event.request.query_string = event.request.query_string.replace(
+          /token=[^&]*/g,
+          'token=[REDACTED]'
+        );
+      }
+
+      return event;
+    },
+
+    // Server-specific options
+    serverName: process.env.VERCEL_REGION || 'unknown',
+  });
+}
+
+// Wrap Remix's error handler with Sentry
+export const handleError = Sentry.wrapHandleErrorWithSentry(
+  (error: unknown, { request }: { request: Request }) => {
+    // Log to console for local debugging
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Unhandled error:', error);
+    }
+
+    // Extract useful context from request
+    const url = new URL(request.url);
+    const shopDomain = request.headers.get('x-shopify-shop-domain');
+
+    // Capture additional context with Sentry
+    Sentry.withScope((scope) => {
+      scope.setContext('request', {
+        url: url.pathname,
+        method: request.method,
+        shopDomain,
+      });
+
+      if (shopDomain) {
+        scope.setTag('shopify.shop', shopDomain);
+      }
+
+      // If it's a known error type, add specific handling
+      if (error instanceof Error) {
+        if (error.message.includes('HMAC')) {
+          scope.setTag('error.type', 'hmac_validation');
+          scope.setLevel('warning');
+        } else if (error.message.includes('rate limit')) {
+          scope.setTag('error.type', 'rate_limit');
+          scope.setLevel('warning');
+        } else if (error.message.includes('session')) {
+          scope.setTag('error.type', 'session_error');
+        }
+      }
+
+      Sentry.captureException(error);
+    });
+  }
+);
 
 export const streamTimeout = 5000;
 

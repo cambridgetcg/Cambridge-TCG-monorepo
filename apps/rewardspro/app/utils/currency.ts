@@ -145,6 +145,35 @@ export function parseCurrency(value: string): number {
 }
 
 /**
+ * Round amount to currency precision
+ */
+export function roundToCurrencyPrecision(amount: number, currency: Currency): number {
+  const decimals = CURRENCY_DECIMALS[currency] ?? 2;
+  const multiplier = Math.pow(10, decimals);
+  return Math.round(amount * multiplier) / multiplier;
+}
+
+/**
+ * Convert currency using exchange rate
+ */
+export function convertCurrency(amount: number, rate: number): number {
+  if (rate <= 0) {
+    throw new Error('Exchange rate must be positive');
+  }
+  return amount * rate;
+}
+
+/**
+ * Calculate cashback amount
+ */
+export function calculateCashback(amount: number, percentage: number): number {
+  if (percentage < 0 || percentage > 100) {
+    throw new Error('Cashback percentage must be between 0 and 100');
+  }
+  return Math.floor((amount * percentage / 100) * 100) / 100; // Round down to cents
+}
+
+/**
  * Format with locale-specific thousands separators
  */
 export function formatCurrencyWithLocale(
