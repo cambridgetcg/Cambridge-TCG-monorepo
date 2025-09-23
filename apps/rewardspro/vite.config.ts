@@ -68,8 +68,26 @@ export default defineConfig({
   ],
   build: {
     assetsInlineLimit: 0,
+    rollupOptions: {
+      external: [],
+    },
   },
   optimizeDeps: {
-    include: ["@shopify/app-bridge-react", "@shopify/polaris"],
+    include: [
+      "@shopify/app-bridge-react",
+      "@shopify/polaris",
+      "@react-spring/core",
+      "@react-spring/shared",
+      "@react-spring/web",
+      "@visx/xychart"
+    ],
+  },
+  ssr: {
+    noExternal: [
+      "@react-spring/core",
+      "@react-spring/shared",
+      "@react-spring/web",
+      "@visx/xychart"
+    ],
   },
 }) satisfies UserConfig;

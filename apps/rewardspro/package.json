@@ -80,6 +80,8 @@
     "@visx/shape": "^3.12.0",
     "@visx/tooltip": "^3.12.0",
     "@visx/xychart": "^3.12.0",
+    "@react-spring/core": "^9.7.5",
+    "@react-spring/shared": "^9.7.5",
     "@react-spring/web": "^9.7.5",
     "chart.js": "^4.5.0",
     "chartjs-chart-funnel": "^4.2.4",
