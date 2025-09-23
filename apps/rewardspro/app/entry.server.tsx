@@ -52,19 +52,22 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
   });
 }
 
-// Wrap Remix's error handler with Sentry
-export const handleError = Sentry.wrapHandleErrorWithSentry(
-  (error: unknown, { request }: { request: Request }) => {
-    // Log to console for local debugging
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('Unhandled error:', error);
-    }
+// Export error handler for Remix
+export function handleError(
+  error: unknown,
+  { request }: { request: Request }
+) {
+  // Log to console for local debugging
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('Unhandled error:', error);
+  }
 
-    // Extract useful context from request
-    const url = new URL(request.url);
-    const shopDomain = request.headers.get('x-shopify-shop-domain');
+  // Extract useful context from request
+  const url = new URL(request.url);
+  const shopDomain = request.headers.get('x-shopify-shop-domain');
 
-    // Capture additional context with Sentry
+  // Capture with Sentry if enabled
+  if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
     Sentry.withScope((scope) => {
       scope.setContext('request', {
         url: url.pathname,
@@ -92,7 +95,7 @@ export const handleError = Sentry.wrapHandleErrorWithSentry(
       Sentry.captureException(error);
     });
   }
-);
+}
 
 export const streamTimeout = 5000;
 
