@@ -13,7 +13,9 @@ import {
   Icon,
   Spinner,
   Badge,
-  Divider
+  Divider,
+  Collapsible,
+  Link
 } from "@shopify/polaris";
 import {
   PlusCircleIcon,
@@ -52,6 +54,9 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
   const [transactionSearch, setTransactionSearch] = useState("");
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [transactionsExpanded, setTransactionsExpanded] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 7;
 
   const currentBalance = typeof customer.storeCredit === 'string'
     ? parseFloat(customer.storeCredit)
@@ -128,6 +133,28 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
     );
   });
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
+  const paginatedTransactions = transactionsExpanded
+    ? filteredTransactions.slice((currentPage - 1) * transactionsPerPage, currentPage * transactionsPerPage)
+    : filteredTransactions.slice(0, transactionsPerPage);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setCurrentPage(newPage);
+  }, []);
+
+  const handleToggleExpand = useCallback(() => {
+    setTransactionsExpanded(!transactionsExpanded);
+    if (!transactionsExpanded) {
+      setCurrentPage(1);
+    }
+  }, [transactionsExpanded]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setTransactionSearch(value);
+    setCurrentPage(1); // Reset to first page when searching
+  }, []);
+
   const isLoading = fetcher.state === "submitting" || fetcher.state === "loading";
 
   return (
@@ -200,20 +227,34 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
               <Text variant="headingMd" as="h3">
                 Transaction History
               </Text>
+              {filteredTransactions.length > 0 && (
+                <Badge tone="subdued">{filteredTransactions.length}</Badge>
+              )}
             </InlineStack>
-            <div style={{ width: '300px' }}>
-              <TextField
-                label="Search transactions"
-                labelHidden
-                placeholder="Search by type, reason, or order..."
-                prefix={<Icon source={SearchIcon} />}
-                value={transactionSearch}
-                onChange={setTransactionSearch}
-                clearButton
-                onClearButtonClick={() => setTransactionSearch("")}
-                autoComplete="off"
-              />
-            </div>
+            <InlineStack gap="200">
+              <div style={{ width: '250px' }}>
+                <TextField
+                  label="Search transactions"
+                  labelHidden
+                  placeholder="Search transactions..."
+                  prefix={<Icon source={SearchIcon} />}
+                  value={transactionSearch}
+                  onChange={handleSearchChange}
+                  clearButton
+                  onClearButtonClick={() => handleSearchChange("")}
+                  autoComplete="off"
+                />
+              </div>
+              {filteredTransactions.length > transactionsPerPage && (
+                <Button
+                  variant="plain"
+                  onClick={handleToggleExpand}
+                  disclosure={transactionsExpanded ? "up" : "down"}
+                >
+                  {transactionsExpanded ? "Show less" : `Show all (${filteredTransactions.length})`}
+                </Button>
+              )}
+            </InlineStack>
           </InlineStack>
 
           <Box paddingBlockStart="200">
@@ -223,11 +264,74 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                 <Text as="span" variant="bodySm">Loading transactions...</Text>
               </InlineStack>
             ) : (
-              <TransactionTable
-                transactions={filteredTransactions}
-                shopSettings={shopSettings}
-                compact={false}
-              />
+              <BlockStack gap="400">
+                <TransactionTable
+                  transactions={paginatedTransactions}
+                  shopSettings={shopSettings}
+                  compact={false}
+                />
+
+                {/* Pagination Controls */}
+                {transactionsExpanded && totalPages > 1 && (
+                  <Box>
+                    <Divider />
+                    <Box paddingBlockStart="400">
+                      <InlineStack align="center" gap="400">
+                        <Button
+                          variant="plain"
+                          disabled={currentPage === 1}
+                          onClick={() => handlePageChange(currentPage - 1)}
+                        >
+                          Previous
+                        </Button>
+
+                        <InlineStack gap="200">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (currentPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = currentPage - 2 + i;
+                            }
+
+                            if (pageNum < 1 || pageNum > totalPages) return null;
+
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={currentPage === pageNum ? "primary" : "plain"}
+                                onClick={() => handlePageChange(pageNum)}
+                                size="slim"
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          })}
+                        </InlineStack>
+
+                        <Button
+                          variant="plain"
+                          disabled={currentPage === totalPages}
+                          onClick={() => handlePageChange(currentPage + 1)}
+                        >
+                          Next
+                        </Button>
+                      </InlineStack>
+
+                      <Box paddingBlockStart="200">
+                        <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                          Showing {((currentPage - 1) * transactionsPerPage) + 1}-
+                          {Math.min(currentPage * transactionsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
+                        </Text>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+              </BlockStack>
             )}
           </Box>
         </BlockStack>
