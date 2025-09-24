@@ -28,6 +28,7 @@ import {
   ChevronUpIcon,
 } from '@shopify/polaris-icons';
 import { formatCurrency } from '../utils/currency';
+import { StoreCreditTab } from './StoreCredit';
 
 interface CustomerDetails {
   customer: {
@@ -37,6 +38,10 @@ interface CustomerDetails {
     storeCredit: string;
     createdAt: string;
     updatedAt: string;
+    currentTier?: {
+      name: string;
+      cashbackPercent: number;
+    } | null;
   };
   tier: {
     id: string;
@@ -199,6 +204,11 @@ export function CustomerDetailModal({
       panelID: 'overview-panel',
     },
     {
+      id: 'store-credit',
+      content: 'Store Credit',
+      panelID: 'store-credit-panel',
+    },
+    {
       id: 'orders',
       content: `Orders (${details?.orders.length || 0})`,
       panelID: 'orders-panel',
@@ -333,9 +343,28 @@ export function CustomerDetailModal({
                   </BlockStack>
                 </Box>
               )}
-              
-              {/* Orders Tab */}
+
+              {/* Store Credit Tab */}
               {selectedTab === 1 && (
+                <Box paddingBlockStart="400">
+                  <StoreCreditTab
+                    customer={{
+                      id: details.customer.id,
+                      email: details.customer.email,
+                      shopifyCustomerId: details.customer.shopifyCustomerId,
+                      storeCredit: details.customer.storeCredit,
+                      currentTier: details.tier ? {
+                        name: details.tier.name,
+                        cashbackPercent: details.tier.cashbackPercent
+                      } : null
+                    }}
+                    shopSettings={details.shopSettings}
+                  />
+                </Box>
+              )}
+
+              {/* Orders Tab */}
+              {selectedTab === 2 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     {details.orders.length > 0 ? (
@@ -410,7 +439,7 @@ export function CustomerDetailModal({
               )}
               
               {/* Credit History Tab */}
-              {selectedTab === 2 && (
+              {selectedTab === 3 && (
                 <Box paddingBlockStart="400">
                   {details.creditHistory.length > 0 ? (
                     <DataTable
@@ -442,7 +471,7 @@ export function CustomerDetailModal({
               )}
               
               {/* Tier Changes Tab */}
-              {selectedTab === 3 && (
+              {selectedTab === 4 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     {details.tierChangeLogs.length > 0 ? (

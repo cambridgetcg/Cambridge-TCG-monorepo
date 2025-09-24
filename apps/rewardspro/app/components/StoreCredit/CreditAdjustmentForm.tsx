@@ -1,0 +1,228 @@
+import { useState, useCallback } from "react";
+import {
+  FormLayout,
+  TextField,
+  Select,
+  Button,
+  InlineStack,
+  Banner,
+  Text,
+  Box,
+  BlockStack,
+  Card
+} from "@shopify/polaris";
+import { formatCurrency } from "~/utils/currency";
+
+interface CreditAdjustmentFormProps {
+  customer: {
+    id: string;
+    email: string;
+    storeCredit: number | string;
+  };
+  type: 'add' | 'remove';
+  onSubmit: (amount: number, reason: string) => void;
+  onCancel: () => void;
+  loading?: boolean;
+  shopSettings?: {
+    storeCurrency: string;
+    currencyDisplayType: string;
+  } | null;
+}
+
+const PRESET_AMOUNTS = [
+  { label: '$5', value: '5' },
+  { label: '$10', value: '10' },
+  { label: '$25', value: '25' },
+  { label: '$50', value: '50' },
+  { label: '$100', value: '100' },
+  { label: 'Custom', value: 'custom' },
+];
+
+const PRESET_REASONS = {
+  add: [
+    { label: 'Customer service gesture', value: 'Customer service gesture' },
+    { label: 'Loyalty reward', value: 'Loyalty reward' },
+    { label: 'Referral bonus', value: 'Referral bonus' },
+    { label: 'Promotion', value: 'Promotion' },
+    { label: 'Refund to store credit', value: 'Refund to store credit' },
+    { label: 'Other', value: 'other' },
+  ],
+  remove: [
+    { label: 'Error correction', value: 'Error correction' },
+    { label: 'Fraud prevention', value: 'Fraud prevention' },
+    { label: 'Customer request', value: 'Customer request' },
+    { label: 'Expired credit', value: 'Expired credit' },
+    { label: 'Other', value: 'other' },
+  ]
+};
+
+export function CreditAdjustmentForm({
+  customer,
+  type,
+  onSubmit,
+  onCancel,
+  loading = false,
+  shopSettings
+}: CreditAdjustmentFormProps) {
+  const [presetAmount, setPresetAmount] = useState('10');
+  const [customAmount, setCustomAmount] = useState('');
+  const [presetReason, setPresetReason] = useState(PRESET_REASONS[type][0].value);
+  const [customReason, setCustomReason] = useState('');
+  const [errors, setErrors] = useState<{ amount?: string; reason?: string }>({});
+
+  const currentBalance = typeof customer.storeCredit === 'string'
+    ? parseFloat(customer.storeCredit)
+    : customer.storeCredit;
+
+  const getAmount = useCallback(() => {
+    if (presetAmount === 'custom') {
+      return parseFloat(customAmount) || 0;
+    }
+    return parseFloat(presetAmount);
+  }, [presetAmount, customAmount]);
+
+  const getReason = useCallback(() => {
+    if (presetReason === 'other') {
+      return customReason;
+    }
+    return presetReason;
+  }, [presetReason, customReason]);
+
+  const validate = useCallback(() => {
+    const newErrors: { amount?: string; reason?: string } = {};
+    const amount = getAmount();
+    const reason = getReason();
+
+    if (amount <= 0) {
+      newErrors.amount = 'Amount must be greater than 0';
+    }
+
+    if (amount > 999999.99) {
+      newErrors.amount = 'Amount cannot exceed $999,999.99';
+    }
+
+    if (type === 'remove' && amount > currentBalance) {
+      newErrors.amount = `Cannot remove more than current balance (${formatCurrency(currentBalance, shopSettings as any)})`;
+    }
+
+    if (!reason || reason.trim().length === 0) {
+      newErrors.reason = 'Reason is required';
+    }
+
+    if (reason && reason.length > 500) {
+      newErrors.reason = 'Reason must be less than 500 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [getAmount, getReason, type, currentBalance, shopSettings]);
+
+  const handleSubmit = useCallback(() => {
+    if (validate()) {
+      onSubmit(getAmount(), getReason());
+    }
+  }, [validate, getAmount, getReason, onSubmit]);
+
+  const newBalance = type === 'add'
+    ? currentBalance + getAmount()
+    : currentBalance - getAmount();
+
+  return (
+    <BlockStack gap="400">
+      <Banner tone="info">
+        <Text as="p" variant="bodySm">
+          {type === 'add' ? 'Adding' : 'Removing'} store credit for{' '}
+          <Text as="span" fontWeight="semibold">{customer.email}</Text>
+        </Text>
+      </Banner>
+
+      <FormLayout>
+        <Select
+          label="Amount"
+          options={PRESET_AMOUNTS}
+          value={presetAmount}
+          onChange={setPresetAmount}
+          disabled={loading}
+        />
+
+        {presetAmount === 'custom' && (
+          <TextField
+            label="Custom amount"
+            type="number"
+            value={customAmount}
+            onChange={setCustomAmount}
+            prefix={shopSettings?.storeCurrency || '$'}
+            error={errors.amount}
+            disabled={loading}
+            autoComplete="off"
+          />
+        )}
+
+        <Select
+          label="Reason"
+          options={PRESET_REASONS[type]}
+          value={presetReason}
+          onChange={setPresetReason}
+          disabled={loading}
+        />
+
+        {presetReason === 'other' && (
+          <TextField
+            label="Specify reason"
+            value={customReason}
+            onChange={setCustomReason}
+            multiline={3}
+            error={errors.reason}
+            disabled={loading}
+            maxLength={500}
+            showCharacterCount
+            autoComplete="off"
+          />
+        )}
+      </FormLayout>
+
+      <Card>
+        <Box padding="300" background="bg-surface-secondary">
+          <BlockStack gap="200">
+            <InlineStack align="space-between">
+              <Text variant="bodySm" as="span">Current balance:</Text>
+              <Text variant="bodySm" as="span" fontWeight="semibold">
+                {formatCurrency(currentBalance, shopSettings as any)}
+              </Text>
+            </InlineStack>
+            <InlineStack align="space-between">
+              <Text variant="bodySm" as="span">
+                {type === 'add' ? 'Adding:' : 'Removing:'}
+              </Text>
+              <Text variant="bodySm" as="span" fontWeight="semibold" tone={type === 'add' ? 'success' : 'critical'}>
+                {type === 'add' ? '+' : '-'}{formatCurrency(getAmount(), shopSettings as any)}
+              </Text>
+            </InlineStack>
+            <Box borderBlockStartWidth="025" borderColor="border" paddingBlockStart="200">
+              <InlineStack align="space-between">
+                <Text variant="bodySm" as="span" fontWeight="semibold">New balance:</Text>
+                <Text variant="bodyMd" as="span" fontWeight="semibold" tone={newBalance >= 0 ? 'success' : 'critical'}>
+                  {formatCurrency(newBalance, shopSettings as any)}
+                </Text>
+              </InlineStack>
+            </Box>
+          </BlockStack>
+        </Box>
+      </Card>
+
+      <InlineStack gap="200" align="end">
+        <Button onClick={onCancel} disabled={loading}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          tone={type === 'add' ? 'success' : 'critical'}
+          onClick={handleSubmit}
+          loading={loading}
+        >
+          {type === 'add' ? 'Add Credit' : 'Remove Credit'}
+        </Button>
+      </InlineStack>
+    </BlockStack>
+  );
+}

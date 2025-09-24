@@ -176,7 +176,6 @@ export default function App() {
           <Link to="/app/customers">Customers</Link>
           <Link to="/app/orders">Orders</Link>
           <Link to="/app/tier-products">Tier Products</Link>
-          <Link to="/app/credit-management">Store Credit</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
           <Link to="/app/test-orders-sync">Orders Sync Test</Link>

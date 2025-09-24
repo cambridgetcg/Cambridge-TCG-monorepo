@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import * as crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
 import {
   Page,
   Layout,
@@ -77,6 +78,7 @@ import {
 import { checkTierMembershipExpiry } from "../services/tier-product-purchase.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { TierBadge } from "../components/TierBadge";
+import { StoreCreditDisplay } from "../components/StoreCredit";
 import { 
   getTierStyle, 
   formatTierName,
@@ -608,11 +610,204 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    // Store Credit Management Actions
+    if (intent === "loadTransactions") {
+      const customerId = formData.get("customerId") as string;
+
+      if (!customerId) {
+        return json({ success: false, message: "Customer ID required" });
+      }
+
+      try {
+        const transactions = await db.storeCreditLedger.findMany({
+          where: {
+            customerId,
+            shop: session.shop
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        });
+
+        return json({
+          success: true,
+          transactions: transactions.map(t => ({
+            ...t,
+            amount: t.amount.toString(),
+            balance: t.balance.toString(),
+            createdAt: t.createdAt.toISOString()
+          }))
+        });
+      } catch (error) {
+        console.error("[Credit] Error loading transactions:", error);
+        return json({ success: false, message: "Failed to load transactions" });
+      }
+    }
+
+    if (intent === "adjustCredit") {
+      const customerId = formData.get("customerId") as string;
+      const actionType = formData.get("actionType") as "add" | "remove";
+      const amount = parseFloat(formData.get("amount") as string || "0");
+      const reason = formData.get("reason") as string;
+
+      // Validate inputs
+      if (!customerId || !actionType || isNaN(amount) || amount <= 0 || !reason) {
+        return json({ success: false, message: "Invalid input data" });
+      }
+
+      try {
+        const customer = await db.customer.findFirst({
+          where: { id: customerId, shop: session.shop }
+        });
+
+        if (!customer) {
+          return json({ success: false, message: "Customer not found" });
+        }
+
+        const currentBalance = parseFloat(customer.storeCredit.toString());
+        const adjustmentAmount = actionType === "add" ? amount : -amount;
+        const newBalance = currentBalance + adjustmentAmount;
+
+        if (newBalance < 0) {
+          return json({ success: false, message: "Insufficient balance" });
+        }
+
+        // Create ledger entry
+        await db.storeCreditLedger.create({
+          data: {
+            id: uuidv4(),
+            customerId,
+            shop: session.shop,
+            amount: adjustmentAmount,
+            balance: newBalance,
+            type: "MANUAL_ADJUSTMENT",
+            metadata: { reason, adjustedBy: "admin" },
+            createdAt: new Date()
+          }
+        });
+
+        // Update customer balance
+        await db.customer.update({
+          where: { id: customerId },
+          data: {
+            storeCredit: newBalance,
+            updatedAt: new Date()
+          }
+        });
+
+        return json({
+          success: true,
+          message: `Credit ${actionType === "add" ? "added" : "removed"} successfully`,
+          newBalance: newBalance.toString()
+        });
+      } catch (error) {
+        console.error("[Credit] Error adjusting credit:", error);
+        return json({ success: false, message: "Failed to adjust credit" });
+      }
+    }
+
+    if (intent === "syncCredit") {
+      const customerId = formData.get("customerId") as string;
+
+      if (!customerId) {
+        return json({ success: false, message: "Customer ID required" });
+      }
+
+      try {
+        const customer = await db.customer.findFirst({
+          where: { id: customerId, shop: session.shop }
+        });
+
+        if (!customer || !customer.shopifyCustomerId) {
+          return json({ success: false, message: "Customer not found or missing Shopify ID" });
+        }
+
+        // Query Shopify for store credit
+        const syncQuery = `#graphql
+          query SyncCustomerStoreCredit($customerId: ID!) {
+            customer(id: $customerId) {
+              id
+              storeCreditAccounts(first: 10) {
+                edges {
+                  node {
+                    id
+                    balance {
+                      amount
+                      currencyCode
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+
+        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
+        const response = await admin.graphql(syncQuery, {
+          variables: { customerId: gidCustomerId }
+        });
+
+        const responseJson = await response.json() as any;
+
+        if (responseJson.errors) {
+          return json({ success: false, message: "Failed to sync from Shopify" });
+        }
+
+        // Calculate total from all accounts
+        let totalCredit = 0;
+        const accounts = responseJson.data?.customer?.storeCreditAccounts?.edges || [];
+
+        for (const edge of accounts) {
+          const balance = parseFloat(edge.node.balance.amount || "0");
+          if (!isNaN(balance)) totalCredit += balance;
+        }
+
+        const previousBalance = parseFloat(customer.storeCredit.toString());
+
+        if (previousBalance !== totalCredit) {
+          // Create sync ledger entry
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId,
+              shop: session.shop,
+              amount: totalCredit - previousBalance,
+              balance: totalCredit,
+              type: "SHOPIFY_SYNC",
+              metadata: {
+                previousBalance,
+                syncedBalance: totalCredit,
+                shopifyAccounts: accounts.length
+              },
+              createdAt: new Date()
+            }
+          });
+
+          // Update customer balance
+          await db.customer.update({
+            where: { id: customerId },
+            data: {
+              storeCredit: totalCredit,
+              updatedAt: new Date()
+            }
+          });
+        }
+
+        return json({
+          success: true,
+          message: `Synced successfully: ${formatCurrency(totalCredit, null)} from ${accounts.length} account(s)`,
+          newBalance: totalCredit.toString()
+        });
+      } catch (error) {
+        console.error("[Credit] Error syncing credit:", error);
+        return json({ success: false, message: "Failed to sync store credit" });
+      }
+    }
+
     if (action === "calculate-all") {
       // Calculate tiers for all customers
       console.log("[Customers] Starting tier calculation for all customers");
       const results = await calculateAllCustomerTiers(shop, admin as any);
-      
+
       return json({
         success: true,
         message: `Calculated tiers for ${results.total} customers. ${results.changed} tiers updated.`,
@@ -1036,31 +1231,46 @@ export default function Customers() {
           </Text>
         )}
       </BlockStack>,
-      <BlockStack gap="050">
-        <Text variant="bodyMd" fontWeight="semibold" as="span">
-          {formatAmount(customer.storeCredit)}
-        </Text>
-        <Text variant="bodySm" tone="subdued" as="span">
-          Available
-        </Text>
-      </BlockStack>,
+      <StoreCreditDisplay
+        amount={customer.storeCredit}
+        shopSettings={data.shopSettings}
+        size="small"
+        showIcon={true}
+      />,
       <InlineStack gap="200">
         <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
           View
         </Button>
+        <Tooltip content="Manage store credit">
+          <Button
+            size="slim"
+            variant="plain"
+            onClick={() => {
+              setSelectedCustomerId(customer.id);
+              setModalOpen(true);
+              // Auto-navigate to store credit tab (index 1)
+              setTimeout(() => {
+                const tabs = document.querySelectorAll('[role="tab"]');
+                if (tabs[1]) (tabs[1] as HTMLElement).click();
+              }, 100);
+            }}
+            accessibilityLabel={`Manage store credit for ${customer.email}`}
+            icon={CashDollarIcon}
+          />
+        </Tooltip>
         <Tooltip content="Change tier manually">
-          <Button 
-            size="slim" 
-            variant="plain" 
+          <Button
+            size="slim"
+            variant="plain"
             onClick={() => handleManualTierAssignment(customer)}
             accessibilityLabel={`Manually assign tier for ${customer.email}`}
             icon={EditIcon}
           />
         </Tooltip>
         <Tooltip content="Recalculate tier">
-          <Button 
-            size="slim" 
-            variant="plain" 
+          <Button
+            size="slim"
+            variant="plain"
             onClick={() => handleCalculateSingle(customer.id)}
             loading={isProcessing}
             accessibilityLabel={`Recalculate tier for ${customer.email}`}
