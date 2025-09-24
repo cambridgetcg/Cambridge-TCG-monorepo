@@ -100,6 +100,7 @@ interface CustomerDetailModalProps {
   customerEmail: string;
   open: boolean;
   onClose: () => void;
+  initialTab?: number;
 }
 
 export function CustomerDetailModal({
@@ -107,19 +108,21 @@ export function CustomerDetailModal({
   customerEmail,
   open,
   onClose,
+  initialTab = 0,
 }: CustomerDetailModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<CustomerDetails | null>(null);
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(initialTab);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
 
   // Fetch customer details when modal opens
   useEffect(() => {
     if (open && customerId) {
       fetchCustomerDetails();
+      setSelectedTab(initialTab);
     }
-  }, [open, customerId]);
+  }, [open, customerId, initialTab]);
 
   const fetchCustomerDetails = async () => {
     if (!customerId) return;

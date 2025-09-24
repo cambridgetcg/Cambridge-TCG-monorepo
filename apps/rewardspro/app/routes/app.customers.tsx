@@ -894,6 +894,7 @@ export default function Customers() {
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalInitialTab, setModalInitialTab] = useState(0);
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
   const [toast, setToast] = useState<ToastState>({ active: false, content: '' });
   
@@ -988,8 +989,9 @@ export default function Customers() {
   }, [fetcher]);
 
   // Open customer detail modal
-  const handleViewCustomer = useCallback((customerId: string) => {
+  const handleViewCustomer = useCallback((customerId: string, tabIndex: number = 0) => {
     setSelectedCustomerId(customerId);
+    setModalInitialTab(tabIndex);
     setModalOpen(true);
   }, []);
   
@@ -1245,15 +1247,7 @@ export default function Customers() {
           <Button
             size="slim"
             variant="plain"
-            onClick={() => {
-              setSelectedCustomerId(customer.id);
-              setModalOpen(true);
-              // Auto-navigate to store credit tab (index 1)
-              setTimeout(() => {
-                const tabs = document.querySelectorAll('[role="tab"]');
-                if (tabs[1]) (tabs[1] as HTMLElement).click();
-              }, 100);
-            }}
+            onClick={() => handleViewCustomer(customer.id, 1)}
             accessibilityLabel={`Manage store credit for ${customer.email}`}
             icon={CashDollarIcon}
           />
@@ -1647,9 +1641,11 @@ export default function Customers() {
             onClose={() => {
               setModalOpen(false);
               setSelectedCustomerId(null);
+              setModalInitialTab(0);
             }}
             customerId={selectedCustomerId}
             customerEmail={filteredCustomers.find(c => c.id === selectedCustomerId)?.email || ""}
+            initialTab={modalInitialTab}
           />
         )}
 
