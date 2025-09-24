@@ -1237,7 +1237,6 @@ export default function Customers() {
         amount={customer.storeCredit}
         shopSettings={data.shopSettings}
         size="small"
-        showIcon={true}
       />,
       <InlineStack gap="200">
         <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>

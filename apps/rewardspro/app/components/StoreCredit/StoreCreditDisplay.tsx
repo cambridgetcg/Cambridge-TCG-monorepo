@@ -1,5 +1,4 @@
-import { InlineStack, Text, Icon, Badge } from "@shopify/polaris";
-import { CashDollarIcon } from "@shopify/polaris-icons";
+import { Text, Badge } from "@shopify/polaris";
 import { formatCurrency } from "~/utils/currency";
 
 interface StoreCreditDisplayProps {
@@ -9,7 +8,6 @@ interface StoreCreditDisplayProps {
     currencyDisplayType: string;
   } | null;
   size?: "small" | "medium" | "large";
-  showIcon?: boolean;
   tone?: "success" | "warning" | "critical" | "subdued";
 }
 
@@ -17,7 +15,6 @@ export function StoreCreditDisplay({
   amount,
   shopSettings,
   size = "medium",
-  showIcon = true,
   tone
 }: StoreCreditDisplayProps) {
   const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -40,20 +37,17 @@ export function StoreCreditDisplay({
     }
   };
 
+  if (size === "large") {
+    return (
+      <Badge tone={getTone() as any}>
+        {formattedAmount}
+      </Badge>
+    );
+  }
+
   return (
-    <InlineStack gap="100" align="center">
-      {showIcon && (
-        <Icon source={CashDollarIcon} tone={getTone()} />
-      )}
-      {size === "large" ? (
-        <Badge tone={getTone() as any}>
-          {formattedAmount}
-        </Badge>
-      ) : (
-        <Text as="span" variant={getTextVariant()} fontWeight="semibold" tone={getTone()}>
-          {formattedAmount}
-        </Text>
-      )}
-    </InlineStack>
+    <Text as="span" variant={getTextVariant()} fontWeight="semibold" tone={getTone()}>
+      {formattedAmount}
+    </Text>
   );
 }
