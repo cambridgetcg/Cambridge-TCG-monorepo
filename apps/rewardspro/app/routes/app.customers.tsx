@@ -1166,23 +1166,19 @@ export default function Customers() {
           width: '100%',
         }}
       >
-        <InlineStack gap="200" align="start" blockAlign="start">
-          <CustomerAvatar email={customer.email} />
-          <BlockStack gap="050">
-            <Text variant="bodyMd" fontWeight="medium" as="span">
-              {customer.email}
-            </Text>
-            <Text variant="bodySm" tone="subdued" as="span">
-              ID: {customer.shopifyCustomerId}
-            </Text>
-          </BlockStack>
-        </InlineStack>
+        <BlockStack gap="050">
+          <Text variant="bodyMd" fontWeight="medium" as="span">
+            {customer.email}
+          </Text>
+          <Text variant="bodySm" tone="subdued" as="span">
+            ID: {customer.shopifyCustomerId}
+          </Text>
+        </BlockStack>
       </div>,
       <BlockStack gap="100">
         <InlineStack gap="100" align="center">
           {customer.currentTier ? (
             <>
-              <TierIcon tierName={customer.currentTier.name} />
               <Badge tone={customer.membershipStatus?.isPurchased ? "info" : "success"}>
                 {`${customer.currentTier.name}`}
               </Badge>
