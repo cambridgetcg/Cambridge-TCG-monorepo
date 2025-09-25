@@ -131,7 +131,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             shop,
             order,
           });
-          
+
+          // Update monthly order usage for billing
+          await updateMonthlyOrderUsage(tx, {
+            shop,
+            order,
+          });
+
           // Process cashback for regular items
           await processCashback(tx, {
             shop,
@@ -478,7 +484,7 @@ async function processCashback(tx: any, params: {
           idempotencyKey: ledgerIdempotencyKey,
           orderId: order.id,
           orderName: order.name,
-          orderTotal: totalPriceDecimal.toString(),
+          orderTotal: eligibleAmount.toString(),
           cashbackPercent: customer.currentTier.cashbackPercent,
           tierName: customer.currentTier.name,
           description: `${customer.currentTier.cashbackPercent}% cashback on order ${order.name}`,
@@ -734,11 +740,96 @@ async function checkTierProgression(tx: any, params: {
   customerId: string;
 }) {
   const { shop, customerId } = params;
-  
+
   if (!customerId) {
     return;
   }
-  
+
   // Use TierResolver to check for tier conflicts and updates
   await TierResolver.updateEffectiveTier(customerId);
+}
+
+async function updateMonthlyOrderUsage(tx: any, params: {
+  shop: string;
+  order: any;
+}) {
+  const { shop, order } = params;
+
+  // Get the current date to determine year and month
+  const orderDate = order.created_at ? new Date(order.created_at) : new Date();
+  const year = orderDate.getFullYear();
+  const month = orderDate.getMonth() + 1; // JavaScript months are 0-indexed
+
+  // Find or create the monthly usage record
+  const monthlyUsage = await tx.monthlyOrderUsage.findUnique({
+    where: {
+      shop_year_month: {
+        shop,
+        year,
+        month
+      }
+    }
+  });
+
+  if (monthlyUsage) {
+    // Update existing record
+    await tx.monthlyOrderUsage.update({
+      where: {
+        id: monthlyUsage.id
+      },
+      data: {
+        orderCount: monthlyUsage.orderCount + 1,
+        lastOrderDate: orderDate,
+        updatedAt: new Date()
+      }
+    });
+
+    console.log(`[OrderPaid] Updated monthly usage for ${shop} (${year}-${month}): ${monthlyUsage.orderCount + 1} orders`);
+  } else {
+    // Get the shop's current plan details to set the limit
+    const shopSettings = await tx.shopSettings.findUnique({
+      where: { shop }
+    });
+
+    // Default to free plan if no settings found
+    const planName = shopSettings?.billingPlan || 'free';
+    let planLimit = 500; // Default free plan limit
+
+    // Set plan limit based on plan name
+    switch (planName.toLowerCase()) {
+      case 'free':
+        planLimit = 500;
+        break;
+      case 'starter':
+        planLimit = 2000;
+        break;
+      case 'growth':
+        planLimit = 5000;
+        break;
+      case 'professional':
+        planLimit = 20000;
+        break;
+      case 'unlimited':
+        planLimit = 999999999; // Effectively unlimited
+        break;
+    }
+
+    // Create new monthly usage record
+    await tx.monthlyOrderUsage.create({
+      data: {
+        id: uuidv4(),
+        shop,
+        year,
+        month,
+        orderCount: 1,
+        planLimit,
+        planName,
+        lastOrderDate: orderDate,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    console.log(`[OrderPaid] Created monthly usage for ${shop} (${year}-${month}): 1 order, plan: ${planName}, limit: ${planLimit}`);
+  }
 }
