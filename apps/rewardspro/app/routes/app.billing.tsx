@@ -25,6 +25,8 @@ import {
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { CurrentPlanCard } from "~/components/Billing";
+import { MANAGED_PLANS, OLD_PLAN_COMPARISON } from "~/constants/billing.constants";
 
 // ============= TYPES =============
 type BillingPlan = {
@@ -58,7 +60,9 @@ type LoaderData = {
 };
 
 // ============= CONSTANTS =============
-const MANAGED_PLANS = {
+// Note: MANAGED_PLANS and OLD_PLAN_COMPARISON are now imported from ~/constants/billing.constants
+// Removing duplicated constants - keeping old version for reference
+const OLD_MANAGED_PLANS = {
   "RewardsPro Free": {
     name: "RewardsPro Free",
     displayName: "Free",
@@ -121,8 +125,8 @@ const MANAGED_PLANS = {
   },
 };
 
-// Plan comparison data for the comparison cards
-const PLAN_COMPARISON = {
+// Plan comparison data for the comparison cards (old version - now using imported)
+const OLD_OLD_PLAN_COMPARISON = {
   free: {
     name: "Starter plan",
     displayName: "Free",
@@ -486,162 +490,21 @@ export default function BillingPage() {
               </Banner>
             )}
 
-            {/* Over Limit Warning */}
-            {isOverLimit && (
-              <Banner
-                tone="critical"
-                title="Plan limit exceeded"
-                action={{
-                  content: "Upgrade now",
-                  onAction: () => navigate("/app/billing/plans")
-                }}
-              >
-                <p>
-                  You've processed {currentUsage} orders this month, exceeding your {planDetails.displayName} plan limit of {planLimit} orders.
-                  {planDetails.isFree
-                    ? " Upgrade to continue earning cashback rewards on new orders."
-                    : " Additional charges may apply for overage."}
-                </p>
-              </Banner>
-            )}
-
-            {/* Plan Details Card */}
-            <Card>
-              <Box padding="600">
-                <BlockStack gap="600">
-                  <InlineStack align="space-between">
-                    <BlockStack gap="200">
-                      <Text as="h2" variant="headingLg">
-                        Plan Details
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Showing usage for the current month of {currentMonth}.
-                      </Text>
-                    </BlockStack>
-                    <Button
-                      variant="primary"
-                      onClick={() => navigate("/app/billing/plans")}
-                    >
-                      Upgrade plan
-                    </Button>
-                  </InlineStack>
-
-                  <Divider />
-
-                  {/* Current Plan Section */}
-                  <BlockStack gap="400">
-                    <Text as="h3" variant="heading2xl">
-                      {planDetails.displayName}
-                    </Text>
-
-                    <Text as="p" variant="headingLg">
-                      ${planDetails.price} <Text as="span" variant="bodyLg" tone="subdued">USD/{planDetails.interval}</Text>
-                    </Text>
-
-                    {/* Usage Progress Section */}
-                    <Box paddingBlockStart="400" paddingBlockEnd="400">
-                      <BlockStack gap="400">
-                        <Box>
-                          <InlineStack align="end" gap="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
-                              Free plan limit
-                            </Text>
-                          </InlineStack>
-                          <Text as="p" variant="bodyMd" tone="subdued">
-                            {planLimit.toLocaleString()} orders
-                          </Text>
-                        </Box>
-
-                        {/* Progress Bar */}
-                        <Box>
-                          <div style={{ position: 'relative' }}>
-                            <ProgressBar
-                              progress={usagePercentage}
-                              tone={progressTone}
-                              size="small"
-                            />
-                            {/* Projected usage indicator */}
-                            {projectedUsage > currentUsage && projectedPercentage <= 100 && (
-                              <div
-                                style={{
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: `${usagePercentage}%`,
-                                  width: `${projectedPercentage - usagePercentage}%`,
-                                  height: '8px',
-                                  backgroundColor: 'var(--p-color-bg-surface-tertiary)',
-                                  opacity: 0.5
-                                }}
-                              />
-                            )}
-                          </div>
-                        </Box>
-
-                        {/* Usage Stats */}
-                        <InlineStack gap="400">
-                          <InlineStack gap="100">
-                            <div style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              backgroundColor: progressTone === 'success' ? 'var(--p-color-bg-success)' :
-                                             'var(--p-color-bg-critical)',
-                              marginTop: '4px'
-                            }} />
-                            <Text as="span" variant="bodyMd">
-                              Current: {currentUsage.toLocaleString()} orders
-                            </Text>
-                          </InlineStack>
-
-                          <InlineStack gap="100">
-                            <div style={{
-                              width: '8px',
-                              height: '8px',
-                              borderRadius: '50%',
-                              backgroundColor: 'var(--p-color-bg-surface-tertiary)',
-                              marginTop: '4px'
-                            }} />
-                            <Text as="span" variant="bodyMd" tone="subdued">
-                              Projected: {projectedUsage.toLocaleString()} orders
-                            </Text>
-                          </InlineStack>
-                        </InlineStack>
-                      </BlockStack>
-                    </Box>
-
-                    <Divider />
-
-                    {/* Usage Explanations */}
-                    <BlockStack gap="300">
-                      <InlineStack gap="200">
-                        <Icon source={CheckCircleIcon} tone="base" />
-                        <Text as="p" variant="bodyMd">
-                          {currentUsage} orders this month count towards your {currentMonth} usage.
-                        </Text>
-                      </InlineStack>
-
-                      {protectionApplied && (
-                        <InlineStack gap="200">
-                          <Icon source={AlertCircleIcon} tone="base" />
-                          <Text as="p" variant="bodyMd">
-                            {ordersNotCounted} orders this month exceeded the pricing protection limit, so they are not counted as usage.
-                          </Text>
-                        </InlineStack>
-                      )}
-
-                      {daysRemaining > 0 && (
-                        <InlineStack gap="200">
-                          <Icon source={InfoIcon} tone="base" />
-                          <Text as="p" variant="bodyMd" tone="subdued">
-                            {daysRemaining} days remaining in the current billing period.
-                          </Text>
-                        </InlineStack>
-                      )}
-                    </BlockStack>
-                  </BlockStack>
-                </BlockStack>
-              </Box>
-            </Card>
+            {/* Current Plan Card */}
+            <CurrentPlanCard
+              activeSubscription={data.activeSubscription}
+              currentPlan={data.currentPlan}
+              monthlyOrderUsage={{
+                orderCount: data.monthlyOrderUsage?.orderCount || 0,
+                planLimit: data.monthlyOrderUsage?.planLimit || 200,
+                projectedOrders: data.monthlyOrderUsage?.projectedOrders || 0,
+                currentMonth: currentMonth
+              }}
+              showUpgradeButton={true}
+              showOverageBanner={true}
+              showProjectedUsage={true}
+              onUpgrade={() => navigate("/app/billing/plans")}
+            />
 
             {/* Plan Comparison Section */}
             <BlockStack gap="400">
@@ -661,22 +524,22 @@ export default function BillingPage() {
                     <BlockStack gap="400">
                       <InlineStack align="space-between">
                         <Text as="h3" variant="headingMd">
-                          {PLAN_COMPARISON.free.name}
+                          {OLD_OLD_PLAN_COMPARISON.free.name}
                         </Text>
-                        {PLAN_COMPARISON.free.recommended && (
+                        {OLD_PLAN_COMPARISON.free.recommended && (
                           <Badge tone="info">Recommended</Badge>
                         )}
                       </InlineStack>
 
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        {PLAN_COMPARISON.free.description}
+                        {OLD_PLAN_COMPARISON.free.description}
                       </Text>
 
                       <BlockStack gap="200">
                         <Text as="p" variant="heading2xl">
-                          ${PLAN_COMPARISON.free.price}
+                          ${OLD_PLAN_COMPARISON.free.price}
                           <Text as="span" variant="bodyLg" tone="subdued">
-                            {" "}USD/{PLAN_COMPARISON.free.interval}
+                            {" "}USD/{OLD_PLAN_COMPARISON.free.interval}
                           </Text>
                         </Text>
                       </BlockStack>
@@ -692,11 +555,11 @@ export default function BillingPage() {
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodyMd">
-                          {PLAN_COMPARISON.free.ordersIncluded}
+                          {OLD_PLAN_COMPARISON.free.ordersIncluded}
                         </Text>
-                        {PLAN_COMPARISON.free.overageInfo && (
+                        {OLD_PLAN_COMPARISON.free.overageInfo && (
                           <Text as="p" variant="bodySm" tone="subdued">
-                            {PLAN_COMPARISON.free.overageInfo}
+                            {OLD_PLAN_COMPARISON.free.overageInfo}
                           </Text>
                         )}
                       </Box>
@@ -708,7 +571,7 @@ export default function BillingPage() {
                           Popular features
                         </Text>
                         <BlockStack gap="200">
-                          {PLAN_COMPARISON.free.popularFeatures.map((feature, index) => (
+                          {OLD_PLAN_COMPARISON.free.popularFeatures.map((feature, index) => (
                             <InlineStack key={index} gap="200">
                               <Text as="span" variant="bodyMd">•</Text>
                               <Text as="span" variant="bodyMd">{feature}</Text>
@@ -726,22 +589,22 @@ export default function BillingPage() {
                     <BlockStack gap="400">
                       <InlineStack align="space-between">
                         <Text as="h3" variant="headingMd">
-                          {PLAN_COMPARISON.pro.name}
+                          {OLD_PLAN_COMPARISON.pro.name}
                         </Text>
-                        {PLAN_COMPARISON.pro.recommended && (
+                        {OLD_PLAN_COMPARISON.pro.recommended && (
                           <Badge tone="info">Recommended</Badge>
                         )}
                       </InlineStack>
 
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        {PLAN_COMPARISON.pro.description}
+                        {OLD_PLAN_COMPARISON.pro.description}
                       </Text>
 
                       <BlockStack gap="200">
                         <Text as="p" variant="heading2xl">
-                          ${PLAN_COMPARISON.pro.price}
+                          ${OLD_PLAN_COMPARISON.pro.price}
                           <Text as="span" variant="bodyLg" tone="subdued">
-                            {" "}USD/{PLAN_COMPARISON.pro.interval}
+                            {" "}USD/{OLD_PLAN_COMPARISON.pro.interval}
                           </Text>
                         </Text>
                       </BlockStack>
@@ -757,11 +620,11 @@ export default function BillingPage() {
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodyMd">
-                          {PLAN_COMPARISON.pro.ordersIncluded}
+                          {OLD_PLAN_COMPARISON.pro.ordersIncluded}
                         </Text>
-                        {PLAN_COMPARISON.pro.overageInfo && (
+                        {OLD_PLAN_COMPARISON.pro.overageInfo && (
                           <Text as="p" variant="bodySm" tone="subdued">
-                            {PLAN_COMPARISON.pro.overageInfo}
+                            {OLD_PLAN_COMPARISON.pro.overageInfo}
                           </Text>
                         )}
                       </Box>
@@ -773,7 +636,7 @@ export default function BillingPage() {
                           Popular features
                         </Text>
                         <BlockStack gap="200">
-                          {PLAN_COMPARISON.pro.popularFeatures.map((feature, index) => (
+                          {OLD_PLAN_COMPARISON.pro.popularFeatures.map((feature, index) => (
                             <InlineStack key={index} gap="200">
                               <Text as="span" variant="bodyMd">•</Text>
                               <Text as="span" variant="bodyMd">{feature}</Text>
@@ -791,22 +654,22 @@ export default function BillingPage() {
                     <BlockStack gap="400">
                       <InlineStack align="space-between">
                         <Text as="h3" variant="headingMd">
-                          {PLAN_COMPARISON.enterprise.name}
+                          {OLD_PLAN_COMPARISON.enterprise.name}
                         </Text>
-                        {PLAN_COMPARISON.enterprise.recommended && (
+                        {OLD_PLAN_COMPARISON.enterprise.recommended && (
                           <Badge tone="info">Recommended</Badge>
                         )}
                       </InlineStack>
 
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        {PLAN_COMPARISON.enterprise.description}
+                        {OLD_PLAN_COMPARISON.enterprise.description}
                       </Text>
 
                       <BlockStack gap="200">
                         <Text as="p" variant="heading2xl">
-                          ${PLAN_COMPARISON.enterprise.price}
+                          ${OLD_PLAN_COMPARISON.enterprise.price}
                           <Text as="span" variant="bodyLg" tone="subdued">
-                            {" "}USD/{PLAN_COMPARISON.enterprise.interval}
+                            {" "}USD/{OLD_PLAN_COMPARISON.enterprise.interval}
                           </Text>
                         </Text>
                       </BlockStack>
@@ -822,11 +685,11 @@ export default function BillingPage() {
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodyMd">
-                          {PLAN_COMPARISON.enterprise.ordersIncluded}
+                          {OLD_PLAN_COMPARISON.enterprise.ordersIncluded}
                         </Text>
-                        {PLAN_COMPARISON.enterprise.overageInfo && (
+                        {OLD_PLAN_COMPARISON.enterprise.overageInfo && (
                           <Text as="p" variant="bodySm" tone="subdued">
-                            {PLAN_COMPARISON.enterprise.overageInfo}
+                            {OLD_PLAN_COMPARISON.enterprise.overageInfo}
                           </Text>
                         )}
                       </Box>
@@ -838,7 +701,7 @@ export default function BillingPage() {
                           Popular features
                         </Text>
                         <BlockStack gap="200">
-                          {PLAN_COMPARISON.enterprise.popularFeatures.map((feature, index) => (
+                          {OLD_PLAN_COMPARISON.enterprise.popularFeatures.map((feature, index) => (
                             <InlineStack key={index} gap="200">
                               <Text as="span" variant="bodyMd">•</Text>
                               <Text as="span" variant="bodyMd">{feature}</Text>

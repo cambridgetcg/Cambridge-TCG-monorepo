@@ -1241,7 +1241,7 @@ export default function Customers() {
         shopSettings={data.shopSettings}
         size="small"
       />,
-      <InlineStack gap="200">
+      <InlineStack gap="200" align="end">
         <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
           View Details
         </Button>

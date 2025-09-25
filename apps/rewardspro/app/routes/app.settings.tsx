@@ -35,6 +35,8 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
+import { CurrentPlanCard } from "~/components/Billing";
+import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 
 // ============= TYPES =============
 type Currency = 
@@ -137,8 +139,11 @@ const CURRENCY_OPTIONS = [
   { label: "🇲🇾 Malaysian Ringgit (MYR)", value: "MYR", symbol: "RM" },
 ];
 
-// Billing Plans Constants
-const MANAGED_PLANS = {
+// Note: MANAGED_PLANS and PLAN_COMPARISON are now imported from ~/constants/billing.constants
+// Removing duplicated constants that have been moved to shared location
+
+// Temporarily keeping old constants for reference (will be removed after testing)
+const OLD_MANAGED_PLANS = {
   "RewardsPro Free": {
     name: "RewardsPro Free",
     displayName: "Free",
@@ -201,8 +206,8 @@ const MANAGED_PLANS = {
   },
 };
 
-// Plan comparison data for the comparison cards
-const PLAN_COMPARISON = {
+// Plan comparison data for the comparison cards (old version - now using imported)
+const OLD_PLAN_COMPARISON = {
   free: {
     name: "Starter plan",
     displayName: "Free",
@@ -1234,174 +1239,20 @@ export default function SettingsPage() {
 
                   {/* Billing Tab */}
                   {selectedTab === 4 && (
-                    <BlockStack gap="600">
-                      {/* Billing Plan Details */}
-                      {(() => {
-                        // Determine current plan details
-                        const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
-                        const planDetails = MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
-
-                        // Calculate usage percentage and projected usage
-                        const currentUsage = monthlyOrderUsage?.orderCount || 0;
-                        const planLimit = monthlyOrderUsage?.planLimit || planDetails.ordersIncluded;
-                        const projectedUsage = monthlyOrderUsage?.projectedOrders || 0;
-                        const usagePercentage = Math.min(Math.round((currentUsage / planLimit) * 100), 100);
-                        const projectedPercentage = Math.min(Math.round((projectedUsage / planLimit) * 100), 100);
-
-                        // Determine progress bar color
-                        let progressTone: "success" | "critical" = "success";
-                        if (usagePercentage >= 100) {
-                          progressTone = "critical";
-                        }
-
-                        // Check if over limits
-                        const isOverLimit = currentUsage >= planLimit;
-                        const ordersNotCounted = Math.max(0, currentUsage - planLimit);
-
-                        return (
-                          <>
-                            {/* Over Limit Warning */}
-                            {isOverLimit && (
-                              <Banner
-                                tone="critical"
-                                title="Plan limit exceeded"
-                                action={{
-                                  content: "Upgrade now",
-                                  onAction: () => handleUpgrade()
-                                }}
-                              >
-                                <p>
-                                  You've processed {currentUsage} orders this month, exceeding your {planDetails.displayName} plan limit of {planLimit} orders.
-                                  {planDetails.isFree
-                                    ? " Upgrade to continue earning cashback rewards on new orders."
-                                    : " Additional charges may apply for overage."}
-                                </p>
-                              </Banner>
-                            )}
-
-                            <BlockStack gap="400">
-                              <Text as="h2" variant="headingLg">
-                                Current Plan: {planDetails.displayName}
-                              </Text>
-
-                              <Text as="p" variant="headingLg">
-                                ${planDetails.price} <Text as="span" variant="bodyLg" tone="subdued">USD/{planDetails.interval}</Text>
-                              </Text>
-
-                              {/* Usage Progress Section */}
-                              <Box paddingBlockStart="400" paddingBlockEnd="400">
-                                <BlockStack gap="400">
-                                  <Box>
-                                    <InlineStack align="end" gap="200">
-                                      <Text as="p" variant="bodyMd" tone="subdued">
-                                        Plan limit
-                                      </Text>
-                                    </InlineStack>
-                                    <Text as="p" variant="bodyMd" tone="subdued">
-                                      {planLimit.toLocaleString()} orders
-                                    </Text>
-                                  </Box>
-
-                                  {/* Progress Bar */}
-                                  <Box>
-                                    <div style={{ position: 'relative' }}>
-                                      <ProgressBar
-                                        progress={usagePercentage}
-                                        tone={progressTone}
-                                        size="small"
-                                      />
-                                      {/* Projected usage indicator */}
-                                      {projectedUsage > currentUsage && projectedPercentage <= 100 && (
-                                        <div
-                                          style={{
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: `${usagePercentage}%`,
-                                            width: `${projectedPercentage - usagePercentage}%`,
-                                            height: '8px',
-                                            backgroundColor: 'var(--p-color-bg-surface-tertiary)',
-                                            opacity: 0.5
-                                          }}
-                                        />
-                                      )}
-                                    </div>
-                                  </Box>
-
-                                  {/* Usage Stats */}
-                                  <InlineStack gap="400">
-                                    <InlineStack gap="100">
-                                      <div style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '50%',
-                                        backgroundColor: progressTone === 'success' ? 'var(--p-color-bg-success)' :
-                                                       'var(--p-color-bg-critical)',
-                                        marginTop: '4px'
-                                      }} />
-                                      <Text as="span" variant="bodyMd">
-                                        Current: {currentUsage.toLocaleString()} orders
-                                      </Text>
-                                    </InlineStack>
-
-                                    <InlineStack gap="100">
-                                      <div style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '50%',
-                                        backgroundColor: 'var(--p-color-bg-surface-tertiary)',
-                                        marginTop: '4px'
-                                      }} />
-                                      <Text as="span" variant="bodyMd" tone="subdued">
-                                        Projected: {projectedUsage.toLocaleString()} orders
-                                      </Text>
-                                    </InlineStack>
-                                  </InlineStack>
-                                </BlockStack>
-                              </Box>
-
-                              <Divider />
-
-                              {/* Usage Explanations */}
-                              <BlockStack gap="300">
-                                <InlineStack gap="200">
-                                  <Icon source={CheckCircleIcon} tone="base" />
-                                  <Text as="p" variant="bodyMd">
-                                    {currentUsage} orders this month count towards your {currentMonth} usage.
-                                  </Text>
-                                </InlineStack>
-
-                                {ordersNotCounted > 0 && (
-                                  <InlineStack gap="200">
-                                    <Icon source={AlertCircleIcon} tone="base" />
-                                    <Text as="p" variant="bodyMd">
-                                      {ordersNotCounted} orders this month exceeded the pricing protection limit.
-                                    </Text>
-                                  </InlineStack>
-                                )}
-
-                                {daysRemaining && daysRemaining > 0 && (
-                                  <InlineStack gap="200">
-                                    <Icon source={InfoIcon} tone="base" />
-                                    <Text as="p" variant="bodyMd" tone="subdued">
-                                      {daysRemaining} days remaining in the current billing period.
-                                    </Text>
-                                  </InlineStack>
-                                )}
-                              </BlockStack>
-
-                              <Box paddingBlockStart="400">
-                                <Button
-                                  variant="primary"
-                                  onClick={() => navigate("/app/billing/plans")}
-                                >
-                                  View All Plans
-                                </Button>
-                              </Box>
-                            </BlockStack>
-                          </>
-                        );
-                      })()}
-                    </BlockStack>
+                    <CurrentPlanCard
+                      activeSubscription={activeSubscription}
+                      currentPlan={currentPlan}
+                      monthlyOrderUsage={{
+                        orderCount: monthlyOrderUsage?.orderCount || 0,
+                        planLimit: monthlyOrderUsage?.planLimit || 200,
+                        projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
+                        currentMonth: currentMonth
+                      }}
+                      showUpgradeButton={true}
+                      showOverageBanner={true}
+                      showProjectedUsage={true}
+                      onUpgrade={() => navigate("/app/billing/plans")}
+                    />
                   )}
                 </Box>
               </Tabs>
