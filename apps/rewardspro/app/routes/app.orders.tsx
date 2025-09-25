@@ -161,21 +161,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
 
-    // Build where clause
-    const whereClause: any = { shop };
+    // Build where clause - handle search separately to avoid OR issues with Data API
+    let whereClause: any = { shop };
 
-    if (searchQuery) {
-      whereClause.OR = [
-        { shopifyOrderNumber: { contains: searchQuery, mode: 'insensitive' } },
-        { shopifyOrderName: { contains: searchQuery, mode: 'insensitive' } },
-        { email: { contains: searchQuery, mode: 'insensitive' } },
-      ];
-    }
-
+    // Add status filter
     if (statusFilter !== "all") {
       whereClause.financialStatus = statusFilter;
     }
 
+    // Add cashback filter
     if (cashbackFilter === "processed") {
       whereClause.cashbackProcessed = true;
     } else if (cashbackFilter === "pending") {
@@ -185,9 +179,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       whereClause.cashbackEligible = false;
     }
 
-    // Fetch orders with pagination
-    const [orders, totalCount, shopSettings] = await Promise.all([
-      db.order.findMany({
+    // If there's a search query, fetch all orders and filter in memory
+    // This is a workaround for Data API limitations with OR queries
+    let ordersQuery;
+    if (searchQuery) {
+      // Fetch all orders for the shop first, then filter
+      const allOrders = await db.order.findMany({
         where: whereClause,
         include: {
           customer: {
@@ -199,15 +196,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             orderBy: { createdAt: 'desc' },
           },
           lineItems: {
-            take: 5, // Limit for performance
+            take: 5,
+          },
+          refunds: true,
+        },
+        orderBy: { shopifyCreatedAt: 'desc' },
+      });
+
+      // Filter in memory
+      const searchLower = searchQuery.toLowerCase();
+      const filteredOrders = allOrders.filter(order =>
+        order.shopifyOrderNumber?.toLowerCase().includes(searchLower) ||
+        order.shopifyOrderName?.toLowerCase().includes(searchLower) ||
+        order.email?.toLowerCase().includes(searchLower)
+      );
+
+      // Apply pagination
+      ordersQuery = filteredOrders.slice((page - 1) * pageSize, page * pageSize);
+      var filteredTotalCount = filteredOrders.length;
+    } else {
+      // No search, use normal pagination
+      ordersQuery = await db.order.findMany({
+        where: whereClause,
+        include: {
+          customer: {
+            include: {
+              currentTier: true,
+            },
+          },
+          creditLedgerEntries: {
+            orderBy: { createdAt: 'desc' },
+          },
+          lineItems: {
+            take: 5,
           },
           refunds: true,
         },
         orderBy: { shopifyCreatedAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-      }),
-      db.order.count({ where: whereClause }),
+      });
+      var filteredTotalCount = await db.order.count({ where: whereClause });
+    }
+
+    // Fetch shop settings
+    const [orders, totalCount, shopSettings] = await Promise.all([
+      Promise.resolve(ordersQuery),
+      Promise.resolve(filteredTotalCount),
       db.shopSettings.findUnique({ where: { shop } }),
     ]);
 
