@@ -22,7 +22,6 @@ import {
   Modal,
   Spinner,
   Divider,
-  Grid,
   Tooltip,
   SkeletonBodyText,
   Toast,
@@ -747,70 +746,6 @@ export default function OrdersPage() {
         }}
       >
         <Layout>
-          {/* Stats Cards */}
-          <Layout.Section>
-            <Grid>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <Text variant="headingMd" as="h3">Total Orders</Text>
-                      <Text variant="heading2xl" as="p">{stats.totalOrders}</Text>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <Text variant="headingMd" as="h3">Total Cashback</Text>
-                      <Text variant="heading2xl" as="p">
-                        {formatCurrency(stats.totalCashback, shopSettings)}
-                      </Text>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <Text variant="headingMd" as="h3">Pending</Text>
-                      <Text variant="heading2xl" as="p" tone="warning">
-                        {formatCurrency(stats.pendingCashback, shopSettings)}
-                      </Text>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <Text variant="headingMd" as="h3">Processed</Text>
-                      <Text variant="heading2xl" as="p" tone="success">
-                        {formatCurrency(stats.processedCashback, shopSettings)}
-                      </Text>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-              <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 2, lg: 2 }}>
-                <Card>
-                  <Box padding="400">
-                    <BlockStack gap="200">
-                      <Text variant="headingMd" as="h3">Refunded</Text>
-                      <Text variant="heading2xl" as="p">
-                        {formatCurrency(stats.totalRefunded, shopSettings)}
-                      </Text>
-                    </BlockStack>
-                  </Box>
-                </Card>
-              </Grid.Cell>
-            </Grid>
-          </Layout.Section>
-
           {/* Filters and Search */}
           <Layout.Section>
             <Card>
