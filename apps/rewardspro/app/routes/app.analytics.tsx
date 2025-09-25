@@ -777,10 +777,6 @@ export default function AnalyticsPage() {
     <Page
       title="Analytics"
       subtitle="Track your loyalty program performance"
-      primaryAction={{
-        content: 'Export Report',
-        onAction: () => console.log('Export report'),
-      }}
     >
       <Layout>
         {/* Date Range Selector */}
@@ -844,7 +840,7 @@ export default function AnalyticsPage() {
                         <BlockStack gap="200">
                           <Text variant="bodySm" as="p">• Select custom start and end dates</Text>
                           <Text variant="bodySm" as="p">• Compare periods</Text>
-                          <Text variant="bodySm" as="p">• Export data for selected range</Text>
+                          <Text variant="bodySm" as="p">• Advanced filtering options</Text>
                         </BlockStack>
                       </BlockStack>
                       <Button 
