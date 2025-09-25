@@ -59,7 +59,6 @@ import {
   CustomerCard,
   TierProgressCard,
   LoadingSkeleton,
-  StatsOverview,
 } from "../components/DesignSystem";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -1305,35 +1304,6 @@ export default function Customers() {
         ]}
       >
         <Layout>
-          {/* Stats Overview */}
-          <Layout.Section>
-            <StatsOverview
-              stats={[
-                {
-                  label: "Total Customers",
-                  value: data.totalCustomers.toString(),
-                  icon: PersonIcon,
-                },
-                {
-                  label: "Active Tiers",
-                  value: data.tiers.length.toString(),
-                  icon: RewardIcon,
-                },
-                {
-                  label: "With Store Credit",
-                  value: data.customers.filter(c => c.storeCredit > 0).length.toString(),
-                  icon: CashDollarIcon,
-                },
-                {
-                  label: "Tier Coverage",
-                  value: `${Math.round((data.customers.filter(c => c.currentTier).length / Math.max(data.totalCustomers, 1)) * 100)}%`,
-                  icon: ChartVerticalIcon,
-                },
-              ]}
-              loading={navigation.state === "loading"}
-            />
-          </Layout.Section>
-
           <Layout.Section>
             <BlockStack gap="600">
               {/* Loyalty Tiers Management */}
