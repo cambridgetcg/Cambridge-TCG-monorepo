@@ -17,6 +17,7 @@ import {
   Banner,
   Collapsible,
   List,
+  Select,
 } from '@shopify/polaris';
 import {
   PersonIcon,
@@ -115,6 +116,14 @@ export function CustomerDetailModal({
   const [details, setDetails] = useState<CustomerDetails | null>(null);
   const [selectedTab, setSelectedTab] = useState(initialTab);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+
+  // Pagination states for Orders tab
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersPageSize, setOrdersPageSize] = useState(25);
+
+  // Pagination states for Credit History tab
+  const [creditHistoryPage, setCreditHistoryPage] = useState(1);
+  const [creditHistoryPageSize, setCreditHistoryPageSize] = useState(25);
 
   // Fetch customer details when modal opens
   useEffect(() => {
@@ -370,8 +379,34 @@ export function CustomerDetailModal({
               {selectedTab === 2 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
+                    {/* Page size selector and pagination info */}
+                    {details.orders.length > 0 && (
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text as="span" variant="bodyMd">
+                          Showing {Math.min(ordersPageSize, details.orders.length)} of {details.orders.length} orders
+                        </Text>
+                        <Select
+                          label="Items per page"
+                          labelHidden
+                          options={[
+                            { label: "25 per page", value: "25" },
+                            { label: "50 per page", value: "50" },
+                            { label: "100 per page", value: "100" },
+                            { label: "200 per page", value: "200" },
+                          ]}
+                          value={ordersPageSize.toString()}
+                          onChange={(value) => {
+                            setOrdersPageSize(parseInt(value));
+                            setOrdersPage(1);
+                          }}
+                        />
+                      </InlineStack>
+                    )}
+
                     {details.orders.length > 0 ? (
-                      details.orders.map((order) => (
+                      details.orders
+                        .slice((ordersPage - 1) * ordersPageSize, ordersPage * ordersPageSize)
+                        .map((order) => (
                         <Card key={order.id}>
                           <BlockStack gap="300">
                             <InlineStack align="space-between" blockAlign="center">
@@ -437,18 +472,68 @@ export function CustomerDetailModal({
                         </BlockStack>
                       </Card>
                     )}
+
+                    {/* Pagination controls for Orders */}
+                    {details.orders.length > ordersPageSize && (
+                      <Box paddingBlockStart="400">
+                        <InlineStack align="center" gap="400">
+                          <Button
+                            disabled={ordersPage === 1}
+                            onClick={() => setOrdersPage(ordersPage - 1)}
+                          >
+                            Previous
+                          </Button>
+                          <Text as="span" variant="bodySm">
+                            Page {ordersPage} of {Math.ceil(details.orders.length / ordersPageSize)}
+                          </Text>
+                          <Button
+                            disabled={ordersPage === Math.ceil(details.orders.length / ordersPageSize)}
+                            onClick={() => setOrdersPage(ordersPage + 1)}
+                          >
+                            Next
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    )}
                   </BlockStack>
                 </Box>
               )}
-              
+
               {/* Credit History Tab */}
               {selectedTab === 3 && (
                 <Box paddingBlockStart="400">
-                  {details.creditHistory.length > 0 ? (
-                    <DataTable
-                      columnContentTypes={['text', 'text', 'numeric', 'numeric', 'text']}
-                      headings={['Date', 'Type', 'Amount', 'Balance', 'Order']}
-                      rows={details.creditHistory.map(entry => [
+                  <BlockStack gap="400">
+                    {/* Page size selector and pagination info */}
+                    {details.creditHistory.length > 0 && (
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text as="span" variant="bodyMd">
+                          Showing {Math.min(creditHistoryPageSize, details.creditHistory.length)} of {details.creditHistory.length} transactions
+                        </Text>
+                        <Select
+                          label="Items per page"
+                          labelHidden
+                          options={[
+                            { label: "25 per page", value: "25" },
+                            { label: "50 per page", value: "50" },
+                            { label: "100 per page", value: "100" },
+                            { label: "200 per page", value: "200" },
+                          ]}
+                          value={creditHistoryPageSize.toString()}
+                          onChange={(value) => {
+                            setCreditHistoryPageSize(parseInt(value));
+                            setCreditHistoryPage(1);
+                          }}
+                        />
+                      </InlineStack>
+                    )}
+
+                    {details.creditHistory.length > 0 ? (
+                      <DataTable
+                        columnContentTypes={['text', 'text', 'numeric', 'numeric', 'text']}
+                        headings={['Date', 'Type', 'Amount', 'Balance', 'Order']}
+                        rows={details.creditHistory
+                          .slice((creditHistoryPage - 1) * creditHistoryPageSize, creditHistoryPage * creditHistoryPageSize)
+                          .map(entry => [
                         formatDate(entry.createdAt),
                         getLedgerTypeBadge(entry.type),
                         <Text
@@ -470,6 +555,30 @@ export function CustomerDetailModal({
                       </BlockStack>
                     </Card>
                   )}
+
+                  {/* Pagination controls for Credit History */}
+                  {details.creditHistory.length > creditHistoryPageSize && (
+                    <Box paddingBlockStart="400">
+                      <InlineStack align="center" gap="400">
+                        <Button
+                          disabled={creditHistoryPage === 1}
+                          onClick={() => setCreditHistoryPage(creditHistoryPage - 1)}
+                        >
+                          Previous
+                        </Button>
+                        <Text as="span" variant="bodySm">
+                          Page {creditHistoryPage} of {Math.ceil(details.creditHistory.length / creditHistoryPageSize)}
+                        </Text>
+                        <Button
+                          disabled={creditHistoryPage === Math.ceil(details.creditHistory.length / creditHistoryPageSize)}
+                          onClick={() => setCreditHistoryPage(creditHistoryPage + 1)}
+                        >
+                          Next
+                        </Button>
+                      </InlineStack>
+                    </Box>
+                  )}
+                </BlockStack>
                 </Box>
               )}
               

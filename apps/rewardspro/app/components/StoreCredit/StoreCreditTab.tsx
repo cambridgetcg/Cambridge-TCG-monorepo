@@ -13,7 +13,8 @@ import {
   Icon,
   Spinner,
   Badge,
-  Divider
+  Divider,
+  Select
 } from "@shopify/polaris";
 import {
   PlusCircleIcon,
@@ -51,9 +52,8 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
   const [transactionSearch, setTransactionSearch] = useState("");
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [transactionsExpanded, setTransactionsExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const transactionsPerPage = 7;
+  const [selectedPageSize, setSelectedPageSize] = useState(25);
 
   const currentBalance = typeof customer.storeCredit === 'string'
     ? parseFloat(customer.storeCredit)
@@ -132,21 +132,17 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
   });
 
   // Calculate pagination
-  const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
-  const paginatedTransactions = transactionsExpanded
-    ? filteredTransactions.slice((currentPage - 1) * transactionsPerPage, currentPage * transactionsPerPage)
-    : filteredTransactions.slice(0, transactionsPerPage);
+  const totalPages = Math.ceil(filteredTransactions.length / selectedPageSize);
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * selectedPageSize, currentPage * selectedPageSize);
 
   const handlePageChange = useCallback((newPage: number) => {
     setCurrentPage(newPage);
   }, []);
 
-  const handleToggleExpand = useCallback(() => {
-    setTransactionsExpanded(!transactionsExpanded);
-    if (!transactionsExpanded) {
-      setCurrentPage(1);
-    }
-  }, [transactionsExpanded]);
+  const handlePageSizeChange = useCallback((value: string) => {
+    setSelectedPageSize(parseInt(value));
+    setCurrentPage(1); // Reset to first page when changing page size
+  }, []);
 
   const handleSearchChange = useCallback((value: string) => {
     setTransactionSearch(value);
@@ -227,9 +223,7 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
               </Text>
               {filteredTransactions.length > 0 && (
                 <Badge>
-                  {transactionsExpanded
-                    ? `${filteredTransactions.length}`
-                    : `${Math.min(filteredTransactions.length, transactionsPerPage)} of ${filteredTransactions.length}`}
+                  {`${paginatedTransactions.length} of ${filteredTransactions.length}`}
                 </Badge>
               )}
             </InlineStack>
@@ -247,15 +241,18 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                   autoComplete="off"
                 />
               </div>
-              {filteredTransactions.length > transactionsPerPage && (
-                <Button
-                  variant="plain"
-                  onClick={handleToggleExpand}
-                  disclosure={transactionsExpanded ? "up" : "down"}
-                >
-                  {transactionsExpanded ? "Show less" : `Show all (${filteredTransactions.length})`}
-                </Button>
-              )}
+              <Select
+                label="Items per page"
+                labelHidden
+                options={[
+                  { label: "25 per page", value: "25" },
+                  { label: "50 per page", value: "50" },
+                  { label: "100 per page", value: "100" },
+                  { label: "200 per page", value: "200" },
+                ]}
+                value={selectedPageSize.toString()}
+                onChange={handlePageSizeChange}
+              />
             </InlineStack>
           </InlineStack>
 
@@ -273,29 +270,8 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                   compact={false}
                 />
 
-                {/* Show indicator when collapsed and there are more transactions */}
-                {!transactionsExpanded && filteredTransactions.length > transactionsPerPage && (
-                  <Box>
-                    <Divider />
-                    <Box paddingBlock="300">
-                      <InlineStack align="center">
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Showing {transactionsPerPage} of {filteredTransactions.length} transactions.
-                        </Text>
-                        <Button
-                          variant="plain"
-                          size="slim"
-                          onClick={handleToggleExpand}
-                        >
-                          View all
-                        </Button>
-                      </InlineStack>
-                    </Box>
-                  </Box>
-                )}
-
                 {/* Pagination Controls */}
-                {transactionsExpanded && totalPages > 1 && (
+                {totalPages > 1 && (
                   <Box>
                     <Divider />
                     <Box paddingBlockStart="400">
@@ -347,8 +323,8 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                          Page {currentPage} of {totalPages} • Showing {((currentPage - 1) * transactionsPerPage) + 1}-
-                          {Math.min(currentPage * transactionsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
+                          Page {currentPage} of {totalPages} • Showing {((currentPage - 1) * selectedPageSize) + 1}-
+                          {Math.min(currentPage * selectedPageSize, filteredTransactions.length)} of {filteredTransactions.length} transactions
                         </Text>
                       </Box>
                     </Box>
