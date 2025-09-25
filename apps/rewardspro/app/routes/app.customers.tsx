@@ -1596,7 +1596,7 @@ export default function Customers() {
                           "Customer",
                           "Current Tier",
                           "Store Credit",
-                          "Actions",
+                          <div style={{ textAlign: 'right', width: '100%' }}>Actions</div>,
                         ]}
                         rows={rows}
                         hoverable
