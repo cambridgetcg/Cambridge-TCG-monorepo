@@ -492,12 +492,12 @@ export default function BillingPage() {
 
             {/* Current Plan Card */}
             <CurrentPlanCard
-              activeSubscription={data.activeSubscription}
-              currentPlan={data.currentPlan}
+              activeSubscription={activeSubscription}
+              currentPlan={currentPlan}
               monthlyOrderUsage={{
-                orderCount: data.monthlyOrderUsage?.orderCount || 0,
-                planLimit: data.monthlyOrderUsage?.planLimit || 200,
-                projectedOrders: data.monthlyOrderUsage?.projectedOrders || 0,
+                orderCount: monthlyOrderUsage?.orderCount || 0,
+                planLimit: monthlyOrderUsage?.planLimit || 200,
+                projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
                 currentMonth: currentMonth
               }}
               showUpgradeButton={true}
