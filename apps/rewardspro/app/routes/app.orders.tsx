@@ -203,11 +203,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderBy: { shopifyCreatedAt: 'desc' },
       });
 
-      // Filter in memory
+      // Filter in memory (order number and email only)
       const searchLower = searchQuery.toLowerCase();
       const filteredOrders = allOrders.filter(order =>
         order.shopifyOrderNumber?.toLowerCase().includes(searchLower) ||
-        order.shopifyOrderName?.toLowerCase().includes(searchLower) ||
         order.email?.toLowerCase().includes(searchLower)
       );
 
@@ -821,7 +820,7 @@ export default function OrdersPage() {
                     <Box width="100%">
                       <TextField
                         label=""
-                        placeholder="Search by order number, name, or email"
+                        placeholder="Search by order number or email"
                         value={queryValue}
                         onChange={handleSearch}
                         prefix={<Icon source={SearchIcon} />}
