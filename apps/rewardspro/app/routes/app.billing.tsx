@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
+import crypto from "crypto";
 export { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   Page,
@@ -259,6 +260,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     let monthlyOrderUsage = null;
     try {
+      // First try to get from MonthlyOrderUsage table
       const orderUsage = await db.monthlyOrderUsage.findUnique({
         where: {
           shop_year_month: {
@@ -277,17 +279,84 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           planName: orderUsage.planName,
           projectedOrders
         };
+      } else {
+        // Alternative: Count orders directly from Order table for current month
+        console.log("[Billing Page] No MonthlyOrderUsage found, counting from Order table");
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0);
+
+        const orderCount = await db.order.count({
+          where: {
+            shop,
+            shopifyCreatedAt: {
+              gte: startOfMonth,
+              lte: endOfMonth
+            }
+          }
+        });
+
+        // Determine plan limit based on active subscription
+        let planLimit = 200; // Default for free plan
+        let planName = 'RewardsPro Free';
+
+        if (activeSubscription?.name === 'RewardsPro Monthly') {
+          planLimit = 1000;
+          planName = 'RewardsPro Monthly';
+        } else if (activeSubscription?.name === 'RewardsPro Annual') {
+          planLimit = 1000; // 12,000/year = 1,000/month
+          planName = 'RewardsPro Annual';
+        }
+
+        const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
+        monthlyOrderUsage = {
+          orderCount,
+          planLimit,
+          planName,
+          projectedOrders
+        };
+
+        // Create MonthlyOrderUsage record for future use
+        if (orderCount > 0) {
+          try {
+            await db.monthlyOrderUsage.create({
+              data: {
+                id: crypto.randomUUID(),
+                shop,
+                year,
+                month,
+                orderCount,
+                planLimit,
+                planName,
+                lastOrderDate: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+            console.log("[Billing Page] Created MonthlyOrderUsage record");
+          } catch (createError) {
+            console.warn("[Billing Page] Could not create MonthlyOrderUsage record:", createError);
+          }
+        }
       }
     } catch (error) {
       console.warn("[Billing Page] Could not fetch monthly order usage:", error);
     }
 
-    // If no usage data, create default for free plan
-    if (!monthlyOrderUsage && (!activeSubscription || activeSubscription.name === 'RewardsPro Free')) {
+    // If still no usage data, create default for the plan
+    if (!monthlyOrderUsage) {
+      const planName = activeSubscription?.name || 'RewardsPro Free';
+      let planLimit = 200; // Default for free plan
+
+      if (planName === 'RewardsPro Monthly') {
+        planLimit = 1000;
+      } else if (planName === 'RewardsPro Annual') {
+        planLimit = 1000; // Monthly equivalent
+      }
+
       monthlyOrderUsage = {
         orderCount: 0,
-        planLimit: 200,
-        planName: 'RewardsPro Free',
+        planLimit,
+        planName,
         projectedOrders: 0
       };
     }
