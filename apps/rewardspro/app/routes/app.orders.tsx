@@ -136,6 +136,7 @@ interface LoaderData {
     pageSize: number;
     totalPages: number;
     totalCount: number;
+    isExpanded: boolean;
   };
 }
 
@@ -159,7 +160,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const statusFilter = url.searchParams.get("status") || "all";
     const cashbackFilter = url.searchParams.get("cashback") || "all";
     const page = parseInt(url.searchParams.get("page") || "1");
-    const pageSize = 50;
+    const pageSizeParam = url.searchParams.get("pageSize");
+    const isExpanded = url.searchParams.get("expanded") === "true";
+
+    // Default to 7 for collapsed view, or use the selected page size
+    const pageSize = isExpanded
+      ? parseInt(pageSizeParam || "25")
+      : 7;
 
     // Build where clause
     const whereClause: any = { shop };
@@ -249,6 +256,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         pageSize,
         totalPages,
         totalCount,
+        isExpanded,
       },
     });
   } catch (error) {
@@ -471,6 +479,8 @@ export default function OrdersPage() {
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [cashbackFilter, setCashbackFilter] = useState(searchParams.get("cashback") || "all");
+  const [isExpanded, setIsExpanded] = useState(searchParams.get("expanded") === "true");
+  const [selectedPageSize, setSelectedPageSize] = useState(searchParams.get("pageSize") || "25");
 
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
 
@@ -525,8 +535,35 @@ export default function OrdersPage() {
     setQueryValue("");
     setStatusFilter("all");
     setCashbackFilter("all");
+    setIsExpanded(false);
+    setSelectedPageSize("25");
     setSearchParams({});
   }, [setSearchParams]);
+
+  // Handle expand/collapse
+  const handleToggleExpand = useCallback(() => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    const params = new URLSearchParams(searchParams);
+    if (newExpanded) {
+      params.set("expanded", "true");
+      params.set("pageSize", selectedPageSize);
+    } else {
+      params.delete("expanded");
+      params.delete("pageSize");
+    }
+    params.set("page", "1"); // Reset to first page
+    setSearchParams(params);
+  }, [isExpanded, selectedPageSize, searchParams, setSearchParams]);
+
+  // Handle page size change
+  const handlePageSizeChange = useCallback((value: string) => {
+    setSelectedPageSize(value);
+    const params = new URLSearchParams(searchParams);
+    params.set("pageSize", value);
+    params.set("page", "1"); // Reset to first page
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
 
   // Process cashback for an order
   const handleProcessCashback = useCallback((orderId: string) => {
@@ -825,6 +862,47 @@ export default function OrdersPage() {
           {/* Orders Table */}
           <Layout.Section>
             <Card padding="0">
+              {/* Table header with expand/collapse and page size selector */}
+              <Box padding="400" borderBlockEndWidth="025" borderColor="border">
+                <InlineStack align="space-between" blockAlign="center">
+                  <InlineStack gap="200" align="start" blockAlign="center">
+                    <Text variant="headingMd" as="h3">
+                      Orders
+                    </Text>
+                    <Badge>
+                      {isExpanded
+                        ? `${orders.length} of ${pagination.totalCount}`
+                        : `Showing ${Math.min(7, orders.length)} of ${pagination.totalCount}`}
+                    </Badge>
+                  </InlineStack>
+                  <InlineStack gap="300" align="end">
+                    {isExpanded && (
+                      <Select
+                        label="Items per page"
+                        labelHidden
+                        options={[
+                          { label: "25 per page", value: "25" },
+                          { label: "50 per page", value: "50" },
+                          { label: "100 per page", value: "100" },
+                          { label: "200 per page", value: "200" },
+                        ]}
+                        value={selectedPageSize}
+                        onChange={handlePageSizeChange}
+                      />
+                    )}
+                    {pagination.totalCount > 7 && (
+                      <Button
+                        variant="plain"
+                        onClick={handleToggleExpand}
+                        disclosure={isExpanded ? "up" : "down"}
+                      >
+                        {isExpanded ? "Show less" : `Show all orders (${pagination.totalCount})`}
+                      </Button>
+                    )}
+                  </InlineStack>
+                </InlineStack>
+              </Box>
+
               {isLoading ? (
                 <Box padding="400">
                   <BlockStack gap="300">
@@ -869,28 +947,123 @@ export default function OrdersPage() {
                     {rowMarkup}
                   </IndexTable>
 
-                  {/* Pagination */}
-                  {pagination.totalPages > 1 && (
-                    <Box padding="400">
-                      <InlineStack align="center" blockAlign="center" gap="400">
-                        <Button
-                          onClick={handlePreviousPage}
-                          disabled={pagination.page === 1}
-                          accessibilityLabel="Previous page"
-                        >
-                          Previous
-                        </Button>
-                        <Text variant="bodySm" as="span">
-                          Page {pagination.page} of {pagination.totalPages}
+                  {/* Pagination for collapsed view */}
+                  {!isExpanded && pagination.totalCount > 7 && (
+                    <Box padding="400" borderBlockStartWidth="025" borderColor="border">
+                      <InlineStack align="center">
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Showing first 7 orders of {pagination.totalCount} total.
                         </Text>
                         <Button
-                          onClick={handleNextPage}
-                          disabled={pagination.page === pagination.totalPages}
-                          accessibilityLabel="Next page"
+                          variant="plain"
+                          size="slim"
+                          onClick={handleToggleExpand}
                         >
-                          Next
+                          View all
                         </Button>
                       </InlineStack>
+                    </Box>
+                  )}
+
+                  {/* Enhanced Pagination for expanded view */}
+                  {isExpanded && pagination.totalPages > 1 && (
+                    <Box padding="400" borderBlockStartWidth="025" borderColor="border">
+                      <BlockStack gap="300">
+                        <InlineStack align="center" blockAlign="center" gap="400">
+                          <Button
+                            onClick={handlePreviousPage}
+                            disabled={pagination.page === 1}
+                            accessibilityLabel="Previous page"
+                          >
+                            Previous
+                          </Button>
+
+                          {/* Page number buttons */}
+                          <InlineStack gap="200">
+                            {(() => {
+                              const currentPage = pagination.page;
+                              const totalPages = pagination.totalPages;
+                              const pageButtons = [];
+
+                              // Always show first page
+                              if (currentPage > 3) {
+                                pageButtons.push(
+                                  <Button
+                                    key={1}
+                                    variant="plain"
+                                    size="slim"
+                                    onClick={() => {
+                                      const params = new URLSearchParams(searchParams);
+                                      params.set("page", "1");
+                                      setSearchParams(params);
+                                    }}
+                                  >
+                                    1
+                                  </Button>
+                                );
+                                if (currentPage > 4) {
+                                  pageButtons.push(<Text key="dots1" as="span">...</Text>);
+                                }
+                              }
+
+                              // Show pages around current page
+                              for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+                                pageButtons.push(
+                                  <Button
+                                    key={i}
+                                    variant={i === currentPage ? "primary" : "plain"}
+                                    size="slim"
+                                    onClick={() => {
+                                      const params = new URLSearchParams(searchParams);
+                                      params.set("page", i.toString());
+                                      setSearchParams(params);
+                                    }}
+                                  >
+                                    {i}
+                                  </Button>
+                                );
+                              }
+
+                              // Always show last page
+                              if (currentPage < totalPages - 2) {
+                                if (currentPage < totalPages - 3) {
+                                  pageButtons.push(<Text key="dots2" as="span">...</Text>);
+                                }
+                                pageButtons.push(
+                                  <Button
+                                    key={totalPages}
+                                    variant="plain"
+                                    size="slim"
+                                    onClick={() => {
+                                      const params = new URLSearchParams(searchParams);
+                                      params.set("page", totalPages.toString());
+                                      setSearchParams(params);
+                                    }}
+                                  >
+                                    {totalPages}
+                                  </Button>
+                                );
+                              }
+
+                              return pageButtons;
+                            })()}
+                          </InlineStack>
+
+                          <Button
+                            onClick={handleNextPage}
+                            disabled={pagination.page === pagination.totalPages}
+                            accessibilityLabel="Next page"
+                          >
+                            Next
+                          </Button>
+                        </InlineStack>
+
+                        <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                          Page {pagination.page} of {pagination.totalPages} •
+                          Showing {((pagination.page - 1) * pagination.pageSize) + 1}-
+                          {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of {pagination.totalCount} orders
+                        </Text>
+                      </BlockStack>
                     </Box>
                   )}
                 </>
