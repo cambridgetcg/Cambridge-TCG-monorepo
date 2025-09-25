@@ -26,7 +26,7 @@ import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { CurrentPlanCard } from "~/components/Billing";
-import { MANAGED_PLANS, OLD_PLAN_COMPARISON } from "~/constants/billing.constants";
+import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 
 // ============= TYPES =============
 type BillingPlan = {
@@ -60,7 +60,7 @@ type LoaderData = {
 };
 
 // ============= CONSTANTS =============
-// Note: MANAGED_PLANS and OLD_PLAN_COMPARISON are now imported from ~/constants/billing.constants
+// Note: MANAGED_PLANS and PLAN_COMPARISON are now imported from ~/constants/billing.constants
 // Removing duplicated constants - keeping old version for reference
 const OLD_MANAGED_PLANS = {
   "RewardsPro Free": {
@@ -126,7 +126,7 @@ const OLD_MANAGED_PLANS = {
 };
 
 // Plan comparison data for the comparison cards (old version - now using imported)
-const OLD_OLD_PLAN_COMPARISON = {
+const OLD_PLAN_COMPARISON = {
   free: {
     name: "Starter plan",
     displayName: "Free",
@@ -524,22 +524,22 @@ export default function BillingPage() {
                     <BlockStack gap="400">
                       <InlineStack align="space-between">
                         <Text as="h3" variant="headingMd">
-                          {OLD_OLD_PLAN_COMPARISON.free.name}
+                          {OLD_PLAN_COMPARISON.free.name}
                         </Text>
-                        {OLD_PLAN_COMPARISON.free.recommended && (
+                        {PLAN_COMPARISON.free.recommended && (
                           <Badge tone="info">Recommended</Badge>
                         )}
                       </InlineStack>
 
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        {OLD_PLAN_COMPARISON.free.description}
+                        {PLAN_COMPARISON.free.description}
                       </Text>
 
                       <BlockStack gap="200">
                         <Text as="p" variant="heading2xl">
-                          ${OLD_PLAN_COMPARISON.free.price}
+                          ${PLAN_COMPARISON.free.price}
                           <Text as="span" variant="bodyLg" tone="subdued">
-                            {" "}USD/{OLD_PLAN_COMPARISON.free.interval}
+                            {" "}USD/{PLAN_COMPARISON.free.interval}
                           </Text>
                         </Text>
                       </BlockStack>
@@ -555,11 +555,11 @@ export default function BillingPage() {
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodyMd">
-                          {OLD_PLAN_COMPARISON.free.ordersIncluded}
+                          {PLAN_COMPARISON.free.ordersIncluded}
                         </Text>
-                        {OLD_PLAN_COMPARISON.free.overageInfo && (
+                        {PLAN_COMPARISON.free.overageInfo && (
                           <Text as="p" variant="bodySm" tone="subdued">
-                            {OLD_PLAN_COMPARISON.free.overageInfo}
+                            {PLAN_COMPARISON.free.overageInfo}
                           </Text>
                         )}
                       </Box>
@@ -571,7 +571,7 @@ export default function BillingPage() {
                           Popular features
                         </Text>
                         <BlockStack gap="200">
-                          {OLD_PLAN_COMPARISON.free.popularFeatures.map((feature, index) => (
+                          {PLAN_COMPARISON.free.popularFeatures.map((feature, index) => (
                             <InlineStack key={index} gap="200">
                               <Text as="span" variant="bodyMd">•</Text>
                               <Text as="span" variant="bodyMd">{feature}</Text>
@@ -589,22 +589,22 @@ export default function BillingPage() {
                     <BlockStack gap="400">
                       <InlineStack align="space-between">
                         <Text as="h3" variant="headingMd">
-                          {OLD_PLAN_COMPARISON.pro.name}
+                          {PLAN_COMPARISON.pro.name}
                         </Text>
-                        {OLD_PLAN_COMPARISON.pro.recommended && (
+                        {PLAN_COMPARISON.pro.recommended && (
                           <Badge tone="info">Recommended</Badge>
                         )}
                       </InlineStack>
 
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        {OLD_PLAN_COMPARISON.pro.description}
+                        {PLAN_COMPARISON.pro.description}
                       </Text>
 
                       <BlockStack gap="200">
                         <Text as="p" variant="heading2xl">
-                          ${OLD_PLAN_COMPARISON.pro.price}
+                          ${PLAN_COMPARISON.pro.price}
                           <Text as="span" variant="bodyLg" tone="subdued">
-                            {" "}USD/{OLD_PLAN_COMPARISON.pro.interval}
+                            {" "}USD/{PLAN_COMPARISON.pro.interval}
                           </Text>
                         </Text>
                       </BlockStack>
@@ -620,11 +620,11 @@ export default function BillingPage() {
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodyMd">
-                          {OLD_PLAN_COMPARISON.pro.ordersIncluded}
+                          {PLAN_COMPARISON.pro.ordersIncluded}
                         </Text>
-                        {OLD_PLAN_COMPARISON.pro.overageInfo && (
+                        {PLAN_COMPARISON.pro.overageInfo && (
                           <Text as="p" variant="bodySm" tone="subdued">
-                            {OLD_PLAN_COMPARISON.pro.overageInfo}
+                            {PLAN_COMPARISON.pro.overageInfo}
                           </Text>
                         )}
                       </Box>
@@ -636,7 +636,7 @@ export default function BillingPage() {
                           Popular features
                         </Text>
                         <BlockStack gap="200">
-                          {OLD_PLAN_COMPARISON.pro.popularFeatures.map((feature, index) => (
+                          {PLAN_COMPARISON.pro.popularFeatures.map((feature, index) => (
                             <InlineStack key={index} gap="200">
                               <Text as="span" variant="bodyMd">•</Text>
                               <Text as="span" variant="bodyMd">{feature}</Text>
@@ -654,22 +654,22 @@ export default function BillingPage() {
                     <BlockStack gap="400">
                       <InlineStack align="space-between">
                         <Text as="h3" variant="headingMd">
-                          {OLD_PLAN_COMPARISON.enterprise.name}
+                          {PLAN_COMPARISON.enterprise.name}
                         </Text>
-                        {OLD_PLAN_COMPARISON.enterprise.recommended && (
+                        {PLAN_COMPARISON.enterprise.recommended && (
                           <Badge tone="info">Recommended</Badge>
                         )}
                       </InlineStack>
 
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        {OLD_PLAN_COMPARISON.enterprise.description}
+                        {PLAN_COMPARISON.enterprise.description}
                       </Text>
 
                       <BlockStack gap="200">
                         <Text as="p" variant="heading2xl">
-                          ${OLD_PLAN_COMPARISON.enterprise.price}
+                          ${PLAN_COMPARISON.enterprise.price}
                           <Text as="span" variant="bodyLg" tone="subdued">
-                            {" "}USD/{OLD_PLAN_COMPARISON.enterprise.interval}
+                            {" "}USD/{PLAN_COMPARISON.enterprise.interval}
                           </Text>
                         </Text>
                       </BlockStack>
@@ -685,11 +685,11 @@ export default function BillingPage() {
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodyMd">
-                          {OLD_PLAN_COMPARISON.enterprise.ordersIncluded}
+                          {PLAN_COMPARISON.enterprise.ordersIncluded}
                         </Text>
-                        {OLD_PLAN_COMPARISON.enterprise.overageInfo && (
+                        {PLAN_COMPARISON.enterprise.overageInfo && (
                           <Text as="p" variant="bodySm" tone="subdued">
-                            {OLD_PLAN_COMPARISON.enterprise.overageInfo}
+                            {PLAN_COMPARISON.enterprise.overageInfo}
                           </Text>
                         )}
                       </Box>
@@ -701,7 +701,7 @@ export default function BillingPage() {
                           Popular features
                         </Text>
                         <BlockStack gap="200">
-                          {OLD_PLAN_COMPARISON.enterprise.popularFeatures.map((feature, index) => (
+                          {PLAN_COMPARISON.enterprise.popularFeatures.map((feature, index) => (
                             <InlineStack key={index} gap="200">
                               <Text as="span" variant="bodyMd">•</Text>
                               <Text as="span" variant="bodyMd">{feature}</Text>
