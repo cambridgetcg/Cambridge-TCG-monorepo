@@ -52,7 +52,6 @@ import {
   EditIcon,
   DeleteIcon,
   CalendarIcon,
-  ExportIcon,
   ImportIcon,
 } from "~/utils/polaris-icons";
 import {
@@ -1502,26 +1501,9 @@ export default function Customers() {
                 <Box padding="400">
                   <BlockStack gap="400">
                     {/* Header with title and actions */}
-                    <InlineStack align="space-between">
-                      <Text variant="headingLg" as="h2">
-                        Customer Management
-                      </Text>
-                      <InlineStack gap="200">
-                        <Button
-                          icon={ExportIcon}
-                          onClick={() => {
-                            setToast({
-                              active: true,
-                              content: "Export feature coming soon!",
-                              error: false,
-                              duration: 3000,
-                            });
-                          }}
-                        >
-                          Export
-                        </Button>
-                      </InlineStack>
-                    </InlineStack>
+                    <Text variant="headingLg" as="h2">
+                      Customer Management
+                    </Text>
 
                     {/* Integrated Search and Filter Bar */}
                     <Box background="bg-surface-secondary" padding="300" borderRadius="200">
