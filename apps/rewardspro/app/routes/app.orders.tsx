@@ -136,7 +136,6 @@ interface LoaderData {
     pageSize: number;
     totalPages: number;
     totalCount: number;
-    isExpanded: boolean;
   };
 }
 
@@ -160,13 +159,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const statusFilter = url.searchParams.get("status") || "all";
     const cashbackFilter = url.searchParams.get("cashback") || "all";
     const page = parseInt(url.searchParams.get("page") || "1");
-    const pageSizeParam = url.searchParams.get("pageSize");
-    const isExpanded = url.searchParams.get("expanded") === "true";
-
-    // Default to 7 for collapsed view, or use the selected page size
-    const pageSize = isExpanded
-      ? parseInt(pageSizeParam || "25")
-      : 7;
+    const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
 
     // Build where clause
     const whereClause: any = { shop };
@@ -256,7 +249,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         pageSize,
         totalPages,
         totalCount,
-        isExpanded,
       },
     });
   } catch (error) {
@@ -479,7 +471,6 @@ export default function OrdersPage() {
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [cashbackFilter, setCashbackFilter] = useState(searchParams.get("cashback") || "all");
-  const [isExpanded, setIsExpanded] = useState(searchParams.get("expanded") === "true");
   const [selectedPageSize, setSelectedPageSize] = useState(searchParams.get("pageSize") || "25");
 
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
@@ -535,26 +526,9 @@ export default function OrdersPage() {
     setQueryValue("");
     setStatusFilter("all");
     setCashbackFilter("all");
-    setIsExpanded(false);
     setSelectedPageSize("25");
     setSearchParams({});
   }, [setSearchParams]);
-
-  // Handle expand/collapse
-  const handleToggleExpand = useCallback(() => {
-    const newExpanded = !isExpanded;
-    setIsExpanded(newExpanded);
-    const params = new URLSearchParams(searchParams);
-    if (newExpanded) {
-      params.set("expanded", "true");
-      params.set("pageSize", selectedPageSize);
-    } else {
-      params.delete("expanded");
-      params.delete("pageSize");
-    }
-    params.set("page", "1"); // Reset to first page
-    setSearchParams(params);
-  }, [isExpanded, selectedPageSize, searchParams, setSearchParams]);
 
   // Handle page size change
   const handlePageSizeChange = useCallback((value: string) => {
@@ -668,17 +642,14 @@ export default function OrdersPage() {
         <Text variant="bodyMd" as="span">{new Date(order.shopifyCreatedAt).toLocaleDateString()}</Text>
       </IndexTable.Cell>
       <IndexTable.Cell>
-        <InlineStack gap="200" align="start">
-          <Icon source={PersonIcon} />
-          <BlockStack gap="100">
-            <Text variant="bodyMd" as="span">
-              {order.customer ? order.customer.email : (order.email || 'Guest')}
-            </Text>
-            {order.customer?.currentTier && (
-              <Badge tone="info">{order.customer.currentTier.name}</Badge>
-            )}
-          </BlockStack>
-        </InlineStack>
+        <BlockStack gap="100">
+          <Text variant="bodyMd" as="span">
+            {order.customer ? order.customer.email : (order.email || 'Guest')}
+          </Text>
+          {order.customer?.currentTier && (
+            <Badge tone="info">{order.customer.currentTier.name}</Badge>
+          )}
+        </BlockStack>
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Text variant="bodyMd" as="span">
@@ -862,7 +833,7 @@ export default function OrdersPage() {
           {/* Orders Table */}
           <Layout.Section>
             <Card padding="0">
-              {/* Table header with expand/collapse and page size selector */}
+              {/* Table header with page size selector */}
               <Box padding="400" borderBlockEndWidth="025" borderColor="border">
                 <InlineStack align="space-between" blockAlign="center">
                   <InlineStack gap="200" align="start" blockAlign="center">
@@ -870,36 +841,21 @@ export default function OrdersPage() {
                       Orders
                     </Text>
                     <Badge>
-                      {isExpanded
-                        ? `${orders.length} of ${pagination.totalCount}`
-                        : `Showing ${Math.min(7, orders.length)} of ${pagination.totalCount}`}
+                      {`${orders.length} of ${pagination.totalCount}`}
                     </Badge>
                   </InlineStack>
-                  <InlineStack gap="300" align="end">
-                    {isExpanded && (
-                      <Select
-                        label="Items per page"
-                        labelHidden
-                        options={[
-                          { label: "25 per page", value: "25" },
-                          { label: "50 per page", value: "50" },
-                          { label: "100 per page", value: "100" },
-                          { label: "200 per page", value: "200" },
-                        ]}
-                        value={selectedPageSize}
-                        onChange={handlePageSizeChange}
-                      />
-                    )}
-                    {pagination.totalCount > 7 && (
-                      <Button
-                        variant="plain"
-                        onClick={handleToggleExpand}
-                        disclosure={isExpanded ? "up" : "down"}
-                      >
-                        {isExpanded ? "Show less" : `Show all orders (${pagination.totalCount})`}
-                      </Button>
-                    )}
-                  </InlineStack>
+                  <Select
+                    label="Items per page"
+                    labelHidden
+                    options={[
+                      { label: "25 per page", value: "25" },
+                      { label: "50 per page", value: "50" },
+                      { label: "100 per page", value: "100" },
+                      { label: "200 per page", value: "200" },
+                    ]}
+                    value={selectedPageSize}
+                    onChange={handlePageSizeChange}
+                  />
                 </InlineStack>
               </Box>
 
@@ -947,26 +903,8 @@ export default function OrdersPage() {
                     {rowMarkup}
                   </IndexTable>
 
-                  {/* Pagination for collapsed view */}
-                  {!isExpanded && pagination.totalCount > 7 && (
-                    <Box padding="400" borderBlockStartWidth="025" borderColor="border">
-                      <InlineStack align="center">
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          Showing first 7 orders of {pagination.totalCount} total.
-                        </Text>
-                        <Button
-                          variant="plain"
-                          size="slim"
-                          onClick={handleToggleExpand}
-                        >
-                          View all
-                        </Button>
-                      </InlineStack>
-                    </Box>
-                  )}
-
-                  {/* Enhanced Pagination for expanded view */}
-                  {isExpanded && pagination.totalPages > 1 && (
+                  {/* Pagination */}
+                  {pagination.totalPages > 1 && (
                     <Box padding="400" borderBlockStartWidth="025" borderColor="border">
                       <BlockStack gap="300">
                         <InlineStack align="center" blockAlign="center" gap="400">
