@@ -21,18 +21,18 @@ const uuidv4 = () => crypto.randomUUID();
 // HMAC Verification
 function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-  const webhookSecret = process.env.SHOPIFY_API_SECRET; // Use API secret for HMAC
-  
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_API_SECRET; // Use webhook secret first
+
   if (!hmacHeader || !webhookSecret) {
     console.error('[Webhook] Missing HMAC header or webhook secret');
     return false;
   }
-  
+
   const hash = crypto
     .createHmac('sha256', webhookSecret)
     .update(rawBody, 'utf8')
     .digest('base64');
-  
+
   // Timing-safe comparison
   return crypto.timingSafeEqual(
     Buffer.from(hash),
@@ -42,18 +42,19 @@ function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const rawBody = await request.text();
+  const order = JSON.parse(rawBody);
 
-  // Get webhook ID and shop for idempotency
+  // Get headers
   const webhookId = request.headers.get("x-shopify-webhook-id");
   const shopDomain = request.headers.get("x-shopify-shop-domain");
+  const shop = request.headers.get('X-Shopify-Shop-Domain');
+  const topic = request.headers.get('X-Shopify-Topic');
 
   // 1. Verify HMAC
   if (!verifyWebhookHMAC(request, rawBody)) {
     console.error('[OrderPaid] HMAC verification failed');
     return json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const order = JSON.parse(rawBody);
 
   // 2. Order state validation - skip ineligible orders
   if (order.cancelled_at) {
@@ -70,19 +71,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log('[OrderPaid] Test order detected, skipping');
     return json({ success: true, message: "Test order ignored" });
   }
-  const shop = request.headers.get('X-Shopify-Shop-Domain');
-  const topic = request.headers.get('X-Shopify-Topic');
-  
+
   if (!shop) {
     console.error('[OrderPaid] Missing shop domain');
     return json({ error: "Missing shop" }, { status: 400 });
   }
-  
+
   console.log(`[OrderPaid] Processing order ${order.id} for shop ${shop}`);
-  
+
   try {
-    // 2. Authenticate (optional - get admin context if needed)
-    const { admin } = await authenticate.webhook(request);
+    // Note: Don't call authenticate.webhook since we already read the body
+    // Just use null for admin since we don't need GraphQL in most cases
+    const admin = null;
     
     // 3. Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
@@ -179,18 +179,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.error(`[OrderPaid] Error processing order ${order.id}:`, error);
     
     // Log error for monitoring (if model exists)
-    if (db.webhookError) {
+    try {
       await db.webhookError.create({
         data: {
           id: uuidv4(),
-        shop,
-        topic: topic || 'orders/paid',
-        orderId: order.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        payload: order,
-        createdAt: new Date(),
+          shop,
+          topic: topic || 'orders/paid',
+          orderId: order.id?.toString() || 'unknown',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          payload: order, // Prisma will handle JSON serialization
+          createdAt: new Date(),
         }
-      }).catch(console.error);
+      }).catch((err) => {
+        console.error('[OrderPaid] Failed to log webhook error:', err);
+      });
+    } catch (err) {
+      console.error('[OrderPaid] Failed to create webhook error record:', err);
     }
     
     // Return success to prevent Shopify retries for non-recoverable errors
