@@ -13,9 +13,7 @@ import {
   Icon,
   Spinner,
   Badge,
-  Divider,
-  Collapsible,
-  Link
+  Divider
 } from "@shopify/polaris";
 import {
   PlusCircleIcon,
@@ -27,7 +25,6 @@ import {
 import { StoreCreditDisplay } from "./StoreCreditDisplay";
 import { TransactionTable } from "./TransactionTable";
 import { CreditAdjustmentForm } from "./CreditAdjustmentForm";
-import { formatCurrency } from "~/utils/currency";
 
 interface StoreCreditTabProps {
   customer: {
@@ -70,17 +67,18 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
   // Watch for fetcher responses
   useEffect(() => {
     if (fetcher.data) {
-      if (fetcher.data.transactions) {
-        setTransactions(fetcher.data.transactions);
+      const data = fetcher.data as any;
+      if (data.transactions) {
+        setTransactions(data.transactions);
         setLoadingTransactions(false);
       }
-      if (fetcher.data.success) {
+      if (data.success) {
         // Close modals on successful action
         setShowAddModal(false);
         setShowRemoveModal(false);
         setSyncLoading(false);
         // Reload transactions after any credit change
-        if (fetcher.data.message?.includes('Credit') || fetcher.data.message?.includes('Sync')) {
+        if (data.message?.includes('Credit') || data.message?.includes('Sync')) {
           loadTransactions();
         }
       }
@@ -210,7 +208,7 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                   Current Tier
                 </Text>
                 <Badge tone="success">
-                  {customer.currentTier.name} ({customer.currentTier.cashbackPercent}% cashback)
+                  {`${customer.currentTier.name} (${customer.currentTier.cashbackPercent}% cashback)`}
                 </Badge>
               </InlineStack>
             </>
@@ -228,7 +226,11 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                 Transaction History
               </Text>
               {filteredTransactions.length > 0 && (
-                <Badge tone="subdued">{filteredTransactions.length}</Badge>
+                <Badge>
+                  {transactionsExpanded
+                    ? `${filteredTransactions.length}`
+                    : `${Math.min(filteredTransactions.length, transactionsPerPage)} of ${filteredTransactions.length}`}
+                </Badge>
               )}
             </InlineStack>
             <InlineStack gap="200">
@@ -236,7 +238,7 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                 <TextField
                   label="Search transactions"
                   labelHidden
-                  placeholder="Search transactions..."
+                  placeholder="Search by type, reason, or order..."
                   prefix={<Icon source={SearchIcon} />}
                   value={transactionSearch}
                   onChange={handleSearchChange}
@@ -271,6 +273,27 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
                   compact={false}
                 />
 
+                {/* Show indicator when collapsed and there are more transactions */}
+                {!transactionsExpanded && filteredTransactions.length > transactionsPerPage && (
+                  <Box>
+                    <Divider />
+                    <Box paddingBlock="300">
+                      <InlineStack align="center">
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Showing {transactionsPerPage} of {filteredTransactions.length} transactions.
+                        </Text>
+                        <Button
+                          variant="plain"
+                          size="slim"
+                          onClick={handleToggleExpand}
+                        >
+                          View all
+                        </Button>
+                      </InlineStack>
+                    </Box>
+                  </Box>
+                )}
+
                 {/* Pagination Controls */}
                 {transactionsExpanded && totalPages > 1 && (
                   <Box>
@@ -302,12 +325,12 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
 
                             return (
                               <Button
-                                key={pageNum}
+                                key={pageNum.toString()}
                                 variant={currentPage === pageNum ? "primary" : "plain"}
                                 onClick={() => handlePageChange(pageNum)}
                                 size="slim"
                               >
-                                {pageNum}
+                                {pageNum.toString()}
                               </Button>
                             );
                           })}
@@ -324,7 +347,7 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
 
                       <Box paddingBlockStart="200">
                         <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                          Showing {((currentPage - 1) * transactionsPerPage) + 1}-
+                          Page {currentPage} of {totalPages} • Showing {((currentPage - 1) * transactionsPerPage) + 1}-
                           {Math.min(currentPage * transactionsPerPage, filteredTransactions.length)} of {filteredTransactions.length} transactions
                         </Text>
                       </Box>
@@ -376,12 +399,12 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
       </Modal>
 
       {/* Success/Error Messages */}
-      {fetcher.data?.message && (
+      {fetcher.data && (fetcher.data as any).message && (
         <Banner
-          tone={fetcher.data.success ? "success" : "critical"}
+          tone={(fetcher.data as any).success ? "success" : "critical"}
           onDismiss={() => {}}
         >
-          <p>{fetcher.data.message}</p>
+          <p>{(fetcher.data as any).message}</p>
         </Banner>
       )}
     </BlockStack>
