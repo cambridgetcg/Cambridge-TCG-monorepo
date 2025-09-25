@@ -24,7 +24,12 @@ import {
   Icon,
   Tabs,
 } from "@shopify/polaris";
-import { RefreshIcon } from "~/utils/polaris-icons";
+import {
+  RefreshIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+  InfoIcon,
+} from "~/utils/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -62,11 +67,38 @@ type OrderStats = {
   discrepancies: number;
 };
 
+type BillingPlan = {
+  id: string;
+  shop: string;
+  planName: string;
+  status: string;
+  monthlyPrice: number;
+  usageCap: number | null;
+  currentPeriodEnd: string | null;
+  cap80AlertSent: boolean;
+  cap90AlertSent: boolean;
+  lastCapAlert: string | null;
+  metadata: any;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type LoaderData = {
   settings: ShopSettings;
   shop: string;
   shopifyTimezone?: string;
   orderStats?: OrderStats;
+  // Billing data
+  currentPlan?: BillingPlan | null;
+  activeSubscription?: any;
+  monthlyOrderUsage?: {
+    orderCount: number;
+    planLimit: number;
+    planName: string;
+    projectedOrders: number;
+  } | null;
+  currentMonth?: string;
+  daysRemaining?: number;
 };
 
 // ============= CONSTANTS =============
@@ -105,6 +137,128 @@ const CURRENCY_OPTIONS = [
   { label: "🇲🇾 Malaysian Ringgit (MYR)", value: "MYR", symbol: "RM" },
 ];
 
+// Billing Plans Constants
+const MANAGED_PLANS = {
+  "RewardsPro Free": {
+    name: "RewardsPro Free",
+    displayName: "Free",
+    price: 0,
+    interval: "month",
+    ordersIncluded: 200,
+    overageRate: 0,
+    features: [
+      "200 orders per month",
+      "All core features included",
+      "Unlimited loyalty tiers",
+      "Customer management",
+      "Store credit tracking",
+      "Basic analytics",
+      "No credit card required",
+      "Community support",
+    ],
+    recommended: false,
+    isFree: true,
+  },
+  "RewardsPro Monthly": {
+    name: "RewardsPro Monthly",
+    displayName: "Pro",
+    price: 49,
+    interval: "month",
+    ordersIncluded: 1000,
+    overageRate: 0.01,
+    features: [
+      "1,000 orders included",
+      "$0.01 per additional order",
+      "Unlimited loyalty tiers",
+      "Advanced analytics",
+      "Custom email templates",
+      "Priority support",
+      "API access",
+      "Webhook integrations",
+    ],
+    recommended: true,
+    isFree: false,
+  },
+  "RewardsPro Annual": {
+    name: "RewardsPro Annual",
+    displayName: "Enterprise",
+    price: 490,
+    interval: "year",
+    ordersIncluded: 12000,
+    overageRate: 0.01,
+    features: [
+      "12,000 orders included (1,000/month)",
+      "$0.01 per additional order",
+      "Save ~17% compared to monthly",
+      "All monthly features included",
+      "Annual billing cycle",
+      "Dedicated onboarding",
+      "Quarterly business reviews",
+      "Custom integrations support",
+    ],
+    recommended: false,
+    isFree: false,
+  },
+};
+
+// Plan comparison data for the comparison cards
+const PLAN_COMPARISON = {
+  free: {
+    name: "Starter plan",
+    displayName: "Free",
+    description: "Everything you need to create an on-brand program your customers will love.",
+    price: 0,
+    interval: "month",
+    ordersIncluded: "Up to 200 monthly orders",
+    overageInfo: "",
+    recommended: true,
+    popularFeatures: [
+      "Points program",
+      "Referral program",
+      "Customizable emails",
+      "Store credit tracking",
+      "Basic reports",
+      "Community support",
+    ],
+  },
+  pro: {
+    name: "Growth plan",
+    displayName: "Pro",
+    description: "Level up your loyalty program with extras like advanced analytics and priority support.",
+    price: 49,
+    interval: "month",
+    ordersIncluded: "Includes 1,000 monthly orders",
+    overageInfo: "$0.01 per additional order",
+    recommended: false,
+    popularFeatures: [
+      "Full-feature loyalty hub",
+      "Advanced analytics & reporting",
+      "Custom email templates",
+      "Priority support",
+      "API access",
+      "Unlimited integrations",
+    ],
+  },
+  enterprise: {
+    name: "Plus plan",
+    displayName: "Enterprise",
+    description: "Get the best of RewardsPro with more customization and reporting.",
+    price: 490,
+    interval: "year",
+    ordersIncluded: "Includes 12,000 annual orders",
+    overageInfo: "$0.01 per additional order",
+    recommended: false,
+    popularFeatures: [
+      "Migration and launch plan",
+      "30+ specialized reports",
+      "API access & developer tools",
+      "Priority support",
+      "Quarterly program monitoring",
+      "Security review support",
+    ],
+  },
+};
+
 // Timezone options removed - now automatically synced from Shopify
 
 // ============= HELPERS =============
@@ -135,6 +289,34 @@ const validateUrl = (url: string): boolean => {
   }
 };
 
+// Billing Helper Functions
+const calculateDaysRemaining = (): number => {
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const diffTime = Math.abs(endOfMonth.getTime() - now.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
+const getCurrentMonthName = (): string => {
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  return months[new Date().getMonth()];
+};
+
+const calculateProjectedOrders = (currentOrders: number, daysRemaining: number): number => {
+  const now = new Date();
+  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysPassed = totalDaysInMonth - daysRemaining;
+
+  if (daysPassed === 0) return currentOrders;
+
+  const dailyRate = currentOrders / daysPassed;
+  return Math.ceil(dailyRate * totalDaysInMonth);
+};
+
 // ============= RATE LIMITING =============
 const rateLimitMap = new Map<string, number[]>();
 
@@ -159,7 +341,7 @@ const checkRateLimit = (shop: string) => {
 // ============= LOADER =============
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { session, admin } = await authenticate.admin(request);
+    const { session, admin, billing } = await authenticate.admin(request);
     
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
@@ -274,6 +456,71 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Continue without order stats
     }
 
+    // Fetch billing data
+    const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+
+    let activeSubscription = null;
+    if (billing) {
+      try {
+        const { hasActivePayment, appSubscriptions } = await billing.check({
+          plans: [FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
+          isTest: process.env.NODE_ENV === 'development',
+        });
+
+        if (hasActivePayment && appSubscriptions?.length > 0) {
+          activeSubscription = appSubscriptions[0];
+        }
+      } catch (error) {
+        console.error("[Settings Page] Error checking subscription:", error);
+      }
+    }
+
+    // Fetch billing plan from database
+    const billingPlan = await db.billingPlan.findUnique({
+      where: { shop },
+    });
+
+    // Get monthly order usage
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const daysRemaining = calculateDaysRemaining();
+
+    let monthlyOrderUsage = null;
+    try {
+      const orderUsage = await db.monthlyOrderUsage.findUnique({
+        where: {
+          shop_year_month: {
+            shop,
+            year,
+            month
+          }
+        }
+      });
+
+      if (orderUsage) {
+        const projectedOrders = calculateProjectedOrders(orderUsage.orderCount, daysRemaining);
+        monthlyOrderUsage = {
+          orderCount: orderUsage.orderCount,
+          planLimit: orderUsage.planLimit,
+          planName: orderUsage.planName,
+          projectedOrders
+        };
+      }
+    } catch (error) {
+      console.warn("[Settings Page] Could not fetch monthly order usage:", error);
+    }
+
+    // If no usage data, create default for free plan
+    if (!monthlyOrderUsage && (!activeSubscription || activeSubscription.name === 'RewardsPro Free')) {
+      monthlyOrderUsage = {
+        orderCount: 0,
+        planLimit: 200,
+        planName: 'RewardsPro Free',
+        projectedOrders: 0
+      };
+    }
+
     // Serialize dates for JSON
     const serializedSettings = {
       ...settings,
@@ -285,11 +532,36 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         : settings.updatedAt,
     };
 
+    // Serialize billing plan
+    const serializedPlan = billingPlan ? {
+      ...billingPlan,
+      monthlyPrice: Number(billingPlan.monthlyPrice || 0),
+      usageCap: billingPlan.usageCap ? Number(billingPlan.usageCap) : null,
+      currentPeriodEnd: billingPlan.currentPeriodEnd instanceof Date
+        ? billingPlan.currentPeriodEnd.toISOString()
+        : billingPlan.currentPeriodEnd,
+      lastCapAlert: billingPlan.lastCapAlert instanceof Date
+        ? billingPlan.lastCapAlert.toISOString()
+        : billingPlan.lastCapAlert,
+      createdAt: billingPlan.createdAt instanceof Date
+        ? billingPlan.createdAt.toISOString()
+        : String(billingPlan.createdAt),
+      updatedAt: billingPlan.updatedAt instanceof Date
+        ? billingPlan.updatedAt.toISOString()
+        : String(billingPlan.updatedAt),
+    } : null;
+
     return json<LoaderData>({
       settings: serializedSettings as ShopSettings,
       shop,
       shopifyTimezone, // Pass Shopify's timezone to show it's synced
-      orderStats
+      orderStats,
+      // Billing data
+      currentPlan: serializedPlan,
+      activeSubscription,
+      monthlyOrderUsage,
+      currentMonth: getCurrentMonthName(),
+      daysRemaining,
     });
   } catch (error) {
     console.error("Settings loader error:", error);
@@ -300,7 +572,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============= ACTION =============
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
-    const { session, admin } = await authenticate.admin(request);
+    const { session, admin, billing } = await authenticate.admin(request);
     
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
@@ -374,6 +646,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
     }
 
+    // Handle billing upgrade
+    if (intent === "upgrade") {
+      const planName = formData.get("plan") as string;
+
+      if (!billing) {
+        return json({ error: "Billing not configured" }, { status: 500 });
+      }
+
+      try {
+        // Import plan names
+        const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+
+        // Determine which plan to request
+        let requestPlan = MONTHLY_PLAN; // Default to monthly
+        if (planName === "RewardsPro Annual") {
+          requestPlan = ANNUAL_PLAN;
+        } else if (planName === "RewardsPro Free") {
+          requestPlan = FREE_PLAN;
+        }
+
+        // Request the billing plan
+        const billingResponse = await billing.request({
+          plan: requestPlan,
+          isTest: process.env.NODE_ENV === 'development',
+          returnUrl: `${process.env.SHOPIFY_APP_URL}/app/settings`,
+        });
+
+        // This will return a redirect response to Shopify's billing page
+        return billingResponse;
+      } catch (billingError: any) {
+        // If billing.request throws a Response, return it
+        if (billingError instanceof Response) {
+          console.log("[Settings Action] Billing request returned Response, forwarding it");
+          return billingError;
+        }
+
+        console.error("[Settings Action] Error requesting plan:", billingError);
+        return json({ error: "Failed to request billing plan" }, { status: 500 });
+      }
+    }
+
     if (intent !== "update") {
       return json({ error: "Invalid action" }, { status: 400 });
     }
@@ -444,7 +757,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 // ============= COMPONENT =============
 export default function SettingsPage() {
-  const { settings, shop, shopifyTimezone, orderStats } = useLoaderData<LoaderData>();
+  const {
+    settings,
+    shop,
+    shopifyTimezone,
+    orderStats,
+    currentPlan,
+    activeSubscription,
+    monthlyOrderUsage,
+    currentMonth,
+    daysRemaining
+  } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
   const navigation = useNavigation();
   const navigate = useNavigate();
@@ -533,6 +856,17 @@ export default function SettingsPage() {
     }, 2000);
   }, [syncRange, reconcileLedger, updateMetrics, fetcher]);
 
+  // Handle billing upgrade
+  const handleUpgrade = useCallback((planName?: string) => {
+    fetcher.submit(
+      {
+        intent: "upgrade",
+        plan: planName || "RewardsPro Monthly" // Default to monthly plan
+      },
+      { method: "post" }
+    );
+  }, [fetcher]);
+
   // Handle sync completion
   useEffect(() => {
     if (fetcher.data?.syncStarted && isSyncing) {
@@ -594,6 +928,11 @@ export default function SettingsPage() {
       content: 'Data Sync',
       panelID: 'data-sync-panel',
     },
+    {
+      id: 'billing',
+      content: 'Billing',
+      panelID: 'billing-panel',
+    },
   ];
 
   const handleTabChange = useCallback((selectedTabIndex: number) => {
@@ -603,19 +942,19 @@ export default function SettingsPage() {
   return (
     <Page
       title="Store Settings"
-      primaryAction={{
+      primaryAction={selectedTab !== 4 ? {
         content: "Save Settings",
         onAction: handleSubmit,
         loading: isLoading,
         disabled: !hasUnsavedChanges,
-      }}
-      secondaryActions={[
+      } : undefined}
+      secondaryActions={selectedTab !== 4 ? [
         {
           content: "Reset",
           onAction: handleReset,
           disabled: !hasUnsavedChanges,
         },
-      ]}
+      ] : undefined}
     >
       <Layout>
         <Layout.Section>
@@ -890,6 +1229,178 @@ export default function SettingsPage() {
                           </Banner>
                         )}
                       </BlockStack>
+                    </BlockStack>
+                  )}
+
+                  {/* Billing Tab */}
+                  {selectedTab === 4 && (
+                    <BlockStack gap="600">
+                      {/* Billing Plan Details */}
+                      {(() => {
+                        // Determine current plan details
+                        const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
+                        const planDetails = MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
+
+                        // Calculate usage percentage and projected usage
+                        const currentUsage = monthlyOrderUsage?.orderCount || 0;
+                        const planLimit = monthlyOrderUsage?.planLimit || planDetails.ordersIncluded;
+                        const projectedUsage = monthlyOrderUsage?.projectedOrders || 0;
+                        const usagePercentage = Math.min(Math.round((currentUsage / planLimit) * 100), 100);
+                        const projectedPercentage = Math.min(Math.round((projectedUsage / planLimit) * 100), 100);
+
+                        // Determine progress bar color
+                        let progressTone: "success" | "critical" = "success";
+                        if (usagePercentage >= 100) {
+                          progressTone = "critical";
+                        }
+
+                        // Check if over limits
+                        const isOverLimit = currentUsage >= planLimit;
+                        const ordersNotCounted = Math.max(0, currentUsage - planLimit);
+
+                        return (
+                          <>
+                            {/* Over Limit Warning */}
+                            {isOverLimit && (
+                              <Banner
+                                tone="critical"
+                                title="Plan limit exceeded"
+                                action={{
+                                  content: "Upgrade now",
+                                  onAction: () => handleUpgrade()
+                                }}
+                              >
+                                <p>
+                                  You've processed {currentUsage} orders this month, exceeding your {planDetails.displayName} plan limit of {planLimit} orders.
+                                  {planDetails.isFree
+                                    ? " Upgrade to continue earning cashback rewards on new orders."
+                                    : " Additional charges may apply for overage."}
+                                </p>
+                              </Banner>
+                            )}
+
+                            <BlockStack gap="400">
+                              <Text as="h2" variant="headingLg">
+                                Current Plan: {planDetails.displayName}
+                              </Text>
+
+                              <Text as="p" variant="headingLg">
+                                ${planDetails.price} <Text as="span" variant="bodyLg" tone="subdued">USD/{planDetails.interval}</Text>
+                              </Text>
+
+                              {/* Usage Progress Section */}
+                              <Box paddingBlockStart="400" paddingBlockEnd="400">
+                                <BlockStack gap="400">
+                                  <Box>
+                                    <InlineStack align="end" gap="200">
+                                      <Text as="p" variant="bodyMd" tone="subdued">
+                                        Plan limit
+                                      </Text>
+                                    </InlineStack>
+                                    <Text as="p" variant="bodyMd" tone="subdued">
+                                      {planLimit.toLocaleString()} orders
+                                    </Text>
+                                  </Box>
+
+                                  {/* Progress Bar */}
+                                  <Box>
+                                    <div style={{ position: 'relative' }}>
+                                      <ProgressBar
+                                        progress={usagePercentage}
+                                        tone={progressTone}
+                                        size="small"
+                                      />
+                                      {/* Projected usage indicator */}
+                                      {projectedUsage > currentUsage && projectedPercentage <= 100 && (
+                                        <div
+                                          style={{
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: `${usagePercentage}%`,
+                                            width: `${projectedPercentage - usagePercentage}%`,
+                                            height: '8px',
+                                            backgroundColor: 'var(--p-color-bg-surface-tertiary)',
+                                            opacity: 0.5
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                  </Box>
+
+                                  {/* Usage Stats */}
+                                  <InlineStack gap="400">
+                                    <InlineStack gap="100">
+                                      <div style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        backgroundColor: progressTone === 'success' ? 'var(--p-color-bg-success)' :
+                                                       'var(--p-color-bg-critical)',
+                                        marginTop: '4px'
+                                      }} />
+                                      <Text as="span" variant="bodyMd">
+                                        Current: {currentUsage.toLocaleString()} orders
+                                      </Text>
+                                    </InlineStack>
+
+                                    <InlineStack gap="100">
+                                      <div style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'var(--p-color-bg-surface-tertiary)',
+                                        marginTop: '4px'
+                                      }} />
+                                      <Text as="span" variant="bodyMd" tone="subdued">
+                                        Projected: {projectedUsage.toLocaleString()} orders
+                                      </Text>
+                                    </InlineStack>
+                                  </InlineStack>
+                                </BlockStack>
+                              </Box>
+
+                              <Divider />
+
+                              {/* Usage Explanations */}
+                              <BlockStack gap="300">
+                                <InlineStack gap="200">
+                                  <Icon source={CheckCircleIcon} tone="base" />
+                                  <Text as="p" variant="bodyMd">
+                                    {currentUsage} orders this month count towards your {currentMonth} usage.
+                                  </Text>
+                                </InlineStack>
+
+                                {ordersNotCounted > 0 && (
+                                  <InlineStack gap="200">
+                                    <Icon source={AlertCircleIcon} tone="base" />
+                                    <Text as="p" variant="bodyMd">
+                                      {ordersNotCounted} orders this month exceeded the pricing protection limit.
+                                    </Text>
+                                  </InlineStack>
+                                )}
+
+                                {daysRemaining && daysRemaining > 0 && (
+                                  <InlineStack gap="200">
+                                    <Icon source={InfoIcon} tone="base" />
+                                    <Text as="p" variant="bodyMd" tone="subdued">
+                                      {daysRemaining} days remaining in the current billing period.
+                                    </Text>
+                                  </InlineStack>
+                                )}
+                              </BlockStack>
+
+                              <Box paddingBlockStart="400">
+                                <Button
+                                  variant="primary"
+                                  onClick={() => navigate("/app/billing/plans")}
+                                >
+                                  View All Plans
+                                </Button>
+                              </Box>
+                            </BlockStack>
+                          </>
+                        );
+                      })()}
                     </BlockStack>
                   )}
                 </Box>
