@@ -289,6 +289,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         planName = 'RewardsPro Annual';
       }
 
+      console.log(`[Billing Page] Plan: ${planName}, Limit: ${planLimit}, Active subscription: ${activeSubscription?.name || 'none'}`);
+
       const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
       monthlyOrderUsage = {
         orderCount,
@@ -296,6 +298,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         planName,
         projectedOrders
       };
+
+      console.log('[Billing Page] monthlyOrderUsage created:', monthlyOrderUsage);
     } catch (error) {
       console.warn("[Billing Page] Could not fetch monthly order usage:", error);
     }
@@ -337,6 +341,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         ? billingPlan.updatedAt.toISOString()
         : String(billingPlan.updatedAt),
     } : null;
+
+    console.log('[Billing Page] Returning data:', {
+      hasCurrentPlan: !!serializedPlan,
+      hasActiveSubscription: !!activeSubscription,
+      monthlyOrderUsage: monthlyOrderUsage,
+      currentMonth: getCurrentMonthName(),
+    });
 
     return json<LoaderData>({
       currentPlan: serializedPlan,

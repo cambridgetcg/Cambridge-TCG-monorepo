@@ -59,9 +59,21 @@ export function CurrentPlanCard({
   compact = false,
   onUpgrade
 }: CurrentPlanCardProps) {
+  // Debug logging
+  console.log('[CurrentPlanCard] Props received:', {
+    activeSubscription,
+    currentPlan,
+    monthlyOrderUsage
+  });
+
   // Get plan details and usage metrics
   const planDetails = getPlanDetails(activeSubscription, currentPlan);
   const usageMetrics = calculateUsageMetrics(monthlyOrderUsage, planDetails);
+
+  console.log('[CurrentPlanCard] Calculated:', {
+    planDetails,
+    usageMetrics
+  });
 
   return (
     <BlockStack gap="400">

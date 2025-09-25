@@ -47,10 +47,10 @@ const PLANS: Plan[] = [
     displayName: "Free",
     price: 0,
     interval: "month",
-    ordersIncluded: 100,
+    ordersIncluded: 200,
     description: "Perfect for small stores just getting started",
     features: [
-      "Up to 100 orders/month",
+      "Up to 200 orders/month",
       "Basic loyalty tiers",
       "Store credit tracking",
       "Customer management",

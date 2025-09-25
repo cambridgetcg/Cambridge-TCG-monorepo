@@ -45,10 +45,10 @@ export const BillingConfig: BillingConfigType = {
     free: {
       name: "Free Plan",
       price: "0.00",
-      orderLimit: 100,
+      orderLimit: 200,
       features: [
         "Basic loyalty tiers",
-        "100 orders/month",
+        "200 orders/month",
         "Email support"
       ]
     },
