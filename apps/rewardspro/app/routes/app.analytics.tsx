@@ -783,90 +783,91 @@ export default function AnalyticsPage() {
         <Layout.Section>
           <Card>
             <Box padding="400">
-              <InlineStack align="space-between">
-                <ButtonGroup>
-                  <Button 
-                    pressed={selectedDateRange === 'today'}
-                    onClick={() => handleDateRangeSelect('today')}
-                  >
-                    Today
-                  </Button>
-                  <Button 
-                    pressed={selectedDateRange === '7days'}
-                    onClick={() => handleDateRangeSelect('7days')}
-                  >
-                    7 Days
-                  </Button>
-                  <Button 
-                    pressed={selectedDateRange === '30days'}
-                    onClick={() => handleDateRangeSelect('30days')}
-                  >
-                    30 Days
-                  </Button>
-                  <Button 
-                    pressed={selectedDateRange === 'quarter'}
-                    onClick={() => handleDateRangeSelect('quarter')}
-                  >
-                    Quarter
-                  </Button>
-                  <Button 
-                    pressed={selectedDateRange === 'year'}
-                    onClick={() => handleDateRangeSelect('year')}
-                  >
-                    Year
-                  </Button>
-                </ButtonGroup>
-                
-                <Popover
-                  active={showDatePicker}
-                  activator={
-                    <Button 
-                      pressed={selectedDateRange === 'custom'}
-                      onClick={() => setShowDatePicker(!showDatePicker)}
-                      disclosure={showDatePicker ? 'up' : 'down'}
+              <BlockStack gap="400">
+                <InlineStack align="space-between">
+                  <ButtonGroup>
+                    <Button
+                      pressed={selectedDateRange === 'today'}
+                      onClick={() => handleDateRangeSelect('today')}
                     >
-                      Custom Range
+                      Today
                     </Button>
-                  }
-                  onClose={() => setShowDatePicker(false)}
-                >
-                  <Box padding="400" minWidth="320px">
-                    <BlockStack gap="400">
-                      <Text variant="headingSm" as="h3">Select Date Range</Text>
-                      <BlockStack gap="300">
-                        <Text variant="bodySm" tone="subdued" as="p">
-                          Date range selection is coming soon. This will allow you to:
-                        </Text>
-                        <BlockStack gap="200">
-                          <Text variant="bodySm" as="p">• Select custom start and end dates</Text>
-                          <Text variant="bodySm" as="p">• Compare periods</Text>
-                          <Text variant="bodySm" as="p">• Advanced filtering options</Text>
-                        </BlockStack>
-                      </BlockStack>
-                      <Button 
-                        variant="primary" 
-                        onClick={() => {
-                          setSelectedDateRange('custom');
-                          setShowDatePicker(false);
-                        }}
+                    <Button
+                      pressed={selectedDateRange === '7days'}
+                      onClick={() => handleDateRangeSelect('7days')}
+                    >
+                      7 Days
+                    </Button>
+                    <Button
+                      pressed={selectedDateRange === '30days'}
+                      onClick={() => handleDateRangeSelect('30days')}
+                    >
+                      30 Days
+                    </Button>
+                    <Button
+                      pressed={selectedDateRange === 'quarter'}
+                      onClick={() => handleDateRangeSelect('quarter')}
+                    >
+                      Quarter
+                    </Button>
+                    <Button
+                      pressed={selectedDateRange === 'year'}
+                      onClick={() => handleDateRangeSelect('year')}
+                    >
+                      Year
+                    </Button>
+                  </ButtonGroup>
+
+                  <Popover
+                    active={showDatePicker}
+                    activator={
+                      <Button
+                        pressed={selectedDateRange === 'custom'}
+                        onClick={() => setShowDatePicker(!showDatePicker)}
+                        disclosure={showDatePicker ? 'up' : 'down'}
                       >
-                        Apply Custom Range
+                        Custom Range
                       </Button>
-                    </BlockStack>
-                  </Box>
-                </Popover>
-              </InlineStack>
+                    }
+                    onClose={() => setShowDatePicker(false)}
+                  >
+                    <Box padding="400" minWidth="320px">
+                      <BlockStack gap="400">
+                        <Text variant="headingSm" as="h3">Select Date Range</Text>
+                        <BlockStack gap="300">
+                          <Text variant="bodySm" tone="subdued" as="p">
+                            Date range selection is coming soon. This will allow you to:
+                          </Text>
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" as="p">• Select custom start and end dates</Text>
+                            <Text variant="bodySm" as="p">• Compare periods</Text>
+                            <Text variant="bodySm" as="p">• Advanced filtering options</Text>
+                          </BlockStack>
+                        </BlockStack>
+                        <Button
+                          variant="primary"
+                          onClick={() => {
+                            setSelectedDateRange('custom');
+                            setShowDatePicker(false);
+                          }}
+                        >
+                          Apply Custom Range
+                        </Button>
+                      </BlockStack>
+                    </Box>
+                  </Popover>
+                </InlineStack>
+
+                <Divider />
+
+                <Box background="bg-surface-secondary" padding="300" borderRadius="200">
+                  <Text variant="bodyMd" as="p">
+                    Showing data for: <Text as="span" fontWeight="semibold">{getDateRangeText()}</Text>
+                  </Text>
+                </Box>
+              </BlockStack>
             </Box>
           </Card>
-        </Layout.Section>
-
-        {/* Selected Date Range Indicator */}
-        <Layout.Section>
-          <Banner tone="info">
-            <Text variant="bodyMd" as="p">
-              Showing data for: <Text as="span" fontWeight="semibold">{getDateRangeText()}</Text>
-            </Text>
-          </Banner>
         </Layout.Section>
 
         {/* Key Metrics Grid */}
