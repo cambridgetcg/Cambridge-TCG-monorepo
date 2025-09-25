@@ -87,11 +87,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // 3. Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
     
-    // 4. Check if already processed
-    const existingProcess = await db.webhookProcess.findUnique({
-      where: { idempotencyKey }
-    });
-    
+    // 4. Check if already processed (check outside of transaction)
+    let existingProcess = null;
+    try {
+      existingProcess = await db.webhookProcess.findUnique({
+        where: { idempotencyKey }
+      });
+    } catch (err) {
+      console.log('[OrderPaid] WebhookProcess table may not exist, skipping idempotency check');
+    }
+
     if (existingProcess) {
       console.log(`[OrderPaid] Already processed order ${order.id}`);
       return json({ success: true, message: "Already processed" });
@@ -101,17 +106,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const result = await withRetry(
       async () => {
         return await db.$transaction(async (tx) => {
-          // Record webhook processing
-          await tx.webhookProcess.create({
-            data: {
-              id: uuidv4(),
-              shop,
-              topic: topic || 'orders/paid',
-              idempotencyKey,
-              payload: order,
-              processedAt: new Date(),
+          // Record webhook processing (only if table exists)
+          try {
+            if (tx.webhookProcess) {
+              await tx.webhookProcess.create({
+                data: {
+                  id: uuidv4(),
+                  shop,
+                  topic: topic || 'orders/paid',
+                  idempotencyKey,
+                  payload: order,
+                  processedAt: new Date(),
+                }
+              });
             }
-          });
+          } catch (err) {
+            console.log('[OrderPaid] Could not record webhook processing:', err.message);
+          }
           
           // Process each line item
           const results = [];
@@ -180,19 +191,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     // Log error for monitoring (if model exists)
     try {
-      await db.webhookError.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          topic: topic || 'orders/paid',
-          orderId: order.id?.toString() || 'unknown',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          payload: order, // Prisma will handle JSON serialization
-          createdAt: new Date(),
-        }
-      }).catch((err) => {
-        console.error('[OrderPaid] Failed to log webhook error:', err);
-      });
+      if (db.webhookError) {
+        await db.webhookError.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            topic: topic || 'orders/paid',
+            orderId: order.id?.toString() || 'unknown',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            payload: order, // Prisma will handle JSON serialization
+            createdAt: new Date(),
+          }
+        }).catch((err) => {
+          console.error('[OrderPaid] Failed to log webhook error:', err);
+        });
+      }
     } catch (err) {
       console.error('[OrderPaid] Failed to create webhook error record:', err);
     }
