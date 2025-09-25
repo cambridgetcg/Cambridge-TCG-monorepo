@@ -22,6 +22,7 @@ import {
   ProgressBar,
   Checkbox,
   Icon,
+  Tabs,
 } from "@shopify/polaris";
 import { RefreshIcon } from "~/utils/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
@@ -448,6 +449,9 @@ export default function SettingsPage() {
   const navigation = useNavigation();
   const navigate = useNavigate();
 
+  // Tab state
+  const [selectedTab, setSelectedTab] = useState(0);
+
   // Form state
   const [storeName, setStoreName] = useState(settings.storeName);
   const [storeUrl, setStoreUrl] = useState(settings.storeUrl);
@@ -568,6 +572,34 @@ export default function SettingsPage() {
     }
   }, [actionData]);
 
+  // Tab definitions
+  const tabs = [
+    {
+      id: 'store-info',
+      content: 'Store Information',
+      panelID: 'store-info-panel',
+    },
+    {
+      id: 'currency',
+      content: 'Currency',
+      panelID: 'currency-panel',
+    },
+    {
+      id: 'timezone',
+      content: 'Timezone',
+      panelID: 'timezone-panel',
+    },
+    {
+      id: 'data-sync',
+      content: 'Data Sync',
+      panelID: 'data-sync-panel',
+    },
+  ];
+
+  const handleTabChange = useCallback((selectedTabIndex: number) => {
+    setSelectedTab(selectedTabIndex);
+  }, []);
+
   return (
     <Page
       title="Store Settings"
@@ -604,257 +636,266 @@ export default function SettingsPage() {
                 <p>You have unsaved changes</p>
               </Banner>
             )}
-            
-            {/* Store Information */}
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Store Information
-                </Text>
-                <FormLayout>
-                  <TextField
-                    label="Store Name"
-                    value={storeName}
-                    onChange={setStoreName}
-                    autoComplete="off"
-                    helpText="The display name for your store"
-                  />
-                  <TextField
-                    label="Store URL"
-                    value={storeUrl}
-                    onChange={setStoreUrl}
-                    type="url"
-                    autoComplete="off"
-                    helpText="Your store's public URL"
-                    error={storeUrl && !validateUrl(storeUrl) ? "Please enter a valid URL" : undefined}
-                  />
-                  <TextField
-                    label="Shop Domain"
-                    value={shop}
-                    disabled
-                    autoComplete="off"
-                    helpText="This is your Shopify domain and cannot be changed"
-                  />
-                </FormLayout>
-              </BlockStack>
-            </Card>
 
-            {/* Currency Settings */}
+            {/* Tabbed Interface */}
             <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Currency Settings
-                </Text>
-                <FormLayout>
-                  <Select
-                    label="Store Currency"
-                    options={CURRENCY_OPTIONS}
-                    value={storeCurrency}
-                    onChange={(value) => setStoreCurrency(value as Currency)}
-                    helpText="The primary currency for your store"
-                  />
-                  
-                  <BlockStack gap="200">
-                    <Text as="p" variant="bodyMd">
-                      Currency Display Format
-                    </Text>
-                    <RadioButton
-                      label={`Symbol Format (${getCurrencySymbol(storeCurrency)}100.00)`}
-                      checked={currencyDisplayType === "SYMBOL"}
-                      id="symbol"
-                      name="displayType"
-                      onChange={() => setCurrencyDisplayType("SYMBOL")}
-                    />
-                    <RadioButton
-                      label={`Code Format (${storeCurrency} 100.00)`}
-                      checked={currencyDisplayType === "CODE"}
-                      id="code"
-                      name="displayType"
-                      onChange={() => setCurrencyDisplayType("CODE")}
-                    />
-                  </BlockStack>
-                  
-                  <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        Preview
+              <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange}>
+                <Box padding="400">
+                  {/* Store Information Tab */}
+                  {selectedTab === 0 && (
+                    <BlockStack gap="400">
+                      <Text as="h2" variant="headingMd">
+                        Store Information
                       </Text>
-                      <Text as="p" variant="headingLg">
-                        {formatCurrencyExample(storeCurrency, currencyDisplayType)}
+                      <FormLayout>
+                        <TextField
+                          label="Store Name"
+                          value={storeName}
+                          onChange={setStoreName}
+                          autoComplete="off"
+                          helpText="The display name for your store"
+                        />
+                        <TextField
+                          label="Store URL"
+                          value={storeUrl}
+                          onChange={setStoreUrl}
+                          type="url"
+                          autoComplete="off"
+                          helpText="Your store's public URL"
+                          error={storeUrl && !validateUrl(storeUrl) ? "Please enter a valid URL" : undefined}
+                        />
+                        <TextField
+                          label="Shop Domain"
+                          value={shop}
+                          disabled
+                          autoComplete="off"
+                          helpText="This is your Shopify domain and cannot be changed"
+                        />
+                      </FormLayout>
+
+                      <Divider />
+
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingSm">
+                          Settings Information
+                        </Text>
+                        <InlineStack gap="400">
+                          <BlockStack gap="100">
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Created
+                            </Text>
+                            <Text as="p" variant="bodyMd">
+                              {new Date(settings.createdAt).toLocaleDateString()}
+                            </Text>
+                          </BlockStack>
+                          <BlockStack gap="100">
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Last Updated
+                            </Text>
+                            <Text as="p" variant="bodyMd">
+                              {new Date(settings.updatedAt).toLocaleDateString()}
+                            </Text>
+                          </BlockStack>
+                          <BlockStack gap="100">
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Settings ID
+                            </Text>
+                            <Badge tone="info">{`${settings.id.slice(0, 8)}...`}</Badge>
+                          </BlockStack>
+                        </InlineStack>
+                      </BlockStack>
+                    </BlockStack>
+                  )}
+
+                  {/* Currency Tab */}
+                  {selectedTab === 1 && (
+                    <BlockStack gap="400">
+                      <Text as="h2" variant="headingMd">
+                        Currency Settings
+                      </Text>
+                      <FormLayout>
+                        <Select
+                          label="Store Currency"
+                          options={CURRENCY_OPTIONS}
+                          value={storeCurrency}
+                          onChange={(value) => setStoreCurrency(value as Currency)}
+                          helpText="The primary currency for your store"
+                        />
+
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodyMd">
+                            Currency Display Format
+                          </Text>
+                          <RadioButton
+                            label={`Symbol Format (${getCurrencySymbol(storeCurrency)}100.00)`}
+                            checked={currencyDisplayType === "SYMBOL"}
+                            id="symbol"
+                            name="displayType"
+                            onChange={() => setCurrencyDisplayType("SYMBOL")}
+                          />
+                          <RadioButton
+                            label={`Code Format (${storeCurrency} 100.00)`}
+                            checked={currencyDisplayType === "CODE"}
+                            id="code"
+                            name="displayType"
+                            onChange={() => setCurrencyDisplayType("CODE")}
+                          />
+                        </BlockStack>
+
+                        <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Preview
+                            </Text>
+                            <Text as="p" variant="headingLg">
+                              {formatCurrencyExample(storeCurrency, currencyDisplayType)}
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </FormLayout>
+
+                      <Divider />
+
+                      <Text as="p" variant="bodyMd">
+                        <strong>Note:</strong> Currency settings determine how prices and store credit are displayed to customers throughout your loyalty program.
                       </Text>
                     </BlockStack>
-                  </Box>
-                </FormLayout>
-              </BlockStack>
-            </Card>
+                  )}
 
-            {/* Timezone Settings */}
-            <Card>
-              <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">
-                  Timezone Settings
-                </Text>
-                <FormLayout>
-                  <TextField
-                    label="Store Timezone"
-                    value={shopifyTimezone || timezone}
-                    disabled
-                    autoComplete="off"
-                    helpText="Automatically synced from your Shopify store settings"
-                  />
-                </FormLayout>
-              </BlockStack>
-            </Card>
+                  {/* Timezone Tab */}
+                  {selectedTab === 2 && (
+                    <BlockStack gap="400">
+                      <Text as="h2" variant="headingMd">
+                        Timezone Settings
+                      </Text>
+                      <FormLayout>
+                        <TextField
+                          label="Store Timezone"
+                          value={shopifyTimezone || timezone}
+                          disabled
+                          autoComplete="off"
+                          helpText="Automatically synced from your Shopify store settings"
+                        />
+                      </FormLayout>
 
-            {/* Data Management */}
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="400">
-                  <BlockStack gap="200">
-                    <Text variant="headingMd" as="h2">
-                      Data Management
-                    </Text>
-                    <Text variant="bodyMd" tone="subdued">
-                      Sync and manage your store's order data
-                    </Text>
-                  </BlockStack>
+                      <Divider />
 
-                  <Divider />
-
-                  {/* Order Sync Status */}
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between">
                       <BlockStack gap="200">
-                        <Text variant="bodyMd" fontWeight="semibold">
-                          Order History Sync
+                        <Text as="p" variant="bodyMd">
+                          <strong>About Timezone Settings:</strong>
                         </Text>
-                        {orderStats && (
-                          <InlineStack gap="200">
-                            <Badge tone={orderStats.orderCount > 0 ? "success" : "warning"}>
-                              {orderStats.orderCount} orders synced
-                            </Badge>
-                            {orderStats.lastSync && (
-                              <Text variant="bodySm" tone="subdued">
-                                Last sync: {formatDate(orderStats.lastSync)}
-                              </Text>
-                            )}
-                          </InlineStack>
-                        )}
+                        <Text as="p" variant="bodyMd">
+                          Your timezone is automatically synchronized with your Shopify store settings and is used for:
+                        </Text>
+                        <Box paddingInlineStart="400">
+                          <ul style={{ marginLeft: '20px' }}>
+                            <li>Scheduling tier evaluations</li>
+                            <li>Calculating time-based metrics</li>
+                            <li>Displaying timestamps in reports</li>
+                            <li>Processing daily analytics</li>
+                          </ul>
+                        </Box>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          To change your timezone, please update it in your Shopify admin settings.
+                        </Text>
+                      </BlockStack>
+                    </BlockStack>
+                  )}
+
+                  {/* Data Sync Tab */}
+                  {selectedTab === 3 && (
+                    <BlockStack gap="400">
+                      <BlockStack gap="200">
+                        <Text variant="headingMd" as="h2">
+                          Data Management
+                        </Text>
+                        <Text variant="bodyMd" tone="subdued">
+                          Sync and manage your store's order data
+                        </Text>
                       </BlockStack>
 
-                      <InlineStack gap="200">
-                        <Button
-                          onClick={() => setShowSyncModal(true)}
-                          disabled={isSyncing}
-                          loading={isSyncing}
-                          icon={RefreshIcon}
-                        >
-                          {isSyncing ? "Syncing..." : "Sync Orders"}
-                        </Button>
-                        <Button
-                          variant="plain"
-                          onClick={() => navigate("/app/orders-sync")}
-                        >
-                          Advanced Options
-                        </Button>
-                      </InlineStack>
-                    </InlineStack>
+                      <Divider />
 
-                    {/* Quick Stats */}
-                    {orderStats && (
-                      <InlineStack gap="400">
-                        <Text variant="bodySm">
-                          <Text as="span" fontWeight="semibold">Customers:</Text> {orderStats.customerCount}
-                        </Text>
-                        <Text variant="bodySm">
-                          <Text as="span" fontWeight="semibold">Date Range:</Text> {formatDateRange(orderStats.oldestOrder, orderStats.newestOrder)}
-                        </Text>
-                        <Text variant="bodySm">
-                          <Text as="span" fontWeight="semibold">Total Cashback:</Text> ${orderStats.totalCashback.toFixed(2)}
-                        </Text>
-                      </InlineStack>
-                    )}
+                      {/* Order Sync Status */}
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" fontWeight="semibold">
+                              Order History Sync
+                            </Text>
+                            {orderStats && (
+                              <InlineStack gap="200">
+                                <Badge tone={orderStats.orderCount > 0 ? "success" : "warning"}>
+                                  {orderStats.orderCount} orders synced
+                                </Badge>
+                                {orderStats.lastSync && (
+                                  <Text variant="bodySm" tone="subdued">
+                                    Last sync: {formatDate(orderStats.lastSync)}
+                                  </Text>
+                                )}
+                              </InlineStack>
+                            )}
+                          </BlockStack>
 
-                    {/* Discrepancies Warning */}
-                    {orderStats && orderStats.discrepancies > 0 && (
-                      <Banner tone="warning">
-                        Found {orderStats.discrepancies} ledger discrepancies.
-                        <Button variant="plain" onClick={() => navigate("/app/orders-sync")}>
-                          Review & Fix
-                        </Button>
-                      </Banner>
-                    )}
+                          <InlineStack gap="200">
+                            <Button
+                              onClick={() => setShowSyncModal(true)}
+                              disabled={isSyncing}
+                              loading={isSyncing}
+                              icon={RefreshIcon}
+                            >
+                              {isSyncing ? "Syncing..." : "Sync Orders"}
+                            </Button>
+                            <Button
+                              variant="plain"
+                              onClick={() => navigate("/app/orders-sync")}
+                            >
+                              Advanced Options
+                            </Button>
+                          </InlineStack>
+                        </InlineStack>
 
-                    {/* No Orders Message */}
-                    {(!orderStats || orderStats.orderCount === 0) && (
-                      <Banner tone="info">
-                        <p>
-                          No orders synced yet. Sync your order history to enable fast tier calculations,
-                          accurate cashback tracking, and complete order analytics.
-                        </p>
-                      </Banner>
-                    )}
-                  </BlockStack>
-                </BlockStack>
-              </Box>
-            </Card>
+                        {/* Quick Stats */}
+                        {orderStats && (
+                          <InlineStack gap="400">
+                            <Text variant="bodySm">
+                              <Text as="span" fontWeight="semibold">Customers:</Text> {orderStats.customerCount}
+                            </Text>
+                            <Text variant="bodySm">
+                              <Text as="span" fontWeight="semibold">Date Range:</Text> {formatDateRange(orderStats.oldestOrder, orderStats.newestOrder)}
+                            </Text>
+                            <Text variant="bodySm">
+                              <Text as="span" fontWeight="semibold">Total Cashback:</Text> ${orderStats.totalCashback.toFixed(2)}
+                            </Text>
+                          </InlineStack>
+                        )}
 
-            {/* Metadata */}
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">
-                  Settings Information
-                </Text>
-                <InlineStack gap="400">
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Created
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      {new Date(settings.createdAt).toLocaleDateString()}
-                    </Text>
-                  </BlockStack>
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Last Updated
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      {new Date(settings.updatedAt).toLocaleDateString()}
-                    </Text>
-                  </BlockStack>
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Settings ID
-                    </Text>
-                    <Badge tone="info">{`${settings.id.slice(0, 8)}...`}</Badge>
-                  </BlockStack>
-                </InlineStack>
-              </BlockStack>
+                        {/* Discrepancies Warning */}
+                        {orderStats && orderStats.discrepancies > 0 && (
+                          <Banner tone="warning">
+                            Found {orderStats.discrepancies} ledger discrepancies.
+                            <Button variant="plain" onClick={() => navigate("/app/orders-sync")}>
+                              Review & Fix
+                            </Button>
+                          </Banner>
+                        )}
+
+                        {/* No Orders Message */}
+                        {(!orderStats || orderStats.orderCount === 0) && (
+                          <Banner tone="info">
+                            <p>
+                              No orders synced yet. Sync your order history to enable fast tier calculations,
+                              accurate cashback tracking, and complete order analytics.
+                            </p>
+                          </Banner>
+                        )}
+                      </BlockStack>
+                    </BlockStack>
+                  )}
+                </Box>
+              </Tabs>
             </Card>
           </BlockStack>
-        </Layout.Section>
-
-        <Layout.Section variant="oneThird">
-          <Card>
-            <BlockStack gap="200">
-              <Text as="h2" variant="headingMd">
-                About Settings
-              </Text>
-              <Text as="p" variant="bodyMd">
-                Configure your store's display preferences and regional settings.
-              </Text>
-              <Divider />
-              <Text as="p" variant="bodyMd">
-                <strong>Currency:</strong> Determines how prices and store credit are displayed to customers.
-              </Text>
-              <Text as="p" variant="bodyMd">
-                <strong>Timezone:</strong> Used for scheduling tier evaluations and calculating time-based metrics.
-              </Text>
-              <Text as="p" variant="bodyMd">
-                <strong>Store Info:</strong> Displayed in customer communications and reports.
-              </Text>
-            </BlockStack>
-          </Card>
         </Layout.Section>
       </Layout>
 
