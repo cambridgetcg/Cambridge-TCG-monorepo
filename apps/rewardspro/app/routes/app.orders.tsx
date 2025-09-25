@@ -746,12 +746,37 @@ export default function OrdersPage() {
         }}
       >
         <Layout>
-          {/* Filters and Search */}
+          {/* Merged Orders Table with Search */}
           <Layout.Section>
-            <Card>
+            <Card padding="0">
+              {/* Table header with title and page size */}
               <Box padding="400">
                 <BlockStack gap="400">
-                  <InlineStack gap="400" align="start" blockAlign="center">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <InlineStack gap="200" align="start" blockAlign="center">
+                      <Text variant="headingMd" as="h3">
+                        Orders
+                      </Text>
+                      <Badge>
+                        {`${orders.length} of ${pagination.totalCount}`}
+                      </Badge>
+                    </InlineStack>
+                    <Select
+                      label="Items per page"
+                      labelHidden
+                      options={[
+                        { label: "25 per page", value: "25" },
+                        { label: "50 per page", value: "50" },
+                        { label: "100 per page", value: "100" },
+                        { label: "200 per page", value: "200" },
+                      ]}
+                      value={selectedPageSize}
+                      onChange={handlePageSizeChange}
+                    />
+                  </InlineStack>
+
+                  {/* Search and Filters */}
+                  <InlineStack gap="300" align="start" blockAlign="center">
                     <Box width="100%">
                       <TextField
                         label=""
@@ -796,37 +821,8 @@ export default function OrdersPage() {
                   </InlineStack>
                 </BlockStack>
               </Box>
-            </Card>
-          </Layout.Section>
 
-          {/* Orders Table */}
-          <Layout.Section>
-            <Card padding="0">
-              {/* Table header with page size selector */}
-              <Box padding="400" borderBlockEndWidth="025" borderColor="border">
-                <InlineStack align="space-between" blockAlign="center">
-                  <InlineStack gap="200" align="start" blockAlign="center">
-                    <Text variant="headingMd" as="h3">
-                      Orders
-                    </Text>
-                    <Badge>
-                      {`${orders.length} of ${pagination.totalCount}`}
-                    </Badge>
-                  </InlineStack>
-                  <Select
-                    label="Items per page"
-                    labelHidden
-                    options={[
-                      { label: "25 per page", value: "25" },
-                      { label: "50 per page", value: "50" },
-                      { label: "100 per page", value: "100" },
-                      { label: "200 per page", value: "200" },
-                    ]}
-                    value={selectedPageSize}
-                    onChange={handlePageSizeChange}
-                  />
-                </InlineStack>
-              </Box>
+              <Divider />
 
               {isLoading ? (
                 <Box padding="400">
