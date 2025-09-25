@@ -260,84 +260,42 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     let monthlyOrderUsage = null;
     try {
-      // First try to get from MonthlyOrderUsage table
-      const orderUsage = await db.monthlyOrderUsage.findUnique({
+      // Always count orders directly from Order table for current month
+      console.log("[Billing Page] Counting orders from Order table for month:", month, year);
+      const startOfMonth = new Date(year, month - 1, 1);
+      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999); // End of the last day
+
+      const orderCount = await db.order.count({
         where: {
-          shop_year_month: {
-            shop,
-            year,
-            month
+          shop,
+          shopifyCreatedAt: {
+            gte: startOfMonth,
+            lte: endOfMonth
           }
         }
       });
 
-      if (orderUsage) {
-        const projectedOrders = calculateProjectedOrders(orderUsage.orderCount, daysRemaining);
-        monthlyOrderUsage = {
-          orderCount: orderUsage.orderCount,
-          planLimit: orderUsage.planLimit,
-          planName: orderUsage.planName,
-          projectedOrders
-        };
-      } else {
-        // Alternative: Count orders directly from Order table for current month
-        console.log("[Billing Page] No MonthlyOrderUsage found, counting from Order table");
-        const startOfMonth = new Date(year, month - 1, 1);
-        const endOfMonth = new Date(year, month, 0);
+      console.log(`[Billing Page] Found ${orderCount} orders for ${getCurrentMonthName()}`);
 
-        const orderCount = await db.order.count({
-          where: {
-            shop,
-            shopifyCreatedAt: {
-              gte: startOfMonth,
-              lte: endOfMonth
-            }
-          }
-        });
+      // Determine plan limit based on active subscription
+      let planLimit = 200; // Default for free plan
+      let planName = 'RewardsPro Free';
 
-        // Determine plan limit based on active subscription
-        let planLimit = 200; // Default for free plan
-        let planName = 'RewardsPro Free';
-
-        if (activeSubscription?.name === 'RewardsPro Monthly') {
-          planLimit = 1000;
-          planName = 'RewardsPro Monthly';
-        } else if (activeSubscription?.name === 'RewardsPro Annual') {
-          planLimit = 1000; // 12,000/year = 1,000/month
-          planName = 'RewardsPro Annual';
-        }
-
-        const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
-        monthlyOrderUsage = {
-          orderCount,
-          planLimit,
-          planName,
-          projectedOrders
-        };
-
-        // Create MonthlyOrderUsage record for future use
-        if (orderCount > 0) {
-          try {
-            await db.monthlyOrderUsage.create({
-              data: {
-                id: crypto.randomUUID(),
-                shop,
-                year,
-                month,
-                orderCount,
-                planLimit,
-                planName,
-                lastOrderDate: new Date(),
-                createdAt: new Date(),
-                updatedAt: new Date()
-              }
-            });
-            console.log("[Billing Page] Created MonthlyOrderUsage record");
-          } catch (createError) {
-            console.warn("[Billing Page] Could not create MonthlyOrderUsage record:", createError);
-          }
-        }
+      if (activeSubscription?.name === 'RewardsPro Monthly') {
+        planLimit = 1000;
+        planName = 'RewardsPro Monthly';
+      } else if (activeSubscription?.name === 'RewardsPro Annual') {
+        planLimit = 1000; // 12,000/year = 1,000/month
+        planName = 'RewardsPro Annual';
       }
+
+      const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
+      monthlyOrderUsage = {
+        orderCount,
+        planLimit,
+        planName,
+        projectedOrders
+      };
     } catch (error) {
       console.warn("[Billing Page] Could not fetch monthly order usage:", error);
     }
