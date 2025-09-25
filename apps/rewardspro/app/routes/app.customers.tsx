@@ -28,12 +28,15 @@ import {
   Tooltip,
   Avatar,
   SkeletonBodyText,
+  Popover,
+  ActionList,
   SkeletonDisplayText,
   Toast,
   Frame,
   FormLayout,
   Checkbox,
 } from "@shopify/polaris";
+import { MenuHorizontalIcon } from "@shopify/polaris-icons";
 import {
   SearchIcon,
   PersonIcon,
@@ -895,6 +898,7 @@ export default function Customers() {
   const [modalInitialTab, setModalInitialTab] = useState(0);
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
   const [toast, setToast] = useState<ToastState>({ active: false, content: '' });
+  const [activePopover, setActivePopover] = useState<string | null>(null);
   
   // Tier management states
   const [tierModalActive, setTierModalActive] = useState(false);
@@ -992,7 +996,12 @@ export default function Customers() {
     setModalInitialTab(tabIndex);
     setModalOpen(true);
   }, []);
-  
+
+  // Toggle actions popover
+  const togglePopover = useCallback((customerId: string) => {
+    setActivePopover(activePopover === customerId ? null : customerId);
+  }, [activePopover]);
+
   // Open manual tier assignment modal
   const handleManualTierAssignment = useCallback((customer: Customer) => {
     setManualTierCustomer(customer);
@@ -1234,36 +1243,57 @@ export default function Customers() {
       />,
       <InlineStack gap="200">
         <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
-          View
+          View Details
         </Button>
-        <Tooltip content="Manage store credit">
-          <Button
-            size="slim"
-            variant="plain"
-            onClick={() => handleViewCustomer(customer.id, 1)}
-            accessibilityLabel={`Manage store credit for ${customer.email}`}
-            icon={CashDollarIcon}
+        <Popover
+          active={activePopover === customer.id}
+          activator={
+            <Button
+              size="slim"
+              icon={MenuHorizontalIcon}
+              variant="tertiary"
+              onClick={() => togglePopover(customer.id)}
+              accessibilityLabel={`More actions for ${customer.email}`}
+            />
+          }
+          autofocusTarget="first-node"
+          onClose={() => setActivePopover(null)}
+        >
+          <ActionList
+            actionRole="menuitem"
+            sections={[
+              {
+                items: [
+                  {
+                    content: "Manage Store Credit",
+                    icon: CashDollarIcon,
+                    onAction: () => {
+                      handleViewCustomer(customer.id, 1);
+                      setActivePopover(null);
+                    }
+                  },
+                  {
+                    content: "Change Tier",
+                    icon: EditIcon,
+                    onAction: () => {
+                      handleManualTierAssignment(customer);
+                      setActivePopover(null);
+                    }
+                  },
+                  {
+                    content: "Recalculate Tier",
+                    icon: RefreshIcon,
+                    disabled: isProcessing,
+                    onAction: () => {
+                      handleCalculateSingle(customer.id);
+                      setActivePopover(null);
+                    }
+                  }
+                ]
+              }
+            ]}
           />
-        </Tooltip>
-        <Tooltip content="Change tier manually">
-          <Button
-            size="slim"
-            variant="plain"
-            onClick={() => handleManualTierAssignment(customer)}
-            accessibilityLabel={`Manually assign tier for ${customer.email}`}
-            icon={EditIcon}
-          />
-        </Tooltip>
-        <Tooltip content="Recalculate tier">
-          <Button
-            size="slim"
-            variant="plain"
-            onClick={() => handleCalculateSingle(customer.id)}
-            loading={isProcessing}
-            accessibilityLabel={`Recalculate tier for ${customer.email}`}
-            icon={RefreshIcon}
-          />
-        </Tooltip>
+        </Popover>
       </InlineStack>
     ];
   });

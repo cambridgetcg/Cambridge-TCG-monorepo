@@ -121,9 +121,6 @@ export function CustomerDetailModal({
   const [ordersPage, setOrdersPage] = useState(1);
   const [ordersPageSize, setOrdersPageSize] = useState(25);
 
-  // Pagination states for Credit History tab
-  const [creditHistoryPage, setCreditHistoryPage] = useState(1);
-  const [creditHistoryPageSize, setCreditHistoryPageSize] = useState(25);
 
   // Fetch customer details when modal opens
   useEffect(() => {
@@ -224,11 +221,6 @@ export function CustomerDetailModal({
       id: 'orders',
       content: `Orders (${details?.orders.length || 0})`,
       panelID: 'orders-panel',
-    },
-    {
-      id: 'credit-history',
-      content: `Credit History (${details?.creditHistory.length || 0})`,
-      panelID: 'credit-panel',
     },
     {
       id: 'tier-changes',
@@ -499,91 +491,8 @@ export function CustomerDetailModal({
                 </Box>
               )}
 
-              {/* Credit History Tab */}
-              {selectedTab === 3 && (
-                <Box paddingBlockStart="400">
-                  <BlockStack gap="400">
-                    {/* Page size selector and pagination info */}
-                    {details.creditHistory.length > 0 && (
-                      <InlineStack align="space-between" blockAlign="center">
-                        <Text as="span" variant="bodyMd">
-                          Showing {Math.min(creditHistoryPageSize, details.creditHistory.length)} of {details.creditHistory.length} transactions
-                        </Text>
-                        <Select
-                          label="Items per page"
-                          labelHidden
-                          options={[
-                            { label: "25 per page", value: "25" },
-                            { label: "50 per page", value: "50" },
-                            { label: "100 per page", value: "100" },
-                            { label: "200 per page", value: "200" },
-                          ]}
-                          value={creditHistoryPageSize.toString()}
-                          onChange={(value) => {
-                            setCreditHistoryPageSize(parseInt(value));
-                            setCreditHistoryPage(1);
-                          }}
-                        />
-                      </InlineStack>
-                    )}
-
-                    {details.creditHistory.length > 0 ? (
-                      <DataTable
-                        columnContentTypes={['text', 'text', 'numeric', 'numeric', 'text']}
-                        headings={['Date', 'Type', 'Amount', 'Balance', 'Order']}
-                        rows={details.creditHistory
-                          .slice((creditHistoryPage - 1) * creditHistoryPageSize, creditHistoryPage * creditHistoryPageSize)
-                          .map(entry => [
-                        formatDate(entry.createdAt),
-                        getLedgerTypeBadge(entry.type),
-                        <Text
-                          as="span"
-                          tone={parseFloat(entry.amount) > 0 ? 'success' : 'critical'}
-                          fontWeight="semibold"
-                        >
-                          {parseFloat(entry.amount) > 0 && '+'}{formatAmount(entry.amount)}
-                        </Text>,
-                        formatAmount(entry.balance),
-                        entry.shopifyOrderId || '—',
-                      ])}
-                    />
-                  ) : (
-                    <Card>
-                      <BlockStack gap="200" align="center">
-                        <Icon source={CashDollarIcon} tone="subdued" />
-                        <Text as="span" tone="subdued">No credit history</Text>
-                      </BlockStack>
-                    </Card>
-                  )}
-
-                  {/* Pagination controls for Credit History */}
-                  {details.creditHistory.length > creditHistoryPageSize && (
-                    <Box paddingBlockStart="400">
-                      <InlineStack align="center" gap="400">
-                        <Button
-                          disabled={creditHistoryPage === 1}
-                          onClick={() => setCreditHistoryPage(creditHistoryPage - 1)}
-                        >
-                          Previous
-                        </Button>
-                        <Text as="span" variant="bodySm">
-                          Page {creditHistoryPage} of {Math.ceil(details.creditHistory.length / creditHistoryPageSize)}
-                        </Text>
-                        <Button
-                          disabled={creditHistoryPage === Math.ceil(details.creditHistory.length / creditHistoryPageSize)}
-                          onClick={() => setCreditHistoryPage(creditHistoryPage + 1)}
-                        >
-                          Next
-                        </Button>
-                      </InlineStack>
-                    </Box>
-                  )}
-                </BlockStack>
-                </Box>
-              )}
-              
               {/* Tier Changes Tab */}
-              {selectedTab === 4 && (
+              {selectedTab === 3 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     {details.tierChangeLogs.length > 0 ? (

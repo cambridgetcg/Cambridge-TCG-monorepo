@@ -41,6 +41,7 @@ export function TransactionTable({
       CASHBACK_EARNED: { tone: "success", label: "Cashback" },
       ORDER_PAYMENT: { tone: "info", label: "Payment" },
       REFUND_CREDIT: { tone: "warning", label: "Refund" },
+      REFUND_CLAWBACK: { tone: "critical", label: "Clawback" },
       MANUAL_ADJUSTMENT: { tone: "info", label: "Adjustment" },
       SHOPIFY_SYNC: { tone: "info", label: "Sync" },
     };
@@ -94,9 +95,31 @@ export function TransactionTable({
     ];
 
     if (!compact) {
-      const details = transaction.metadata?.reason ||
-                     transaction.shopifyOrderId ||
-                     "—";
+      // Extract details from metadata based on transaction type
+      let details = "—";
+
+      if (transaction.type === "CASHBACK_EARNED" && transaction.metadata) {
+        // For cashback: show description or order name
+        details = transaction.metadata.description ||
+                 transaction.metadata.orderName ||
+                 transaction.shopifyOrderId || "—";
+      } else if (transaction.type === "MANUAL_ADJUSTMENT" && transaction.metadata) {
+        // For manual adjustments: show reason
+        details = transaction.metadata.reason || "—";
+      } else if (transaction.type === "ORDER_PAYMENT" && transaction.metadata) {
+        // For payments: show order information
+        details = transaction.metadata.orderName ||
+                 transaction.shopifyOrderId || "—";
+      } else if (transaction.type === "REFUND_CREDIT" && transaction.metadata) {
+        // For refunds: show refund reason or order
+        details = transaction.metadata.reason ||
+                 transaction.metadata.orderName ||
+                 transaction.shopifyOrderId || "—";
+      } else if (transaction.shopifyOrderId) {
+        // Fallback to order ID if available
+        details = `Order ${transaction.shopifyOrderId}`;
+      }
+
       baseRow.push(details);
     }
 
