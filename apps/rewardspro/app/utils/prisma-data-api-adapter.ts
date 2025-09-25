@@ -431,7 +431,7 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a JSON field (metadata or any field that contains objects/arrays)
-      if (field === 'metadata' || field === 'data' || field === 'config') {
+      if (field === 'metadata' || field === 'data' || field === 'config' || field === 'payload') {
         // If value is an object or array, it will be stringified by buildParameter
         // We need to cast it to jsonb for PostgreSQL
         if (value && typeof value === 'object') {
@@ -526,7 +526,7 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a JSON field
-      if (field === 'metadata' || field === 'data' || field === 'config') {
+      if (field === 'metadata' || field === 'data' || field === 'config' || field === 'payload') {
         if (value && typeof value === 'object') {
           return `"${field}" = :set${i}::jsonb`;
         }
@@ -592,7 +592,7 @@ export class DataAPIModelProxy<T = any> {
       }
       
       // Check if this is a JSON field
-      if (field === 'metadata' || field === 'data' || field === 'config') {
+      if (field === 'metadata' || field === 'data' || field === 'config' || field === 'payload') {
         if (value && typeof value === 'object') {
           return `"${field}" = :set${i}::jsonb`;
         }
