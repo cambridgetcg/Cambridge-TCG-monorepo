@@ -441,8 +441,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: {
           shop,
           cashbackProcessed: true,
-          creditLedgerEntries: {
-            none: {}
+          NOT: {
+            creditLedgerEntries: {
+              some: {}
+            }
           }
         }
       });
