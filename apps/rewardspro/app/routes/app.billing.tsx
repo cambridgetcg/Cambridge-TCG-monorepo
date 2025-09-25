@@ -864,31 +864,6 @@ export default function BillingPage() {
               </Box>
             </BlockStack>
 
-            {/* Plan Features */}
-            {planDetails && (
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="400">
-                    <Text as="h2" variant="headingMd">
-                      Included in {planDetails.displayName}
-                    </Text>
-                    <BlockStack gap="200">
-                      {planDetails.features.slice(0, 5).map((feature, index) => (
-                        <InlineStack key={index} gap="200">
-                          <Icon source={CheckCircleIcon} tone="positive" />
-                          <Text as="p" variant="bodyMd">{feature}</Text>
-                        </InlineStack>
-                      ))}
-                    </BlockStack>
-                    {planDetails.features.length > 5 && (
-                      <Button variant="plain" onClick={() => navigate("/app/billing/plans")}>
-                        View all features
-                      </Button>
-                    )}
-                  </BlockStack>
-                </Box>
-              </Card>
-            )}
           </BlockStack>
         </Layout.Section>
       </Layout>
