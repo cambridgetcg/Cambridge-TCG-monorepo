@@ -829,37 +829,6 @@ export default function Dashboard() {
                           </EmptyState>
                         )}
                       </BlockStack>
-
-                      <Divider />
-
-                      {/* Top Customers */}
-                      {data.topCustomers.length > 0 && (
-                        <BlockStack gap="400">
-                          <Text variant="headingMd" as="h2">
-                            Top Customers by Credit
-                          </Text>
-                          <EnhancedDataTable
-                            columns={[
-                              { header: "Customer", type: "text" },
-                              { header: "Tier", type: "badge" },
-                              { header: "Store Credit", type: "numeric" },
-                            ]}
-                            rows={data.topCustomers.map(customer => [
-                              customer.email,
-                              customer.tierName ? (
-                                <TierBadge
-                                  tierName={customer.tierName}
-                                  size="small"
-                                  showIcon={true}
-                                />
-                              ) : (
-                                <Badge tone="new">No Tier</Badge>
-                              ),
-                              formatAmount(customer.storeCredit),
-                            ])}
-                          />
-                        </BlockStack>
-                      )}
                     </BlockStack>
                   </Box>
                 )}
