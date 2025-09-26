@@ -39,7 +39,6 @@ import {
   FormLayout,
   Checkbox,
   ChoiceList,
-  Tabs,
 } from "@shopify/polaris";
 import { MenuHorizontalIcon } from "@shopify/polaris-icons";
 import {
@@ -921,12 +920,6 @@ export default function Customers() {
   const [tierFilter, setTierFilter] = useState(searchParams.get("tier") || "all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
-  const [itemStrings, setItemStrings] = useState([
-    "All customers",
-    "Customers with tier",
-    "Customers without tier",
-  ]);
-  const [selected, setSelected] = useState(0);
   const { mode, setMode } = useSetIndexFiltersMode();
   const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "25"));
   const [isCalculating, setIsCalculating] = useState(false);
@@ -1186,14 +1179,6 @@ export default function Customers() {
     },
   ] : [];
 
-  // Tabs for IndexFilters
-  const tabs = itemStrings.map((item, index) => ({
-    content: item,
-    index,
-    onAction: () => {},
-    id: `${item}-${index}`,
-    isLocked: index === 0,
-  }));
 
   // Animate table rows on mount/filter change
   useEffect(() => {
@@ -1672,9 +1657,6 @@ export default function Customers() {
                       disabled: false,
                       loading: false,
                     }}
-                    tabs={tabs}
-                    selected={selected}
-                    onSelect={setSelected}
                     canCreateNewView={false}
                     filters={filters}
                     appliedFilters={appliedFilters}
