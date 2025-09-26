@@ -54,8 +54,9 @@ export class DataAPIModelProxy<T = any> {
         } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
           // Handle { gte: value } (greater than or equal)
           // Check if this is a timestamp field that needs casting
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
           
           if (isTimestampField) {
             conditions.push(`"${key}" >= :param${index}::timestamp`);
@@ -66,8 +67,9 @@ export class DataAPIModelProxy<T = any> {
         } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
           // Handle { lte: value } (less than or equal)
           // Check if this is a timestamp field that needs casting
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
           
           if (isTimestampField) {
             conditions.push(`"${key}" <= :param${index}::timestamp`);
@@ -78,8 +80,9 @@ export class DataAPIModelProxy<T = any> {
         } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
           // Handle { gt: value } (greater than)
           // Check if this is a timestamp field that needs casting
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
           
           if (isTimestampField) {
             conditions.push(`"${key}" > :param${index}::timestamp`);
@@ -90,8 +93,9 @@ export class DataAPIModelProxy<T = any> {
         } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
           // Handle { lt: value } (less than)
           // Check if this is a timestamp field that needs casting
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert'].includes(key);
+          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
+            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
           
           if (isTimestampField) {
             conditions.push(`"${key}" < :param${index}::timestamp`);
