@@ -260,77 +260,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     let monthlyOrderUsage = null;
     try {
-      // Always count orders directly from Order table for current month
-      console.log("[Billing Page] Counting orders from Order table for month:", month, year);
+      // Simply use TOTAL ORDER COUNT to verify orders are recognized
+      console.log("[Billing Page] Using TOTAL order count (ignoring month filter)");
 
-      // Correct date calculation for current month
-      // month is 1-indexed (1 = January, 12 = December)
-      // Date constructor uses 0-indexed months (0 = January, 11 = December)
-      const startOfMonth = new Date(year, month - 1, 1); // First day of current month
-      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999); // Last day of current month
-
-      console.log("[Billing Page] Date range for orders:", {
-        startOfMonth: startOfMonth.toISOString(),
-        endOfMonth: endOfMonth.toISOString(),
-        shop
-      });
-
-      // First, let's check total orders for this shop
+      // Get total orders for this shop
       const totalOrdersForShop = await db.order.count({
         where: { shop }
       });
-      console.log(`[Billing Page] Total orders for shop ${shop}: ${totalOrdersForShop}`);
+      console.log(`[Billing Page] TOTAL orders for shop ${shop}: ${totalOrdersForShop}`);
 
-      // Check for orders with null dates
-      const ordersWithNullDates = await db.order.count({
-        where: {
-          shop,
-          shopifyCreatedAt: null
-        }
-      });
-      console.log(`[Billing Page] Orders with null shopifyCreatedAt: ${ordersWithNullDates}`);
+      // Use total orders as the count (ignoring monthly filtering for now)
+      const orderCount = totalOrdersForShop;
 
-      // Count orders for current month
-      const orderCount = await db.order.count({
-        where: {
-          shop,
-          shopifyCreatedAt: {
-            gte: startOfMonth,
-            lte: endOfMonth
-          }
-        }
-      });
-
-      // Also try an alternative query using createdAt if shopifyCreatedAt is problematic
-      const orderCountByCreatedAt = await db.order.count({
-        where: {
-          shop,
-          createdAt: {
-            gte: startOfMonth,
-            lte: endOfMonth
-          }
-        }
-      });
-
-      console.log(`[Billing Page] Found ${orderCount} orders by shopifyCreatedAt for ${getCurrentMonthName()}`);
-      console.log(`[Billing Page] Found ${orderCountByCreatedAt} orders by createdAt for ${getCurrentMonthName()}`);
-
-      // Get a sample of orders to see their dates
+      // Get a sample of orders to verify they exist
       const sampleOrders = await db.order.findMany({
         where: { shop },
         select: {
           id: true,
           shopifyOrderNumber: true,
           shopifyCreatedAt: true,
-          createdAt: true
+          createdAt: true,
+          totalPrice: true,
+          financialStatus: true
         },
         take: 5,
         orderBy: { createdAt: 'desc' }
       });
-      console.log('[Billing Page] Sample orders:', sampleOrders.map(o => ({
+      console.log('[Billing Page] Sample orders from database:', sampleOrders.map(o => ({
         number: o.shopifyOrderNumber,
         shopifyCreatedAt: o.shopifyCreatedAt?.toISOString(),
-        createdAt: o.createdAt.toISOString()
+        createdAt: o.createdAt.toISOString(),
+        totalPrice: o.totalPrice?.toString(),
+        status: o.financialStatus
       })));
 
       // Determine plan limit based on active subscription
@@ -347,13 +308,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       console.log(`[Billing Page] Plan: ${planName}, Limit: ${planLimit}, Active subscription: ${activeSubscription?.name || 'none'}`);
 
-      const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
+      // For now, don't calculate projections, just show total orders
       monthlyOrderUsage = {
         orderCount,
         planLimit,
         planName,
-        projectedOrders,
-        currentMonth: getCurrentMonthName()
+        projectedOrders: orderCount, // Just use same count for now
+        currentMonth: "All Time Total" // Show it's total, not monthly
       };
 
       console.log('[Billing Page] monthlyOrderUsage created:', monthlyOrderUsage);
