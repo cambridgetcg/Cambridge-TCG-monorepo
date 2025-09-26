@@ -262,9 +262,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       // Always count orders directly from Order table for current month
       console.log("[Billing Page] Counting orders from Order table for month:", month, year);
-      const startOfMonth = new Date(year, month - 1, 1);
-      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999); // End of the last day
 
+      // Correct date calculation for current month
+      // month is 1-indexed (1 = January, 12 = December)
+      // Date constructor uses 0-indexed months (0 = January, 11 = December)
+      const startOfMonth = new Date(year, month - 1, 1); // First day of current month
+      const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999); // Last day of current month
+
+      console.log("[Billing Page] Date range for orders:", {
+        startOfMonth: startOfMonth.toISOString(),
+        endOfMonth: endOfMonth.toISOString(),
+        shop
+      });
+
+      // First, let's check total orders for this shop
+      const totalOrdersForShop = await db.order.count({
+        where: { shop }
+      });
+      console.log(`[Billing Page] Total orders for shop ${shop}: ${totalOrdersForShop}`);
+
+      // Check for orders with null dates
+      const ordersWithNullDates = await db.order.count({
+        where: {
+          shop,
+          shopifyCreatedAt: null
+        }
+      });
+      console.log(`[Billing Page] Orders with null shopifyCreatedAt: ${ordersWithNullDates}`);
+
+      // Count orders for current month
       const orderCount = await db.order.count({
         where: {
           shop,
@@ -275,7 +301,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
       });
 
-      console.log(`[Billing Page] Found ${orderCount} orders for ${getCurrentMonthName()}`);
+      // Also try an alternative query using createdAt if shopifyCreatedAt is problematic
+      const orderCountByCreatedAt = await db.order.count({
+        where: {
+          shop,
+          createdAt: {
+            gte: startOfMonth,
+            lte: endOfMonth
+          }
+        }
+      });
+
+      console.log(`[Billing Page] Found ${orderCount} orders by shopifyCreatedAt for ${getCurrentMonthName()}`);
+      console.log(`[Billing Page] Found ${orderCountByCreatedAt} orders by createdAt for ${getCurrentMonthName()}`);
+
+      // Get a sample of orders to see their dates
+      const sampleOrders = await db.order.findMany({
+        where: { shop },
+        select: {
+          id: true,
+          shopifyOrderNumber: true,
+          shopifyCreatedAt: true,
+          createdAt: true
+        },
+        take: 5,
+        orderBy: { createdAt: 'desc' }
+      });
+      console.log('[Billing Page] Sample orders:', sampleOrders.map(o => ({
+        number: o.shopifyOrderNumber,
+        shopifyCreatedAt: o.shopifyCreatedAt?.toISOString(),
+        createdAt: o.createdAt.toISOString()
+      })));
 
       // Determine plan limit based on active subscription
       let planLimit = 200; // Default for free plan
@@ -296,7 +352,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderCount,
         planLimit,
         planName,
-        projectedOrders
+        projectedOrders,
+        currentMonth: getCurrentMonthName()
       };
 
       console.log('[Billing Page] monthlyOrderUsage created:', monthlyOrderUsage);
