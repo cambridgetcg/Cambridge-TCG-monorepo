@@ -141,7 +141,7 @@ export function CurrentPlanCard({
 
   const isOverLimit = usageMetrics.isOverLimit;
   const usagePercentage = Math.min(
-    Math.round((usageMetrics.currentUsage / usageMetrics.limit) * 100),
+    Math.round((usageMetrics.currentUsage / usageMetrics.planLimit) * 100),
     100
   );
 
@@ -185,13 +185,13 @@ export function CurrentPlanCard({
               {planDetails.displayName}
             </Text>
             <Text as="p" variant="bodySm" tone={progressTone}>
-              {usageMetrics.currentUsage} / {usageMetrics.limit} orders
+              {usageMetrics.currentUsage} / {usageMetrics.planLimit} orders
             </Text>
           </InlineStack>
 
           <PlanUsageProgress
             used={usageMetrics.currentUsage}
-            limit={usageMetrics.limit}
+            limit={usageMetrics.planLimit}
             compact={true}
           />
 
@@ -234,7 +234,7 @@ export function CurrentPlanCard({
           <PlanOverLimitBanner
             planName={planDetails.displayName}
             currentUsage={usageMetrics.currentUsage}
-            limit={usageMetrics.limit}
+            limit={usageMetrics.planLimit}
             onUpgrade={handleUpgrade}
           />
         )}
@@ -266,7 +266,7 @@ export function CurrentPlanCard({
                   Billing Period
                 </Text>
                 <Text as="span">
-                  {new Date(usageData.startDate).toLocaleDateString()} - {new Date(usageData.endDate).toLocaleDateString()}
+                  {usageData.startDate ? new Date(usageData.startDate).toLocaleDateString() : 'N/A'} - {usageData.endDate ? new Date(usageData.endDate).toLocaleDateString() : 'N/A'}
                 </Text>
               </InlineStack>
             )}
@@ -284,7 +284,7 @@ export function CurrentPlanCard({
 
             <PlanUsageProgress
               used={usageMetrics.currentUsage}
-              limit={usageMetrics.limit}
+              limit={usageMetrics.planLimit}
               projected={showProjectedUsage ? usageMetrics.projectedUsage : undefined}
             />
 
@@ -294,7 +294,7 @@ export function CurrentPlanCard({
                   Current Usage
                 </Text>
                 <Text as="span" fontWeight="semibold">
-                  {usageMetrics.currentUsage.toLocaleString()} orders
+                  {usageMetrics.currentUsage ? usageMetrics.currentUsage.toLocaleString() : '0'} orders
                 </Text>
               </InlineStack>
 
@@ -304,7 +304,7 @@ export function CurrentPlanCard({
                     Projected Usage
                   </Text>
                   <Text as="span">
-                    ~{usageMetrics.projectedUsage.toLocaleString()} orders
+                    ~{usageMetrics.projectedUsage ? usageMetrics.projectedUsage.toLocaleString() : '0'} orders
                   </Text>
                 </InlineStack>
               )}
@@ -314,7 +314,7 @@ export function CurrentPlanCard({
                   Monthly Limit
                 </Text>
                 <Text as="span">
-                  {usageMetrics.limit.toLocaleString()} orders
+                  {usageMetrics.planLimit ? usageMetrics.planLimit.toLocaleString() : '0'} orders
                 </Text>
               </InlineStack>
 
