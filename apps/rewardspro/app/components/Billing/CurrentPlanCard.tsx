@@ -27,7 +27,17 @@ export interface CurrentPlanCardProps {
     status: string;
   } | null;
 
-  // Usage data
+  // Usage data from direct Order table count
+  orderUsageData?: {
+    orderCount: number;        // Direct count from Order table
+    planLimit: number;          // Plan limit
+    projectedOrders: number;    // Projected based on current rate
+    currentMonth?: string;      // Current month name
+    startDate?: Date;          // Start of billing period
+    endDate?: Date;            // End of billing period
+  } | null;
+
+  // Legacy support for old props
   monthlyOrderUsage?: {
     orderCount: number;
     planLimit: number;
@@ -41,39 +51,73 @@ export interface CurrentPlanCardProps {
   showFeatures?: boolean;
   showOverageBanner?: boolean;
   showProjectedUsage?: boolean;
+  showBillingPeriod?: boolean;
   compact?: boolean;
 
   // Actions
   onUpgrade?: () => void;
+  onRefresh?: () => void;
 }
 
 export function CurrentPlanCard({
   activeSubscription,
   currentPlan,
+  orderUsageData,
   monthlyOrderUsage,
   title = "Plan Details",
   showUpgradeButton = true,
   showFeatures = false,
   showOverageBanner = true,
   showProjectedUsage = true,
+  showBillingPeriod = false,
   compact = false,
-  onUpgrade
+  onUpgrade,
+  onRefresh
 }: CurrentPlanCardProps) {
+  // Use new orderUsageData if available, fall back to legacy monthlyOrderUsage
+  const usageData = orderUsageData || monthlyOrderUsage;
+
   // Debug logging
-  console.log('[CurrentPlanCard] Props received:', {
-    activeSubscription,
-    currentPlan,
-    monthlyOrderUsage
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[CurrentPlanCard] Props received:', {
+      activeSubscription,
+      currentPlan,
+      orderUsageData,
+      monthlyOrderUsage,
+      usageData
+    });
+  }
 
   // Get plan details and usage metrics
   const planDetails = getPlanDetails(activeSubscription, currentPlan);
-  const usageMetrics = calculateUsageMetrics(monthlyOrderUsage, planDetails);
+  const usageMetrics = calculateUsageMetrics(usageData, planDetails);
 
-  console.log('[CurrentPlanCard] Calculated:', {
-    planDetails,
-    usageMetrics
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[CurrentPlanCard] Calculated:', {
+      planDetails,
+      usageMetrics
+    });
+  }
+
+  // Format billing period dates
+  const formatBillingPeriod = () => {
+    if (!orderUsageData?.startDate || !orderUsageData?.endDate) {
+      return null;
+    }
+
+    const startDate = new Date(orderUsageData.startDate);
+    const endDate = new Date(orderUsageData.endDate);
+
+    const formatOptions: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+      year: startDate.getFullYear() !== endDate.getFullYear() ? 'numeric' : undefined
+    };
+
+    return `${startDate.toLocaleDateString('en-US', formatOptions)} - ${endDate.toLocaleDateString('en-US', formatOptions)}`;
+  };
+
+  const billingPeriod = formatBillingPeriod();
 
   return (
     <BlockStack gap="400">
@@ -98,20 +142,33 @@ export function CurrentPlanCard({
                     <Text as="h2" variant="headingLg">
                       {title}
                     </Text>
-                    {monthlyOrderUsage?.currentMonth && (
+                    {usageData?.currentMonth && (
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        Showing usage for {monthlyOrderUsage.currentMonth}
+                        {showBillingPeriod && billingPeriod
+                          ? `Billing period: ${billingPeriod}`
+                          : `Showing usage for ${usageData.currentMonth}`}
                       </Text>
                     )}
                   </BlockStack>
-                  {showUpgradeButton && onUpgrade && (
-                    <Button
-                      variant="primary"
-                      onClick={onUpgrade}
-                    >
-                      Upgrade plan
-                    </Button>
-                  )}
+                  <InlineStack gap="300">
+                    {onRefresh && (
+                      <Button
+                        variant="plain"
+                        onClick={onRefresh}
+                        accessibilityLabel="Refresh usage data"
+                      >
+                        Refresh
+                      </Button>
+                    )}
+                    {showUpgradeButton && onUpgrade && (
+                      <Button
+                        variant="primary"
+                        onClick={onUpgrade}
+                      >
+                        Upgrade plan
+                      </Button>
+                    )}
+                  </InlineStack>
                 </InlineStack>
                 <Divider />
               </>
@@ -148,22 +205,65 @@ export function CurrentPlanCard({
                   <Text as="h3" variant="heading2xl">
                     {planDetails.displayName}
                   </Text>
-                  <Text as="p" variant="headingLg">
-                    ${planDetails.price}{" "}
-                    <Text as="span" variant="bodyLg" tone="subdued">
-                      USD/{planDetails.interval}
+                  <InlineStack align="space-between">
+                    <Text as="p" variant="headingLg">
+                      ${planDetails.price}{" "}
+                      <Text as="span" variant="bodyLg" tone="subdued">
+                        USD/{planDetails.interval}
+                      </Text>
                     </Text>
-                  </Text>
+                    {showBillingPeriod && billingPeriod && (
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Current period: {billingPeriod}
+                      </Text>
+                    )}
+                  </InlineStack>
                 </>
               )}
 
               {/* Usage Progress */}
               <PlanUsageProgress
                 usageMetrics={usageMetrics}
-                currentMonth={monthlyOrderUsage?.currentMonth}
+                currentMonth={usageData?.currentMonth}
                 showProjected={showProjectedUsage}
                 compact={compact}
               />
+
+              {/* Order Count Details */}
+              {!compact && usageData && (
+                <Box paddingBlock="200">
+                  <InlineStack align="space-between">
+                    <BlockStack gap="100">
+                      <Text as="span" variant="bodyMd" tone="subdued">
+                        Orders processed
+                      </Text>
+                      <Text as="p" variant="headingMd">
+                        {usageData.orderCount.toLocaleString()}
+                      </Text>
+                    </BlockStack>
+                    <BlockStack gap="100" align="end">
+                      <Text as="span" variant="bodyMd" tone="subdued">
+                        Plan includes
+                      </Text>
+                      <Text as="p" variant="headingMd">
+                        {usageData.planLimit.toLocaleString()} orders
+                      </Text>
+                    </BlockStack>
+                    {showProjectedUsage && usageData.projectedOrders > 0 && (
+                      <BlockStack gap="100" align="end">
+                        <Text as="span" variant="bodyMd" tone="subdued">
+                          Projected total
+                        </Text>
+                        <Text as="p" variant="headingMd" tone={
+                          usageData.projectedOrders > usageData.planLimit ? "critical" : "subdued"
+                        }>
+                          {usageData.projectedOrders.toLocaleString()}
+                        </Text>
+                      </BlockStack>
+                    )}
+                  </InlineStack>
+                </Box>
+              )}
 
               {/* Features List (optional) */}
               {showFeatures && !compact && planDetails.features.length > 0 && (
@@ -179,6 +279,29 @@ export function CurrentPlanCard({
                       ))}
                     </List>
                   </BlockStack>
+                </>
+              )}
+
+              {/* Overage Information */}
+              {!compact && usageMetrics.isOverLimit && planDetails.overageRate > 0 && (
+                <>
+                  <Divider />
+                  <Box paddingBlock="200">
+                    <BlockStack gap="200">
+                      <Text as="p" variant="headingSm" tone="critical">
+                        Overage charges
+                      </Text>
+                      <Text as="p" variant="bodyMd">
+                        You've exceeded your plan limit of {usageData?.planLimit.toLocaleString()} orders.
+                        Additional orders are charged at ${planDetails.overageRate} per order.
+                      </Text>
+                      {usageMetrics.currentUsage > usageMetrics.planLimit && (
+                        <Text as="p" variant="bodyMd" tone="critical">
+                          Estimated overage: ${((usageMetrics.currentUsage - usageMetrics.planLimit) * planDetails.overageRate).toFixed(2)}
+                        </Text>
+                      )}
+                    </BlockStack>
+                  </Box>
                 </>
               )}
 
