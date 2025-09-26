@@ -8,7 +8,6 @@ import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
 import { Page, Layout, Card, BlockStack, Text, Button, Banner, InlineStack } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
-import { CurrentPlanCard } from "../components/Billing";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "../utils/order-count-strategies";
 
 // Helper function to get current month name
@@ -236,15 +235,6 @@ export default function BillingPageV2() {
                 </Text>
               </Banner>
             )}
-
-            {/* Current Plan Card */}
-            <CurrentPlanCard
-              activeSubscription={data.activeSubscription}
-              orderUsageData={data.monthlyOrderUsage}
-              daysRemaining={data.daysRemaining}
-              isFreePlan={!data.hasActivePayment}
-              onUpgrade={() => handleSubscribe('monthly')}
-            />
 
             {/* Available Plans */}
             {!data.hasActivePayment && (
