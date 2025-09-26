@@ -18,6 +18,48 @@ import * as crypto from 'crypto';
 
 const uuidv4 = () => crypto.randomUUID();
 
+// Performance monitoring utilities
+class PerformanceTimer {
+  private startTime: number;
+  private marks: Map<string, number> = new Map();
+
+  constructor() {
+    this.startTime = Date.now();
+  }
+
+  mark(label: string): number {
+    const elapsed = Date.now() - this.startTime;
+    this.marks.set(label, elapsed);
+    return elapsed;
+  }
+
+  getElapsed(): number {
+    return Date.now() - this.startTime;
+  }
+
+  getMarks(): Record<string, number> {
+    return Object.fromEntries(this.marks);
+  }
+}
+
+// Aurora connection error detection
+function isAuroraConnectionError(error: any): boolean {
+  const errorMessage = error?.message?.toLowerCase() || '';
+  return errorMessage.includes('connection') ||
+         errorMessage.includes('timeout') ||
+         errorMessage.includes('econnrefused') ||
+         errorMessage.includes('unable to connect') ||
+         errorMessage.includes('database system is starting up');
+}
+
+// Check if error is due to database constraints
+function isDatabaseConstraintError(error: any): boolean {
+  const errorMessage = error?.message?.toLowerCase() || '';
+  return errorMessage.includes('unique constraint') ||
+         errorMessage.includes('foreign key') ||
+         errorMessage.includes('duplicate key');
+}
+
 // HMAC Verification
 function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
@@ -41,51 +83,85 @@ function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
+  // Start performance monitoring
+  const timer = new PerformanceTimer();
+
   const rawBody = await request.text();
   const order = JSON.parse(rawBody);
 
-  // Get headers
-  const webhookId = request.headers.get("x-shopify-webhook-id");
+  // Get headers - prioritize X-Shopify-Webhook-Id for better idempotency
+  const webhookEventId = request.headers.get("x-shopify-webhook-id") ||
+                         request.headers.get("x-shopify-event-id");
   const shopDomain = request.headers.get("x-shopify-shop-domain");
   const shop = request.headers.get('X-Shopify-Shop-Domain');
   const topic = request.headers.get('X-Shopify-Topic');
+  const apiVersion = request.headers.get('X-Shopify-API-Version');
+
+  // Log webhook receipt with tracing ID
+  const traceId = webhookEventId || `${order.id}-${Date.now()}`;
+  console.log(`[OrderPaid][${traceId}] Webhook received`, {
+    shop,
+    orderId: order.id,
+    webhookEventId,
+    topic,
+    apiVersion,
+    orderTotal: order.total_price,
+    lineItemCount: order.line_items?.length || 0
+  });
 
   // 1. Verify HMAC
   if (!verifyWebhookHMAC(request, rawBody)) {
-    console.error('[OrderPaid] HMAC verification failed');
+    console.error(`[OrderPaid][${traceId}] HMAC verification failed`, {
+      shop,
+      orderId: order.id
+    });
     return json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  timer.mark('hmac_verified');
+
   // 2. Order state validation - skip ineligible orders
   if (order.cancelled_at) {
-    console.log('[OrderPaid] Order was cancelled, skipping');
+    console.log(`[OrderPaid][${traceId}] Order was cancelled, skipping`, {
+      orderId: order.id,
+      cancelledAt: order.cancelled_at
+    });
     return json({ success: true, message: "Cancelled order ignored" });
   }
 
   if (order.financial_status !== 'paid') {
-    console.log(`[OrderPaid] Order not paid (status=${order.financial_status}), skipping`);
+    console.log(`[OrderPaid][${traceId}] Order not paid (status=${order.financial_status}), skipping`);
     return json({ success: true, message: "Non-paid order ignored" });
   }
 
   if (order.test === true) {
-    console.log('[OrderPaid] Test order detected, skipping');
+    console.log(`[OrderPaid][${traceId}] Test order detected, skipping`);
     return json({ success: true, message: "Test order ignored" });
   }
+
+  timer.mark('validation_complete');
 
   if (!shop) {
     console.error('[OrderPaid] Missing shop domain');
     return json({ error: "Missing shop" }, { status: 400 });
   }
 
-  console.log(`[OrderPaid] Processing order ${order.id} for shop ${shop}`);
+  console.log(`[OrderPaid][${traceId}] Processing order ${order.id} for shop ${shop}`, {
+    customerEmail: order.email,
+    totalPrice: order.total_price,
+    currency: order.currency,
+    lineItems: order.line_items?.length || 0
+  });
 
   try {
     // Note: Don't call authenticate.webhook since we already read the body
     // Just use null for admin since we don't need GraphQL in most cases
     const admin = null;
     
-    // 3. Generate idempotency key
-    const idempotencyKey = `order-${order.id}-${order.updated_at}`;
+    // 3. Generate idempotency key - prefer webhook event ID if available
+    const idempotencyKey = webhookEventId || `order-${order.id}-${order.updated_at}`;
+
+    console.log(`[OrderPaid][${traceId}] Using idempotency key: ${idempotencyKey}`);
     
     // 4. Check if already processed (check outside of transaction)
     let existingProcess = null;
@@ -93,19 +169,50 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       existingProcess = await db.webhookProcess.findUnique({
         where: { idempotencyKey }
       });
+      timer.mark('idempotency_checked');
     } catch (err) {
-      console.log('[OrderPaid] WebhookProcess table may not exist, skipping idempotency check');
+      console.warn(`[OrderPaid][${traceId}] WebhookProcess table may not exist, skipping idempotency check`, {
+        error: err.message
+      });
+
+      // Check if order already exists as fallback idempotency
+      try {
+        const existingOrder = await db.order.findFirst({
+          where: {
+            shop,
+            shopifyOrderId: order.id.toString()
+          }
+        });
+
+        if (existingOrder) {
+          console.log(`[OrderPaid][${traceId}] Order already exists in database, skipping`);
+          return json({ success: true, message: "Order already processed" });
+        }
+      } catch (fallbackErr) {
+        console.error(`[OrderPaid][${traceId}] Fallback idempotency check failed:`, fallbackErr);
+      }
     }
 
     if (existingProcess) {
-      console.log(`[OrderPaid] Already processed order ${order.id}`);
+      console.log(`[OrderPaid][${traceId}] Already processed with idempotency key: ${idempotencyKey}`);
       return json({ success: true, message: "Already processed" });
     }
     
-    // 5. Process with retry logic
+    // 5. Check if we're approaching timeout (4.5 seconds to be safe)
+    if (timer.getElapsed() > 4500) {
+      console.warn(`[OrderPaid][${traceId}] Approaching timeout limit, deferring to async processing`);
+      // Queue for async processing if implemented
+      // For now, continue but log the warning
+    }
+
+    // 6. Process with retry logic
     const result = await withRetry(
       async () => {
+        const txStartTime = Date.now();
+        console.log(`[OrderPaid][${traceId}] Starting database transaction`);
+
         return await db.$transaction(async (tx) => {
+          timer.mark('transaction_started');
           // Record webhook processing (only if table exists)
           try {
             if (tx.webhookProcess) {
@@ -117,71 +224,148 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   idempotencyKey,
                   payload: order,
                   processedAt: new Date(),
+                  webhookEventId,  // Store the Shopify event ID
                 }
               });
             }
-          } catch (err) {
-            console.log('[OrderPaid] Could not record webhook processing:', err.message);
+            timer.mark('webhook_recorded');
+          } catch (err: any) {
+            console.warn(`[OrderPaid][${traceId}] Could not record webhook processing:`, err.message);
+            // Check if it's a duplicate key error (race condition)
+            if (isDatabaseConstraintError(err)) {
+              console.log(`[OrderPaid][${traceId}] Duplicate webhook detected via constraint`);
+              throw new Error('Webhook already processed');
+            }
           }
           
           // Process each line item
           const results = [];
-          
-          for (const lineItem of order.line_items) {
+
+          console.log(`[OrderPaid][${traceId}] Processing ${order.line_items?.length || 0} line items`);
+
+          for (let i = 0; i < order.line_items?.length; i++) {
+            const lineItem = order.line_items[i];
+            const lineItemStart = Date.now();
+
             const itemResult = await processLineItem(tx, {
               shop,
               admin,
               order,
               lineItem,
+              traceId,
             });
+
+            console.log(`[OrderPaid][${traceId}] Line item ${i + 1} processed in ${Date.now() - lineItemStart}ms`);
             results.push(itemResult);
           }
+
+          timer.mark('line_items_processed');
           
           // Create or update Order record
           await createOrderRecord(tx, {
             shop,
             order,
+            traceId,
           });
+          timer.mark('order_created');
 
           // Process cashback for regular items
           await processCashback(tx, {
             shop,
             order,
+            traceId,
           });
-          
+          timer.mark('cashback_processed');
+
           // Update customer spending totals from Order data
           await updateCustomerSpendingFromOrders(tx, {
             shop,
             order,
+            traceId,
           });
-          
+          timer.mark('spending_updated');
+
           // Check for tier progression
           await checkTierProgression(tx, {
             shop,
             customerId: order.customer?.id,
+            traceId,
           });
-          
-          return { success: true, results };
+          timer.mark('tier_checked');
+
+          const txDuration = Date.now() - txStartTime;
+          console.log(`[OrderPaid][${traceId}] Transaction completed in ${txDuration}ms`);
+
+          // Warn if transaction took too long
+          if (txDuration > 3000) {
+            console.warn(`[OrderPaid][${traceId}] Transaction took ${txDuration}ms - approaching timeout limit`);
+          }
+
+          return { success: true, results, duration: txDuration };
         });
       },
       {
         maxAttempts: 2,
-        shouldRetry: (error) => {
+        shouldRetry: (error: any) => {
           // Don't retry on business logic errors
-          if (error.message?.includes('Invalid') || 
-              error.message?.includes('not found')) {
+          if (error.message?.includes('Invalid') ||
+              error.message?.includes('not found') ||
+              error.message?.includes('already processed')) {
             return false;
           }
+
+          // Retry on Aurora connection errors
+          if (isAuroraConnectionError(error)) {
+            console.warn(`[OrderPaid][${traceId}] Aurora connection error, will retry:`, error.message);
+            return true;
+          }
+
+          // Don't retry on constraint violations (duplicate processing)
+          if (isDatabaseConstraintError(error)) {
+            console.log(`[OrderPaid][${traceId}] Database constraint violation, not retrying`);
+            return false;
+          }
+
           return true;
+        },
+        onRetry: (attempt: number) => {
+          console.log(`[OrderPaid][${traceId}] Retrying transaction (attempt ${attempt + 1})`);
         }
       }
     );
     
-    console.log(`[OrderPaid] Successfully processed order ${order.id}`);
-    return json({ success: true, data: result });
+    // Log final performance metrics
+    const totalTime = timer.getElapsed();
+    console.log(`[OrderPaid][${traceId}] Successfully processed order ${order.id} in ${totalTime}ms`, {
+      performanceMetrics: timer.getMarks(),
+      transactionDuration: result.duration,
+      totalTime
+    });
+
+    // Warn if we're close to Shopify's 5-second timeout
+    if (totalTime > 4000) {
+      console.warn(`[OrderPaid][${traceId}] Total processing time ${totalTime}ms is dangerously close to 5s timeout`);
+    }
+
+    return json({
+      success: true,
+      data: result,
+      metrics: {
+        processingTime: totalTime,
+        transactionTime: result.duration,
+        marks: timer.getMarks()
+      }
+    });
     
-  } catch (error) {
-    console.error(`[OrderPaid] Error processing order ${order.id}:`, error);
+  } catch (error: any) {
+    const errorTime = timer.getElapsed();
+    console.error(`[OrderPaid][${traceId}] Error processing order ${order.id} after ${errorTime}ms:`, {
+      error: error.message,
+      stack: error.stack,
+      performanceMetrics: timer.getMarks(),
+      isAuroraError: isAuroraConnectionError(error),
+      isConstraintError: isDatabaseConstraintError(error)
+    });
     
     // Log error for monitoring (if model exists)
     try {
@@ -193,15 +377,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             topic: topic || 'orders/paid',
             orderId: order.id?.toString() || 'unknown',
             error: error instanceof Error ? error.message : 'Unknown error',
+            errorStack: error.stack || null,
+            webhookEventId,
+            processingTime: timer.getElapsed(),
+            performanceMetrics: timer.getMarks(),
             payload: order, // Prisma will handle JSON serialization
             createdAt: new Date(),
           }
-        }).catch((err) => {
-          console.error('[OrderPaid] Failed to log webhook error:', err);
+        }).catch((err: any) => {
+          console.error(`[OrderPaid][${traceId}] Failed to log webhook error:`, err.message);
         });
       }
-    } catch (err) {
-      console.error('[OrderPaid] Failed to create webhook error record:', err);
+    } catch (err: any) {
+      console.error(`[OrderPaid][${traceId}] Failed to create webhook error record:`, err.message);
     }
     
     // Return success to prevent Shopify retries for non-recoverable errors
@@ -749,8 +937,9 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
 async function checkTierProgression(tx: any, params: {
   shop: string;
   customerId: string;
+  traceId?: string;
 }) {
-  const { shop, customerId } = params;
+  const { shop, customerId, traceId = 'unknown' } = params;
 
   if (!customerId) {
     return;

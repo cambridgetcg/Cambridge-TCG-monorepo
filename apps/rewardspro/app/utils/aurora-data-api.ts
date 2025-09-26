@@ -50,6 +50,14 @@ export class AuroraDataAPI {
     sql: string,
     parameters?: SqlParameter[]
   ): Promise<QueryResult<T>> {
+    // Debug logging for SQL and parameters
+    if (process.env.DEBUG_DATA_API === 'true') {
+      console.log('[DataAPI] Executing SQL:', sql);
+      if (parameters) {
+        console.log('[DataAPI] Parameters:', JSON.stringify(parameters, null, 2));
+      }
+    }
+
     const input: ExecuteStatementCommandInput = {
       resourceArn: this.config.resourceArn,
       secretArn: this.config.secretArn,
@@ -279,9 +287,28 @@ export class AuroraDataAPI {
   }
 
   /**
-   * Build SQL parameters for Data API
+   * Format date for AWS Data API TIMESTAMP format
+   * AWS Data API expects: "YYYY-MM-DD HH:MM:SS[.FFF]"
    */
-  static buildParameter(name: string, value: any): SqlParameter {
+  static formatDateForDataAPI(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+    const milliseconds = String(date.getUTCMilliseconds()).padStart(3, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+  }
+
+  /**
+   * Build SQL parameters for Data API
+   * @param name Parameter name
+   * @param value Parameter value
+   * @param options Optional configuration (e.g., isTimestamp flag)
+   */
+  static buildParameter(name: string, value: any, options?: { isTimestamp?: boolean }): SqlParameter {
     const param: SqlParameter = { name };
 
     if (value === null || value === undefined) {
@@ -297,7 +324,22 @@ export class AuroraDataAPI {
     } else if (typeof value === "boolean") {
       param.value = { booleanValue: value };
     } else if (value instanceof Date) {
-      param.value = { stringValue: value.toISOString() };
+      // Format date according to AWS Data API requirements
+      const formattedDate = AuroraDataAPI.formatDateForDataAPI(value);
+      param.value = { stringValue: formattedDate };
+
+      // CRITICAL: Add type hint for TIMESTAMP to ensure proper type handling
+      // Without this, AWS Data API treats the value as text, causing type mismatch
+      param.typeHint = "TIMESTAMP" as any;
+
+      // Debug logging for date parameters
+      if (process.env.DEBUG_DATA_API === 'true') {
+        console.log(`[DataAPI] Date parameter ${name}:`, {
+          original: value.toISOString(),
+          formatted: formattedDate,
+          typeHint: "TIMESTAMP"
+        });
+      }
     } else if (Buffer.isBuffer(value)) {
       param.value = { blobValue: value };
     } else if (Array.isArray(value)) {
