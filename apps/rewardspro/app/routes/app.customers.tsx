@@ -9,9 +9,7 @@ import {
   Layout,
   Card,
   IndexTable,
-  IndexFilters,
   useIndexResourceState,
-  useSetIndexFiltersMode,
   TextField,
   Select,
   Button,
@@ -920,7 +918,6 @@ export default function Customers() {
   const [tierFilter, setTierFilter] = useState(searchParams.get("tier") || "all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
-  const { mode, setMode } = useSetIndexFiltersMode();
   const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "25"));
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
@@ -1442,328 +1439,107 @@ export default function Customers() {
 
   return (
     <Frame>
-      <Page
-        title="Customers"
-        primaryAction={{
-          content: "Calculate all tiers",
-          icon: RefreshIcon,
-          onAction: handleCalculateAll,
-          loading: isLoading,
-        }}
-        secondaryActions={[
-          {
-            content: "Sync from Shopify",
-            icon: RefreshIcon,
-            onAction: handleSyncCustomers,
-            loading: isLoading,
-          },
-        ]}
-      >
-        <Layout>
-          <Layout.Section>
-            <BlockStack gap="600">
-              {/* Loyalty Tiers Management */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between">
-                      <Text variant="headingLg" as="h2">
-                        Loyalty Tiers
-                      </Text>
-                      <Button
-                        primary
-                        icon={PlusIcon}
-                        onClick={() => {
-                          setEditingTier(null);
-                          setTierFormData({
-                            name: "",
-                            minSpend: "0",
-                            cashbackPercent: "0",
-                            evaluationPeriod: "ANNUAL",
-                          });
-                          setTierModalActive(true);
-                        }}
-                      >
-                        Add Tier
-                      </Button>
-                    </InlineStack>
+      <Page>
+        <Card>
+          <Box padding="400">
+            <BlockStack gap="400">
+              {/* Header with count and page size selector - Orders style */}
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="300" blockAlign="center">
+                  <Text variant="headingLg" as="h2">Customers</Text>
+                  <Text variant="bodySm" tone="subdued" as="span">
+                    {((currentPage - 1) * pageSize) + 1 > data.pagination.totalItems ?
+                      data.pagination.totalItems :
+                      `${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, data.pagination.totalItems)}`
+                    } of {data.pagination.totalItems}
+                </Text>
+              </InlineStack>
 
-                    {data.tiers.length === 0 ? (
-                      <EmptyState
-                        heading="Start rewarding your customers"
-                        action={{
-                          content: "Create first tier",
-                          onAction: () => {
-                            setEditingTier(null);
-                            setTierFormData({
-                              name: "",
-                              minSpend: "0",
-                              cashbackPercent: "0",
-                              evaluationPeriod: "ANNUAL",
-                            });
-                            setTierModalActive(true);
-                          },
-                        }}
-                        image="https://cdn.shopify.com/s/files/1/0583/8520/4949/files/loyalty-empty-state.svg"
-                      >
-                        <p>Create loyalty tiers to automatically reward customers based on their spending.</p>
-                      </EmptyState>
-                    ) : (
-                      <BlockStack gap="300">
-                        {data.tiers
-                          .sort((a, b) => a.minSpend - b.minSpend)
-                          .map((tier, index) => {
-                            const customerCount = data.tierDistribution[tier.id] || 0;
-                            
-                            return (
-                              <Box key={tier.id} background="bg-surface" padding="0" borderRadius="200">
-                                <InlineStack align="space-between" blockAlign="stretch" wrap={false}>
-                                  {/* Tier Info Section */}
-                                  <Box padding="400" minWidth="0">
-                                    <InlineStack gap="400" align="start" blockAlign="start">
-                                      {/* Icon */}
-                                      <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '8px',
-                                        background: getTierStyle(tier.name).backgroundColor,
-                                        border: `2px solid ${getTierStyle(tier.name).borderColor}`,
-                                      }}>
-                                        <Icon source={getTierStyle(tier.name).icon} tone="base" />
-                                      </div>
-                                      
-                                      {/* Tier Details */}
-                                      <BlockStack gap="200">
-                                        <InlineStack gap="200" align="start">
-                                          <Text variant="headingMd" as="h3">
-                                            {tier.name}
-                                          </Text>
-                                          <Badge tone="success">
-                                            {tier.cashbackPercent}% Cashback
-                                          </Badge>
-                                          {customerCount > 0 && (
-                                            <Badge tone="info">
-                                              {customerCount} {customerCount === 1 ? 'customer' : 'customers'}
-                                            </Badge>
-                                          )}
-                                        </InlineStack>
-                                        
-                                        <InlineStack gap="400" wrap={false}>
-                                          <InlineStack gap="100">
-                                            <Icon source={CashDollarIcon} tone="subdued" />
-                                            <Text variant="bodyMd" as="span">
-                                              <Text variant="bodyMd" fontWeight="semibold" as="span">
-                                                {formatAmount(tier.minSpend)}
-                                              </Text>
-                                              {' min spend'}
-                                            </Text>
-                                          </InlineStack>
-                                          
-                                          <Box borderInlineStartWidth="025" borderColor="border">
-                                            <Box paddingInlineStart="400">
-                                              <InlineStack gap="100">
-                                                <Icon source={CalendarIcon} tone="subdued" />
-                                                <Text variant="bodyMd" tone="subdued" as="span">
-                                                  {tier.evaluationPeriod === "ANNUAL" ? "Annual" : "Lifetime"}
-                                                </Text>
-                                              </InlineStack>
-                                            </Box>
-                                          </Box>
-                                        </InlineStack>
-                                      </BlockStack>
-                                    </InlineStack>
-                                  </Box>
-                                  
-                                  {/* Actions Section */}
-                                  <Box background="bg-surface-secondary" borderRadius="200">
-                                    <Box padding="400">
-                                      <InlineStack gap="200">
-                                        <Button
-                                          size="slim"
-                                          icon={EditIcon}
-                                          onClick={() => {
-                                            setEditingTier(tier);
-                                            setTierFormData({
-                                              name: tier.name,
-                                              minSpend: tier.minSpend.toString(),
-                                              cashbackPercent: tier.cashbackPercent.toString(),
-                                              evaluationPeriod: tier.evaluationPeriod,
-                                            });
-                                            setTierModalActive(true);
-                                          }}
-                                        >
-                                          Edit
-                                        </Button>
-                                        <Button
-                                          size="slim"
-                                          tone="critical"
-                                          icon={DeleteIcon}
-                                          onClick={() => {
-                                            setDeletingTierId(tier.id);
-                                            setDeleteConfirmActive(true);
-                                          }}
-                                          disabled={customerCount > 0}
-                                        >
-                                          Delete
-                                        </Button>
-                                      </InlineStack>
-                                    </Box>
-                                  </Box>
-                                </InlineStack>
-                              </Box>
-                            );
-                          })}
-                      </BlockStack>
-                    )}
-                  </BlockStack>
-                </Box>
-              </Card>
+              <Select
+                label=""
+                labelHidden
+                options={[
+                  { label: '25 per page', value: '25' },
+                  { label: '50 per page', value: '50' },
+                  { label: '100 per page', value: '100' },
+                  { label: '200 per page', value: '200' },
+                ]}
+                value={String(pageSize)}
+                onChange={handlePageSizeChange}
+              />
+            </InlineStack>
 
-              {/* Customer Management Module - With Pagination */}
-              <Card roundedAbove="sm">
-                <BlockStack gap="400">
-                  {/* IndexFilters for search and filters */}
-                  <IndexFilters
-                    sortOptions={[
-                      { label: 'Newest', value: 'createdAt_desc', directionLabel: 'Newest' },
-                      { label: 'Oldest', value: 'createdAt_asc', directionLabel: 'Oldest' },
-                      { label: 'Email A-Z', value: 'email_asc', directionLabel: 'A-Z' },
-                      { label: 'Email Z-A', value: 'email_desc', directionLabel: 'Z-A' },
-                      { label: 'Store credit (high to low)', value: 'storeCredit_desc', directionLabel: 'High to low' },
-                      { label: 'Store credit (low to high)', value: 'storeCredit_asc', directionLabel: 'Low to high' },
-                    ]}
-                    sortSelected={[`${searchParams.get('sortKey') || 'createdAt'}_${searchParams.get('sortDirection') || 'desc'}`]}
-                    queryValue={queryValue}
-                    queryPlaceholder="Search customers..."
-                    onQueryChange={handleSearch}
-                    onQueryClear={handleQueryValueRemove}
-                    onSort={(selected) => {
-                      const [sortKey, sortDirection] = selected[0].split('_');
-                      const newParams = new URLSearchParams(searchParams);
-                      newParams.set('sortKey', sortKey);
-                      newParams.set('sortDirection', sortDirection);
-                      setSearchParams(newParams);
-                    }}
-                    cancelAction={{
-                      onAction: () => {
-                        const newParams = new URLSearchParams(searchParams);
-                        newParams.delete('search');
-                        newParams.delete('tier');
-                        setSearchParams(newParams);
-                      },
-                      disabled: false,
-                      loading: false,
-                    }}
-                    canCreateNewView={false}
-                    filters={filters}
-                    appliedFilters={appliedFilters}
-                    mode={mode}
-                    setMode={setMode}
-                    tabs={[]}
-                    loading={isLoading}
-                  />
+            {/* Search bar - simplified like orders */}
+            <TextField
+              placeholder="Search by customer email or ID"
+              value={queryValue}
+              onChange={handleSearch}
+              clearButton
+              onClearButtonClick={handleQueryValueRemove}
+              prefix={<Icon source={SearchIcon} />}
+              autoComplete="off"
+            />
+          </BlockStack>
+        </Box>
 
-                  {/* Page size selector and pagination controls */}
-                  <Box padding="400">
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" align="start" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued" as="span">
-                          Showing {data.customers.length} of {data.pagination.totalItems} customers
-                        </Text>
-                        <Select
-                          label="Items per page"
-                          labelHidden
-                          options={[
-                            { label: '25 per page', value: '25' },
-                            { label: '50 per page', value: '50' },
-                            { label: '100 per page', value: '100' },
-                            { label: '200 per page', value: '200' },
-                          ]}
-                          value={String(pageSize)}
-                          onChange={handlePageSizeChange}
-                        />
-                      </InlineStack>
+        <Divider />
 
-                      {/* Pagination controls */}
-                      <InlineStack gap="300" align="end" blockAlign="center">
-                        <Button
-                          accessibilityLabel="Previous page"
-                          onClick={handlePreviousPage}
-                          disabled={!data.pagination.hasPrevPage}
-                        >
-                          Previous
-                        </Button>
-                        <Text variant="bodySm" as="span">
-                          Page {currentPage} of {data.pagination.totalPages}
-                        </Text>
-                        <Button
-                          accessibilityLabel="Next page"
-                          onClick={handleNextPage}
-                          disabled={!data.pagination.hasNextPage}
-                        >
-                          Next
-                        </Button>
-                      </InlineStack>
-                    </InlineStack>
-                  </Box>
+        {/* Customer IndexTable */}
+        <Box>
+          {data.customers.length === 0 ? (
+            <Box padding="400">
+              {emptyStateMarkup}
+            </Box>
+          ) : (
+            <IndexTable
+              resourceName={resourceName}
+              itemCount={data.customers.length}
+              selectedItemsCount={
+                allResourcesSelected ? 'All' : selectedResources.length
+              }
+              onSelectionChange={handleSelectionChange}
+              bulkActions={bulkActions}
+              headings={[
+                { title: 'Customer' },
+                { title: 'Tier' },
+                { title: 'Store Credit', alignment: 'end' },
+                { title: 'Actions', alignment: 'end' },
+              ]}
+              loading={isLoading}
+            >
+              {rowMarkup}
+            </IndexTable>
+          )}
+        </Box>
 
-                  {/* Customer IndexTable */}
-                  {data.customers.length === 0 ? (
-                    emptyStateMarkup
-                  ) : (
-                    <IndexTable
-                      resourceName={resourceName}
-                      itemCount={data.customers.length}
-                      selectedItemsCount={
-                        allResourcesSelected ? 'All' : selectedResources.length
-                      }
-                      onSelectionChange={handleSelectionChange}
-                      bulkActions={bulkActions}
-                      headings={[
-                        { title: 'Customer' },
-                        { title: 'Tier' },
-                        { title: 'Store Credit', alignment: 'end' },
-                        { title: 'Actions', alignment: 'end' },
-                      ]}
-                      loading={isLoading}
-                    >
-                      {rowMarkup}
-                    </IndexTable>
-                  )}
-
-                  {/* Bottom pagination */}
-                  {data.pagination.totalPages > 1 && (
-                    <Box padding="400">
-                      <InlineStack align="center">
-                        <Button
-                          accessibilityLabel="Previous page"
-                          onClick={handlePreviousPage}
-                          disabled={!data.pagination.hasPrevPage}
-                        >
-                          Previous
-                        </Button>
-                        <Text variant="bodySm" as="span">
-                          Page {currentPage} of {data.pagination.totalPages}
-                        </Text>
-                        <Button
-                          accessibilityLabel="Next page"
-                          onClick={handleNextPage}
-                          disabled={!data.pagination.hasNextPage}
-                        >
-                          Next
-                        </Button>
-                      </InlineStack>
-                    </Box>
-                  )}
-                </BlockStack>
-              </Card>
-
-            </BlockStack>
-          </Layout.Section>
-        </Layout>
+        {/* Bottom pagination */}
+        {data.pagination.totalPages > 1 && (
+          <>
+            <Divider />
+            <Box padding="400">
+              <InlineStack align="center">
+                <Button
+                  accessibilityLabel="Previous page"
+                  onClick={handlePreviousPage}
+                  disabled={!data.pagination.hasPrevPage}
+                >
+                  Previous
+                </Button>
+                <Text variant="bodySm" as="span">
+                  Page {currentPage} of {data.pagination.totalPages}
+                </Text>
+                <Button
+                  accessibilityLabel="Next page"
+                  onClick={handleNextPage}
+                  disabled={!data.pagination.hasNextPage}
+                >
+                  Next
+                </Button>
+              </InlineStack>
+            </Box>
+          </>
+        )}
+      </Card>
 
         {/* Customer Detail Modal */}
         {selectedCustomerId && (

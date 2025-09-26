@@ -57,7 +57,6 @@
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.billing-v2": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.monitoring": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -509,15 +508,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.billing-v2": {
-        "id": "routes/app.billing-v2",
-        "parentId": "routes/app",
-        "file": "app/routes/app.billing-v2.tsx",
-        "path": "billing-v2",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/app.monitoring": {
         "id": "routes/app.monitoring",
         "parentId": "routes/app",
@@ -949,12 +939,6 @@
         "parentId": "routes/app",
         "file": "routes/app.orders-sync.tsx",
         "path": "orders-sync"
-      },
-      "routes/app.billing-v2": {
-        "id": "routes/app.billing-v2",
-        "parentId": "routes/app",
-        "file": "routes/app.billing-v2.tsx",
-        "path": "billing-v2"
       },
       "routes/app.monitoring": {
         "id": "routes/app.monitoring",
