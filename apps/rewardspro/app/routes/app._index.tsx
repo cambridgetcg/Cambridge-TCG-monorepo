@@ -253,7 +253,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tiers,
       recentTransactions,
       billingPlan,
-      monthlyOrderUsageData,
+      totalOrderCount,
     ] = await Promise.all([
       // Shop settings
       db.shopSettings.findUnique({ 
@@ -297,15 +297,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: { shop },
       }),
 
-      // Monthly order usage
-      db.monthlyOrderUsage.findUnique({
-        where: {
-          shop_year_month: {
-            shop,
-            year: new Date().getFullYear(),
-            month: new Date().getMonth() + 1,
-          }
-        }
+      // Direct order count from Order table (like billing page does)
+      db.order.count({
+        where: { shop }
       }),
     ]);
 
@@ -418,24 +412,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const currentMonth = getCurrentMonthName();
     const daysRemaining = calculateDaysRemaining();
 
-    let monthlyOrderUsage = null;
-    if (monthlyOrderUsageData) {
-      const projectedOrders = calculateProjectedOrders(monthlyOrderUsageData.orderCount, daysRemaining);
-      monthlyOrderUsage = {
-        orderCount: monthlyOrderUsageData.orderCount,
-        planLimit: monthlyOrderUsageData.planLimit,
-        planName: monthlyOrderUsageData.planName,
-        projectedOrders
-      };
-    } else if (!activeSubscription || activeSubscription?.name === 'RewardsPro Free') {
-      // Default for free plan
-      monthlyOrderUsage = {
-        orderCount: 0,
-        planLimit: 200,
-        planName: 'RewardsPro Free',
-        projectedOrders: 0
-      };
+    // Determine plan based on active subscription
+    let planLimit = 200; // Default for free plan
+    let planName = 'RewardsPro Free';
+
+    if (activeSubscription?.name === 'RewardsPro Monthly') {
+      planLimit = 1000;
+      planName = 'RewardsPro Monthly';
+    } else if (activeSubscription?.name === 'RewardsPro Annual') {
+      planLimit = 1000; // 12,000/year = 1,000/month average
+      planName = 'RewardsPro Annual';
     }
+
+    // Use direct order count from Order table
+    const orderCount = totalOrderCount || 0;
+    const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
+
+    const monthlyOrderUsage = {
+      orderCount,
+      planLimit,
+      planName,
+      projectedOrders
+    };
+
+    console.log(`[Dashboard] Order count from Order table: ${orderCount}, Plan: ${planName}, Limit: ${planLimit}`);
 
     // Serialize billing plan data
     const serializedPlan = billingPlan ? {

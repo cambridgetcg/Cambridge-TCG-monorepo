@@ -491,40 +491,40 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const month = now.getMonth() + 1;
     const daysRemaining = calculateDaysRemaining();
 
-    let monthlyOrderUsage = null;
+    // Get direct order count from Order table (like billing page does)
+    let orderCount = 0;
     try {
-      const orderUsage = await db.monthlyOrderUsage.findUnique({
-        where: {
-          shop_year_month: {
-            shop,
-            year,
-            month
-          }
-        }
+      orderCount = await db.order.count({
+        where: { shop }
       });
-
-      if (orderUsage) {
-        const projectedOrders = calculateProjectedOrders(orderUsage.orderCount, daysRemaining);
-        monthlyOrderUsage = {
-          orderCount: orderUsage.orderCount,
-          planLimit: orderUsage.planLimit,
-          planName: orderUsage.planName,
-          projectedOrders
-        };
-      }
+      console.log(`[Settings Page] Direct order count from Order table: ${orderCount}`);
     } catch (error) {
-      console.warn("[Settings Page] Could not fetch monthly order usage:", error);
+      console.warn("[Settings Page] Could not fetch order count:", error);
     }
 
-    // If no usage data, create default for free plan
-    if (!monthlyOrderUsage && (!activeSubscription || activeSubscription.name === 'RewardsPro Free')) {
-      monthlyOrderUsage = {
-        orderCount: 0,
-        planLimit: 200,
-        planName: 'RewardsPro Free',
-        projectedOrders: 0
-      };
+    // Determine plan based on active subscription
+    let planLimit = 200; // Default for free plan
+    let planName = 'RewardsPro Free';
+
+    if (activeSubscription?.name === 'RewardsPro Monthly') {
+      planLimit = 1000;
+      planName = 'RewardsPro Monthly';
+    } else if (activeSubscription?.name === 'RewardsPro Annual') {
+      planLimit = 1000; // 12,000/year = 1,000/month average
+      planName = 'RewardsPro Annual';
     }
+
+    // Calculate projected orders
+    const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
+
+    const monthlyOrderUsage = {
+      orderCount,
+      planLimit,
+      planName,
+      projectedOrders
+    };
+
+    console.log(`[Settings Page] Plan: ${planName}, Limit: ${planLimit}, Orders: ${orderCount}`);
 
     // Serialize dates for JSON
     const serializedSettings = {
