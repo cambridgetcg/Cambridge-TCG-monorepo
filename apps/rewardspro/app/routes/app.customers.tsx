@@ -1662,6 +1662,7 @@ export default function Customers() {
                     appliedFilters={appliedFilters}
                     mode={mode}
                     setMode={setMode}
+                    tabs={[]}
                     loading={isLoading}
                   />
 
