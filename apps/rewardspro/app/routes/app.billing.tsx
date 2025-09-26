@@ -26,7 +26,6 @@ import {
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 
 // ============= TYPES =============
@@ -620,22 +619,6 @@ export default function BillingPage() {
                 <p>{actionData.message}</p>
               </Banner>
             )}
-
-            {/* Current Plan Card */}
-            <CurrentPlanCard
-              activeSubscription={activeSubscription}
-              currentPlan={currentPlan}
-              monthlyOrderUsage={{
-                orderCount: monthlyOrderUsage?.orderCount || 0,
-                planLimit: monthlyOrderUsage?.planLimit || 200,
-                projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
-                currentMonth: currentMonth
-              }}
-              showUpgradeButton={true}
-              showOverageBanner={true}
-              showProjectedUsage={true}
-              onUpgrade={() => navigate("/app/billing/plans")}
-            />
 
             {/* Plan Comparison Section */}
             <BlockStack gap="400">
