@@ -1707,20 +1707,22 @@ export default function Customers() {
                       {/* Pagination controls */}
                       <InlineStack gap="300" align="end" blockAlign="center">
                         <Button
-                          icon={ChevronLeftIcon}
                           accessibilityLabel="Previous page"
                           onClick={handlePreviousPage}
                           disabled={!data.pagination.hasPrevPage}
-                        />
+                        >
+                          Previous
+                        </Button>
                         <Text variant="bodySm" as="span">
                           Page {currentPage} of {data.pagination.totalPages}
                         </Text>
                         <Button
-                          icon={ChevronRightIcon}
                           accessibilityLabel="Next page"
                           onClick={handleNextPage}
                           disabled={!data.pagination.hasNextPage}
-                        />
+                        >
+                          Next
+                        </Button>
                       </InlineStack>
                     </InlineStack>
                   </Box>
@@ -1754,20 +1756,22 @@ export default function Customers() {
                     <Box padding="400">
                       <InlineStack align="center">
                         <Button
-                          icon={ChevronLeftIcon}
                           accessibilityLabel="Previous page"
                           onClick={handlePreviousPage}
                           disabled={!data.pagination.hasPrevPage}
-                        />
+                        >
+                          Previous
+                        </Button>
                         <Text variant="bodySm" as="span">
                           Page {currentPage} of {data.pagination.totalPages}
                         </Text>
                         <Button
-                          icon={ChevronRightIcon}
                           accessibilityLabel="Next page"
                           onClick={handleNextPage}
                           disabled={!data.pagination.hasNextPage}
-                        />
+                        >
+                          Next
+                        </Button>
                       </InlineStack>
                     </Box>
                   )}

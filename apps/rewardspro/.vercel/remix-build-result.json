@@ -49,6 +49,7 @@
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.test-order-strategies": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscription-demo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -435,6 +436,15 @@
         "file": "app/routes/app.tsx",
         "path": "app",
         "config": {}
+      },
+      "routes/app.test-order-strategies": {
+        "id": "routes/app.test-order-strategies",
+        "parentId": "routes/app",
+        "file": "app/routes/app.test-order-strategies.tsx",
+        "path": "test-order-strategies",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
@@ -891,6 +901,12 @@
         "parentId": "root",
         "file": "routes/app.tsx",
         "path": "app"
+      },
+      "routes/app.test-order-strategies": {
+        "id": "routes/app.test-order-strategies",
+        "parentId": "routes/app",
+        "file": "routes/app.test-order-strategies.tsx",
+        "path": "test-order-strategies"
       },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
