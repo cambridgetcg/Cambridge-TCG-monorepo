@@ -303,8 +303,74 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shop = session.shop;
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
-  
+
   try {
+    // Tier management actions
+    if (intent === "create-tier") {
+      const name = formData.get("name") as string;
+      const minSpend = parseFloat(formData.get("minSpend") as string);
+      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string);
+      const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+
+      await db.tier.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          name,
+          minSpend,
+          cashbackPercent,
+          evaluationPeriod,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      return json({ success: true, message: `${name} tier created successfully` });
+    }
+
+    if (intent === "update-tier") {
+      const id = formData.get("id") as string;
+      const name = formData.get("name") as string;
+      const minSpend = parseFloat(formData.get("minSpend") as string);
+      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string);
+      const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+
+      await db.tier.update({
+        where: { id },
+        data: {
+          name,
+          minSpend,
+          cashbackPercent,
+          evaluationPeriod,
+          updatedAt: new Date(),
+        },
+      });
+
+      return json({ success: true, message: `${name} tier updated successfully` });
+    }
+
+    if (intent === "delete-tier") {
+      const id = formData.get("id") as string;
+
+      // Check if customers are assigned to this tier
+      const customersCount = await db.customer.count({
+        where: { currentTierId: id },
+      });
+
+      if (customersCount > 0) {
+        return json({
+          success: false,
+          error: `Cannot delete tier: ${customersCount} customers are assigned to it`,
+        }, { status: 400 });
+      }
+
+      await db.tier.delete({
+        where: { id },
+      });
+
+      return json({ success: true, message: "Tier deleted successfully" });
+    }
+
     if (intent === "create-product") {
       const tierId = formData.get("tierId") as string;
       const tierName = formData.get("tierName") as string;
@@ -1389,7 +1455,19 @@ export default function TierProducts() {
     active: false,
     content: "",
   });
-  
+
+  // Tier management states
+  const [tierModalActive, setTierModalActive] = useState(false);
+  const [editingTier, setEditingTier] = useState<any>(null);
+  const [deleteConfirmActive, setDeleteConfirmActive] = useState(false);
+  const [deletingTierId, setDeletingTierId] = useState<string | null>(null);
+  const [tierFormData, setTierFormData] = useState({
+    name: "",
+    minSpend: "0",
+    cashbackPercent: "0",
+    evaluationPeriod: "ANNUAL" as "ANNUAL" | "LIFETIME",
+  });
+
   const isLoading = navigation.state === "submitting";
   const isRefreshing = navigation.state === "loading";
   
@@ -1397,7 +1475,36 @@ export default function TierProducts() {
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
   }, [data.shopSettings]);
-  
+
+  // Tier management handlers
+  const handleSaveTier = useCallback(() => {
+    const formData = new FormData();
+    formData.append("intent", editingTier ? "update-tier" : "create-tier");
+    if (editingTier) {
+      formData.append("id", editingTier.id);
+    }
+    formData.append("name", tierFormData.name);
+    formData.append("minSpend", tierFormData.minSpend);
+    formData.append("cashbackPercent", tierFormData.cashbackPercent);
+    formData.append("evaluationPeriod", tierFormData.evaluationPeriod);
+
+    submit(formData, { method: "post" });
+    setTierModalActive(false);
+    setEditingTier(null);
+  }, [editingTier, tierFormData, submit]);
+
+  const handleDeleteTier = useCallback(() => {
+    if (deletingTierId) {
+      const formData = new FormData();
+      formData.append("intent", "delete-tier");
+      formData.append("id", deletingTierId);
+
+      submit(formData, { method: "post" });
+      setDeleteConfirmActive(false);
+      setDeletingTierId(null);
+    }
+  }, [deletingTierId, submit]);
+
   // Handle modal open
   const handleModalOpen = useCallback(() => {
     setModalActive(true);
@@ -1668,6 +1775,169 @@ export default function TierProducts() {
             </Layout.Section>
           )}
 
+          {/* Loyalty Tiers Management Section */}
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text variant="headingLg" as="h2">
+                      Loyalty Tiers
+                    </Text>
+                    <Button
+                      primary
+                      icon={PlusIcon}
+                      onClick={() => {
+                        setEditingTier(null);
+                        setTierFormData({
+                          name: "",
+                          minSpend: "0",
+                          cashbackPercent: "0",
+                          evaluationPeriod: "ANNUAL",
+                        });
+                        setTierModalActive(true);
+                      }}
+                    >
+                      Add Tier
+                    </Button>
+                  </InlineStack>
+
+                  {data.tiers.length === 0 ? (
+                    <EmptyState
+                      heading="Start rewarding your customers"
+                      action={{
+                        content: "Create first tier",
+                        onAction: () => {
+                          setEditingTier(null);
+                          setTierFormData({
+                            name: "",
+                            minSpend: "0",
+                            cashbackPercent: "0",
+                            evaluationPeriod: "ANNUAL",
+                          });
+                          setTierModalActive(true);
+                        },
+                      }}
+                      image="https://cdn.shopify.com/s/files/1/0583/8520/4949/files/loyalty-empty-state.svg"
+                    >
+                      <p>Create loyalty tiers to automatically reward customers based on their spending.</p>
+                    </EmptyState>
+                  ) : (
+                    <BlockStack gap="300">
+                      {data.tiers
+                        .sort((a, b) => a.minSpend - b.minSpend)
+                        .map((tier) => {
+                          const tierStyle = getTierStyle(tier.name);
+                          const productCount = data.tierProducts.filter(p => p.tierId === tier.id).length;
+
+                          return (
+                            <Box key={tier.id} background="bg-surface" padding="0" borderRadius="200">
+                              <InlineStack align="space-between" blockAlign="stretch" wrap={false}>
+                                {/* Tier Info Section */}
+                                <Box padding="400" minWidth="0">
+                                  <InlineStack gap="400" align="start" blockAlign="start">
+                                    {/* Icon */}
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      width: '40px',
+                                      height: '40px',
+                                      borderRadius: '8px',
+                                      background: tierStyle.backgroundColor,
+                                      border: `2px solid ${tierStyle.borderColor}`,
+                                    }}>
+                                      <Icon source={tierStyle.icon} tone="base" />
+                                    </div>
+
+                                    {/* Tier Details */}
+                                    <BlockStack gap="200">
+                                      <InlineStack gap="200" align="start">
+                                        <Text variant="headingMd" as="h3">
+                                          {tier.name}
+                                        </Text>
+                                        <Badge tone="success">
+                                          {tier.cashbackPercent}% Cashback
+                                        </Badge>
+                                        {productCount > 0 && (
+                                          <Badge tone="info">
+                                            {productCount} {productCount === 1 ? 'product' : 'products'}
+                                          </Badge>
+                                        )}
+                                      </InlineStack>
+
+                                      <InlineStack gap="400" wrap={false}>
+                                        <InlineStack gap="100">
+                                          <Icon source={CashDollarIcon} tone="subdued" />
+                                          <Text variant="bodyMd" as="span">
+                                            <Text variant="bodyMd" fontWeight="semibold" as="span">
+                                              {formatAmount(tier.minSpend)}
+                                            </Text>
+                                            {' min spend'}
+                                          </Text>
+                                        </InlineStack>
+
+                                        <Box borderInlineStartWidth="025" borderColor="border">
+                                          <Box paddingInlineStart="400">
+                                            <InlineStack gap="100">
+                                              <Icon source={CalendarIcon} tone="subdued" />
+                                              <Text variant="bodyMd" tone="subdued" as="span">
+                                                {tier.evaluationPeriod === "ANNUAL" ? "Annual" : "Lifetime"}
+                                              </Text>
+                                            </InlineStack>
+                                          </Box>
+                                        </Box>
+                                      </InlineStack>
+                                    </BlockStack>
+                                  </InlineStack>
+                                </Box>
+
+                                {/* Actions Section */}
+                                <Box background="bg-surface-secondary" borderRadius="200">
+                                  <Box padding="400">
+                                    <InlineStack gap="200">
+                                      <Button
+                                        size="slim"
+                                        icon={EditIcon}
+                                        onClick={() => {
+                                          setEditingTier(tier);
+                                          setTierFormData({
+                                            name: tier.name,
+                                            minSpend: tier.minSpend.toString(),
+                                            cashbackPercent: tier.cashbackPercent.toString(),
+                                            evaluationPeriod: tier.evaluationPeriod,
+                                          });
+                                          setTierModalActive(true);
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="slim"
+                                        tone="critical"
+                                        icon={DeleteIcon}
+                                        onClick={() => {
+                                          setDeletingTierId(tier.id);
+                                          setDeleteConfirmActive(true);
+                                        }}
+                                        disabled={productCount > 0}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </InlineStack>
+                                  </Box>
+                                </Box>
+                              </InlineStack>
+                            </Box>
+                          );
+                        })}
+                    </BlockStack>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+
           {/* Information Banner */}
           <Layout.Section>
             <Banner
@@ -1676,7 +1946,7 @@ export default function TierProducts() {
               icon={PackageIcon}
             >
               <p>
-                Create Shopify products that customers can purchase to gain access to specific loyalty tiers. 
+                Create Shopify products that customers can purchase to gain access to specific loyalty tiers.
                 These products can be one-time purchases or recurring subscriptions.
               </p>
             </Banner>
@@ -2183,6 +2453,101 @@ export default function TierProducts() {
               onSubmit={handleTBYBSubmit}
               isLoading={isLoading}
             />
+          </Modal.Section>
+        </Modal>
+
+        {/* Tier Create/Edit Modal */}
+        <Modal
+          open={tierModalActive}
+          onClose={() => {
+            setTierModalActive(false);
+            setEditingTier(null);
+          }}
+          title={editingTier ? "Edit Tier" : "Create New Tier"}
+          primaryAction={{
+            content: "Save",
+            onAction: handleSaveTier,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setTierModalActive(false);
+                setEditingTier(null);
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              <TextField
+                label="Tier Name"
+                value={tierFormData.name}
+                onChange={(value) => setTierFormData({ ...tierFormData, name: value })}
+                placeholder="e.g., Bronze, Silver, Gold"
+                autoComplete="off"
+              />
+
+              <TextField
+                label="Minimum Spend"
+                type="number"
+                value={tierFormData.minSpend}
+                onChange={(value) => setTierFormData({ ...tierFormData, minSpend: value })}
+                prefix={data.shopSettings?.storeCurrency || "USD"}
+                helpText="Minimum spending amount to qualify for this tier"
+                autoComplete="off"
+              />
+
+              <TextField
+                label="Cashback Percentage"
+                type="number"
+                value={tierFormData.cashbackPercent}
+                onChange={(value) => setTierFormData({ ...tierFormData, cashbackPercent: value })}
+                suffix="%"
+                helpText="Percentage of order value earned as store credit"
+                autoComplete="off"
+              />
+
+              <Select
+                label="Evaluation Period"
+                options={[
+                  { label: "Annual (resets yearly)", value: "ANNUAL" },
+                  { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                ]}
+                value={tierFormData.evaluationPeriod}
+                onChange={(value) => setTierFormData({ ...tierFormData, evaluationPeriod: value as "ANNUAL" | "LIFETIME" })}
+              />
+            </FormLayout>
+          </Modal.Section>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          open={deleteConfirmActive}
+          onClose={() => {
+            setDeleteConfirmActive(false);
+            setDeletingTierId(null);
+          }}
+          title="Delete Tier"
+          primaryAction={{
+            content: "Delete",
+            destructive: true,
+            onAction: handleDeleteTier,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setDeleteConfirmActive(false);
+                setDeletingTierId(null);
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <Text as="p">
+              Are you sure you want to delete this tier? This action cannot be undone.
+            </Text>
           </Modal.Section>
         </Modal>
 
