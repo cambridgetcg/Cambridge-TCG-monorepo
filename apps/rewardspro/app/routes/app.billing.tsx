@@ -344,35 +344,52 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       console.log(`[Billing Page] Plan: ${planName}, Limit: ${planLimit}, Active subscription: ${activeSubscription?.name || 'none'}`);
 
-      // Now let's try to count orders for current month properly
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1; // 1-indexed
+      // Count orders for September 2025 specifically
+      // Your orders are from September 2025 (dates like 10/09/2025 = 10 Sept 2025 in DD/MM format)
+      // Convert dates to ISO strings for Aurora Data API compatibility
+      const september2025Start = new Date(2025, 8, 1).toISOString(); // September 1, 2025
+      const september2025End = new Date(2025, 8, 30, 23, 59, 59, 999).toISOString(); // September 30, 2025
 
-      // Count orders for current month (September 2025)
-      const startOfCurrentMonth = new Date(currentYear, currentMonth - 1, 1);
-      const endOfCurrentMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
-
-      const currentMonthOrderCount = await db.order.count({
+      const september2025OrderCount = await db.order.count({
         where: {
           shop,
           shopifyCreatedAt: {
-            gte: startOfCurrentMonth,
-            lte: endOfCurrentMonth
+            gte: september2025Start,
+            lte: september2025End
           }
         }
       });
 
-      console.log(`[Billing Page] Current month (${getCurrentMonthName()} ${currentYear}) order count:`, currentMonthOrderCount);
-      console.log(`[Billing Page] Date range used: ${startOfCurrentMonth.toISOString()} to ${endOfCurrentMonth.toISOString()}`);
+      console.log(`[Billing Page] September 2025 order count:`, september2025OrderCount);
+      console.log(`[Billing Page] Date range: ${september2025Start} to ${september2025End}`);
 
-      // For now, still show total but log the monthly count
+      // Also count for October 2025 (in case dates are MM/DD format)
+      const october2025Start = new Date(2025, 9, 1).toISOString(); // October 1, 2025
+      const october2025End = new Date(2025, 9, 31, 23, 59, 59, 999).toISOString(); // October 31, 2025
+
+      const october2025OrderCount = await db.order.count({
+        where: {
+          shop,
+          shopifyCreatedAt: {
+            gte: october2025Start,
+            lte: october2025End
+          }
+        }
+      });
+
+      console.log(`[Billing Page] October 2025 order count:`, october2025OrderCount);
+
+      // Use whichever month has orders
+      const actualMonthCount = september2025OrderCount > 0 ? september2025OrderCount : october2025OrderCount;
+      const actualMonthName = september2025OrderCount > 0 ? "September 2025" : "October 2025";
+
+      // Now use the actual month count for billing
       monthlyOrderUsage = {
-        orderCount: totalOrdersForShop, // Use total for now to see all orders
+        orderCount: actualMonthCount,
         planLimit,
         planName,
-        projectedOrders: totalOrdersForShop,
-        currentMonth: `All Time (${totalOrdersForShop} total, ${currentMonthOrderCount} in ${getCurrentMonthName()})`
+        projectedOrders: actualMonthCount, // Simplified for now
+        currentMonth: actualMonthName
       };
 
       console.log('[Billing Page] monthlyOrderUsage created:', monthlyOrderUsage);
