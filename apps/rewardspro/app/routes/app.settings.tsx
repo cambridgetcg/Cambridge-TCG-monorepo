@@ -37,6 +37,7 @@ import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
 import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
+import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 
 // ============= TYPES =============
 type Currency = 
@@ -491,15 +492,41 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const month = now.getMonth() + 1;
     const daysRemaining = calculateDaysRemaining();
 
-    // Get direct order count from Order table (like billing page does)
+    // Count orders using multiple strategies (like billing-v2 does)
     let orderCount = 0;
+    let orderCountStrategy = "unknown";
+
     try {
-      orderCount = await db.order.count({
-        where: { shop }
-      });
-      console.log(`[Settings Page] Direct order count from Order table: ${orderCount}`);
+      console.log(`[Settings Page] Attempting to count orders for ${shop} - ${getCurrentMonthName()} ${year}`);
+
+      // Strategy 1: Try date extraction method (most reliable for month-based)
+      try {
+        orderCount = await countOrdersDateExtraction(shop, year, month);
+        orderCountStrategy = "DateExtraction";
+        console.log(`[Settings Page] Date extraction strategy succeeded: ${orderCount} orders`);
+      } catch (error) {
+        console.log("[Settings Page] Date extraction failed, trying fallback strategies");
+
+        // Strategy 2: Try multiple strategies with fallback
+        const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+        const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
+        orderCount = result.count;
+        orderCountStrategy = result.strategy;
+      }
+
+      // Strategy 3: If still 0, try pre-aggregated count
+      if (orderCount === 0) {
+        console.log("[Settings Page] Trying pre-aggregated count");
+        orderCount = await getOrCreateMonthlyCount(shop, year, month);
+        orderCountStrategy = "PreAggregated";
+      }
     } catch (error) {
-      console.warn("[Settings Page] Could not fetch order count:", error);
+      console.error("[Settings Page] Error counting orders:", error);
+      // Fallback to simple total count
+      orderCount = await db.order.count({ where: { shop } });
+      orderCountStrategy = "TotalFallback";
     }
 
     // Determine plan based on active subscription
@@ -514,17 +541,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       planName = 'RewardsPro Annual';
     }
 
-    // Calculate projected orders
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
 
     const monthlyOrderUsage = {
       orderCount,
       planLimit,
       planName,
-      projectedOrders
+      projectedOrders,
+      countStrategy: orderCountStrategy // Include which strategy worked
     };
 
-    console.log(`[Settings Page] Plan: ${planName}, Limit: ${planLimit}, Orders: ${orderCount}`);
+    console.log(`[Settings Page] Final count: ${orderCount} using strategy: ${orderCountStrategy}`);
 
     // Serialize dates for JSON
     const serializedSettings = {

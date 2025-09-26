@@ -47,6 +47,7 @@ import {
 } from "../utils/tier-styles";
 import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 
 // ============================================
 // CONSTANTS
@@ -253,7 +254,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tiers,
       recentTransactions,
       billingPlan,
-      totalOrderCount,
     ] = await Promise.all([
       // Shop settings
       db.shopSettings.findUnique({ 
@@ -295,11 +295,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Billing plan from database
       db.billingPlan.findUnique({
         where: { shop },
-      }),
-
-      // Direct order count from Order table (like billing page does)
-      db.order.count({
-        where: { shop }
       }),
     ]);
 
@@ -411,6 +406,46 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Process billing data
     const currentMonth = getCurrentMonthName();
     const daysRemaining = calculateDaysRemaining();
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // 1-indexed for database
+
+    // Count orders using multiple strategies (like billing-v2 does)
+    let orderCount = 0;
+    let orderCountStrategy = "unknown";
+
+    try {
+      console.log(`[Dashboard] Attempting to count orders for ${shop} - ${currentMonth} ${year}`);
+
+      // Strategy 1: Try date extraction method (most reliable for month-based)
+      try {
+        orderCount = await countOrdersDateExtraction(shop, year, month);
+        orderCountStrategy = "DateExtraction";
+        console.log(`[Dashboard] Date extraction strategy succeeded: ${orderCount} orders`);
+      } catch (error) {
+        console.log("[Dashboard] Date extraction failed, trying fallback strategies");
+
+        // Strategy 2: Try multiple strategies with fallback
+        const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+        const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
+        orderCount = result.count;
+        orderCountStrategy = result.strategy;
+      }
+
+      // Strategy 3: If still 0, try pre-aggregated count
+      if (orderCount === 0) {
+        console.log("[Dashboard] Trying pre-aggregated count");
+        orderCount = await getOrCreateMonthlyCount(shop, year, month);
+        orderCountStrategy = "PreAggregated";
+      }
+    } catch (error) {
+      console.error("[Dashboard] Error counting orders:", error);
+      // Fallback to simple total count
+      orderCount = await db.order.count({ where: { shop } });
+      orderCountStrategy = "TotalFallback";
+    }
 
     // Determine plan based on active subscription
     let planLimit = 200; // Default for free plan
@@ -424,18 +459,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       planName = 'RewardsPro Annual';
     }
 
-    // Use direct order count from Order table
-    const orderCount = totalOrderCount || 0;
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
 
     const monthlyOrderUsage = {
       orderCount,
       planLimit,
       planName,
-      projectedOrders
+      projectedOrders,
+      countStrategy: orderCountStrategy // Include which strategy worked
     };
 
-    console.log(`[Dashboard] Order count from Order table: ${orderCount}, Plan: ${planName}, Limit: ${planLimit}`);
+    console.log(`[Dashboard] Final count: ${orderCount} using strategy: ${orderCountStrategy}`);
 
     // Serialize billing plan data
     const serializedPlan = billingPlan ? {
