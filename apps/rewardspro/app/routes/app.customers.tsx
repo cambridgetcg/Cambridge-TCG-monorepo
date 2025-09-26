@@ -920,7 +920,7 @@ export default function Customers() {
   const [tierFilter, setTierFilter] = useState(searchParams.get("tier") || "all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
-  const { mode, setMode } = useSetIndexFiltersMode("filtering");
+  const { mode, setMode } = useSetIndexFiltersMode();
   const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "25"));
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
