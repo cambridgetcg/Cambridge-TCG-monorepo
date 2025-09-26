@@ -21,13 +21,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   if (!chargeId) {
     console.error("[Billing Callback] No charge_id in URL");
-    return redirect('/app/billing?error=no_charge_id');
+    return redirect('/app/billing-v2?error=no_charge_id');
   }
 
   // Verify shop matches session (security check since no HMAC)
   if (shop && shop !== session.shop) {
     console.error('[Billing Callback] Shop mismatch:', { urlShop: shop, sessionShop: session.shop });
-    return redirect('/app/billing?error=invalid_shop');
+    return redirect('/app/billing-v2?error=invalid_shop');
   }
 
   try {
@@ -84,14 +84,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
         console.log("[Billing Callback] Could not update database (tables may not exist):", dbError.message);
       }
 
-      return redirect('/app/billing?success=true&message=Subscription%20activated%20successfully');
+      return redirect('/app/billing-v2?success=true&message=Subscription%20activated%20successfully');
     } else {
       console.error('[Billing Callback] Subscription not found after approval');
-      return redirect('/app/billing?error=activation_failed&message=Subscription%20not%20found');
+      return redirect('/app/billing-v2?error=activation_failed&message=Subscription%20not%20found');
     }
 
   } catch (error: any) {
     console.error('[Billing Callback] Error processing callback:', error);
-    return redirect('/app/billing?error=processing_failed&message=An%20error%20occurred%20while%20processing%20your%20subscription');
+    return redirect('/app/billing-v2?error=processing_failed&message=An%20error%20occurred%20while%20processing%20your%20subscription');
   }
 }

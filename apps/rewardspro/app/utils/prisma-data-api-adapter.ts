@@ -53,30 +53,26 @@ export class DataAPIModelProxy<T = any> {
           params.push(AuroraDataAPI.buildParameter(`param${index}`, `%${searchValue}%`));
         } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
           // Handle { gte: value } (greater than or equal)
-          // Check if this is a timestamp field that needs casting
+          // STRATEGY 1: Remove SQL casting, rely on Data API type hints only
+          conditions.push(`"${key}" >= :param${index}`);
+
+          // Check if this is a timestamp field to pass hint to buildParameter
           const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
             'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
             'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
-          
-          if (isTimestampField) {
-            conditions.push(`"${key}" >= :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" >= :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
+
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte, { isTimestamp: isTimestampField }));
         } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
           // Handle { lte: value } (less than or equal)
-          // Check if this is a timestamp field that needs casting
+          // STRATEGY 1: Remove SQL casting, rely on Data API type hints only
+          conditions.push(`"${key}" <= :param${index}`);
+
+          // Check if this is a timestamp field to pass hint to buildParameter
           const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
             'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
             'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
-          
-          if (isTimestampField) {
-            conditions.push(`"${key}" <= :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" <= :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
+
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte, { isTimestamp: isTimestampField }));
         } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
           // Handle { gt: value } (greater than)
           // Check if this is a timestamp field that needs casting
