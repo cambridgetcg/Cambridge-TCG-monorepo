@@ -35,7 +35,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
-import { CurrentPlanCard } from "~/components/Billing/CurrentPlanCardV2";
+import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 
 // ============= TYPES =============

@@ -45,7 +45,7 @@ import {
   getTierStyle,
   sortTiersByPriority
 } from "../utils/tier-styles";
-import { CurrentPlanCard } from "~/components/Billing/CurrentPlanCardV2";
+import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 
 // ============================================

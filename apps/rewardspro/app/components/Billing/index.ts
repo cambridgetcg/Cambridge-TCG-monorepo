@@ -1,4 +1,4 @@
-export { CurrentPlanCard } from "./CurrentPlanCardV2";
-export type { CurrentPlanCardProps } from "./CurrentPlanCardV2";
+export { CurrentPlanCard } from "./CurrentPlanCard";
+export type { CurrentPlanCardProps } from "./CurrentPlanCard";
 export { PlanOverLimitBanner } from "./PlanOverLimitBanner";
 export { PlanUsageProgress } from "./PlanUsageProgress";
