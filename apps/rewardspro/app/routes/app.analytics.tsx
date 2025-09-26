@@ -23,8 +23,6 @@ import {
   SkeletonBodyText,
   SkeletonDisplayText,
   ButtonGroup,
-  Popover,
-  DatePicker,
 } from "@shopify/polaris";
 import {
   MetricCard,
@@ -1017,11 +1015,6 @@ export default function AnalyticsPage() {
   const [selectedDateRange, setSelectedDateRange] = useState(
     searchParams.get('range') || '30days'
   );
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [customDateRange, setCustomDateRange] = useState<{
-    start: Date | null;
-    end: Date | null;
-  }>({ start: null, end: null });
   
   const isLoading = navigation.state === "loading";
   
@@ -1033,8 +1026,7 @@ export default function AnalyticsPage() {
   // Handle date range selection
   const handleDateRangeSelect = useCallback((range: string) => {
     setSelectedDateRange(range);
-    setShowDatePicker(false);
-    
+
     // Navigate with the new date range parameter
     navigate(`?range=${range}`);
   }, [navigate]);
@@ -1059,15 +1051,10 @@ export default function AnalyticsPage() {
         return `Last Year (${year.toLocaleDateString()} - ${now.toLocaleDateString()})`;
       case 'all':
         return 'All Time';
-      case 'custom':
-        if (customDateRange.start && customDateRange.end) {
-          return `Custom (${customDateRange.start.toLocaleDateString()} - ${customDateRange.end.toLocaleDateString()})`;
-        }
-        return 'Custom Range';
       default:
         return 'Last 30 Days';
     }
-  }, [selectedDateRange, customDateRange]);
+  }, [selectedDateRange]);
 
   const tabs = [
     { id: 'overview', content: 'Overview' },
@@ -1087,85 +1074,44 @@ export default function AnalyticsPage() {
           <Card>
             <Box padding="400">
               <BlockStack gap="400">
-                <InlineStack align="space-between">
-                  <ButtonGroup>
-                    <Button
-                      pressed={selectedDateRange === 'today'}
-                      onClick={() => handleDateRangeSelect('today')}
-                    >
-                      Today
-                    </Button>
-                    <Button
-                      pressed={selectedDateRange === '7days'}
-                      onClick={() => handleDateRangeSelect('7days')}
-                    >
-                      7 Days
-                    </Button>
-                    <Button
-                      pressed={selectedDateRange === '30days'}
-                      onClick={() => handleDateRangeSelect('30days')}
-                    >
-                      30 Days
-                    </Button>
-                    <Button
-                      pressed={selectedDateRange === 'quarter'}
-                      onClick={() => handleDateRangeSelect('quarter')}
-                    >
-                      Quarter
-                    </Button>
-                    <Button
-                      pressed={selectedDateRange === 'year'}
-                      onClick={() => handleDateRangeSelect('year')}
-                    >
-                      Year
-                    </Button>
-                    <Button
-                      pressed={selectedDateRange === 'all'}
-                      onClick={() => handleDateRangeSelect('all')}
-                    >
-                      All Time
-                    </Button>
-                  </ButtonGroup>
-
-                  <Popover
-                    active={showDatePicker}
-                    activator={
-                      <Button
-                        pressed={selectedDateRange === 'custom'}
-                        onClick={() => setShowDatePicker(!showDatePicker)}
-                        disclosure={showDatePicker ? 'up' : 'down'}
-                      >
-                        Custom Range
-                      </Button>
-                    }
-                    onClose={() => setShowDatePicker(false)}
+                <ButtonGroup>
+                  <Button
+                    pressed={selectedDateRange === 'today'}
+                    onClick={() => handleDateRangeSelect('today')}
                   >
-                    <Box padding="400" minWidth="320px">
-                      <BlockStack gap="400">
-                        <Text variant="headingSm" as="h3">Select Date Range</Text>
-                        <BlockStack gap="300">
-                          <Text variant="bodySm" tone="subdued" as="p">
-                            Date range selection is coming soon. This will allow you to:
-                          </Text>
-                          <BlockStack gap="200">
-                            <Text variant="bodySm" as="p">• Select custom start and end dates</Text>
-                            <Text variant="bodySm" as="p">• Compare periods</Text>
-                            <Text variant="bodySm" as="p">• Advanced filtering options</Text>
-                          </BlockStack>
-                        </BlockStack>
-                        <Button
-                          variant="primary"
-                          onClick={() => {
-                            setSelectedDateRange('custom');
-                            setShowDatePicker(false);
-                          }}
-                        >
-                          Apply Custom Range
-                        </Button>
-                      </BlockStack>
-                    </Box>
-                  </Popover>
-                </InlineStack>
+                    Today
+                  </Button>
+                  <Button
+                    pressed={selectedDateRange === '7days'}
+                    onClick={() => handleDateRangeSelect('7days')}
+                  >
+                    7 Days
+                  </Button>
+                  <Button
+                    pressed={selectedDateRange === '30days'}
+                    onClick={() => handleDateRangeSelect('30days')}
+                  >
+                    30 Days
+                  </Button>
+                  <Button
+                    pressed={selectedDateRange === 'quarter'}
+                    onClick={() => handleDateRangeSelect('quarter')}
+                  >
+                    Quarter
+                  </Button>
+                  <Button
+                    pressed={selectedDateRange === 'year'}
+                    onClick={() => handleDateRangeSelect('year')}
+                  >
+                    Year
+                  </Button>
+                  <Button
+                    pressed={selectedDateRange === 'all'}
+                    onClick={() => handleDateRangeSelect('all')}
+                  >
+                    All Time
+                  </Button>
+                </ButtonGroup>
 
                 <Divider />
 
