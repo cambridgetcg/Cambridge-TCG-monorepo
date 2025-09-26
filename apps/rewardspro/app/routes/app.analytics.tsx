@@ -148,22 +148,23 @@ interface Insight {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  
+
   if (!session?.shop) {
     throw new Response("Unauthorized", { status: 401 });
   }
-  
+
   const shop = session.shop;
-  
+
   // Get date range from URL parameters
   const url = new URL(request.url);
   const dateRange = url.searchParams.get('range') || '30days';
-  
+
   try {
     // Calculate date range based on selection
-    let startDate: Date;
+    let startDate: Date | null = null;
+    let endDate: Date = new Date();
     const now = new Date();
-    
+
     switch (dateRange) {
       case 'today':
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -180,109 +181,162 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       case 'year':
         startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
         break;
+      case 'all':
+        startDate = null; // No start date filter for all time
+        break;
       default:
         startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     }
-    
-    const startDateISO = startDate.toISOString();
-    
-    // Fetch all necessary data
+
+    // Build date filter for orders
+    const dateFilter = startDate ? {
+      shopifyCreatedAt: {
+        gte: startDate,
+        lte: endDate
+      }
+    } : {}; // No date filter for all time
+
+    // Fetch all necessary data with Orders included
     const [
       shopSettings,
       customers,
       tiers,
+      orders,
+      allOrders, // For customer metrics calculation
       recentTransactions,
       allTransactions,
     ] = await Promise.all([
       db.shopSettings.findUnique({ where: { shop } }),
       db.customer.findMany({
         where: { shop },
-        include: { currentTier: true },
+        include: {
+          currentTier: true,
+          orders: {
+            select: {
+              id: true,
+              shopifyCreatedAt: true,
+              netAmount: true,
+            },
+            orderBy: { shopifyCreatedAt: 'desc' },
+            take: 1 // Just to get last order date
+          }
+        },
       }),
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
       }),
+      // Fetch orders for the selected date range
+      db.order.findMany({
+        where: {
+          shop,
+          financialStatus: 'PAID',
+          ...dateFilter
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              currentTierId: true,
+            }
+          }
+        }
+      }),
+      // Fetch all orders for customer spending calculation (no date filter)
+      db.order.findMany({
+        where: {
+          shop,
+          financialStatus: 'PAID',
+        },
+        select: {
+          customerId: true,
+          netAmount: true,
+          cashbackAmount: true,
+          shopifyCreatedAt: true,
+        }
+      }),
       db.storeCreditLedger.findMany({
-        where: { shop },
+        where: {
+          shop,
+          ...(startDate ? { createdAt: { gte: startDate } } : {})
+        },
         orderBy: { createdAt: 'desc' },
         take: 100, // Limit recent transactions
       }),
       db.storeCreditLedger.findMany({
-        where: { shop },
-        select: { 
-          type: true, 
-          amount: true, 
+        where: {
+          shop,
+          ...(startDate ? { createdAt: { gte: startDate } } : {})
+        },
+        select: {
+          type: true,
+          amount: true,
           createdAt: true,
           customerId: true,
         },
       }),
     ]);
-    
-    // Filter transactions based on selected date range
-    const filteredRecentTransactions = recentTransactions.filter(
-      t => new Date(t.createdAt) >= startDate
+
+    // Calculate customer spending from orders (since totalSpent field isn't updated)
+    const customerSpendingMap = new Map<string, { totalSpent: number, orderCount: number, lastOrderDate: Date | null }>();
+    allOrders.forEach(order => {
+      const existing = customerSpendingMap.get(order.customerId) || { totalSpent: 0, orderCount: 0, lastOrderDate: null };
+      existing.totalSpent += parseFloat(order.netAmount?.toString() || '0');
+      existing.orderCount += 1;
+      if (!existing.lastOrderDate || new Date(order.shopifyCreatedAt) > existing.lastOrderDate) {
+        existing.lastOrderDate = new Date(order.shopifyCreatedAt);
+      }
+      customerSpendingMap.set(order.customerId, existing);
+    });
+
+    // Calculate metrics from actual orders
+    const totalRevenue = orders.reduce((sum, order) =>
+      sum + parseFloat(order.netAmount?.toString() || '0'), 0
     );
-    
-    // Filter all transactions for the selected period
-    const filteredAllTransactions = allTransactions.filter(
-      t => new Date(t.createdAt) >= startDate
+
+    const totalCashbackFromOrders = orders.reduce((sum, order) =>
+      sum + parseFloat(order.cashbackAmount?.toString() || '0'), 0
     );
-    
-    // Calculate metrics
-    const totalMembers = customers.length;
-    const activeMembers = customers.filter(c => 
-      c.currentTierId || (c.storeCredit && parseFloat(c.storeCredit.toString()) > 0)
+
+    const orderCount = orders.length;
+    const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+
+    // Calculate active members (customers with orders in period or store credit)
+    const customersWithOrdersInPeriod = new Set(orders.map(o => o.customerId));
+    const activeMembers = customers.filter(c =>
+      customersWithOrdersInPeriod.has(c.id) ||
+      (c.storeCredit && parseFloat(c.storeCredit.toString()) > 0)
     ).length;
-    
-    const totalStoreCredit = customers.reduce((sum, c) => 
+
+    const totalMembers = customers.length;
+    const conversionRate = totalMembers > 0 ? (activeMembers / totalMembers) * 100 : 0;
+
+    const totalStoreCredit = customers.reduce((sum, c) =>
       sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
     );
-    
-    const totalCreditIssued = filteredAllTransactions
+
+    // Calculate credit metrics from ledger (keep this as is)
+    const totalCreditIssued = allTransactions
       .filter(t => t.type === 'CASHBACK_EARNED' || t.type === 'MANUAL_ADJUSTMENT')
       .reduce((sum, t) => sum + Math.max(0, t.amount ? parseFloat(t.amount.toString()) : 0), 0);
-    
-    const totalCreditRedeemed = filteredAllTransactions
+
+    const totalCreditRedeemed = allTransactions
       .filter(t => t.type === 'ORDER_PAYMENT')
       .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
-    
-    const creditUtilization = totalCreditIssued > 0 
-      ? (totalCreditRedeemed / totalCreditIssued) * 100 
+
+    const creditUtilization = totalCreditIssued > 0
+      ? (totalCreditRedeemed / totalCreditIssued) * 100
       : 0;
-    
-    // TODO: In production, fetch actual order data from Shopify GraphQL API
-    // Currently estimating revenue based on cashback earned (reverse calculation)
-    // If customers earned cashback, we can estimate the order values
-    const totalCashbackEarned = filteredAllTransactions
-      .filter(t => t.type === 'CASHBACK_EARNED')
-      .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
-    
-    // Get average cashback rate across all tiers weighted by customer count
-    const avgCashbackRate = tiers.length > 0
-      ? tiers.reduce((sum, tier) => {
-          const tierCustomerCount = customers.filter(c => c.currentTierId === tier.id).length;
-          return sum + (tier.cashbackPercent * tierCustomerCount);
-        }, 0) / Math.max(1, customers.length)
-      : 5; // Default 5% if no tiers
-    
-    // Estimate total revenue from cashback earned
-    const estimatedRevenueFromCashback = avgCashbackRate > 0 
-      ? (totalCashbackEarned / (avgCashbackRate / 100))
-      : 0;
-    
-    // Add actual credit redemptions and round to 2 decimal places
-    const revenueImpact = Math.round((estimatedRevenueFromCashback + totalCreditRedeemed) * 100) / 100;
-    const avgOrderValue = activeMembers > 0 ? Math.round((revenueImpact / activeMembers) * 100) / 100 : 0;
-    const conversionRate = activeMembers > 0 ? (activeMembers / totalMembers) * 100 : 0;
-    
-    
-    // Generate trend data (last 30 days)
-    const trends = generateTrendData(customers, filteredRecentTransactions);
-    
-    // Calculate tier performance
-    const tierPerformance = calculateTierPerformance(tiers, customers, filteredAllTransactions);
-    
+
+    // Use actual revenue instead of estimation
+    const revenueImpact = Math.round(totalRevenue * 100) / 100;
+    const avgOrderValueRounded = Math.round(avgOrderValue * 100) / 100;
+    // Generate trend data from actual orders
+    const trends = generateTrendDataFromOrders(orders, customers, allTransactions, startDate);
+
+    // Calculate tier performance with actual order data
+    const tierPerformance = calculateTierPerformanceFromOrders(tiers, orders, customers, allTransactions);
+
     // Generate insights
     const insights = generateInsights(
       customers,
@@ -291,37 +345,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       conversionRate,
       tierPerformance
     );
-    
-    // Calculate financial breakdown with rounding
+
+    // Calculate financial breakdown with actual revenue
     const financial = {
-      directRevenue: Math.round(revenueImpact * 100) / 100,
+      directRevenue: Math.round(totalRevenue * 100) / 100,
       creditIssued: Math.round(totalCreditIssued * 100) / 100,
       creditRedeemed: Math.round(totalCreditRedeemed * 100) / 100,
-      netValue: Math.round((revenueImpact - totalCreditIssued) * 100) / 100,
-      roi: totalCreditIssued > 0 ? Math.round(((revenueImpact - totalCreditIssued) / totalCreditIssued) * 100 * 100) / 100 : 0,
+      netValue: Math.round((totalRevenue - totalCreditIssued) * 100) / 100,
+      roi: totalCreditIssued > 0 ? Math.round(((totalRevenue - totalCreditIssued) / totalCreditIssued) * 100 * 100) / 100 : 0,
       costBreakdown: {
         creditCost: Math.round(totalCreditIssued * 100) / 100,
         operationalCost: Math.round(totalCreditIssued * 0.1 * 100) / 100, // Assume 10% operational cost
       },
     };
-    
-    // Calculate customer segments
-    const segments = calculateCustomerSegments(customers, filteredAllTransactions);
-    
-    // Calculate comparison (vs previous period) with rounding
-    const previousRevenue = Math.round(revenueImpact * 0.85 * 100) / 100; // Mock data - would calculate from historical
+
+    // Calculate customer segments using order history
+    const segments = calculateCustomerSegmentsFromOrders(customers, allOrders, customerSpendingMap);
+
+    // Calculate comparison vs previous period
+    // For real comparison, we'd need to fetch orders from previous period
+    const previousPeriodRevenue = totalRevenue * 0.85; // Placeholder - should query previous period
     const comparison = {
-      period: 'month' as const,
-      current: Math.round(revenueImpact * 100) / 100,
-      previous: previousRevenue,
-      change: previousRevenue > 0 ? Math.round(((revenueImpact - previousRevenue) / previousRevenue) * 100 * 100) / 100 : 0,
+      period: dateRange === 'year' ? 'year' as const : 'month' as const,
+      current: Math.round(totalRevenue * 100) / 100,
+      previous: Math.round(previousPeriodRevenue * 100) / 100,
+      change: previousPeriodRevenue > 0 ? Math.round(((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 * 100) / 100 : 0,
     };
-    
+
     const analyticsData: AnalyticsData = {
       revenueImpact,
       activeMembers,
       totalMembers,
-      avgOrderValue,
+      avgOrderValue: avgOrderValueRounded,
       conversionRate,
       totalStoreCredit,
       creditUtilization,
@@ -350,6 +405,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 
 function generateTrendData(customers: any[], transactions: any[]): AnalyticsData['trends'] {
+  // Legacy function - keeping for backward compatibility
   // Generate mock trend data for last 30 days
   const days = 30;
   const trends = {
@@ -358,34 +414,123 @@ function generateTrendData(customers: any[], transactions: any[]): AnalyticsData
     orders: [] as TrendData[],
     credit: [] as TrendData[],
   };
-  
+
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     const dateStr = date.toISOString().split('T')[0];
-    
+
     // Mock data with some randomness
     trends.revenue.push({
       date: dateStr,
       value: 1000 + Math.random() * 500 + (30 - i) * 20,
     });
-    
+
     trends.members.push({
       date: dateStr,
       value: Math.max(0, customers.length - i + Math.floor(Math.random() * 5)),
     });
-    
+
     trends.orders.push({
       date: dateStr,
       value: Math.floor(10 + Math.random() * 20),
     });
-    
+
     trends.credit.push({
       date: dateStr,
       value: 500 + Math.random() * 200,
     });
   }
-  
+
+  return trends;
+}
+
+function generateTrendDataFromOrders(
+  orders: any[],
+  customers: any[],
+  transactions: any[],
+  startDate: Date | null
+): AnalyticsData['trends'] {
+  // Generate trend data from actual orders
+  const trends = {
+    revenue: [] as TrendData[],
+    members: [] as TrendData[],
+    orders: [] as TrendData[],
+    credit: [] as TrendData[],
+  };
+
+  // Determine the trend period (last 30 days for display, regardless of filter)
+  const trendDays = 30;
+  const now = new Date();
+
+  // Group orders and transactions by date
+  const ordersByDate = new Map<string, any[]>();
+  const transactionsByDate = new Map<string, any[]>();
+  const customersByDate = new Map<string, Set<string>>();
+
+  orders.forEach(order => {
+    const dateStr = new Date(order.shopifyCreatedAt).toISOString().split('T')[0];
+    if (!ordersByDate.has(dateStr)) {
+      ordersByDate.set(dateStr, []);
+    }
+    ordersByDate.get(dateStr)!.push(order);
+
+    // Track unique customers per day
+    if (!customersByDate.has(dateStr)) {
+      customersByDate.set(dateStr, new Set());
+    }
+    customersByDate.get(dateStr)!.add(order.customerId);
+  });
+
+  transactions.forEach(transaction => {
+    const dateStr = new Date(transaction.createdAt).toISOString().split('T')[0];
+    if (!transactionsByDate.has(dateStr)) {
+      transactionsByDate.set(dateStr, []);
+    }
+    transactionsByDate.get(dateStr)!.push(transaction);
+  });
+
+  // Generate data for each day
+  for (let i = trendDays - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+
+    const dayOrders = ordersByDate.get(dateStr) || [];
+    const dayTransactions = transactionsByDate.get(dateStr) || [];
+    const dayCustomers = customersByDate.get(dateStr) || new Set();
+
+    // Calculate daily revenue from orders
+    const dayRevenue = dayOrders.reduce((sum, order) =>
+      sum + parseFloat(order.netAmount?.toString() || '0'), 0
+    );
+
+    // Calculate daily credit issued
+    const dayCreditIssued = dayTransactions
+      .filter(t => t.type === 'CASHBACK_EARNED' || t.type === 'MANUAL_ADJUSTMENT')
+      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount?.toString() || '0')), 0);
+
+    trends.revenue.push({
+      date: dateStr,
+      value: Math.round(dayRevenue * 100) / 100,
+    });
+
+    trends.members.push({
+      date: dateStr,
+      value: dayCustomers.size,
+    });
+
+    trends.orders.push({
+      date: dateStr,
+      value: dayOrders.length,
+    });
+
+    trends.credit.push({
+      date: dateStr,
+      value: Math.round(dayCreditIssued * 100) / 100,
+    });
+  }
+
   return trends;
 }
 
@@ -394,40 +539,33 @@ function calculateTierPerformance(
   customers: any[],
   transactions: any[]
 ): AnalyticsData['tierPerformance'] {
+  // Legacy function - keeping for backward compatibility
   return tiers.map((tier, index) => {
     const tierCustomers = customers.filter(c => c.currentTierId === tier.id);
-    const tierTransactions = transactions.filter(t => 
+    const tierTransactions = transactions.filter(t =>
       tierCustomers.some(c => c.id === t.customerId)
     );
-    
-    // TODO: In production, fetch actual order data from Shopify GraphQL API
-    // Currently estimating revenue based on cashback earned (reverse calculation)
-    // If a customer earned X cashback at Y% rate, the order value was X / (Y/100)
+
     const cashbackEarned = tierTransactions
       .filter(t => t.type === 'CASHBACK_EARNED')
       .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
-    
-    // Calculate estimated revenue from cashback
-    // If no cashback rate, use 0 to avoid division by zero
-    const estimatedRevenue = tier.cashbackPercent > 0 
+
+    const estimatedRevenue = tier.cashbackPercent > 0
       ? (cashbackEarned / (tier.cashbackPercent / 100))
       : 0;
-    
-    // Also add revenue from store credit redemptions (actual spending)
+
     const creditRedeemed = tierTransactions
       .filter(t => t.type === 'ORDER_PAYMENT')
       .reduce((sum, t) => sum + Math.abs(t.amount ? parseFloat(t.amount.toString()) : 0), 0);
-    
-    // Total revenue is estimated from cashback + credit redemptions (rounded)
+
     const revenue = Math.round((estimatedRevenue + creditRedeemed) * 100) / 100;
-    
-    const creditBalance = Math.round(tierCustomers.reduce((sum, c) => 
+
+    const creditBalance = Math.round(tierCustomers.reduce((sum, c) =>
       sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
     ) * 100) / 100;
-    
-    // Calculate average spend per customer (rounded)
+
     const avgSpend = tierCustomers.length > 0 ? Math.round((revenue / tierCustomers.length) * 100) / 100 : 0;
-    
+
     return {
       id: tier.id,
       name: tier.name,
@@ -438,6 +576,69 @@ function calculateTierPerformance(
       creditBalance,
       cashbackPercent: tier.cashbackPercent,
       upgradeRate: index < tiers.length - 1 ? 15 + Math.random() * 10 : undefined,
+    };
+  });
+}
+
+function calculateTierPerformanceFromOrders(
+  tiers: any[],
+  orders: any[],
+  customers: any[],
+  transactions: any[]
+): AnalyticsData['tierPerformance'] {
+  return tiers.map((tier, index) => {
+    const tierCustomers = customers.filter(c => c.currentTierId === tier.id);
+    const tierCustomerIds = new Set(tierCustomers.map(c => c.id));
+
+    // Get orders from tier customers
+    const tierOrders = orders.filter(order => tierCustomerIds.has(order.customerId));
+
+    // Calculate actual revenue from orders
+    const revenue = tierOrders.reduce((sum, order) =>
+      sum + parseFloat(order.netAmount?.toString() || '0'), 0
+    );
+
+    // Calculate cashback from orders
+    const cashbackEarned = tierOrders.reduce((sum, order) =>
+      sum + parseFloat(order.cashbackAmount?.toString() || '0'), 0
+    );
+
+    // Get credit balance for tier customers
+    const creditBalance = tierCustomers.reduce((sum, c) =>
+      sum + (c.storeCredit ? parseFloat(c.storeCredit.toString()) : 0), 0
+    );
+
+    // Calculate average spend per customer
+    const avgSpend = tierCustomers.length > 0 ? revenue / tierCustomers.length : 0;
+
+    // Calculate retention rate based on recent orders
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const activeInLast30Days = tierOrders.filter(order =>
+      new Date(order.shopifyCreatedAt) >= thirtyDaysAgo
+    ).length;
+    const retention = tierCustomers.length > 0
+      ? (activeInLast30Days / tierCustomers.length) * 100
+      : 0;
+
+    // Calculate upgrade potential (customers close to next tier)
+    let upgradeRate: number | undefined;
+    if (index < tiers.length - 1) {
+      const nextTier = tiers[index + 1];
+      // This would need customer lifetime spending data
+      // For now, use a placeholder
+      upgradeRate = 15 + Math.random() * 10;
+    }
+
+    return {
+      id: tier.id,
+      name: tier.name,
+      members: tierCustomers.length,
+      revenue: Math.round(revenue * 100) / 100,
+      avgSpend: Math.round(avgSpend * 100) / 100,
+      retention: Math.round(retention * 100) / 100,
+      creditBalance: Math.round(creditBalance * 100) / 100,
+      cashbackPercent: tier.cashbackPercent,
+      upgradeRate,
     };
   });
 }
@@ -535,10 +736,11 @@ function generateInsights(
 }
 
 function calculateCustomerSegments(customers: any[], transactions: any[]): AnalyticsData['segments'] {
+  // Legacy function - keeping for backward compatibility
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
   const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
-  
+
   // VIP customers (top 10% by credit balance)
   const sortedByCredit = [...customers].sort((a, b) => {
     const aCredit = a.storeCredit ? parseFloat(a.storeCredit.toString()) : 0;
@@ -547,32 +749,32 @@ function calculateCustomerSegments(customers: any[], transactions: any[]): Analy
   });
   const vipCount = Math.ceil(customers.length * 0.1);
   const vipCustomers = sortedByCredit.slice(0, vipCount);
-  
+
   // At-risk customers (no activity in 30-60 days)
   const atRiskCustomers = customers.filter(c => {
     const lastTransaction = transactions
       .filter(t => t.customerId === c.id)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    
-    return lastTransaction && 
+
+    return lastTransaction &&
            new Date(lastTransaction.createdAt).getTime() < thirtyDaysAgo &&
            new Date(lastTransaction.createdAt).getTime() > sixtyDaysAgo;
   });
-  
+
   // New customers (joined in last 30 days)
-  const newCustomers = customers.filter(c => 
+  const newCustomers = customers.filter(c =>
     new Date(c.createdAt).getTime() > thirtyDaysAgo
   );
-  
+
   // Dormant customers (no activity in 60+ days)
   const dormantCustomers = customers.filter(c => {
     const lastTransaction = transactions
       .filter(t => t.customerId === c.id)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-    
+
     return !lastTransaction || new Date(lastTransaction.createdAt).getTime() < sixtyDaysAgo;
   });
-  
+
   return {
     vip: {
       count: vipCustomers.length,
@@ -593,6 +795,105 @@ function calculateCustomerSegments(customers: any[], transactions: any[]): Analy
       count: dormantCustomers.length,
       lastRevenue: dormantCustomers.length * 100,
       daysSinceLastOrder: 75,
+    },
+  };
+}
+
+function calculateCustomerSegmentsFromOrders(
+  customers: any[],
+  orders: any[],
+  customerSpendingMap: Map<string, { totalSpent: number, orderCount: number, lastOrderDate: Date | null }>
+): AnalyticsData['segments'] {
+  const now = Date.now();
+  const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+  const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
+
+  // VIP customers (top 10% by total spending)
+  const customersWithSpending = customers.map(c => ({
+    customer: c,
+    spending: customerSpendingMap.get(c.id)?.totalSpent || 0,
+    orderCount: customerSpendingMap.get(c.id)?.orderCount || 0,
+    lastOrderDate: customerSpendingMap.get(c.id)?.lastOrderDate || null
+  }));
+
+  const sortedBySpending = [...customersWithSpending].sort((a, b) => b.spending - a.spending);
+  const vipCount = Math.ceil(customers.length * 0.1);
+  const vipCustomers = sortedBySpending.slice(0, vipCount);
+
+  // Calculate VIP metrics
+  const vipRevenue = vipCustomers.reduce((sum, vc) => sum + vc.spending, 0);
+  const vipAvgCredit = vipCustomers.reduce((sum, vc) =>
+    sum + (vc.customer.storeCredit ? parseFloat(vc.customer.storeCredit.toString()) : 0), 0
+  ) / Math.max(1, vipCustomers.length);
+
+  // At-risk customers (no orders in 30-60 days)
+  const atRiskCustomers = customersWithSpending.filter(c => {
+    if (!c.lastOrderDate) return false;
+    const lastOrderTime = c.lastOrderDate.getTime();
+    return lastOrderTime < thirtyDaysAgo && lastOrderTime > sixtyDaysAgo;
+  });
+
+  const atRiskRevenue = atRiskCustomers.reduce((sum, c) => sum + c.spending, 0);
+
+  // New customers (joined in last 30 days)
+  const newCustomers = customers.filter(c =>
+    new Date(c.createdAt).getTime() > thirtyDaysAgo
+  );
+
+  // Calculate new customer activation rate
+  const newCustomersWithOrders = newCustomers.filter(c =>
+    customerSpendingMap.has(c.id) && customerSpendingMap.get(c.id)!.orderCount > 0
+  );
+  const activationRate = newCustomers.length > 0
+    ? (newCustomersWithOrders.length / newCustomers.length) * 100
+    : 0;
+
+  const newCustomerRevenue = newCustomers.reduce((sum, c) =>
+    sum + (customerSpendingMap.get(c.id)?.totalSpent || 0), 0
+  );
+
+  // Dormant customers (no orders in 60+ days or never ordered)
+  const dormantCustomers = customersWithSpending.filter(c => {
+    if (!c.lastOrderDate) return true; // Never ordered
+    return c.lastOrderDate.getTime() < sixtyDaysAgo;
+  });
+
+  const dormantRevenue = dormantCustomers.reduce((sum, c) => sum + c.spending, 0);
+
+  // Calculate average days since last order for dormant customers
+  const dormantWithOrders = dormantCustomers.filter(c => c.lastOrderDate);
+  const avgDaysSinceLastOrder = dormantWithOrders.length > 0
+    ? dormantWithOrders.reduce((sum, c) => {
+        const days = Math.floor((now - c.lastOrderDate!.getTime()) / (24 * 60 * 60 * 1000));
+        return sum + days;
+      }, 0) / dormantWithOrders.length
+    : 0;
+
+  // Calculate churn risk for at-risk segment
+  const churnRisk = atRiskCustomers.length > 0 && customersWithSpending.length > 0
+    ? (atRiskCustomers.length / customersWithSpending.filter(c => c.orderCount > 0).length) * 100
+    : 0;
+
+  return {
+    vip: {
+      count: vipCustomers.length,
+      revenue: Math.round(vipRevenue * 100) / 100,
+      avgCredit: Math.round(vipAvgCredit * 100) / 100,
+    },
+    atRisk: {
+      count: atRiskCustomers.length,
+      revenue: Math.round(atRiskRevenue * 100) / 100,
+      churnRisk: Math.round(churnRisk * 100) / 100,
+    },
+    new: {
+      count: newCustomers.length,
+      revenue: Math.round(newCustomerRevenue * 100) / 100,
+      activationRate: Math.round(activationRate * 100) / 100,
+    },
+    dormant: {
+      count: dormantCustomers.length,
+      lastRevenue: Math.round(dormantRevenue * 100) / 100,
+      daysSinceLastOrder: Math.round(avgDaysSinceLastOrder),
     },
   };
 }
@@ -756,6 +1057,8 @@ export default function AnalyticsPage() {
       case 'year':
         const year = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
         return `Last Year (${year.toLocaleDateString()} - ${now.toLocaleDateString()})`;
+      case 'all':
+        return 'All Time';
       case 'custom':
         if (customDateRange.start && customDateRange.end) {
           return `Custom (${customDateRange.start.toLocaleDateString()} - ${customDateRange.end.toLocaleDateString()})`;
@@ -815,6 +1118,12 @@ export default function AnalyticsPage() {
                       onClick={() => handleDateRangeSelect('year')}
                     >
                       Year
+                    </Button>
+                    <Button
+                      pressed={selectedDateRange === 'all'}
+                      onClick={() => handleDateRangeSelect('all')}
+                    >
+                      All Time
                     </Button>
                   </ButtonGroup>
 
