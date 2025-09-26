@@ -8,7 +8,7 @@ import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
 import { Page, Layout, Card, BlockStack, Text, Button, Banner, InlineStack } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
-import { CurrentPlanCard } from "../components/Billing/CurrentPlanCard";
+import { CurrentPlanCard } from "../components/Billing/CurrentPlanCardV2";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "../utils/order-count-strategies";
 
 // Helper function to get current month name
