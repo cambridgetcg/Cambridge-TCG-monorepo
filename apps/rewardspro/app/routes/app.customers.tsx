@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData, useSearchParams } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import * as crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -8,7 +8,10 @@ import {
   Page,
   Layout,
   Card,
-  DataTable,
+  IndexTable,
+  IndexFilters,
+  useIndexResourceState,
+  useSetIndexFiltersMode,
   TextField,
   Select,
   Button,
@@ -35,6 +38,8 @@ import {
   Frame,
   FormLayout,
   Checkbox,
+  ChoiceList,
+  Tabs,
 } from "@shopify/polaris";
 import { MenuHorizontalIcon } from "@shopify/polaris-icons";
 import {
@@ -140,6 +145,14 @@ interface LoaderData {
     totalCustomers: number;
     tierDistribution: Record<string, number>;
   };
+  pagination: {
+    currentPage: number;
+    pageSize: number;
+    totalPages: number;
+    totalItems: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 }
 
 interface ToastState {
@@ -156,7 +169,7 @@ interface ToastState {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const { session } = await authenticate.admin(request);
-    
+
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
     }
@@ -165,6 +178,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
     const searchQuery = url.searchParams.get("search") || "";
     const tierFilter = url.searchParams.get("tier") || "all";
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
+    const sortKey = url.searchParams.get("sortKey") || "createdAt";
+    const sortDirection = url.searchParams.get("sortDirection") || "desc";
 
     // Build where clause for filtering
     const whereClause: any = { shop };
@@ -191,8 +208,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         include: {
           currentTier: true,
         },
-        orderBy: { createdAt: 'desc' },
-        take: 100, // Limit for performance
+        orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
       db.tier.findMany({
         where: { shop },
@@ -202,7 +220,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: { shop },
       }),
       db.customer.count({
-        where: { shop },
+        where: whereClause,
       }),
     ]);
 
@@ -275,6 +293,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       };
     }));
 
+    const totalPages = Math.ceil(totalCount / pageSize);
+
     return json({
       customers: formattedCustomers,
       tiers: serializedTiers,
@@ -285,6 +305,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       totalCustomers: totalCount,
       tierDistribution,
       stats,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalPages,
+        totalItems: totalCount,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     console.error("[Customers] Loader error:", error);
@@ -886,11 +914,21 @@ export default function Customers() {
   const submit = useSubmit();
   const navigation = useNavigation();
   const fetcher = useFetcher();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  // State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [tierFilter, setTierFilter] = useState("all");
+  // State - Initialize from URL params
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+  const [tierFilter, setTierFilter] = useState(searchParams.get("tier") || "all");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
+  const [itemStrings, setItemStrings] = useState([
+    "All customers",
+    "Customers with tier",
+    "Customers without tier",
+  ]);
+  const [selected, setSelected] = useState(0);
+  const { mode, setMode } = useSetIndexFiltersMode();
+  const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "25"));
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -923,33 +961,72 @@ export default function Customers() {
   const tableRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
 
+  // Get current page from URL params
+  const currentPage = parseInt(searchParams.get("page") || "1");
+
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
   }, [data.shopSettings]);
 
-  // Handle search with debounce
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  // Handle search with URL update
   const handleSearch = useCallback((value: string) => {
-    setSearchQuery(value);
-    
-    // Clear existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    setQueryValue(value);
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set("search", value);
+    } else {
+      newParams.delete("search");
     }
-    
-    // Set new timeout for search (debounce)
-    searchTimeoutRef.current = setTimeout(() => {
-      // Could trigger server-side search here
-    }, 300);
-  }, []);
+    newParams.set("page", "1"); // Reset to page 1 on search
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
 
-  // Handle tier filter
-  const handleTierFilter = useCallback((value: string) => {
-    setTierFilter(value);
-    // Reset visible rows to trigger re-animation
-    setVisibleRows([]);
-  }, []);
+  // Handle query clear
+  const handleQueryValueRemove = useCallback(() => {
+    setQueryValue("");
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("search");
+    newParams.set("page", "1");
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  // Handle tier filter with URL update
+  const handleFiltersChange = useCallback((value: string[]) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value.length > 0 && value[0] !== "all") {
+      newParams.set("tier", value[0]);
+    } else {
+      newParams.delete("tier");
+    }
+    newParams.set("page", "1"); // Reset to page 1 on filter change
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  // Handle page size change
+  const handlePageSizeChange = useCallback((value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("pageSize", value);
+    newParams.set("page", "1"); // Reset to page 1
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  // Handle pagination
+  const handlePreviousPage = useCallback(() => {
+    if (data.pagination.hasPrevPage) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set("page", String(currentPage - 1));
+      setSearchParams(newParams);
+    }
+  }, [currentPage, data.pagination.hasPrevPage, searchParams, setSearchParams]);
+
+  const handleNextPage = useCallback(() => {
+    if (data.pagination.hasNextPage) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set("page", String(currentPage + 1));
+      setSearchParams(newParams);
+    }
+  }, [currentPage, data.pagination.hasNextPage, searchParams, setSearchParams]);
 
   // Calculate all tiers with better feedback
   const handleCalculateAll = useCallback(() => {
@@ -1061,42 +1138,74 @@ export default function Customers() {
     }
   }, [deletingTierId, submit]);
 
-  // Filter customers based on search and tier
-  const filteredCustomers = useMemo(() => {
-    return data.customers.filter(customer => {
-      const matchesSearch = !searchQuery || 
-        customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.shopifyCustomerId.includes(searchQuery);
-      
-      const matchesTier = tierFilter === "all" ||
-        (tierFilter === "none" && !customer.currentTier) ||
-        (customer.currentTier?.id === tierFilter);
-      
-      return matchesSearch && matchesTier;
-    });
-  }, [data.customers, searchQuery, tierFilter]);
+  // Use resource state for table selection
+  const resourceName = {
+    singular: 'customer',
+    plural: 'customers',
+  };
 
-  // Tier filter options
-  const tierOptions = [
-    { label: "All tiers", value: "all" },
-    { label: "No tier", value: "none" },
-    ...data.tiers.map(tier => ({
-      label: `${tier.name} (${String(tier.cashbackPercent)}%)`,
-      value: tier.id,
-    })),
+  const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } =
+    useIndexResourceState(data.customers);
+
+  // Filter options for IndexFilters
+  const filters = [
+    {
+      key: 'tier',
+      label: 'Tier',
+      filter: (
+        <ChoiceList
+          title="Tier"
+          titleHidden
+          choices={[
+            { label: 'All tiers', value: 'all' },
+            { label: 'No tier', value: 'none' },
+            ...data.tiers.map(tier => ({
+              label: `${tier.name} (${String(tier.cashbackPercent)}%)`,
+              value: tier.id,
+            })),
+          ]}
+          selected={tierFilter ? [tierFilter] : []}
+          onChange={handleFiltersChange}
+          allowMultiple={false}
+        />
+      ),
+      shortcut: true,
+    },
   ];
+
+  // Applied filters for IndexFilters
+  const appliedFilters = tierFilter && tierFilter !== 'all' ? [
+    {
+      key: 'tier',
+      label: tierFilter === 'none' ? 'No tier' : data.tiers.find(t => t.id === tierFilter)?.name || tierFilter,
+      onRemove: () => {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('tier');
+        setSearchParams(newParams);
+      },
+    },
+  ] : [];
+
+  // Tabs for IndexFilters
+  const tabs = itemStrings.map((item, index) => ({
+    content: item,
+    index,
+    onAction: () => {},
+    id: `${item}-${index}`,
+    isLocked: index === 0,
+  }));
 
   // Animate table rows on mount/filter change
   useEffect(() => {
-    if (filteredCustomers.length > 0) {
+    if (data.customers.length > 0) {
       setVisibleRows([]);
-      filteredCustomers.forEach((_, index) => {
+      data.customers.forEach((_, index) => {
         setTimeout(() => {
           setVisibleRows(prev => [...prev, index]);
-        }, index * 50); // Stagger by 50ms
+        }, index * 30); // Stagger by 30ms
       });
     }
-  }, [filteredCustomers.length, tierFilter]);
+  }, [data.customers.length, tierFilter]);
 
   // Handle fetcher response for single customer
   useEffect(() => {
@@ -1156,149 +1265,185 @@ export default function Customers() {
   // Skip animations on first render for performance
   useEffect(() => {
     if (isFirstRender.current) {
-      setVisibleRows(filteredCustomers.map((_, i) => i));
+      setVisibleRows(data.customers.map((_, i) => i));
       isFirstRender.current = false;
     }
   }, []);
 
-  // Table rows with enhanced UI and animations
-  const rows = filteredCustomers.map((customer, index) => {
+  // Bulk actions for selected customers
+  const bulkActions = [
+    {
+      content: 'Calculate tiers',
+      onAction: () => {
+        // Handle bulk tier calculation
+      },
+    },
+    {
+      content: 'Export',
+      onAction: () => {
+        // Handle export
+      },
+    },
+  ];
+
+  // Table rows for IndexTable
+  const rowMarkup = data.customers.map((customer, index) => {
     const isVisible = visibleRows.includes(index);
     const isProcessing = calculatingCustomerId === customer.id;
-    
-    return [
-      <div 
-        style={{
-          opacity: isVisible ? 1 : 0,
-          transform: isVisible ? 'translateX(0)' : 'translateX(-20px)',
-          transition: `all 200ms ease-out`,
-          width: '100%',
-        }}
+
+    return (
+      <IndexTable.Row
+        id={customer.id}
+        key={customer.id}
+        selected={selectedResources.includes(customer.id)}
+        position={index}
       >
-        <BlockStack gap="050">
-          <Text variant="bodyMd" fontWeight="medium" as="span">
-            {customer.email}
-          </Text>
-          <Text variant="bodySm" tone="subdued" as="span">
-            ID: {customer.shopifyCustomerId}
-          </Text>
-        </BlockStack>
-      </div>,
-      <BlockStack gap="100">
-        <InlineStack gap="100" align="center">
-          {customer.currentTier ? (
-            <>
-              <Badge tone={customer.membershipStatus?.isPurchased ? "info" : "success"}>
-                {`${customer.currentTier.name}`}
-              </Badge>
-              <Text variant="bodySm" tone="subdued" as="span">
-                {String(customer.currentTier.cashbackPercent)}%
+        <IndexTable.Cell>
+          <div
+            style={{
+              opacity: isVisible ? 1 : 0,
+              transform: isVisible ? 'translateX(0)' : 'translateX(-20px)',
+              transition: `all 200ms ease-out`,
+            }}
+          >
+            <BlockStack gap="050">
+              <Text variant="bodyMd" fontWeight="medium" as="span">
+                {customer.email}
               </Text>
-            </>
-          ) : (
-            <Badge tone="attention">No tier</Badge>
-          )}
-        </InlineStack>
-        {customer.membershipStatus?.isPurchased && (
-          <InlineStack gap="100" align="center">
-            <Icon source={CheckCircleIcon} />
-            <Text variant="bodySm" tone="subdued" as="span">
-              Purchased
-            </Text>
-            {customer.membershipStatus.expiresAt && (
-              <>
-                {customer.membershipStatus.needsRenewal ? (
-                  <Badge tone="attention">
-                    {customer.membershipStatus.daysRemaining} days left
+              <Text variant="bodySm" tone="subdued" as="span">
+                ID: {customer.shopifyCustomerId}
+              </Text>
+            </BlockStack>
+          </div>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <BlockStack gap="100">
+            <InlineStack gap="100" align="center">
+              {customer.currentTier ? (
+                <>
+                  <Badge tone={customer.membershipStatus?.isPurchased ? "info" : "success"}>
+                    {`${customer.currentTier.name}`}
                   </Badge>
-                ) : (
                   <Text variant="bodySm" tone="subdued" as="span">
-                    {customer.membershipStatus.daysRemaining ? 
-                      `${customer.membershipStatus.daysRemaining} days` : 
-                      'Lifetime'}
+                    {String(customer.currentTier.cashbackPercent)}%
                   </Text>
+                </>
+              ) : (
+                <Badge tone="attention">No tier</Badge>
+              )}
+            </InlineStack>
+            {customer.membershipStatus?.isPurchased && (
+              <InlineStack gap="100" align="center">
+                <Icon source={CheckCircleIcon} />
+                <Text variant="bodySm" tone="subdued" as="span">
+                  Purchased
+                </Text>
+                {customer.membershipStatus.expiresAt && (
+                  <>
+                    {customer.membershipStatus.needsRenewal ? (
+                      <Badge tone="attention">
+                        {customer.membershipStatus.daysRemaining} days left
+                      </Badge>
+                    ) : (
+                      <Text variant="bodySm" tone="subdued" as="span">
+                        {customer.membershipStatus.daysRemaining ?
+                          `${customer.membershipStatus.daysRemaining} days` :
+                          'Lifetime'}
+                      </Text>
+                    )}
+                  </>
                 )}
-              </>
+              </InlineStack>
             )}
-          </InlineStack>
-        )}
-        {customer.hasManualOverride && (
-          <InlineStack gap="100" align="center">
-            <Icon source={EditIcon} />
-            <Text variant="bodySm" tone="critical" as="span">
-              Manual
-            </Text>
-          </InlineStack>
-        )}
-        {customer.lastTierChange?.triggerType === 'MANUAL_ADMIN' && (
-          <Text variant="bodySm" tone="subdued" as="span">
-            {customer.lastTierChange.note || 'Manually assigned'}
-          </Text>
-        )}
-      </BlockStack>,
-      <StoreCreditDisplay
-        amount={customer.storeCredit}
-        shopSettings={data.shopSettings}
-        size="small"
-      />,
-      <InlineStack gap="200" align="end">
-        <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
-          View Details
-        </Button>
-        <Popover
-          active={activePopover === customer.id}
-          activator={
-            <Button
-              size="slim"
-              icon={MenuHorizontalIcon}
-              variant="tertiary"
-              onClick={() => togglePopover(customer.id)}
-              accessibilityLabel={`More actions for ${customer.email}`}
-            />
-          }
-          autofocusTarget="first-node"
-          onClose={() => setActivePopover(null)}
-        >
-          <ActionList
-            actionRole="menuitem"
-            sections={[
-              {
-                items: [
-                  {
-                    content: "Manage Store Credit",
-                    icon: CashDollarIcon,
-                    onAction: () => {
-                      handleViewCustomer(customer.id, 1);
-                      setActivePopover(null);
-                    }
-                  },
-                  {
-                    content: "Change Tier",
-                    icon: EditIcon,
-                    onAction: () => {
-                      handleManualTierAssignment(customer);
-                      setActivePopover(null);
-                    }
-                  },
-                  {
-                    content: "Recalculate Tier",
-                    icon: RefreshIcon,
-                    disabled: isProcessing,
-                    onAction: () => {
-                      handleCalculateSingle(customer.id);
-                      setActivePopover(null);
-                    }
-                  }
-                ]
-              }
-            ]}
+            {customer.hasManualOverride && (
+              <InlineStack gap="100" align="center">
+                <Icon source={EditIcon} />
+                <Text variant="bodySm" tone="critical" as="span">
+                  Manual
+                </Text>
+              </InlineStack>
+            )}
+          </BlockStack>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <StoreCreditDisplay
+            amount={customer.storeCredit}
+            shopSettings={data.shopSettings}
+            size="small"
           />
-        </Popover>
-      </InlineStack>
-    ];
+        </IndexTable.Cell>
+        <IndexTable.Cell>
+          <InlineStack gap="200" align="end">
+            <Button size="slim" onClick={() => handleViewCustomer(customer.id)}>
+              View
+            </Button>
+            <Popover
+              active={activePopover === customer.id}
+              activator={
+                <Button
+                  size="slim"
+                  icon={MenuHorizontalIcon}
+                  variant="tertiary"
+                  onClick={() => togglePopover(customer.id)}
+                  accessibilityLabel={`More actions for ${customer.email}`}
+                />
+              }
+              autofocusTarget="first-node"
+              onClose={() => setActivePopover(null)}
+            >
+              <ActionList
+                actionRole="menuitem"
+                sections={[
+                  {
+                    items: [
+                      {
+                        content: "Manage Store Credit",
+                        icon: CashDollarIcon,
+                        onAction: () => {
+                          handleViewCustomer(customer.id, 1);
+                          setActivePopover(null);
+                        }
+                      },
+                      {
+                        content: "Change Tier",
+                        icon: EditIcon,
+                        onAction: () => {
+                          handleManualTierAssignment(customer);
+                          setActivePopover(null);
+                        }
+                      },
+                      {
+                        content: "Recalculate Tier",
+                        icon: RefreshIcon,
+                        disabled: isProcessing,
+                        onAction: () => {
+                          handleCalculateSingle(customer.id);
+                          setActivePopover(null);
+                        }
+                      }
+                    ]
+                  }
+                ]}
+              />
+            </Popover>
+          </InlineStack>
+        </IndexTable.Cell>
+      </IndexTable.Row>
+    );
   });
 
-  const isLoading = navigation.state === "submitting" || isCalculating;
+  const isLoading = navigation.state === "loading" || navigation.state === "submitting" || isCalculating;
+
+  // Empty state markup
+  const emptyStateMarkup = (
+    <EmptyState
+      heading="No customers found"
+      image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+      action={{ content: 'Sync from Shopify', onAction: handleSyncCustomers }}
+    >
+      <p>Sync your customers from Shopify to start managing loyalty tiers.</p>
+    </EmptyState>
+  );
 
   // Toast markup
   const toastMarkup = toast.active ? (
@@ -1416,7 +1561,7 @@ export default function Customers() {
                                           </Badge>
                                           {customerCount > 0 && (
                                             <Badge tone="info">
-                                              {`${customerCount} ${customerCount === 1 ? 'customer' : 'customers'}`}
+                                              {customerCount} {customerCount === 1 ? 'customer' : 'customers'}
                                             </Badge>
                                           )}
                                         </InlineStack>
@@ -1492,119 +1637,141 @@ export default function Customers() {
                 </Box>
               </Card>
 
-              {/* Customer Management Module - Integrated with Search */}
-              <Card>
-                <Box padding="400">
-                  <BlockStack gap="400">
-                    {/* Header with title and actions */}
-                    <Text variant="headingLg" as="h2">
-                      Customer Management
-                    </Text>
+              {/* Customer Management Module - With Pagination */}
+              <Card roundedAbove="sm">
+                <BlockStack gap="400">
+                  {/* IndexFilters for search and filters */}
+                  <IndexFilters
+                    sortOptions={[
+                      { label: 'Newest', value: 'createdAt_desc', directionLabel: 'Newest' },
+                      { label: 'Oldest', value: 'createdAt_asc', directionLabel: 'Oldest' },
+                      { label: 'Email A-Z', value: 'email_asc', directionLabel: 'A-Z' },
+                      { label: 'Email Z-A', value: 'email_desc', directionLabel: 'Z-A' },
+                      { label: 'Store credit (high to low)', value: 'storeCredit_desc', directionLabel: 'High to low' },
+                      { label: 'Store credit (low to high)', value: 'storeCredit_asc', directionLabel: 'Low to high' },
+                    ]}
+                    sortSelected={[`${searchParams.get('sortKey') || 'createdAt'}_${searchParams.get('sortDirection') || 'desc'}`]}
+                    queryValue={queryValue}
+                    queryPlaceholder="Search customers..."
+                    onQueryChange={handleSearch}
+                    onQueryClear={handleQueryValueRemove}
+                    onSort={(selected) => {
+                      const [sortKey, sortDirection] = selected[0].split('_');
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.set('sortKey', sortKey);
+                      newParams.set('sortDirection', sortDirection);
+                      setSearchParams(newParams);
+                    }}
+                    cancelAction={{
+                      onAction: () => {
+                        const newParams = new URLSearchParams(searchParams);
+                        newParams.delete('search');
+                        newParams.delete('tier');
+                        setSearchParams(newParams);
+                      },
+                      disabled: false,
+                      loading: false,
+                    }}
+                    tabs={tabs}
+                    selected={selected}
+                    onSelect={setSelected}
+                    canCreateNewView={false}
+                    filters={filters}
+                    appliedFilters={appliedFilters}
+                    mode={mode}
+                    setMode={setMode}
+                    loading={isLoading}
+                  />
 
-                    {/* Integrated Search and Filter Bar */}
-                    <Box background="bg-surface-secondary" padding="300" borderRadius="200">
+                  {/* Page size selector and pagination controls */}
+                  <Box padding="400">
+                    <InlineStack align="space-between" blockAlign="center">
                       <InlineStack gap="300" align="start" blockAlign="center">
-                        <div style={{ flex: 1 }}>
-                          <TextField
-                            label="Search customers"
-                            labelHidden
-                            value={searchQuery}
-                            onChange={handleSearch}
-                            placeholder="Search by email or customer ID..."
-                            prefix={<Icon source={SearchIcon} />}
-                            clearButton
-                            onClearButtonClick={() => handleSearch("")}
-                            autoComplete="off"
-                          />
-                        </div>
+                        <Text variant="bodySm" tone="subdued" as="span">
+                          Showing {data.customers.length} of {data.pagination.totalItems} customers
+                        </Text>
                         <Select
-                          label="Filter by tier"
+                          label="Items per page"
                           labelHidden
-                          options={tierOptions}
-                          value={tierFilter}
-                          onChange={handleTierFilter}
+                          options={[
+                            { label: '25 per page', value: '25' },
+                            { label: '50 per page', value: '50' },
+                            { label: '100 per page', value: '100' },
+                            { label: '200 per page', value: '200' },
+                          ]}
+                          value={String(pageSize)}
+                          onChange={handlePageSizeChange}
+                        />
+                      </InlineStack>
+
+                      {/* Pagination controls */}
+                      <InlineStack gap="300" align="end" blockAlign="center">
+                        <Button
+                          icon={ChevronLeftIcon}
+                          accessibilityLabel="Previous page"
+                          onClick={handlePreviousPage}
+                          disabled={!data.pagination.hasPrevPage}
+                        />
+                        <Text variant="bodySm" as="span">
+                          Page {currentPage} of {data.pagination.totalPages}
+                        </Text>
+                        <Button
+                          icon={ChevronRightIcon}
+                          accessibilityLabel="Next page"
+                          onClick={handleNextPage}
+                          disabled={!data.pagination.hasNextPage}
+                        />
+                      </InlineStack>
+                    </InlineStack>
+                  </Box>
+
+                  {/* Customer IndexTable */}
+                  {data.customers.length === 0 ? (
+                    emptyStateMarkup
+                  ) : (
+                    <IndexTable
+                      resourceName={resourceName}
+                      itemCount={data.customers.length}
+                      selectedItemsCount={
+                        allResourcesSelected ? 'All' : selectedResources.length
+                      }
+                      onSelectionChange={handleSelectionChange}
+                      bulkActions={bulkActions}
+                      headings={[
+                        { title: 'Customer' },
+                        { title: 'Tier' },
+                        { title: 'Store Credit', alignment: 'end' },
+                        { title: 'Actions', alignment: 'end' },
+                      ]}
+                      loading={isLoading}
+                    >
+                      {rowMarkup}
+                    </IndexTable>
+                  )}
+
+                  {/* Bottom pagination */}
+                  {data.pagination.totalPages > 1 && (
+                    <Box padding="400">
+                      <InlineStack align="center">
+                        <Button
+                          icon={ChevronLeftIcon}
+                          accessibilityLabel="Previous page"
+                          onClick={handlePreviousPage}
+                          disabled={!data.pagination.hasPrevPage}
+                        />
+                        <Text variant="bodySm" as="span">
+                          Page {currentPage} of {data.pagination.totalPages}
+                        </Text>
+                        <Button
+                          icon={ChevronRightIcon}
+                          accessibilityLabel="Next page"
+                          onClick={handleNextPage}
+                          disabled={!data.pagination.hasNextPage}
                         />
                       </InlineStack>
                     </Box>
-
-                    {/* Results summary */}
-                    {searchQuery || tierFilter !== "all" ? (
-                      <InlineStack align="space-between">
-                        <Text variant="bodySm" tone="subdued" as="span">
-                          Showing {filteredCustomers.length} of {data.totalCustomers} customers
-                        </Text>
-                        {(searchQuery || tierFilter !== "all") && (
-                          <Button
-                            variant="plain"
-                            onClick={() => {
-                              handleSearch("");
-                              handleTierFilter("all");
-                            }}
-                          >
-                            Clear filters
-                          </Button>
-                        )}
-                      </InlineStack>
-                    ) : null}
-
-                    {/* Sync Information Banner */}
-                    {data.totalCustomers === 0 && (
-                      <Banner
-                        title="Import your customers from Shopify"
-                        tone="info"
-                        icon={InfoIcon}
-                      >
-                        <p>Click 'Sync from Shopify' to import all your existing customers. This will create customer profiles in the rewards system so you can track store credit and assign loyalty tiers.</p>
-                      </Banner>
-                    )}
-
-                    {/* Customer Table */}
-                    {isLoading && filteredCustomers.length === 0 ? (
-                      <LoadingSkeleton type="table" lines={5} />
-                    ) : filteredCustomers.length === 0 ? (
-                      <EmptyState
-                        heading={searchQuery || tierFilter !== "all" ? "No customers match your filters" : "No customers found"}
-                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                        action={
-                          searchQuery || tierFilter !== "all" ? {
-                            content: "Clear filters",
-                            onAction: () => {
-                              handleSearch("");
-                              handleTierFilter("all");
-                            }
-                          } : {
-                            content: "Sync from Shopify",
-                            onAction: handleSyncCustomers,
-                          }
-                        }
-                      >
-                        <p>
-                          {searchQuery || tierFilter !== "all" 
-                            ? "Try adjusting your search or filter criteria."
-                            : "Import your existing customers from Shopify to start tracking their rewards and tier status."}
-                        </p>
-                      </EmptyState>
-                    ) : (
-                      <DataTable
-                        columnContentTypes={[
-                          "text",
-                          "text",
-                          "numeric",
-                          "text",
-                        ]}
-                        headings={[
-                          "Customer",
-                          "Current Tier",
-                          "Store Credit",
-                          <div style={{ textAlign: 'right', width: '100%' }}>Actions</div>,
-                        ]}
-                        rows={rows}
-                        hoverable
-                        truncate
-                      />
-                    )}
-                  </BlockStack>
-                </Box>
+                  )}
+                </BlockStack>
               </Card>
 
             </BlockStack>
@@ -1621,7 +1788,7 @@ export default function Customers() {
               setModalInitialTab(0);
             }}
             customerId={selectedCustomerId}
-            customerEmail={filteredCustomers.find(c => c.id === selectedCustomerId)?.email || ""}
+            customerEmail={data.customers.find(c => c.id === selectedCustomerId)?.email || ""}
             initialTab={modalInitialTab}
           />
         )}

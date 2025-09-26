@@ -35,7 +35,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
-import { CurrentPlanCard } from "~/components/Billing";
+import { CurrentPlanCard } from "~/components/Billing/CurrentPlanCardV2";
 import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 
 // ============= TYPES =============
@@ -1250,6 +1250,7 @@ export default function SettingsPage() {
                       }}
                       showUpgradeButton={true}
                       showOverageBanner={true}
+                      showCountStrategy={false}
                       showProjectedUsage={true}
                       onUpgrade={() => navigate("/app/billing/plans")}
                     />

@@ -45,7 +45,7 @@ import {
   getTierStyle,
   sortTiersByPriority
 } from "../utils/tier-styles";
-import { CurrentPlanCard } from "~/components/Billing";
+import { CurrentPlanCard } from "~/components/Billing/CurrentPlanCardV2";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 
 // ============================================
@@ -591,6 +591,7 @@ export default function Dashboard() {
             }}
             showUpgradeButton={true}
             showOverageBanner={false}
+            showCountStrategy={false}
             showProjectedUsage={true}
             compact={false}
             onUpgrade={() => navigate("/app/billing/plans")}
