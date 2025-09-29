@@ -124,9 +124,9 @@ export class DataAPIModelProxy<T = any> {
           // Handle { in: [...] } (IN clause)
           const inValues = value.in;
           if (Array.isArray(inValues) && inValues.length > 0) {
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'purchaseType'];
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
-            
+
             // Check if this field is an enum type that needs casting
             if (enumFields.includes(key)) {
               // Cast enum types explicitly for PostgreSQL IN clause
@@ -134,14 +134,14 @@ export class DataAPIModelProxy<T = any> {
             } else {
               conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
             }
-            
+
             inValues.forEach((val, i) => {
               params.push(AuroraDataAPI.buildParameter(`param${index}_${i}`, val));
             });
           }
         } else if (value !== undefined) {
           // Check if this field is an enum type that needs casting
-          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'purchaseType'];
           if (enumFields.includes(key)) {
             // Cast enum types explicitly for PostgreSQL
             conditions.push(`"${key}"::text = :param${index}`);
@@ -457,11 +457,12 @@ export class DataAPIModelProxy<T = any> {
       ShopSettings: ['storeCurrency', 'currencyDisplayType'],
       StoreCreditLedger: ['type'],
       TierChangeLog: ['changeType', 'triggerType'],
+      TierProduct: ['purchaseType'],
     };
-    
+
     return enumFields[this.tableName]?.includes(field) || false;
   }
-  
+
   /**
    * Get the PostgreSQL enum type name for a field
    */
@@ -474,8 +475,9 @@ export class DataAPIModelProxy<T = any> {
       type: '"LedgerEntryType"',
       changeType: '"TierChangeType"',
       triggerType: '"TierTriggerType"',
+      purchaseType: '"PurchaseType"',
     };
-    
+
     return enumTypes[field] || field;
   }
 
