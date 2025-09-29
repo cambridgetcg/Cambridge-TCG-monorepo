@@ -1,3 +1,0 @@
--- Add updatedAt column to Tier table
-ALTER TABLE "Tier"
-ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
