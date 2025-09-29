@@ -6,644 +6,171 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import { createDataAPIPrismaClient } from "../utils/prisma-data-api-adapter";
+import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
-import TierResolver from "../services/tier-resolver.server";
-import TierProductCache from "../services/tier-product-cache.server";
+import { TierResolver } from "../services/subscription/tier-resolver.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
-import { validateShopifyOrderCurrency } from "../services/currency-validation.server";
-import { roundToCurrencyPrecision } from "../services/currency-formatter.server";
-import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
 
-// Initialize Prisma client with Data API adapter for better connection handling
-const db = createDataAPIPrismaClient();
+const uuidv4 = () => crypto.randomUUID();
 
-// Performance monitoring utilities
-class PerformanceTimer {
-  private startTime: number;
-  private marks: Map<string, number> = new Map();
-
-  constructor() {
-    this.startTime = Date.now();
+// HMAC Verification
+function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
+  const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  
+  if (!hmacHeader || !webhookSecret) {
+    console.error('[Webhook] Missing HMAC header or webhook secret');
+    return false;
   }
-
-  mark(label: string): number {
-    const elapsed = Date.now() - this.startTime;
-    this.marks.set(label, elapsed);
-    return elapsed;
-  }
-
-  getElapsed(): number {
-    return Date.now() - this.startTime;
-  }
-
-  getMarks(): Record<string, number> {
-    return Object.fromEntries(this.marks);
-  }
-}
-
-// Aurora connection error detection
-function isAuroraConnectionError(error: any): boolean {
-  const errorMessage = error?.message?.toLowerCase() || '';
-  return errorMessage.includes('connection') ||
-         errorMessage.includes('timeout') ||
-         errorMessage.includes('econnrefused') ||
-         errorMessage.includes('unable to connect') ||
-         errorMessage.includes('database system is starting up');
-}
-
-// Check if error is due to database constraints
-function isDatabaseConstraintError(error: any): boolean {
-  const errorMessage = error?.message?.toLowerCase() || '';
-  return errorMessage.includes('unique constraint') ||
-         errorMessage.includes('foreign key') ||
-         errorMessage.includes('duplicate key');
-}
-
-// Types for transaction analysis
-interface Transaction {
-  id: string;
-  gateway: string;
-  status: string;
-  kind: string;
-  amountSet: {
-    shopMoney: {
-      amount: string;
-      currencyCode: string;
-    };
-  };
-  parentTransaction?: {
-    id: string;
-  };
-}
-
-interface OrderDetails {
-  id: string;
-  totalReceivedSet: {
-    shopMoney: {
-      amount: string;
-      currencyCode: string;
-    };
-  };
-  transactions: Transaction[];
-}
-
-interface PaymentBreakdown {
-  giftCardAmount: number;
-  storeCreditAmount: number;
-  externalPaymentAmount: number;
-  cashbackEligibleAmount: number;
-}
-
-/**
- * Fetch order transaction details via GraphQL
- */
-async function fetchOrderTransactions(
-  admin: any,
-  orderId: string
-): Promise<OrderDetails | null> {
-  const query = `#graphql
-    query GetOrderPaymentDetails($id: ID!) {
-      order(id: $id) {
-        id
-        totalReceivedSet {
-          shopMoney {
-            amount
-            currencyCode
-          }
-        }
-        transactions(first: 250) {
-          id
-          gateway
-          status
-          kind
-          amountSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
-          }
-          parentTransaction {
-            id
-          }
-        }
-      }
-    }
-  `;
-
-  const gid = orderId.startsWith('gid://')
-    ? orderId
-    : `gid://shopify/Order/${orderId}`;
-
-  try {
-    const response = await admin.graphql(query, {
-      variables: { id: gid }
-    });
-    const result = await response.json();
-
-    if (result.errors || !result.data?.order) {
-      console.error('[OrdersPaidWebhook] Failed to fetch order details:', result.errors);
-      return null;
-    }
-
-    return result.data.order;
-  } catch (error) {
-    console.error('[OrdersPaidWebhook] GraphQL query failed:', error);
-    return null;
-  }
-}
-
-/**
- * Analyze transactions to determine cashback eligible amount
- */
-function analyzeTransactions(transactions: Transaction[]): PaymentBreakdown {
-  let giftCardAmount = 0;
-  let storeCreditAmount = 0;
-  let externalPaymentAmount = 0;
-
-  // Only process successful SALE or CAPTURE transactions
-  const validTransactions = transactions.filter(tx => {
-    const isSuccessful = tx.status === 'SUCCESS';
-    const isPayment = ['SALE', 'CAPTURE'].includes(tx.kind);
-    return isSuccessful && isPayment;
-  });
-
-  // Deduplicate CAPTURE/AUTHORIZATION pairs
-  const processedIds = new Set<string>();
-
-  validTransactions.forEach(tx => {
-    // Skip if we've already processed this transaction
-    if (processedIds.has(tx.id)) return;
-
-    // Skip CAPTURE if we already processed its AUTHORIZATION
-    if (tx.kind === 'CAPTURE' && tx.parentTransaction) {
-      const parentAuth = transactions.find(
-        t => t.id === tx.parentTransaction!.id && t.kind === 'AUTHORIZATION'
-      );
-      if (parentAuth && processedIds.has(parentAuth.id)) {
-        return;
-      }
-    }
-
-    processedIds.add(tx.id);
-    const amount = parseFloat(tx.amountSet.shopMoney.amount);
-    const gateway = tx.gateway.toLowerCase();
-
-    // Categorize payment by gateway
-    if (gateway.includes('gift_card')) {
-      giftCardAmount += amount;
-      console.log(`  [OrdersPaidWebhook] Gift card: ${amount} (excluded from cashback)`);
-    } else if (gateway.includes('store_credit')) {
-      storeCreditAmount += amount;
-      console.log(`  [OrdersPaidWebhook] Store credit: ${amount} (excluded from cashback)`);
-    } else {
-      externalPaymentAmount += amount;
-      console.log(`  [OrdersPaidWebhook] External payment (${tx.gateway}): ${amount} (eligible for cashback)`);
-    }
-  });
-
-  return {
-    giftCardAmount,
-    storeCreditAmount,
-    externalPaymentAmount,
-    cashbackEligibleAmount: externalPaymentAmount
-  };
-}
-
-/**
- * Issue store credit via Shopify GraphQL
- */
-async function issueStoreCredit(
-  admin: any,
-  customerId: string,
-  amount: number,
-  currency: string,
-  orderId: string
-): Promise<{ success: boolean; transactionId?: string; error?: string }> {
-  try {
-    // Format customer ID as GID
-    const gidCustomerId = `gid://shopify/Customer/${customerId}`;
-
-    const mutation = `#graphql
-      mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
-        storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
-          storeCreditAccountTransaction {
-            id
-            amount {
-              amount
-              currencyCode
-            }
-            account {
-              id
-              balance {
-                amount
-                currencyCode
-              }
-            }
-          }
-          userErrors {
-            message
-            field
-          }
-        }
-      }
-    `;
-
-    const variables = {
-      id: gidCustomerId,
-      creditInput: {
-        amount: {
-          amount: amount.toFixed(2),
-          currencyCode: currency
-        },
-        description: `Cashback reward from order ${orderId}`
-      }
-    };
-
-    console.log('[OrdersPaidWebhook] Issuing store credit:', {
-      customerId: gidCustomerId,
-      amount,
-      currency
-    });
-
-    const response = await admin.graphql(mutation, { variables });
-    const result = await response.json();
-
-    if (result.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
-      const errors = result.data.storeCreditAccountCredit.userErrors;
-      console.error('[OrdersPaidWebhook] Store credit mutation errors:', errors);
-      return {
-        success: false,
-        error: errors.map((e: any) => e.message).join(', ')
-      };
-    }
-
-    if (!result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction) {
-      console.error('[OrdersPaidWebhook] No transaction returned from store credit mutation');
-      return {
-        success: false,
-        error: 'No transaction created'
-      };
-    }
-
-    const transaction = result.data.storeCreditAccountCredit.storeCreditAccountTransaction;
-    console.log('[OrdersPaidWebhook] Store credit issued successfully:', {
-      transactionId: transaction.id,
-      amount: transaction.amount.amount,
-      newBalance: transaction.account.balance.amount
-    });
-
-    return {
-      success: true,
-      transactionId: transaction.id
-    };
-
-  } catch (error) {
-    console.error('[OrdersPaidWebhook] Failed to issue store credit:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
+  
+  const hash = crypto
+    .createHmac('sha256', webhookSecret)
+    .update(rawBody, 'utf8')
+    .digest('base64');
+  
+  // Timing-safe comparison
+  return crypto.timingSafeEqual(
+    Buffer.from(hash),
+    Buffer.from(hmacHeader)
+  );
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  // Start performance monitoring
-  const timer = new PerformanceTimer();
-
+  const rawBody = await request.text();
+  
+  // 1. Verify HMAC
+  if (!verifyWebhookHMAC(request, rawBody)) {
+    console.error('[OrderPaid] HMAC verification failed');
+    return json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const order = JSON.parse(rawBody);
+  const shop = request.headers.get('X-Shopify-Shop-Domain');
+  const topic = request.headers.get('X-Shopify-Topic');
+  
+  if (!shop) {
+    console.error('[OrderPaid] Missing shop domain');
+    return json({ error: "Missing shop" }, { status: 400 });
+  }
+  
+  console.log(`[OrderPaid] Processing order ${order.id} for shop ${shop}`);
+  
   try {
-    // Authenticate webhook using Shopify's built-in verification
-    // This provides HMAC verification AND the admin GraphQL client
-    const { shop, topic, payload: order, admin } = await authenticate.webhook(request);
-
-    timer.mark('authenticated');
-
-    // Get headers for idempotency and tracing
-    const webhookEventId = request.headers.get("x-shopify-webhook-id") ||
-                           request.headers.get("x-shopify-event-id");
-    const apiVersion = request.headers.get('X-Shopify-API-Version');
-
-    // Log webhook receipt with tracing ID
-    const traceId = webhookEventId || `${order.id}-${Date.now()}`;
-    console.log(`[OrderPaid][${traceId}] Webhook received`, {
-      shop,
-      orderId: order.id,
-      webhookEventId,
-      topic,
-      apiVersion,
-      orderTotal: order.total_price,
-      lineItemCount: order.line_items?.length || 0,
-      hasAdmin: !!admin
+    // 2. Authenticate (optional - get admin context if needed)
+    const { admin } = await authenticate.webhook(request);
+    
+    // 3. Generate idempotency key
+    const idempotencyKey = `order-${order.id}-${order.updated_at}`;
+    
+    // 4. Check if already processed
+    const existingProcess = await db.webhookProcess.findUnique({
+      where: { idempotencyKey }
     });
-
-    timer.mark('logged');
-
-    // Order state validation - skip ineligible orders
-    if (order.cancelled_at) {
-      console.log(`[OrderPaid][${traceId}] Order was cancelled, skipping`, {
-        orderId: order.id,
-        cancelledAt: order.cancelled_at
-      });
-      return json({ success: true, message: "Cancelled order ignored" });
-    }
-
-    if (order.financial_status !== 'paid') {
-      console.log(`[OrderPaid][${traceId}] Order not paid (status=${order.financial_status}), skipping`);
-      return json({ success: true, message: "Non-paid order ignored" });
-    }
-
-    if (order.test === true) {
-      console.log(`[OrderPaid][${traceId}] Test order detected, skipping`);
-      return json({ success: true, message: "Test order ignored" });
-    }
-
-    timer.mark('validation_complete');
-
-    console.log(`[OrderPaid][${traceId}] Processing order ${order.id} for shop ${shop}`, {
-      customerEmail: order.email,
-      totalPrice: order.total_price,
-      currency: order.currency,
-      lineItems: order.line_items?.length || 0
-    });
-
-    // Generate idempotency key - prefer webhook event ID if available
-    const idempotencyKey = webhookEventId || `order-${order.id}-${order.updated_at}`;
-
-    console.log(`[OrderPaid][${traceId}] Using idempotency key: ${idempotencyKey}`);
-
-    // Check if already processed (check outside of transaction)
-    let existingProcess = null;
-    try {
-      existingProcess = await db.webhookProcess.findUnique({
-        where: { idempotencyKey }
-      });
-      timer.mark('idempotency_checked');
-    } catch (err: any) {
-      console.warn(`[OrderPaid][${traceId}] WebhookProcess table may not exist, skipping idempotency check`, {
-        error: err?.message || 'Unknown error'
-      });
-
-      // Check if order already exists as fallback idempotency
-      try {
-        const existingOrder = await db.order.findFirst({
-          where: {
-            shop,
-            shopifyOrderId: order.id.toString()
-          }
-        });
-
-        if (existingOrder) {
-          console.log(`[OrderPaid][${traceId}] Order already exists in database, skipping`);
-          return json({ success: true, message: "Order already processed" });
-        }
-      } catch (fallbackErr) {
-        console.error(`[OrderPaid][${traceId}] Fallback idempotency check failed:`, fallbackErr);
-      }
-    }
-
+    
     if (existingProcess) {
-      console.log(`[OrderPaid][${traceId}] Already processed with idempotency key: ${idempotencyKey}`);
+      console.log(`[OrderPaid] Already processed order ${order.id}`);
       return json({ success: true, message: "Already processed" });
     }
     
-    // 5. Check if we're approaching timeout (4.5 seconds to be safe)
-    if (timer.getElapsed() > 4500) {
-      console.warn(`[OrderPaid][${traceId}] Approaching timeout limit, deferring to async processing`);
-      // Queue for async processing if implemented
-      // For now, continue but log the warning
-    }
-
-    // 6. Process with retry logic
+    // 5. Process with retry logic
     const result = await withRetry(
       async () => {
-        const txStartTime = Date.now();
-        console.log(`[OrderPaid][${traceId}] Starting database transaction`);
-
         return await db.$transaction(async (tx) => {
-          timer.mark('transaction_started');
-          // Record webhook processing (only if table exists)
-          try {
-            if (tx.webhookProcess) {
-              await tx.webhookProcess.create({
-                data: {
-                  id: uuidv4(),
-                  shop,
-                  topic: topic || 'orders/paid',
-                  idempotencyKey,
-                  payload: order,
-                  processedAt: new Date(),
-                  // webhookEventId not in schema - store in payload if needed
-                }
-              });
+          // Record webhook processing
+          await tx.webhookProcess.create({
+            data: {
+              id: uuidv4(),
+              shop,
+              topic: topic || 'orders/paid',
+              idempotencyKey,
+              payload: order,
+              processedAt: new Date(),
             }
-            timer.mark('webhook_recorded');
-          } catch (err: any) {
-            console.warn(`[OrderPaid][${traceId}] Could not record webhook processing:`, err.message);
-            // Check if it's a duplicate key error (race condition)
-            if (isDatabaseConstraintError(err)) {
-              console.log(`[OrderPaid][${traceId}] Duplicate webhook detected via constraint`);
-              throw new Error('Webhook already processed');
-            }
-          }
+          });
           
           // Process each line item
           const results = [];
-
-          console.log(`[OrderPaid][${traceId}] Processing ${order.line_items?.length || 0} line items`);
-
-          for (let i = 0; i < order.line_items?.length; i++) {
-            const lineItem = order.line_items[i];
-            const lineItemStart = Date.now();
-
+          
+          for (const lineItem of order.line_items) {
             const itemResult = await processLineItem(tx, {
               shop,
               admin,
               order,
               lineItem,
-              traceId,
             });
-
-            console.log(`[OrderPaid][${traceId}] Line item ${i + 1} processed in ${Date.now() - lineItemStart}ms`);
             results.push(itemResult);
           }
-
-          timer.mark('line_items_processed');
           
           // Create or update Order record
           await createOrderRecord(tx, {
             shop,
             order,
-            traceId,
           });
-          timer.mark('order_created');
-
-          // Track monthly order usage for billing
-          await trackMonthlyOrderUsage(tx, {
-            shop,
-            order,
-            traceId,
-          });
-          timer.mark('usage_tracked');
-
+          
           // Process cashback for regular items
           await processCashback(tx, {
             shop,
             order,
-            admin,
-            traceId,
           });
-          timer.mark('cashback_processed');
-
+          
           // Update customer spending totals from Order data
           await updateCustomerSpendingFromOrders(tx, {
             shop,
             order,
-            traceId,
           });
-          timer.mark('spending_updated');
-
-          // Check for tier progression (need to get the database customer ID first)
-          let dbCustomerId = null;
-          if (order.customer?.id) {
-            const dbCustomer = await tx.customer.findFirst({
-              where: {
-                shop,
-                shopifyCustomerId: order.customer.id.toString()
-              },
-              select: { id: true }
-            });
-            dbCustomerId = dbCustomer?.id;
-          }
-
+          
+          // Check for tier progression
           await checkTierProgression(tx, {
             shop,
-            customerId: dbCustomerId,
-            traceId,
+            customerId: order.customer?.id,
           });
-          timer.mark('tier_checked');
-
-          const txDuration = Date.now() - txStartTime;
-          console.log(`[OrderPaid][${traceId}] Transaction completed in ${txDuration}ms`);
-
-          // Warn if transaction took too long
-          if (txDuration > 3000) {
-            console.warn(`[OrderPaid][${traceId}] Transaction took ${txDuration}ms - approaching timeout limit`);
-          }
-
-          return { success: true, results, duration: txDuration };
+          
+          return { success: true, results };
         });
       },
       {
         maxAttempts: 2,
-        shouldRetry: (error: any) => {
+        shouldRetry: (error) => {
           // Don't retry on business logic errors
-          if (error.message?.includes('Invalid') ||
-              error.message?.includes('not found') ||
-              error.message?.includes('already processed')) {
+          if (error.message?.includes('Invalid') || 
+              error.message?.includes('not found')) {
             return false;
           }
-
-          // Retry on Aurora connection errors
-          if (isAuroraConnectionError(error)) {
-            console.warn(`[OrderPaid][${traceId}] Aurora connection error, will retry:`, error.message);
-            return true;
-          }
-
-          // Don't retry on constraint violations (duplicate processing)
-          if (isDatabaseConstraintError(error)) {
-            console.log(`[OrderPaid][${traceId}] Database constraint violation, not retrying`);
-            return false;
-          }
-
           return true;
-        },
-        onRetry: (attempt: number) => {
-          console.log(`[OrderPaid][${traceId}] Retrying transaction (attempt ${attempt + 1})`);
         }
       }
     );
     
-    // Log final performance metrics
-    const totalTime = timer.getElapsed();
-    console.log(`[OrderPaid][${traceId}] Successfully processed order ${order.id} in ${totalTime}ms`, {
-      performanceMetrics: timer.getMarks(),
-      transactionDuration: result.duration,
-      totalTime
-    });
-
-    // Warn if we're close to Shopify's 5-second timeout
-    if (totalTime > 4000) {
-      console.warn(`[OrderPaid][${traceId}] Total processing time ${totalTime}ms is dangerously close to 5s timeout`);
-    }
-
-    return json({
-      success: true,
-      data: result,
-      metrics: {
-        processingTime: totalTime,
-        transactionTime: result.duration,
-        marks: timer.getMarks()
-      }
-    });
+    console.log(`[OrderPaid] Successfully processed order ${order.id}`);
+    return json({ success: true, data: result });
     
-  } catch (error: any) {
-    const errorTime = timer.getElapsed();
-
-    // For auth errors, we don't have order details
-    if (error.message?.includes('Unauthorized') || error.message?.includes('Invalid webhook')) {
-      console.error('[OrderPaid] Webhook authentication failed:', error.message);
-      return json({ error: "Unauthorized" }, { status: 401 });
+  } catch (error) {
+    console.error(`[OrderPaid] Error processing order ${order.id}:`, error);
+    
+    // Log error for monitoring (if model exists)
+    if (db.webhookError) {
+      await db.webhookError.create({
+        data: {
+          id: uuidv4(),
+        shop,
+        topic: topic || 'orders/paid',
+        orderId: order.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        payload: order,
+        createdAt: new Date(),
+        }
+      }).catch(console.error);
     }
-
-    // If we have authentication error, we won't have these variables
-    const orderId = error.orderId || 'unknown';
-    const traceId = `error-${Date.now()}`;
-
-    console.error(`[OrderPaid][${traceId}] Error processing webhook after ${errorTime}ms:`, {
-      error: error.message,
-      stack: error.stack,
-      performanceMetrics: timer.getMarks(),
-      isAuroraError: isAuroraConnectionError(error),
-      isConstraintError: isDatabaseConstraintError(error)
-    });
-
-    // Log error for monitoring (if model exists) - only if we have minimal data
-    try {
-      if (db.webhookError) {
-        // Include stack trace and metrics in the error message for logging
-        const errorDetails = {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          stack: error.stack || 'No stack trace',
-          processingTime: timer.getElapsed(),
-          metrics: timer.getMarks()
-        };
-
-        await db.webhookError.create({
-          data: {
-            id: uuidv4(),
-            shop: 'unknown', // We may not have shop if auth failed
-            topic: 'orders/paid',
-            orderId: orderId,
-            error: JSON.stringify(errorDetails), // Store all error details as JSON string
-            payload: {}, // No payload if auth failed
-            createdAt: new Date(),
-          }
-        }).catch((err: any) => {
-          console.error(`[OrderPaid] Failed to log webhook error:`, err.message);
-        });
-      }
-    } catch (err: any) {
-      console.error(`[OrderPaid] Failed to create webhook error record:`, err.message);
-    }
-
+    
     // Return success to prevent Shopify retries for non-recoverable errors
-    if (error instanceof Error &&
-        (error.message.includes('Invalid') ||
+    if (error instanceof Error && 
+        (error.message.includes('Invalid') || 
          error.message.includes('not found'))) {
       return json({ success: false, error: error.message });
     }
-
+    
     // Return error for recoverable issues (will trigger retry)
     return json({ error: "Processing failed" }, { status: 500 });
   }
@@ -654,7 +181,6 @@ async function processLineItem(tx: any, params: {
   admin: any;
   order: any;
   lineItem: any;
-  traceId?: string;
 }) {
   const { shop, admin, order, lineItem } = params;
   
@@ -711,20 +237,11 @@ async function processOneTimeTierPurchase(tx: any, params: {
 }) {
   const { shop, order, lineItem, tierProduct } = params;
   
-  // Validate and normalize currency
-  const validatedCurrency = validateShopifyOrderCurrency(order);
-
   // Validate price
-  const priceValidation = validatePrice(lineItem.price, validatedCurrency);
+  const priceValidation = validatePrice(lineItem.price, order.currency);
   if (!priceValidation.valid) {
     throw new Error(`Invalid price for tier product: ${priceValidation.error}`);
   }
-
-  // Round price to proper decimal places
-  const roundedPrice = roundToCurrencyPrecision(
-    priceValidation.sanitizedPrice!,
-    validatedCurrency
-  );
   
   // Get or create customer
   const customer = await tx.customer.upsert({
@@ -781,8 +298,8 @@ async function processOneTimeTierPurchase(tx: any, params: {
       tierProductId: tierProduct.id,
       shopifyOrderId: order.id.toString(),
       shopifyLineItemId: lineItem.id.toString(),
-      purchasePrice: roundedPrice,
-      currency: validatedCurrency,
+      purchasePrice: priceValidation.sanitizedPrice!,
+      currency: order.currency,
       startDate: now,
       endDate: tierEndDate,
       status: 'ACTIVE',
@@ -837,64 +354,14 @@ async function processOneTimeTierPurchase(tx: any, params: {
 async function processCashback(tx: any, params: {
   shop: string;
   order: any;
-  admin?: any;
-  traceId?: string;
 }) {
-  const { shop, order, admin } = params;
-
+  const { shop, order } = params;
+  
   if (!order.customer?.id) {
     console.log('[OrderPaid] No customer ID, skipping cashback');
     return;
   }
-
-  // Analyze transactions to determine cashback eligible amount
-  let paymentBreakdown: PaymentBreakdown | null = null;
-  let cashbackEligibleAmount = parseFloat(order.total_price || '0');
-
-  if (admin) {
-    const orderDetails = await fetchOrderTransactions(admin, order.id.toString());
-
-    if (orderDetails && orderDetails.transactions.length > 0) {
-      console.log(`[OrdersPaidWebhook] 📊 Analyzing ${orderDetails.transactions.length} transactions:`);
-      paymentBreakdown = analyzeTransactions(orderDetails.transactions);
-
-      console.log('[OrdersPaidWebhook] 💰 Payment Breakdown:');
-      console.log(`   Gift Cards: ${paymentBreakdown.giftCardAmount.toFixed(2)}`);
-      console.log(`   Store Credit: ${paymentBreakdown.storeCreditAmount.toFixed(2)}`);
-      console.log(`   External Payments: ${paymentBreakdown.externalPaymentAmount.toFixed(2)}`);
-      console.log(`   ✅ Cashback Eligible: ${paymentBreakdown.cashbackEligibleAmount.toFixed(2)}`);
-
-      cashbackEligibleAmount = paymentBreakdown.cashbackEligibleAmount;
-    } else {
-      console.warn('[OrdersPaidWebhook] ⚠️ Could not fetch transactions, using webhook total');
-    }
-  } else {
-    console.warn('[OrdersPaidWebhook] ⚠️ Admin API not available, using order total');
-  }
-
-  // Get tier product IDs from cache for better performance
-  const tierProductIds = await TierProductCache.getTierProductIds(shop);
-
-  // Filter out tier products from cashback calculation
-  const eligibleItems = order.line_items?.filter((item: any) =>
-    !tierProductIds.has(item.product_id?.toString())
-  ) || [];
-
-  // If we don't have payment breakdown, calculate manually from items
-  if (!paymentBreakdown && eligibleItems.length > 0) {
-    // Calculate eligible amount (excluding tier products)
-    cashbackEligibleAmount = eligibleItems.reduce((sum: number, item: any) => {
-      const price = parseFloat(item.price || '0');
-      const quantity = item.quantity || 1;
-      return sum + (price * quantity);
-    }, 0);
-  }
-
-  if (cashbackEligibleAmount <= 0) {
-    console.log('[OrderPaid] No eligible amount for cashback');
-    return;
-  }
-
+  
   // Get customer with current tier
   const customer = await tx.customer.findUnique({
     where: {
@@ -905,44 +372,20 @@ async function processCashback(tx: any, params: {
     },
     include: { currentTier: true }
   });
-
+  
   if (!customer || !customer.currentTier) {
     console.log('[OrderPaid] Customer or tier not found, skipping cashback');
     return;
   }
-
-  // Calculate cashback amount on eligible amount
-  const cashbackAmount = (cashbackEligibleAmount * customer.currentTier.cashbackPercent) / 100;
-
+  
+  // Calculate cashback amount
+  const orderTotal = parseFloat(order.total_price || '0');
+  const cashbackAmount = (orderTotal * customer.currentTier.cashbackPercent) / 100;
+  
   if (cashbackAmount <= 0) {
     return;
   }
-
-  // Get shop settings for store currency
-  const shopSettings = await tx.shopSettings.findUnique({
-    where: { shop }
-  });
-
-  // Use store currency, fallback to USD if not configured
-  const storeCurrency = shopSettings?.storeCurrency || 'USD';
-
-  // Issue store credit via Shopify GraphQL if admin is available
-  let creditResult: { success: boolean; transactionId?: string } = { success: false };
-  if (admin) {
-    creditResult = await issueStoreCredit(
-      admin,
-      order.customer.id.toString(),
-      cashbackAmount,
-      storeCurrency,
-      order.id.toString()
-    );
-
-    if (!creditResult.success) {
-      console.error('[OrdersPaidWebhook] Failed to issue store credit:', creditResult);
-      // Continue to record in database even if Shopify mutation fails
-    }
-  }
-
+  
   // Get the Order record we just created
   const orderRecord = await tx.order.findFirst({
     where: {
@@ -950,15 +393,15 @@ async function processCashback(tx: any, params: {
       shopifyOrderId: order.id.toString()
     }
   });
-
+  
   if (!orderRecord) {
     console.error('[OrderPaid] Order record not found after creation');
     return;
   }
-
+  
   // Create ledger entry with idempotency
   const ledgerIdempotencyKey = `cashback-${order.id}`;
-
+  
   const existingEntry = await tx.storeCreditLedger.findFirst({
     where: {
       shop,
@@ -966,10 +409,10 @@ async function processCashback(tx: any, params: {
       type: 'CASHBACK_EARNED',
     }
   });
-
+  
   if (!existingEntry) {
     const newBalance = customer.storeCredit + cashbackAmount;
-
+    
     await tx.storeCreditLedger.create({
       data: {
         id: uuidv4(),
@@ -984,23 +427,15 @@ async function processCashback(tx: any, params: {
           idempotencyKey: ledgerIdempotencyKey,
           orderId: order.id,
           orderName: order.name,
-          orderTotal: order.total_price,
-          eligibleAmount: cashbackEligibleAmount,
+          orderTotal,
           cashbackPercent: customer.currentTier.cashbackPercent,
           tierName: customer.currentTier.name,
           description: `${customer.currentTier.cashbackPercent}% cashback on order ${order.name}`,
-          shopifyCreditSuccess: creditResult.success,
-          shopifyTransactionId: creditResult.transactionId || null,
-          paymentBreakdown: paymentBreakdown ? {
-            giftCardAmount: paymentBreakdown.giftCardAmount,
-            storeCreditAmount: paymentBreakdown.storeCreditAmount,
-            externalPaymentAmount: paymentBreakdown.externalPaymentAmount
-          } : null
         },
         createdAt: new Date(),
       }
     });
-
+    
     // Update customer balance
     await tx.customer.update({
       where: { id: customer.id },
@@ -1009,7 +444,7 @@ async function processCashback(tx: any, params: {
         updatedAt: new Date(),
       }
     });
-
+    
     // Mark cashback as processed in Order record
     await tx.order.update({
       where: { id: orderRecord.id },
@@ -1021,124 +456,9 @@ async function processCashback(tx: any, params: {
   }
 }
 
-async function trackMonthlyOrderUsage(tx: any, params: {
-  shop: string;
-  order: any;
-  traceId?: string;
-}) {
-  const { shop, order, traceId } = params;
-
-  try {
-    // Track monthly order usage for billing
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1; // JavaScript months are 0-based
-
-    // Get or create monthly usage record
-    let monthlyUsage = await tx.monthlyOrderUsage.findUnique({
-      where: {
-        shop_year_month: {
-          shop,
-          year,
-          month
-        }
-      }
-    });
-
-    // Get shop settings to check current plan
-    const shopSettings = await tx.shopSettings.findUnique({
-      where: { shop }
-    });
-
-    // Default to free plan
-    let currentPlanName = 'RewardsPro Free';
-    let planLimit = 200; // Updated free plan limit
-
-    if (shopSettings?.planType) {
-      // Map plan type to name and limit
-      switch (shopSettings.planType) {
-        case 'FREE':
-          currentPlanName = 'RewardsPro Free';
-          planLimit = 200;
-          break;
-        case 'STARTER':
-          currentPlanName = 'RewardsPro Starter';
-          planLimit = 1000;
-          break;
-        case 'GROWTH':
-          currentPlanName = 'RewardsPro Growth';
-          planLimit = 10000;
-          break;
-        case 'ENTERPRISE':
-          currentPlanName = 'RewardsPro Enterprise';
-          planLimit = -1; // Unlimited
-          break;
-        default:
-          planLimit = 200;
-      }
-    }
-
-    // Create or update monthly usage
-    if (!monthlyUsage) {
-      monthlyUsage = await tx.monthlyOrderUsage.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          year,
-          month,
-          orderCount: 1,
-          planLimit,
-          planName: currentPlanName,
-          lastOrderDate: now,
-          createdAt: now,
-          updatedAt: now
-        }
-      });
-      console.log(`[OrderPaid][${traceId}] Created monthly usage record:`, monthlyUsage);
-    } else {
-      // Update existing usage
-      monthlyUsage = await tx.monthlyOrderUsage.update({
-        where: {
-          id: monthlyUsage.id
-        },
-        data: {
-          orderCount: monthlyUsage.orderCount + 1,
-          planLimit,
-          planName: currentPlanName,
-          lastOrderDate: now,
-          updatedAt: now
-        }
-      });
-      console.log(`[OrderPaid][${traceId}] Updated monthly usage:`, {
-        orderCount: monthlyUsage.orderCount,
-        planLimit: monthlyUsage.planLimit,
-        remaining: planLimit > 0 ? planLimit - monthlyUsage.orderCount : 'Unlimited'
-      });
-    }
-
-    // Check if free plan limit exceeded
-    if (currentPlanName === 'RewardsPro Free' && monthlyUsage.orderCount > 200) {
-      console.warn(`[OrderPaid][${traceId}] ⚠️ Free plan limit exceeded!`, {
-        shop,
-        orderCount: monthlyUsage.orderCount,
-        limit: 200
-      });
-
-      // Could optionally create a notification here
-      // However, we'll continue processing to avoid disrupting orders
-    }
-
-    return monthlyUsage;
-  } catch (err: any) {
-    console.error(`[OrderPaid][${traceId}] Failed to track monthly usage:`, err.message);
-    // Don't throw - this is not critical for order processing
-  }
-}
-
 async function createOrderRecord(tx: any, params: {
   shop: string;
   order: any;
-  traceId?: string;
 }) {
   const { shop, order } = params;
   
@@ -1171,67 +491,29 @@ async function createOrderRecord(tx: any, params: {
       }
     });
   }
-
-  // Check if this order contains tier products (affects cashback eligibility)
-  // Use cached tier product IDs for better performance
-  const tierProductIds = await TierProductCache.getTierProductIds(shop);
-  const containsTierProducts = order.line_items?.some((item: any) =>
-    tierProductIds.has(item.product_id?.toString())
-  ) || false;
-
-  // Calculate cashback based on current tier (but not on tier product purchases)
+  
+  // Calculate cashback based on current tier
   let cashbackPercent = 0;
   let cashbackAmount = 0;
   let tierIdAtOrder = null;
   let tierNameAtOrder = null;
-  let cashbackEligible = !containsTierProducts; // Tier products don't earn cashback
-
-  if (customer?.currentTier && cashbackEligible) {
+  
+  if (customer?.currentTier) {
     cashbackPercent = customer.currentTier.cashbackPercent;
     tierIdAtOrder = customer.currentTier.id;
     tierNameAtOrder = customer.currentTier.name;
-
+    
     // Calculate cashback on subtotal after discounts
     const subtotal = parseFloat(order.subtotal_price || '0');
     const discounts = parseFloat(order.total_discounts || '0');
     const netAmount = subtotal - discounts;
     cashbackAmount = (netAmount * cashbackPercent) / 100;
   }
-
-  // Validate and normalize currency
-  const validatedCurrency = validateShopifyOrderCurrency(order);
-
-  // Round cashback amount to proper decimal places
-  if (cashbackAmount > 0) {
-    cashbackAmount = roundToCurrencyPrecision(cashbackAmount, validatedCurrency);
-  }
-
+  
   // Create Order record
   const orderId = uuidv4();
   const now = new Date();
-
-  // Round all amounts to proper decimal places for the currency
-  const subtotalPrice = roundToCurrencyPrecision(
-    parseFloat(order.subtotal_price || '0'),
-    validatedCurrency
-  );
-  const totalDiscounts = roundToCurrencyPrecision(
-    parseFloat(order.total_discounts || '0'),
-    validatedCurrency
-  );
-  const totalShipping = roundToCurrencyPrecision(
-    parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),
-    validatedCurrency
-  );
-  const totalTax = roundToCurrencyPrecision(
-    parseFloat(order.total_tax || '0'),
-    validatedCurrency
-  );
-  const totalPrice = roundToCurrencyPrecision(
-    parseFloat(order.total_price || '0'),
-    validatedCurrency
-  );
-
+  
   const newOrder = await tx.order.create({
     data: {
       id: orderId,
@@ -1241,17 +523,17 @@ async function createOrderRecord(tx: any, params: {
       shopifyOrderName: order.name || '',
       customerId: customer?.id || 'unknown',
       email: order.email || order.customer?.email || '',
-      currency: validatedCurrency,
-      subtotalPrice,
-      totalDiscounts,
-      totalShipping,
-      totalTax,
-      totalPrice,
+      currency: order.currency || 'USD',
+      subtotalPrice: parseFloat(order.subtotal_price || '0'),
+      totalDiscounts: parseFloat(order.total_discounts || '0'),
+      totalShipping: parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),
+      totalTax: parseFloat(order.total_tax || '0'),
+      totalPrice: parseFloat(order.total_price || '0'),
       totalRefunded: 0, // Will be updated when refunds are processed
-      netAmount: totalPrice,
-      financialStatus: (order.financial_status || 'paid').toUpperCase() as any, // Normalize to uppercase enum
+      netAmount: parseFloat(order.total_price || '0'),
+      financialStatus: 'PAID', // This webhook only fires for paid orders
       fulfillmentStatus: order.fulfillment_status || null,
-      cashbackEligible,
+      cashbackEligible: true,
       cashbackPercent,
       cashbackAmount,
       cashbackProcessed: false, // Will be marked true when cashback is credited
@@ -1301,7 +583,6 @@ async function createOrderRecord(tx: any, params: {
 async function updateCustomerSpendingFromOrders(tx: any, params: {
   shop: string;
   order: any;
-  traceId?: string;
 }) {
   const { shop, order } = params;
   
@@ -1321,13 +602,12 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
     return;
   }
   
-  // Calculate totals from Order records (excluding tier product purchases)
+  // Calculate totals from Order records
   const orderStats = await tx.order.aggregate({
     where: {
       shop,
       customerId: customer.id,
-      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] },
-      cashbackEligible: true  // Only count non-tier-product orders toward spending
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
     },
     _sum: {
       totalPrice: true,
@@ -1359,19 +639,16 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
 }
 
-async function checkTierProgression(_tx: any, params: {
+async function checkTierProgression(tx: any, params: {
   shop: string;
   customerId: string;
-  traceId?: string;
 }) {
-  const { customerId } = params;
-
+  const { shop, customerId } = params;
+  
   if (!customerId) {
     return;
   }
-
+  
   // Use TierResolver to check for tier conflicts and updates
   await TierResolver.updateEffectiveTier(customerId);
 }
-
-// Removed updateMonthlyOrderUsage function - billing now counts orders directly from Order table
