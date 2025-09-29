@@ -631,8 +631,8 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
     return;
   }
   
-  // Calculate totals from Order records
-  const orderStats = await tx.order.aggregate({
+  // Calculate totals from Order records (use db directly)
+  const orderStats = await db.order.aggregate({
     where: {
       shop,
       customerId: customer.id,
@@ -651,8 +651,8 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
     }
   });
   
-  // Update customer spending totals
-  await tx.customer.update({
+  // Update customer spending totals (use db directly)
+  await db.customer.update({
     where: { id: customer.id },
     data: {
       totalSpent: orderStats._sum.totalPrice || 0,
@@ -668,7 +668,7 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
 }
 
-async function checkTierProgression(_tx: any, params: {
+async function checkTierProgression(dbOrTx: any, params: {
   shop: string;
   customerId: string;
 }) {
