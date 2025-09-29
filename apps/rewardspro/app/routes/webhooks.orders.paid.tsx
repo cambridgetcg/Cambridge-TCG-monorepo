@@ -38,57 +38,57 @@ function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const rawBody = await request.text();
-  
-  // 1. Verify HMAC
-  if (!verifyWebhookHMAC(request, rawBody)) {
-    console.error('[OrderPaid] HMAC verification failed');
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
-  
-  const order = JSON.parse(rawBody);
-  const shop = request.headers.get('X-Shopify-Shop-Domain');
-  const topic = request.headers.get('X-Shopify-Topic');
-  
-  if (!shop) {
-    console.error('[OrderPaid] Missing shop domain');
-    return json({ error: "Missing shop" }, { status: 400 });
-  }
-  
-  console.log(`[OrderPaid] Processing order ${order.id} for shop ${shop}`);
-  
+  let shop: string | undefined;
+  let topic: string | undefined;
+  let order: any;
+
   try {
-    // 2. Authenticate (optional - get admin context if needed)
-    const { admin } = await authenticate.webhook(request);
-    
-    // 3. Generate idempotency key
+    // Use Shopify's built-in webhook authentication which handles HMAC verification
+    const webhookData = await authenticate.webhook(request);
+    shop = webhookData.shop;
+    topic = webhookData.topic;
+    order = webhookData.payload;
+    const admin = webhookData.admin;
+
+    console.log(`[OrderPaid] Processing order ${order.id} for shop ${shop}`);
+
+    // Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
-    
-    // 4. Check if already processed
-    const existingProcess = await db.webhookProcess.findUnique({
-      where: { idempotencyKey }
-    });
-    
-    if (existingProcess) {
-      console.log(`[OrderPaid] Already processed order ${order.id}`);
-      return json({ success: true, message: "Already processed" });
+
+    // Check if already processed (if webhookProcess table exists)
+    try {
+      const existingProcess = await db.webhookProcess.findUnique({
+        where: { idempotencyKey }
+      });
+
+      if (existingProcess) {
+        console.log(`[OrderPaid] Already processed order ${order.id}`);
+        return json({ success: true, message: "Already processed" });
+      }
+    } catch (e) {
+      // webhookProcess table might not exist, continue processing
+      console.log(`[OrderPaid] Could not check idempotency (table may not exist)`);
     }
-    
-    // 5. Process with retry logic
+
+    // Process with retry logic
     const result = await withRetry(
       async () => {
         return await db.$transaction(async (tx) => {
-          // Record webhook processing
-          await tx.webhookProcess.create({
-            data: {
-              id: uuidv4(),
-              shop,
-              topic: topic || 'orders/paid',
-              idempotencyKey,
-              payload: order,
-              processedAt: new Date(),
-            }
-          });
+          // Record webhook processing (if table exists)
+          try {
+            await tx.webhookProcess.create({
+              data: {
+                id: uuidv4(),
+                shop,
+                topic: topic || 'orders/paid',
+                idempotencyKey,
+                payload: order,
+                processedAt: new Date(),
+              }
+            });
+          } catch (e) {
+            console.log(`[OrderPaid] Could not record webhook processing (table may not exist)`);
+          }
           
           // Process each line item
           const results = [];
@@ -121,11 +121,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             order,
           });
           
-          // Check for tier progression
-          await checkTierProgression(tx, {
-            shop,
-            customerId: order.customer?.id,
-          });
+          // Check for tier progression (need to get the database customer ID first)
+          if (order.customer?.id) {
+            const dbCustomer = await tx.customer.findFirst({
+              where: {
+                shop,
+                shopifyCustomerId: order.customer.id.toString()
+              },
+              select: { id: true }
+            });
+
+            if (dbCustomer && shop) {
+              await checkTierProgression(tx, {
+                shop,
+                customerId: dbCustomer.id,
+              });
+            }
+          }
           
           return { success: true, results };
         });
@@ -147,19 +159,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ success: true, data: result });
     
   } catch (error) {
-    console.error(`[OrderPaid] Error processing order ${order.id}:`, error);
-    
-    // Log error for monitoring (if model exists)
-    if (db.webhookError) {
+    console.error(`[OrderPaid] Error processing order ${order?.id || 'unknown'}:`, error);
+
+    // Log error for monitoring (if model exists and we have required data)
+    if (db.webhookError && shop && order) {
       await db.webhookError.create({
         data: {
           id: uuidv4(),
-        shop,
-        topic: topic || 'orders/paid',
-        orderId: order.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        payload: order,
-        createdAt: new Date(),
+          shop,
+          topic: topic || 'orders/paid',
+          orderId: order.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          payload: order,
+          createdAt: new Date(),
         }
       }).catch(console.error);
     }
@@ -639,11 +651,11 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
 }
 
-async function checkTierProgression(tx: any, params: {
+async function checkTierProgression(_tx: any, params: {
   shop: string;
   customerId: string;
 }) {
-  const { shop, customerId } = params;
+  const { customerId } = params;
   
   if (!customerId) {
     return;
