@@ -6,7 +6,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import { db } from "../db.server";
+import { createDataAPIPrismaClient } from "../utils/prisma-data-api-adapter";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 import TierResolver from "../services/tier-resolver.server";
 import TierProductCache from "../services/tier-product-cache.server";
@@ -14,9 +14,11 @@ import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { validateShopifyOrderCurrency } from "../services/currency-validation.server";
 import { roundToCurrencyPrecision } from "../services/currency-formatter.server";
+import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
-const uuidv4 = () => crypto.randomUUID();
+// Initialize Prisma client with Data API adapter for better connection handling
+const db = createDataAPIPrismaClient();
 
 // Performance monitoring utilities
 class PerformanceTimer {
@@ -60,7 +62,7 @@ function isDatabaseConstraintError(error: any): boolean {
          errorMessage.includes('duplicate key');
 }
 
-// HMAC Verification
+// HMAC Verification using Node.js crypto module
 function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_API_SECRET; // Use webhook secret first
@@ -92,7 +94,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Get headers - prioritize X-Shopify-Webhook-Id for better idempotency
   const webhookEventId = request.headers.get("x-shopify-webhook-id") ||
                          request.headers.get("x-shopify-event-id");
-  const shopDomain = request.headers.get("x-shopify-shop-domain");
   const shop = request.headers.get('X-Shopify-Shop-Domain');
   const topic = request.headers.get('X-Shopify-Topic');
   const apiVersion = request.headers.get('X-Shopify-API-Version');
@@ -170,9 +171,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         where: { idempotencyKey }
       });
       timer.mark('idempotency_checked');
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`[OrderPaid][${traceId}] WebhookProcess table may not exist, skipping idempotency check`, {
-        error: err.message
+        error: err?.message || 'Unknown error'
       });
 
       // Check if order already exists as fallback idempotency
@@ -409,6 +410,7 @@ async function processLineItem(tx: any, params: {
   admin: any;
   order: any;
   lineItem: any;
+  traceId?: string;
 }) {
   const { shop, admin, order, lineItem } = params;
   
@@ -591,6 +593,7 @@ async function processOneTimeTierPurchase(tx: any, params: {
 async function processCashback(tx: any, params: {
   shop: string;
   order: any;
+  traceId?: string;
 }) {
   const { shop, order } = params;
   
@@ -603,12 +606,12 @@ async function processCashback(tx: any, params: {
   const tierProductIds = await TierProductCache.getTierProductIds(shop);
 
   // Filter out tier products from cashback calculation
-  const eligibleItems = order.line_items?.filter(item =>
+  const eligibleItems = order.line_items?.filter((item: any) =>
     !tierProductIds.has(item.product_id?.toString())
   ) || [];
 
   // Calculate eligible amount (excluding tier products)
-  const eligibleAmount = eligibleItems.reduce((sum, item) => {
+  const eligibleAmount = eligibleItems.reduce((sum: number, item: any) => {
     const price = parseFloat(item.price || '0');
     const quantity = item.quantity || 1;
     return sum + (price * quantity);
@@ -715,6 +718,7 @@ async function processCashback(tx: any, params: {
 async function createOrderRecord(tx: any, params: {
   shop: string;
   order: any;
+  traceId?: string;
 }) {
   const { shop, order } = params;
   
@@ -751,7 +755,7 @@ async function createOrderRecord(tx: any, params: {
   // Check if this order contains tier products (affects cashback eligibility)
   // Use cached tier product IDs for better performance
   const tierProductIds = await TierProductCache.getTierProductIds(shop);
-  const containsTierProducts = order.line_items?.some(item =>
+  const containsTierProducts = order.line_items?.some((item: any) =>
     tierProductIds.has(item.product_id?.toString())
   ) || false;
 
@@ -877,6 +881,7 @@ async function createOrderRecord(tx: any, params: {
 async function updateCustomerSpendingFromOrders(tx: any, params: {
   shop: string;
   order: any;
+  traceId?: string;
 }) {
   const { shop, order } = params;
   
@@ -934,12 +939,12 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
 }
 
-async function checkTierProgression(tx: any, params: {
+async function checkTierProgression(_tx: any, params: {
   shop: string;
   customerId: string;
   traceId?: string;
 }) {
-  const { shop, customerId, traceId = 'unknown' } = params;
+  const { customerId } = params;
 
   if (!customerId) {
     return;
