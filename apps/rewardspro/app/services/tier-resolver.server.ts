@@ -390,10 +390,11 @@ export class TierResolver {
 
   /**
    * Helper: Determine trigger type based on tier source
+   * Returns proper TierTriggerType enum value
    */
   private static determineTriggerType(
     tier: TierWithDetails | null
-  ): string {
+  ): 'SUBSCRIPTION_CANCELLED' | 'SUBSCRIPTION_STARTED' | 'PRODUCT_PURCHASE' | 'SPENDING_MILESTONE' | 'PERIODIC_REVIEW' {
     if (!tier) {
       return 'SUBSCRIPTION_CANCELLED'; // Lost all tiers
     }

@@ -170,7 +170,11 @@ export class DataAPIModelProxy<T = any> {
     // Add ORDER BY
     if (args?.orderBy) {
       const orderClauses = Object.entries(args.orderBy).map(
-        ([field, direction]) => `"${field}" ${direction.toUpperCase()}`
+        ([field, direction]) => {
+          // Handle both string and object notation for orderBy
+          const dir = typeof direction === 'string' ? direction : (direction?.sort || 'asc');
+          return `"${field}" ${dir.toUpperCase()}`;
+        }
       );
       sql += ` ORDER BY ${orderClauses.join(", ")}`;
     }
