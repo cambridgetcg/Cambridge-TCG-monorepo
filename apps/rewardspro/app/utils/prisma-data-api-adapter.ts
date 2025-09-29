@@ -467,7 +467,7 @@ export class DataAPIModelProxy<T = any> {
       TierChangeLog: ['changeType', 'triggerType'],
       TierProduct: ['purchaseType', 'duration', 'currency'],
       TierSubscription: ['status', 'billingInterval', 'deliveryInterval', 'currency'],
-      Order: ['financialStatus'],
+      // Order: ['financialStatus'], // Commented out - enum type doesn't exist in production database
       SubscriptionBillingAttempt: ['status', 'currency'],
       Subscription: ['status', 'currency', 'lastPaymentStatus'],
       BillingAttempt: ['status', 'currency'],
