@@ -305,12 +305,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
 
   try {
-    // Tier management actions
+    // Tier management actions - Simplified version
     if (intent === "create-tier") {
       const name = formData.get("name") as string;
-      const minSpend = parseFloat(formData.get("minSpend") as string);
-      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string);
-      const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+      const minSpend = parseFloat(formData.get("minSpend") as string) || 0;
+      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string) || 0;
+      const evaluationPeriod = (formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME") || "ANNUAL";
+
+      // Validation
+      if (!name) {
+        return json({ success: false, error: "Tier name is required" }, { status: 400 });
+      }
+      if (cashbackPercent < 0 || cashbackPercent > 100) {
+        return json({ success: false, error: "Cashback must be between 0 and 100" }, { status: 400 });
+      }
 
       await db.tier.create({
         data: {
@@ -325,15 +333,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
 
-      return json({ success: true, message: `${name} tier created successfully` });
+      return json({ success: true });
     }
 
-    if (intent === "update-tier") {
+    if (intent === "edit-tier") {
       const id = formData.get("id") as string;
       const name = formData.get("name") as string;
-      const minSpend = parseFloat(formData.get("minSpend") as string);
-      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string);
-      const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+      const minSpend = parseFloat(formData.get("minSpend") as string) || 0;
+      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string) || 0;
+      const evaluationPeriod = (formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME") || "ANNUAL";
+
+      // Validation
+      if (!name) {
+        return json({ success: false, error: "Tier name is required" }, { status: 400 });
+      }
+      if (cashbackPercent < 0 || cashbackPercent > 100) {
+        return json({ success: false, error: "Cashback must be between 0 and 100" }, { status: 400 });
+      }
 
       await db.tier.update({
         where: { id },
@@ -346,7 +362,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
 
-      return json({ success: true, message: `${name} tier updated successfully` });
+      return json({ success: true });
     }
 
     if (intent === "delete-tier") {
@@ -368,7 +384,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         where: { id },
       });
 
-      return json({ success: true, message: "Tier deleted successfully" });
+      return json({ success: true });
     }
 
     if (intent === "create-product") {
@@ -1479,7 +1495,7 @@ export default function TierProducts() {
   // Tier management handlers
   const handleSaveTier = useCallback(() => {
     const formData = new FormData();
-    formData.append("intent", editingTier ? "update-tier" : "create-tier");
+    formData.append("intent", editingTier ? "edit-tier" : "create-tier");
     if (editingTier) {
       formData.append("id", editingTier.id);
     }
@@ -1775,7 +1791,7 @@ export default function TierProducts() {
             </Layout.Section>
           )}
 
-          {/* Loyalty Tiers Management Section */}
+          {/* Loyalty Tiers Management */}
           <Layout.Section>
             <Card>
               <Box padding="400">
@@ -1826,9 +1842,8 @@ export default function TierProducts() {
                     <BlockStack gap="300">
                       {data.tiers
                         .sort((a, b) => a.minSpend - b.minSpend)
-                        .map((tier) => {
-                          const tierStyle = getTierStyle(tier.name);
-                          const productCount = data.tierProducts.filter(p => p.tierId === tier.id).length;
+                        .map((tier, index) => {
+                          const customerCount = 0; // Will be populated from tier distribution if needed
 
                           return (
                             <Box key={tier.id} background="bg-surface" padding="0" borderRadius="200">
@@ -1844,10 +1859,10 @@ export default function TierProducts() {
                                       width: '40px',
                                       height: '40px',
                                       borderRadius: '8px',
-                                      background: tierStyle.backgroundColor,
-                                      border: `2px solid ${tierStyle.borderColor}`,
+                                      background: getTierStyle(tier.name).backgroundColor,
+                                      border: `2px solid ${getTierStyle(tier.name).borderColor}`,
                                     }}>
-                                      <Icon source={tierStyle.icon} tone="base" />
+                                      <Icon source={getTierStyle(tier.name).icon} tone="base" />
                                     </div>
 
                                     {/* Tier Details */}
@@ -1859,9 +1874,9 @@ export default function TierProducts() {
                                         <Badge tone="success">
                                           {tier.cashbackPercent}% Cashback
                                         </Badge>
-                                        {productCount > 0 && (
+                                        {customerCount > 0 && (
                                           <Badge tone="info">
-                                            {productCount} {productCount === 1 ? 'product' : 'products'}
+                                            {customerCount} {customerCount === 1 ? 'customer' : 'customers'}
                                           </Badge>
                                         )}
                                       </InlineStack>
@@ -1920,7 +1935,7 @@ export default function TierProducts() {
                                           setDeletingTierId(tier.id);
                                           setDeleteConfirmActive(true);
                                         }}
-                                        disabled={productCount > 0}
+                                        disabled={customerCount > 0}
                                       >
                                         Delete
                                       </Button>
