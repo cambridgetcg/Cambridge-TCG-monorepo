@@ -124,10 +124,15 @@ export class DataAPIModelProxy<T = any> {
           // Handle { in: [...] } (IN clause)
           const inValues = value.in;
           if (Array.isArray(inValues) && inValues.length > 0) {
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'purchaseType'];
+            // Use the isEnumField method to check if field needs casting
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
 
             // Check if this field is an enum type that needs casting
+            // Creating a temporary proxy to access the private method
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+                               'evaluationPeriod', 'purchaseType', 'duration', 'currency', 'status',
+                               'billingInterval', 'deliveryInterval', 'financialStatus', 'lastPaymentStatus',
+                               'discountType', 'eventType'];
             if (enumFields.includes(key)) {
               // Cast enum types explicitly for PostgreSQL IN clause
               conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
@@ -141,7 +146,10 @@ export class DataAPIModelProxy<T = any> {
           }
         } else if (value !== undefined) {
           // Check if this field is an enum type that needs casting
-          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'purchaseType'];
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+                             'evaluationPeriod', 'purchaseType', 'duration', 'currency', 'status',
+                             'billingInterval', 'deliveryInterval', 'financialStatus', 'lastPaymentStatus',
+                             'discountType', 'eventType'];
           if (enumFields.includes(key)) {
             // Cast enum types explicitly for PostgreSQL
             conditions.push(`"${key}"::text = :param${index}`);
@@ -453,11 +461,21 @@ export class DataAPIModelProxy<T = any> {
   private isEnumField(field: string): boolean {
     // Map of known enum fields per table
     const enumFields: Record<string, string[]> = {
-      Tier: ['evaluationPeriod'],
+      Tier: ['evaluationPeriod', 'billingInterval'],
       ShopSettings: ['storeCurrency', 'currencyDisplayType'],
       StoreCreditLedger: ['type'],
       TierChangeLog: ['changeType', 'triggerType'],
-      TierProduct: ['purchaseType'],
+      TierProduct: ['purchaseType', 'duration', 'currency'],
+      TierSubscription: ['status', 'billingInterval', 'deliveryInterval', 'currency'],
+      Order: ['financialStatus'],
+      SubscriptionBillingAttempt: ['status', 'currency'],
+      Subscription: ['status', 'currency', 'lastPaymentStatus'],
+      BillingAttempt: ['status', 'currency'],
+      SellingPlan: ['billingInterval', 'discountType'],
+      TierPurchase: ['status'],
+      SubscriptionRetry: ['status'],
+      SubscriptionEvent: ['eventType'],
+      SyncStatus: ['status'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -471,14 +489,41 @@ export class DataAPIModelProxy<T = any> {
     const enumTypes: Record<string, string> = {
       evaluationPeriod: '"EvaluationPeriod"',
       storeCurrency: '"Currency"',
+      currency: '"Currency"',
       currencyDisplayType: '"CurrencyDisplayType"',
       type: '"LedgerEntryType"',
       changeType: '"TierChangeType"',
       triggerType: '"TierTriggerType"',
       purchaseType: '"PurchaseType"',
+      duration: '"ProductDuration"',
+      status: this.getStatusEnumForTable(),
+      billingInterval: '"BillingInterval"',
+      deliveryInterval: '"BillingInterval"',
+      financialStatus: '"OrderFinancialStatus"',
+      lastPaymentStatus: '"PaymentStatus"',
+      discountType: '"DiscountType"',
+      eventType: '"SubscriptionEventType"',
     };
 
     return enumTypes[field] || field;
+  }
+
+  /**
+   * Get the appropriate status enum type based on table name
+   */
+  private getStatusEnumForTable(): string {
+    // Different tables use different status enums
+    const statusEnumMap: Record<string, string> = {
+      TierSubscription: '"SubscriptionStatus"',
+      Subscription: '"SubscriptionStatus"',
+      SubscriptionBillingAttempt: '"BillingStatus"',
+      BillingAttempt: '"BillingAttemptStatus"',
+      TierPurchase: '"PurchaseStatus"',
+      SubscriptionRetry: '"RetryStatus"',
+      SyncStatus: '"SyncStatusEnum"',
+    };
+
+    return statusEnumMap[this.tableName] || '"Status"';
   }
 
   /**
