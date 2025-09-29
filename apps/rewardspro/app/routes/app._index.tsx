@@ -611,26 +611,6 @@ export default function Dashboard() {
       ]}
     >
       <Layout>
-        {/* Plan Details Card - Using shared component */}
-        <Layout.Section>
-          <CurrentPlanCard
-            activeSubscription={data.activeSubscription}
-            currentPlan={data.currentPlan}
-            monthlyOrderUsage={{
-              orderCount: data.monthlyOrderUsage?.orderCount || 0,
-              planLimit: data.monthlyOrderUsage?.planLimit || 200,
-              projectedOrders: data.monthlyOrderUsage?.projectedOrders || 0,
-              currentMonth: data.currentMonth
-            }}
-            showUpgradeButton={true}
-            showOverageBanner={false}
-            showCountStrategy={false}
-            showProjectedUsage={true}
-            compact={false}
-            onUpgrade={() => navigate("/app/billing/plans")}
-          />
-        </Layout.Section>
-
         {/* Key Metrics Overview */}
         <Layout.Section>
           <StatsOverview
@@ -657,6 +637,26 @@ export default function Dashboard() {
               },
             ]}
             loading={isRefreshing}
+          />
+        </Layout.Section>
+
+        {/* Plan Details Card - Using shared component */}
+        <Layout.Section>
+          <CurrentPlanCard
+            activeSubscription={data.activeSubscription}
+            currentPlan={data.currentPlan}
+            monthlyOrderUsage={{
+              orderCount: data.monthlyOrderUsage?.orderCount || 0,
+              planLimit: data.monthlyOrderUsage?.planLimit || 200,
+              projectedOrders: data.monthlyOrderUsage?.projectedOrders || 0,
+              currentMonth: data.currentMonth
+            }}
+            showUpgradeButton={true}
+            showOverageBanner={false}
+            showCountStrategy={false}
+            showProjectedUsage={true}
+            compact={false}
+            onUpgrade={() => navigate("/app/billing/plans")}
           />
         </Layout.Section>
         
