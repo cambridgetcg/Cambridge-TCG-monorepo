@@ -36,6 +36,27 @@ export class DataAPIModelProxy<T = any> {
     // Build WHERE clause
     if (args?.where) {
       Object.entries(args.where).forEach(([key, value], index) => {
+        // Handle OR condition specially
+        if (key === 'OR' && Array.isArray(value)) {
+          // Process OR conditions
+          const orConditions: string[] = [];
+          value.forEach((orClause, orIndex) => {
+            Object.entries(orClause).forEach(([orKey, orValue]) => {
+              const paramName = `or${orIndex}_${orKey}`;
+              if (orValue === null) {
+                orConditions.push(`"${orKey}" IS NULL`);
+              } else if (orValue !== undefined) {
+                orConditions.push(`"${orKey}" = :${paramName}`);
+                params.push(AuroraDataAPI.buildParameter(paramName, orValue));
+              }
+            });
+          });
+          if (orConditions.length > 0) {
+            conditions.push(`(${orConditions.join(' OR ')})`);
+          }
+          return; // Skip the rest of the processing for OR
+        }
+
         if (value === null) {
           conditions.push(`"${key}" IS NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'not' in value) {

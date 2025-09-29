@@ -186,7 +186,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   idempotencyKey,
                   payload: order,
                   processedAt: new Date(),
-                  webhookEventId,  // Store the Shopify event ID
+                  // webhookEventId not in schema - store in payload if needed
                 }
               });
             }
