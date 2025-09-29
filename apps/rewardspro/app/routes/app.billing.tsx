@@ -728,7 +728,7 @@ export default function BillingPage() {
               {/* FAQ Section */}
               <Card>
                 <Box padding="400">
-                  <Text as="h3" variant="headingLg">Frequently Asked Questions</Text>
+                  <Text as="h3" variant="headingLg" alignment="start">Frequently Asked Questions</Text>
 
                   <Box paddingBlockStart="400">
                     <BlockStack gap="0">

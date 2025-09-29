@@ -123,20 +123,22 @@ export function MetricCard({
               {title}
             </Text>
             {change !== undefined && (
-              <InlineStack gap="100" align="center" blockAlign="center">
-                <Icon
-                  source={change > 0 ? ArrowUpIcon : ArrowDownIcon}
-                  tone={change > 0 ? 'success' : 'critical'}
-                />
-                <Text
-                  variant="bodySm"
-                  fontWeight="semibold"
-                  tone={change > 0 ? 'success' : 'critical'}
-                  as="span"
-                >
-                  {change > 0 ? '+' : ''}{change}%
-                </Text>
-              </InlineStack>
+              <Box width="100%">
+                <InlineStack gap="100" align="center" blockAlign="center">
+                  <Icon
+                    source={change > 0 ? ArrowUpIcon : ArrowDownIcon}
+                    tone={change > 0 ? 'success' : 'critical'}
+                  />
+                  <Text
+                    variant="bodySm"
+                    fontWeight="semibold"
+                    tone={change > 0 ? 'success' : 'critical'}
+                    as="span"
+                  >
+                    {change > 0 ? '+' : ''}{change}%
+                  </Text>
+                </InlineStack>
+              </Box>
             )}
           </BlockStack>
         </div>

@@ -53,7 +53,6 @@
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscription-demo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.test-orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -468,15 +467,6 @@
         "parentId": "routes/app",
         "file": "app/routes/app.test-order-count.tsx",
         "path": "test-order-count",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.test-orders-sync": {
-        "id": "routes/app.test-orders-sync",
-        "parentId": "routes/app",
-        "file": "app/routes/app.test-orders-sync.tsx",
-        "path": "test-orders-sync",
         "config": {
           "runtime": "nodejs"
         }
@@ -915,12 +905,6 @@
         "parentId": "routes/app",
         "file": "routes/app.test-order-count.tsx",
         "path": "test-order-count"
-      },
-      "routes/app.test-orders-sync": {
-        "id": "routes/app.test-orders-sync",
-        "parentId": "routes/app",
-        "file": "routes/app.test-orders-sync.tsx",
-        "path": "test-orders-sync"
       },
       "routes/app.design-showcase": {
         "id": "routes/app.design-showcase",
