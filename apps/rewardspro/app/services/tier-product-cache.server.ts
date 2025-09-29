@@ -35,10 +35,12 @@ export class TierProductCache {
     }
 
     // Otherwise, fetch from database
+    // NOTE: isActive field doesn't exist in production database yet
+    // TODO: Add migration to include isActive field
     const products = await db.tierProduct.findMany({
       where: {
-        shop,
-        isActive: true
+        shop
+        // isActive: true // Commented out - field doesn't exist in database
       },
       select: {
         shopifyProductId: true
