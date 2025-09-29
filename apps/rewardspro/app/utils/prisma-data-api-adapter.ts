@@ -318,6 +318,33 @@ export class DataAPIModelProxy<T = any> {
           console.error('[DataAPI] Invalid composite key for OrderLineItem:', value);
           processedWhere[key] = value;
         }
+      } else if (key === 'shop_shopifyCustomerId' && this.tableName === 'Customer') {
+        // Handle the composite key for Customer model
+        let parsed: any;
+
+        if (typeof value === 'string') {
+          try {
+            parsed = JSON.parse(value);
+          } catch (e) {
+            console.error('[DataAPI] Failed to parse Customer composite key:', value);
+            processedWhere[key] = value;
+            continue;
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          parsed = value;
+        } else {
+          processedWhere[key] = value;
+          continue;
+        }
+
+        // Extract individual fields
+        if (parsed.shop && parsed.shopifyCustomerId) {
+          processedWhere.shop = parsed.shop;
+          processedWhere.shopifyCustomerId = parsed.shopifyCustomerId;
+        } else {
+          console.error('[DataAPI] Invalid Customer composite key structure:', parsed);
+          processedWhere[key] = value;
+        }
       } else if (key === 'shop_year_month' && this.tableName === 'MonthlyOrderUsage') {
         // Handle the composite key for MonthlyOrderUsage model
         let parsed: any;
