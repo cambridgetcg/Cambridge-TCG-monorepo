@@ -503,10 +503,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
           timer.mark('spending_updated');
 
-          // Check for tier progression
+          // Check for tier progression (need to get the database customer ID first)
+          let dbCustomerId = null;
+          if (order.customer?.id) {
+            const dbCustomer = await tx.customer.findFirst({
+              where: {
+                shop,
+                shopifyCustomerId: order.customer.id.toString()
+              },
+              select: { id: true }
+            });
+            dbCustomerId = dbCustomer?.id;
+          }
+
           await checkTierProgression(tx, {
             shop,
-            customerId: order.customer?.id,
+            customerId: dbCustomerId,
             traceId,
           });
           timer.mark('tier_checked');
