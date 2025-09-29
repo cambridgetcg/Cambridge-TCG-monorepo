@@ -23,9 +23,10 @@ import {
   FormLayout,
   Toast,
   Frame,
-  Tabs
+  Tabs,
+  Collapsible
 } from "@shopify/polaris";
-import { CheckCircleIcon, PhoneIcon, EmailIcon } from "@shopify/polaris-icons";
+import { CheckCircleIcon, PhoneIcon, EmailIcon, ChevronDownIcon, ChevronUpIcon } from "@shopify/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useEffect } from "react";
@@ -254,6 +255,20 @@ export default function BillingPage() {
     requirements: ""
   });
   const [toastActive, setToastActive] = useState(false);
+
+  // FAQ collapsible states
+  const [faqOpen, setFaqOpen] = useState<{[key: string]: boolean}>({
+    changeTime: false,
+    billing: false,
+    enterprise: false,
+    freeLimit: false,
+    trial: false,
+    cancellation: false,
+    dataRetention: false,
+    multiStore: false,
+    charges: false,
+    support: false
+  });
 
   const handleSubscribe = (plan: string) => {
     const formData = new FormData();
@@ -573,7 +588,7 @@ export default function BillingPage() {
                       <Text as="h2" variant="headingLg">
                         Why Choose Enterprise?
                       </Text>
-                      <Badge tone="magic">For Large Businesses</Badge>
+                      <Badge tone="magic">Scalable Solution</Badge>
                     </InlineStack>
 
                     <div style={{
@@ -609,9 +624,6 @@ export default function BillingPage() {
                       <Button variant="primary" size="large" onClick={() => setShowEnterpriseModal(true)}>
                         Get Enterprise Quote
                       </Button>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        or call us at <strong>1-800-REWARDS</strong>
-                      </Text>
                     </InlineStack>
                   </BlockStack>
                 </Box>
@@ -713,41 +725,322 @@ export default function BillingPage() {
                 )}
               </Tabs>
 
-              {/* Additional Information */}
+              {/* FAQ Section */}
               <Card>
                 <Box padding="400">
-                  <BlockStack gap="200">
-                    <Text as="h3" variant="headingMd">Frequently Asked Questions</Text>
+                  <Text as="h3" variant="headingLg">Frequently Asked Questions</Text>
 
-                    <BlockStack gap="400">
-                      <BlockStack gap="100">
-                        <Text as="p" variant="bodyMd" fontWeight="semibold">
-                          Can I change plans at any time?
-                        </Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately.
-                        </Text>
-                      </BlockStack>
+                  <Box paddingBlockStart="400">
+                    <BlockStack gap="0">
+                      {/* Question 1 */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, changeTime: !faqOpen.changeTime})}
+                          icon={faqOpen.changeTime ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.changeTime ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            Can I upgrade or downgrade my plan at any time?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.changeTime}
+                          id="faq-change-time"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately. When you upgrade, you'll be charged the prorated amount for the remainder of the billing cycle. When you downgrade, credits will be applied to your next invoice.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
 
-                      <BlockStack gap="100">
-                        <Text as="p" variant="bodyMd" fontWeight="semibold">
-                          How does billing work?
-                        </Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          All plans are billed monthly through your Shopify invoice. Enterprise plans can have custom billing arrangements.
-                        </Text>
-                      </BlockStack>
+                      {/* Question 2 */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, billing: !faqOpen.billing})}
+                          icon={faqOpen.billing ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.billing ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            How does billing work?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.billing}
+                          id="faq-billing"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              All plans are billed monthly through your Shopify invoice. The charge appears on your regular Shopify bill, making it simple to manage all your expenses in one place. Enterprise plans can have custom billing arrangements including annual contracts or custom payment terms.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
 
-                      <BlockStack gap="100">
-                        <Text as="p" variant="bodyMd" fontWeight="semibold">
-                          What makes Enterprise different?
-                        </Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Enterprise plans include custom development, dedicated infrastructure, and the ability to build custom modules specific to your business needs. Pricing is tailored to your requirements.
-                        </Text>
-                      </BlockStack>
+                      {/* Question 3 */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, enterprise: !faqOpen.enterprise})}
+                          icon={faqOpen.enterprise ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.enterprise ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            What makes Enterprise different?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.enterprise}
+                          id="faq-enterprise"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Enterprise plans include custom development, dedicated infrastructure, and the ability to build custom modules specific to your business needs. You get a dedicated success team, 24/7 priority support, custom integrations, and the flexibility to scale infinitely. Pricing is tailored to your specific requirements and usage patterns.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 4 - Free Plan Limits */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, freeLimit: !faqOpen.freeLimit})}
+                          icon={faqOpen.freeLimit ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.freeLimit ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            What happens when I exceed the Free plan limits?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.freeLimit}
+                          id="faq-free-limit"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              When you reach the 100 customer limit on the Free plan, you won't be able to add new customers to your loyalty program until you upgrade. Your existing customers will continue to earn and redeem rewards normally. We'll notify you when you're approaching the limit so you can upgrade seamlessly.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 5 - Trial Period */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, trial: !faqOpen.trial})}
+                          icon={faqOpen.trial ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.trial ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            Is there a free trial for paid plans?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.trial}
+                          id="faq-trial"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Yes! All paid plans come with a 14-day free trial. You won't be charged until the trial ends, and you can cancel anytime during the trial without any charges. The Free plan is always free and doesn't require a trial.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 6 - Cancellation */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, cancellation: !faqOpen.cancellation})}
+                          icon={faqOpen.cancellation ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.cancellation ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            Can I cancel my subscription anytime?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.cancellation}
+                          id="faq-cancellation"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Yes, you can cancel your subscription at any time with no cancellation fees. When you cancel, you'll continue to have access to the paid features until the end of your current billing cycle. After that, your account will automatically switch to the Free plan.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 7 - Data Retention */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, dataRetention: !faqOpen.dataRetention})}
+                          icon={faqOpen.dataRetention ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.dataRetention ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            What happens to my data if I cancel or downgrade?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.dataRetention}
+                          id="faq-data-retention"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Your data is always safe with us. If you cancel or downgrade, all your customer data, tier configurations, and store credit balances are preserved. You can upgrade again at any time and pick up right where you left off. We never delete your data unless you explicitly request it or uninstall the app.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 8 - Multiple Stores */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, multiStore: !faqOpen.multiStore})}
+                          icon={faqOpen.multiStore ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.multiStore ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            Can I use RewardsPro on multiple stores?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.multiStore}
+                          id="faq-multi-store"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Each Shopify store requires its own RewardsPro subscription. However, Enterprise plans can include multi-store support with centralized management and special pricing for multiple locations. Contact our sales team to discuss multi-store options.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 9 - When Charged */}
+                      <Box
+                        padding="400"
+                        borderBlockEndWidth="025"
+                        borderColor="border-secondary"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, charges: !faqOpen.charges})}
+                          icon={faqOpen.charges ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.charges ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            When will I be charged?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.charges}
+                          id="faq-charges"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Charges appear on your regular Shopify invoice. After your 14-day free trial, you'll be charged monthly on the same billing cycle as your Shopify subscription. There are no setup fees, hidden charges, or long-term contracts. The price you see is the price you pay.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
+
+                      {/* Question 10 - Support */}
+                      <Box
+                        padding="400"
+                      >
+                        <Button
+                          variant="plain"
+                          fullWidth
+                          textAlign="start"
+                          onClick={() => setFaqOpen({...faqOpen, support: !faqOpen.support})}
+                          icon={faqOpen.support ? ChevronUpIcon : ChevronDownIcon}
+                          disclosure={faqOpen.support ? "up" : "down"}
+                        >
+                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                            What kind of support is included?
+                          </Text>
+                        </Button>
+                        <Collapsible
+                          open={faqOpen.support}
+                          id="faq-support"
+                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
+                        >
+                          <Box paddingBlockStart="200">
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              Free plan includes email support with 48-hour response time. Pro plan includes priority email support with 24-hour response time and access to our knowledge base. Max plan adds phone support and a dedicated account manager. Enterprise includes 24/7 phone & email support with a dedicated success team.
+                            </Text>
+                          </Box>
+                        </Collapsible>
+                      </Box>
                     </BlockStack>
-                  </BlockStack>
+                  </Box>
                 </Box>
               </Card>
             </BlockStack>
@@ -811,8 +1104,7 @@ export default function BillingPage() {
 
               <Banner tone="info" icon={EmailIcon}>
                 <p>
-                  Our enterprise team typically responds within 24 hours. For immediate assistance,
-                  call <strong>1-800-REWARDS</strong> during business hours.
+                  Our enterprise team typically responds within 24 hours with a custom solution tailored to your needs.
                 </p>
               </Banner>
             </FormLayout>

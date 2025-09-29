@@ -561,7 +561,6 @@ export default function Dashboard() {
   // Tab configuration
   const tabs = [
     { id: 'overview', content: 'Overview', panelID: 'overview-panel' },
-    { id: 'activity', content: 'Recent Activity', panelID: 'activity-panel' },
     { id: 'insights', content: 'Insights', panelID: 'insights-panel' },
   ];
 
@@ -746,44 +745,8 @@ export default function Dashboard() {
                   </Box>
                 )}
 
-                {/* Recent Activity Tab */}
-                {selectedTab === 1 && (
-                  <Box padding="400">
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">
-                        Recent Transactions
-                      </Text>
-                      {data.recentTransactions.length > 0 ? (
-                        <EnhancedDataTable
-                          columns={[
-                            { header: "Customer", type: "text" },
-                            { header: "Type", type: "text" },
-                            { header: "Amount", type: "numeric" },
-                            { header: "Balance", type: "numeric" },
-                            { header: "Date", type: "text" },
-                          ]}
-                          rows={data.recentTransactions.slice(0, 10).map(tx => [
-                            tx.customerEmail,
-                            formatTransactionType(tx.type),
-                            formatAmount(tx.amount),
-                            formatAmount(tx.balance),
-                            tx.createdAt,
-                          ])}
-                        />
-                      ) : (
-                        <EmptyState
-                          heading="No transactions yet"
-                          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                        >
-                          <p>Transactions will appear here when customers earn or use store credit.</p>
-                        </EmptyState>
-                      )}
-                    </BlockStack>
-                  </Box>
-                )}
-
                 {/* Insights Tab */}
-                {selectedTab === 2 && (
+                {selectedTab === 1 && (
                   <Box padding="400">
                     <BlockStack gap="500">
                       <BlockStack gap="400">
