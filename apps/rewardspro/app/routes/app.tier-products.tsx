@@ -90,6 +90,7 @@ interface LoaderData {
     currencyDisplayType: string;
   } | null;
   shop: string;
+  tierDistribution: Record<string, number>;
 }
 
 // ============================================
@@ -151,8 +152,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
   
   try {
-    // Fetch tiers and shop settings
-    const [tiers, shopSettings] = await Promise.all([
+    // Fetch tiers, shop settings, and tier distribution
+    const [tiers, shopSettings, customers] = await Promise.all([
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
@@ -160,7 +161,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.shopSettings.findUnique({
         where: { shop },
       }),
+      db.customer.findMany({
+        where: { shop },
+        select: { currentTierId: true },
+      }),
     ]);
+
+    // Calculate tier distribution
+    const tierDistribution: Record<string, number> = {};
+    customers.forEach((customer) => {
+      if (customer.currentTierId) {
+        tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
+      }
+    });
     
     // Try to fetch tier products from database (if table exists)
     let dbTierProducts: any[] = [];
@@ -282,6 +295,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         currencyDisplayType: shopSettings.currencyDisplayType,
       } : null,
       shop,
+      tierDistribution,
     });
   } catch (error) {
     console.error("[TierProducts] Loader error:", error);
@@ -305,86 +319,125 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
 
   try {
-    // Tier management actions - Simplified version
-    if (intent === "create-tier") {
-      const name = formData.get("name") as string;
-      const minSpend = parseFloat(formData.get("minSpend") as string) || 0;
-      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string) || 0;
-      const evaluationPeriod = (formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME") || "ANNUAL";
+    // Handle tier management actions
+    if (intent === "create" || intent === "update" || intent === "delete") {
+      switch (intent) {
+        case "create": {
+          const name = formData.get("name") as string;
+          const minSpend = Number(formData.get("minSpend"));
+          const cashbackPercent = Number(formData.get("cashbackPercent"));
+          const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
 
-      // Validation
-      if (!name) {
-        return json({ success: false, error: "Tier name is required" }, { status: 400 });
+          // Validate inputs
+          if (!name || name.trim().length === 0) {
+            return json({ error: "Name is required" }, { status: 400 });
+          }
+          if (isNaN(minSpend) || minSpend < 0) {
+            return json({ error: "Invalid minimum spend" }, { status: 400 });
+          }
+          if (isNaN(cashbackPercent) || cashbackPercent < 0 || cashbackPercent > 100) {
+            return json({ error: "Cashback must be between 0 and 100" }, { status: 400 });
+          }
+
+          // Check for duplicate
+          const existing = await db.tier.findFirst({
+            where: { shop, name: name.trim() },
+          });
+
+          if (existing) {
+            return json({ error: `A tier named "${name}" already exists` }, { status: 400 });
+          }
+
+          // Create tier
+          const storeName = shop.split('.')[0];
+          const tierId = `${storeName}-${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
+
+          await db.tier.create({
+            data: {
+              id: tierId,
+              shop,
+              name: name.trim(),
+              minSpend,
+              cashbackPercent,
+              evaluationPeriod,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+
+          return json({ success: true, message: "Tier created successfully" });
+        }
+
+        case "update": {
+          const id = formData.get("id") as string;
+          const name = formData.get("name") as string;
+          const minSpend = Number(formData.get("minSpend"));
+          const cashbackPercent = Number(formData.get("cashbackPercent"));
+          const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+
+          if (!id) {
+            return json({ error: "Tier ID is required" }, { status: 400 });
+          }
+
+          // Verify tier belongs to shop
+          const existingTier = await db.tier.findFirst({
+            where: { id, shop },
+          });
+
+          if (!existingTier) {
+            return json({ error: "Tier not found" }, { status: 404 });
+          }
+
+          // Update tier
+          await db.tier.update({
+            where: { id },
+            data: {
+              name: name.trim(),
+              minSpend,
+              cashbackPercent,
+              evaluationPeriod,
+              updatedAt: new Date(),
+            },
+          });
+
+          return json({ success: true, message: "Tier updated successfully" });
+        }
+
+        case "delete": {
+          const id = formData.get("id") as string;
+
+          if (!id) {
+            return json({ error: "Tier ID is required" }, { status: 400 });
+          }
+
+          // Verify tier belongs to shop
+          const existingTier = await db.tier.findFirst({
+            where: { id, shop },
+          });
+
+          if (!existingTier) {
+            return json({ error: "Tier not found" }, { status: 404 });
+          }
+
+          // Check if customers are assigned to this tier
+          const customerCount = await db.customer.count({
+            where: { shop, currentTierId: id },
+          });
+
+          if (customerCount > 0) {
+            return json({
+              error: `Cannot delete tier with ${customerCount} assigned customers. Please reassign customers first.`
+            }, { status: 400 });
+          }
+
+          // Delete tier
+          await db.tier.delete({
+            where: { id },
+          });
+
+          return json({ success: true, message: "Tier deleted successfully" });
+        }
       }
-      if (cashbackPercent < 0 || cashbackPercent > 100) {
-        return json({ success: false, error: "Cashback must be between 0 and 100" }, { status: 400 });
-      }
-
-      await db.tier.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          name,
-          minSpend,
-          cashbackPercent,
-          evaluationPeriod,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-
-      return json({ success: true });
-    }
-
-    if (intent === "edit-tier") {
-      const id = formData.get("id") as string;
-      const name = formData.get("name") as string;
-      const minSpend = parseFloat(formData.get("minSpend") as string) || 0;
-      const cashbackPercent = parseFloat(formData.get("cashbackPercent") as string) || 0;
-      const evaluationPeriod = (formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME") || "ANNUAL";
-
-      // Validation
-      if (!name) {
-        return json({ success: false, error: "Tier name is required" }, { status: 400 });
-      }
-      if (cashbackPercent < 0 || cashbackPercent > 100) {
-        return json({ success: false, error: "Cashback must be between 0 and 100" }, { status: 400 });
-      }
-
-      await db.tier.update({
-        where: { id },
-        data: {
-          name,
-          minSpend,
-          cashbackPercent,
-          evaluationPeriod,
-          updatedAt: new Date(),
-        },
-      });
-
-      return json({ success: true });
-    }
-
-    if (intent === "delete-tier") {
-      const id = formData.get("id") as string;
-
-      // Check if customers are assigned to this tier
-      const customersCount = await db.customer.count({
-        where: { currentTierId: id },
-      });
-
-      if (customersCount > 0) {
-        return json({
-          success: false,
-          error: `Cannot delete tier: ${customersCount} customers are assigned to it`,
-        }, { status: 400 });
-      }
-
-      await db.tier.delete({
-        where: { id },
-      });
-
-      return json({ success: true });
     }
 
     if (intent === "create-product") {
@@ -1495,7 +1548,7 @@ export default function TierProducts() {
   // Tier management handlers
   const handleSaveTier = useCallback(() => {
     const formData = new FormData();
-    formData.append("intent", editingTier ? "edit-tier" : "create-tier");
+    formData.append("intent", editingTier ? "update" : "create");
     if (editingTier) {
       formData.append("id", editingTier.id);
     }
@@ -1512,7 +1565,7 @@ export default function TierProducts() {
   const handleDeleteTier = useCallback(() => {
     if (deletingTierId) {
       const formData = new FormData();
-      formData.append("intent", "delete-tier");
+      formData.append("intent", "delete");
       formData.append("id", deletingTierId);
 
       submit(formData, { method: "post" });
@@ -1843,7 +1896,7 @@ export default function TierProducts() {
                       {data.tiers
                         .sort((a, b) => a.minSpend - b.minSpend)
                         .map((tier, index) => {
-                          const customerCount = 0; // Will be populated from tier distribution if needed
+                          const customerCount = data.tierDistribution[tier.id] || 0;
 
                           return (
                             <Box key={tier.id} background="bg-surface" padding="0" borderRadius="200">
