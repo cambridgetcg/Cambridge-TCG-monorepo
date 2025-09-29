@@ -68,13 +68,14 @@ model Tier {
   minSpend          Int
   cashbackPercent   Int
   evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
-  
+
   // Subscription pricing
   monthlyPrice      Decimal?            @db.Decimal(10, 2)  // Monthly subscription price
   billingInterval   BillingInterval?    // Billing interval for subscriptions
   discountPercentage Decimal?           @db.Decimal(5, 2)   // Discount for subscriptions
-  
+
   createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   
   // Relations
   customers         Customer[]  // Customers currently in this tier

@@ -352,6 +352,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const storeName = shop.split('.')[0];
           const tierId = `${storeName}-${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
 
+          // Create tier with timestamps
           await db.tier.create({
             data: {
               id: tierId,
