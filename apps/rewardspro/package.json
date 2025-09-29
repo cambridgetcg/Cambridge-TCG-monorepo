@@ -25,6 +25,8 @@
     "migrate:subscription:test": "node scripts/test-subscription-migration.mjs",
     "migrate:usage-summary": "node scripts/apply-usage-summary-migration.mjs",
     "migrate:test-connection": "node scripts/test-aurora-connection.mjs",
+    "migrate:test-tier": "node scripts/test-tier-table-structure.mjs",
+    "migrate:add-tier-updated-at": "node scripts/apply-tier-updated-at-migration.mjs",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
