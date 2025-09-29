@@ -71,59 +71,103 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log(`[OrderPaid] Could not check idempotency (table may not exist)`);
     }
 
-    // Process with retry logic
+    // Process with retry logic - OPTIMIZED VERSION
+    // Break up the large transaction to avoid timeouts
     const result = await withRetry(
       async () => {
-        return await db.$transaction(async (tx) => {
-          // Record webhook processing (if table exists, without payload to avoid timeout)
-          try {
-            await tx.webhookProcessed.create({
+        // Step 1: Record webhook as processed (outside transaction)
+        try {
+          await db.webhookProcessed.create({
+            data: {
+              id: uuidv4(),
+              shop,
+              topic: topic || 'orders/paid',
+              webhookId,
+              processedAt: new Date(),
+            }
+          });
+        } catch (e) {
+          console.log(`[OrderPaid] Could not record webhook processing (table may not exist)`);
+        }
+
+        // Step 2: Create Order record in a small transaction
+        const orderCreated = await db.$transaction(async (tx) => {
+          return await createOrderRecord(tx, {
+            shop,
+            order,
+          });
+        });
+
+        if (!orderCreated) {
+          console.log(`[OrderPaid] Order already exists, skipping further processing`);
+          return { success: true, results: [] };
+        }
+
+        // Step 3: Create OrderLineItems (outside transaction for better performance)
+        if (orderCreated._lineItems && orderCreated._lineItems.length > 0) {
+          const now = new Date();
+          const lineItemPromises = orderCreated._lineItems.map((item: any) =>
+            db.orderLineItem.create({
               data: {
                 id: uuidv4(),
-                shop,
-                topic: topic || 'orders/paid',
-                webhookId,
-                processedAt: new Date(),
+                orderId: orderCreated._orderId,
+                shopifyLineItemId: item.id.toString(),
+                shopifyProductId: item.product_id?.toString() || null,
+                shopifyVariantId: item.variant_id?.toString() || null,
+                title: item.title || item.name || '',
+                variantTitle: item.variant_title || null,
+                sku: item.sku || null,
+                vendor: item.vendor || null,
+                quantity: item.quantity || 1,
+                price: parseFloat(item.price || '0'),
+                totalPrice: parseFloat(item.price || '0') * (item.quantity || 1),
+                totalDiscount: parseFloat(item.total_discount || '0'),
+                requiresShipping: item.requires_shipping !== false,
+                taxable: item.taxable !== false,
+                giftCard: item.gift_card === true,
+                isTierProduct: false,
+                tierProductId: null,
+                createdAt: now
               }
-            });
-          } catch (e) {
-            console.log(`[OrderPaid] Could not record webhook processing (table may not exist)`);
-          }
-          
-          // Process each line item
-          const results = [];
-          
-          for (const lineItem of order.line_items) {
-            const itemResult = await processLineItem(tx, {
+            }).catch(e => {
+              console.error(`[OrderPaid] Failed to create line item ${item.id}:`, e);
+              return null;
+            })
+          );
+          await Promise.all(lineItemPromises);
+        }
+
+        // Step 4: Process line items (can be done async)
+        const results = [];
+        for (const lineItem of order.line_items) {
+          try {
+            const itemResult = await processLineItem(db, {
               shop,
               admin,
               order,
               lineItem,
             });
             results.push(itemResult);
+          } catch (e) {
+            console.error(`[OrderPaid] Error processing line item ${lineItem.id}:`, e);
           }
-          
-          // Create or update Order record
-          await createOrderRecord(tx, {
+        }
+
+        // Step 4: Process cashback and update customer (separate operations)
+        try {
+          await processCashback(db, {
             shop,
             order,
           });
-          
-          // Process cashback for regular items
-          await processCashback(tx, {
+
+          await updateCustomerSpendingFromOrders(db, {
             shop,
             order,
           });
-          
-          // Update customer spending totals from Order data
-          await updateCustomerSpendingFromOrders(tx, {
-            shop,
-            order,
-          });
-          
-          // Check for tier progression (need to get the database customer ID first)
+
+          // Check for tier progression
           if (order.customer?.id) {
-            const dbCustomer = await tx.customer.findFirst({
+            const dbCustomer = await db.customer.findFirst({
               where: {
                 shop,
                 shopifyCustomerId: order.customer.id.toString()
@@ -131,16 +175,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               select: { id: true }
             });
 
-            if (dbCustomer && shop) {
-              await checkTierProgression(tx, {
+            if (dbCustomer) {
+              await checkTierProgression(db, {
                 shop,
                 customerId: dbCustomer.id,
               });
             }
           }
-          
-          return { success: true, results };
-        });
+        } catch (e) {
+          console.error(`[OrderPaid] Error in post-processing:`, e);
+          // Don't fail the whole webhook - order is already created
+        }
+
+        return { success: true, results };
       },
       {
         maxAttempts: 2,
@@ -490,9 +537,10 @@ async function createOrderRecord(tx: any, params: {
     return existingOrder;
   }
   
-  // Get customer if exists
+  // Get or create customer
   let customer = null;
   if (order.customer?.id) {
+    // First try to find existing customer
     customer = await tx.customer.findFirst({
       where: {
         shop,
@@ -502,6 +550,35 @@ async function createOrderRecord(tx: any, params: {
         currentTier: true
       }
     });
+
+    // If customer doesn't exist, create a basic record
+    if (!customer) {
+      customer = await tx.customer.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          shopifyCustomerId: order.customer.id.toString(),
+          email: order.customer.email || order.email || '',
+          firstName: order.customer.first_name || '',
+          lastName: order.customer.last_name || '',
+          phone: order.customer.phone || null,
+          currency: order.currency || 'USD',
+          storeCredit: 0,
+          totalSpent: 0,
+          totalCashbackEarned: 0,
+          totalRefunded: 0,
+          netSpent: 0,
+          orderCount: 0,
+          currentTierId: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        include: {
+          currentTier: true
+        }
+      });
+      console.log(`[OrderPaid] Created new customer ${customer.id} for Shopify customer ${order.customer.id}`);
+    }
   }
   
   // Calculate cashback based on current tier
@@ -533,7 +610,12 @@ async function createOrderRecord(tx: any, params: {
       shopifyOrderId,
       shopifyOrderNumber: order.order_number?.toString() || order.number?.toString() || '',
       shopifyOrderName: order.name || '',
-      customerId: customer?.id || 'unknown',
+      customerId: customer?.id || (() => {
+        // If no customer exists, this is a guest order - we need to handle this
+        console.warn(`[OrderPaid] No customer for order ${order.name} - this may be a guest checkout`);
+        // For now, skip guest orders
+        throw new Error(`Guest checkout not supported - order ${order.name} has no customer`);
+      })(),
       email: order.email || order.customer?.email || '',
       currency: order.currency || 'USD',
       subtotalPrice: parseFloat(order.subtotal_price || '0'),
@@ -559,36 +641,14 @@ async function createOrderRecord(tx: any, params: {
     }
   });
   
-  // Create OrderLineItem records
-  if (order.line_items && order.line_items.length > 0) {
-    for (const item of order.line_items) {
-      await tx.orderLineItem.create({
-        data: {
-          id: uuidv4(),
-          orderId,
-          shopifyLineItemId: item.id.toString(),
-          shopifyProductId: item.product_id?.toString() || null,
-          shopifyVariantId: item.variant_id?.toString() || null,
-          title: item.title || item.name || '',
-          variantTitle: item.variant_title || null,
-          sku: item.sku || null,
-          vendor: item.vendor || null,
-          quantity: item.quantity || 1,
-          price: parseFloat(item.price || '0'),
-          totalPrice: parseFloat(item.price || '0') * (item.quantity || 1),
-          totalDiscount: parseFloat(item.total_discount || '0'),
-          requiresShipping: item.requires_shipping !== false,
-          taxable: item.taxable !== false,
-          giftCard: item.gift_card === true,
-          isTierProduct: false, // Will be checked separately
-          tierProductId: null,
-          createdAt: now
-        }
-      });
-    }
-  }
+  // Note: OrderLineItems will be created separately to avoid transaction timeout
+  // They can be created async after the order is saved
   
   console.log(`[OrderPaid] Created Order record ${orderId} for Shopify order ${order.name}`);
+
+  // Store order ID for line item creation later
+  newOrder._orderId = orderId;
+  newOrder._lineItems = order.line_items;
   return newOrder;
 }
 
