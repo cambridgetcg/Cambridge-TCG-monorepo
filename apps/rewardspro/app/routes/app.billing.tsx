@@ -22,7 +22,8 @@ import {
   TextField,
   FormLayout,
   Toast,
-  Frame
+  Frame,
+  Tabs
 } from "@shopify/polaris";
 import { CheckCircleIcon, PhoneIcon, EmailIcon } from "@shopify/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
@@ -140,6 +141,7 @@ export default function BillingPage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
+  const [selectedTab, setSelectedTab] = useState(0);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [enterpriseForm, setEnterpriseForm] = useState({
     companyName: "",
@@ -169,7 +171,7 @@ export default function BillingPage() {
 
   const currentPlan = data.currentPlanName;
 
-  const plans = [
+  const individualPlans = [
     {
       name: "Free",
       id: "free",
@@ -222,28 +224,47 @@ export default function BillingPage() {
       buttonText: currentPlan === "RewardsPro Max" ? "Current Plan" : "Upgrade to Max",
       isCurrentPlan: currentPlan === "RewardsPro Max",
       recommended: false
+    }
+  ];
+
+  const enterprisePlan = {
+    name: "Enterprise",
+    id: "enterprise",
+    price: "Custom",
+    description: "Tailored solutions for large-scale operations",
+    features: [
+      "Everything in Max",
+      "Custom modules & features",
+      "Dedicated infrastructure",
+      "Multi-store support",
+      "Custom development",
+      "24/7 phone & email support",
+      "Dedicated success team",
+      "Custom contracts & billing",
+      "On-premise deployment option"
+    ],
+    buttonText: "Contact Sales",
+    isCurrentPlan: currentPlan === "RewardsPro Enterprise",
+    recommended: false,
+    isEnterprise: true
+  };
+
+  const tabs = [
+    {
+      id: 'individual',
+      content: 'Individual',
+      panelID: 'individual-content',
     },
     {
-      name: "Enterprise",
-      id: "enterprise",
-      price: "Custom",
-      description: "Tailored solutions for large-scale operations",
-      features: [
-        "Everything in Max",
-        "Custom modules & features",
-        "Dedicated infrastructure",
-        "Multi-store support",
-        "Custom development",
-        "24/7 phone & email support",
-        "Dedicated success team",
-        "Custom contracts & billing",
-        "On-premise deployment option"
-      ],
-      buttonText: "Contact Sales",
-      isCurrentPlan: currentPlan === "RewardsPro Enterprise",
-      recommended: false,
-      isEnterprise: true
-    }
+      id: 'enterprise',
+      content: 'Team & Enterprise',
+      panelID: 'enterprise-content',
+    },
+    {
+      id: 'api',
+      content: 'API',
+      panelID: 'api-content',
+    },
   ];
 
   // Show toast if enterprise inquiry was submitted
@@ -270,14 +291,18 @@ export default function BillingPage() {
                 </Banner>
               )}
 
-              {/* Plan Cards Grid */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '16px',
-                marginBottom: '24px'
-              }}>
-                {plans.map((plan) => (
+              {/* Tabs for plan categories */}
+              <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+                {/* Individual Plans Tab */}
+                {selectedTab === 0 && (
+                  <div style={{ paddingTop: '16px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '16px',
+                      marginBottom: '24px'
+                    }}>
+                      {individualPlans.map((plan) => (
                   <Card key={plan.id}>
                     <Box padding="600">
                       <BlockStack gap="400">
@@ -342,15 +367,17 @@ export default function BillingPage() {
                         <Divider />
 
                         {/* Features List */}
-                        <BlockStack gap="300">
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        <BlockStack gap="300" align="start">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             What's included:
                           </Text>
-                          <BlockStack gap="200">
+                          <BlockStack gap="200" align="start">
                             {plan.features.map((feature, index) => (
-                              <InlineStack key={index} gap="200" align="start">
-                                <Icon source={CheckCircleIcon} tone="positive" />
-                                <Text as="p" variant="bodyMd">{feature}</Text>
+                              <InlineStack key={index} gap="200" align="start" blockAlign="start">
+                                <div style={{ flexShrink: 0 }}>
+                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                </div>
+                                <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
                               </InlineStack>
                             ))}
                           </BlockStack>
@@ -358,11 +385,84 @@ export default function BillingPage() {
                       </BlockStack>
                     </Box>
                   </Card>
-                ))}
-              </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {/* Enterprise Benefits Section */}
-              <Card>
+                {/* Team & Enterprise Tab */}
+                {selectedTab === 1 && (
+                  <div style={{ paddingTop: '16px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+                      gap: '16px',
+                      marginBottom: '24px'
+                    }}>
+                      <Card>
+                        <Box padding="600">
+                          <BlockStack gap="400">
+                            {/* Plan Header */}
+                            <InlineStack align="space-between">
+                              <Text as="h3" variant="headingLg">
+                                {enterprisePlan.name}
+                              </Text>
+                              {enterprisePlan.isCurrentPlan && (
+                                <Badge tone="success">Current</Badge>
+                              )}
+                              <Badge tone="magic">Custom</Badge>
+                            </InlineStack>
+
+                            {/* Price */}
+                            <BlockStack gap="200">
+                              <InlineStack align="start" gap="100">
+                                <Text as="p" variant="heading2xl">
+                                  {enterprisePlan.price}
+                                </Text>
+                              </InlineStack>
+                            </BlockStack>
+
+                            {/* Description */}
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              {enterprisePlan.description}
+                            </Text>
+
+                            {/* Action Button */}
+                            <Button
+                              fullWidth
+                              size="large"
+                              variant="primary"
+                              onClick={() => setShowEnterpriseModal(true)}
+                              icon={PhoneIcon}
+                            >
+                              {enterprisePlan.buttonText}
+                            </Button>
+
+                            <Divider />
+
+                            {/* Features List */}
+                            <BlockStack gap="300" align="start">
+                              <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
+                                What's included:
+                              </Text>
+                              <BlockStack gap="200" align="start">
+                                {enterprisePlan.features.map((feature, index) => (
+                                  <InlineStack key={index} gap="200" align="start" blockAlign="start">
+                                    <div style={{ flexShrink: 0 }}>
+                                      <Icon source={CheckCircleIcon} tone="positive" />
+                                    </div>
+                                    <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
+                                  </InlineStack>
+                                ))}
+                              </BlockStack>
+                            </BlockStack>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+                    </div>
+
+                    {/* Enterprise Benefits Section */}
+                    <Card>
                 <Box padding="600">
                   <BlockStack gap="400">
                     <InlineStack align="space-between">
@@ -412,6 +512,102 @@ export default function BillingPage() {
                   </BlockStack>
                 </Box>
               </Card>
+                  </div>
+                )}
+
+                {/* API Tab */}
+                {selectedTab === 2 && (
+                  <div style={{ paddingTop: '16px' }}>
+                    <Card>
+                      <Box padding="600">
+                        <BlockStack gap="400">
+                          <Text as="h2" variant="headingLg">
+                            API Access & Developer Tools
+                          </Text>
+
+                          <Text as="p" variant="bodyMd" tone="subdued">
+                            Build custom integrations and extend RewardsPro functionality with our comprehensive API.
+                          </Text>
+
+                          <Divider />
+
+                          <BlockStack gap="300">
+                            <Text as="h3" variant="headingMd">
+                              Available Endpoints
+                            </Text>
+
+                            <BlockStack gap="200" align="start">
+                              <InlineStack gap="200" align="start">
+                                <div style={{ flexShrink: 0 }}>
+                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                </div>
+                                <Text as="p" variant="bodyMd">Customer management API</Text>
+                              </InlineStack>
+
+                              <InlineStack gap="200" align="start">
+                                <div style={{ flexShrink: 0 }}>
+                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                </div>
+                                <Text as="p" variant="bodyMd">Store credit balance API</Text>
+                              </InlineStack>
+
+                              <InlineStack gap="200" align="start">
+                                <div style={{ flexShrink: 0 }}>
+                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                </div>
+                                <Text as="p" variant="bodyMd">Tier management API</Text>
+                              </InlineStack>
+
+                              <InlineStack gap="200" align="start">
+                                <div style={{ flexShrink: 0 }}>
+                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                </div>
+                                <Text as="p" variant="bodyMd">Webhook subscriptions</Text>
+                              </InlineStack>
+
+                              <InlineStack gap="200" align="start">
+                                <div style={{ flexShrink: 0 }}>
+                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                </div>
+                                <Text as="p" variant="bodyMd">Analytics & reporting API</Text>
+                              </InlineStack>
+                            </BlockStack>
+                          </BlockStack>
+
+                          <Divider />
+
+                          <BlockStack gap="300">
+                            <Text as="h3" variant="headingMd">
+                              API Access Included In
+                            </Text>
+
+                            <InlineStack gap="400">
+                              <Badge tone="success">Pro Plan</Badge>
+                              <Badge tone="success">Max Plan</Badge>
+                              <Badge tone="magic">Enterprise Plan</Badge>
+                            </InlineStack>
+
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              API access is available starting with the Pro plan. Higher tiers include increased rate limits and priority support.
+                            </Text>
+                          </BlockStack>
+
+                          <Divider />
+
+                          <BlockStack gap="200">
+                            <Button fullWidth size="large" variant="primary" url="/app/settings#api-keys">
+                              View API Documentation
+                            </Button>
+                            <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                              API keys can be generated from the Settings page after subscribing to a compatible plan.
+                            </Text>
+                          </BlockStack>
+                        </BlockStack>
+                      </Box>
+                    </Card>
+                  </div>
+                )}
+              </Tabs>
 
               {/* Additional Information */}
               <Card>
