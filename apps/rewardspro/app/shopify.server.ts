@@ -10,11 +10,15 @@ import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
 
 // Define billing plan names (should match Partner Dashboard configuration)
 export const FREE_PLAN = "RewardsPro Free";
+export const PRO_PLAN = "RewardsPro Pro";
+export const MAX_PLAN = "RewardsPro Max";
+export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
+
+// Legacy plans - keeping for backward compatibility
 export const STARTER_PLAN = "RewardsPro Starter";
 export const GROWTH_PLAN = "RewardsPro Growth";
-export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
-export const MONTHLY_PLAN = "RewardsPro Monthly"; // Legacy - keeping for compatibility
-export const ANNUAL_PLAN = "RewardsPro Annual"; // Legacy - keeping for compatibility
+export const MONTHLY_PLAN = "RewardsPro Monthly";
+export const ANNUAL_PLAN = "RewardsPro Annual";
 export const USAGE_PLAN = "RewardsPro Usage";
 
 const shopify = shopifyApp({
@@ -28,7 +32,7 @@ const shopify = shopifyApp({
   distribution: AppDistribution.AppStore,
   // Billing configuration for managed pricing
   billing: {
-    // Free plan - permanently free with 100 orders/month limit
+    // Free plan - permanently free
     [FREE_PLAN]: {
       lineItems: [
         {
@@ -38,7 +42,37 @@ const shopify = shopifyApp({
         }
       ],
     },
-    // Starter plan - $29/month
+    // Pro plan - $49/month
+    [PRO_PLAN]: {
+      lineItems: [
+        {
+          amount: 49,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Max plan - $199/month
+    [MAX_PLAN]: {
+      lineItems: [
+        {
+          amount: 199,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Enterprise plan - Custom pricing (placeholder - actual pricing negotiated)
+    [ENTERPRISE_PLAN]: {
+      lineItems: [
+        {
+          amount: 999, // Placeholder - custom pricing negotiated per client
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Starter plan - $29/month (legacy)
     [STARTER_PLAN]: {
       lineItems: [
         {
@@ -48,21 +82,11 @@ const shopify = shopifyApp({
         }
       ],
     },
-    // Growth plan - $79/month
+    // Growth plan - $79/month (legacy)
     [GROWTH_PLAN]: {
       lineItems: [
         {
           amount: 79,
-          currencyCode: 'USD',
-          interval: BillingInterval.Every30Days,
-        }
-      ],
-    },
-    // Enterprise plan - $299/month
-    [ENTERPRISE_PLAN]: {
-      lineItems: [
-        {
-          amount: 299,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
         }

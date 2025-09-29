@@ -54,6 +54,7 @@
       "routes/app.subscription-demo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.contact-pricing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -477,6 +478,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.test-orders-sync.tsx",
         "path": "test-orders-sync",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.contact-pricing": {
+        "id": "routes/app.contact-pricing",
+        "parentId": "routes/app",
+        "file": "app/routes/app.contact-pricing.tsx",
+        "path": "contact-pricing",
         "config": {
           "runtime": "nodejs"
         }
@@ -921,6 +931,12 @@
         "parentId": "routes/app",
         "file": "routes/app.test-orders-sync.tsx",
         "path": "test-orders-sync"
+      },
+      "routes/app.contact-pricing": {
+        "id": "routes/app.contact-pricing",
+        "parentId": "routes/app",
+        "file": "routes/app.contact-pricing.tsx",
+        "path": "contact-pricing"
       },
       "routes/app.design-showcase": {
         "id": "routes/app.design-showcase",
