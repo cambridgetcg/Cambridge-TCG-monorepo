@@ -15,7 +15,6 @@ import { validatePrice } from "../utils/price-validation";
 import { validateShopifyOrderCurrency } from "../services/currency-validation.server";
 import { roundToCurrencyPrecision } from "../services/currency-formatter.server";
 import { v4 as uuidv4 } from 'uuid';
-import * as crypto from 'crypto';
 
 // Initialize Prisma client with Data API adapter for better connection handling
 const db = createDataAPIPrismaClient();
@@ -62,109 +61,71 @@ function isDatabaseConstraintError(error: any): boolean {
          errorMessage.includes('duplicate key');
 }
 
-// HMAC Verification using Node.js crypto module
-function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
-  const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_API_SECRET; // Use webhook secret first
-
-  if (!hmacHeader || !webhookSecret) {
-    console.error('[Webhook] Missing HMAC header or webhook secret');
-    return false;
-  }
-
-  const hash = crypto
-    .createHmac('sha256', webhookSecret)
-    .update(rawBody, 'utf8')
-    .digest('base64');
-
-  // Timing-safe comparison
-  return crypto.timingSafeEqual(
-    Buffer.from(hash),
-    Buffer.from(hmacHeader)
-  );
-}
-
 export const action = async ({ request }: ActionFunctionArgs) => {
   // Start performance monitoring
   const timer = new PerformanceTimer();
 
-  const rawBody = await request.text();
-  const order = JSON.parse(rawBody);
-
-  // Get headers - prioritize X-Shopify-Webhook-Id for better idempotency
-  const webhookEventId = request.headers.get("x-shopify-webhook-id") ||
-                         request.headers.get("x-shopify-event-id");
-  const shop = request.headers.get('X-Shopify-Shop-Domain');
-  const topic = request.headers.get('X-Shopify-Topic');
-  const apiVersion = request.headers.get('X-Shopify-API-Version');
-
-  // Log webhook receipt with tracing ID
-  const traceId = webhookEventId || `${order.id}-${Date.now()}`;
-  console.log(`[OrderPaid][${traceId}] Webhook received`, {
-    shop,
-    orderId: order.id,
-    webhookEventId,
-    topic,
-    apiVersion,
-    orderTotal: order.total_price,
-    lineItemCount: order.line_items?.length || 0
-  });
-
-  // 1. Verify HMAC
-  if (!verifyWebhookHMAC(request, rawBody)) {
-    console.error(`[OrderPaid][${traceId}] HMAC verification failed`, {
-      shop,
-      orderId: order.id
-    });
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  timer.mark('hmac_verified');
-
-  // 2. Order state validation - skip ineligible orders
-  if (order.cancelled_at) {
-    console.log(`[OrderPaid][${traceId}] Order was cancelled, skipping`, {
-      orderId: order.id,
-      cancelledAt: order.cancelled_at
-    });
-    return json({ success: true, message: "Cancelled order ignored" });
-  }
-
-  if (order.financial_status !== 'paid') {
-    console.log(`[OrderPaid][${traceId}] Order not paid (status=${order.financial_status}), skipping`);
-    return json({ success: true, message: "Non-paid order ignored" });
-  }
-
-  if (order.test === true) {
-    console.log(`[OrderPaid][${traceId}] Test order detected, skipping`);
-    return json({ success: true, message: "Test order ignored" });
-  }
-
-  timer.mark('validation_complete');
-
-  if (!shop) {
-    console.error('[OrderPaid] Missing shop domain');
-    return json({ error: "Missing shop" }, { status: 400 });
-  }
-
-  console.log(`[OrderPaid][${traceId}] Processing order ${order.id} for shop ${shop}`, {
-    customerEmail: order.email,
-    totalPrice: order.total_price,
-    currency: order.currency,
-    lineItems: order.line_items?.length || 0
-  });
-
   try {
-    // Note: Don't call authenticate.webhook since we already read the body
-    // Just use null for admin since we don't need GraphQL in most cases
-    const admin = null;
-    
-    // 3. Generate idempotency key - prefer webhook event ID if available
+    // Authenticate webhook using Shopify's built-in verification
+    // This provides HMAC verification AND the admin GraphQL client
+    const { shop, topic, payload: order, admin } = await authenticate.webhook(request);
+
+    timer.mark('authenticated');
+
+    // Get headers for idempotency and tracing
+    const webhookEventId = request.headers.get("x-shopify-webhook-id") ||
+                           request.headers.get("x-shopify-event-id");
+    const apiVersion = request.headers.get('X-Shopify-API-Version');
+
+    // Log webhook receipt with tracing ID
+    const traceId = webhookEventId || `${order.id}-${Date.now()}`;
+    console.log(`[OrderPaid][${traceId}] Webhook received`, {
+      shop,
+      orderId: order.id,
+      webhookEventId,
+      topic,
+      apiVersion,
+      orderTotal: order.total_price,
+      lineItemCount: order.line_items?.length || 0,
+      hasAdmin: !!admin
+    });
+
+    timer.mark('logged');
+
+    // Order state validation - skip ineligible orders
+    if (order.cancelled_at) {
+      console.log(`[OrderPaid][${traceId}] Order was cancelled, skipping`, {
+        orderId: order.id,
+        cancelledAt: order.cancelled_at
+      });
+      return json({ success: true, message: "Cancelled order ignored" });
+    }
+
+    if (order.financial_status !== 'paid') {
+      console.log(`[OrderPaid][${traceId}] Order not paid (status=${order.financial_status}), skipping`);
+      return json({ success: true, message: "Non-paid order ignored" });
+    }
+
+    if (order.test === true) {
+      console.log(`[OrderPaid][${traceId}] Test order detected, skipping`);
+      return json({ success: true, message: "Test order ignored" });
+    }
+
+    timer.mark('validation_complete');
+
+    console.log(`[OrderPaid][${traceId}] Processing order ${order.id} for shop ${shop}`, {
+      customerEmail: order.email,
+      totalPrice: order.total_price,
+      currency: order.currency,
+      lineItems: order.line_items?.length || 0
+    });
+
+    // Generate idempotency key - prefer webhook event ID if available
     const idempotencyKey = webhookEventId || `order-${order.id}-${order.updated_at}`;
 
     console.log(`[OrderPaid][${traceId}] Using idempotency key: ${idempotencyKey}`);
-    
-    // 4. Check if already processed (check outside of transaction)
+
+    // Check if already processed (check outside of transaction)
     let existingProcess = null;
     try {
       existingProcess = await db.webhookProcess.findUnique({
@@ -360,46 +321,61 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
   } catch (error: any) {
     const errorTime = timer.getElapsed();
-    console.error(`[OrderPaid][${traceId}] Error processing order ${order.id} after ${errorTime}ms:`, {
+
+    // For auth errors, we don't have order details
+    if (error.message?.includes('Unauthorized') || error.message?.includes('Invalid webhook')) {
+      console.error('[OrderPaid] Webhook authentication failed:', error.message);
+      return json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // If we have authentication error, we won't have these variables
+    const orderId = error.orderId || 'unknown';
+    const traceId = `error-${Date.now()}`;
+
+    console.error(`[OrderPaid][${traceId}] Error processing webhook after ${errorTime}ms:`, {
       error: error.message,
       stack: error.stack,
       performanceMetrics: timer.getMarks(),
       isAuroraError: isAuroraConnectionError(error),
       isConstraintError: isDatabaseConstraintError(error)
     });
-    
-    // Log error for monitoring (if model exists)
+
+    // Log error for monitoring (if model exists) - only if we have minimal data
     try {
       if (db.webhookError) {
+        // Include stack trace and metrics in the error message for logging
+        const errorDetails = {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error.stack || 'No stack trace',
+          processingTime: timer.getElapsed(),
+          metrics: timer.getMarks()
+        };
+
         await db.webhookError.create({
           data: {
             id: uuidv4(),
-            shop,
-            topic: topic || 'orders/paid',
-            orderId: order.id?.toString() || 'unknown',
-            error: error instanceof Error ? error.message : 'Unknown error',
-            errorStack: error.stack || null,
-            webhookEventId,
-            processingTime: timer.getElapsed(),
-            performanceMetrics: timer.getMarks(),
-            payload: order, // Prisma will handle JSON serialization
+            shop: 'unknown', // We may not have shop if auth failed
+            topic: 'orders/paid',
+            orderId: orderId,
+            error: JSON.stringify(errorDetails), // Store all error details as JSON string
+            payload: {}, // No payload if auth failed
             createdAt: new Date(),
           }
         }).catch((err: any) => {
-          console.error(`[OrderPaid][${traceId}] Failed to log webhook error:`, err.message);
+          console.error(`[OrderPaid] Failed to log webhook error:`, err.message);
         });
       }
     } catch (err: any) {
-      console.error(`[OrderPaid][${traceId}] Failed to create webhook error record:`, err.message);
+      console.error(`[OrderPaid] Failed to create webhook error record:`, err.message);
     }
-    
+
     // Return success to prevent Shopify retries for non-recoverable errors
-    if (error instanceof Error && 
-        (error.message.includes('Invalid') || 
+    if (error instanceof Error &&
+        (error.message.includes('Invalid') ||
          error.message.includes('not found'))) {
       return json({ success: false, error: error.message });
     }
-    
+
     // Return error for recoverable issues (will trigger retry)
     return json({ error: "Processing failed" }, { status: 500 });
   }

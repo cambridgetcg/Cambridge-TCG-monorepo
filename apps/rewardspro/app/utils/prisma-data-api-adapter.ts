@@ -983,8 +983,48 @@ export function createDataAPIPrismaClient() {
     // Transaction support
     $transaction: async <T>(fn: (tx: any) => Promise<T>): Promise<T> => {
       return client.executeTransaction(async (execute) => {
-        // Create transaction context with execute function
+        // Create a transaction-aware client that uses the transaction's execute function
+        const txAuroraClient = {
+          ...client,
+          executeStatement: execute  // Override executeStatement to use transaction
+        };
+
+        // Create transaction context with all model proxies using the transaction client
         const txClient = {
+          // Model proxies using transaction-aware client
+          session: new DataAPIModelProxy("Session", txAuroraClient),
+          shopSettings: new DataAPIModelProxy("ShopSettings", txAuroraClient),
+          tier: new DataAPIModelProxy("Tier", txAuroraClient),
+          tierProduct: new DataAPIModelProxy("TierProduct", txAuroraClient),
+          customer: new DataAPIModelProxy("Customer", txAuroraClient),
+          storeCreditLedger: new DataAPIModelProxy("StoreCreditLedger", txAuroraClient),
+          tierChangeLog: new DataAPIModelProxy("TierChangeLog", txAuroraClient),
+          billingPlan: new DataAPIModelProxy("BillingPlan", txAuroraClient),
+          usageRecord: new DataAPIModelProxy("UsageRecord", txAuroraClient),
+          billingHistory: new DataAPIModelProxy("BillingHistory", txAuroraClient),
+          notification: new DataAPIModelProxy("Notification", txAuroraClient),
+          monthlyOrderUsage: new DataAPIModelProxy("MonthlyOrderUsage", txAuroraClient),
+          order: new DataAPIModelProxy("Order", txAuroraClient),
+          orderLineItem: new DataAPIModelProxy("OrderLineItem", txAuroraClient),
+          orderRefund: new DataAPIModelProxy("OrderRefund", txAuroraClient),
+          orderRefundLineItem: new DataAPIModelProxy("OrderRefundLineItem", txAuroraClient),
+          tierSubscription: new DataAPIModelProxy("TierSubscription", txAuroraClient),
+          subscriptionBillingAttempt: new DataAPIModelProxy("SubscriptionBillingAttempt", txAuroraClient),
+          sellingPlanGroup: new DataAPIModelProxy("SellingPlanGroup", txAuroraClient),
+          sellingPlan: new DataAPIModelProxy("SellingPlan", txAuroraClient),
+          subscriptionPricingHistory: new DataAPIModelProxy("SubscriptionPricingHistory", txAuroraClient),
+          subscriptionPricingConfig: new DataAPIModelProxy("SubscriptionPricingConfig", txAuroraClient),
+          subscriptionRetry: new DataAPIModelProxy("SubscriptionRetry", txAuroraClient),
+          subscriptionEvent: new DataAPIModelProxy("SubscriptionEvent", txAuroraClient),
+          webhookProcess: new DataAPIModelProxy("WebhookProcess", txAuroraClient),
+          webhookError: new DataAPIModelProxy("WebhookError", txAuroraClient),
+          webhookProcessed: new DataAPIModelProxy("WebhookProcessed", txAuroraClient),
+          deadLetterQueue: new DataAPIModelProxy("DeadLetterQueue", txAuroraClient),
+          tierPurchase: new DataAPIModelProxy("TierPurchase", txAuroraClient),
+          bulkOperationLog: new DataAPIModelProxy("BulkOperationLog", txAuroraClient),
+          syncStatus: new DataAPIModelProxy("SyncStatus", txAuroraClient),
+
+          // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
             if (typeof sql === 'object' && sql.strings) {
