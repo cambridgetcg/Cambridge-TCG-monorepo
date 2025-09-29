@@ -1300,7 +1300,7 @@ export default function Customers() {
         </IndexTable.Cell>
         <IndexTable.Cell>
           <BlockStack gap="100">
-            <InlineStack gap="100" align="center">
+            <InlineStack gap="200" align="start">
               {customer.currentTier ? (
                 <>
                   <Badge tone={customer.membershipStatus?.isPurchased ? "info" : "success"}>
@@ -1348,11 +1348,13 @@ export default function Customers() {
           </BlockStack>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <StoreCreditDisplay
-            amount={customer.storeCredit}
-            shopSettings={data.shopSettings}
-            size="small"
-          />
+          <div style={{ textAlign: 'right' }}>
+            <StoreCreditDisplay
+              amount={customer.storeCredit}
+              shopSettings={data.shopSettings}
+              size="small"
+            />
+          </div>
         </IndexTable.Cell>
         <IndexTable.Cell>
           <InlineStack gap="200" align="end">
