@@ -424,20 +424,44 @@ model BillingHistory {
 model Notification {
   id                String              @id @default(uuid())
   shop              String
-  
+
   // Notification details
   type              String              // USAGE_CAP_WARNING, etc
   title             String
   message           String
   severity          String              // INFO, WARNING, ERROR
   read              Boolean             @default(false)
-  
+
   // Metadata
   metadata          Json?               // Additional data
   createdAt         DateTime            @default(now())
-  
+
   @@index([shop, read])
   @@index([shop, createdAt(sort: Desc)])
+}
+
+model BillingAuditLog {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Action details
+  action            String              // subscribe-free, subscribe-pro, subscribe-max, contact-enterprise
+  planName          String?             // The plan they're trying to subscribe to
+  success           Boolean             @default(false)
+  errorMessage      String?             @db.Text
+
+  // Request details
+  ipAddress         String?             // For tracking suspicious activity
+  userAgent         String?             @db.Text
+
+  // Timestamps
+  attemptedAt       DateTime            @default(now())
+
+  // Metadata
+  metadata          Json?               // Additional data like response from Shopify
+
+  @@index([shop, attemptedAt(sort: Desc)])  // Recent attempts by shop
+  @@index([shop, planName])                  // Attempts by shop and plan
 }
 
 // ============================================

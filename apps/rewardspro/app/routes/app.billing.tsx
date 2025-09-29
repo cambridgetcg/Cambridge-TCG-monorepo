@@ -29,6 +29,63 @@ import { CheckCircleIcon, PhoneIcon, EmailIcon } from "@shopify/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+
+// Rate limiting function for billing attempts
+async function checkRecentBillingAttempts(shop: string): Promise<number> {
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+
+  try {
+    const recentAttempts = await db.billingAuditLog.count({
+      where: {
+        shop,
+        attemptedAt: {
+          gte: fifteenMinutesAgo
+        }
+      }
+    });
+
+    return recentAttempts;
+  } catch (error) {
+    console.error("[Billing] Error checking recent attempts:", error);
+    // If we can't check, allow the attempt but log the error
+    return 0;
+  }
+}
+
+// Log billing attempt to audit trail
+async function logBillingAttempt(
+  shop: string,
+  action: string,
+  planName: string | null,
+  success: boolean,
+  errorMessage: string | null = null,
+  request: Request
+) {
+  try {
+    const ipAddress = request.headers.get("x-forwarded-for") ||
+                     request.headers.get("x-real-ip") ||
+                     "unknown";
+    const userAgent = request.headers.get("user-agent") || "unknown";
+
+    await db.billingAuditLog.create({
+      data: {
+        id: uuidv4(),
+        shop,
+        action,
+        planName,
+        success,
+        errorMessage,
+        ipAddress,
+        userAgent,
+        attemptedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error("[Billing] Error logging billing attempt:", error);
+    // Don't fail the request if logging fails
+  }
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, billing } = await authenticate.admin(request);
@@ -73,14 +130,46 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const formData = await request.formData();
-  const action = formData.get("action");
+  const action = formData.get("action") as string;
+
+  // Security: Plan validation
+  const ALLOWED_PLANS = ['free', 'pro', 'max', 'contact-enterprise'];
+  const planType = action?.replace('subscribe-', '');
+
+  if (action?.startsWith('subscribe-') && !ALLOWED_PLANS.includes(planType)) {
+    console.error(`[Billing] Invalid plan attempt: ${action} from shop: ${session.shop}`);
+    await logBillingAttempt(session.shop, action, planType, false, "Invalid plan selected", request);
+    return json({
+      success: false,
+      error: "Invalid plan selected"
+    }, { status: 400 });
+  }
+
+  // Security: Rate limiting
+  if (action?.startsWith('subscribe-')) {
+    const recentAttempts = await checkRecentBillingAttempts(session.shop);
+    if (recentAttempts > 5) {
+      console.warn(`[Billing] Rate limit exceeded for shop: ${session.shop} (${recentAttempts} attempts in 15 minutes)`);
+      await logBillingAttempt(session.shop, action, planType, false, "Rate limit exceeded", request);
+      return json({
+        success: false,
+        error: "Too many subscription attempts. Please try again later."
+      }, { status: 429 });
+    }
+  }
+
+  // Security: Log subscription attempts
+  console.log(`[Billing] ${session.shop} attempting action: ${action}`);
 
   if (action === "subscribe-free") {
+    console.log(`[Billing] ${session.shop} switching to Free plan`);
     // Free plan - just return success (no billing required)
+    await logBillingAttempt(session.shop, action, "free", true, null, request);
     return json({ success: true, message: "Switched to Free plan" });
   }
 
   if (action === "subscribe-pro") {
+    console.log(`[Billing] ${session.shop} attempting to subscribe to Pro plan`);
     const billingCheck = await billing.require({
       plans: [PRO_PLAN],
       onFailure: () => billing.request({
@@ -90,10 +179,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
 
     const subscription = billingCheck.appSubscriptions[0];
+    console.log(`[Billing] ${session.shop} successfully subscribed to Pro plan`);
+    await logBillingAttempt(session.shop, action, "pro", true, null, request);
     return json({ success: true, subscription });
   }
 
   if (action === "subscribe-max") {
+    console.log(`[Billing] ${session.shop} attempting to subscribe to Max plan`);
     const billingCheck = await billing.require({
       plans: [MAX_PLAN],
       onFailure: () => billing.request({
@@ -103,6 +195,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
 
     const subscription = billingCheck.appSubscriptions[0];
+    console.log(`[Billing] ${session.shop} successfully subscribed to Max plan`);
+    await logBillingAttempt(session.shop, action, "max", true, null, request);
     return json({ success: true, subscription });
   }
 
@@ -112,6 +206,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const email = formData.get("email") as string;
     const phone = formData.get("phone") as string;
     const requirements = formData.get("requirements") as string;
+
+    // Log the enterprise inquiry attempt
+    await logBillingAttempt(
+      session.shop,
+      action,
+      "enterprise",
+      true,
+      null,
+      request
+    );
 
     // Here you would typically save this to your database or send to a CRM
     // For now, we'll just log it and return success
