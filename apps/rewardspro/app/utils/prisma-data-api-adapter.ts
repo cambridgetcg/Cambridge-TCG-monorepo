@@ -45,7 +45,36 @@ export class DataAPIModelProxy<T = any> {
               const paramName = `or${orIndex}_${orKey}`;
               if (orValue === null) {
                 orConditions.push(`"${orKey}" IS NULL`);
+              } else if (orValue !== undefined && typeof orValue === 'object') {
+                // Handle complex comparisons within OR
+                if ('gte' in orValue) {
+                  // Check if this is a timestamp field
+                  const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 'endDate',
+                    'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+                    'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(orKey);
+
+                  orConditions.push(`"${orKey}" >= :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue.gte, { isTimestamp: isTimestampField }));
+                } else if ('lte' in orValue) {
+                  const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 'endDate',
+                    'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+                    'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(orKey);
+
+                  orConditions.push(`"${orKey}" <= :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue.lte, { isTimestamp: isTimestampField }));
+                } else if ('gt' in orValue) {
+                  orConditions.push(`"${orKey}" > :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue.gt));
+                } else if ('lt' in orValue) {
+                  orConditions.push(`"${orKey}" < :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue.lt));
+                } else {
+                  // Default to equality for other object values
+                  orConditions.push(`"${orKey}" = :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue));
+                }
               } else if (orValue !== undefined) {
+                // Simple equality comparison
                 orConditions.push(`"${orKey}" = :${paramName}`);
                 params.push(AuroraDataAPI.buildParameter(paramName, orValue));
               }
