@@ -254,7 +254,7 @@ export async function action({ request }: ActionFunctionArgs) {
           data: {
             storeCredit: totalStoreCredit,
             totalSpent: parseFloat(order.customer.total_spent || "0"),
-            ordersCount: order.customer.orders_count || dbCustomer.ordersCount,
+            orderCount: order.customer.orders_count || dbCustomer.orderCount,
             updatedAt: new Date()
           }
         });
@@ -266,7 +266,7 @@ export async function action({ request }: ActionFunctionArgs) {
           where: { id: dbCustomer.id },
           data: {
             totalSpent: parseFloat(order.customer.total_spent || "0"),
-            ordersCount: order.customer.orders_count || dbCustomer.ordersCount,
+            orderCount: order.customer.orders_count || dbCustomer.orderCount,
             updatedAt: new Date()
           }
         });
@@ -312,9 +312,15 @@ export async function action({ request }: ActionFunctionArgs) {
           data: {
             id: uuidv4(),
             customerId: dbCustomer.id,
-            previousTierId: dbCustomer.currentTierId,
-            newTierId: appropriateTier.id,
+            shop: shop,
+            fromTierId: dbCustomer.currentTierId,
+            fromTierName: dbCustomer.currentTierId ? (await db.tier.findFirst({ where: { id: dbCustomer.currentTierId, shop } }))?.name || null : null,
+            toTierId: appropriateTier.id,
+            toTierName: appropriateTier.name,
             changeType: dbCustomer.currentTierId ? 'UPGRADE' : 'INITIAL_ASSIGNMENT',
+            triggerType: 'ORDER',
+            totalSpending: totalSpent,
+            orderId: order.id.toString(),
             reason: `Order created: Total spent ${totalSpent} qualifies for ${appropriateTier.name}`,
             createdAt: new Date()
           }
