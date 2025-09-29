@@ -55,10 +55,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
 
-    // Check if already processed (if webhookProcess table exists)
+    // Check if already processed using webhook ID
+    const webhookId = request.headers.get('X-Shopify-Webhook-Id') || idempotencyKey;
     try {
-      const existingProcess = await db.webhookProcess.findUnique({
-        where: { idempotencyKey }
+      const existingProcess = await db.webhookProcessed.findUnique({
+        where: { webhookId }
       });
 
       if (existingProcess) {
@@ -66,7 +67,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ success: true, message: "Already processed" });
       }
     } catch (e) {
-      // webhookProcess table might not exist, continue processing
+      // webhookProcessed table might not exist, continue processing
       console.log(`[OrderPaid] Could not check idempotency (table may not exist)`);
     }
 
@@ -74,15 +75,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const result = await withRetry(
       async () => {
         return await db.$transaction(async (tx) => {
-          // Record webhook processing (if table exists)
+          // Record webhook processing (if table exists, without payload to avoid timeout)
           try {
-            await tx.webhookProcess.create({
+            await tx.webhookProcessed.create({
               data: {
                 id: uuidv4(),
                 shop,
                 topic: topic || 'orders/paid',
-                idempotencyKey,
-                payload: order,
+                webhookId,
                 processedAt: new Date(),
               }
             });

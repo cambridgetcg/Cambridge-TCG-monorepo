@@ -43,12 +43,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     
     // Check for duplicate webhook processing
-    const existingWebhook = await db.webhookProcess.findUnique({
+    const existingWebhook = await db.webhookProcessed.findUnique({
       where: {
-        shop_webhookId: {
-          shop,
-          webhookId: webhookId || `${topic}-${Date.now()}`
-        }
+        webhookId: webhookId || `${topic}-${Date.now()}`
       }
     });
     
@@ -57,13 +54,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return new Response("OK", { status: 200 });
     }
     
-    // Record webhook processing
-    await db.webhookProcess.create({
+    // Record webhook processing (without payload to avoid timeout)
+    await db.webhookProcessed.create({
       data: {
+        id: require('crypto').randomUUID(),
         shop,
         webhookId: webhookId || `${topic}-${Date.now()}`,
         topic: topic || "subscription_billing_attempts/failure",
-        payload,
         processedAt: new Date()
       }
     });

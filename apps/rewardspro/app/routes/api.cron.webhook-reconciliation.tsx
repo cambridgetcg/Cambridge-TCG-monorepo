@@ -191,10 +191,10 @@ async function reconcileOrders(shop: string, hoursBack: number): Promise<Reconci
         }
 
         // Check if it's been processed via webhook
-        const processedWebhook = await db.webhookProcess.findFirst({
+        const processedWebhook = await db.webhookProcessed.findFirst({
           where: {
             shop,
-            idempotencyKey: {
+            webhookId: {
               contains: `order-${orderId}`
             }
           }
@@ -298,17 +298,15 @@ async function processReconciliationOrder(shop: string, order: any): Promise<voi
   const idempotencyKey = `reconciliation-order-${order.id}-${Date.now()}`;
 
   await db.$transaction(async (tx) => {
-    // Record the reconciliation
+    // Record the reconciliation (without payload to avoid timeout)
     try {
-      await tx.webhookProcess.create({
+      await tx.webhookProcessed.create({
         data: {
           id: crypto.randomUUID(),
           shop,
           topic: 'reconciliation/orders.paid',
-          idempotencyKey,
-          payload: order,
-          processedAt: new Date(),
-          webhookEventId: `reconciliation-${order.id}`
+          webhookId: idempotencyKey,
+          processedAt: new Date()
         }
       });
     } catch (err) {

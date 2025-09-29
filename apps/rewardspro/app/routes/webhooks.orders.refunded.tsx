@@ -101,10 +101,9 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     // 4. Check idempotency - have we processed this refund webhook already?
     if (webhookId) {
-      const existingRefund = await db.webhookProcess.findFirst({
+      const existingRefund = await db.webhookProcessed.findUnique({
         where: {
-          idempotencyKey: webhookId,
-          shop: shopDomain
+          webhookId
         }
       });
 
@@ -116,15 +115,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // 5. Process refund in transaction
     await db.$transaction(async (tx) => {
-      // Record webhook as processed
+      // Record webhook as processed (without payload to avoid timeout)
       if (webhookId) {
-        await tx.webhookProcess.create({
+        await tx.webhookProcessed.create({
           data: {
             id: uuidv4(),
             shop: shopDomain,
             topic: 'orders/refunded',
-            idempotencyKey: webhookId || uuidv4(),
-            payload: refund,
+            webhookId: webhookId || uuidv4(),
             processedAt: new Date()
           }
         });

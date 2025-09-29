@@ -266,7 +266,7 @@ export const WebhookTestScenarios = {
     expect(ledgerEntries[0].entryType).toBe('CASHBACK_EARNED');
 
     // Verify webhook was marked as processed
-    const webhookProcessed = db.getTableData('webhookProcess');
+    const webhookProcessed = db.getTableData('webhookProcessed');
     expect(webhookProcessed).toHaveLength(1);
 
     return { order, customers, ledgerEntries };
@@ -331,7 +331,7 @@ export const WebhookTestScenarios = {
     expect(ledgerEntries).toHaveLength(1);
 
     // Verify only one webhook process entry
-    const webhookProcessed = db.getTableData('webhookProcess');
+    const webhookProcessed = db.getTableData('webhookProcessed');
     expect(webhookProcessed).toHaveLength(1);
   },
 };
@@ -347,7 +347,7 @@ describe('Webhook Processing', () => {
     // Set up mock tables
     db.mockTable('customer');
     db.mockTable('storeCreditLedger');
-    db.mockTable('webhookProcess');
+    db.mockTable('webhookProcessed');
     db.mockTable('order');
     db.mockTable('tier');
   });

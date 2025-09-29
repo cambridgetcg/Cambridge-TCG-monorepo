@@ -45,10 +45,9 @@ export class OrderProcessingQueue {
 
     // Check if webhook already processed (idempotency)
     if (webhookId) {
-      const existing = await db.webhookProcess.findFirst({
+      const existing = await db.webhookProcessed.findUnique({
         where: {
-          idempotencyKey: webhookId,
-          shop
+          webhookId
         }
       });
 
@@ -139,15 +138,14 @@ export class OrderProcessingQueue {
     item.attempts++;
 
     try {
-      // Record webhook as processed (for idempotency)
+      // Record webhook as processed (for idempotency, without payload to avoid timeout)
       if (item.webhookId) {
-        await db.webhookProcess.create({
+        await db.webhookProcessed.create({
           data: {
             id: uuidv4(),
             shop: item.shop,
             topic: item.topic,
-            idempotencyKey: item.webhookId || uuidv4(),
-            payload: item.payload,
+            webhookId: item.webhookId,
             processedAt: new Date()
           }
         });
