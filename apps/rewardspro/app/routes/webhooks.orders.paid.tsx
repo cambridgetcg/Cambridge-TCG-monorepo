@@ -61,6 +61,253 @@ function isDatabaseConstraintError(error: any): boolean {
          errorMessage.includes('duplicate key');
 }
 
+// Types for transaction analysis
+interface Transaction {
+  id: string;
+  gateway: string;
+  status: string;
+  kind: string;
+  amountSet: {
+    shopMoney: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  parentTransaction?: {
+    id: string;
+  };
+}
+
+interface OrderDetails {
+  id: string;
+  totalReceivedSet: {
+    shopMoney: {
+      amount: string;
+      currencyCode: string;
+    };
+  };
+  transactions: Transaction[];
+}
+
+interface PaymentBreakdown {
+  giftCardAmount: number;
+  storeCreditAmount: number;
+  externalPaymentAmount: number;
+  cashbackEligibleAmount: number;
+}
+
+/**
+ * Fetch order transaction details via GraphQL
+ */
+async function fetchOrderTransactions(
+  admin: any,
+  orderId: string
+): Promise<OrderDetails | null> {
+  const query = `#graphql
+    query GetOrderPaymentDetails($id: ID!) {
+      order(id: $id) {
+        id
+        totalReceivedSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+        }
+        transactions(first: 250) {
+          id
+          gateway
+          status
+          kind
+          amountSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          parentTransaction {
+            id
+          }
+        }
+      }
+    }
+  `;
+
+  const gid = orderId.startsWith('gid://')
+    ? orderId
+    : `gid://shopify/Order/${orderId}`;
+
+  try {
+    const response = await admin.graphql(query, {
+      variables: { id: gid }
+    });
+    const result = await response.json();
+
+    if (result.errors || !result.data?.order) {
+      console.error('[OrdersPaidWebhook] Failed to fetch order details:', result.errors);
+      return null;
+    }
+
+    return result.data.order;
+  } catch (error) {
+    console.error('[OrdersPaidWebhook] GraphQL query failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Analyze transactions to determine cashback eligible amount
+ */
+function analyzeTransactions(transactions: Transaction[]): PaymentBreakdown {
+  let giftCardAmount = 0;
+  let storeCreditAmount = 0;
+  let externalPaymentAmount = 0;
+
+  // Only process successful SALE or CAPTURE transactions
+  const validTransactions = transactions.filter(tx => {
+    const isSuccessful = tx.status === 'SUCCESS';
+    const isPayment = ['SALE', 'CAPTURE'].includes(tx.kind);
+    return isSuccessful && isPayment;
+  });
+
+  // Deduplicate CAPTURE/AUTHORIZATION pairs
+  const processedIds = new Set<string>();
+
+  validTransactions.forEach(tx => {
+    // Skip if we've already processed this transaction
+    if (processedIds.has(tx.id)) return;
+
+    // Skip CAPTURE if we already processed its AUTHORIZATION
+    if (tx.kind === 'CAPTURE' && tx.parentTransaction) {
+      const parentAuth = transactions.find(
+        t => t.id === tx.parentTransaction!.id && t.kind === 'AUTHORIZATION'
+      );
+      if (parentAuth && processedIds.has(parentAuth.id)) {
+        return;
+      }
+    }
+
+    processedIds.add(tx.id);
+    const amount = parseFloat(tx.amountSet.shopMoney.amount);
+    const gateway = tx.gateway.toLowerCase();
+
+    // Categorize payment by gateway
+    if (gateway.includes('gift_card')) {
+      giftCardAmount += amount;
+      console.log(`  [OrdersPaidWebhook] Gift card: ${amount} (excluded from cashback)`);
+    } else if (gateway.includes('store_credit')) {
+      storeCreditAmount += amount;
+      console.log(`  [OrdersPaidWebhook] Store credit: ${amount} (excluded from cashback)`);
+    } else {
+      externalPaymentAmount += amount;
+      console.log(`  [OrdersPaidWebhook] External payment (${tx.gateway}): ${amount} (eligible for cashback)`);
+    }
+  });
+
+  return {
+    giftCardAmount,
+    storeCreditAmount,
+    externalPaymentAmount,
+    cashbackEligibleAmount: externalPaymentAmount
+  };
+}
+
+/**
+ * Issue store credit via Shopify GraphQL
+ */
+async function issueStoreCredit(
+  admin: any,
+  customerId: string,
+  amount: number,
+  currency: string,
+  orderId: string
+): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+  try {
+    // Format customer ID as GID
+    const gidCustomerId = `gid://shopify/Customer/${customerId}`;
+
+    const mutation = `#graphql
+      mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+        storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+          storeCreditAccountTransaction {
+            id
+            amount {
+              amount
+              currencyCode
+            }
+            account {
+              id
+              balance {
+                amount
+                currencyCode
+              }
+            }
+          }
+          userErrors {
+            message
+            field
+          }
+        }
+      }
+    `;
+
+    const variables = {
+      id: gidCustomerId,
+      creditInput: {
+        amount: {
+          amount: amount.toFixed(2),
+          currencyCode: currency
+        },
+        description: `Cashback reward from order ${orderId}`
+      }
+    };
+
+    console.log('[OrdersPaidWebhook] Issuing store credit:', {
+      customerId: gidCustomerId,
+      amount,
+      currency
+    });
+
+    const response = await admin.graphql(mutation, { variables });
+    const result = await response.json();
+
+    if (result.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+      const errors = result.data.storeCreditAccountCredit.userErrors;
+      console.error('[OrdersPaidWebhook] Store credit mutation errors:', errors);
+      return {
+        success: false,
+        error: errors.map((e: any) => e.message).join(', ')
+      };
+    }
+
+    if (!result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction) {
+      console.error('[OrdersPaidWebhook] No transaction returned from store credit mutation');
+      return {
+        success: false,
+        error: 'No transaction created'
+      };
+    }
+
+    const transaction = result.data.storeCreditAccountCredit.storeCreditAccountTransaction;
+    console.log('[OrdersPaidWebhook] Store credit issued successfully:', {
+      transactionId: transaction.id,
+      amount: transaction.amount.amount,
+      newBalance: transaction.account.balance.amount
+    });
+
+    return {
+      success: true,
+      transactionId: transaction.id
+    };
+
+  } catch (error) {
+    console.error('[OrdersPaidWebhook] Failed to issue store credit:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   // Start performance monitoring
   const timer = new PerformanceTimer();
@@ -231,10 +478,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
           timer.mark('order_created');
 
+          // Track monthly order usage for billing
+          await trackMonthlyOrderUsage(tx, {
+            shop,
+            order,
+            traceId,
+          });
+          timer.mark('usage_tracked');
+
           // Process cashback for regular items
           await processCashback(tx, {
             shop,
             order,
+            admin,
             traceId,
           });
           timer.mark('cashback_processed');
@@ -569,13 +825,39 @@ async function processOneTimeTierPurchase(tx: any, params: {
 async function processCashback(tx: any, params: {
   shop: string;
   order: any;
+  admin?: any;
   traceId?: string;
 }) {
-  const { shop, order } = params;
-  
+  const { shop, order, admin } = params;
+
   if (!order.customer?.id) {
     console.log('[OrderPaid] No customer ID, skipping cashback');
     return;
+  }
+
+  // Analyze transactions to determine cashback eligible amount
+  let paymentBreakdown: PaymentBreakdown | null = null;
+  let cashbackEligibleAmount = parseFloat(order.total_price || '0');
+
+  if (admin) {
+    const orderDetails = await fetchOrderTransactions(admin, order.id.toString());
+
+    if (orderDetails && orderDetails.transactions.length > 0) {
+      console.log(`[OrdersPaidWebhook] 📊 Analyzing ${orderDetails.transactions.length} transactions:`);
+      paymentBreakdown = analyzeTransactions(orderDetails.transactions);
+
+      console.log('[OrdersPaidWebhook] 💰 Payment Breakdown:');
+      console.log(`   Gift Cards: ${paymentBreakdown.giftCardAmount.toFixed(2)}`);
+      console.log(`   Store Credit: ${paymentBreakdown.storeCreditAmount.toFixed(2)}`);
+      console.log(`   External Payments: ${paymentBreakdown.externalPaymentAmount.toFixed(2)}`);
+      console.log(`   ✅ Cashback Eligible: ${paymentBreakdown.cashbackEligibleAmount.toFixed(2)}`);
+
+      cashbackEligibleAmount = paymentBreakdown.cashbackEligibleAmount;
+    } else {
+      console.warn('[OrdersPaidWebhook] ⚠️ Could not fetch transactions, using webhook total');
+    }
+  } else {
+    console.warn('[OrdersPaidWebhook] ⚠️ Admin API not available, using order total');
   }
 
   // Get tier product IDs from cache for better performance
@@ -586,15 +868,18 @@ async function processCashback(tx: any, params: {
     !tierProductIds.has(item.product_id?.toString())
   ) || [];
 
-  // Calculate eligible amount (excluding tier products)
-  const eligibleAmount = eligibleItems.reduce((sum: number, item: any) => {
-    const price = parseFloat(item.price || '0');
-    const quantity = item.quantity || 1;
-    return sum + (price * quantity);
-  }, 0);
+  // If we don't have payment breakdown, calculate manually from items
+  if (!paymentBreakdown && eligibleItems.length > 0) {
+    // Calculate eligible amount (excluding tier products)
+    cashbackEligibleAmount = eligibleItems.reduce((sum: number, item: any) => {
+      const price = parseFloat(item.price || '0');
+      const quantity = item.quantity || 1;
+      return sum + (price * quantity);
+    }, 0);
+  }
 
-  if (eligibleAmount <= 0) {
-    console.log('[OrderPaid] No eligible items for cashback (order may contain only tier products)');
+  if (cashbackEligibleAmount <= 0) {
+    console.log('[OrderPaid] No eligible amount for cashback');
     return;
   }
 
@@ -614,13 +899,38 @@ async function processCashback(tx: any, params: {
     return;
   }
 
-  // Calculate cashback amount on eligible items only
-  const cashbackAmount = (eligibleAmount * customer.currentTier.cashbackPercent) / 100;
-  
+  // Calculate cashback amount on eligible amount
+  const cashbackAmount = (cashbackEligibleAmount * customer.currentTier.cashbackPercent) / 100;
+
   if (cashbackAmount <= 0) {
     return;
   }
-  
+
+  // Get shop settings for store currency
+  const shopSettings = await tx.shopSettings.findUnique({
+    where: { shop }
+  });
+
+  // Use store currency, fallback to USD if not configured
+  const storeCurrency = shopSettings?.storeCurrency || 'USD';
+
+  // Issue store credit via Shopify GraphQL if admin is available
+  let creditResult: { success: boolean; transactionId?: string } = { success: false };
+  if (admin) {
+    creditResult = await issueStoreCredit(
+      admin,
+      order.customer.id.toString(),
+      cashbackAmount,
+      storeCurrency,
+      order.id.toString()
+    );
+
+    if (!creditResult.success) {
+      console.error('[OrdersPaidWebhook] Failed to issue store credit:', creditResult);
+      // Continue to record in database even if Shopify mutation fails
+    }
+  }
+
   // Get the Order record we just created
   const orderRecord = await tx.order.findFirst({
     where: {
@@ -628,15 +938,15 @@ async function processCashback(tx: any, params: {
       shopifyOrderId: order.id.toString()
     }
   });
-  
+
   if (!orderRecord) {
     console.error('[OrderPaid] Order record not found after creation');
     return;
   }
-  
+
   // Create ledger entry with idempotency
   const ledgerIdempotencyKey = `cashback-${order.id}`;
-  
+
   const existingEntry = await tx.storeCreditLedger.findFirst({
     where: {
       shop,
@@ -644,10 +954,10 @@ async function processCashback(tx: any, params: {
       type: 'CASHBACK_EARNED',
     }
   });
-  
+
   if (!existingEntry) {
     const newBalance = customer.storeCredit + cashbackAmount;
-    
+
     await tx.storeCreditLedger.create({
       data: {
         id: uuidv4(),
@@ -662,15 +972,23 @@ async function processCashback(tx: any, params: {
           idempotencyKey: ledgerIdempotencyKey,
           orderId: order.id,
           orderName: order.name,
-          orderTotal: eligibleAmount.toString(),
+          orderTotal: order.total_price,
+          eligibleAmount: cashbackEligibleAmount,
           cashbackPercent: customer.currentTier.cashbackPercent,
           tierName: customer.currentTier.name,
           description: `${customer.currentTier.cashbackPercent}% cashback on order ${order.name}`,
+          shopifyCreditSuccess: creditResult.success,
+          shopifyTransactionId: creditResult.transactionId || null,
+          paymentBreakdown: paymentBreakdown ? {
+            giftCardAmount: paymentBreakdown.giftCardAmount,
+            storeCreditAmount: paymentBreakdown.storeCreditAmount,
+            externalPaymentAmount: paymentBreakdown.externalPaymentAmount
+          } : null
         },
         createdAt: new Date(),
       }
     });
-    
+
     // Update customer balance
     await tx.customer.update({
       where: { id: customer.id },
@@ -679,7 +997,7 @@ async function processCashback(tx: any, params: {
         updatedAt: new Date(),
       }
     });
-    
+
     // Mark cashback as processed in Order record
     await tx.order.update({
       where: { id: orderRecord.id },
@@ -688,6 +1006,120 @@ async function processCashback(tx: any, params: {
         updatedAt: new Date()
       }
     });
+  }
+}
+
+async function trackMonthlyOrderUsage(tx: any, params: {
+  shop: string;
+  order: any;
+  traceId?: string;
+}) {
+  const { shop, order, traceId } = params;
+
+  try {
+    // Track monthly order usage for billing
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1; // JavaScript months are 0-based
+
+    // Get or create monthly usage record
+    let monthlyUsage = await tx.monthlyOrderUsage.findUnique({
+      where: {
+        shop_year_month: {
+          shop,
+          year,
+          month
+        }
+      }
+    });
+
+    // Get shop settings to check current plan
+    const shopSettings = await tx.shopSettings.findUnique({
+      where: { shop }
+    });
+
+    // Default to free plan
+    let currentPlanName = 'RewardsPro Free';
+    let planLimit = 200; // Updated free plan limit
+
+    if (shopSettings?.planType) {
+      // Map plan type to name and limit
+      switch (shopSettings.planType) {
+        case 'FREE':
+          currentPlanName = 'RewardsPro Free';
+          planLimit = 200;
+          break;
+        case 'STARTER':
+          currentPlanName = 'RewardsPro Starter';
+          planLimit = 1000;
+          break;
+        case 'GROWTH':
+          currentPlanName = 'RewardsPro Growth';
+          planLimit = 10000;
+          break;
+        case 'ENTERPRISE':
+          currentPlanName = 'RewardsPro Enterprise';
+          planLimit = -1; // Unlimited
+          break;
+        default:
+          planLimit = 200;
+      }
+    }
+
+    // Create or update monthly usage
+    if (!monthlyUsage) {
+      monthlyUsage = await tx.monthlyOrderUsage.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          year,
+          month,
+          orderCount: 1,
+          planLimit,
+          planName: currentPlanName,
+          lastOrderDate: now,
+          createdAt: now,
+          updatedAt: now
+        }
+      });
+      console.log(`[OrderPaid][${traceId}] Created monthly usage record:`, monthlyUsage);
+    } else {
+      // Update existing usage
+      monthlyUsage = await tx.monthlyOrderUsage.update({
+        where: {
+          id: monthlyUsage.id
+        },
+        data: {
+          orderCount: monthlyUsage.orderCount + 1,
+          planLimit,
+          planName: currentPlanName,
+          lastOrderDate: now,
+          updatedAt: now
+        }
+      });
+      console.log(`[OrderPaid][${traceId}] Updated monthly usage:`, {
+        orderCount: monthlyUsage.orderCount,
+        planLimit: monthlyUsage.planLimit,
+        remaining: planLimit > 0 ? planLimit - monthlyUsage.orderCount : 'Unlimited'
+      });
+    }
+
+    // Check if free plan limit exceeded
+    if (currentPlanName === 'RewardsPro Free' && monthlyUsage.orderCount > 200) {
+      console.warn(`[OrderPaid][${traceId}] ⚠️ Free plan limit exceeded!`, {
+        shop,
+        orderCount: monthlyUsage.orderCount,
+        limit: 200
+      });
+
+      // Could optionally create a notification here
+      // However, we'll continue processing to avoid disrupting orders
+    }
+
+    return monthlyUsage;
+  } catch (err: any) {
+    console.error(`[OrderPaid][${traceId}] Failed to track monthly usage:`, err.message);
+    // Don't throw - this is not critical for order processing
   }
 }
 

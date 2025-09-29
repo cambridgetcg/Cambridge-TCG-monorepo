@@ -152,40 +152,7 @@ export class DataAPIModelProxy<T = any> {
         }
       });
 
-      // Handle OR conditions
-      if (args.where.OR && Array.isArray(args.where.OR)) {
-        const orConditions = args.where.OR.map((orClause: any, orIndex: number) => {
-          const subConditions: string[] = [];
-          Object.entries(orClause).forEach(([key, value]: [string, any]) => {
-            const paramName = `or${orIndex}_${key}`;
-            if (value && typeof value === 'object' && 'contains' in value) {
-              const searchValue = value.contains;
-              const mode = value.mode || 'sensitive';
-              if (mode === 'insensitive') {
-                subConditions.push(`LOWER("${key}") LIKE LOWER(:${paramName})`);
-              } else {
-                subConditions.push(`"${key}" LIKE :${paramName}`);
-              }
-              params.push(AuroraDataAPI.buildParameter(paramName, `%${searchValue}%`));
-            } else {
-              // Check if this field is an enum type that needs casting
-              const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
-              if (enumFields.includes(key)) {
-                // Cast enum types explicitly for PostgreSQL
-                subConditions.push(`"${key}"::text = :${paramName}`);
-              } else {
-                subConditions.push(`"${key}" = :${paramName}`);
-              }
-              params.push(AuroraDataAPI.buildParameter(paramName, value));
-            }
-          });
-          return `(${subConditions.join(' OR ')})`;
-        });
-        
-        if (orConditions.length > 0) {
-          conditions.push(`(${orConditions.join(' OR ')})`);
-        }
-      }
+      // OR conditions are already handled in the forEach loop above
     }
 
     if (conditions.length > 0) {

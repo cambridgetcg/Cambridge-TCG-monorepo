@@ -297,29 +297,29 @@ export async function action({ request }: ActionFunctionArgs) {
         }
       }
       
-      if (appropriateTier && dbCustomer.tierId !== appropriateTier.id) {
+      if (appropriateTier && dbCustomer.currentTierId !== appropriateTier.id) {
         // Update customer tier
         await db.customer.update({
           where: { id: dbCustomer.id },
           data: {
-            tierId: appropriateTier.id,
+            currentTierId: appropriateTier.id,
             updatedAt: new Date()
           }
         });
-        
+
         // Log tier change
         await db.tierChangeLog.create({
           data: {
             id: uuidv4(),
             customerId: dbCustomer.id,
-            previousTierId: dbCustomer.tierId,
+            previousTierId: dbCustomer.currentTierId,
             newTierId: appropriateTier.id,
-            changeType: dbCustomer.tierId ? 'UPGRADE' : 'INITIAL_ASSIGNMENT',
+            changeType: dbCustomer.currentTierId ? 'UPGRADE' : 'INITIAL_ASSIGNMENT',
             reason: `Order created: Total spent ${totalSpent} qualifies for ${appropriateTier.name}`,
             createdAt: new Date()
           }
         });
-        
+
         console.log(`[OrdersCreateWebhook] Updated tier to ${appropriateTier.name}`);
       }
     }
