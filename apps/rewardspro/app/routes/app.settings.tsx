@@ -438,15 +438,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       });
 
       // Check for discrepancies (simplified check)
-      const ordersWithLedger = await db.order.count({
+      // Count orders that have been processed but have no ledger entries
+      const processedOrders = await db.order.count({
         where: {
           shop,
-          cashbackProcessed: true,
-          creditLedgerEntries: {
-            none: {}
-          }
+          cashbackProcessed: true
         }
       });
+
+      const ordersWithLedger = await db.storeCreditLedger.count({
+        where: {
+          shop,
+          orderId: { not: null },
+          entryType: 'CASHBACK_EARNED'
+        }
+      });
+
+      const discrepancies = processedOrders - ordersWithLedger;
 
       orderStats = {
         orderCount: orderAggregates._count.id || 0,
@@ -455,7 +463,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         lastSync: orderAggregates._max.createdAt?.toISOString() || null,
         oldestOrder: orderAggregates._min.shopifyCreatedAt?.toISOString() || null,
         newestOrder: orderAggregates._max.shopifyCreatedAt?.toISOString() || null,
-        discrepancies: ordersWithLedger
+        discrepancies: discrepancies
       };
     } catch (error) {
       console.error("Failed to fetch order statistics:", error);
