@@ -910,10 +910,43 @@ export default function OrdersPage() {
   const handleProcessCashback = useCallback((orderId: string) => {
     // Find the order and customer details
     const order = orders.find(o => o.id === orderId);
-    if (!order || !order.customer) {
+
+    // Debug logging
+    console.log('[Orders] Processing cashback for order:', orderId);
+    console.log('[Orders] Order found:', order);
+    console.log('[Orders] Customer in order:', order?.customer);
+    console.log('[Orders] Customer ID in order:', order?.customerId);
+
+    if (!order) {
       setToast({
         active: true,
-        content: 'Customer information not found',
+        content: 'Order not found',
+        error: true
+      });
+      return;
+    }
+
+    // If customer object not directly available, check if we have customerId
+    if (!order.customer && order.customerId === "unknown") {
+      setToast({
+        active: true,
+        content: 'This order has no associated customer',
+        error: true
+      });
+      return;
+    }
+
+    // Extract customer info - handle both embedded customer and customer reference
+    const customerData = order.customer || {
+      id: order.customerId,
+      email: order.email || 'Unknown',
+      storeCredit: 0
+    };
+
+    if (!customerData.id || customerData.id === "unknown") {
+      setToast({
+        active: true,
+        content: 'Customer information not available for this order',
         error: true
       });
       return;
@@ -922,9 +955,9 @@ export default function OrdersPage() {
     // Set up modal state with pre-calculated amount
     setProcessingOrderId(orderId);
     setProcessingCustomer({
-      id: order.customer.id,
-      email: order.customer.email || order.email || 'Unknown',
-      storeCredit: order.customer.storeCredit || 0
+      id: customerData.id,
+      email: customerData.email || order.email || 'Unknown',
+      storeCredit: customerData.storeCredit || 0
     });
     setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
     setIsCashbackModalOpen(true);

@@ -759,10 +759,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
           });
 
+          // Fetch updated transactions to return with response
+          const updatedTransactions = await db.storeCreditLedger.findMany({
+            where: {
+              customerId,
+              shop: session.shop
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+          });
+
           return json({
             success: true,
             message: `Successfully added ${formatCurrency(amount, shopSettings)} to store credit`,
-            newBalance: (result.balance || newBalance).toString()
+            newBalance: (result.balance || newBalance).toString(),
+            transactions: updatedTransactions.map(t => ({
+              ...t,
+              amount: t.amount.toString(),
+              balance: t.balance.toString(),
+              createdAt: t.createdAt.toISOString()
+            }))
           });
 
         } else {
@@ -820,10 +836,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
           });
 
+          // Fetch updated transactions to return with response
+          const updatedTransactions = await db.storeCreditLedger.findMany({
+            where: {
+              customerId,
+              shop: session.shop
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+          });
+
           return json({
             success: true,
             message: `Successfully removed ${formatCurrency(amount, shopSettings)} from store credit`,
-            newBalance: newBalance.toString()
+            newBalance: newBalance.toString(),
+            transactions: updatedTransactions.map(t => ({
+              ...t,
+              amount: t.amount.toString(),
+              balance: t.balance.toString(),
+              createdAt: t.createdAt.toISOString()
+            }))
           });
         }
 
@@ -923,10 +955,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
         }
 
+        // Fetch updated transactions to return with response
+        const updatedTransactions = await db.storeCreditLedger.findMany({
+          where: {
+            customerId,
+            shop: session.shop
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        });
+
         return json({
           success: true,
           message: `Synced successfully: ${formatCurrency(totalCredit, null)} from ${accounts.length} account(s)`,
-          newBalance: totalCredit.toString()
+          newBalance: totalCredit.toString(),
+          transactions: updatedTransactions.map(t => ({
+            ...t,
+            amount: t.amount.toString(),
+            balance: t.balance.toString(),
+            createdAt: t.createdAt.toISOString()
+          }))
         });
       } catch (error) {
         console.error("[Credit] Error syncing credit:", error);
