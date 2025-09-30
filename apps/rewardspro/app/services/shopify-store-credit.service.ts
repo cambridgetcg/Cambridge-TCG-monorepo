@@ -131,8 +131,7 @@ export class ShopifyStoreCreditService {
             creditAmount: {
               amount: formattedAmount,
               currencyCode: currency
-            },
-            description: description || `Cashback reward from ${this.shop}`
+            }
           }
         }
       });
@@ -280,8 +279,7 @@ export class ShopifyStoreCreditService {
             debitAmount: {
               amount: formattedAmount,
               currencyCode: currency
-            },
-            description: description || `Adjustment from ${this.shop}`
+            }
           }
         }
       });

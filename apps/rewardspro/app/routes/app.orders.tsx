@@ -371,6 +371,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
 
+        console.log(`[Orders] Attempting to issue credit:`);
+        console.log(`[Orders]   Customer GID: ${gidCustomerId}`);
+        console.log(`[Orders]   Amount: ${cashbackAmount.toFixed(2)} ${currency}`);
+
         try {
           const creditResponse = await admin.graphql(creditMutation, {
             variables: {
@@ -379,20 +383,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 creditAmount: {
                   amount: cashbackAmount.toFixed(2),
                   currencyCode: currency
-                },
-                description: `${order.cashbackPercent || 0}% cashback from order ${order.shopifyOrderName}`
+                }
               }
             }
           });
 
           const creditData = await creditResponse.json() as any;
 
+          console.log(`[Orders] GraphQL Response:`, JSON.stringify(creditData, null, 2));
+
           if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
             const errors = creditData.data.storeCreditAccountCredit.userErrors;
             console.error("[Orders] Credit mutation errors:", errors);
 
             // Check if it's a "no account" error
-            if (errors.some((e: any) => e.message.toLowerCase().includes("account"))) {
+            if (errors.some((e: any) => e.message.toLowerCase().includes("account") || e.message.toLowerCase().includes("does not exist"))) {
               throw new Error("Customer does not have a store credit account. Please create one in Shopify first.");
             }
             throw new Error(errors[0].message || "Failed to add store credit");
@@ -412,30 +417,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Create ledger entry with Shopify transaction ID
           const ledgerId = uuidv4();
-          await db.storeCreditLedger.create({
-            data: {
-              id: ledgerId,
-              customerId: order.customerId,
-              shop,
-              amount: cashbackAmount,
-              balance: newBalance,
-              type: 'CASHBACK_EARNED',
-              shopifyOrderId: order.shopifyOrderId,
-              orderId: order.id,
-              shopifyTransactionId,
-              syncStatus: 'SYNCED',
-              syncedAt: new Date(),
-              metadata: {
-                orderNumber: order.shopifyOrderNumber,
-                orderName: order.shopifyOrderName,
-                cashbackPercent: order.cashbackPercent,
-                tierName: order.tierNameAtOrder,
-                description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-                shopifyBalance: newBalance
-              },
-              createdAt: new Date(),
+          const ledgerData: any = {
+            id: ledgerId,
+            customerId: order.customerId,
+            shop,
+            amount: cashbackAmount,
+            balance: newBalance,
+            type: 'CASHBACK_EARNED',
+            shopifyOrderId: order.shopifyOrderId,
+            orderId: order.id,
+            metadata: {
+              orderNumber: order.shopifyOrderNumber,
+              orderName: order.shopifyOrderName,
+              cashbackPercent: order.cashbackPercent,
+              tierName: order.tierNameAtOrder,
+              description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
+              shopifyBalance: newBalance,
+              shopifyTransactionId, // Store in metadata if field doesn't exist
             },
-          });
+            createdAt: new Date(),
+          };
+
+          // Add sync fields if they exist in schema
+          try {
+            ledgerData.shopifyTransactionId = shopifyTransactionId;
+            ledgerData.syncStatus = 'SYNCED';
+            ledgerData.syncedAt = new Date();
+          } catch (e) {
+            console.log("[Orders] Sync fields not available in schema, storing in metadata");
+          }
+
+          await db.storeCreditLedger.create({ data: ledgerData });
 
           // Update customer balance to match Shopify
           await db.customer.update({
@@ -471,28 +483,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const currentBalance = Number(customer.storeCredit);
           const localNewBalance = currentBalance + cashbackAmount;
 
-          await db.storeCreditLedger.create({
-            data: {
-              id: uuidv4(),
-              customerId: order.customerId,
-              shop,
-              amount: cashbackAmount,
-              balance: localNewBalance,
-              type: 'CASHBACK_EARNED',
-              shopifyOrderId: order.shopifyOrderId,
-              orderId: order.id,
-              syncStatus: 'FAILED',
-              metadata: {
-                orderNumber: order.shopifyOrderNumber,
-                orderName: order.shopifyOrderName,
-                cashbackPercent: order.cashbackPercent,
-                tierName: order.tierNameAtOrder,
-                error: error instanceof Error ? error.message : 'Unknown error',
-                description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-              },
-              createdAt: new Date(),
+          const failedLedgerData: any = {
+            id: uuidv4(),
+            customerId: order.customerId,
+            shop,
+            amount: cashbackAmount,
+            balance: localNewBalance,
+            type: 'CASHBACK_EARNED',
+            shopifyOrderId: order.shopifyOrderId,
+            orderId: order.id,
+            metadata: {
+              orderNumber: order.shopifyOrderNumber,
+              orderName: order.shopifyOrderName,
+              cashbackPercent: order.cashbackPercent,
+              tierName: order.tierNameAtOrder,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
+              syncStatus: 'FAILED', // Store in metadata if field doesn't exist
             },
-          });
+            createdAt: new Date(),
+          };
+
+          // Add sync fields if they exist in schema
+          try {
+            failedLedgerData.syncStatus = 'FAILED';
+          } catch (e) {
+            console.log("[Orders] Sync fields not available in schema, storing status in metadata");
+          }
+
+          await db.storeCreditLedger.create({ data: failedLedgerData });
 
           // Update customer balance locally
           await db.customer.update({
