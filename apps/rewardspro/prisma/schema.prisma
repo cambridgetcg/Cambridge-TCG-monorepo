@@ -200,9 +200,12 @@ model StoreCreditLedger {
   balance           Decimal     @db.Decimal(10, 2)  // Running balance - KEEP for query performance
   type              LedgerEntryType
   
-  // Reference & deduplication  
+  // Reference & deduplication
   shopifyOrderId    String?     // Prevents double-crediting, links to orders
-  
+  shopifyTransactionId String? // Shopify store credit transaction ID
+  syncStatus        CreditSyncStatus @default(PENDING) // Track sync with Shopify
+  syncedAt          DateTime?   // When synced to Shopify
+
   // Order relations
   orderId           String?
   order             Order?      @relation("OrderLedgerEntries", fields: [orderId], references: [id])
@@ -1098,6 +1101,14 @@ model OrderRefundLineItem {
 }
 
 //Enums
+
+enum CreditSyncStatus {
+  PENDING           // Not yet synced to Shopify
+  SYNCING           // Currently syncing
+  SYNCED            // Successfully synced
+  FAILED            // Sync failed
+  NOT_APPLICABLE    // Doesn't need sync (e.g., manual adjustments)
+}
 
 enum Currency {
   USD  // US Dollar
