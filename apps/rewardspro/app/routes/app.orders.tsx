@@ -38,6 +38,7 @@ import {
   ButtonGroup,
   ActionList,
 } from "@shopify/polaris";
+import { CreditAdjustmentForm } from "~/components/StoreCredit/CreditAdjustmentForm";
 import {
   SearchIcon,
   RefreshIcon,
@@ -307,7 +308,138 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const shop = session.shop;
 
     switch (action) {
-      case "process-cashback": {
+      case "process-cashback-modal": {
+        // New modal-based processing with editable amount
+        const orderId = formData.get("orderId") as string;
+        const amount = parseFloat(formData.get("amount") as string);
+        const reason = formData.get("reason") as string;
+
+        // Fetch order with customer
+        const order = await db.order.findFirst({
+          where: { id: orderId, shop },
+        });
+
+        if (!order) {
+          throw new Error("Order not found");
+        }
+
+        // Fetch customer separately
+        const customer = order.customerId !== "unknown"
+          ? await db.customer.findUnique({
+              where: { id: order.customerId }
+            })
+          : null;
+
+        if (!customer || !customer.shopifyCustomerId) {
+          throw new Error("Customer not found or missing Shopify ID");
+        }
+
+        if (order.cashbackProcessed) {
+          throw new Error("Cashback already processed");
+        }
+
+        // Get shop settings for currency
+        const shopSettings = await db.shopSettings.findUnique({
+          where: { shop }
+        });
+
+        const currency = shopSettings?.storeCurrency || order.currency || "USD";
+        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
+
+        // Use the store credit service to add credit
+        const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+        const storeCreditService = createStoreCreditService(admin, session.shop);
+
+        try {
+          const result = await storeCreditService.issueStoreCredit(
+            customer.shopifyCustomerId,
+            amount,
+            currency,
+            reason
+          );
+
+          if (!result.success) {
+            throw new Error(result.error || "Failed to add store credit");
+          }
+
+          const newBalance = result.balance || (parseFloat(customer.storeCredit.toString()) + amount);
+
+          // Check if a ledger entry already exists for this order
+          const existingLedger = await db.storeCreditLedger.findFirst({
+            where: {
+              shop,
+              shopifyOrderId: order.shopifyOrderId,
+              type: 'CASHBACK_EARNED'
+            }
+          });
+
+          if (!existingLedger) {
+            // Create ledger entry
+            await db.storeCreditLedger.create({
+              data: {
+                id: uuidv4(),
+                customerId: order.customerId,
+                shop,
+                amount: amount,
+                balance: newBalance,
+                type: 'CASHBACK_EARNED',
+                shopifyOrderId: order.shopifyOrderId,
+                orderId: order.id,
+                metadata: {
+                  orderNumber: order.shopifyOrderNumber,
+                  orderName: order.shopifyOrderName,
+                  cashbackPercent: order.cashbackPercent,
+                  tierName: order.tierNameAtOrder,
+                  reason: reason,
+                  originalCashbackAmount: order.cashbackAmount,
+                  adjustedAmount: amount,
+                  shopifyBalance: newBalance,
+                  shopifyTransactionId: result.transactionId,
+                  syncStatus: 'SYNCED',
+                  syncedAt: new Date().toISOString()
+                },
+                createdAt: new Date(),
+              }
+            });
+          }
+
+          // Update customer balance to match Shopify
+          await db.customer.update({
+            where: { id: order.customerId },
+            data: {
+              storeCredit: newBalance,
+              totalCashbackEarned: {
+                increment: amount,
+              },
+              updatedAt: new Date(),
+            },
+          });
+
+          // Mark order as processed
+          await db.order.update({
+            where: { id: orderId },
+            data: {
+              cashbackProcessed: true,
+              cashbackAmount: amount, // Update to actual amount issued
+              processedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+
+          return json({
+            success: true,
+            message: `Cashback of ${formatCurrency(amount, shopSettings)} successfully added to store credit`
+          });
+
+        } catch (error) {
+          console.error(`[Orders] Error processing cashback:`, error);
+          throw new Error(error instanceof Error ? error.message : "Failed to process cashback");
+        }
+      }
+
+      // Legacy direct processing - kept for backward compatibility
+      // Now handled by process-cashback-modal with UI
+      case "process-cashback-old": {
         const orderId = formData.get("orderId") as string;
 
         // Fetch order with customer
@@ -695,6 +827,10 @@ export default function OrdersPage() {
   // State
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isCashbackModalOpen, setIsCashbackModalOpen] = useState(false);
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
+  const [processingCustomer, setProcessingCustomer] = useState<{ id: string; email: string; storeCredit: number } | null>(null);
+  const [defaultCashbackAmount, setDefaultCashbackAmount] = useState<number>(0);
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
     active: false,
     content: "",
@@ -770,13 +906,49 @@ export default function OrdersPage() {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
-  // Process cashback for an order
+  // Process cashback for an order - opens modal
   const handleProcessCashback = useCallback((orderId: string) => {
+    // Find the order and customer details
+    const order = orders.find(o => o.id === orderId);
+    if (!order || !order.customer) {
+      setToast({
+        active: true,
+        content: 'Customer information not found',
+        error: true
+      });
+      return;
+    }
+
+    // Set up modal state with pre-calculated amount
+    setProcessingOrderId(orderId);
+    setProcessingCustomer({
+      id: order.customer.id,
+      email: order.customer.email || order.email || 'Unknown',
+      storeCredit: order.customer.storeCredit || 0
+    });
+    setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
+    setIsCashbackModalOpen(true);
+  }, [orders]);
+
+  // Submit cashback from modal
+  const handleCashbackSubmit = useCallback((amount: number, reason: string) => {
+    if (!processingOrderId) return;
+
     submit(
-      { action: "process-cashback", orderId },
+      {
+        action: "process-cashback-modal",
+        orderId: processingOrderId,
+        amount: amount.toString(),
+        reason: reason
+      },
       { method: "post" }
     );
-  }, [submit]);
+
+    // Close modal
+    setIsCashbackModalOpen(false);
+    setProcessingOrderId(null);
+    setProcessingCustomer(null);
+  }, [submit, processingOrderId]);
 
   // Process refund cashback
   const handleProcessRefund = useCallback((orderId: string, refundId: string) => {
@@ -1369,6 +1541,41 @@ export default function OrdersPage() {
               </BlockStack>
             </Modal.Section>
           )}
+        </Modal>
+
+        {/* Cashback Processing Modal */}
+        <Modal
+          open={isCashbackModalOpen}
+          onClose={() => {
+            setIsCashbackModalOpen(false);
+            setProcessingOrderId(null);
+            setProcessingCustomer(null);
+          }}
+          title="Add Store Credit"
+          size="small"
+        >
+          <Modal.Section>
+            {processingCustomer && (
+              <CreditAdjustmentForm
+                customer={{
+                  id: processingCustomer.id,
+                  email: processingCustomer.email,
+                  storeCredit: processingCustomer.storeCredit
+                }}
+                type="add"
+                onSubmit={handleCashbackSubmit}
+                onCancel={() => {
+                  setIsCashbackModalOpen(false);
+                  setProcessingOrderId(null);
+                  setProcessingCustomer(null);
+                }}
+                loading={isLoading}
+                shopSettings={shopSettings}
+                initialAmount={defaultCashbackAmount}
+                defaultReason="Loyalty reward"
+              />
+            )}
+          </Modal.Section>
         </Modal>
 
         {/* Toast Notification */}

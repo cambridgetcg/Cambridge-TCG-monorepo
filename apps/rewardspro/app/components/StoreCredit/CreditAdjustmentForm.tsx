@@ -27,6 +27,8 @@ interface CreditAdjustmentFormProps {
     storeCurrency: string;
     currencyDisplayType: string;
   } | null;
+  initialAmount?: number;
+  defaultReason?: string;
 }
 
 const PRESET_AMOUNTS = [
@@ -62,12 +64,20 @@ export function CreditAdjustmentForm({
   onSubmit,
   onCancel,
   loading = false,
-  shopSettings
+  shopSettings,
+  initialAmount,
+  defaultReason
 }: CreditAdjustmentFormProps) {
-  const [presetAmount, setPresetAmount] = useState('10');
-  const [customAmount, setCustomAmount] = useState('');
-  const [presetReason, setPresetReason] = useState(PRESET_REASONS[type][0].value);
-  const [customReason, setCustomReason] = useState('');
+  // If initialAmount is provided, set to custom with that value
+  const hasInitialAmount = initialAmount !== undefined && initialAmount > 0;
+  const [presetAmount, setPresetAmount] = useState(hasInitialAmount ? 'custom' : '10');
+  const [customAmount, setCustomAmount] = useState(hasInitialAmount ? initialAmount.toString() : '');
+
+  // If defaultReason is provided, use it
+  const defaultReasonValue = defaultReason || PRESET_REASONS[type][0].value;
+  const isCustomReason = defaultReason && !PRESET_REASONS[type].some(r => r.value === defaultReason);
+  const [presetReason, setPresetReason] = useState(isCustomReason ? 'other' : defaultReasonValue);
+  const [customReason, setCustomReason] = useState(isCustomReason ? defaultReason : '');
   const [errors, setErrors] = useState<{ amount?: string; reason?: string }>({});
 
   const currentBalance = typeof customer.storeCredit === 'string'
