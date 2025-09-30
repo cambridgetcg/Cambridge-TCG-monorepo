@@ -13,7 +13,7 @@ import { calculateCustomerTier } from "../services/tier-calculation.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
-import { createStoreCreditService } from "../services/shopify-store-credit.service";
+// Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
 
 const uuidv4 = () => crypto.randomUUID();
@@ -379,6 +379,11 @@ async function processOneTimeTierPurchase(tx: any, params: {
   };
 }
 
+/**
+ * Process cashback calculation and create pending ledger entry
+ * Note: Does NOT automatically issue store credit to Shopify
+ * Cashback will be marked as PENDING for manual processing
+ */
 async function processCashback(tx: any, params: {
   shop: string;
   order: any;
@@ -493,61 +498,17 @@ async function processCashback(tx: any, params: {
       }
     });
 
-    // Update customer balance locally
-    await tx.customer.update({
-      where: { id: customer.id },
-      data: {
-        storeCredit: newBalance,
-        updatedAt: now,
-      }
-    });
+    // Note: We're NOT updating the customer balance automatically anymore
+    // The balance will be updated when the merchant manually processes the cashback
 
-    // Issue store credit to Shopify
-    try {
-      const storeCreditService = createStoreCreditService(admin, shop);
-      const result = await storeCreditService.issueStoreCredit(
-        order.customer.id.toString(),
-        cashbackAmount,
-        order.currency || 'USD',
-        `${currentTier.cashbackPercent}% cashback from order ${order.name}`
-      );
+    console.log(`[OrderPaid] Created pending cashback for ${cashbackAmount} ${order.currency}`);
 
-      if (result.success && result.transactionId) {
-        // Update ledger with Shopify transaction ID
-        await tx.storeCreditLedger.update({
-          where: { id: ledgerId },
-          data: {
-            shopifyTransactionId: result.transactionId,
-            syncStatus: 'SYNCED',
-            syncedAt: new Date()
-          }
-        });
-        console.log(`[OrderPaid] ✅ Store credit synced to Shopify: ${result.transactionId}`);
-      } else {
-        // Mark sync as failed
-        await tx.storeCreditLedger.update({
-          where: { id: ledgerId },
-          data: {
-            syncStatus: 'FAILED',
-            metadata: {
-              ...ledgerEntry.metadata,
-              syncError: result.error
-            }
-          }
-        });
-        console.error(`[OrderPaid] ❌ Failed to sync credit to Shopify: ${result.error}`);
-      }
-    } catch (error) {
-      console.error(`[OrderPaid] Error syncing credit to Shopify:`, error);
-      // Keep the ledger entry as PENDING for retry
-    }
-
-    // Mark cashback as processed in Order record
+    // Update Order record with pending cashback amount (but NOT marked as processed)
     await tx.order.update({
       where: { id: orderRecord.id },
       data: {
-        cashbackProcessed: true,
-        cashbackAmount: cashbackAmount, // Update with actual cashback amount
+        cashbackProcessed: false, // Keep as false - will be true when manually processed
+        cashbackAmount: cashbackAmount, // Store the calculated cashback amount
         updatedAt: new Date()
       }
     });
@@ -642,7 +603,7 @@ async function createOrderRecord(_dbOrTx: any, params: {
       cashbackEligible: true,
       cashbackPercent,
       cashbackAmount,
-      cashbackProcessed: false,
+      cashbackProcessed: false, // Will be true when manually processed
       tierIdAtOrder,
       tierNameAtOrder,
       shopifyCreatedAt: new Date(order.created_at),

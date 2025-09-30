@@ -281,6 +281,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       cashbackAmount: order.cashbackAmount ? Number(order.cashbackAmount) : null,
       totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
       totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : null,
+      // Add computed cashbackStatus based on cashbackProcessed
+      cashbackStatus: order.cashbackAmount && order.cashbackAmount > 0
+        ? (order.cashbackProcessed ? 'PROCESSED' : 'PENDING')
+        : null,
       customer: order.customer ? {
         ...order.customer,
         storeCredit: order.customer.storeCredit
@@ -1011,7 +1015,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             await db.order.update({
               where: { id: orderId },
               data: {
-                cashbackStatus: 'PROCESSED',
+                cashbackProcessed: true, // Mark as processed
                 cashbackProcessedAt: new Date(),
                 updatedAt: new Date(),
               },
