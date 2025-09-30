@@ -313,11 +313,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Fetch order with customer
         const order = await db.order.findFirst({
           where: { id: orderId, shop },
-          include: { customer: true },
         });
 
         if (!order) {
           throw new Error("Order not found");
+        }
+
+        // Fetch customer separately
+        const customer = order.customerId !== "unknown"
+          ? await db.customer.findUnique({
+              where: { id: order.customerId }
+            })
+          : null;
+
+        if (!customer) {
+          throw new Error("Customer not found for this order");
         }
 
         if (order.cashbackProcessed) {
@@ -328,58 +338,103 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           throw new Error("No cashback amount to process");
         }
 
-        // Get current balance
-        const lastLedger = await db.storeCreditLedger.findFirst({
-          where: { customerId: order.customerId },
-          orderBy: { createdAt: 'desc' },
-        });
+        // Get current balance from customer record (single source of truth)
+        const currentBalance = Number(customer.storeCredit);
+        const cashbackAmount = Number(order.cashbackAmount);
+        const newBalance = currentBalance + cashbackAmount;
 
-        const currentBalance = lastLedger ? Number(lastLedger.balance) : 0;
-        const newBalance = currentBalance + Number(order.cashbackAmount);
-
-        // Create ledger entry
+        // Create ledger entry with sync status
+        const ledgerId = uuidv4();
         await db.storeCreditLedger.create({
           data: {
-            id: uuidv4(),
+            id: ledgerId,
             customerId: order.customerId,
             shop,
-            amount: order.cashbackAmount,
+            amount: cashbackAmount,
             balance: newBalance,
             type: 'CASHBACK_EARNED',
             shopifyOrderId: order.shopifyOrderId,
             orderId: order.id,
+            syncStatus: 'PENDING', // Will sync to Shopify
             metadata: {
               orderNumber: order.shopifyOrderNumber,
+              orderName: order.shopifyOrderName,
               cashbackPercent: order.cashbackPercent,
               tierName: order.tierNameAtOrder,
+              description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
             },
             createdAt: new Date(),
           },
         });
 
-        // Update customer balance
+        // Update customer balance locally
         await db.customer.update({
           where: { id: order.customerId },
           data: {
             storeCredit: newBalance,
             totalCashbackEarned: {
-              increment: order.cashbackAmount,
+              increment: cashbackAmount,
             },
+            updatedAt: new Date(),
           },
         });
 
-        // Mark order as processed
+        // Sync to Shopify Store Credit
+        try {
+          // Import the store credit service
+          const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+
+          const storeCreditService = createStoreCreditService(admin, shop);
+          const result = await storeCreditService.issueStoreCredit(
+            customer.shopifyCustomerId,
+            cashbackAmount,
+            order.currency || 'USD',
+            `${order.cashbackPercent || 0}% cashback from order ${order.shopifyOrderName}`
+          );
+
+          if (result.success && result.transactionId) {
+            // Update ledger with Shopify transaction ID
+            await db.storeCreditLedger.update({
+              where: { id: ledgerId },
+              data: {
+                shopifyTransactionId: result.transactionId,
+                syncStatus: 'SYNCED',
+                syncedAt: new Date()
+              }
+            });
+            console.log(`[Orders] ✅ Store credit synced to Shopify: ${result.transactionId}`);
+          } else {
+            // Mark sync as failed but keep the local credit
+            await db.storeCreditLedger.update({
+              where: { id: ledgerId },
+              data: {
+                syncStatus: 'FAILED',
+                metadata: {
+                  ...order.metadata as any,
+                  syncError: result.error
+                }
+              }
+            });
+            console.error(`[Orders] ❌ Failed to sync credit to Shopify: ${result.error}`);
+          }
+        } catch (error) {
+          console.error(`[Orders] Error syncing credit to Shopify:`, error);
+          // Keep the ledger entry as PENDING for later retry
+        }
+
+        // Mark order as processed regardless of Shopify sync status
         await db.order.update({
           where: { id: orderId },
           data: {
             cashbackProcessed: true,
             processedAt: new Date(),
+            updatedAt: new Date(),
           },
         });
 
         return json({
           success: true,
-          message: `Cashback of ${formatCurrency(Number(order.cashbackAmount), null)} processed successfully`
+          message: `Cashback of ${formatCurrency(cashbackAmount, null)} processed successfully`
         });
       }
 
@@ -387,43 +442,63 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const orderId = formData.get("orderId") as string;
         const refundId = formData.get("refundId") as string;
 
+        // Fetch refund first
         const refund = await db.orderRefund.findFirst({
-          where: { id: refundId, orderId, order: { shop } },
-          include: { order: { include: { customer: true } } },
+          where: { id: refundId, orderId },
         });
 
-        if (!refund || !refund.cashbackAdjustment) {
-          throw new Error("Refund not found or no cashback to adjust");
+        if (!refund) {
+          throw new Error("Refund not found");
+        }
+
+        // Verify order belongs to shop
+        const refundOrder = await db.order.findFirst({
+          where: { id: refund.orderId, shop },
+        });
+
+        if (!refundOrder) {
+          throw new Error("Order not found or unauthorized");
+        }
+
+        // Fetch customer if needed
+        const refundCustomer = refundOrder.customerId !== "unknown"
+          ? await db.customer.findUnique({
+              where: { id: refundOrder.customerId }
+            })
+          : null;
+
+        if (!refund.cashbackAdjustment) {
+          throw new Error("No cashback to adjust for this refund");
         }
 
         if (refund.cashbackProcessed) {
           throw new Error("Refund cashback already processed");
         }
 
-        // Get current balance
-        const lastLedger = await db.storeCreditLedger.findFirst({
-          where: { customerId: refund.order.customerId },
-          orderBy: { createdAt: 'desc' },
-        });
+        if (!refundCustomer) {
+          throw new Error("Customer not found for refund");
+        }
 
-        const currentBalance = lastLedger ? Number(lastLedger.balance) : 0;
-        const newBalance = currentBalance - Number(refund.cashbackAdjustment);
+        // Get current balance from customer record
+        const currentBalance = Number(refundCustomer.storeCredit);
+        const adjustmentAmount = Number(refund.cashbackAdjustment);
+        const newBalance = Math.max(0, currentBalance - adjustmentAmount);
 
         // Create ledger entry for refund
         await db.storeCreditLedger.create({
           data: {
             id: uuidv4(),
-            customerId: refund.order.customerId,
+            customerId: refundOrder.customerId,
             shop,
-            amount: -refund.cashbackAdjustment,
-            balance: Math.max(0, newBalance), // Don't go negative
+            amount: -adjustmentAmount,
+            balance: newBalance,
             type: 'REFUND_CREDIT',
-            shopifyOrderId: refund.order.shopifyOrderId,
+            shopifyOrderId: refundOrder.shopifyOrderId,
             orderId: refund.orderId,
             refundId: refund.id,
             metadata: {
               refundAmount: Number(refund.amount),
-              orderNumber: refund.order.shopifyOrderNumber,
+              orderNumber: refundOrder.shopifyOrderNumber,
             },
             createdAt: new Date(),
           },
@@ -431,9 +506,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Update customer balance
         await db.customer.update({
-          where: { id: refund.order.customerId },
+          where: { id: refundOrder.customerId },
           data: {
-            storeCredit: Math.max(0, newBalance),
+            storeCredit: newBalance,
+            updatedAt: new Date(),
           },
         });
 
