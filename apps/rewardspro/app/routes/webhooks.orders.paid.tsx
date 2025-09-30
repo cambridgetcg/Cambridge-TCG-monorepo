@@ -9,6 +9,7 @@ import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 import { TierResolver } from "../services/subscription/tier-resolver.server";
+import { calculateCustomerTier } from "../services/tier-calculation.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
@@ -146,6 +147,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               await checkTierProgression(db, {
                 shop: shop!,
                 customerId: dbCustomer.id,
+                admin: admin, // Pass the admin context from webhook
               });
             }
           }
@@ -751,13 +753,30 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
 async function checkTierProgression(_dbOrTx: any, params: {
   shop: string;
   customerId: string;
+  admin: any;
 }) {
-  const { customerId } = params;
-  
-  if (!customerId) {
+  const { shop, customerId, admin } = params;
+
+  if (!customerId || !admin) {
     return;
   }
-  
-  // Use TierResolver to check for tier conflicts and updates
-  await TierResolver.updateEffectiveTier(customerId);
+
+  try {
+    // Use the same tier calculation logic as the customers page
+    // This will properly evaluate spending and assign the correct tier
+    const result = await calculateCustomerTier(shop, customerId, admin);
+
+    if (result.changed) {
+      console.log(`[OrderPaid] Tier changed for customer ${customerId}: ${result.previousTierName} → ${result.newTierName}`);
+    }
+
+    // After spending-based tier is calculated, check for subscription-based tiers
+    // This will handle any conflicts between spending and subscription tiers
+    // TierResolver will prioritize subscription tiers if they exist
+    await TierResolver.updateEffectiveTier(customerId);
+
+  } catch (error) {
+    console.error(`[OrderPaid] Error calculating tier for customer ${customerId}:`, error);
+    // Don't throw - we don't want tier calculation errors to fail the webhook
+  }
 }
