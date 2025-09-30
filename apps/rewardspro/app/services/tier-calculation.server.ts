@@ -49,7 +49,11 @@ interface CustomerSpending {
 export async function calculateCustomerTier(
   shop: string,
   customerId: string,
-  admin: AdminApiContextType
+  admin: AdminApiContextType,
+  context?: {
+    orderId?: string;
+    triggerType?: string;
+  }
 ): Promise<TierCalculationResult> {
   try {
     console.log(`[TierCalc] Calculating tier for customer ${customerId}`);
@@ -125,20 +129,36 @@ export async function calculateCustomerTier(
       };
     }
 
-    // Calculate customer spending from Shopify
-    const spending = await getCustomerSpending(
-      shop,
-      customer.shopifyCustomerId,
-      admin,
-      tiers[0]?.evaluationPeriod || 'LIFETIME' // Use first tier's evaluation period
-    );
-
     // Find the highest tier the customer qualifies for
-    // Filter all tiers customer qualifies for, then get the last (highest) one
-    const qualifyingTiers = tiers.filter(tier => spending.totalSpending >= tier.minSpend);
-    const qualifyingTier = qualifyingTiers.length > 0
-      ? qualifyingTiers[qualifyingTiers.length - 1]  // Get the highest qualifying tier
-      : null;
+    // Each tier needs to be evaluated with its own evaluation period
+    let qualifyingTier = null;
+    let highestQualifyingSpend = 0;
+
+    for (const tier of tiers) {
+      // Calculate spending based on THIS tier's evaluation period
+      const spending = await getCustomerSpending(
+        shop,
+        customer.shopifyCustomerId,
+        admin,
+        tier.evaluationPeriod || 'LIFETIME'
+      );
+
+      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${tier.evaluationPeriod}, customerSpending=${spending.totalSpending}`);
+
+      // Check if customer qualifies for this tier
+      if (spending.totalSpending >= tier.minSpend) {
+        console.log(`[TierCalc] Customer qualifies for ${tier.name}`);
+
+        // Track the highest tier they qualify for
+        if (!qualifyingTier || tier.minSpend > qualifyingTier.minSpend) {
+          qualifyingTier = tier;
+          highestQualifyingSpend = spending.totalSpending;
+          console.log(`[TierCalc] New best tier: ${tier.name}`);
+        }
+      }
+    }
+
+    console.log(`[TierCalc] Final result - Customer ${customerId} qualifies for tier: ${qualifyingTier?.name || 'None'} with spending: ${highestQualifyingSpend}`);
 
     // Check if tier needs to change
     const tierChanged = qualifyingTier?.id !== customer.currentTierId;
@@ -164,13 +184,14 @@ export async function calculateCustomerTier(
           toTierId: qualifyingTier?.id || null,
           toTierName: qualifyingTier?.name || null,
           changeType: determineTierChangeType(customer.currentTierId, qualifyingTier?.id),
-          triggerType: 'SPENDING_MILESTONE',
-          totalSpending: spending.totalSpending,
-          periodSpending: spending.totalSpending,
+          triggerType: context?.triggerType || 'SPENDING_MILESTONE',
+          totalSpending: highestQualifyingSpend,
+          periodSpending: highestQualifyingSpend,
+          orderId: context?.orderId || null,
           metadata: {
-            orderCount: spending.orderCount,
-            lastOrderDate: spending.lastOrderDate,
-            calculatedAt: new Date().toISOString()
+            evaluationPeriod: qualifyingTier?.evaluationPeriod || 'LIFETIME',
+            calculatedAt: new Date().toISOString(),
+            source: context?.orderId ? 'webhook' : 'manual'
           },
           createdAt: new Date()
         }
@@ -185,7 +206,7 @@ export async function calculateCustomerTier(
       previousTierName: currentTier?.name || null,
       newTierId: qualifyingTier?.id || null,
       newTierName: qualifyingTier?.name || null,
-      totalSpending: spending.totalSpending,
+      totalSpending: highestQualifyingSpend,
       changed: tierChanged
     };
   } catch (error) {

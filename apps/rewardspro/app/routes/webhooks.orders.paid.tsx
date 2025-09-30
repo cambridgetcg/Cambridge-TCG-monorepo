@@ -147,6 +147,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 shop: shop!,
                 customerId: dbCustomer.id,
                 admin: admin, // Pass the admin context from webhook
+                orderId: order.id?.toString() // Pass order ID for logging
               });
             }
           }
@@ -714,8 +715,9 @@ async function checkTierProgression(_dbOrTx: any, params: {
   shop: string;
   customerId: string;
   admin: any;
+  orderId?: string;
 }) {
-  const { shop, customerId, admin } = params;
+  const { shop, customerId, admin, orderId } = params;
 
   if (!customerId || !admin) {
     return;
@@ -724,10 +726,32 @@ async function checkTierProgression(_dbOrTx: any, params: {
   try {
     // Calculate tier based on customer's total spending from Shopify
     // This uses the Shopify API to get real-time, accurate spending data
-    const result = await calculateCustomerTier(shop, customerId, admin);
+    console.log(`[OrderPaid] Starting tier calculation for customer ${customerId}`, orderId ? `triggered by order ${orderId}` : '');
+
+    // Pass order context for proper tier change logging
+    const result = await calculateCustomerTier(shop, customerId, admin, {
+      orderId: orderId,
+      triggerType: 'SPENDING_MILESTONE'
+    });
+
+    console.log(`[OrderPaid] Tier calculation result:`, {
+      customerId: result.customerId,
+      changed: result.changed,
+      previousTier: result.previousTierName,
+      newTier: result.newTierName,
+      totalSpending: result.totalSpending,
+      error: result.error,
+      orderId: orderId
+    });
+
+    if (result.error) {
+      console.error(`[OrderPaid] Tier calculation returned error: ${result.error}`);
+    }
 
     if (result.changed) {
-      console.log(`[OrderPaid] Tier changed for customer ${customerId}: ${result.previousTierName} → ${result.newTierName}`);
+      console.log(`[OrderPaid] ✅ Tier changed for customer ${customerId}: ${result.previousTierName} → ${result.newTierName}`);
+    } else {
+      console.log(`[OrderPaid] No tier change for customer ${customerId}, current tier: ${result.previousTierName || 'None'}`);
     }
 
     // Note: We've removed TierResolver here to avoid dual calculation issues
@@ -735,7 +759,8 @@ async function checkTierProgression(_dbOrTx: any, params: {
     // This prevents conflicts between Shopify API data and potentially outdated local DB data
 
   } catch (error) {
-    console.error(`[OrderPaid] Error calculating tier for customer ${customerId}:`, error);
+    console.error(`[OrderPaid] ❌ Error calculating tier for customer ${customerId}:`, error);
+    console.error(`[OrderPaid] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     // Don't throw - we don't want tier calculation errors to fail the webhook
   }
 }
