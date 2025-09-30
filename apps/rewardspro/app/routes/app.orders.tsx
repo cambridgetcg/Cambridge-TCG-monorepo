@@ -91,6 +91,7 @@ interface Order {
   netAmount: Decimal;
   cashbackAmount: Decimal | null;
   cashbackProcessed: boolean;
+  cashbackStatus?: 'PENDING' | 'PROCESSED' | null;  // Computed field
   cashbackPercent: number | null;
   financialStatus: string;
   fulfillmentStatus: string | null;
@@ -276,36 +277,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const totalPages = Math.ceil(totalCount / pageSize);
 
     // Serialize orders to ensure Decimal values are converted to numbers
-    const serializedOrders = orders.map(order => ({
-      ...order,
-      cashbackAmount: order.cashbackAmount ? Number(order.cashbackAmount) : null,
-      totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
-      totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : null,
-      // Add computed cashbackStatus based on cashbackProcessed
-      cashbackStatus: order.cashbackAmount && order.cashbackAmount > 0
-        ? (order.cashbackProcessed ? 'PROCESSED' : 'PENDING')
-        : null,
-      customer: order.customer ? {
-        ...order.customer,
-        storeCredit: order.customer.storeCredit
-          ? parseFloat(order.customer.storeCredit.toString())
-          : 0,
-        totalCashbackEarned: order.customer.totalCashbackEarned
-          ? parseFloat(order.customer.totalCashbackEarned.toString())
-          : 0,
-        totalSpent: order.customer.totalSpent
-          ? parseFloat(order.customer.totalSpent.toString())
-          : 0,
-        lifetimeSpent: order.customer.lifetimeSpent
-          ? parseFloat(order.customer.lifetimeSpent.toString())
-          : 0
-      } : null,
-      creditLedgerEntries: order.creditLedgerEntries?.map(entry => ({
-        ...entry,
-        amount: entry.amount ? parseFloat(entry.amount.toString()) : 0,
-        balance: entry.balance ? parseFloat(entry.balance.toString()) : 0
-      }))
-    }));
+    const serializedOrders = orders.map(order => {
+      const cashbackAmountNumber = order.cashbackAmount ? Number(order.cashbackAmount) : null;
+      return {
+        ...order,
+        cashbackAmount: cashbackAmountNumber,
+        totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
+        totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : null,
+        // Add computed cashbackStatus based on cashbackProcessed
+        cashbackStatus: cashbackAmountNumber && cashbackAmountNumber > 0
+          ? (order.cashbackProcessed ? 'PROCESSED' : 'PENDING')
+          : null,
+        customer: order.customer ? {
+          ...order.customer,
+          storeCredit: order.customer.storeCredit
+            ? parseFloat(order.customer.storeCredit.toString())
+            : 0,
+          totalCashbackEarned: order.customer.totalCashbackEarned
+            ? parseFloat(order.customer.totalCashbackEarned.toString())
+            : 0,
+          totalSpent: order.customer.totalSpent
+            ? parseFloat(order.customer.totalSpent.toString())
+            : 0,
+          lifetimeSpent: order.customer.lifetimeSpent
+            ? parseFloat(order.customer.lifetimeSpent.toString())
+            : 0
+        } : null,
+        creditLedgerEntries: order.creditLedgerEntries?.map(entry => ({
+          ...entry,
+          amount: entry.amount ? parseFloat(entry.amount.toString()) : 0,
+          balance: entry.balance ? parseFloat(entry.balance.toString()) : 0
+        }))
+      };
+    });
 
     return json({
       orders: serializedOrders,
@@ -1444,13 +1448,29 @@ export default function OrdersPage() {
   // Table rows
   // Count pending cashback orders
   const pendingCashbackCount = useMemo(() => {
-    return orders.filter(order =>
-      order.cashbackStatus === 'PENDING' &&
-      order.customer &&
-      order.customer.id !== "unknown" &&
-      order.cashbackAmount &&
-      Number(order.cashbackAmount) > 0
-    ).length;
+    const pending = orders.filter(order => {
+      const hasPendingStatus = order.cashbackStatus === 'PENDING';
+      const hasCustomer = order.customer && order.customer.id !== "unknown";
+      const hasPositiveAmount = order.cashbackAmount && Number(order.cashbackAmount) > 0;
+      const isNotProcessed = !order.cashbackProcessed;
+
+      // Debug logging
+      if (order.cashbackAmount && Number(order.cashbackAmount) > 0 && !order.cashbackProcessed) {
+        console.log('Checking order for pending:', {
+          orderId: order.id,
+          cashbackStatus: order.cashbackStatus,
+          cashbackProcessed: order.cashbackProcessed,
+          cashbackAmount: order.cashbackAmount,
+          hasCustomer,
+          qualifies: hasPendingStatus && hasCustomer && hasPositiveAmount
+        });
+      }
+
+      return hasPendingStatus && hasCustomer && hasPositiveAmount;
+    });
+
+    console.log(`Found ${pending.length} pending cashback orders`);
+    return pending.length;
   }, [orders]);
 
   const rowMarkup = orders.map((order, index) => (

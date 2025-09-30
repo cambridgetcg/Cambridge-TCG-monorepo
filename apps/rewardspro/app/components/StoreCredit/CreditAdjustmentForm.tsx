@@ -7,9 +7,7 @@ import {
   InlineStack,
   Banner,
   Text,
-  Box,
-  BlockStack,
-  Card
+  BlockStack
 } from "@shopify/polaris";
 import { formatCurrency } from "~/utils/currency";
 
@@ -144,10 +142,6 @@ export function CreditAdjustmentForm({
     }
   }, [validate, getAmount, getReason, onSubmit]);
 
-  const newBalance = type === 'add'
-    ? currentBalance + getAmount()
-    : currentBalance - getAmount();
-
   return (
     <BlockStack gap="400">
       <Banner tone="info">
@@ -201,35 +195,6 @@ export function CreditAdjustmentForm({
           />
         )}
       </FormLayout>
-
-      <Card>
-        <Box padding="300" background="bg-surface-secondary">
-          <BlockStack gap="200">
-            <InlineStack align="space-between">
-              <Text variant="bodySm" as="span">Current balance:</Text>
-              <Text variant="bodySm" as="span" fontWeight="semibold">
-                {formatCurrency(currentBalance, shopSettings as any)}
-              </Text>
-            </InlineStack>
-            <InlineStack align="space-between">
-              <Text variant="bodySm" as="span">
-                {type === 'add' ? 'Adding:' : 'Removing:'}
-              </Text>
-              <Text variant="bodySm" as="span" fontWeight="semibold" tone={type === 'add' ? 'success' : 'critical'}>
-                {type === 'add' ? '+' : '-'}{formatCurrency(getAmount(), shopSettings as any)}
-              </Text>
-            </InlineStack>
-            <Box borderBlockStartWidth="025" borderColor="border" paddingBlockStart="200">
-              <InlineStack align="space-between">
-                <Text variant="bodySm" as="span" fontWeight="semibold">New balance:</Text>
-                <Text variant="bodyMd" as="span" fontWeight="semibold" tone={newBalance >= 0 ? 'success' : 'critical'}>
-                  {formatCurrency(newBalance, shopSettings as any)}
-                </Text>
-              </InlineStack>
-            </Box>
-          </BlockStack>
-        </Box>
-      </Card>
 
       <InlineStack gap="200" align="end">
         <Button onClick={onCancel} disabled={loading}>
