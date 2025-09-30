@@ -285,7 +285,6 @@ export function CurrentPlanCard({
             <PlanUsageProgress
               used={usageMetrics.currentUsage}
               limit={usageMetrics.planLimit}
-              projected={showProjectedUsage ? usageMetrics.projectedUsage : undefined}
             />
 
             <BlockStack gap="100">
@@ -297,17 +296,6 @@ export function CurrentPlanCard({
                   {usageMetrics.currentUsage ? usageMetrics.currentUsage.toLocaleString() : '0'} orders
                 </Text>
               </InlineStack>
-
-              {showProjectedUsage && usageMetrics.projectedUsage && (
-                <InlineStack align="space-between">
-                  <Text as="span" tone="subdued">
-                    Projected Usage
-                  </Text>
-                  <Text as="span">
-                    ~{usageMetrics.projectedUsage ? usageMetrics.projectedUsage.toLocaleString() : '0'} orders
-                  </Text>
-                </InlineStack>
-              )}
 
               <InlineStack align="space-between">
                 <Text as="span" tone="subdued">

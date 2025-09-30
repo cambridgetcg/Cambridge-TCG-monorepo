@@ -336,6 +336,93 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const shop = session.shop;
 
     switch (action) {
+      case "fetch-store-credit-balance": {
+        // Fetch current store credit balance from Shopify
+        const customerId = formData.get("customerId") as string;
+
+        try {
+          // Get customer with Shopify ID
+          const customer = await db.customer.findFirst({
+            where: { id: customerId, shop },
+          });
+
+          if (!customer || !customer.shopifyCustomerId) {
+            return json({
+              action: "fetch-store-credit-balance",
+              success: false,
+              error: "Customer not found or missing Shopify ID"
+            });
+          }
+
+          // Get current store credit from Shopify
+          const storeCreditQuery = `
+            query GetCustomerStoreCredit($customerId: ID!) {
+              customer(id: $customerId) {
+                id
+                storeCreditAccounts(first: 10) {
+                  edges {
+                    node {
+                      id
+                      balance {
+                        amount
+                        currencyCode
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `;
+
+          const response = await admin.graphql(storeCreditQuery, {
+            variables: {
+              customerId: `gid://shopify/Customer/${customer.shopifyCustomerId}`,
+            },
+          });
+
+          const responseJson = await response.json();
+
+          if (responseJson.errors) {
+            console.error('GraphQL errors:', responseJson.errors);
+            return json({
+              action: "fetch-store-credit-balance",
+              success: false,
+              error: "Failed to fetch from Shopify"
+            });
+          }
+
+          // Calculate total store credit from all accounts
+          let totalCredit = 0;
+          if (responseJson.data?.customer?.storeCreditAccounts?.edges) {
+            for (const edge of responseJson.data.customer.storeCreditAccounts.edges) {
+              totalCredit += parseFloat(edge.node.balance.amount);
+            }
+          }
+
+          // Update database with current balance
+          await db.customer.update({
+            where: { id: customerId },
+            data: {
+              storeCredit: totalCredit,
+              updatedAt: new Date(),
+            },
+          });
+
+          return json({
+            action: "fetch-store-credit-balance",
+            success: true,
+            balance: totalCredit
+          });
+        } catch (error) {
+          console.error('Error fetching store credit balance:', error);
+          return json({
+            action: "fetch-store-credit-balance",
+            success: false,
+            error: "Failed to fetch balance"
+          });
+        }
+      }
+
       case "process-cashback-modal": {
         // New modal-based processing with editable amount
         const orderId = formData.get("orderId") as string;
@@ -869,6 +956,7 @@ export default function OrdersPage() {
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
   const [processingCustomer, setProcessingCustomer] = useState<{ id: string; email: string; storeCredit: number } | null>(null);
   const [defaultCashbackAmount, setDefaultCashbackAmount] = useState<number>(0);
+  const [fetchingBalance, setFetchingBalance] = useState(false);
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
     active: false,
     content: "",
@@ -879,6 +967,25 @@ export default function OrdersPage() {
   const [selectedPageSize, setSelectedPageSize] = useState(searchParams.get("pageSize") || "25");
 
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
+
+  // Handle fetcher response for store credit balance
+  useEffect(() => {
+    if (fetcher.data && fetcher.data.action === "fetch-store-credit-balance") {
+      if (fetcher.data.success && processingCustomer) {
+        // Update the customer's store credit with the fetched balance
+        setProcessingCustomer({
+          ...processingCustomer,
+          storeCredit: fetcher.data.balance || 0
+        });
+        setFetchingBalance(false);
+        setIsCashbackModalOpen(true);
+      } else if (fetcher.data.error) {
+        // If fetch failed, use existing balance and show modal
+        setFetchingBalance(false);
+        setIsCashbackModalOpen(true);
+      }
+    }
+  }, [fetcher.data, processingCustomer]);
 
   // Selected order for modal
   const selectedOrder = useMemo(() => {
@@ -979,7 +1086,8 @@ export default function OrdersPage() {
     const customerData = order.customer || {
       id: order.customerId,
       email: order.email || 'Unknown',
-      storeCredit: 0
+      storeCredit: 0,
+      shopifyCustomerId: null
     };
 
     if (!customerData.id || customerData.id === "unknown") {
@@ -991,21 +1099,44 @@ export default function OrdersPage() {
       return;
     }
 
-    // Convert storeCredit from Decimal to number (same as customers page)
-    const currentBalance = customerData.storeCredit
-      ? parseFloat(customerData.storeCredit.toString())
-      : 0;
-
-    // Set up modal state with pre-calculated amount
+    setFetchingBalance(true);
     setProcessingOrderId(orderId);
-    setProcessingCustomer({
-      id: customerData.id,
-      email: customerData.email || order.email || 'Unknown',
-      storeCredit: currentBalance
-    });
-    setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
-    setIsCashbackModalOpen(true);
-  }, [orders]);
+
+    // Fetch current balance from Shopify if we have the Shopify customer ID
+    if (customerData.shopifyCustomerId) {
+      // Fetch current balance from Shopify through fetcher
+      fetcher.submit(
+        {
+          action: "fetch-store-credit-balance",
+          customerId: customerData.id
+        },
+        { method: "post" }
+      );
+
+      // Set up modal with existing data, will be updated when fetcher returns
+      setProcessingCustomer({
+        id: customerData.id,
+        email: customerData.email || order.email || 'Unknown',
+        storeCredit: customerData.storeCredit ? parseFloat(customerData.storeCredit.toString()) : 0
+      });
+      setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
+    } else {
+      // Fallback to database balance if no Shopify ID
+      const currentBalance = customerData.storeCredit
+        ? parseFloat(customerData.storeCredit.toString())
+        : 0;
+
+      // Set up modal state with pre-calculated amount
+      setProcessingCustomer({
+        id: customerData.id,
+        email: customerData.email || order.email || 'Unknown',
+        storeCredit: currentBalance
+      });
+      setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
+      setFetchingBalance(false);
+      setIsCashbackModalOpen(true);
+    }
+  }, [orders, fetcher]);
 
   // Submit cashback from modal
   const handleCashbackSubmit = useCallback((amount: number, reason: string) => {
@@ -1640,30 +1771,41 @@ export default function OrdersPage() {
             setIsCashbackModalOpen(false);
             setProcessingOrderId(null);
             setProcessingCustomer(null);
+            setFetchingBalance(false);
           }}
           title="Add Store Credit"
           size="small"
         >
           <Modal.Section>
-            {processingCustomer && (
-              <CreditAdjustmentForm
-                customer={{
-                  id: processingCustomer.id,
-                  email: processingCustomer.email,
-                  storeCredit: processingCustomer.storeCredit
-                }}
-                type="add"
-                onSubmit={handleCashbackSubmit}
-                onCancel={() => {
-                  setIsCashbackModalOpen(false);
-                  setProcessingOrderId(null);
-                  setProcessingCustomer(null);
-                }}
-                loading={isLoading}
-                shopSettings={shopSettings}
-                initialAmount={defaultCashbackAmount}
-                defaultReason="Loyalty reward"
-              />
+            {fetchingBalance ? (
+              <BlockStack gap="400" align="center">
+                <Spinner size="large" />
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  Fetching current store credit balance...
+                </Text>
+              </BlockStack>
+            ) : (
+              processingCustomer && (
+                <CreditAdjustmentForm
+                  customer={{
+                    id: processingCustomer.id,
+                    email: processingCustomer.email,
+                    storeCredit: processingCustomer.storeCredit
+                  }}
+                  type="add"
+                  onSubmit={handleCashbackSubmit}
+                  onCancel={() => {
+                    setIsCashbackModalOpen(false);
+                    setProcessingOrderId(null);
+                    setProcessingCustomer(null);
+                    setFetchingBalance(false);
+                  }}
+                  loading={isLoading}
+                  shopSettings={shopSettings}
+                  initialAmount={defaultCashbackAmount}
+                  defaultReason="Loyalty reward"
+                />
+              )
             )}
           </Modal.Section>
         </Modal>
