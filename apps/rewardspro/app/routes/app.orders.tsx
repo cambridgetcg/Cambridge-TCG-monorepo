@@ -415,34 +415,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           console.log(`[Orders]    Amount: ${cashbackAmount} ${currency}`);
           console.log(`[Orders]    New balance: ${newBalance} ${currency}`);
 
-          // Create ledger entry - store sync info in metadata
-          // to avoid column missing errors in Aurora Data API
-          const ledgerId = uuidv4();
-          await db.storeCreditLedger.create({
-            data: {
-              id: ledgerId,
-              customerId: order.customerId,
+          // Check if a ledger entry already exists for this order
+          const existingLedger = await db.storeCreditLedger.findFirst({
+            where: {
               shop,
-              amount: cashbackAmount,
-              balance: newBalance,
-              type: 'CASHBACK_EARNED',
               shopifyOrderId: order.shopifyOrderId,
-              orderId: order.id,
-              metadata: {
-                orderNumber: order.shopifyOrderNumber,
-                orderName: order.shopifyOrderName,
-                cashbackPercent: order.cashbackPercent,
-                tierName: order.tierNameAtOrder,
-                description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-                shopifyBalance: newBalance,
-                // Store sync info in metadata since columns may not exist
-                shopifyTransactionId,
-                syncStatus: 'SYNCED',
-                syncedAt: new Date().toISOString()
-              },
-              createdAt: new Date(),
+              type: 'CASHBACK_EARNED'
             }
           });
+
+          if (!existingLedger) {
+            // Create ledger entry - store sync info in metadata
+            // to avoid column missing errors in Aurora Data API
+            const ledgerId = uuidv4();
+            await db.storeCreditLedger.create({
+              data: {
+                id: ledgerId,
+                customerId: order.customerId,
+                shop,
+                amount: cashbackAmount,
+                balance: newBalance,
+                type: 'CASHBACK_EARNED',
+                shopifyOrderId: order.shopifyOrderId,
+                orderId: order.id,
+                metadata: {
+                  orderNumber: order.shopifyOrderNumber,
+                  orderName: order.shopifyOrderName,
+                  cashbackPercent: order.cashbackPercent,
+                  tierName: order.tierNameAtOrder,
+                  description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
+                  shopifyBalance: newBalance,
+                  // Store sync info in metadata since columns may not exist
+                  shopifyTransactionId,
+                  syncStatus: 'SYNCED',
+                  syncedAt: new Date().toISOString()
+                },
+                createdAt: new Date(),
+              }
+            });
+          } else {
+            console.log(`[Orders] Ledger entry already exists for order ${order.shopifyOrderName}, skipping creation`);
+          }
 
           // Update customer balance to match Shopify
           await db.customer.update({
@@ -478,32 +491,45 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const currentBalance = Number(customer.storeCredit);
           const localNewBalance = currentBalance + cashbackAmount;
 
-          // Create failed ledger entry - store sync info in metadata
-          // to avoid column missing errors in Aurora Data API
-          await db.storeCreditLedger.create({
-            data: {
-              id: uuidv4(),
-              customerId: order.customerId,
+          // Check if a ledger entry already exists before creating failed entry
+          const existingFailedLedger = await db.storeCreditLedger.findFirst({
+            where: {
               shop,
-              amount: cashbackAmount,
-              balance: localNewBalance,
-              type: 'CASHBACK_EARNED',
               shopifyOrderId: order.shopifyOrderId,
-              orderId: order.id,
-              metadata: {
-                orderNumber: order.shopifyOrderNumber,
-                orderName: order.shopifyOrderName,
-                cashbackPercent: order.cashbackPercent,
-                tierName: order.tierNameAtOrder,
-                error: error instanceof Error ? error.message : 'Unknown error',
-                description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-                // Store sync info in metadata since columns may not exist
-                syncStatus: 'FAILED',
-                syncedAt: new Date().toISOString()
-              },
-              createdAt: new Date(),
+              type: 'CASHBACK_EARNED'
             }
           });
+
+          if (!existingFailedLedger) {
+            // Create failed ledger entry - store sync info in metadata
+            // to avoid column missing errors in Aurora Data API
+            await db.storeCreditLedger.create({
+              data: {
+                id: uuidv4(),
+                customerId: order.customerId,
+                shop,
+                amount: cashbackAmount,
+                balance: localNewBalance,
+                type: 'CASHBACK_EARNED',
+                shopifyOrderId: order.shopifyOrderId,
+                orderId: order.id,
+                metadata: {
+                  orderNumber: order.shopifyOrderNumber,
+                  orderName: order.shopifyOrderName,
+                  cashbackPercent: order.cashbackPercent,
+                  tierName: order.tierNameAtOrder,
+                  error: error instanceof Error ? error.message : 'Unknown error',
+                  description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
+                  // Store sync info in metadata since columns may not exist
+                  syncStatus: 'FAILED',
+                  syncedAt: new Date().toISOString()
+                },
+                createdAt: new Date(),
+              }
+            });
+          } else {
+            console.log(`[Orders] Failed ledger entry already exists for order ${order.shopifyOrderName}, skipping creation`);
+          }
 
           // Update customer balance locally
           await db.customer.update({
