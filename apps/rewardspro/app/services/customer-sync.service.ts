@@ -151,7 +151,7 @@ export class CustomerSyncService {
       // Get all tiers for assignment
       const tiers = await db.tier.findMany({
         where: { shop: this.options.shop },
-        orderBy: { minSpend: 'desc' }
+        orderBy: { minSpend: 'asc' }  // Order by lowest spend first (correct order)
       });
 
       if (tiers.length === 0) {
@@ -339,11 +339,14 @@ export class CustomerSyncService {
     
     console.log(`Processing customer ${shopifyCustomerId}: email=${email}, state=${customer.state}, spent=${totalSpending} ${customer.amountSpent?.currencyCode}`);
     
-    // Determine tier based on spending
+    // Determine tier based on spending - get highest qualifying tier
     let assignedTier = null;
     for (const tier of tiers) {
       if (totalSpending >= tier.minSpend) {
+        // Keep assigning to get the highest qualifying tier
         assignedTier = tier;
+      } else {
+        // Since tiers are sorted ASC, we can break when we find one we don't qualify for
         break;
       }
     }
@@ -561,7 +564,7 @@ export class CustomerSyncService {
     // Get tiers
     const tiers = await db.tier.findMany({
       where: { shop: this.options.shop },
-      orderBy: { minSpend: 'desc' }
+      orderBy: { minSpend: 'asc' }  // Order by lowest spend first (correct order)
     });
 
     // Process the customer

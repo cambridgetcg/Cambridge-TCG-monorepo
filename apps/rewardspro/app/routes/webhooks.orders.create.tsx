@@ -284,15 +284,18 @@ export async function action({ request }: ActionFunctionArgs) {
     // Get all tiers for this shop
     const tiers = await db.tier.findMany({
       where: { shop: shop },
-      orderBy: { minSpend: 'desc' }
+      orderBy: { minSpend: 'asc' }  // Order by lowest spend first (correct order)
     });
-    
+
     if (tiers.length > 0) {
-      // Find appropriate tier based on spending
+      // Find highest tier based on spending
       let appropriateTier = null;
       for (const tier of tiers) {
         if (totalSpent >= tier.minSpend) {
+          // Keep assigning to get the highest qualifying tier
           appropriateTier = tier;
+        } else {
+          // Since tiers are sorted ASC, we can break when we find one we don't qualify for
           break;
         }
       }

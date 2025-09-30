@@ -129,10 +129,12 @@ export class TierResolver {
     // Get all tiers for this shop to check evaluation periods
     const tiers = await db.tier.findMany({
       where: { shop },
-      orderBy: { minSpend: 'desc' }
+      orderBy: { minSpend: 'asc' }  // Order by lowest spend first (correct order)
     });
 
     // Check each tier to see if customer qualifies
+    let highestQualifyingTier: Tier | null = null;
+
     for (const tier of tiers) {
       let qualifyingSpend: number;
 
@@ -165,11 +167,14 @@ export class TierResolver {
 
       // Check if customer qualifies for this tier
       if (qualifyingSpend >= tier.minSpend) {
-        return tier; // Return the highest tier they qualify for
+        // Track the highest tier they qualify for
+        if (!highestQualifyingTier || tier.minSpend > highestQualifyingTier.minSpend) {
+          highestQualifyingTier = tier;
+        }
       }
     }
 
-    return null; // No tier qualification
+    return highestQualifyingTier; // Return highest qualifying tier or null
   }
 
   /**

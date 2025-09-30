@@ -109,7 +109,7 @@ export async function calculateCustomerTier(
     // Get all tiers for the shop
     const tiers = await db.tier.findMany({
       where: { shop },
-      orderBy: { minSpend: 'desc' } // Order by highest spend first
+      orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
     });
 
     if (tiers.length === 0) {
@@ -133,8 +133,12 @@ export async function calculateCustomerTier(
       tiers[0]?.evaluationPeriod || 'LIFETIME' // Use first tier's evaluation period
     );
 
-    // Find the appropriate tier based on spending
-    const qualifyingTier = tiers.find(tier => spending.totalSpending >= tier.minSpend);
+    // Find the highest tier the customer qualifies for
+    // Filter all tiers customer qualifies for, then get the last (highest) one
+    const qualifyingTiers = tiers.filter(tier => spending.totalSpending >= tier.minSpend);
+    const qualifyingTier = qualifyingTiers.length > 0
+      ? qualifyingTiers[qualifyingTiers.length - 1]  // Get the highest qualifying tier
+      : null;
 
     // Check if tier needs to change
     const tierChanged = qualifyingTier?.id !== customer.currentTierId;
