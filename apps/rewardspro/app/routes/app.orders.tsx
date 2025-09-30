@@ -438,16 +438,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             createdAt: new Date(),
           };
 
-          // Add sync fields if they exist in schema
+          // Try to create with sync fields first
           try {
-            ledgerData.shopifyTransactionId = shopifyTransactionId;
-            ledgerData.syncStatus = 'SYNCED';
-            ledgerData.syncedAt = new Date();
-          } catch (e) {
-            console.log("[Orders] Sync fields not available in schema, storing in metadata");
+            await db.storeCreditLedger.create({
+              data: {
+                ...ledgerData,
+                shopifyTransactionId,
+                syncStatus: 'SYNCED',
+                syncedAt: new Date()
+              }
+            });
+          } catch (error: any) {
+            // If columns don't exist, create without them
+            if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+              console.log("[Orders] Sync fields not available in schema, storing in metadata");
+              await db.storeCreditLedger.create({ data: ledgerData });
+            } else {
+              throw error; // Re-throw if it's a different error
+            }
           }
-
-          await db.storeCreditLedger.create({ data: ledgerData });
 
           // Update customer balance to match Shopify
           await db.customer.update({
@@ -504,14 +513,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             createdAt: new Date(),
           };
 
-          // Add sync fields if they exist in schema
+          // Try to create with sync field first
           try {
-            failedLedgerData.syncStatus = 'FAILED';
-          } catch (e) {
-            console.log("[Orders] Sync fields not available in schema, storing status in metadata");
+            await db.storeCreditLedger.create({
+              data: {
+                ...failedLedgerData,
+                syncStatus: 'FAILED'
+              }
+            });
+          } catch (error: any) {
+            // If column doesn't exist, create without it
+            if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+              console.log("[Orders] Sync fields not available in schema, storing status in metadata");
+              await db.storeCreditLedger.create({ data: failedLedgerData });
+            } else {
+              throw error; // Re-throw if it's a different error
+            }
           }
-
-          await db.storeCreditLedger.create({ data: failedLedgerData });
 
           // Update customer balance locally
           await db.customer.update({

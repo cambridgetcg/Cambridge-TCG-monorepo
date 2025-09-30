@@ -5,6 +5,7 @@
  *
  * This script verifies that we can connect to the Aurora database
  * via the Data API and lists all existing tables.
+ * Also specifically checks for StoreCreditLedger sync fields.
  */
 
 import { RDSDataClient, ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
@@ -118,6 +119,49 @@ async function testConnection() {
         console.log(`    - ${record[0]?.stringValue}`);
       });
     }
+
+    // Check specifically for StoreCreditLedger sync fields
+    console.log("\n📊 Checking StoreCreditLedger sync fields...");
+
+    const creditLedgerColumns = await client.send(new ExecuteStatementCommand({
+      resourceArn: process.env.AURORA_RESOURCE_ARN,
+      secretArn: process.env.AURORA_SECRET_ARN,
+      database: process.env.AURORA_DATABASE_NAME || "rewardspro",
+      sql: `SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_name = 'StoreCreditLedger'
+            AND column_name IN ('shopifyTransactionId', 'syncStatus', 'syncedAt')`,
+    }));
+
+    const syncFields = ['shopifyTransactionId', 'syncStatus', 'syncedAt'];
+    const foundFields = [];
+
+    if (creditLedgerColumns.records) {
+      creditLedgerColumns.records.forEach(record => {
+        const field = record[0]?.stringValue;
+        if (field) foundFields.push(field);
+      });
+    }
+
+    const missingFields = syncFields.filter(f => !foundFields.includes(f));
+
+    if (missingFields.length > 0) {
+      console.log(`  ❌ Missing sync fields: ${missingFields.join(', ')}`);
+      console.log(`     Run: node scripts/apply-credit-sync-migration-data-api.mjs`);
+    } else {
+      console.log(`  ✅ All sync fields present: ${syncFields.join(', ')}`);
+    }
+
+    // Check for CreditSyncStatus enum
+    const creditSyncEnumResult = await client.send(new ExecuteStatementCommand({
+      resourceArn: process.env.AURORA_RESOURCE_ARN,
+      secretArn: process.env.AURORA_SECRET_ARN,
+      database: process.env.AURORA_DATABASE_NAME || "rewardspro",
+      sql: "SELECT COUNT(*) FROM pg_type WHERE typtype = 'e' AND typname = 'CreditSyncStatus'",
+    }));
+
+    const hasCreditSyncEnum = creditSyncEnumResult.records?.[0]?.[0]?.longValue > 0;
+    console.log(`  CreditSyncStatus enum exists: ${hasCreditSyncEnum ? '✅ Yes' : '❌ No (needs migration)'}`);
 
     console.log("\n✅ Connection test completed successfully!");
 

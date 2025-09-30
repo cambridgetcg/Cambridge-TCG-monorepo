@@ -727,25 +727,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const newBalance = currentBalance + amount;
 
           // Create ledger entry with Shopify transaction ID
-          await db.storeCreditLedger.create({
-            data: {
-              id: uuidv4(),
-              customerId,
-              shop: session.shop,
-              amount: amount,
-              balance: newBalance,
-              type: "MANUAL_ADJUSTMENT",
+          // Build the data object conditionally to handle missing columns
+          const ledgerData: any = {
+            id: uuidv4(),
+            customerId,
+            shop: session.shop,
+            amount: amount,
+            balance: newBalance,
+            type: "MANUAL_ADJUSTMENT",
+            metadata: {
+              reason,
+              adjustedBy: "admin",
+              shopifyBalance: result.balance,
+              // Store sync info in metadata as fallback
               shopifyTransactionId: result.transactionId,
               syncStatus: 'SYNCED',
-              syncedAt: new Date(),
-              metadata: {
-                reason,
-                adjustedBy: "admin",
-                shopifyBalance: result.balance
-              },
-              createdAt: new Date()
+              syncedAt: new Date().toISOString()
+            },
+            createdAt: new Date()
+          };
+
+          // Try to use sync fields if they exist
+          try {
+            await db.storeCreditLedger.create({
+              data: {
+                ...ledgerData,
+                shopifyTransactionId: result.transactionId,
+                syncStatus: 'SYNCED',
+                syncedAt: new Date()
+              }
+            });
+          } catch (error: any) {
+            // If columns don't exist, create without them
+            if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+              console.log('[Customers] Sync columns not available, storing in metadata');
+              await db.storeCreditLedger.create({
+                data: ledgerData
+              });
+            } else {
+              throw error; // Re-throw if it's a different error
             }
-          });
+          }
 
           // Update customer balance
           await db.customer.update({
@@ -785,25 +807,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Update local database
           const newBalance = result.balance || Math.max(0, parseFloat(customer.storeCredit.toString()) - amount);
 
-          await db.storeCreditLedger.create({
-            data: {
-              id: uuidv4(),
-              customerId,
-              shop: session.shop,
-              amount: -amount,
-              balance: newBalance,
-              type: "MANUAL_ADJUSTMENT",
+          // Build the data object conditionally to handle missing columns
+          const debitLedgerData: any = {
+            id: uuidv4(),
+            customerId,
+            shop: session.shop,
+            amount: -amount,
+            balance: newBalance,
+            type: "MANUAL_ADJUSTMENT",
+            metadata: {
+              reason,
+              adjustedBy: "admin",
+              shopifyBalance: newBalance,
+              // Store sync info in metadata as fallback
               shopifyTransactionId: result.transactionId,
               syncStatus: 'SYNCED',
-              syncedAt: new Date(),
-              metadata: {
-                reason,
-                adjustedBy: "admin",
-                shopifyBalance: newBalance
-              },
-              createdAt: new Date()
+              syncedAt: new Date().toISOString()
+            },
+            createdAt: new Date()
+          };
+
+          // Try to use sync fields if they exist
+          try {
+            await db.storeCreditLedger.create({
+              data: {
+                ...debitLedgerData,
+                shopifyTransactionId: result.transactionId,
+                syncStatus: 'SYNCED',
+                syncedAt: new Date()
+              }
+            });
+          } catch (error: any) {
+            // If columns don't exist, create without them
+            if (error.message?.includes('column') && error.message?.includes('does not exist')) {
+              console.log('[Customers] Sync columns not available, storing in metadata');
+              await db.storeCreditLedger.create({
+                data: debitLedgerData
+              });
+            } else {
+              throw error; // Re-throw if it's a different error
             }
-          });
+          }
 
           // Update customer balance
           await db.customer.update({

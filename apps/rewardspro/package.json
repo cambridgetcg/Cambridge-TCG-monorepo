@@ -27,6 +27,8 @@
     "migrate:test-connection": "node scripts/test-aurora-connection.mjs",
     "migrate:test-tier": "node scripts/test-tier-table-structure.mjs",
     "migrate:add-tier-updated-at": "node scripts/apply-tier-updated-at-migration.mjs",
+    "migrate:credit-sync": "node scripts/apply-credit-sync-migration-data-api.mjs",
+    "migrate:test-credit-sync": "node scripts/test-aurora-connection.mjs",
     "migrate:apply-schema-fixes": "node scripts/apply-schema-fixes.mjs",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
