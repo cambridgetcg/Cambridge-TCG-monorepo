@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useFetcher, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useFetcher, useSearchParams, useActionData } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -274,8 +274,36 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Calculate pagination
     const totalPages = Math.ceil(totalCount / pageSize);
 
+    // Serialize orders to ensure Decimal values are converted to numbers
+    const serializedOrders = orders.map(order => ({
+      ...order,
+      cashbackAmount: order.cashbackAmount ? Number(order.cashbackAmount) : null,
+      totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
+      totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : null,
+      customer: order.customer ? {
+        ...order.customer,
+        storeCredit: order.customer.storeCredit
+          ? parseFloat(order.customer.storeCredit.toString())
+          : 0,
+        totalCashbackEarned: order.customer.totalCashbackEarned
+          ? parseFloat(order.customer.totalCashbackEarned.toString())
+          : 0,
+        totalSpent: order.customer.totalSpent
+          ? parseFloat(order.customer.totalSpent.toString())
+          : 0,
+        lifetimeSpent: order.customer.lifetimeSpent
+          ? parseFloat(order.customer.lifetimeSpent.toString())
+          : 0
+      } : null,
+      creditLedgerEntries: order.creditLedgerEntries?.map(entry => ({
+        ...entry,
+        amount: entry.amount ? parseFloat(entry.amount.toString()) : 0,
+        balance: entry.balance ? parseFloat(entry.balance.toString()) : 0
+      }))
+    }));
+
     return json({
-      orders,
+      orders: serializedOrders,
       stats,
       shopSettings,
       pagination: {
@@ -819,6 +847,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function OrdersPage() {
   const { orders, stats, shopSettings, pagination } = useLoaderData<LoaderData>();
+  const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const fetcher = useFetcher();
@@ -915,6 +944,7 @@ export default function OrdersPage() {
     console.log('[Orders] Processing cashback for order:', orderId);
     console.log('[Orders] Order found:', order);
     console.log('[Orders] Customer in order:', order?.customer);
+    console.log('[Orders] Customer storeCredit raw:', order?.customer?.storeCredit);
     console.log('[Orders] Customer ID in order:', order?.customerId);
 
     if (!order) {
@@ -952,12 +982,17 @@ export default function OrdersPage() {
       return;
     }
 
+    // Convert storeCredit from Decimal to number (same as customers page)
+    const currentBalance = customerData.storeCredit
+      ? parseFloat(customerData.storeCredit.toString())
+      : 0;
+
     // Set up modal state with pre-calculated amount
     setProcessingOrderId(orderId);
     setProcessingCustomer({
       id: customerData.id,
       email: customerData.email || order.email || 'Unknown',
-      storeCredit: customerData.storeCredit || 0
+      storeCredit: currentBalance
     });
     setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
     setIsCashbackModalOpen(true);
@@ -967,6 +1002,7 @@ export default function OrdersPage() {
   const handleCashbackSubmit = useCallback((amount: number, reason: string) => {
     if (!processingOrderId) return;
 
+    // Use submit to ensure data reloads after processing
     submit(
       {
         action: "process-cashback-modal",
@@ -1024,7 +1060,7 @@ export default function OrdersPage() {
     }
   }, [searchParams, setSearchParams, pagination]);
 
-  // Show toast for action results
+  // Show toast for action results (from fetcher)
   useEffect(() => {
     if (fetcher.data) {
       const data = fetcher.data as any;
@@ -1035,6 +1071,18 @@ export default function OrdersPage() {
       });
     }
   }, [fetcher.data]);
+
+  // Show toast for action results (from submit)
+  useEffect(() => {
+    if (actionData) {
+      const data = actionData as any;
+      setToast({
+        active: true,
+        content: data.message || (data.success ? "Action completed" : "Action failed"),
+        error: !data.success,
+      });
+    }
+  }, [actionData]);
 
   // Financial status badge
   const getFinancialStatusBadge = (status: string) => {
