@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   FormLayout,
   TextField,
@@ -80,9 +80,20 @@ export function CreditAdjustmentForm({
   const [customReason, setCustomReason] = useState(isCustomReason ? defaultReason : '');
   const [errors, setErrors] = useState<{ amount?: string; reason?: string }>({});
 
-  const currentBalance = typeof customer.storeCredit === 'string'
-    ? parseFloat(customer.storeCredit)
-    : customer.storeCredit;
+  // Make currentBalance reactive to prop changes
+  const [currentBalance, setCurrentBalance] = useState(() => {
+    return typeof customer.storeCredit === 'string'
+      ? parseFloat(customer.storeCredit)
+      : customer.storeCredit;
+  });
+
+  // Update balance when customer prop changes
+  useEffect(() => {
+    const newBalance = typeof customer.storeCredit === 'string'
+      ? parseFloat(customer.storeCredit)
+      : customer.storeCredit;
+    setCurrentBalance(newBalance);
+  }, [customer.storeCredit]);
 
   const getAmount = useCallback(() => {
     if (presetAmount === 'custom') {
