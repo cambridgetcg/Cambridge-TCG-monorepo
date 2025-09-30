@@ -326,8 +326,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             })
           : null;
 
-        if (!customer) {
-          throw new Error("Customer not found for this order");
+        if (!customer || !customer.shopifyCustomerId) {
+          throw new Error("Customer not found or missing Shopify ID");
         }
 
         if (order.cashbackProcessed) {
@@ -338,104 +338,189 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           throw new Error("No cashback amount to process");
         }
 
-        // Get current balance from customer record (single source of truth)
-        const currentBalance = Number(customer.storeCredit);
+        // Get shop settings for currency
+        const shopSettings = await db.shopSettings.findUnique({
+          where: { shop }
+        });
+
+        const currency = shopSettings?.storeCurrency || order.currency || "USD";
         const cashbackAmount = Number(order.cashbackAmount);
-        const newBalance = currentBalance + cashbackAmount;
+        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
 
-        // Create ledger entry with sync status
-        const ledgerId = uuidv4();
-        await db.storeCreditLedger.create({
-          data: {
-            id: ledgerId,
-            customerId: order.customerId,
-            shop,
-            amount: cashbackAmount,
-            balance: newBalance,
-            type: 'CASHBACK_EARNED',
-            shopifyOrderId: order.shopifyOrderId,
-            orderId: order.id,
-            syncStatus: 'PENDING', // Will sync to Shopify
-            metadata: {
-              orderNumber: order.shopifyOrderNumber,
-              orderName: order.shopifyOrderName,
-              cashbackPercent: order.cashbackPercent,
-              tierName: order.tierNameAtOrder,
-              description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-            },
-            createdAt: new Date(),
-          },
-        });
-
-        // Update customer balance locally
-        await db.customer.update({
-          where: { id: order.customerId },
-          data: {
-            storeCredit: newBalance,
-            totalCashbackEarned: {
-              increment: cashbackAmount,
-            },
-            updatedAt: new Date(),
-          },
-        });
-
-        // Sync to Shopify Store Credit
-        try {
-          // Import the store credit service
-          const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
-
-          const storeCreditService = createStoreCreditService(admin, shop);
-          const result = await storeCreditService.issueStoreCredit(
-            customer.shopifyCustomerId,
-            cashbackAmount,
-            order.currency || 'USD',
-            `${order.cashbackPercent || 0}% cashback from order ${order.shopifyOrderName}`
-          );
-
-          if (result.success && result.transactionId) {
-            // Update ledger with Shopify transaction ID
-            await db.storeCreditLedger.update({
-              where: { id: ledgerId },
-              data: {
-                shopifyTransactionId: result.transactionId,
-                syncStatus: 'SYNCED',
-                syncedAt: new Date()
-              }
-            });
-            console.log(`[Orders] ✅ Store credit synced to Shopify: ${result.transactionId}`);
-          } else {
-            // Mark sync as failed but keep the local credit
-            await db.storeCreditLedger.update({
-              where: { id: ledgerId },
-              data: {
-                syncStatus: 'FAILED',
-                metadata: {
-                  ...order.metadata as any,
-                  syncError: result.error
+        // Use GraphQL mutation to add credit directly
+        const creditMutation = `#graphql
+          mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+            storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+              storeCreditAccountTransaction {
+                id
+                amount {
+                  amount
+                  currencyCode
+                }
+                balanceAfterTransaction {
+                  amount
+                  currencyCode
                 }
               }
-            });
-            console.error(`[Orders] ❌ Failed to sync credit to Shopify: ${result.error}`);
+              userErrors {
+                message
+                field
+                code
+              }
+            }
           }
+        `;
+
+        try {
+          const creditResponse = await admin.graphql(creditMutation, {
+            variables: {
+              id: gidCustomerId,
+              creditInput: {
+                creditAmount: {
+                  amount: cashbackAmount.toFixed(2),
+                  currencyCode: currency
+                },
+                description: `${order.cashbackPercent || 0}% cashback from order ${order.shopifyOrderName}`
+              }
+            }
+          });
+
+          const creditData = await creditResponse.json() as any;
+
+          if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+            const errors = creditData.data.storeCreditAccountCredit.userErrors;
+            console.error("[Orders] Credit mutation errors:", errors);
+
+            // Check if it's a "no account" error
+            if (errors.some((e: any) => e.message.toLowerCase().includes("account"))) {
+              throw new Error("Customer does not have a store credit account. Please create one in Shopify first.");
+            }
+            throw new Error(errors[0].message || "Failed to add store credit");
+          }
+
+          const transaction = creditData.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
+          if (!transaction) {
+            throw new Error("No transaction returned from Shopify");
+          }
+
+          const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
+          const shopifyTransactionId = transaction.id;
+
+          console.log(`[Orders] ✅ Store credit issued in Shopify: ${shopifyTransactionId}`);
+          console.log(`[Orders]    Amount: ${cashbackAmount} ${currency}`);
+          console.log(`[Orders]    New balance: ${newBalance} ${currency}`);
+
+          // Create ledger entry with Shopify transaction ID
+          const ledgerId = uuidv4();
+          await db.storeCreditLedger.create({
+            data: {
+              id: ledgerId,
+              customerId: order.customerId,
+              shop,
+              amount: cashbackAmount,
+              balance: newBalance,
+              type: 'CASHBACK_EARNED',
+              shopifyOrderId: order.shopifyOrderId,
+              orderId: order.id,
+              shopifyTransactionId,
+              syncStatus: 'SYNCED',
+              syncedAt: new Date(),
+              metadata: {
+                orderNumber: order.shopifyOrderNumber,
+                orderName: order.shopifyOrderName,
+                cashbackPercent: order.cashbackPercent,
+                tierName: order.tierNameAtOrder,
+                description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
+                shopifyBalance: newBalance
+              },
+              createdAt: new Date(),
+            },
+          });
+
+          // Update customer balance to match Shopify
+          await db.customer.update({
+            where: { id: order.customerId },
+            data: {
+              storeCredit: newBalance,
+              totalCashbackEarned: {
+                increment: cashbackAmount,
+              },
+              updatedAt: new Date(),
+            },
+          });
+
+          // Mark order as processed
+          await db.order.update({
+            where: { id: orderId },
+            data: {
+              cashbackProcessed: true,
+              processedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+
+          return json({
+            success: true,
+            message: `Cashback of ${formatCurrency(cashbackAmount, shopSettings)} successfully added to store credit`
+          });
+
         } catch (error) {
-          console.error(`[Orders] Error syncing credit to Shopify:`, error);
-          // Keep the ledger entry as PENDING for later retry
+          console.error(`[Orders] Error processing cashback:`, error);
+
+          // Still create a local ledger entry but mark as failed
+          const currentBalance = Number(customer.storeCredit);
+          const localNewBalance = currentBalance + cashbackAmount;
+
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId: order.customerId,
+              shop,
+              amount: cashbackAmount,
+              balance: localNewBalance,
+              type: 'CASHBACK_EARNED',
+              shopifyOrderId: order.shopifyOrderId,
+              orderId: order.id,
+              syncStatus: 'FAILED',
+              metadata: {
+                orderNumber: order.shopifyOrderNumber,
+                orderName: order.shopifyOrderName,
+                cashbackPercent: order.cashbackPercent,
+                tierName: order.tierNameAtOrder,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
+              },
+              createdAt: new Date(),
+            },
+          });
+
+          // Update customer balance locally
+          await db.customer.update({
+            where: { id: order.customerId },
+            data: {
+              storeCredit: localNewBalance,
+              totalCashbackEarned: {
+                increment: cashbackAmount,
+              },
+              updatedAt: new Date(),
+            },
+          });
+
+          // Mark order as processed even if Shopify sync failed
+          await db.order.update({
+            where: { id: orderId },
+            data: {
+              cashbackProcessed: true,
+              processedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+
+          return json({
+            success: true,
+            message: `Cashback processed locally but failed to sync to Shopify: ${error instanceof Error ? error.message : 'Unknown error'}. The credit has been recorded and will be retried later.`
+          });
         }
-
-        // Mark order as processed regardless of Shopify sync status
-        await db.order.update({
-          where: { id: orderId },
-          data: {
-            cashbackProcessed: true,
-            processedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-
-        return json({
-          success: true,
-          message: `Cashback of ${formatCurrency(cashbackAmount, null)} processed successfully`
-        });
       }
 
       case "process-refund": {

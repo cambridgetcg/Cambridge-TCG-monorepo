@@ -681,53 +681,152 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       try {
+        // Fetch customer from database
         const customer = await db.customer.findFirst({
-          where: { id: customerId, shop: session.shop }
-        });
-
-        if (!customer) {
-          return json({ success: false, message: "Customer not found" });
-        }
-
-        const currentBalance = parseFloat(customer.storeCredit.toString());
-        const adjustmentAmount = actionType === "add" ? amount : -amount;
-        const newBalance = currentBalance + adjustmentAmount;
-
-        if (newBalance < 0) {
-          return json({ success: false, message: "Insufficient balance" });
-        }
-
-        // Create ledger entry
-        await db.storeCreditLedger.create({
-          data: {
-            id: uuidv4(),
-            customerId,
-            shop: session.shop,
-            amount: adjustmentAmount,
-            balance: newBalance,
-            type: "MANUAL_ADJUSTMENT",
-            metadata: { reason, adjustedBy: "admin" },
-            createdAt: new Date()
+          where: {
+            id: customerId,
+            shop: session.shop
           }
         });
 
-        // Update customer balance
-        await db.customer.update({
-          where: { id: customerId },
-          data: {
-            storeCredit: newBalance,
-            updatedAt: new Date()
-          }
+        if (!customer || !customer.shopifyCustomerId) {
+          return json({ success: false, message: "Customer not found or missing Shopify ID" });
+        }
+
+        // Get shop settings for currency
+        const shopSettings = await db.shopSettings.findUnique({
+          where: { shop: session.shop }
         });
 
-        return json({
-          success: true,
-          message: `Credit ${actionType === "add" ? "added" : "removed"} successfully`,
-          newBalance: newBalance.toString()
-        });
+        const currency = shopSettings?.storeCurrency || "USD";
+        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
+
+        // Perform the credit/debit operation in Shopify
+        if (actionType === "add") {
+          // Import the store credit service
+          const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+          const storeCreditService = createStoreCreditService(admin, session.shop);
+
+          // Issue store credit via Shopify
+          const result = await storeCreditService.issueStoreCredit(
+            customer.shopifyCustomerId,
+            amount,
+            currency,
+            reason
+          );
+
+          if (!result.success) {
+            return json({
+              success: false,
+              message: result.error || "Failed to add store credit"
+            });
+          }
+
+          // Update local database
+          const currentBalance = parseFloat(customer.storeCredit.toString());
+          const newBalance = currentBalance + amount;
+
+          // Create ledger entry with Shopify transaction ID
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId,
+              shop: session.shop,
+              amount: amount,
+              balance: newBalance,
+              type: "MANUAL_ADJUSTMENT",
+              shopifyTransactionId: result.transactionId,
+              syncStatus: 'SYNCED',
+              syncedAt: new Date(),
+              metadata: {
+                reason,
+                adjustedBy: "admin",
+                shopifyBalance: result.balance
+              },
+              createdAt: new Date()
+            }
+          });
+
+          // Update customer balance
+          await db.customer.update({
+            where: { id: customerId },
+            data: {
+              storeCredit: result.balance || newBalance,
+              updatedAt: new Date()
+            }
+          });
+
+          return json({
+            success: true,
+            message: `Successfully added ${formatCurrency(amount, shopSettings)} to store credit`,
+            newBalance: (result.balance || newBalance).toString()
+          });
+
+        } else {
+          // Remove credit using debit mutation
+          const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+          const storeCreditService = createStoreCreditService(admin, session.shop);
+
+          // Debit store credit via custom method
+          const result = await storeCreditService.debitStoreCredit(
+            customer.shopifyCustomerId,
+            amount,
+            currency,
+            reason
+          );
+
+          if (!result.success) {
+            return json({
+              success: false,
+              message: result.error || "Failed to remove store credit"
+            });
+          }
+
+          // Update local database
+          const newBalance = result.balance || Math.max(0, parseFloat(customer.storeCredit.toString()) - amount);
+
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId,
+              shop: session.shop,
+              amount: -amount,
+              balance: newBalance,
+              type: "MANUAL_ADJUSTMENT",
+              shopifyTransactionId: result.transactionId,
+              syncStatus: 'SYNCED',
+              syncedAt: new Date(),
+              metadata: {
+                reason,
+                adjustedBy: "admin",
+                shopifyBalance: newBalance
+              },
+              createdAt: new Date()
+            }
+          });
+
+          // Update customer balance
+          await db.customer.update({
+            where: { id: customerId },
+            data: {
+              storeCredit: newBalance,
+              updatedAt: new Date()
+            }
+          });
+
+          return json({
+            success: true,
+            message: `Successfully removed ${formatCurrency(amount, shopSettings)} from store credit`,
+            newBalance: newBalance.toString()
+          });
+        }
+
       } catch (error) {
         console.error("[Credit] Error adjusting credit:", error);
-        return json({ success: false, message: "Failed to adjust credit" });
+        return json({
+          success: false,
+          message: "Failed to adjust credit: " + (error instanceof Error ? error.message : "Unknown error")
+        });
       }
     }
 
