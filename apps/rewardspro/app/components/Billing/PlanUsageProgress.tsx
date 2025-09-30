@@ -79,20 +79,6 @@ export function PlanUsageProgress({
               tone={progressTone as any}
               size="small"
             />
-            {/* Projected usage indicator */}
-            {showProjected && projectedUsage > currentUsage && projectedPercentage <= 100 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: `${usagePercentage}%`,
-                  width: `${projectedPercentage - usagePercentage}%`,
-                  height: '8px',
-                  backgroundColor: 'var(--p-color-bg-surface-tertiary)',
-                  opacity: 0.5
-                }}
-              />
-            )}
           </div>
         </Box>
 
@@ -115,20 +101,6 @@ export function PlanUsageProgress({
             </Text>
           </InlineStack>
 
-          {showProjected && projectedUsage > 0 && (
-            <InlineStack gap="100">
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--p-color-bg-surface-tertiary)',
-                marginTop: '4px'
-              }} />
-              <Text as="span" variant="bodyMd" tone="subdued">
-                Projected: {projectedUsage.toLocaleString()} orders
-              </Text>
-            </InlineStack>
-          )}
         </InlineStack>
       </BlockStack>
     </Box>

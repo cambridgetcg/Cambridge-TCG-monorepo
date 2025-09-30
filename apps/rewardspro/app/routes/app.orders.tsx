@@ -431,14 +431,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             });
           }
 
+          // Get current totalCashbackEarned to calculate new value
+          const currentTotalCashback = customer.totalCashbackEarned
+            ? parseFloat(customer.totalCashbackEarned.toString())
+            : 0;
+
           // Update customer balance to match Shopify
           await db.customer.update({
             where: { id: order.customerId },
             data: {
               storeCredit: newBalance,
-              totalCashbackEarned: {
-                increment: amount,
-              },
+              totalCashbackEarned: currentTotalCashback + amount,
               updatedAt: new Date(),
             },
           });
@@ -617,14 +620,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log(`[Orders] Ledger entry already exists for order ${order.shopifyOrderName}, skipping creation`);
           }
 
+          // Get current totalCashbackEarned to calculate new value
+          const currentTotalCashback = customer.totalCashbackEarned
+            ? parseFloat(customer.totalCashbackEarned.toString())
+            : 0;
+
           // Update customer balance to match Shopify
           await db.customer.update({
             where: { id: order.customerId },
             data: {
               storeCredit: newBalance,
-              totalCashbackEarned: {
-                increment: cashbackAmount,
-              },
+              totalCashbackEarned: currentTotalCashback + cashbackAmount,
               updatedAt: new Date(),
             },
           });
@@ -691,14 +697,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log(`[Orders] Failed ledger entry already exists for order ${order.shopifyOrderName}, skipping creation`);
           }
 
+          // Get current totalCashbackEarned to calculate new value
+          const currentTotalCashbackLocal = customer.totalCashbackEarned
+            ? parseFloat(customer.totalCashbackEarned.toString())
+            : 0;
+
           // Update customer balance locally
           await db.customer.update({
             where: { id: order.customerId },
             data: {
               storeCredit: localNewBalance,
-              totalCashbackEarned: {
-                increment: cashbackAmount,
-              },
+              totalCashbackEarned: currentTotalCashbackLocal + cashbackAmount,
               updatedAt: new Date(),
             },
           });

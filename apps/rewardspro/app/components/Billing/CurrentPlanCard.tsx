@@ -249,18 +249,6 @@ export function CurrentPlanCard({
                         {usageData.planLimit.toLocaleString()} orders
                       </Text>
                     </BlockStack>
-                    {showProjectedUsage && usageData.projectedOrders > 0 && (
-                      <BlockStack gap="100" align="end">
-                        <Text as="span" variant="bodyMd" tone="subdued">
-                          Projected total
-                        </Text>
-                        <Text as="p" variant="headingMd" tone={
-                          usageData.projectedOrders > usageData.planLimit ? "critical" : "subdued"
-                        }>
-                          {usageData.projectedOrders.toLocaleString()}
-                        </Text>
-                      </BlockStack>
-                    )}
                   </InlineStack>
                 </Box>
               )}
