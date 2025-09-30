@@ -8,7 +8,6 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
-import { TierResolver } from "../services/subscription/tier-resolver.server";
 import { calculateCustomerTier } from "../services/tier-calculation.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
@@ -723,18 +722,17 @@ async function checkTierProgression(_dbOrTx: any, params: {
   }
 
   try {
-    // Use the same tier calculation logic as the customers page
-    // This will properly evaluate spending and assign the correct tier
+    // Calculate tier based on customer's total spending from Shopify
+    // This uses the Shopify API to get real-time, accurate spending data
     const result = await calculateCustomerTier(shop, customerId, admin);
 
     if (result.changed) {
       console.log(`[OrderPaid] Tier changed for customer ${customerId}: ${result.previousTierName} → ${result.newTierName}`);
     }
 
-    // After spending-based tier is calculated, check for subscription-based tiers
-    // This will handle any conflicts between spending and subscription tiers
-    // TierResolver will prioritize subscription tiers if they exist
-    await TierResolver.updateEffectiveTier(customerId);
+    // Note: We've removed TierResolver here to avoid dual calculation issues
+    // The calculateCustomerTier function now handles all tier logic using Shopify API data
+    // This prevents conflicts between Shopify API data and potentially outdated local DB data
 
   } catch (error) {
     console.error(`[OrderPaid] Error calculating tier for customer ${customerId}:`, error);
