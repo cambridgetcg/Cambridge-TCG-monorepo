@@ -55,14 +55,21 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPageSize, setSelectedPageSize] = useState(25);
 
-  const currentBalance = typeof customer.storeCredit === 'string'
+  // Track balance locally to update immediately after credit changes
+  const initialBalance = typeof customer.storeCredit === 'string'
     ? parseFloat(customer.storeCredit)
     : customer.storeCredit;
+  const [currentBalance, setCurrentBalance] = useState(initialBalance);
 
-  // Load transactions when component mounts
+  // Load transactions when component mounts or customer changes
   useEffect(() => {
     loadTransactions();
-  }, [customer.id]);
+    // Update balance when customer prop changes
+    const newBalance = typeof customer.storeCredit === 'string'
+      ? parseFloat(customer.storeCredit)
+      : customer.storeCredit;
+    setCurrentBalance(newBalance);
+  }, [customer.id, customer.storeCredit]);
 
   // Watch for fetcher responses
   useEffect(() => {
@@ -73,6 +80,10 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
         setLoadingTransactions(false);
       }
       if (data.success) {
+        // Update balance if new balance is returned
+        if (data.newBalance !== undefined) {
+          setCurrentBalance(parseFloat(data.newBalance));
+        }
         // Close modals on successful action
         setShowAddModal(false);
         setShowRemoveModal(false);

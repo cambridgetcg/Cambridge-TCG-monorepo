@@ -37,6 +37,7 @@ import {
   Thumbnail,
   ButtonGroup,
   ActionList,
+  ProgressBar,
 } from "@shopify/polaris";
 import { CreditAdjustmentForm } from "~/components/StoreCredit/CreditAdjustmentForm";
 import {
@@ -906,6 +907,134 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       }
 
+      case "process-all-cashback": {
+        // Process all pending cashback orders in batch
+        const orderIds = (formData.get("orderIds") as string).split(',');
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors: string[] = [];
+
+        for (const orderId of orderIds) {
+          try {
+            // Fetch order with customer
+            const order = await db.order.findFirst({
+              where: { id: orderId, shop },
+              include: { customer: true }
+            });
+
+            if (!order) {
+              failCount++;
+              errors.push(`Order ${orderId} not found`);
+              continue;
+            }
+
+            if (!order.customer || !order.customer.shopifyCustomerId) {
+              failCount++;
+              errors.push(`Order ${order.shopifyOrderId}: No customer or Shopify ID`);
+              continue;
+            }
+
+            const amount = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
+            if (amount <= 0) {
+              failCount++;
+              errors.push(`Order ${order.shopifyOrderId}: Invalid cashback amount`);
+              continue;
+            }
+
+            // Add store credit through Shopify API
+            const result = await addStoreCredit(
+              admin,
+              order.customer.shopifyCustomerId,
+              amount,
+              order.currency || 'USD',
+              `Loyalty reward - Order ${order.shopifyOrderId}`
+            );
+
+            if (!result.success) {
+              failCount++;
+              errors.push(`Order ${order.shopifyOrderId}: ${result.error}`);
+              continue;
+            }
+
+            const newBalance = result.balance || (parseFloat(order.customer.storeCredit.toString()) + amount);
+
+            // Get current totalCashbackEarned to calculate new value
+            const currentTotalCashback = order.customer.totalCashbackEarned
+              ? parseFloat(order.customer.totalCashbackEarned.toString())
+              : 0;
+
+            // Update customer balance
+            await db.customer.update({
+              where: { id: order.customer.id },
+              data: {
+                storeCredit: newBalance,
+                totalCashbackEarned: currentTotalCashback + amount,
+                updatedAt: new Date(),
+              },
+            });
+
+            // Check if ledger entry already exists
+            const existingLedger = await db.storeCreditLedger.findFirst({
+              where: {
+                shop,
+                shopifyOrderId: order.shopifyOrderId,
+                type: 'CASHBACK_EARNED'
+              }
+            });
+
+            if (!existingLedger) {
+              // Create ledger entry
+              await db.storeCreditLedger.create({
+                data: {
+                  id: uuidv4(),
+                  shop,
+                  customerId: order.customer.id,
+                  amount: amount,
+                  balance: newBalance,
+                  type: 'CASHBACK_EARNED',
+                  description: `Loyalty reward - Order ${order.shopifyOrderId}`,
+                  shopifyOrderId: order.shopifyOrderId,
+                  metadata: {
+                    processedBy: "batch",
+                    syncStatus: result.shopifyTransactionId ? "synced" : "pending",
+                    syncedAt: result.shopifyTransactionId ? new Date().toISOString() : null,
+                    shopifyTransactionId: result.shopifyTransactionId || null
+                  },
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+            }
+
+            // Update order status
+            await db.order.update({
+              where: { id: orderId },
+              data: {
+                cashbackStatus: 'PROCESSED',
+                cashbackProcessedAt: new Date(),
+                updatedAt: new Date(),
+              },
+            });
+
+            successCount++;
+          } catch (error) {
+            failCount++;
+            console.error(`Failed to process order ${orderId}:`, error);
+            errors.push(`Order ${orderId}: ${error.message}`);
+          }
+        }
+
+        // Return summary
+        return json({
+          success: failCount === 0,
+          message: `Processed ${successCount} orders successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
+          successCount,
+          failCount,
+          errors: errors.length > 0 ? errors.slice(0, 5) : undefined // Show first 5 errors
+        });
+      }
+
       case "sync-orders": {
         // Import the sync service dynamically
         const { OrderSyncService } = await import("../services/order-sync.service");
@@ -957,6 +1086,8 @@ export default function OrdersPage() {
   const [processingCustomer, setProcessingCustomer] = useState<{ id: string; email: string; storeCredit: number } | null>(null);
   const [defaultCashbackAmount, setDefaultCashbackAmount] = useState<number>(0);
   const [fetchingBalance, setFetchingBalance] = useState(false);
+  const [isProcessingAll, setIsProcessingAll] = useState(false);
+  const [processAllProgress, setProcessAllProgress] = useState({ current: 0, total: 0 });
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
     active: false,
     content: "",
@@ -986,6 +1117,24 @@ export default function OrdersPage() {
       }
     }
   }, [fetcher.data, processingCustomer]);
+
+  // Handle response from processing all cashback
+  useEffect(() => {
+    if (actionData?.successCount !== undefined || actionData?.failCount !== undefined) {
+      // Reset processing state
+      setIsProcessingAll(false);
+      setProcessAllProgress({ current: 0, total: 0 });
+
+      // Show result toast
+      if (actionData.message) {
+        setToast({
+          active: true,
+          content: actionData.message,
+          error: actionData.failCount > 0
+        });
+      }
+    }
+  }, [actionData]);
 
   // Selected order for modal
   const selectedOrder = useMemo(() => {
@@ -1175,6 +1324,45 @@ export default function OrdersPage() {
     );
   }, [submit]);
 
+  // Process all pending cashback
+  const handleProcessAllCashback = useCallback(() => {
+    // Get all pending cashback orders
+    const pendingOrders = orders.filter(order =>
+      order.cashbackStatus === 'PENDING' &&
+      order.customer &&
+      order.customer.id !== "unknown" &&
+      order.cashbackAmount &&
+      Number(order.cashbackAmount) > 0
+    );
+
+    if (pendingOrders.length === 0) {
+      setToast({
+        active: true,
+        content: 'No pending cashback orders to process',
+        error: false
+      });
+      return;
+    }
+
+    // Confirm action
+    const confirmMessage = `Process cashback for ${pendingOrders.length} order${pendingOrders.length > 1 ? 's' : ''}?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsProcessingAll(true);
+    setProcessAllProgress({ current: 0, total: pendingOrders.length });
+
+    // Submit batch processing request
+    submit(
+      {
+        action: "process-all-cashback",
+        orderIds: pendingOrders.map(o => o.id).join(',')
+      },
+      { method: "post" }
+    );
+  }, [orders, submit]);
+
   // Open order detail modal
   const handleViewOrder = useCallback((orderId: string) => {
     setSelectedOrderId(orderId);
@@ -1250,6 +1438,17 @@ export default function OrdersPage() {
   };
 
   // Table rows
+  // Count pending cashback orders
+  const pendingCashbackCount = useMemo(() => {
+    return orders.filter(order =>
+      order.cashbackStatus === 'PENDING' &&
+      order.customer &&
+      order.customer.id !== "unknown" &&
+      order.cashbackAmount &&
+      Number(order.cashbackAmount) > 0
+    ).length;
+  }, [orders]);
+
   const rowMarkup = orders.map((order, index) => (
     <IndexTable.Row
       id={order.id}
@@ -1329,14 +1528,43 @@ export default function OrdersPage() {
       <Page
         title="Orders"
         subtitle="Manage orders and cashback processing"
-        primaryAction={{
-          content: "Sync Orders",
-          icon: RefreshIcon,
-          onAction: handleSyncOrders,
-          loading: navigation.state === "submitting",
-        }}
+        secondaryActions={[
+          {
+            content: pendingCashbackCount > 0
+              ? `Process All Pending (${pendingCashbackCount})`
+              : "Process All Pending",
+            icon: CashDollarIcon,
+            onAction: handleProcessAllCashback,
+            loading: isProcessingAll,
+            disabled: navigation.state === "submitting" || pendingCashbackCount === 0,
+          },
+          {
+            content: "Sync Orders",
+            icon: RefreshIcon,
+            onAction: handleSyncOrders,
+            loading: navigation.state === "submitting" && !isProcessingAll,
+          }
+        ]}
       >
         <Layout>
+          {/* Batch Processing Progress Banner */}
+          {isProcessingAll && processAllProgress.total > 0 && (
+            <Layout.Section>
+              <Banner tone="info" icon={CashDollarIcon}>
+                <BlockStack gap="200">
+                  <Text as="p" variant="bodyMd">
+                    Processing cashback for {processAllProgress.total} orders...
+                  </Text>
+                  <ProgressBar
+                    progress={(processAllProgress.current / processAllProgress.total) * 100}
+                    tone="emphasis"
+                    size="small"
+                  />
+                </BlockStack>
+              </Banner>
+            </Layout.Section>
+          )}
+
           {/* Merged Orders Table with Search */}
           <Layout.Section>
             <Card padding="0">
