@@ -1449,27 +1449,28 @@ export default function OrdersPage() {
   // Count pending cashback orders
   const pendingCashbackCount = useMemo(() => {
     const pending = orders.filter(order => {
-      const hasPendingStatus = order.cashbackStatus === 'PENDING';
+      // Use actual database fields instead of computed cashbackStatus
       const hasCustomer = order.customer && order.customer.id !== "unknown";
       const hasPositiveAmount = order.cashbackAmount && Number(order.cashbackAmount) > 0;
       const isNotProcessed = !order.cashbackProcessed;
 
       // Debug logging
-      if (order.cashbackAmount && Number(order.cashbackAmount) > 0 && !order.cashbackProcessed) {
+      if (order.cashbackAmount && Number(order.cashbackAmount) > 0) {
         console.log('Checking order for pending:', {
           orderId: order.id,
-          cashbackStatus: order.cashbackStatus,
           cashbackProcessed: order.cashbackProcessed,
           cashbackAmount: order.cashbackAmount,
           hasCustomer,
-          qualifies: hasPendingStatus && hasCustomer && hasPositiveAmount
+          isNotProcessed,
+          qualifies: hasCustomer && hasPositiveAmount && isNotProcessed
         });
       }
 
-      return hasPendingStatus && hasCustomer && hasPositiveAmount;
+      // Simple logic: has cashback, not processed, has valid customer
+      return hasCustomer && hasPositiveAmount && isNotProcessed;
     });
 
-    console.log(`Found ${pending.length} pending cashback orders`);
+    console.log(`Found ${pending.length} pending cashback orders out of ${orders.length} total`);
     return pending.length;
   }, [orders]);
 
