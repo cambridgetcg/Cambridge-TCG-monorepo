@@ -1334,14 +1334,26 @@ export default function OrdersPage() {
 
   // Process all pending cashback
   const handleProcessAllCashback = useCallback(() => {
-    // Get all pending cashback orders
-    const pendingOrders = orders.filter(order =>
-      order.cashbackStatus === 'PENDING' &&
-      order.customer &&
-      order.customer.id !== "unknown" &&
-      order.cashbackAmount &&
-      Number(order.cashbackAmount) > 0
-    );
+    // Get all pending cashback orders using the same logic as pendingCashbackCount
+    const pendingOrders = orders.filter(order => {
+      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
+
+      // More detailed customer detection (same as test page)
+      const hasCustomer = !!(
+        order.customer &&
+        order.customer.id &&
+        order.customer.id !== "unknown" &&
+        order.customer.shopifyCustomerId // Also check for Shopify ID
+      );
+
+      // Use the customer object check only (no separate customerId field in this interface)
+      const hasValidCustomer = hasCustomer;
+
+      const hasPositiveCashback = cashbackAmountNum > 0;
+      const isNotProcessed = !order.cashbackProcessed;
+
+      return hasValidCustomer && hasPositiveCashback && isNotProcessed;
+    });
 
     if (pendingOrders.length === 0) {
       setToast({
@@ -1449,25 +1461,39 @@ export default function OrdersPage() {
   // Count pending cashback orders
   const pendingCashbackCount = useMemo(() => {
     const pending = orders.filter(order => {
-      // Use actual database fields instead of computed cashbackStatus
-      const hasCustomer = order.customer && order.customer.id !== "unknown";
-      const hasPositiveAmount = order.cashbackAmount && Number(order.cashbackAmount) > 0;
+      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
+
+      // More detailed customer detection (same as test page)
+      const hasCustomer = !!(
+        order.customer &&
+        order.customer.id &&
+        order.customer.id !== "unknown" &&
+        order.customer.shopifyCustomerId // Also check for Shopify ID
+      );
+
+      // Use the customer object check only (no separate customerId field in this interface)
+      const hasValidCustomer = hasCustomer;
+
+      const hasPositiveCashback = cashbackAmountNum > 0;
       const isNotProcessed = !order.cashbackProcessed;
 
       // Debug logging
-      if (order.cashbackAmount && Number(order.cashbackAmount) > 0) {
+      if (cashbackAmountNum > 0) {
         console.log('Checking order for pending:', {
           orderId: order.id,
           cashbackProcessed: order.cashbackProcessed,
-          cashbackAmount: order.cashbackAmount,
+          cashbackAmount: cashbackAmountNum,
+          hasValidCustomer,
           hasCustomer,
+          customerId: order.customer?.id,
+          customerShopifyId: order.customer?.shopifyCustomerId,
           isNotProcessed,
-          qualifies: hasCustomer && hasPositiveAmount && isNotProcessed
+          qualifies: hasValidCustomer && hasPositiveCashback && isNotProcessed
         });
       }
 
-      // Simple logic: has cashback, not processed, has valid customer
-      return hasCustomer && hasPositiveAmount && isNotProcessed;
+      // Return true if order qualifies for processing
+      return hasValidCustomer && hasPositiveCashback && isNotProcessed;
     });
 
     console.log(`Found ${pending.length} pending cashback orders out of ${orders.length} total`);
