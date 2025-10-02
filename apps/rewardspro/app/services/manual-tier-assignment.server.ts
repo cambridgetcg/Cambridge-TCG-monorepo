@@ -187,6 +187,8 @@ export async function hasManualOverride(
   customerId: string
 ): Promise<boolean> {
   try {
+    console.log(`[hasManualOverride] Checking override status for customer: ${customerId}`);
+
     // Look for the most recent MANUAL_ADMIN change with permanentOverride
     // This ensures we find permanent overrides even if there were automatic calculations after
     const permanentOverride = await db.tierChangeLog.findFirst({
@@ -197,13 +199,26 @@ export async function hasManualOverride(
       orderBy: { createdAt: 'desc' }
     });
 
+    console.log(`[hasManualOverride] Latest MANUAL_ADMIN entry:`, permanentOverride ? {
+      id: permanentOverride.id,
+      toTierName: permanentOverride.toTierName,
+      metadata: permanentOverride.metadata,
+      createdAt: permanentOverride.createdAt,
+      note: permanentOverride.note
+    } : 'None found');
+
     if (!permanentOverride) {
+      console.log(`[hasManualOverride] No MANUAL_ADMIN entries found - returning false`);
       return false;
     }
 
     // Check if it has a permanent override flag
     const metadata = permanentOverride.metadata as any;
+    console.log(`[hasManualOverride] Metadata permanentOverride flag:`, metadata?.permanentOverride);
+
     if (metadata?.permanentOverride === true) {
+      console.log(`[hasManualOverride] Permanent override flag is TRUE - checking for removals...`);
+
       // Check if there's been any manual removal of the override after this
       const removalAfterOverride = await db.tierChangeLog.findFirst({
         where: {
@@ -220,17 +235,33 @@ export async function hasManualOverride(
         orderBy: { createdAt: 'desc' }
       });
 
+      console.log(`[hasManualOverride] Removal after override:`, removalAfterOverride ? {
+        id: removalAfterOverride.id,
+        note: removalAfterOverride.note,
+        metadata: removalAfterOverride.metadata,
+        createdAt: removalAfterOverride.createdAt
+      } : 'None found');
+
       // If no removal found, the permanent override is still active
-      return !removalAfterOverride;
+      const hasActiveOverride = !removalAfterOverride;
+      console.log(`[hasManualOverride] Final result: ${hasActiveOverride} (permanent override active: ${hasActiveOverride})`);
+      return hasActiveOverride;
     }
 
     // Check if temporary override is still active
     if (metadata?.overrideDuration) {
+      console.log(`[hasManualOverride] Checking temporary override with duration: ${metadata.overrideDuration} days`);
+
       const overrideDate = new Date(permanentOverride.createdAt);
       overrideDate.setDate(overrideDate.getDate() + metadata.overrideDuration);
 
+      console.log(`[hasManualOverride] Override expires at:`, overrideDate);
+      console.log(`[hasManualOverride] Current time:`, new Date());
+
       // Check if the temporary override is still within the duration
       if (overrideDate > new Date()) {
+        console.log(`[hasManualOverride] Temporary override still valid - checking for manual removals...`);
+
         // Also check if it hasn't been manually removed
         const removalAfterOverride = await db.tierChangeLog.findFirst({
           where: {
@@ -244,10 +275,15 @@ export async function hasManualOverride(
           }
         });
 
-        return !removalAfterOverride;
+        const isActive = !removalAfterOverride;
+        console.log(`[hasManualOverride] Temporary override active: ${isActive}`);
+        return isActive;
+      } else {
+        console.log(`[hasManualOverride] Temporary override has expired`);
       }
     }
 
+    console.log(`[hasManualOverride] No active override found - returning false`);
     return false;
   } catch (error) {
     console.error(`[ManualTierAssignment] Error checking override:`, error);

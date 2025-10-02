@@ -458,7 +458,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const tierId = formData.get("tierId") as string | null;
       const reason = formData.get("reason") as string;
       const permanentOverride = formData.get("permanentOverride") === "true";
-      
+
+      console.log("========================================");
+      console.log("[MANUAL TIER ASSIGNMENT] Starting manual tier assignment");
+      console.log("[MANUAL TIER ASSIGNMENT] Customer ID:", customerId);
+      console.log("[MANUAL TIER ASSIGNMENT] New Tier ID:", tierId);
+      console.log("[MANUAL TIER ASSIGNMENT] Permanent Override:", permanentOverride);
+      console.log("[MANUAL TIER ASSIGNMENT] Reason:", reason);
+      console.log("[MANUAL TIER ASSIGNMENT] Admin User ID:", session.userId?.toString() || "admin");
+      console.log("[MANUAL TIER ASSIGNMENT] Shop:", shop);
+
+      // Check current state before assignment
+      const customerBefore = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        include: { currentTier: true }
+      });
+      console.log("[MANUAL TIER ASSIGNMENT] Current tier before assignment:", customerBefore?.currentTier?.name || "None");
+
+      // Check existing override status
+      const hasExistingOverride = await hasManualOverride(customerId);
+      console.log("[MANUAL TIER ASSIGNMENT] Has existing override:", hasExistingOverride);
+
       const result = await assignCustomerToTier(
         shop,
         customerId,
@@ -467,15 +487,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         reason,
         { permanentOverride }
       );
-      
+
+      console.log("[MANUAL TIER ASSIGNMENT] Assignment result:", {
+        success: result.success,
+        previousTier: result.previousTierName,
+        newTier: result.newTierName,
+        error: result.error,
+        message: result.message
+      });
+
+      // Verify the assignment was saved
+      const customerAfter = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        include: { currentTier: true }
+      });
+      console.log("[MANUAL TIER ASSIGNMENT] Current tier after assignment:", customerAfter?.currentTier?.name || "None");
+
+      // Check the tier change log entry
+      const latestLog = await db.tierChangeLog.findFirst({
+        where: { customerId },
+        orderBy: { createdAt: 'desc' }
+      });
+      console.log("[MANUAL TIER ASSIGNMENT] Latest tier change log:", {
+        triggerType: latestLog?.triggerType,
+        metadata: latestLog?.metadata,
+        toTierName: latestLog?.toTierName,
+        createdAt: latestLog?.createdAt
+      });
+
+      // Verify override status after assignment
+      const hasOverrideAfter = await hasManualOverride(customerId);
+      console.log("[MANUAL TIER ASSIGNMENT] Has override after assignment:", hasOverrideAfter);
+      console.log("========================================");
+
       if (result.success) {
-        return json({ 
-          success: true, 
+        return json({
+          success: true,
           message: result.message || "Tier manually assigned successfully"
         });
       } else {
-        return json({ 
-          error: result.error || "Failed to assign tier" 
+        return json({
+          error: result.error || "Failed to assign tier"
         }, { status: 400 });
       }
     }
@@ -1001,13 +1053,84 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (action === "calculate-single") {
       // Calculate tier for a single customer
       const customerId = formData.get("customerId") as string;
-      
-      console.log(`[Customers] Calculating tier for customer ${customerId}`);
+
+      console.log("========================================");
+      console.log("[TIER RECALCULATION] Starting tier recalculation");
+      console.log("[TIER RECALCULATION] Customer ID:", customerId);
+      console.log("[TIER RECALCULATION] Shop:", shop);
+
+      // Check current state before recalculation
+      const customerBefore = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        include: { currentTier: true }
+      });
+      console.log("[TIER RECALCULATION] Current tier before recalculation:", customerBefore?.currentTier?.name || "None");
+      console.log("[TIER RECALCULATION] Customer spending:", {
+        totalSpent: customerBefore?.totalSpent.toString(),
+        netSpent: customerBefore?.netSpent.toString(),
+        orderCount: customerBefore?.orderCount
+      });
+
+      // Check override status BEFORE recalculation
+      const hasOverrideBefore = await hasManualOverride(customerId);
+      console.log("[TIER RECALCULATION] Has manual override BEFORE recalc:", hasOverrideBefore);
+
+      // Get recent tier change logs
+      const recentLogs = await db.tierChangeLog.findMany({
+        where: { customerId },
+        orderBy: { createdAt: 'desc' },
+        take: 3
+      });
+      console.log("[TIER RECALCULATION] Recent tier change logs (last 3):");
+      recentLogs.forEach((log, idx) => {
+        console.log(`  [${idx + 1}]`, {
+          triggerType: log.triggerType,
+          toTierName: log.toTierName,
+          metadata: log.metadata,
+          createdAt: log.createdAt,
+          note: log.note
+        });
+      });
+
+      console.log("[TIER RECALCULATION] Calling calculateCustomerTier...");
       const result = await calculateCustomerTier(shop, customerId, admin as any);
-      
+
+      console.log("[TIER RECALCULATION] Calculation result:", {
+        changed: result.changed,
+        previousTier: result.previousTierName,
+        newTier: result.newTierName,
+        totalSpending: result.totalSpending,
+        error: result.error
+      });
+
+      // Check state after recalculation
+      const customerAfter = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        include: { currentTier: true }
+      });
+      console.log("[TIER RECALCULATION] Current tier after recalculation:", customerAfter?.currentTier?.name || "None");
+
+      // Check override status AFTER recalculation
+      const hasOverrideAfter = await hasManualOverride(customerId);
+      console.log("[TIER RECALCULATION] Has manual override AFTER recalc:", hasOverrideAfter);
+
+      // Check if a new log entry was created
+      const latestLog = await db.tierChangeLog.findFirst({
+        where: { customerId },
+        orderBy: { createdAt: 'desc' }
+      });
+      console.log("[TIER RECALCULATION] Latest tier change log after recalc:", {
+        triggerType: latestLog?.triggerType,
+        metadata: latestLog?.metadata,
+        toTierName: latestLog?.toTierName,
+        createdAt: latestLog?.createdAt,
+        note: latestLog?.note
+      });
+      console.log("========================================");
+
       return json({
         success: true,
-        message: result.changed 
+        message: result.changed
           ? `Tier updated from ${result.previousTierName || 'None'} to ${result.newTierName || 'None'}`
           : "Tier unchanged",
         result
