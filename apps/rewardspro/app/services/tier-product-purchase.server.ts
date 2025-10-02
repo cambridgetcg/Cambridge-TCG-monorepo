@@ -411,8 +411,18 @@ export async function checkTierMembershipExpiry(
     }
 
     const isPurchased = lastChange.triggerType === 'PRODUCT_PURCHASE';
-    const metadata = lastChange.metadata as any;
-    
+
+    // Aurora Data API may return metadata as a string, so we need to parse it
+    let metadata = lastChange.metadata as any;
+    if (typeof metadata === 'string') {
+      try {
+        metadata = JSON.parse(metadata);
+      } catch (error) {
+        console.error(`[TierProductPurchase] Failed to parse metadata string:`, error);
+        metadata = null;
+      }
+    }
+
     // Permanent override never expires
     if (metadata?.permanentOverride === true) {
       return { 

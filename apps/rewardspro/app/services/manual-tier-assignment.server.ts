@@ -213,7 +213,17 @@ export async function hasManualOverride(
     }
 
     // Check if it has a permanent override flag
-    const metadata = permanentOverride.metadata as any;
+    // Aurora Data API may return metadata as a string, so we need to parse it
+    let metadata = permanentOverride.metadata as any;
+    if (typeof metadata === 'string') {
+      try {
+        metadata = JSON.parse(metadata);
+        console.log(`[hasManualOverride] Parsed metadata from string:`, metadata);
+      } catch (error) {
+        console.error(`[hasManualOverride] Failed to parse metadata string:`, error);
+        metadata = null;
+      }
+    }
     console.log(`[hasManualOverride] Metadata permanentOverride flag:`, metadata?.permanentOverride);
 
     if (metadata?.permanentOverride === true) {
