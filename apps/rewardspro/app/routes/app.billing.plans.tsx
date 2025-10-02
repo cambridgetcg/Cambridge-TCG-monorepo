@@ -40,24 +40,9 @@ interface Plan {
   tone?: "success" | "info" | "warning" | "critical" | "new";
 }
 
+// Free plan exists but is not displayed to encourage upgrades
 const PLANS: Plan[] = [
-  {
-    id: "RewardsPro Free",
-    name: "RewardsPro Free",
-    displayName: "Free",
-    price: 0,
-    interval: "month",
-    ordersIncluded: 100,
-    description: "Perfect for small stores just starting out",
-    features: [
-      "Up to 500 customers",
-      "Up to 100 orders/month",
-      "Basic tier management",
-      "Store credit system",
-      "Email support",
-      "Basic analytics",
-    ],
-  },
+  // Free plan removed from display but still functional for existing users
   {
     id: "RewardsPro Pro",
     name: "RewardsPro Pro",

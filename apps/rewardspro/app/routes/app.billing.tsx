@@ -135,7 +135,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const action = formData.get("action") as string;
 
-  // Security: Plan validation
+  // Security: Plan validation (free plan accessible but hidden)
   const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'contact-enterprise'];
   const planType = action?.replace('subscribe-', '');
 
@@ -164,9 +164,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Security: Log subscription attempts
   console.log(`[Billing] ${session.shop} attempting action: ${action}`);
 
-  // Handle free plan subscription
+  // Free plan subscription (accessible but hidden)
   if (action === "subscribe-free") {
-    console.log(`[Billing] ${session.shop} switching to Free plan`);
+    console.log(`[Billing] ${session.shop} subscribing to Free plan`);
     // Free plan - just return success (no billing required)
     await logBillingAttempt(session.shop, action, "free", true, null, request);
     return json({ success: true, message: "Switched to Free plan" });
@@ -309,24 +309,9 @@ export default function BillingPage() {
 
   const currentPlan = data.currentPlanName;
 
+  // Free plan hidden from display but still functional for existing users
   const individualPlans = [
-    {
-      name: "Free",
-      id: "free",
-      price: "$0",
-      description: "Perfect for small stores just starting out",
-      features: [
-        "Up to 500 customers",
-        "Up to 100 orders/month",
-        "Basic tier management",
-        "Store credit system",
-        "Email support",
-        "Basic analytics"
-      ],
-      buttonText: currentPlan === "RewardsPro Free" ? "Current Plan" : "Switch to Free",
-      isCurrentPlan: currentPlan === "RewardsPro Free",
-      recommended: false
-    },
+    // Removed Free plan to encourage upgrades
     {
       name: "Pro",
       id: "pro",
@@ -1083,6 +1068,29 @@ export default function BillingPage() {
                 </Box>
               </Card>
             </BlockStack>
+          </Layout.Section>
+
+          {/* Hidden Free Plan Option - Subtle link at bottom */}
+          <Layout.Section>
+            <Box paddingBlockStart="800">
+              <div style={{ textAlign: 'center', opacity: 0.6 }}>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Looking for a free option? We also offer a{' '}
+                  <Button
+                    variant="plain"
+                    size="slim"
+                    onClick={() => handleSubscribe('free')}
+                    loading={navigation.state === 'submitting'}
+                    disabled={currentPlan === "RewardsPro Free"}
+                  >
+                    <span style={{ textDecoration: 'underline' }}>
+                      {currentPlan === "RewardsPro Free" ? "Free plan (current)" : "Free plan"}
+                    </span>
+                  </Button>
+                  {' '}with up to 100 orders/month for stores just starting out.
+                </Text>
+              </div>
+            </Box>
           </Layout.Section>
         </Layout>
 

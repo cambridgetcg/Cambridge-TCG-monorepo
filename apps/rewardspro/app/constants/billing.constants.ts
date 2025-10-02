@@ -12,6 +12,7 @@ export interface ManagedPlan {
 }
 
 export const MANAGED_PLANS: Record<string, ManagedPlan> = {
+  // Free plan - Hidden from billing pages but still functional for existing users
   "RewardsPro Free": {
     name: "RewardsPro Free",
     displayName: "Free",
