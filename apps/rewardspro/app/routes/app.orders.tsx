@@ -1106,6 +1106,15 @@ export default function OrdersPage() {
   const [cashbackFilter, setCashbackFilter] = useState(searchParams.get("cashback") || "all");
   const [selectedPageSize, setSelectedPageSize] = useState(searchParams.get("pageSize") || "25");
 
+  // State for confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModalData, setConfirmModalData] = useState<{
+    title: string;
+    message: string;
+    orderIds: string[];
+    action: "process-qualifying" | "process-selected";
+  } | null>(null);
+
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
 
   // Handle fetcher response for store credit balance
@@ -1222,19 +1231,13 @@ export default function OrdersPage() {
       actions.push({
         content: `Process cashback (${pendingCashbackOrders.length})`,
         onAction: () => {
-          const confirmMessage = `Process cashback for ${pendingCashbackOrders.length} selected order${pendingCashbackOrders.length > 1 ? 's' : ''}?`;
-          if (window.confirm(confirmMessage)) {
-            setIsProcessingAll(true);
-            setProcessAllProgress({ current: 0, total: pendingCashbackOrders.length });
-            submit(
-              {
-                action: "process-all-cashback",
-                orderIds: pendingCashbackOrders.map(o => o.id).join(',')
-              },
-              { method: "post" }
-            );
-            clearSelection();
-          }
+          setConfirmModalData({
+            title: "Process Selected Orders",
+            message: `Are you sure you want to process cashback for ${pendingCashbackOrders.length} selected order${pendingCashbackOrders.length > 1 ? 's' : ''}?`,
+            orderIds: pendingCashbackOrders.map(o => o.id),
+            action: "process-selected"
+          });
+          setShowConfirmModal(true);
         },
       });
     }
@@ -1435,29 +1438,52 @@ export default function OrdersPage() {
       return;
     }
 
-    // Confirm action
-    const confirmMessage = `Process ${qualifyingOrders.length} qualifying order${qualifyingOrders.length > 1 ? 's' : ''}?`;
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-
-    setIsProcessingAll(true);
-    setProcessAllProgress({ current: 0, total: qualifyingOrders.length });
-
-    // Submit batch processing request
-    submit(
-      {
-        action: "process-all-cashback",
-        orderIds: qualifyingOrders.map(o => o.id).join(',')
-      },
-      { method: "post" }
-    );
-  }, [orders, submit]);
+    // Show confirmation modal
+    setConfirmModalData({
+      title: "Process Qualifying Orders",
+      message: `Are you sure you want to process cashback for ${qualifyingOrders.length} qualifying order${qualifyingOrders.length > 1 ? 's' : ''}?`,
+      orderIds: qualifyingOrders.map(o => o.id),
+      action: "process-qualifying"
+    });
+    setShowConfirmModal(true);
+  }, [orders]);
 
   // Open order detail modal
   const handleViewOrder = useCallback((orderId: string) => {
     setSelectedOrderId(orderId);
     setIsDetailModalOpen(true);
+  }, []);
+
+  // Handle confirmation modal confirm
+  const handleConfirmProcess = useCallback(() => {
+    if (!confirmModalData) return;
+
+    setIsProcessingAll(true);
+    setProcessAllProgress({ current: 0, total: confirmModalData.orderIds.length });
+
+    // Submit batch processing request
+    submit(
+      {
+        action: "process-all-cashback",
+        orderIds: confirmModalData.orderIds.join(',')
+      },
+      { method: "post" }
+    );
+
+    // Clear selection if processing selected orders
+    if (confirmModalData.action === "process-selected" && clearSelection) {
+      clearSelection();
+    }
+
+    // Close modal
+    setShowConfirmModal(false);
+    setConfirmModalData(null);
+  }, [confirmModalData, submit, clearSelection]);
+
+  // Handle confirmation modal cancel
+  const handleCancelProcess = useCallback(() => {
+    setShowConfirmModal(false);
+    setConfirmModalData(null);
   }, []);
 
   // Pagination handlers
@@ -2177,6 +2203,37 @@ export default function OrdersPage() {
             onDismiss={() => setToast({ ...toast, active: false })}
           />
         )}
+
+        {/* Confirmation Modal */}
+        <Modal
+          open={showConfirmModal}
+          onClose={handleCancelProcess}
+          title={confirmModalData?.title || "Confirm Action"}
+          primaryAction={{
+            content: "Process",
+            onAction: handleConfirmProcess,
+            destructive: false,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: handleCancelProcess,
+            },
+          ]}
+        >
+          <Modal.Section>
+            <Text as="p" variant="bodyMd">
+              {confirmModalData?.message || "Are you sure you want to proceed?"}
+            </Text>
+            {confirmModalData && confirmModalData.orderIds.length > 0 && (
+              <Box paddingBlockStart="200">
+                <Text as="p" variant="bodySm" tone="subdued">
+                  This action will process {confirmModalData.orderIds.length} order{confirmModalData.orderIds.length !== 1 ? 's' : ''} and cannot be undone.
+                </Text>
+              </Box>
+            )}
+          </Modal.Section>
+        </Modal>
       </Page>
     </Frame>
   );
