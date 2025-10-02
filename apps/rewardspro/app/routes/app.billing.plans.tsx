@@ -51,8 +51,6 @@ const PLANS: Plan[] = [
     interval: "month",
     ordersIncluded: 500,
     description: "Ideal for growing stores with regular customers",
-    badge: "Popular",
-    tone: "success",
     features: [
       "Up to 2,000 total customers",
       "Up to 500 orders/month",

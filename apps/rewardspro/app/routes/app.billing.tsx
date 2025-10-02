@@ -98,13 +98,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
 
   try {
+    // Import plan names for checking
+    const { FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } = await import("../shopify.server");
+
     // Get active subscription
-    const { hasActivePayment, appSubscriptions } = await billing.check();
+    const { hasActivePayment, appSubscriptions } = await billing.check({
+      plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN],
+      isTest: process.env.NODE_ENV === 'development',
+    });
     const activeSubscription = appSubscriptions?.[0];
 
     // Determine current plan name
-    let currentPlanName = 'RewardsPro Pro'; // Default to Pro if no active subscription
-    if (activeSubscription?.name === 'RewardsPro Pro') {
+    let currentPlanName = 'RewardsPro Free'; // Default to Free if no active subscription
+    if (activeSubscription?.name === 'RewardsPro Free') {
+      currentPlanName = 'RewardsPro Free';
+    } else if (activeSubscription?.name === 'RewardsPro Pro') {
       currentPlanName = 'RewardsPro Pro';
     } else if (activeSubscription?.name === 'RewardsPro Max') {
       currentPlanName = 'RewardsPro Max';
@@ -112,6 +120,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       currentPlanName = 'RewardsPro Ultra';
     } else if (activeSubscription?.name === 'RewardsPro Enterprise') {
       currentPlanName = 'RewardsPro Enterprise';
+    } else if (!hasActivePayment) {
+      // No active payment means Free plan
+      currentPlanName = 'RewardsPro Free';
     }
 
     return json({
@@ -328,7 +339,7 @@ export default function BillingPage() {
       ],
       buttonText: currentPlan === "RewardsPro Pro" ? "Current Plan" : "Upgrade to Pro",
       isCurrentPlan: currentPlan === "RewardsPro Pro",
-      recommended: true
+      recommended: false
     },
     {
       name: "Max",
@@ -347,7 +358,7 @@ export default function BillingPage() {
       ],
       buttonText: currentPlan === "RewardsPro Max" ? "Current Plan" : "Upgrade to Max",
       isCurrentPlan: currentPlan === "RewardsPro Max",
-      recommended: false
+      recommended: true
     },
     {
       name: "Ultra",
