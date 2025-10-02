@@ -230,12 +230,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Check active subscription with Shopify
     let activeSubscription = null;
-    const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+    const { FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN } = await import("../shopify.server");
 
     if (billing) {
       try {
         const { hasActivePayment, appSubscriptions } = await billing.check({
-          plans: [FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
+          plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN],
           isTest: process.env.NODE_ENV === 'development',
         });
 
@@ -448,15 +448,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Determine plan based on active subscription
-    let planLimit = 200; // Default for free plan
+    let planLimit = 100; // Default for free plan
     let planName = 'RewardsPro Free';
 
-    if (activeSubscription?.name === 'RewardsPro Monthly') {
-      planLimit = 1000;
-      planName = 'RewardsPro Monthly';
-    } else if (activeSubscription?.name === 'RewardsPro Annual') {
-      planLimit = 1000; // 12,000/year = 1,000/month average
-      planName = 'RewardsPro Annual';
+    if (activeSubscription?.name === 'RewardsPro Pro') {
+      planLimit = 500;
+      planName = 'RewardsPro Pro';
+    } else if (activeSubscription?.name === 'RewardsPro Max') {
+      planLimit = 2000;
+      planName = 'RewardsPro Max';
+    } else if (activeSubscription?.name === 'RewardsPro Ultra') {
+      planLimit = 999999; // Effectively unlimited
+      planName = 'RewardsPro Ultra';
     }
 
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);

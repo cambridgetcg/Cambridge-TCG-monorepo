@@ -136,7 +136,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const action = formData.get("action") as string;
 
   // Security: Plan validation
-  const ALLOWED_PLANS = ['pro', 'max', 'ultra', 'contact-enterprise'];
+  const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'contact-enterprise'];
   const planType = action?.replace('subscribe-', '');
 
   if (action?.startsWith('subscribe-') && !ALLOWED_PLANS.includes(planType)) {
@@ -164,11 +164,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Security: Log subscription attempts
   console.log(`[Billing] ${session.shop} attempting action: ${action}`);
 
-  // No free plan anymore - handle legacy requests
+  // Handle free plan subscription
   if (action === "subscribe-free") {
-    console.log(`[Billing] ${session.shop} requested free plan (no longer available)`);
-    await logBillingAttempt(session.shop, action, "free", false, "Free plan no longer available", request);
-    return json({ success: false, error: "Free plan is no longer available. Please choose Pro, Max, or Ultra." });
+    console.log(`[Billing] ${session.shop} switching to Free plan`);
+    // Free plan - just return success (no billing required)
+    await logBillingAttempt(session.shop, action, "free", true, null, request);
+    return json({ success: true, message: "Switched to Free plan" });
   }
 
   if (action === "subscribe-pro") {
@@ -309,6 +310,23 @@ export default function BillingPage() {
   const currentPlan = data.currentPlanName;
 
   const individualPlans = [
+    {
+      name: "Free",
+      id: "free",
+      price: "$0",
+      description: "Perfect for small stores just starting out",
+      features: [
+        "Up to 500 customers",
+        "Up to 100 orders/month",
+        "Basic tier management",
+        "Store credit system",
+        "Email support",
+        "Basic analytics"
+      ],
+      buttonText: currentPlan === "RewardsPro Free" ? "Current Plan" : "Switch to Free",
+      isCurrentPlan: currentPlan === "RewardsPro Free",
+      recommended: false
+    },
     {
       name: "Pro",
       id: "pro",

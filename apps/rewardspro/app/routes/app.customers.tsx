@@ -1413,12 +1413,6 @@ export default function Customers() {
         // Handle bulk tier calculation
       },
     },
-    {
-      content: 'Export',
-      onAction: () => {
-        // Handle export
-      },
-    },
   ];
 
   // Table rows for IndexTable

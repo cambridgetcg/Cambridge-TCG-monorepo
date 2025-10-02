@@ -12,6 +12,23 @@ export interface ManagedPlan {
 }
 
 export const MANAGED_PLANS: Record<string, ManagedPlan> = {
+  "RewardsPro Free": {
+    name: "RewardsPro Free",
+    displayName: "Free",
+    price: 0,
+    interval: "month",
+    ordersIncluded: 100,
+    overageRate: 0,
+    features: [
+      "Up to 500 customers",
+      "Up to 100 orders/month",
+      "Basic tier management",
+      "Store credit system",
+      "Email support",
+      "Basic analytics"
+    ],
+    isFree: true
+  },
   "RewardsPro Pro": {
     name: "RewardsPro Pro",
     displayName: "Pro",
@@ -70,48 +87,56 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
 export const PLAN_COMPARISON = [
   {
     feature: "Customers",
+    free: "500 max",
     pro: "2,000 max",
     max: "Unlimited",
     ultra: "Unlimited",
   },
   {
     feature: "Orders Included",
+    free: "100/month",
     pro: "500/month",
     max: "2,000/month",
     ultra: "Unlimited",
   },
   {
     feature: "Overage Rate",
+    free: "Not available",
     pro: "$10/100 orders",
     max: "$5/100 orders",
     ultra: "None",
   },
   {
     feature: "Batch Processing",
+    free: "—",
     pro: "✓",
     max: "✓",
     ultra: "✓",
   },
   {
     feature: "Tier Memberships",
+    free: "—",
     pro: "—",
     max: "✓",
     ultra: "✓",
   },
   {
     feature: "Email Marketing",
+    free: "—",
     pro: "1,000/month",
     max: "5,000/month",
     ultra: "Unlimited",
   },
   {
     feature: "White Label",
+    free: "—",
     pro: "—",
     max: "✓",
     ultra: "✓ Full",
   },
   {
     feature: "Support",
+    free: "Email",
     pro: "Priority",
     max: "Advanced",
     ultra: "Dedicated",
@@ -123,8 +148,8 @@ export function getPlanDetails(
   activeSubscription?: { name: string; status: string } | null,
   currentPlan?: { planName: string; status: string } | null
 ): ManagedPlan {
-  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Pro";
-  return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Pro"];
+  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
+  return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
 }
 
 // Helper function to calculate usage metrics
@@ -148,7 +173,7 @@ export function calculateUsageMetrics(
   planDetails?: ManagedPlan
 ): UsageMetrics {
   const currentUsage = monthlyOrderUsage?.orderCount || 0;
-  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 500;
+  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 100;
   const projectedUsage = monthlyOrderUsage?.projectedOrders || 0;
 
   const usagePercentage = Math.min(Math.round((currentUsage / planLimit) * 100), 100);
