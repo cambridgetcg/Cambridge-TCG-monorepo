@@ -537,7 +537,31 @@ async function getCustomerSpendingFromDB(
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
       whereClause.shopifyCreatedAt = { gte: oneYearAgo };
+      console.log(`[TierCalc] ANNUAL filter: orders after ${oneYearAgo.toISOString()}`);
     }
+
+    console.log(`[TierCalc] Aggregate query where clause:`, JSON.stringify(whereClause, null, 2));
+
+    // First check if customer has any orders
+    const orderCount = await db.order.count({
+      where: { shop, customerId }
+    });
+    console.log(`[TierCalc] Total orders for customer: ${orderCount}`);
+
+    // Debug: List all orders for this customer
+    const allOrders = await db.order.findMany({
+      where: { shop, customerId },
+      select: {
+        id: true,
+        shopifyOrderName: true,
+        totalPrice: true,
+        financialStatus: true,
+        cashbackEligible: true,
+        shopifyCreatedAt: true,
+        createdAt: true
+      }
+    });
+    console.log(`[TierCalc] Customer's orders:`, JSON.stringify(allOrders, null, 2));
 
     // Aggregate spending from orders
     const orderStats = await db.order.aggregate({
@@ -554,11 +578,14 @@ async function getCustomerSpendingFromDB(
       }
     });
 
-    const totalSpent = Number(orderStats._sum.totalPrice || 0);
-    const totalRefunded = Number(orderStats._sum.totalRefunded || 0);
+    console.log(`[TierCalc] Aggregate result:`, JSON.stringify(orderStats, null, 2));
+
+    const totalSpent = Number(orderStats._sum?.totalPrice || 0);
+    const totalRefunded = Number(orderStats._sum?.totalRefunded || 0);
+    const orderCountResult = orderStats._count?.id || 0;
     const netSpending = totalSpent - totalRefunded;
 
-    console.log(`[TierCalc] DB spending for customer ${customerId}: $${netSpending} (${orderStats._count.id} orders)`);
+    console.log(`[TierCalc] DB spending for customer ${customerId}: $${netSpending} (${orderCountResult} eligible orders out of ${orderCount} total)`);
 
     return {
       customerId,
