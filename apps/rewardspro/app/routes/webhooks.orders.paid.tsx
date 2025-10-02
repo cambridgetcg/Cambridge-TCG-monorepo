@@ -8,7 +8,7 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
-import { calculateCustomerTier } from "../services/tier-calculation.server";
+import { calculateCustomerTierFromDB } from "../services/tier-calculation.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
@@ -714,22 +714,22 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
 async function checkTierProgression(_dbOrTx: any, params: {
   shop: string;
   customerId: string;
-  admin: any;
+  admin: any;  // Not used with local DB calculation, but kept for compatibility
   orderId?: string;
 }) {
-  const { shop, customerId, admin, orderId } = params;
+  const { shop, customerId, orderId } = params;
 
-  if (!customerId || !admin) {
+  if (!customerId) {
     return;
   }
 
   try {
-    // Calculate tier based on customer's total spending from Shopify
-    // This uses the Shopify API to get real-time, accurate spending data
-    console.log(`[OrderPaid] Starting tier calculation for customer ${customerId}`, orderId ? `triggered by order ${orderId}` : '');
+    // Calculate tier based on customer's spending from LOCAL DATABASE
+    // This is more reliable than Shopify API calls and includes the just-processed order
+    console.log(`[OrderPaid] Starting tier calculation from LOCAL DB for customer ${customerId}`, orderId ? `triggered by order ${orderId}` : '');
 
-    // Pass order context for proper tier change logging
-    const result = await calculateCustomerTier(shop, customerId, admin, {
+    // Use local database for tier calculation (more reliable, includes current order)
+    const result = await calculateCustomerTierFromDB(shop, customerId, {
       orderId: orderId,
       triggerType: 'SPENDING_MILESTONE'
     });

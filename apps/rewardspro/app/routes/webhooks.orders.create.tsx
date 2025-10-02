@@ -1,15 +1,19 @@
 /**
  * Orders/Create Webhook Handler
- * 
+ *
  * This webhook triggers when a new order is created in Shopify.
  * It syncs the customer's store credit from Shopify to our database.
- * 
+ *
  * Flow:
  * 1. Receive order/create webhook
  * 2. Extract customer information
  * 3. Fetch current store credit from Shopify
  * 4. Update local database with synced credit
  * 5. Create ledger entry for the sync
+ *
+ * Note: Tier calculation has been removed from this webhook to prevent
+ * duplicate processing. The orders/paid webhook handles tier progression
+ * using complete order data from the local database.
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
@@ -274,65 +278,19 @@ export async function action({ request }: ActionFunctionArgs) {
         console.log(`[OrdersCreateWebhook] Credit unchanged, updated customer stats only`);
       }
     }
-    
+
     // ========================================================================
-    // CALCULATE AND UPDATE TIER (if applicable)
+    // TIER CALCULATION REMOVED
     // ========================================================================
-    
-    const totalSpent = parseFloat(order.customer.total_spent || "0");
-    
-    // Get all tiers for this shop
-    const tiers = await db.tier.findMany({
-      where: { shop: shop },
-      orderBy: { minSpend: 'asc' }  // Order by lowest spend first (correct order)
-    });
+    // Tier calculation has been moved to the orders/paid webhook to avoid:
+    // 1. Duplicate tier changes (create fires before paid)
+    // 2. Race conditions between webhooks
+    // 3. Inconsistent data (create uses Shopify API, paid uses local DB)
+    // 4. Double notifications to customers
+    //
+    // The orders/paid webhook will handle tier progression after payment is confirmed
+    // using the local database which includes the current order.
 
-    if (tiers.length > 0) {
-      // Find highest tier based on spending
-      let appropriateTier = null;
-      for (const tier of tiers) {
-        if (totalSpent >= tier.minSpend) {
-          // Keep assigning to get the highest qualifying tier
-          appropriateTier = tier;
-        } else {
-          // Since tiers are sorted ASC, we can break when we find one we don't qualify for
-          break;
-        }
-      }
-      
-      if (appropriateTier && dbCustomer.currentTierId !== appropriateTier.id) {
-        // Update customer tier
-        await db.customer.update({
-          where: { id: dbCustomer.id },
-          data: {
-            currentTierId: appropriateTier.id,
-            updatedAt: new Date()
-          }
-        });
-
-        // Log tier change
-        await db.tierChangeLog.create({
-          data: {
-            id: uuidv4(),
-            customerId: dbCustomer.id,
-            shop: shop,
-            fromTierId: dbCustomer.currentTierId,
-            fromTierName: dbCustomer.currentTierId ? (await db.tier.findFirst({ where: { id: dbCustomer.currentTierId, shop } }))?.name || null : null,
-            toTierId: appropriateTier.id,
-            toTierName: appropriateTier.name,
-            changeType: dbCustomer.currentTierId ? 'UPGRADE' : 'INITIAL_ASSIGNMENT',
-            triggerType: 'ORDER',
-            totalSpending: totalSpent,
-            orderId: order.id.toString(),
-            reason: `Order created: Total spent ${totalSpent} qualifies for ${appropriateTier.name}`,
-            createdAt: new Date()
-          }
-        });
-
-        console.log(`[OrdersCreateWebhook] Updated tier to ${appropriateTier.name}`);
-      }
-    }
-    
     // ========================================================================
     // RETURN SUCCESS
     // ========================================================================

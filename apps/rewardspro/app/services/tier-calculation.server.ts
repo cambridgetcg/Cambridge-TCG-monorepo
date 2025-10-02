@@ -44,7 +44,189 @@ interface CustomerSpending {
 // ============================================
 
 /**
- * Calculate and update tier for a single customer
+ * Calculate and update tier for a single customer using LOCAL DATABASE
+ * Optimized for webhooks - uses local data instead of Shopify API
+ */
+export async function calculateCustomerTierFromDB(
+  shop: string,
+  customerId: string,
+  context?: {
+    orderId?: string;
+    triggerType?: string;
+  }
+): Promise<TierCalculationResult> {
+  try {
+    console.log(`[TierCalc] Calculating tier from LOCAL DB for customer ${customerId}`);
+
+    // Check if customer has a manual override
+    const hasOverride = await hasManualOverride(customerId);
+
+    if (hasOverride) {
+      console.log(`[TierCalc] Customer ${customerId} has manual tier override - skipping calculation`);
+
+      // Get current tier info for response
+      const customer = await db.customer.findFirst({
+        where: {
+          id: customerId,
+          shop: shop
+        }
+      });
+
+      let currentTier = null;
+      if (customer?.currentTierId) {
+        currentTier = await db.tier.findUnique({
+          where: { id: customer.currentTierId }
+        });
+      }
+
+      return {
+        customerId,
+        previousTierId: customer?.currentTierId || null,
+        previousTierName: currentTier?.name || null,
+        newTierId: customer?.currentTierId || null,
+        newTierName: currentTier?.name || null,
+        totalSpending: 0,
+        changed: false,
+        error: "Customer has manual tier override - calculation skipped"
+      };
+    }
+
+    // Get customer data
+    const customer = await db.customer.findFirst({
+      where: {
+        id: customerId,
+        shop: shop
+      }
+    });
+
+    // Get current tier separately if exists
+    let currentTier = null;
+    if (customer?.currentTierId) {
+      currentTier = await db.tier.findUnique({
+        where: { id: customer.currentTierId }
+      });
+    }
+
+    if (!customer) {
+      throw new Error(`Customer ${customerId} not found`);
+    }
+
+    // Get all tiers for the shop
+    const tiers = await db.tier.findMany({
+      where: { shop },
+      orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
+    });
+
+    if (tiers.length === 0) {
+      console.log(`[TierCalc] No tiers configured for shop ${shop}`);
+      return {
+        customerId,
+        previousTierId: customer.currentTierId,
+        previousTierName: currentTier?.name || null,
+        newTierId: null,
+        newTierName: null,
+        totalSpending: 0,
+        changed: false
+      };
+    }
+
+    // Find the highest tier the customer qualifies for using LOCAL DATABASE
+    let qualifyingTier = null;
+    let highestQualifyingSpend = 0;
+
+    for (const tier of tiers) {
+      // Calculate spending from LOCAL DATABASE for THIS tier's evaluation period
+      const spending = await getCustomerSpendingFromDB(
+        shop,
+        customerId,
+        tier.evaluationPeriod || 'LIFETIME'
+      );
+
+      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${tier.evaluationPeriod}, customerSpending=${spending.totalSpending}`);
+
+      // Check if customer qualifies for this tier
+      if (spending.totalSpending >= tier.minSpend) {
+        console.log(`[TierCalc] Customer qualifies for ${tier.name}`);
+
+        // Track the highest tier they qualify for
+        if (!qualifyingTier || tier.minSpend > qualifyingTier.minSpend) {
+          qualifyingTier = tier;
+          highestQualifyingSpend = spending.totalSpending;
+          console.log(`[TierCalc] New best tier: ${tier.name}`);
+        }
+      }
+    }
+
+    console.log(`[TierCalc] Final result - Customer ${customerId} qualifies for tier: ${qualifyingTier?.name || 'None'} with spending: ${highestQualifyingSpend}`);
+
+    // Check if tier needs to change
+    const tierChanged = qualifyingTier?.id !== customer.currentTierId;
+
+    if (tierChanged) {
+      // Update customer's tier
+      await db.customer.update({
+        where: { id: customerId },
+        data: {
+          currentTierId: qualifyingTier?.id || null,
+          updatedAt: new Date()
+        }
+      });
+
+      // Log the tier change
+      await db.tierChangeLog.create({
+        data: {
+          id: uuidv4(),
+          customerId,
+          shop,
+          fromTierId: customer.currentTierId,
+          fromTierName: currentTier?.name || null,
+          toTierId: qualifyingTier?.id || null,
+          toTierName: qualifyingTier?.name || null,
+          changeType: determineTierChangeType(customer.currentTierId, qualifyingTier?.id),
+          triggerType: context?.triggerType || 'SPENDING_MILESTONE',
+          totalSpending: highestQualifyingSpend,
+          periodSpending: highestQualifyingSpend,
+          orderId: context?.orderId || null,
+          metadata: {
+            evaluationPeriod: qualifyingTier?.evaluationPeriod || 'LIFETIME',
+            calculatedAt: new Date().toISOString(),
+            source: 'local_db',
+            triggeredBy: context?.orderId ? 'webhook' : 'manual'
+          },
+          createdAt: new Date()
+        }
+      });
+
+      console.log(`[TierCalc] Customer ${customerId} tier changed from ${currentTier?.name || 'None'} to ${qualifyingTier?.name || 'None'}`);
+    }
+
+    return {
+      customerId,
+      previousTierId: customer.currentTierId,
+      previousTierName: currentTier?.name || null,
+      newTierId: qualifyingTier?.id || null,
+      newTierName: qualifyingTier?.name || null,
+      totalSpending: highestQualifyingSpend,
+      changed: tierChanged
+    };
+  } catch (error) {
+    console.error(`[TierCalc] Error calculating tier from DB for customer ${customerId}:`, error);
+    return {
+      customerId,
+      previousTierId: null,
+      previousTierName: null,
+      newTierId: null,
+      newTierName: null,
+      totalSpending: 0,
+      changed: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Calculate and update tier for a single customer using SHOPIFY API
+ * Used by admin UI for accurate, real-time calculation
  */
 export async function calculateCustomerTier(
   shop: string,
@@ -292,6 +474,93 @@ export async function calculateAllCustomerTiers(
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+/**
+ * Get customer spending from LOCAL DATABASE
+ * Used by webhooks for faster, more reliable calculation
+ */
+async function getCustomerSpendingFromDB(
+  shop: string,
+  customerId: string,
+  evaluationPeriod: 'ANNUAL' | 'LIFETIME'
+): Promise<CustomerSpending> {
+  try {
+    console.log(`[TierCalc] Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
+
+    // Get customer to ensure we have the right one
+    const customer = await db.customer.findFirst({
+      where: {
+        id: customerId,
+        shop
+      }
+    });
+
+    if (!customer) {
+      console.log(`[TierCalc] Customer ${customerId} not found in local DB`);
+      return {
+        customerId,
+        shopifyCustomerId: '',
+        totalSpending: 0,
+        orderCount: 0,
+        lastOrderDate: null
+      };
+    }
+
+    let whereClause: any = {
+      shop,
+      customerId,
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] },
+      cashbackEligible: true // Exclude tier product orders
+    };
+
+    // Add date filter for annual evaluation
+    if (evaluationPeriod === 'ANNUAL') {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      whereClause.shopifyCreatedAt = { gte: oneYearAgo };
+    }
+
+    // Aggregate spending from orders
+    const orderStats = await db.order.aggregate({
+      where: whereClause,
+      _sum: {
+        totalPrice: true,
+        totalRefunded: true
+      },
+      _count: {
+        id: true
+      },
+      _max: {
+        shopifyCreatedAt: true
+      }
+    });
+
+    const totalSpent = Number(orderStats._sum.totalPrice || 0);
+    const totalRefunded = Number(orderStats._sum.totalRefunded || 0);
+    const netSpending = totalSpent - totalRefunded;
+
+    console.log(`[TierCalc] DB spending for customer ${customerId}: $${netSpending} (${orderStats._count.id} orders)`);
+
+    return {
+      customerId,
+      shopifyCustomerId: customer.shopifyCustomerId,
+      totalSpending: Math.max(0, netSpending),
+      orderCount: orderStats._count.id || 0,
+      lastOrderDate: orderStats._max.shopifyCreatedAt || null
+    };
+  } catch (error) {
+    console.error(`[TierCalc] Error fetching spending from DB for customer ${customerId}:`, error);
+
+    // Return zero spending on error (keeps customer in current tier)
+    return {
+      customerId,
+      shopifyCustomerId: '',
+      totalSpending: 0,
+      orderCount: 0,
+      lastOrderDate: null
+    };
+  }
+}
 
 /**
  * Get customer spending from Shopify orders
