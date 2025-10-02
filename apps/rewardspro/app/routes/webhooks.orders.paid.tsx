@@ -135,6 +135,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Check for tier progression
           if (order.customer?.id) {
+            console.log(`[OrderPaid] Looking for customer with shopifyCustomerId: ${order.customer.id}`);
+
             const dbCustomer = await db.customer.findFirst({
               where: {
                 shop: shop!,
@@ -143,13 +145,45 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             });
 
             if (dbCustomer) {
+              console.log(`[OrderPaid] Found customer ${dbCustomer.id}, checking tier progression...`);
               await checkTierProgression(db, {
                 shop: shop!,
                 customerId: dbCustomer.id,
                 admin: admin, // Pass the admin context from webhook
                 orderId: order.id?.toString() // Pass order ID for logging
               });
+            } else {
+              console.log(`[OrderPaid] Customer not found in database for Shopify ID: ${order.customer.id}`);
+              // Customer might not exist yet - let's create them
+              const customerId = crypto.randomUUID();
+              await db.customer.create({
+                data: {
+                  id: customerId,
+                  shop: shop!,
+                  shopifyCustomerId: order.customer.id.toString(),
+                  email: order.customer?.email || order.email || `customer_${order.customer.id}@shop.com`,
+                  firstName: order.customer?.first_name || null,
+                  lastName: order.customer?.last_name || null,
+                  storeCredit: 0,
+                  totalSpent: 0,
+                  netSpent: 0,
+                  orderCount: 0,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }
+              });
+              console.log(`[OrderPaid] Created customer ${customerId}, now checking tier progression...`);
+
+              // Now check tier progression for the new customer
+              await checkTierProgression(db, {
+                shop: shop!,
+                customerId: customerId,
+                admin: admin,
+                orderId: order.id?.toString()
+              });
             }
+          } else {
+            console.log(`[OrderPaid] No customer ID in order, skipping tier progression`);
           }
         } catch (e) {
           console.error(`[OrderPaid] Error in post-processing:`, e);
@@ -474,7 +508,7 @@ async function processCashback(tx: any, params: {
     // Create ledger entry in local database
     const newBalance = customer.storeCredit + cashbackAmount;
 
-    const ledgerEntry = await tx.storeCreditLedger.create({
+    await tx.storeCreditLedger.create({
       data: {
         id: ledgerId,
         customerId: customer.id,
@@ -484,7 +518,7 @@ async function processCashback(tx: any, params: {
         type: 'CASHBACK_EARNED',
         shopifyOrderId: order.id.toString(),
         orderId: orderRecord.id,
-        syncStatus: 'PENDING', // Mark as pending sync to Shopify
+        // Removed syncStatus field - doesn't exist in production schema
         metadata: {
           orderId: order.id,
           orderName: order.name,
@@ -492,7 +526,8 @@ async function processCashback(tx: any, params: {
           cashbackPercent: currentTier.cashbackPercent,
           tierName: currentTier.name,
           description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
-          paymentBreakdown: breakdown
+          paymentBreakdown: breakdown,
+          syncStatus: 'PENDING' // Store in metadata instead
         },
         createdAt: now,
       }

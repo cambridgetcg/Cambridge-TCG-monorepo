@@ -56,13 +56,19 @@ export async function calculateCustomerTierFromDB(
   }
 ): Promise<TierCalculationResult> {
   try {
-    console.log(`[TierCalc] Calculating tier from LOCAL DB for customer ${customerId}`);
+    console.log(`[TierCalc-DB] ========== Starting Tier Calculation ==========`);
+    console.log(`[TierCalc-DB] Customer ID: ${customerId}`);
+    console.log(`[TierCalc-DB] Shop: ${shop}`);
+    if (context?.orderId) {
+      console.log(`[TierCalc-DB] Triggered by Order: ${context.orderId}`);
+    }
+    console.log(`[TierCalc-DB] Using LOCAL DATABASE for calculation`);
 
     // Check if customer has a manual override
     const hasOverride = await hasManualOverride(customerId);
 
     if (hasOverride) {
-      console.log(`[TierCalc] Customer ${customerId} has manual tier override - skipping calculation`);
+      console.log(`[TierCalc-DB] Customer ${customerId} has manual tier override - skipping calculation`);
 
       // Get current tier info for response
       const customer = await db.customer.findFirst({
@@ -99,15 +105,23 @@ export async function calculateCustomerTierFromDB(
       }
     });
 
+    console.log(`[TierCalc-DB] Customer found: ${customer ? 'YES' : 'NO'}`);
+    if (customer) {
+      console.log(`[TierCalc-DB] Current tier ID: ${customer.currentTierId || 'none'}`);
+      console.log(`[TierCalc-DB] Shopify Customer ID: ${customer.shopifyCustomerId}`);
+    }
+
     // Get current tier separately if exists
     let currentTier = null;
     if (customer?.currentTierId) {
       currentTier = await db.tier.findUnique({
         where: { id: customer.currentTierId }
       });
+      console.log(`[TierCalc-DB] Current tier name: ${currentTier?.name || 'not found'}`);
     }
 
     if (!customer) {
+      console.error(`[TierCalc-DB] ERROR: Customer ${customerId} not found in database`);
       throw new Error(`Customer ${customerId} not found`);
     }
 
@@ -117,8 +131,13 @@ export async function calculateCustomerTierFromDB(
       orderBy: { minSpend: 'asc' } // Order by lowest spend first (correct order)
     });
 
+    console.log(`[TierCalc-DB] Found ${tiers.length} tiers for shop ${shop}`);
+    tiers.forEach(tier => {
+      console.log(`[TierCalc-DB]   - ${tier.name}: minSpend=$${tier.minSpend}, cashback=${tier.cashbackPercent}%, period=${tier.evaluationPeriod}`);
+    });
+
     if (tiers.length === 0) {
-      console.log(`[TierCalc] No tiers configured for shop ${shop}`);
+      console.log(`[TierCalc-DB] WARNING: No tiers configured for shop ${shop}`);
       return {
         customerId,
         previousTierId: customer.currentTierId,
