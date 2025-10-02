@@ -230,20 +230,42 @@ export async function hasManualOverride(
       console.log(`[hasManualOverride] Permanent override flag is TRUE - checking for removals...`);
 
       // Check if there's been any manual removal of the override after this
-      const removalAfterOverride = await db.tierChangeLog.findFirst({
+      // Note: We can't use JSON path queries with Aurora Data API, so we fetch all
+      // MANUAL_ADMIN entries after the override and check them manually
+      const laterManualChanges = await db.tierChangeLog.findMany({
         where: {
           customerId,
           createdAt: { gt: permanentOverride.createdAt },
-          triggerType: 'MANUAL_ADMIN',
-          OR: [
-            // Check for explicit removal
-            { note: { contains: 'override removed' } },
-            // Check for a new manual assignment without permanent flag
-            { metadata: { path: ['permanentOverride'], equals: false } }
-          ]
+          triggerType: 'MANUAL_ADMIN'
         },
         orderBy: { createdAt: 'desc' }
       });
+
+      // Check each entry to see if it's a removal or a new assignment without permanent flag
+      let removalAfterOverride = null;
+      for (const entry of laterManualChanges) {
+        // Check for explicit removal note
+        if (entry.note && entry.note.includes('override removed')) {
+          removalAfterOverride = entry;
+          break;
+        }
+
+        // Parse metadata and check for permanentOverride: false
+        let entryMetadata = entry.metadata as any;
+        if (typeof entryMetadata === 'string') {
+          try {
+            entryMetadata = JSON.parse(entryMetadata);
+          } catch (error) {
+            continue; // Skip unparseable metadata
+          }
+        }
+
+        // If there's a newer manual change with permanentOverride explicitly set to false, that counts as removal
+        if (entryMetadata && entryMetadata.permanentOverride === false) {
+          removalAfterOverride = entry;
+          break;
+        }
+      }
 
       console.log(`[hasManualOverride] Removal after override:`, removalAfterOverride ? {
         id: removalAfterOverride.id,
