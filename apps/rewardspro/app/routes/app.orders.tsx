@@ -38,6 +38,7 @@ import {
   ButtonGroup,
   ActionList,
   ProgressBar,
+  useIndexResourceState,
 } from "@shopify/polaris";
 import { CreditAdjustmentForm } from "~/components/StoreCredit/CreditAdjustmentForm";
 import {
@@ -1190,6 +1191,68 @@ export default function OrdersPage() {
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
+  // Selection state for bulk actions
+  const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } =
+    useIndexResourceState(orders);
+
+  // Bulk actions for selected orders
+  const bulkActions = useMemo(() => {
+    const actions = [];
+
+    // Check if any selected orders have pending cashback
+    const selectedOrders = orders.filter(order => selectedResources.includes(order.id));
+    const pendingCashbackOrders = selectedOrders.filter(order => {
+      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
+      const hasCustomer = !!(
+        order.customer &&
+        order.customer.id &&
+        order.customer.id !== "unknown" &&
+        order.customer.shopifyCustomerId
+      );
+      const hasPositiveCashback = cashbackAmountNum > 0;
+      const isNotProcessed = !order.cashbackProcessed;
+      return hasCustomer && hasPositiveCashback && isNotProcessed;
+    });
+
+    if (pendingCashbackOrders.length > 0) {
+      actions.push({
+        content: `Process cashback (${pendingCashbackOrders.length})`,
+        onAction: () => {
+          const confirmMessage = `Process cashback for ${pendingCashbackOrders.length} selected order${pendingCashbackOrders.length > 1 ? 's' : ''}?`;
+          if (window.confirm(confirmMessage)) {
+            setIsProcessingAll(true);
+            setProcessAllProgress({ current: 0, total: pendingCashbackOrders.length });
+            submit(
+              {
+                action: "process-all-cashback",
+                orderIds: pendingCashbackOrders.map(o => o.id).join(',')
+              },
+              { method: "post" }
+            );
+            clearSelection();
+          }
+        },
+      });
+    }
+
+    // Add export action if orders are selected
+    if (selectedOrders.length > 0) {
+      actions.push({
+        content: `Export ${selectedOrders.length} order${selectedOrders.length > 1 ? 's' : ''}`,
+        onAction: () => {
+          // TODO: Implement export functionality
+          setToast({
+            active: true,
+            content: 'Export functionality coming soon',
+            error: false
+          });
+        },
+      });
+    }
+
+    return actions;
+  }, [selectedResources, orders, submit, clearSelection]);
+
   // Handle clear filters
   const handleClearAll = useCallback(() => {
     setQueryValue("");
@@ -1197,7 +1260,8 @@ export default function OrdersPage() {
     setCashbackFilter("all");
     setSelectedPageSize("25");
     setSearchParams({});
-  }, [setSearchParams]);
+    clearSelection(); // Also clear selection
+  }, [setSearchParams, clearSelection]);
 
   // Handle page size change
   const handlePageSizeChange = useCallback((value: string) => {
@@ -1504,6 +1568,7 @@ export default function OrdersPage() {
     <IndexTable.Row
       id={order.id}
       key={order.id}
+      selected={selectedResources.includes(order.id)}
       position={index}
       onClick={() => handleViewOrder(order.id)}
     >
@@ -1723,6 +1788,11 @@ export default function OrdersPage() {
                       plural: "orders",
                     }}
                     itemCount={orders.length}
+                    selectedItemsCount={
+                      allResourcesSelected ? 'All' : selectedResources.length
+                    }
+                    onSelectionChange={handleSelectionChange}
+                    bulkActions={bulkActions}
                     headings={[
                       { title: "Order" },
                       { title: "Date" },
@@ -1733,7 +1803,7 @@ export default function OrdersPage() {
                       { title: "Cashback Status" },
                       { title: "Actions" },
                     ]}
-                    selectable={false}
+                    selectable={true}
                   >
                     {rowMarkup}
                   </IndexTable>
