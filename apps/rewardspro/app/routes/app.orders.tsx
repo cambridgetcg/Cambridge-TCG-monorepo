@@ -74,6 +74,7 @@ interface Order {
   shopifyOrderId: string;
   shopifyOrderNumber: string;
   shopifyOrderName: string;
+  customerId?: string; // The customer ID field from the order
   customer: {
     id: string;
     email: string;
@@ -282,6 +283,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const cashbackAmountNumber = order.cashbackAmount ? Number(order.cashbackAmount) : null;
       return {
         ...order,
+        customerId: order.customerId, // Include the customerId field
         cashbackAmount: cashbackAmountNumber,
         totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
         totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : null,
@@ -984,16 +986,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             if (enableDebugLog) {
               debugLog.push(`[CHECK] Order ID: ${order.id}`);
               debugLog.push(`[CHECK] Has customer object: ${!!order.customer}`);
-              debugLog.push(`[CHECK] Customer ID: ${order.customer?.id || 'none'}`);
+              debugLog.push(`[CHECK] Order customerId field: ${order.customerId || 'none'}`);
+              debugLog.push(`[CHECK] Customer object ID: ${order.customer?.id || 'none'}`);
               debugLog.push(`[CHECK] Shopify Customer ID: ${order.customer?.shopifyCustomerId || 'MISSING'}`);
               debugLog.push(`[CHECK] Cashback amount: ${order.cashbackAmount || 0}`);
             }
 
-            if (!order.customer || !order.customer.shopifyCustomerId) {
+            // Try to fetch customer if not included or if customerId field exists
+            let customer = order.customer;
+
+            // If no customer object but has customerId, try to fetch it
+            if (!customer && order.customerId && order.customerId !== "unknown") {
+              if (enableDebugLog) {
+                debugLog.push(`[FETCH] No customer object, fetching by customerId: ${order.customerId}`);
+              }
+
+              customer = await db.customer.findFirst({
+                where: {
+                  id: order.customerId,
+                  shop
+                },
+                include: {
+                  currentTier: true
+                }
+              });
+
+              if (enableDebugLog) {
+                debugLog.push(`[FETCH] Customer fetch result: ${customer ? `found ${customer.email}` : 'not found'}`);
+              }
+            }
+
+            // Now check if we have a valid customer with Shopify ID
+            if (!customer || !customer.shopifyCustomerId) {
               failCount++;
-              const msg = `Order ${order.shopifyOrderId || order.shopifyOrderName}: No customer or Shopify ID`;
+              const msg = `Order ${order.shopifyOrderId || order.shopifyOrderName}: No customer or missing Shopify ID`;
               errors.push(msg);
-              if (enableDebugLog) debugLog.push(`[SKIP] ${msg}`);
+              if (enableDebugLog) {
+                debugLog.push(`[SKIP] ${msg}`);
+                if (order.customerId) {
+                  debugLog.push(`[DEBUG] Order has customerId: ${order.customerId} but customer not found or no Shopify ID`);
+                }
+              }
               continue;
             }
 
@@ -1008,7 +1041,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
             // Add store credit through Shopify GraphQL (same as individual processing)
             const currency = order.currency || 'USD';
-            const gidCustomerId = `gid://shopify/Customer/${order.customer.shopifyCustomerId}`;
+            const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
 
             if (enableDebugLog) {
               debugLog.push(`[GRAPHQL] Preparing mutation for customer GID: ${gidCustomerId}`);
@@ -1081,13 +1114,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               const shopifyTransactionId = transaction.id;
 
             // Get current totalCashbackEarned to calculate new value
-            const currentTotalCashback = order.customer.totalCashbackEarned
-              ? parseFloat(order.customer.totalCashbackEarned.toString())
+            const currentTotalCashback = customer.totalCashbackEarned
+              ? parseFloat(customer.totalCashbackEarned.toString())
               : 0;
 
               // Update customer balance
               await db.customer.update({
-                where: { id: order.customer.id },
+                where: { id: customer.id },
                 data: {
                   storeCredit: newBalance,
                   totalCashbackEarned: currentTotalCashback + amount,
@@ -1110,7 +1143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   data: {
                     id: uuidv4(),
                     shop,
-                    customerId: order.customer.id,
+                    customerId: customer.id,
                     amount: amount,
                     balance: newBalance,
                     type: 'CASHBACK_EARNED',
@@ -1145,7 +1178,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
               successCount++;
               if (enableDebugLog) {
-                debugLog.push(`[SUCCESS] Order ${order.shopifyOrderName} processed successfully`);
+                debugLog.push(`[SUCCESS] Order ${order.shopifyOrderName} processed successfully for customer ${customer.email}`);
               }
             } catch (error) {
               failCount++;
@@ -1359,9 +1392,10 @@ export default function OrdersPage() {
         order.customer.id !== "unknown" &&
         order.customer.shopifyCustomerId
       );
-      // Alternative check using customerId field directly (from test page)
+      // Alternative check: order has customerId that could be fetched
+      // This handles cases where customer relation wasn't included but ID exists
       const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
-      // Use either check for customer validity (same as test page)
+      // Order qualifies if it has either a customer object OR a valid customerId
       const hasValidCustomer = hasCustomer || hasCustomerId;
       const hasPositiveCashback = cashbackAmountNum > 0;
       const isNotProcessed = !order.cashbackProcessed;
@@ -1559,10 +1593,11 @@ export default function OrdersPage() {
         order.customer.shopifyCustomerId // Also check for Shopify ID
       );
 
-      // Alternative check using customerId field directly (from test page)
+      // Alternative check: order has customerId that could be fetched
+      // This handles cases where customer relation wasn't included but ID exists
       const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
 
-      // Use either check for customer validity (same as test page)
+      // Order qualifies if it has either a customer object OR a valid customerId
       const hasValidCustomer = hasCustomer || hasCustomerId;
 
       const hasPositiveCashback = cashbackAmountNum > 0;
@@ -1617,9 +1652,12 @@ export default function OrdersPage() {
     if (confirmModalData.orders && confirmModalData.orders.length > 0) {
       const sampleOrder = confirmModalData.orders[0];
       logEntries.push(`[SAMPLE] First order: ${sampleOrder.shopifyOrderName || sampleOrder.id}`);
-      logEntries.push(`[CUSTOMER] Has customer: ${!!sampleOrder.customer}`);
+      logEntries.push(`[CUSTOMER] Has customer object: ${!!sampleOrder.customer}`);
+      logEntries.push(`[CUSTOMER_ID] Has customerId field: ${!!sampleOrder.customerId && sampleOrder.customerId !== 'unknown'}`);
       if (sampleOrder.customer) {
         logEntries.push(`[SHOPIFY_ID] Customer Shopify ID: ${sampleOrder.customer.shopifyCustomerId || 'MISSING'}`);
+      } else if (sampleOrder.customerId && sampleOrder.customerId !== 'unknown') {
+        logEntries.push(`[CUSTOMER_ID] Order customerId: ${sampleOrder.customerId} (will be fetched on server)`);
       }
       logEntries.push(`[CASHBACK] Amount: ${sampleOrder.cashbackAmount || 0}`);
     }
@@ -1752,10 +1790,11 @@ export default function OrdersPage() {
         order.customer.shopifyCustomerId // Also check for Shopify ID
       );
 
-      // Alternative check using customerId field directly (from test page)
+      // Alternative check: order has customerId that could be fetched
+      // This handles cases where customer relation wasn't included but ID exists
       const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
 
-      // Use either check for customer validity (same as test page)
+      // Order qualifies if it has either a customer object OR a valid customerId
       const hasValidCustomer = hasCustomer || hasCustomerId;
 
       const hasPositiveCashback = cashbackAmountNum > 0;
