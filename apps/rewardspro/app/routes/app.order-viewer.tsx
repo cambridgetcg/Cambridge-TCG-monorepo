@@ -103,9 +103,53 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     // Calculate aggregate stats - handle potential null/undefined
-    let aggregateStats = null;
+    // NOTE: Aurora Data API aggregates may return null for _sum operations
+    // We'll calculate manually from the orders array as a more reliable approach
+
+    console.log(`[OrderViewer] Calculating stats for ${orders.length} orders`);
+
+    // Calculate stats manually from fetched orders
+    let allOrdersStats = {
+      count: orders.length,
+      totalPrice: 0,
+      totalRefunded: 0,
+      cashbackAmount: 0,
+    };
+
+    let aggregateStats = {
+      count: 0,
+      totalPrice: 0,
+      totalRefunded: 0,
+      cashbackAmount: 0,
+    };
+
+    // Process each order for stats calculation
+    for (const order of orders) {
+      const price = order.totalPrice ? parseFloat(order.totalPrice.toString()) : 0;
+      const refunded = order.totalRefunded ? parseFloat(order.totalRefunded.toString()) : 0;
+      const cashback = order.cashbackAmount ? parseFloat(order.cashbackAmount.toString()) : 0;
+
+      // Add to all orders stats
+      allOrdersStats.totalPrice += price;
+      allOrdersStats.totalRefunded += refunded;
+      allOrdersStats.cashbackAmount += cashback;
+
+      // Add to eligible orders stats if eligible
+      if (order.cashbackEligible &&
+          (order.financialStatus === "PAID" || order.financialStatus === "PARTIALLY_REFUNDED")) {
+        aggregateStats.count++;
+        aggregateStats.totalPrice += price;
+        aggregateStats.totalRefunded += refunded;
+        aggregateStats.cashbackAmount += cashback;
+      }
+    }
+
+    console.log(`[OrderViewer] All orders stats:`, allOrdersStats);
+    console.log(`[OrderViewer] Eligible orders stats:`, aggregateStats);
+
+    // Try Aurora aggregate as well for debugging
     try {
-      const stats = await db.order.aggregate({
+      const auroraStats = await db.order.aggregate({
         where: {
           customerId: customer.id,
           shop: session.shop,
@@ -122,49 +166,14 @@ export async function action({ request }: ActionFunctionArgs) {
         },
       });
 
-      // Convert Decimal to number for JSON serialization
-      aggregateStats = {
-        count: stats._count?.id || 0,
-        totalPrice: stats._sum?.totalPrice ? Number(stats._sum.totalPrice) : 0,
-        totalRefunded: stats._sum?.totalRefunded ? Number(stats._sum.totalRefunded) : 0,
-        cashbackAmount: stats._sum?.cashbackAmount ? Number(stats._sum.cashbackAmount) : 0,
-      };
+      console.log(`[OrderViewer] Aurora aggregate result:`, JSON.stringify(auroraStats, null, 2));
+
+      // If Aurora returns valid data, use it for comparison
+      if (auroraStats._count?.id) {
+        console.log(`[OrderViewer] Aurora says ${auroraStats._count.id} eligible orders vs manual count of ${aggregateStats.count}`);
+      }
     } catch (aggError) {
-      console.error("[OrderViewer] Aggregate error:", aggError);
-      aggregateStats = {
-        count: 0,
-        totalPrice: 0,
-        totalRefunded: 0,
-        cashbackAmount: 0,
-      };
-    }
-
-    // Also get aggregate for ALL orders (not just eligible)
-    let allOrdersStats = null;
-    try {
-      const allStats = await db.order.aggregate({
-        where: {
-          customerId: customer.id,
-          shop: session.shop,
-        },
-        _sum: {
-          totalPrice: true,
-          totalRefunded: true,
-          cashbackAmount: true,
-        },
-        _count: {
-          id: true,
-        },
-      });
-
-      allOrdersStats = {
-        count: allStats._count?.id || 0,
-        totalPrice: allStats._sum?.totalPrice ? Number(allStats._sum.totalPrice) : 0,
-        totalRefunded: allStats._sum?.totalRefunded ? Number(allStats._sum.totalRefunded) : 0,
-        cashbackAmount: allStats._sum?.cashbackAmount ? Number(allStats._sum.cashbackAmount) : 0,
-      };
-    } catch (err) {
-      console.error("[OrderViewer] All orders aggregate error:", err);
+      console.error("[OrderViewer] Aurora aggregate error:", aggError);
     }
 
     // Serialize orders to handle Decimal types
