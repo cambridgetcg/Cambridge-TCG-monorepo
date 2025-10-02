@@ -38,6 +38,7 @@ import { createOrderSyncService } from "../services/order-sync.service";
 import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
+import { v4 as uuidv4 } from "uuid";
 
 // ============= TYPES =============
 type Currency = 
@@ -613,12 +614,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const { session, admin, billing } = await authenticate.admin(request);
-    
+
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
     }
 
     const shop = session.shop;
+
+    // Get active subscription for downgrade handling
+    let activeSubscription = null;
+    if (billing) {
+      try {
+        const { appSubscriptions } = await billing.check({
+          plans: [],
+          isTest: process.env.NODE_ENV === 'development',
+        });
+        activeSubscription = appSubscriptions?.[0];
+      } catch (err) {
+        console.log("[Settings Action] Could not fetch active subscription");
+      }
+    }
     
     // Rate limiting
     checkRateLimit(shop);
@@ -724,6 +739,51 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         console.error("[Settings Action] Error requesting plan:", billingError);
         return json({ error: "Failed to request billing plan" }, { status: 500 });
+      }
+    }
+
+    // Handle downgrade to free plan
+    if (intent === "downgrade-to-free") {
+      if (!billing) {
+        return json({ error: "Billing not configured" }, { status: 500 });
+      }
+
+      try {
+        console.log(`[Settings Action] ${shop} downgrading to Free plan`);
+
+        // Cancel current subscription if exists
+        if (activeSubscription) {
+          await billing.cancel({
+            subscriptionId: activeSubscription.id,
+            prorate: true
+          }).catch((err: any) => {
+            console.log("[Settings Action] No active subscription to cancel or already on free plan");
+          });
+        }
+
+        // Log the downgrade
+        await db.billingAuditLog.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            action: "downgrade-to-free",
+            planName: "RewardsPro Free",
+            success: true,
+            ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+            userAgent: request.headers.get("user-agent") || "unknown",
+            attemptedAt: new Date()
+          }
+        });
+
+        return json({
+          success: true,
+          message: "Successfully switched to Free plan"
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error downgrading to free:", error);
+        return json({
+          error: "Failed to downgrade to free plan. Please try again."
+        }, { status: 500 });
       }
     }
 
@@ -1274,21 +1334,83 @@ export default function SettingsPage() {
 
                   {/* Billing Tab */}
                   {selectedTab === 4 && (
-                    <CurrentPlanCard
-                      activeSubscription={activeSubscription}
-                      currentPlan={currentPlan}
-                      monthlyOrderUsage={{
-                        orderCount: monthlyOrderUsage?.orderCount || 0,
-                        planLimit: monthlyOrderUsage?.planLimit || 200,
-                        projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
-                        currentMonth: currentMonth
-                      }}
-                      showUpgradeButton={true}
-                      showOverageBanner={true}
-                      showCountStrategy={false}
-                      showProjectedUsage={true}
-                      onUpgrade={() => navigate("/app/billing/plans")}
-                    />
+                    <BlockStack gap="600">
+                      <CurrentPlanCard
+                        activeSubscription={activeSubscription}
+                        currentPlan={currentPlan}
+                        monthlyOrderUsage={{
+                          orderCount: monthlyOrderUsage?.orderCount || 0,
+                          planLimit: monthlyOrderUsage?.planLimit || 200,
+                          projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
+                          currentMonth: currentMonth
+                        }}
+                        showUpgradeButton={true}
+                        showOverageBanner={true}
+                        showCountStrategy={false}
+                        showProjectedUsage={true}
+                        onUpgrade={() => navigate("/app/billing/plans")}
+                      />
+
+                      <Divider />
+
+                      {/* Downgrade Section */}
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h3">
+                          Subscription Management
+                        </Text>
+
+                        {activeSubscription && activeSubscription.name !== "RewardsPro Free" ? (
+                          <BlockStack gap="300">
+                            <Text variant="bodyMd" tone="subdued">
+                              Need to reduce costs? You can downgrade your subscription or switch to our free plan.
+                            </Text>
+
+                            <InlineStack gap="200">
+                              <Button
+                                variant="secondary"
+                                onClick={() => navigate("/app/billing/plans")}
+                              >
+                                Change Plan
+                              </Button>
+
+                              {/* Show free plan option only for downgrades */}
+                              <Button
+                                variant="plain"
+                                tone="critical"
+                                onClick={() => {
+                                  if (confirm("Are you sure you want to switch to the free plan? You will lose access to premium features.")) {
+                                    fetcher.submit(
+                                      { intent: "downgrade-to-free" },
+                                      { method: "post" }
+                                    );
+                                  }
+                                }}
+                              >
+                                Switch to Free Plan (100 orders/month)
+                              </Button>
+                            </InlineStack>
+
+                            <Banner tone="info">
+                              <Text variant="bodySm">
+                                <strong>Free Plan includes:</strong> Up to 100 orders/month, 500 customers max, basic tier management, store credit system, and email support.
+                              </Text>
+                            </Banner>
+                          </BlockStack>
+                        ) : (
+                          <BlockStack gap="300">
+                            <Text variant="bodyMd">
+                              You're currently on the free plan. Ready to grow?
+                            </Text>
+                            <Button
+                              variant="primary"
+                              onClick={() => navigate("/app/billing/plans")}
+                            >
+                              View Upgrade Options
+                            </Button>
+                          </BlockStack>
+                        )}
+                      </BlockStack>
+                    </BlockStack>
                   )}
                 </Box>
               </Tabs>

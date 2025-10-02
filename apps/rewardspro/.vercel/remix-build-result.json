@@ -51,6 +51,7 @@
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-order-strategies": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.test-pending-orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscription-demo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -449,6 +450,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.test-pending-orders": {
+        "id": "routes/app.test-pending-orders",
+        "parentId": "routes/app",
+        "file": "app/routes/app.test-pending-orders.tsx",
+        "path": "test-pending-orders",
         "config": {
           "runtime": "nodejs"
         }
@@ -893,6 +903,12 @@
         "parentId": "routes/app",
         "file": "routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback"
+      },
+      "routes/app.test-pending-orders": {
+        "id": "routes/app.test-pending-orders",
+        "parentId": "routes/app",
+        "file": "routes/app.test-pending-orders.tsx",
+        "path": "test-pending-orders"
       },
       "routes/app.subscription-demo": {
         "id": "routes/app.subscription-demo",

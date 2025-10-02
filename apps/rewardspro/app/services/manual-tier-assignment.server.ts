@@ -187,32 +187,65 @@ export async function hasManualOverride(
   customerId: string
 ): Promise<boolean> {
   try {
-    // Check the most recent tier change
-    const lastChange = await db.tierChangeLog.findFirst({
-      where: { customerId },
+    // Look for the most recent MANUAL_ADMIN change with permanentOverride
+    // This ensures we find permanent overrides even if there were automatic calculations after
+    const permanentOverride = await db.tierChangeLog.findFirst({
+      where: {
+        customerId,
+        triggerType: 'MANUAL_ADMIN'
+      },
       orderBy: { createdAt: 'desc' }
     });
 
-    if (!lastChange) {
-      return false;
-    }
-
-    // Check if it was a manual change
-    if (lastChange.triggerType !== 'MANUAL_ADMIN') {
+    if (!permanentOverride) {
       return false;
     }
 
     // Check if it has a permanent override flag
-    const metadata = lastChange.metadata as any;
+    const metadata = permanentOverride.metadata as any;
     if (metadata?.permanentOverride === true) {
-      return true;
+      // Check if there's been any manual removal of the override after this
+      const removalAfterOverride = await db.tierChangeLog.findFirst({
+        where: {
+          customerId,
+          createdAt: { gt: permanentOverride.createdAt },
+          triggerType: 'MANUAL_ADMIN',
+          OR: [
+            // Check for explicit removal
+            { note: { contains: 'override removed' } },
+            // Check for a new manual assignment without permanent flag
+            { metadata: { path: ['permanentOverride'], equals: false } }
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // If no removal found, the permanent override is still active
+      return !removalAfterOverride;
     }
 
     // Check if temporary override is still active
     if (metadata?.overrideDuration) {
-      const overrideDate = new Date(lastChange.createdAt);
+      const overrideDate = new Date(permanentOverride.createdAt);
       overrideDate.setDate(overrideDate.getDate() + metadata.overrideDuration);
-      return overrideDate > new Date();
+
+      // Check if the temporary override is still within the duration
+      if (overrideDate > new Date()) {
+        // Also check if it hasn't been manually removed
+        const removalAfterOverride = await db.tierChangeLog.findFirst({
+          where: {
+            customerId,
+            createdAt: {
+              gt: permanentOverride.createdAt,
+              lt: overrideDate // Within the override period
+            },
+            triggerType: 'MANUAL_ADMIN',
+            note: { contains: 'override removed' }
+          }
+        });
+
+        return !removalAfterOverride;
+      }
     }
 
     return false;
@@ -231,16 +264,43 @@ export async function removeManualOverride(
   adminUserId: string
 ): Promise<TierAssignmentResult> {
   try {
-    // For now, just log that override is being removed
-    // The next automatic calculation will update the tier
+    // Get current customer data
+    const customer = await db.customer.findFirst({
+      where: {
+        id: customerId,
+        shop: shop
+      }
+    });
+
+    if (!customer) {
+      return {
+        success: false,
+        customerId,
+        previousTierId: null,
+        previousTierName: null,
+        newTierId: null,
+        newTierName: null,
+        error: "Customer not found"
+      };
+    }
+
+    // Get current tier details
+    let currentTier = null;
+    if (customer.currentTierId) {
+      currentTier = await db.tier.findUnique({
+        where: { id: customer.currentTierId }
+      });
+    }
+
+    // Log that override is being removed
     await db.tierChangeLog.create({
       data: {
         id: uuidv4(),
         customerId,
         shop,
-        fromTierId: null,
-        fromTierName: null,
-        toTierId: null,
+        fromTierId: customer.currentTierId,
+        fromTierName: currentTier?.name || null,
+        toTierId: null, // Will be recalculated
         toTierName: null,
         changeType: 'INITIAL_ASSIGNMENT', // Will be recalculated
         triggerType: 'MANUAL_ADMIN',
@@ -249,6 +309,7 @@ export async function removeManualOverride(
         metadata: {
           action: "remove_override",
           adminUserId,
+          permanentOverride: false, // Explicitly mark as not having override
           timestamp: new Date().toISOString()
         },
         createdAt: new Date()
@@ -258,8 +319,8 @@ export async function removeManualOverride(
     return {
       success: true,
       customerId,
-      previousTierId: null,
-      previousTierName: null,
+      previousTierId: customer.currentTierId,
+      previousTierName: currentTier?.name || null,
       newTierId: null,
       newTierName: null,
       message: "Manual override removed. Tier will be recalculated on next review."

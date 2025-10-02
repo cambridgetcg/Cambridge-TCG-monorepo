@@ -1080,29 +1080,6 @@ export default function BillingPage() {
               </Card>
             </BlockStack>
           </Layout.Section>
-
-          {/* Hidden Free Plan Option - Subtle link at bottom */}
-          <Layout.Section>
-            <Box paddingBlockStart="800">
-              <div style={{ textAlign: 'center', opacity: 0.6 }}>
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Looking for a free option? We also offer a{' '}
-                  <Button
-                    variant="plain"
-                    size="slim"
-                    onClick={() => handleSubscribe('free')}
-                    loading={navigation.state === 'submitting'}
-                    disabled={currentPlan === "RewardsPro Free"}
-                  >
-                    <span style={{ textDecoration: 'underline' }}>
-                      {currentPlan === "RewardsPro Free" ? "Free plan (current)" : "Free plan"}
-                    </span>
-                  </Button>
-                  {' '}with up to 100 orders/month for stores just starting out.
-                </Text>
-              </div>
-            </Box>
-          </Layout.Section>
         </Layout>
 
         {/* Enterprise Contact Modal */}
