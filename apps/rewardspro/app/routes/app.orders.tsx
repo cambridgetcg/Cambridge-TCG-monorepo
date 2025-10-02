@@ -1147,21 +1147,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     amount: amount,
                     balance: newBalance,
                     type: 'CASHBACK_EARNED',
-                    description: `Loyalty reward - Order ${order.shopifyOrderId}`,
                     shopifyOrderId: order.shopifyOrderId,
                     orderId: order.id,
+                    shopifyTransactionId: shopifyTransactionId,
+                    syncStatus: "SYNCED",
+                    syncedAt: new Date(),
                     metadata: {
+                      description: `Loyalty reward - Order ${order.shopifyOrderId}`,
                       orderNumber: order.shopifyOrderNumber,
                       orderName: order.shopifyOrderName,
                       cashbackPercent: order.cashbackPercent,
                       tierName: order.tierNameAtOrder,
-                      processedBy: "batch",
-                      syncStatus: "SYNCED",
-                      syncedAt: new Date().toISOString(),
-                      shopifyTransactionId: shopifyTransactionId
+                      processedBy: "batch"
                     },
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
+                    createdAt: new Date()
                   },
                 });
               }
