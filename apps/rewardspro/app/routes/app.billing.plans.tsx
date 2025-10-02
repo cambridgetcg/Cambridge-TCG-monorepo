@@ -42,25 +42,6 @@ interface Plan {
 
 const PLANS: Plan[] = [
   {
-    id: "RewardsPro Free",
-    name: "RewardsPro Free",
-    displayName: "Free",
-    price: 0,
-    interval: "month",
-    ordersIncluded: 100,
-    description: "Perfect for small stores just getting started",
-    features: [
-      "Up to 500 total customers",
-      "Up to 100 orders/month",
-      "Basic loyalty tiers",
-      "Store credit tracking",
-      "Customer management",
-      "Standard email notifications",
-      "Basic analytics",
-      "Community support",
-    ],
-  },
-  {
     id: "RewardsPro Pro",
     name: "RewardsPro Pro",
     displayName: "Pro",
@@ -211,9 +192,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.error("[Billing Plans] Error checking subscription:", error);
   }
 
-  // If no active plan, default to free
+  // If no active plan, default to Pro (lowest paid plan)
   if (!currentPlan) {
-    currentPlan = "RewardsPro Free";
+    currentPlan = "RewardsPro Pro";
   }
 
   return json({

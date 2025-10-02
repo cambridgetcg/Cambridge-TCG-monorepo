@@ -27,7 +27,7 @@ import {
   Collapsible
 } from "@shopify/polaris";
 import { CheckCircleIcon, PhoneIcon, EmailIcon, ChevronDownIcon, ChevronUpIcon } from "@shopify/polaris-icons";
-import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
+import { authenticate, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -103,11 +103,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const activeSubscription = appSubscriptions?.[0];
 
     // Determine current plan name
-    let currentPlanName = 'RewardsPro Free';
+    let currentPlanName = 'RewardsPro Pro'; // Default to Pro if no active subscription
     if (activeSubscription?.name === 'RewardsPro Pro') {
       currentPlanName = 'RewardsPro Pro';
     } else if (activeSubscription?.name === 'RewardsPro Max') {
       currentPlanName = 'RewardsPro Max';
+    } else if (activeSubscription?.name === 'RewardsPro Ultra') {
+      currentPlanName = 'RewardsPro Ultra';
     } else if (activeSubscription?.name === 'RewardsPro Enterprise') {
       currentPlanName = 'RewardsPro Enterprise';
     }
@@ -134,7 +136,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const action = formData.get("action") as string;
 
   // Security: Plan validation
-  const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'contact-enterprise'];
+  const ALLOWED_PLANS = ['pro', 'max', 'ultra', 'contact-enterprise'];
   const planType = action?.replace('subscribe-', '');
 
   if (action?.startsWith('subscribe-') && !ALLOWED_PLANS.includes(planType)) {
@@ -162,11 +164,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Security: Log subscription attempts
   console.log(`[Billing] ${session.shop} attempting action: ${action}`);
 
+  // No free plan anymore - handle legacy requests
   if (action === "subscribe-free") {
-    console.log(`[Billing] ${session.shop} switching to Free plan`);
-    // Free plan - just return success (no billing required)
-    await logBillingAttempt(session.shop, action, "free", true, null, request);
-    return json({ success: true, message: "Switched to Free plan" });
+    console.log(`[Billing] ${session.shop} requested free plan (no longer available)`);
+    await logBillingAttempt(session.shop, action, "free", false, "Free plan no longer available", request);
+    return json({ success: false, error: "Free plan is no longer available. Please choose Pro, Max, or Ultra." });
   }
 
   if (action === "subscribe-pro") {
@@ -308,34 +310,18 @@ export default function BillingPage() {
 
   const individualPlans = [
     {
-      name: "Free",
-      id: "free",
-      price: "$0",
-      description: "Perfect for small businesses just getting started with loyalty",
-      features: [
-        "Up to 100 customers",
-        "Basic tier system",
-        "Store credit tracking",
-        "Email support",
-        "Basic analytics"
-      ],
-      buttonText: currentPlan === "RewardsPro Free" ? "Current Plan" : "Downgrade to Free",
-      isCurrentPlan: currentPlan === "RewardsPro Free",
-      recommended: false
-    },
-    {
       name: "Pro",
       id: "pro",
       price: "$49",
       description: "Everything you need to grow your loyalty program",
       features: [
-        "Unlimited customers",
-        "Advanced tier management",
-        "Automated cashback",
+        "Up to 2,000 customers",
+        "500 orders/month",
+        "Batch processing cashback",
+        "1,000 emails/month",
         "Priority support",
         "Advanced analytics",
-        "Custom branding",
-        "API access"
+        "$10 per 100 extra orders"
       ],
       buttonText: currentPlan === "RewardsPro Pro" ? "Current Plan" : "Upgrade to Pro",
       isCurrentPlan: currentPlan === "RewardsPro Pro",
@@ -344,20 +330,39 @@ export default function BillingPage() {
     {
       name: "Max",
       id: "max",
-      price: "$199",
+      price: "$149",
       description: "For established businesses with advanced needs",
       features: [
-        "Everything in Pro",
-        "White-label options",
-        "Dedicated account manager",
-        "Custom integrations",
-        "Advanced reporting",
+        "Unlimited customers",
+        "2,000 orders/month",
+        "Sell tier memberships",
+        "White label email",
+        "5,000 emails/month",
+        "Advanced analytics",
         "Phone support",
-        "SLA guarantee",
-        "Custom features on request"
+        "$5 per 100 extra orders"
       ],
       buttonText: currentPlan === "RewardsPro Max" ? "Current Plan" : "Upgrade to Max",
       isCurrentPlan: currentPlan === "RewardsPro Max",
+      recommended: false
+    },
+    {
+      name: "Ultra",
+      id: "ultra",
+      price: "$499",
+      description: "Unlimited everything for growing enterprises",
+      features: [
+        "Unlimited customers",
+        "Unlimited orders",
+        "Unlimited emails",
+        "Full white label solution",
+        "Custom SMTP integration",
+        "A/B testing",
+        "Dedicated support",
+        "No overage charges"
+      ],
+      buttonText: currentPlan === "RewardsPro Ultra" ? "Current Plan" : "Upgrade to Ultra",
+      isCurrentPlan: currentPlan === "RewardsPro Ultra",
       recommended: false
     }
   ];
@@ -368,7 +373,7 @@ export default function BillingPage() {
     price: "Custom",
     description: "Tailored solutions for large-scale operations",
     features: [
-      "Everything in Max",
+      "Everything in Ultra",
       "Custom modules & features",
       "Dedicated infrastructure",
       "Multi-store support",
@@ -856,7 +861,7 @@ export default function BillingPage() {
                           disclosure={faqOpen.freeLimit ? "up" : "down"}
                         >
                           <Text as="p" variant="bodyMd" fontWeight="semibold">
-                            What happens when I exceed the Free plan limits?
+                            What happens when I exceed my plan limits?
                           </Text>
                         </Button>
                         <Collapsible
@@ -866,7 +871,7 @@ export default function BillingPage() {
                         >
                           <Box paddingBlockStart="200">
                             <Text as="p" variant="bodyMd" tone="subdued">
-                              When you reach the 100 customer limit on the Free plan, you won't be able to add new customers to your loyalty program until you upgrade. Your existing customers will continue to earn and redeem rewards normally. We'll notify you when you're approaching the limit so you can upgrade seamlessly.
+                              Pro and Max plans have overage pricing for orders beyond your monthly limit. Pro plan charges $10 per 100 additional orders, Max plan charges $5 per 100 additional orders. Ultra plan has no limits - everything is unlimited. We'll notify you when you're approaching your limits so you can upgrade if needed.
                             </Text>
                           </Box>
                         </Collapsible>
@@ -897,7 +902,7 @@ export default function BillingPage() {
                         >
                           <Box paddingBlockStart="200">
                             <Text as="p" variant="bodyMd" tone="subdued">
-                              Yes! All paid plans come with a 14-day free trial. You won't be charged until the trial ends, and you can cancel anytime during the trial without any charges. The Free plan is always free and doesn't require a trial.
+                              Yes! All plans come with a 14-day free trial. You won't be charged until the trial ends, and you can cancel anytime during the trial without any charges.
                             </Text>
                           </Box>
                         </Collapsible>
@@ -928,7 +933,7 @@ export default function BillingPage() {
                         >
                           <Box paddingBlockStart="200">
                             <Text as="p" variant="bodyMd" tone="subdued">
-                              Yes, you can cancel your subscription at any time with no cancellation fees. When you cancel, you'll continue to have access to the paid features until the end of your current billing cycle. After that, your account will automatically switch to the Free plan.
+                              Yes, you can cancel your subscription at any time with no cancellation fees. When you cancel, you'll continue to have access to the paid features until the end of your current billing cycle. After that, you'll need to select a new plan to continue using the app.
                             </Text>
                           </Box>
                         </Collapsible>
@@ -1050,7 +1055,7 @@ export default function BillingPage() {
                         >
                           <Box paddingBlockStart="200">
                             <Text as="p" variant="bodyMd" tone="subdued">
-                              Free plan includes email support with 48-hour response time. Pro plan includes priority email support with 24-hour response time and access to our knowledge base. Max plan adds phone support and a dedicated account manager. Enterprise includes 24/7 phone & email support with a dedicated success team.
+                              Pro plan includes priority email support with 24-hour response time and access to our knowledge base. Max plan adds phone support and white label features. Ultra plan includes dedicated support with no limits on anything. Enterprise includes 24/7 phone & email support with a dedicated success team.
                             </Text>
                           </Box>
                         </Collapsible>

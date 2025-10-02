@@ -12,52 +12,56 @@ export interface ManagedPlan {
 }
 
 export const MANAGED_PLANS: Record<string, ManagedPlan> = {
-  "RewardsPro Free": {
-    name: "RewardsPro Free",
-    displayName: "Free",
-    price: 0,
+  "RewardsPro Pro": {
+    name: "RewardsPro Pro",
+    displayName: "Pro",
+    price: 49,
     interval: "month",
-    ordersIncluded: 200,
-    overageRate: 0,
+    ordersIncluded: 500,
+    overageRate: 0.10, // $10 per 100 orders = $0.10 per order
     features: [
-      "200 orders per month",
-      "All core features included",
-      "Basic tier management",
-      "Store credit system",
-      "Customer analytics"
-    ],
-    isFree: true
-  },
-  "RewardsPro Monthly": {
-    name: "RewardsPro Monthly",
-    displayName: "Monthly",
-    price: 9.99,
-    interval: "month",
-    ordersIncluded: 1000,
-    overageRate: 0.01,
-    features: [
-      "1,000 orders per month",
-      "All core features included",
-      "Advanced tier management",
-      "Priority support",
-      "API access"
+      "Up to 2,000 total customers",
+      "Up to 500 orders/month",
+      "$10 per 100 additional orders",
+      "Batch processing cashback",
+      "1,000 emails/month",
+      "Priority support"
     ],
     isFree: false
   },
-  "RewardsPro Annual": {
-    name: "RewardsPro Annual",
-    displayName: "Annual",
-    price: 99.99,
-    interval: "year",
-    ordersIncluded: 12000,
-    overageRate: 0.008,
+  "RewardsPro Max": {
+    name: "RewardsPro Max",
+    displayName: "Max",
+    price: 149,
+    interval: "month",
+    ordersIncluded: 2000,
+    overageRate: 0.05, // $5 per 100 orders = $0.05 per order
     features: [
-      "12,000 orders per year",
-      "All core features included",
-      "Advanced tier management",
-      "Priority support",
-      "API access",
-      "20% annual discount"
+      "Unlimited customers",
+      "Up to 2,000 orders/month",
+      "$5 per 100 additional orders",
+      "Sell tier memberships",
+      "White label email",
+      "5,000 emails/month",
+      "Advanced analytics"
+    ],
+    isFree: false
+  },
+  "RewardsPro Ultra": {
+    name: "RewardsPro Ultra",
+    displayName: "Ultra",
+    price: 499,
+    interval: "month",
+    ordersIncluded: 999999, // Effectively unlimited
+    overageRate: 0,
+    features: [
+      "Unlimited everything",
+      "Unlimited customers",
+      "Unlimited orders",
+      "Unlimited emails",
+      "Full white label solution",
+      "Custom SMTP integration",
+      "Dedicated support"
     ],
     isFree: false
   }
@@ -65,46 +69,52 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
 
 export const PLAN_COMPARISON = [
   {
+    feature: "Customers",
+    pro: "2,000 max",
+    max: "Unlimited",
+    ultra: "Unlimited",
+  },
+  {
     feature: "Orders Included",
-    free: "200/month",
-    monthly: "1,000/month",
-    annual: "12,000/year",
-  },
-  {
-    feature: "Tier Management",
-    free: "✓ Basic",
-    monthly: "✓ Advanced",
-    annual: "✓ Advanced",
-  },
-  {
-    feature: "Store Credit System",
-    free: "✓",
-    monthly: "✓",
-    annual: "✓",
-  },
-  {
-    feature: "Customer Analytics",
-    free: "✓",
-    monthly: "✓",
-    annual: "✓",
-  },
-  {
-    feature: "Priority Support",
-    free: "—",
-    monthly: "✓",
-    annual: "✓",
-  },
-  {
-    feature: "API Access",
-    free: "—",
-    monthly: "✓",
-    annual: "✓",
+    pro: "500/month",
+    max: "2,000/month",
+    ultra: "Unlimited",
   },
   {
     feature: "Overage Rate",
-    free: "N/A",
-    monthly: "$0.01/order",
-    annual: "$0.008/order",
+    pro: "$10/100 orders",
+    max: "$5/100 orders",
+    ultra: "None",
+  },
+  {
+    feature: "Batch Processing",
+    pro: "✓",
+    max: "✓",
+    ultra: "✓",
+  },
+  {
+    feature: "Tier Memberships",
+    pro: "—",
+    max: "✓",
+    ultra: "✓",
+  },
+  {
+    feature: "Email Marketing",
+    pro: "1,000/month",
+    max: "5,000/month",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "White Label",
+    pro: "—",
+    max: "✓",
+    ultra: "✓ Full",
+  },
+  {
+    feature: "Support",
+    pro: "Priority",
+    max: "Advanced",
+    ultra: "Dedicated",
   }
 ];
 
@@ -113,8 +123,8 @@ export function getPlanDetails(
   activeSubscription?: { name: string; status: string } | null,
   currentPlan?: { planName: string; status: string } | null
 ): ManagedPlan {
-  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
-  return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
+  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Pro";
+  return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Pro"];
 }
 
 // Helper function to calculate usage metrics
@@ -138,7 +148,7 @@ export function calculateUsageMetrics(
   planDetails?: ManagedPlan
 ): UsageMetrics {
   const currentUsage = monthlyOrderUsage?.orderCount || 0;
-  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 200;
+  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 500;
   const projectedUsage = monthlyOrderUsage?.projectedOrders || 0;
 
   const usagePercentage = Math.min(Math.round((currentUsage / planLimit) * 100), 100);
