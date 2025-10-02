@@ -1138,7 +1138,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               });
 
               if (!existingLedger) {
-                // Create ledger entry
+                // Create ledger entry - put potentially missing columns in metadata
                 await db.storeCreditLedger.create({
                   data: {
                     id: uuidv4(),
@@ -1149,16 +1149,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     type: 'CASHBACK_EARNED',
                     shopifyOrderId: order.shopifyOrderId,
                     orderId: order.id,
-                    shopifyTransactionId: shopifyTransactionId,
-                    syncStatus: "SYNCED",
-                    syncedAt: new Date(),
                     metadata: {
                       description: `Loyalty reward - Order ${order.shopifyOrderId}`,
                       orderNumber: order.shopifyOrderNumber,
                       orderName: order.shopifyOrderName,
                       cashbackPercent: order.cashbackPercent,
                       tierName: order.tierNameAtOrder,
-                      processedBy: "batch"
+                      processedBy: "batch",
+                      // Store these in metadata in case columns don't exist in DB
+                      shopifyTransactionId: shopifyTransactionId,
+                      syncStatus: "SYNCED",
+                      syncedAt: new Date().toISOString()
                     },
                     createdAt: new Date()
                   },
