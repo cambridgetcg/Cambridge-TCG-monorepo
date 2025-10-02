@@ -951,86 +951,135 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               continue;
             }
 
-            // Add store credit through Shopify API
-            const result = await addStoreCredit(
-              admin,
-              order.customer.shopifyCustomerId,
-              amount,
-              order.currency || 'USD',
-              `Loyalty reward - Order ${order.shopifyOrderId}`
-            );
+            // Add store credit through Shopify GraphQL (same as individual processing)
+            const currency = order.currency || 'USD';
+            const gidCustomerId = `gid://shopify/Customer/${order.customer.shopifyCustomerId}`;
 
-            if (!result.success) {
-              failCount++;
-              errors.push(`Order ${order.shopifyOrderId}: ${result.error}`);
-              continue;
-            }
+            // Use the same GraphQL mutation as individual processing
+            const creditMutation = `#graphql
+              mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+                storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+                  storeCreditAccountTransaction {
+                    id
+                    amount {
+                      amount
+                      currencyCode
+                    }
+                    balanceAfterTransaction {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  userErrors {
+                    message
+                    field
+                    code
+                  }
+                }
+              }
+            `;
 
-            const newBalance = result.balance || (parseFloat(order.customer.storeCredit.toString()) + amount);
+            try {
+              const creditResponse = await admin.graphql(creditMutation, {
+                variables: {
+                  id: gidCustomerId,
+                  creditInput: {
+                    creditAmount: {
+                      amount: amount.toFixed(2),
+                      currencyCode: currency
+                    }
+                  }
+                }
+              });
+
+              const creditData = await creditResponse.json() as any;
+
+              if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+                const errors = creditData.data.storeCreditAccountCredit.userErrors;
+                throw new Error(errors[0].message || "Failed to add store credit");
+              }
+
+              const transaction = creditData.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
+              if (!transaction) {
+                throw new Error("No transaction returned from Shopify");
+              }
+
+              const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
+              const shopifyTransactionId = transaction.id;
 
             // Get current totalCashbackEarned to calculate new value
             const currentTotalCashback = order.customer.totalCashbackEarned
               ? parseFloat(order.customer.totalCashbackEarned.toString())
               : 0;
 
-            // Update customer balance
-            await db.customer.update({
-              where: { id: order.customer.id },
-              data: {
-                storeCredit: newBalance,
-                totalCashbackEarned: currentTotalCashback + amount,
-                updatedAt: new Date(),
-              },
-            });
-
-            // Check if ledger entry already exists
-            const existingLedger = await db.storeCreditLedger.findFirst({
-              where: {
-                shop,
-                shopifyOrderId: order.shopifyOrderId,
-                type: 'CASHBACK_EARNED'
-              }
-            });
-
-            if (!existingLedger) {
-              // Create ledger entry
-              await db.storeCreditLedger.create({
+              // Update customer balance
+              await db.customer.update({
+                where: { id: order.customer.id },
                 data: {
-                  id: uuidv4(),
-                  shop,
-                  customerId: order.customer.id,
-                  amount: amount,
-                  balance: newBalance,
-                  type: 'CASHBACK_EARNED',
-                  description: `Loyalty reward - Order ${order.shopifyOrderId}`,
-                  shopifyOrderId: order.shopifyOrderId,
-                  metadata: {
-                    processedBy: "batch",
-                    syncStatus: result.shopifyTransactionId ? "synced" : "pending",
-                    syncedAt: result.shopifyTransactionId ? new Date().toISOString() : null,
-                    shopifyTransactionId: result.shopifyTransactionId || null
-                  },
-                  createdAt: new Date(),
+                  storeCredit: newBalance,
+                  totalCashbackEarned: currentTotalCashback + amount,
                   updatedAt: new Date(),
                 },
               });
+
+              // Check if ledger entry already exists
+              const existingLedger = await db.storeCreditLedger.findFirst({
+                where: {
+                  shop,
+                  shopifyOrderId: order.shopifyOrderId,
+                  type: 'CASHBACK_EARNED'
+                }
+              });
+
+              if (!existingLedger) {
+                // Create ledger entry
+                await db.storeCreditLedger.create({
+                  data: {
+                    id: uuidv4(),
+                    shop,
+                    customerId: order.customer.id,
+                    amount: amount,
+                    balance: newBalance,
+                    type: 'CASHBACK_EARNED',
+                    description: `Loyalty reward - Order ${order.shopifyOrderId}`,
+                    shopifyOrderId: order.shopifyOrderId,
+                    orderId: order.id,
+                    metadata: {
+                      orderNumber: order.shopifyOrderNumber,
+                      orderName: order.shopifyOrderName,
+                      cashbackPercent: order.cashbackPercent,
+                      tierName: order.tierNameAtOrder,
+                      processedBy: "batch",
+                      syncStatus: "SYNCED",
+                      syncedAt: new Date().toISOString(),
+                      shopifyTransactionId: shopifyTransactionId
+                    },
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  },
+                });
+              }
+
+              // Mark order as processed
+              await db.order.update({
+                where: { id: orderId },
+                data: {
+                  cashbackProcessed: true,
+                  processedAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              });
+
+              successCount++;
+            } catch (error) {
+              failCount++;
+              errors.push(`Order ${order.shopifyOrderId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+              continue;
             }
-
-            // Update order status
-            await db.order.update({
-              where: { id: orderId },
-              data: {
-                cashbackProcessed: true, // Mark as processed
-                cashbackProcessedAt: new Date(),
-                updatedAt: new Date(),
-              },
-            });
-
-            successCount++;
-          } catch (error) {
+          } catch (outerError) {
             failCount++;
-            console.error(`Failed to process order ${orderId}:`, error);
-            errors.push(`Order ${orderId}: ${error.message}`);
+            errors.push(`Order ${orderId}: ${outerError instanceof Error ? outerError.message : 'Unknown error'}`);
+            continue;
           }
         }
 
