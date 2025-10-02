@@ -37,6 +37,9 @@ interface OrderData {
   hasPositiveCashback: boolean;
   isNotProcessed: boolean;
   qualifiesForProcessing: boolean;
+  // Additional debug fields
+  customerDbId?: string;
+  customerShopifyId?: string;
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -64,10 +67,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Process orders for diagnostic display
   const processedOrders: OrderData[] = orders.map(order => {
     const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
-    const hasCustomer = !!order.customer && order.customer.id !== "unknown";
+
+    // More detailed customer detection
+    const hasCustomer = !!(
+      order.customer &&
+      order.customer.id &&
+      order.customer.id !== "unknown" &&
+      order.customer.shopifyCustomerId // Also check for Shopify ID
+    );
+
+    // Alternative check using customerId field directly
+    const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
+
+    // Use either check for customer validity
+    const hasValidCustomer = hasCustomer || hasCustomerId;
+
     const hasPositiveCashback = cashbackAmountNum > 0;
     const isNotProcessed = !order.cashbackProcessed;
-    const qualifiesForProcessing = hasCustomer && hasPositiveCashback && isNotProcessed;
+    const qualifiesForProcessing = hasValidCustomer && hasPositiveCashback && isNotProcessed;
 
     return {
       id: order.id,
@@ -81,10 +98,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       totalPrice: order.totalPrice ? Number(order.totalPrice) : 0,
       createdAt: order.createdAt.toISOString(),
       // Diagnostic fields
-      hasCustomer,
+      hasCustomer: hasValidCustomer,
       hasPositiveCashback,
       isNotProcessed,
       qualifiesForProcessing,
+      // Additional debug fields
+      customerDbId: order.customer?.id || undefined,
+      customerShopifyId: order.customer?.shopifyCustomerId || undefined,
     };
   });
 
@@ -177,6 +197,7 @@ export default function TestPendingOrders() {
     order.shopifyOrderId,
     order.customerEmail || "N/A",
     order.customerId || "N/A",
+    `DB: ${order.customerDbId || "null"} / Shopify: ${order.customerShopifyId || "null"}`,
     formatCurrency(order.cashbackAmount, shopSettings as any),
     order.cashbackProcessed ? "✅ Yes" : "❌ No",
     order.hasCustomer ? "✅" : "❌",
@@ -277,7 +298,15 @@ export default function TestPendingOrders() {
                   </Text>
                   <Box paddingInlineStart="400">
                     <BlockStack gap="100">
-                      <Text as="p" variant="bodyMd">✅ Has a valid customer (not "unknown")</Text>
+                      <Text as="p" variant="bodyMd">✅ Has a valid customer - Checking:</Text>
+                      <Box paddingInlineStart="400">
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          • customer.id exists AND is not "unknown" AND customer.shopifyCustomerId exists
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          • OR order.customerId exists AND is not "unknown"
+                        </Text>
+                      </Box>
                       <Text as="p" variant="bodyMd">✅ Has positive cashback amount ({">"} 0)</Text>
                       <Text as="p" variant="bodyMd">✅ Is not already processed (cashbackProcessed = false)</Text>
                     </BlockStack>
@@ -322,6 +351,7 @@ export default function TestPendingOrders() {
                   "text",
                   "text",
                   "text",
+                  "text",
                   "numeric",
                   "text",
                   "text",
@@ -332,7 +362,8 @@ export default function TestPendingOrders() {
                 headings={[
                   "Order ID",
                   "Customer Email",
-                  "Customer ID",
+                  "Customer ID (Field)",
+                  "Customer IDs (DB/Shopify)",
                   "Cashback",
                   "Processed?",
                   "Has Customer?",
