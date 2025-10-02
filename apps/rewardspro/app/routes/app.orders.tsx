@@ -1396,10 +1396,10 @@ export default function OrdersPage() {
     );
   }, [submit]);
 
-  // Process all pending cashback
-  const handleProcessAllCashback = useCallback(() => {
-    // Get all pending cashback orders using the same logic as pendingCashbackCount
-    const pendingOrders = orders.filter(order => {
+  // Process qualifying orders (replaces Process All Pending)
+  const handleProcessQualifying = useCallback(() => {
+    // Get all qualifying cashback orders using the same logic as qualifyingOrdersCount
+    const qualifyingOrders = orders.filter(order => {
       const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
 
       // More detailed customer detection (same as test page)
@@ -1419,29 +1419,29 @@ export default function OrdersPage() {
       return hasValidCustomer && hasPositiveCashback && isNotProcessed;
     });
 
-    if (pendingOrders.length === 0) {
+    if (qualifyingOrders.length === 0) {
       setToast({
         active: true,
-        content: 'No pending cashback orders to process',
+        content: 'No qualifying orders to process',
         error: false
       });
       return;
     }
 
     // Confirm action
-    const confirmMessage = `Process cashback for ${pendingOrders.length} order${pendingOrders.length > 1 ? 's' : ''}?`;
+    const confirmMessage = `Process ${qualifyingOrders.length} qualifying order${qualifyingOrders.length > 1 ? 's' : ''}?`;
     if (!window.confirm(confirmMessage)) {
       return;
     }
 
     setIsProcessingAll(true);
-    setProcessAllProgress({ current: 0, total: pendingOrders.length });
+    setProcessAllProgress({ current: 0, total: qualifyingOrders.length });
 
     // Submit batch processing request
     submit(
       {
         action: "process-all-cashback",
-        orderIds: pendingOrders.map(o => o.id).join(',')
+        orderIds: qualifyingOrders.map(o => o.id).join(',')
       },
       { method: "post" }
     );
@@ -1522,9 +1522,9 @@ export default function OrdersPage() {
   };
 
   // Table rows
-  // Count pending cashback orders
-  const pendingCashbackCount = useMemo(() => {
-    const pending = orders.filter(order => {
+  // Count qualifying cashback orders (orders that qualify for processing)
+  const qualifyingOrdersCount = useMemo(() => {
+    const qualifying = orders.filter(order => {
       const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
 
       // More detailed customer detection (same as test page)
@@ -1543,7 +1543,7 @@ export default function OrdersPage() {
 
       // Debug logging
       if (cashbackAmountNum > 0) {
-        console.log('Checking order for pending:', {
+        console.log('Checking order for qualifying:', {
           orderId: order.id,
           cashbackProcessed: order.cashbackProcessed,
           cashbackAmount: cashbackAmountNum,
@@ -1560,8 +1560,8 @@ export default function OrdersPage() {
       return hasValidCustomer && hasPositiveCashback && isNotProcessed;
     });
 
-    console.log(`Found ${pending.length} pending cashback orders out of ${orders.length} total`);
-    return pending.length;
+    console.log(`Found ${qualifying.length} qualifying cashback orders out of ${orders.length} total`);
+    return qualifying.length;
   }, [orders]);
 
   const rowMarkup = orders.map((order, index) => (
@@ -1646,13 +1646,13 @@ export default function OrdersPage() {
         subtitle="Manage orders and cashback processing"
         secondaryActions={[
           {
-            content: pendingCashbackCount > 0
-              ? `Process All Pending (${pendingCashbackCount})`
-              : "Process All Pending",
+            content: qualifyingOrdersCount > 0
+              ? `Process Qualifying (${qualifyingOrdersCount})`
+              : "Process Qualifying",
             icon: CashDollarIcon,
-            onAction: handleProcessAllCashback,
+            onAction: handleProcessQualifying,
             loading: isProcessingAll,
-            disabled: navigation.state === "submitting" || pendingCashbackCount === 0,
+            disabled: navigation.state === "submitting" || qualifyingOrdersCount === 0,
           },
           {
             content: "Sync Orders",
