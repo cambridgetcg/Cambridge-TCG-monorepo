@@ -55,6 +55,7 @@
       "routes/app.test-order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.order-viewer": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.monitoring": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -489,6 +490,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.order-viewer": {
+        "id": "routes/app.order-viewer",
+        "parentId": "routes/app",
+        "file": "app/routes/app.order-viewer.tsx",
+        "path": "order-viewer",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.orders-sync": {
         "id": "routes/app.orders-sync",
         "parentId": "routes/app",
@@ -917,6 +927,12 @@
         "parentId": "routes/app",
         "file": "routes/app.tier-products.tsx",
         "path": "tier-products"
+      },
+      "routes/app.order-viewer": {
+        "id": "routes/app.order-viewer",
+        "parentId": "routes/app",
+        "file": "routes/app.order-viewer.tsx",
+        "path": "order-viewer"
       },
       "routes/app.orders-sync": {
         "id": "routes/app.orders-sync",

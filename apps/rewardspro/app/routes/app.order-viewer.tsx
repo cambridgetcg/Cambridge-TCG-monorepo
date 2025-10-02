@@ -1,5 +1,5 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useSubmit, Form } from "@remix-run/react";
+import { useLoaderData, useSubmit, Form, useActionData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import {
@@ -17,6 +17,7 @@ import {
   DataTable,
 } from "@shopify/polaris";
 import { useState } from "react";
+import type { Decimal } from "@prisma/client/runtime/library";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
@@ -44,72 +45,172 @@ export async function action({ request }: ActionFunctionArgs) {
   try {
     let customer = null;
 
-    // Find customer by either ID or Shopify ID
-    if (customerId) {
-      customer = await db.customer.findFirst({
-        where: {
-          id: customerId,
-          shop: session.shop,
-        },
-      });
-    } else if (shopifyCustomerId) {
-      customer = await db.customer.findFirst({
-        where: {
-          shopifyCustomerId: shopifyCustomerId,
-          shop: session.shop,
-        },
-      });
-    }
+    // Build where clause for customer search
+    const customerWhere: any = {
+      shop: session.shop,
+    };
 
-    if (!customer) {
+    if (customerId) {
+      customerWhere.id = customerId;
+    } else if (shopifyCustomerId) {
+      customerWhere.shopifyCustomerId = shopifyCustomerId;
+    } else {
       return json({
-        error: "Customer not found",
+        error: "Please provide either Customer ID or Shopify Customer ID",
         customer: null,
         orders: [],
+        aggregateStats: null,
         rawData: null,
       });
     }
 
-    // Fetch all orders for this customer
+    // Find customer with tier info
+    customer = await db.customer.findFirst({
+      where: customerWhere,
+      include: {
+        currentTier: true,
+      },
+    });
+
+    if (!customer) {
+      return json({
+        error: `Customer not found (searched for: ${customerId || shopifyCustomerId})`,
+        customer: null,
+        orders: [],
+        aggregateStats: null,
+        rawData: null,
+      });
+    }
+
+    // Fetch all orders for this customer using the same pattern as orders page
     const orders = await db.order.findMany({
       where: {
         customerId: customer.id,
         shop: session.shop,
       },
+      include: {
+        lineItems: {
+          take: 10, // Limit line items
+        },
+        creditLedgerEntries: {
+          orderBy: { createdAt: 'desc' },
+        },
+        refunds: true,
+      },
       orderBy: {
         shopifyCreatedAt: "desc",
       },
-      include: {
-        lineItems: true,
-      },
     });
 
-    // Calculate aggregate stats
-    const aggregateStats = await db.order.aggregate({
-      where: {
-        customerId: customer.id,
-        shop: session.shop,
-        financialStatus: { in: ["PAID", "PARTIALLY_REFUNDED"] },
-        cashbackEligible: true,
-      },
-      _sum: {
-        totalPrice: true,
-        totalRefunded: true,
-        cashbackAmount: true,
-      },
-      _count: {
-        id: true,
-      },
-    });
+    // Calculate aggregate stats - handle potential null/undefined
+    let aggregateStats = null;
+    try {
+      const stats = await db.order.aggregate({
+        where: {
+          customerId: customer.id,
+          shop: session.shop,
+          financialStatus: { in: ["PAID", "PARTIALLY_REFUNDED"] },
+          cashbackEligible: true,
+        },
+        _sum: {
+          totalPrice: true,
+          totalRefunded: true,
+          cashbackAmount: true,
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      // Convert Decimal to number for JSON serialization
+      aggregateStats = {
+        count: stats._count?.id || 0,
+        totalPrice: stats._sum?.totalPrice ? Number(stats._sum.totalPrice) : 0,
+        totalRefunded: stats._sum?.totalRefunded ? Number(stats._sum.totalRefunded) : 0,
+        cashbackAmount: stats._sum?.cashbackAmount ? Number(stats._sum.cashbackAmount) : 0,
+      };
+    } catch (aggError) {
+      console.error("[OrderViewer] Aggregate error:", aggError);
+      aggregateStats = {
+        count: 0,
+        totalPrice: 0,
+        totalRefunded: 0,
+        cashbackAmount: 0,
+      };
+    }
+
+    // Also get aggregate for ALL orders (not just eligible)
+    let allOrdersStats = null;
+    try {
+      const allStats = await db.order.aggregate({
+        where: {
+          customerId: customer.id,
+          shop: session.shop,
+        },
+        _sum: {
+          totalPrice: true,
+          totalRefunded: true,
+          cashbackAmount: true,
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      allOrdersStats = {
+        count: allStats._count?.id || 0,
+        totalPrice: allStats._sum?.totalPrice ? Number(allStats._sum.totalPrice) : 0,
+        totalRefunded: allStats._sum?.totalRefunded ? Number(allStats._sum.totalRefunded) : 0,
+        cashbackAmount: allStats._sum?.cashbackAmount ? Number(allStats._sum.cashbackAmount) : 0,
+      };
+    } catch (err) {
+      console.error("[OrderViewer] All orders aggregate error:", err);
+    }
+
+    // Serialize orders to handle Decimal types
+    const serializedOrders = orders.map((order: any) => ({
+      ...order,
+      totalPrice: order.totalPrice ? Number(order.totalPrice) : 0,
+      totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : 0,
+      netAmount: order.netAmount ? Number(order.netAmount) : 0,
+      cashbackAmount: order.cashbackAmount ? Number(order.cashbackAmount) : null,
+      lineItems: order.lineItems?.map((item: any) => ({
+        ...item,
+        price: item.price ? Number(item.price) : 0,
+        totalPrice: item.totalPrice ? Number(item.totalPrice) : 0,
+      })),
+      creditLedgerEntries: order.creditLedgerEntries?.map((entry: any) => ({
+        ...entry,
+        amount: entry.amount ? Number(entry.amount) : 0,
+        balance: entry.balance ? Number(entry.balance) : 0,
+      })),
+      refunds: order.refunds?.map((refund: any) => ({
+        ...refund,
+        amount: refund.amount ? Number(refund.amount) : 0,
+        cashbackAdjustment: refund.cashbackAdjustment ? Number(refund.cashbackAdjustment) : null,
+      })),
+    }));
+
+    // Serialize customer to handle Decimal
+    const serializedCustomer = {
+      ...customer,
+      storeCredit: customer.storeCredit ? Number(customer.storeCredit) : 0,
+      totalSpent: customer.totalSpent ? Number(customer.totalSpent) : 0,
+      totalRefunded: customer.totalRefunded ? Number(customer.totalRefunded) : 0,
+      totalCashbackEarned: customer.totalCashbackEarned ? Number(customer.totalCashbackEarned) : 0,
+      netSpent: customer.netSpent ? Number(customer.netSpent) : 0,
+    };
 
     return json({
-      customer,
-      orders,
+      customer: serializedCustomer,
+      orders: serializedOrders,
       aggregateStats,
+      allOrdersStats,
       rawData: {
-        customer,
-        orders,
+        customer: serializedCustomer,
+        orders: serializedOrders,
         aggregateStats,
+        allOrdersStats,
         orderCount: orders.length,
       },
       error: null,
@@ -120,6 +221,8 @@ export async function action({ request }: ActionFunctionArgs) {
       error: error instanceof Error ? error.message : "Failed to fetch data",
       customer: null,
       orders: [],
+      aggregateStats: null,
+      allOrdersStats: null,
       rawData: null,
     });
   }
@@ -128,7 +231,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function OrderViewer() {
   const { shop } = useLoaderData<typeof loader>();
   const submit = useSubmit();
-  const actionData = useLoaderData<typeof action>();
+  const actionData = useActionData<typeof action>();
 
   const [customerId, setCustomerId] = useState("");
   const [shopifyCustomerId, setShopifyCustomerId] = useState("");
@@ -203,7 +306,7 @@ export default function OrderViewer() {
         {actionData?.error && (
           <Layout.Section>
             <Card>
-              <Text tone="critical">{actionData.error}</Text>
+              <Text as="p" tone="critical">{actionData.error}</Text>
             </Card>
           </Layout.Section>
         )}
@@ -220,24 +323,24 @@ export default function OrderViewer() {
                   <Box padding="200" background="bg-surface-secondary">
                     <BlockStack gap="200">
                       <InlineStack gap="400">
-                        <Text fontWeight="semibold">ID:</Text>
-                        <Text>{actionData.customer.id}</Text>
+                        <Text as="span" fontWeight="semibold">ID:</Text>
+                        <Text as="span">{actionData.customer.id}</Text>
                       </InlineStack>
                       <InlineStack gap="400">
-                        <Text fontWeight="semibold">Shopify ID:</Text>
-                        <Text>{actionData.customer.shopifyCustomerId}</Text>
+                        <Text as="span" fontWeight="semibold">Shopify ID:</Text>
+                        <Text as="span">{actionData.customer.shopifyCustomerId}</Text>
                       </InlineStack>
                       <InlineStack gap="400">
-                        <Text fontWeight="semibold">Email:</Text>
-                        <Text>{actionData.customer.email}</Text>
+                        <Text as="span" fontWeight="semibold">Email:</Text>
+                        <Text as="span">{actionData.customer.email}</Text>
                       </InlineStack>
                       <InlineStack gap="400">
-                        <Text fontWeight="semibold">Current Tier:</Text>
-                        <Text>{actionData.customer.currentTierId || "None"}</Text>
+                        <Text as="span" fontWeight="semibold">Current Tier:</Text>
+                        <Text as="span">{actionData.customer.currentTierId || "None"}</Text>
                       </InlineStack>
                       <InlineStack gap="400">
-                        <Text fontWeight="semibold">Store Credit:</Text>
-                        <Text>{formatCurrency(actionData.customer.storeCredit)}</Text>
+                        <Text as="span" fontWeight="semibold">Store Credit:</Text>
+                        <Text as="span">{formatCurrency(actionData.customer.storeCredit)}</Text>
                       </InlineStack>
                     </BlockStack>
                   </Box>
@@ -249,29 +352,60 @@ export default function OrderViewer() {
               <Card>
                 <BlockStack gap="400">
                   <Text variant="headingMd" as="h2">
-                    Aggregate Statistics
+                    Order Statistics
                   </Text>
 
-                  <Box padding="200" background="bg-surface-secondary">
-                    <BlockStack gap="200">
-                      <InlineStack gap="400">
-                        <Text fontWeight="semibold">Eligible Orders:</Text>
-                        <Text>{actionData.aggregateStats._count.id || 0}</Text>
-                      </InlineStack>
-                      <InlineStack gap="400">
-                        <Text fontWeight="semibold">Total Spent (Eligible):</Text>
-                        <Text>{formatCurrency(actionData.aggregateStats._sum.totalPrice)}</Text>
-                      </InlineStack>
-                      <InlineStack gap="400">
-                        <Text fontWeight="semibold">Total Refunded:</Text>
-                        <Text>{formatCurrency(actionData.aggregateStats._sum.totalRefunded)}</Text>
-                      </InlineStack>
-                      <InlineStack gap="400">
-                        <Text fontWeight="semibold">Total Cashback:</Text>
-                        <Text>{formatCurrency(actionData.aggregateStats._sum.cashbackAmount)}</Text>
-                      </InlineStack>
-                    </BlockStack>
-                  </Box>
+                  <InlineStack gap="400" align="start">
+                    <Box padding="300" background="bg-surface-secondary" width="50%">
+                      <BlockStack gap="200">
+                        <Text variant="headingSm" as="h3" fontWeight="semibold">
+                          All Orders
+                        </Text>
+                        <Divider />
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Count:</Text>
+                          <Text as="span">{actionData.allOrdersStats?.count || 0}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Spent:</Text>
+                          <Text as="span">{formatCurrency(actionData.allOrdersStats?.totalPrice)}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Refunded:</Text>
+                          <Text as="span">{formatCurrency(actionData.allOrdersStats?.totalRefunded)}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Cashback:</Text>
+                          <Text as="span">{formatCurrency(actionData.allOrdersStats?.cashbackAmount)}</Text>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+
+                    <Box padding="300" background="bg-surface-success-subdued" width="50%">
+                      <BlockStack gap="200">
+                        <Text variant="headingSm" as="h3" fontWeight="semibold">
+                          Eligible Orders Only
+                        </Text>
+                        <Divider />
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Count:</Text>
+                          <Text as="span">{actionData.aggregateStats?.count || 0}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Spent:</Text>
+                          <Text as="span">{formatCurrency(actionData.aggregateStats?.totalPrice)}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Refunded:</Text>
+                          <Text as="span">{formatCurrency(actionData.aggregateStats?.totalRefunded)}</Text>
+                        </InlineStack>
+                        <InlineStack gap="400">
+                          <Text as="span" fontWeight="semibold">Total Cashback:</Text>
+                          <Text as="span">{formatCurrency(actionData.aggregateStats?.cashbackAmount)}</Text>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  </InlineStack>
                 </BlockStack>
               </Card>
             </Layout.Section>
@@ -313,32 +447,32 @@ export default function OrderViewer() {
 
                         <BlockStack gap="100">
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Order ID:</Text>
-                            <Text>{order.id}</Text>
+                            <Text as="span" fontWeight="semibold">Order ID:</Text>
+                            <Text as="span">{order.id}</Text>
                           </InlineStack>
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Shopify Order ID:</Text>
-                            <Text>{order.shopifyOrderId}</Text>
+                            <Text as="span" fontWeight="semibold">Shopify Order ID:</Text>
+                            <Text as="span">{order.shopifyOrderId}</Text>
                           </InlineStack>
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Total:</Text>
-                            <Text>{formatCurrency(order.totalPrice)}</Text>
+                            <Text as="span" fontWeight="semibold">Total:</Text>
+                            <Text as="span">{formatCurrency(order.totalPrice)}</Text>
                           </InlineStack>
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Cashback Amount:</Text>
-                            <Text>{formatCurrency(order.cashbackAmount)}</Text>
+                            <Text as="span" fontWeight="semibold">Cashback Amount:</Text>
+                            <Text as="span">{formatCurrency(order.cashbackAmount)}</Text>
                           </InlineStack>
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Cashback Processed:</Text>
-                            <Text>{order.cashbackProcessed ? "Yes" : "No"}</Text>
+                            <Text as="span" fontWeight="semibold">Cashback Processed:</Text>
+                            <Text as="span">{order.cashbackProcessed ? "Yes" : "No"}</Text>
                           </InlineStack>
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Created At:</Text>
-                            <Text>{formatDate(order.shopifyCreatedAt)}</Text>
+                            <Text as="span" fontWeight="semibold">Created At:</Text>
+                            <Text as="span">{formatDate(order.shopifyCreatedAt)}</Text>
                           </InlineStack>
                           <InlineStack gap="400">
-                            <Text fontWeight="semibold">Line Items:</Text>
-                            <Text>{order.lineItems?.length || 0}</Text>
+                            <Text as="span" fontWeight="semibold">Line Items:</Text>
+                            <Text as="span">{order.lineItems?.length || 0}</Text>
                           </InlineStack>
                         </BlockStack>
                       </BlockStack>
