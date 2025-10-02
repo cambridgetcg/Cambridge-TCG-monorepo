@@ -919,28 +919,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       case "process-all-cashback": {
         // Process all pending cashback orders in batch
         const orderIds = (formData.get("orderIds") as string).split(',');
+        const ordersDataStr = formData.get("ordersData") as string | null;
 
         let successCount = 0;
         let failCount = 0;
         const errors: string[] = [];
 
-        for (const orderId of orderIds) {
+        // Parse the orders data if provided (skip DB fetch)
+        let ordersToProcess: any[] = [];
+
+        if (ordersDataStr) {
+          // Use the passed order data directly (no DB fetch needed)
           try {
-            // Fetch order with customer
+            ordersToProcess = JSON.parse(ordersDataStr);
+          } catch (e) {
+            console.error("Failed to parse orders data, falling back to DB fetch", e);
+          }
+        }
+
+        // If no order data passed, fall back to fetching from DB
+        if (ordersToProcess.length === 0) {
+          for (const orderId of orderIds) {
             const order = await db.order.findFirst({
               where: { id: orderId, shop },
               include: { customer: true }
             });
+            if (order) ordersToProcess.push(order);
+          }
+        }
 
+        // Process each order
+        for (const order of ordersToProcess) {
+          try {
             if (!order) {
               failCount++;
-              errors.push(`Order ${orderId} not found`);
+              errors.push(`Order not found`);
               continue;
             }
 
             if (!order.customer || !order.customer.shopifyCustomerId) {
               failCount++;
-              errors.push(`Order ${order.shopifyOrderId}: No customer or Shopify ID`);
+              errors.push(`Order ${order.shopifyOrderId || order.shopifyOrderName}: No customer or Shopify ID`);
               continue;
             }
 
@@ -1062,7 +1081,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
               // Mark order as processed
               await db.order.update({
-                where: { id: orderId },
+                where: { id: order.id },
                 data: {
                   cashbackProcessed: true,
                   processedAt: new Date(),
@@ -1078,7 +1097,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
           } catch (outerError) {
             failCount++;
-            errors.push(`Order ${orderId}: ${outerError instanceof Error ? outerError.message : 'Unknown error'}`);
+            errors.push(`Order ${order.shopifyOrderId || order.id}: ${outerError instanceof Error ? outerError.message : 'Unknown error'}`);
             continue;
           }
         }
@@ -1161,6 +1180,7 @@ export default function OrdersPage() {
     title: string;
     message: string;
     orderIds: string[];
+    orders?: any[]; // Full order data
     action: "process-qualifying" | "process-selected";
   } | null>(null);
 
@@ -1284,6 +1304,7 @@ export default function OrdersPage() {
             title: "Process Selected Orders",
             message: `Are you sure you want to process cashback for ${pendingCashbackOrders.length} selected order${pendingCashbackOrders.length > 1 ? 's' : ''}?`,
             orderIds: pendingCashbackOrders.map(o => o.id),
+            orders: pendingCashbackOrders, // Pass full order data
             action: "process-selected"
           });
           setShowConfirmModal(true);
@@ -1487,11 +1508,12 @@ export default function OrdersPage() {
       return;
     }
 
-    // Show confirmation modal
+    // Show confirmation modal with full order data
     setConfirmModalData({
       title: "Process Qualifying Orders",
       message: `Are you sure you want to process cashback for ${qualifyingOrders.length} qualifying order${qualifyingOrders.length > 1 ? 's' : ''}?`,
       orderIds: qualifyingOrders.map(o => o.id),
+      orders: qualifyingOrders, // Pass full order data
       action: "process-qualifying"
     });
     setShowConfirmModal(true);
@@ -1510,11 +1532,12 @@ export default function OrdersPage() {
     setIsProcessingAll(true);
     setProcessAllProgress({ current: 0, total: confirmModalData.orderIds.length });
 
-    // Submit batch processing request
+    // Submit batch processing request with full order data
     submit(
       {
         action: "process-all-cashback",
-        orderIds: confirmModalData.orderIds.join(',')
+        orderIds: confirmModalData.orderIds.join(','),
+        ordersData: confirmModalData.orders ? JSON.stringify(confirmModalData.orders) : undefined
       },
       { method: "post" }
     );
