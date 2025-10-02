@@ -920,10 +920,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Process all pending cashback orders in batch
         const orderIds = (formData.get("orderIds") as string).split(',');
         const ordersDataStr = formData.get("ordersData") as string | null;
+        const enableDebugLog = formData.get("enableDebugLog") === "true";
+        const debugLog: string[] = [];
 
         let successCount = 0;
         let failCount = 0;
         const errors: string[] = [];
+
+        // Debug logging
+        if (enableDebugLog) {
+          debugLog.push(`[SERVER] Received ${orderIds.length} order IDs`);
+          debugLog.push(`[SERVER] Has order data: ${!!ordersDataStr}`);
+          debugLog.push(`[SERVER] Order data length: ${ordersDataStr?.length || 0} chars`);
+        }
 
         // Parse the orders data if provided (skip DB fetch)
         let ordersToProcess: any[] = [];
@@ -932,8 +941,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Use the passed order data directly (no DB fetch needed)
           try {
             ordersToProcess = JSON.parse(ordersDataStr);
+            if (enableDebugLog) {
+              debugLog.push(`[PARSE] Successfully parsed ${ordersToProcess.length} orders from client data`);
+            }
           } catch (e) {
-            console.error("Failed to parse orders data, falling back to DB fetch", e);
+            const errorMsg = `Failed to parse orders data: ${e instanceof Error ? e.message : 'Unknown error'}`;
+            console.error(errorMsg);
+            if (enableDebugLog) {
+              debugLog.push(`[ERROR] ${errorMsg}`);
+            }
           }
         }
 
@@ -949,30 +965,55 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Process each order
-        for (const order of ordersToProcess) {
+        for (let i = 0; i < ordersToProcess.length; i++) {
+          const order = ordersToProcess[i];
+
+          if (enableDebugLog) {
+            debugLog.push(`\n[ORDER ${i + 1}/${ordersToProcess.length}] Processing ${order?.shopifyOrderName || order?.id || 'unknown'}`);
+          }
+
           try {
             if (!order) {
               failCount++;
-              errors.push(`Order not found`);
+              const msg = `Order not found (null/undefined)`;
+              errors.push(msg);
+              if (enableDebugLog) debugLog.push(`[SKIP] ${msg}`);
               continue;
+            }
+
+            if (enableDebugLog) {
+              debugLog.push(`[CHECK] Order ID: ${order.id}`);
+              debugLog.push(`[CHECK] Has customer object: ${!!order.customer}`);
+              debugLog.push(`[CHECK] Customer ID: ${order.customer?.id || 'none'}`);
+              debugLog.push(`[CHECK] Shopify Customer ID: ${order.customer?.shopifyCustomerId || 'MISSING'}`);
+              debugLog.push(`[CHECK] Cashback amount: ${order.cashbackAmount || 0}`);
             }
 
             if (!order.customer || !order.customer.shopifyCustomerId) {
               failCount++;
-              errors.push(`Order ${order.shopifyOrderId || order.shopifyOrderName}: No customer or Shopify ID`);
+              const msg = `Order ${order.shopifyOrderId || order.shopifyOrderName}: No customer or Shopify ID`;
+              errors.push(msg);
+              if (enableDebugLog) debugLog.push(`[SKIP] ${msg}`);
               continue;
             }
 
             const amount = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
             if (amount <= 0) {
               failCount++;
-              errors.push(`Order ${order.shopifyOrderId}: Invalid cashback amount`);
+              const msg = `Order ${order.shopifyOrderId}: Invalid cashback amount (${amount})`;
+              errors.push(msg);
+              if (enableDebugLog) debugLog.push(`[SKIP] ${msg}`);
               continue;
             }
 
             // Add store credit through Shopify GraphQL (same as individual processing)
             const currency = order.currency || 'USD';
             const gidCustomerId = `gid://shopify/Customer/${order.customer.shopifyCustomerId}`;
+
+            if (enableDebugLog) {
+              debugLog.push(`[GRAPHQL] Preparing mutation for customer GID: ${gidCustomerId}`);
+              debugLog.push(`[GRAPHQL] Amount: ${amount.toFixed(2)} ${currency}`);
+            }
 
             // Use the same GraphQL mutation as individual processing
             const creditMutation = `#graphql
@@ -999,6 +1040,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             `;
 
             try {
+              if (enableDebugLog) {
+                debugLog.push(`[API] Calling Shopify GraphQL mutation...`);
+              }
+
               const creditResponse = await admin.graphql(creditMutation, {
                 variables: {
                   id: gidCustomerId,
@@ -1012,6 +1057,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               });
 
               const creditData = await creditResponse.json() as any;
+
+              if (enableDebugLog) {
+                debugLog.push(`[API] Response received`);
+                debugLog.push(`[API] Has data: ${!!creditData.data}`);
+                debugLog.push(`[API] Has errors: ${!!creditData.errors}`);
+                if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
+                  debugLog.push(`[API] User errors: ${JSON.stringify(creditData.data.storeCreditAccountCredit.userErrors)}`);
+                }
+              }
 
               if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
                 const errors = creditData.data.storeCreditAccountCredit.userErrors;
@@ -1090,25 +1144,41 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               });
 
               successCount++;
+              if (enableDebugLog) {
+                debugLog.push(`[SUCCESS] Order ${order.shopifyOrderName} processed successfully`);
+              }
             } catch (error) {
               failCount++;
-              errors.push(`Order ${order.shopifyOrderId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+              const errorMsg = `Order ${order.shopifyOrderId}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+              errors.push(errorMsg);
+              if (enableDebugLog) {
+                debugLog.push(`[ERROR] Inner catch: ${errorMsg}`);
+              }
               continue;
             }
           } catch (outerError) {
             failCount++;
-            errors.push(`Order ${order.shopifyOrderId || order.id}: ${outerError instanceof Error ? outerError.message : 'Unknown error'}`);
+            const errorMsg = `Order ${order.shopifyOrderId || order.id}: ${outerError instanceof Error ? outerError.message : 'Unknown error'}`;
+            errors.push(errorMsg);
+            if (enableDebugLog) {
+              debugLog.push(`[ERROR] Outer catch: ${errorMsg}`);
+            }
             continue;
           }
         }
 
-        // Return summary
+        if (enableDebugLog) {
+          debugLog.push(`\n[COMPLETE] Processed ${successCount} successfully, ${failCount} failed`);
+        }
+
+        // Return summary with debug log
         return json({
           success: failCount === 0,
           message: `Processed ${successCount} orders successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
           successCount,
           failCount,
-          errors: errors.length > 0 ? errors.slice(0, 5) : undefined // Show first 5 errors
+          errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Show first 5 errors
+          debugLog: enableDebugLog ? debugLog : undefined // Include debug log if enabled
         });
       }
 
@@ -1165,6 +1235,8 @@ export default function OrdersPage() {
   const [fetchingBalance, setFetchingBalance] = useState(false);
   const [isProcessingAll, setIsProcessingAll] = useState(false);
   const [processAllProgress, setProcessAllProgress] = useState({ current: 0, total: 0 });
+  const [processingLog, setProcessingLog] = useState<string[]>([]);
+  const [currentProcessingStep, setCurrentProcessingStep] = useState<string>("");
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
     active: false,
     content: "",
@@ -1529,15 +1601,38 @@ export default function OrdersPage() {
   const handleConfirmProcess = useCallback(() => {
     if (!confirmModalData) return;
 
+    // Clear previous logs and start fresh
+    setProcessingLog([]);
+    setCurrentProcessingStep("Initializing processing...");
     setIsProcessingAll(true);
     setProcessAllProgress({ current: 0, total: confirmModalData.orderIds.length });
+
+    // Log what we're sending
+    const logEntries = [
+      `[START] Processing ${confirmModalData.orderIds.length} orders`,
+      `[DATA] Sending ${confirmModalData.orders ? 'full order data' : 'only order IDs'}`,
+      `[IDS] Order IDs: ${confirmModalData.orderIds.slice(0, 3).join(', ')}${confirmModalData.orderIds.length > 3 ? '...' : ''}`,
+    ];
+
+    if (confirmModalData.orders && confirmModalData.orders.length > 0) {
+      const sampleOrder = confirmModalData.orders[0];
+      logEntries.push(`[SAMPLE] First order: ${sampleOrder.shopifyOrderName || sampleOrder.id}`);
+      logEntries.push(`[CUSTOMER] Has customer: ${!!sampleOrder.customer}`);
+      if (sampleOrder.customer) {
+        logEntries.push(`[SHOPIFY_ID] Customer Shopify ID: ${sampleOrder.customer.shopifyCustomerId || 'MISSING'}`);
+      }
+      logEntries.push(`[CASHBACK] Amount: ${sampleOrder.cashbackAmount || 0}`);
+    }
+
+    setProcessingLog(logEntries);
 
     // Submit batch processing request with full order data
     submit(
       {
         action: "process-all-cashback",
         orderIds: confirmModalData.orderIds.join(','),
-        ordersData: confirmModalData.orders ? JSON.stringify(confirmModalData.orders) : undefined
+        ordersData: confirmModalData.orders ? JSON.stringify(confirmModalData.orders) : undefined,
+        enableDebugLog: "true" // Enable server-side logging
       },
       { method: "post" }
     );
@@ -1593,11 +1688,28 @@ export default function OrdersPage() {
   useEffect(() => {
     if (actionData) {
       const data = actionData as any;
+
+      // Handle debug log if present
+      if (data.debugLog && Array.isArray(data.debugLog)) {
+        setProcessingLog(prev => [...prev, ...data.debugLog]);
+      }
+
+      // Update processing status
+      if (data.successCount !== undefined || data.failCount !== undefined) {
+        setCurrentProcessingStep(
+          `Completed: ${data.successCount || 0} successful, ${data.failCount || 0} failed`
+        );
+      }
+
       setToast({
         active: true,
         content: data.message || (data.success ? "Action completed" : "Action failed"),
         error: !data.success,
       });
+
+      // Reset processing state
+      setIsProcessingAll(false);
+      setProcessAllProgress({ current: 0, total: 0 });
     }
   }, [actionData]);
 
@@ -2266,6 +2378,131 @@ export default function OrdersPage() {
             )}
           </Modal.Section>
         </Modal>
+
+        {/* Debug Processing Log Panel */}
+        {(processingLog.length > 0 || currentProcessingStep) && (
+          <Modal
+            open={true}
+            onClose={() => {
+              setProcessingLog([]);
+              setCurrentProcessingStep("");
+            }}
+            title="Processing Debug Log"
+            size="large"
+            sectioned
+          >
+            <Modal.Section>
+              <BlockStack gap="400">
+                {/* Current Step */}
+                {currentProcessingStep && (
+                  <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                    <InlineStack align="space-between">
+                      <Text as="span" variant="bodyMd" fontWeight="semibold">
+                        Current Status:
+                      </Text>
+                      <Badge tone={currentProcessingStep.includes('failed') ? 'critical' : 'info'}>
+                        {currentProcessingStep}
+                      </Badge>
+                    </InlineStack>
+                  </Box>
+                )}
+
+                {/* Progress Bar */}
+                {isProcessingAll && processAllProgress.total > 0 && (
+                  <Box>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Processing {processAllProgress.current} of {processAllProgress.total} orders
+                    </Text>
+                    <Box paddingBlockStart="200">
+                      <ProgressBar
+                        progress={(processAllProgress.current / processAllProgress.total) * 100}
+                        tone="primary"
+                      />
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Log Entries */}
+                <Box
+                  padding="300"
+                  background="bg-surface"
+                  borderRadius="200"
+                  borderColor="border"
+                  borderWidth="025"
+                >
+                  <BlockStack gap="200">
+                    <Text as="h3" variant="headingSm">Debug Log:</Text>
+                    <Box maxHeight="400px" overflowY="auto">
+                      <BlockStack gap="100">
+                        {processingLog.map((log, index) => {
+                          let tone: "base" | "success" | "critical" | "warning" | "subdued" = "subdued";
+                          let icon = null;
+
+                          if (log.includes('[ERROR]') || log.includes('[FAIL]')) {
+                            tone = "critical";
+                            icon = <Icon source={AlertTriangleIcon} />;
+                          } else if (log.includes('[SUCCESS]') || log.includes('[✓]')) {
+                            tone = "success";
+                            icon = <Icon source={CheckCircleIcon} />;
+                          } else if (log.includes('[SKIP]') || log.includes('[WARNING]')) {
+                            tone = "warning";
+                            icon = <Icon source={InfoIcon} />;
+                          } else if (log.includes('[START]') || log.includes('[SERVER]')) {
+                            icon = <Icon source={RefreshIcon} />;
+                          }
+
+                          return (
+                            <Box key={index} paddingBlock="050">
+                              <InlineStack gap="200" align="start">
+                                {icon && <Box>{icon}</Box>}
+                                <Text
+                                  as="span"
+                                  variant="bodySm"
+                                  tone={tone}
+                                  breakWord
+                                >
+                                  {log}
+                                </Text>
+                              </InlineStack>
+                            </Box>
+                          );
+                        })}
+                      </BlockStack>
+                    </Box>
+                  </BlockStack>
+                </Box>
+
+                {/* Actions */}
+                <InlineStack align="end" gap="200">
+                  <Button
+                    onClick={() => {
+                      // Copy log to clipboard
+                      const logText = processingLog.join('\n');
+                      navigator.clipboard.writeText(logText).then(() => {
+                        setToast({
+                          active: true,
+                          content: "Debug log copied to clipboard",
+                          error: false
+                        });
+                      });
+                    }}
+                  >
+                    Copy Log
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setProcessingLog([]);
+                      setCurrentProcessingStep("");
+                    }}
+                  >
+                    Close
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+            </Modal.Section>
+          </Modal>
+        )}
 
         {/* Toast Notification */}
         {toast.active && (
