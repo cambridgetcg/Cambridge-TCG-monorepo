@@ -1209,9 +1209,13 @@ export default function OrdersPage() {
         order.customer.id !== "unknown" &&
         order.customer.shopifyCustomerId
       );
+      // Alternative check using customerId field directly (from test page)
+      const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
+      // Use either check for customer validity (same as test page)
+      const hasValidCustomer = hasCustomer || hasCustomerId;
       const hasPositiveCashback = cashbackAmountNum > 0;
       const isNotProcessed = !order.cashbackProcessed;
-      return hasCustomer && hasPositiveCashback && isNotProcessed;
+      return hasValidCustomer && hasPositiveCashback && isNotProcessed;
     });
 
     if (pendingCashbackOrders.length > 0) {
@@ -1410,8 +1414,11 @@ export default function OrdersPage() {
         order.customer.shopifyCustomerId // Also check for Shopify ID
       );
 
-      // Use the customer object check only (no separate customerId field in this interface)
-      const hasValidCustomer = hasCustomer;
+      // Alternative check using customerId field directly (from test page)
+      const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
+
+      // Use either check for customer validity (same as test page)
+      const hasValidCustomer = hasCustomer || hasCustomerId;
 
       const hasPositiveCashback = cashbackAmountNum > 0;
       const isNotProcessed = !order.cashbackProcessed;
@@ -1535,8 +1542,11 @@ export default function OrdersPage() {
         order.customer.shopifyCustomerId // Also check for Shopify ID
       );
 
-      // Use the customer object check only (no separate customerId field in this interface)
-      const hasValidCustomer = hasCustomer;
+      // Alternative check using customerId field directly (from test page)
+      const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
+
+      // Use either check for customer validity (same as test page)
+      const hasValidCustomer = hasCustomer || hasCustomerId;
 
       const hasPositiveCashback = cashbackAmountNum > 0;
       const isNotProcessed = !order.cashbackProcessed;
@@ -1652,7 +1662,7 @@ export default function OrdersPage() {
             icon: CashDollarIcon,
             onAction: handleProcessQualifying,
             loading: isProcessingAll,
-            disabled: navigation.state === "submitting" || qualifyingOrdersCount === 0,
+            disabled: qualifyingOrdersCount === 0,
           },
           {
             content: "Sync Orders",
