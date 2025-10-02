@@ -12,6 +12,7 @@ import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
 export const FREE_PLAN = "RewardsPro Free";
 export const PRO_PLAN = "RewardsPro Pro";
 export const MAX_PLAN = "RewardsPro Max";
+export const ULTRA_PLAN = "RewardsPro Ultra";
 export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
 
 // Legacy plans - keeping for backward compatibility
@@ -52,11 +53,21 @@ const shopify = shopifyApp({
         }
       ],
     },
-    // Max plan - $199/month
+    // Max plan - $149/month
     [MAX_PLAN]: {
       lineItems: [
         {
-          amount: 199,
+          amount: 149,
+          currencyCode: 'USD',
+          interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Ultra plan - $499/month (unlimited everything)
+    [ULTRA_PLAN]: {
+      lineItems: [
+        {
+          amount: 499,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
         }

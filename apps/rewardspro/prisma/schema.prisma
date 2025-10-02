@@ -39,25 +39,53 @@ model Session {
 model ShopSettings {
   id                      String              @id @default(uuid())
   shop                    String              @unique  // Shop domain (e.g., store.myshopify.com)
-  
+
   // Store details
   storeName               String              // Name of store
   storeUrl                String              // Store URL
-  
+
   // Currency settings
   storeCurrency           Currency            @default(USD)  // Store currency
   currencyDisplayType     CurrencyDisplayType @default(SYMBOL)  // Currency display type
-  
+
   // Localization
   timezone                String              @default("America/New_York")  // Time zone
 
+  // White Label Email Settings (Max & Ultra plans only)
+  emailEnabled            Boolean             @default(false)  // Email notifications enabled
+  emailProvider           String?             // Email provider (sendgrid, mailgun, ses, smtp)
+  emailFromName           String?             // From name for emails
+  emailFromAddress        String?             // From email address
+  emailReplyTo            String?             // Reply-to email address
+  emailLogo               String?             // URL to custom logo for emails
+  emailPrimaryColor       String?             // Primary brand color for emails (hex)
+  emailFooterText         String?             // Custom footer text for emails
+  emailDomain             String?             // Custom email domain (for white label)
+
+  // Email API Configuration (encrypted in production)
+  emailApiKey             String?             // API key for email provider (encrypted)
+  emailApiSecret          String?             // API secret if needed (encrypted)
+  emailSmtpHost           String?             // SMTP host for custom SMTP
+  emailSmtpPort           Int?                // SMTP port
+  emailSmtpUsername       String?             // SMTP username
+  emailSmtpPassword       String?             // SMTP password (encrypted)
+
+  // Email Usage Tracking
+  emailsSentThisMonth     Int                 @default(0)  // Count of emails sent this month
+  emailQuotaLimit         Int                 @default(0)  // Monthly email quota based on plan
+  lastEmailResetDate      DateTime?           // Last date email count was reset
+
+  // Email Templates (JSON)
+  emailTemplates          Json?               // Custom email templates configuration
+
   // Billing
   billingStatus           String?             @default("INACTIVE")  // ACTIVE, INACTIVE, TRIAL
+  currentPlan             String?             @default("free")  // free, pro, max, ultra
 
   // Metadata
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
-  
+
   @@index([shop])
 }
 

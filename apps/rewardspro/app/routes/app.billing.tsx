@@ -27,7 +27,7 @@ import {
   Collapsible
 } from "@shopify/polaris";
 import { CheckCircleIcon, PhoneIcon, EmailIcon, ChevronDownIcon, ChevronUpIcon } from "@shopify/polaris-icons";
-import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
+import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -134,7 +134,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const action = formData.get("action") as string;
 
   // Security: Plan validation
-  const ALLOWED_PLANS = ['free', 'pro', 'max', 'contact-enterprise'];
+  const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'contact-enterprise'];
   const planType = action?.replace('subscribe-', '');
 
   if (action?.startsWith('subscribe-') && !ALLOWED_PLANS.includes(planType)) {
@@ -198,6 +198,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const subscription = billingCheck.appSubscriptions[0];
     console.log(`[Billing] ${session.shop} successfully subscribed to Max plan`);
     await logBillingAttempt(session.shop, action, "max", true, null, request);
+    return json({ success: true, subscription });
+  }
+
+  if (action === "subscribe-ultra") {
+    console.log(`[Billing] ${session.shop} attempting to subscribe to Ultra plan`);
+    const billingCheck = await billing.require({
+      plans: [ULTRA_PLAN],
+      onFailure: () => billing.request({
+        plan: ULTRA_PLAN,
+        isTest: process.env.NODE_ENV === 'development',
+      }),
+    });
+
+    const subscription = billingCheck.appSubscriptions[0];
+    console.log(`[Billing] ${session.shop} successfully subscribed to Ultra plan`);
+    await logBillingAttempt(session.shop, action, "ultra", true, null, request);
     return json({ success: true, subscription });
   }
 
