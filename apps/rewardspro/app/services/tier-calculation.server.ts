@@ -53,6 +53,7 @@ export async function calculateCustomerTierFromDB(
   context?: {
     orderId?: string;
     triggerType?: string;
+    skipOverrideCheck?: boolean;  // NEW: Allow skipping override check for tier resolution
   }
 ): Promise<TierCalculationResult> {
   try {
@@ -64,37 +65,39 @@ export async function calculateCustomerTierFromDB(
     }
     console.log(`[TierCalc-DB] Using LOCAL DATABASE for calculation`);
 
-    // Check if customer has a manual override
-    const hasOverride = await hasManualOverride(customerId);
+    // Check if customer has a manual override (unless explicitly skipped)
+    if (!context?.skipOverrideCheck) {
+      const hasOverride = await hasManualOverride(customerId);
 
-    if (hasOverride) {
-      console.log(`[TierCalc-DB] Customer ${customerId} has manual tier override - skipping calculation`);
+      if (hasOverride) {
+        console.log(`[TierCalc-DB] Customer ${customerId} has manual tier override - skipping calculation`);
 
-      // Get current tier info for response
-      const customer = await db.customer.findFirst({
-        where: {
-          id: customerId,
-          shop: shop
-        }
-      });
-
-      let currentTier = null;
-      if (customer?.currentTierId) {
-        currentTier = await db.tier.findUnique({
-          where: { id: customer.currentTierId }
+        // Get current tier info for response
+        const customer = await db.customer.findFirst({
+          where: {
+            id: customerId,
+            shop: shop
+          }
         });
-      }
 
-      return {
-        customerId,
-        previousTierId: customer?.currentTierId || null,
-        previousTierName: currentTier?.name || null,
-        newTierId: customer?.currentTierId || null,
-        newTierName: currentTier?.name || null,
-        totalSpending: 0,
-        changed: false,
-        error: "Customer has manual tier override - calculation skipped"
-      };
+        let currentTier = null;
+        if (customer?.currentTierId) {
+          currentTier = await db.tier.findUnique({
+            where: { id: customer.currentTierId }
+          });
+        }
+
+        return {
+          customerId,
+          previousTierId: customer?.currentTierId || null,
+          previousTierName: currentTier?.name || null,
+          newTierId: customer?.currentTierId || null,
+          newTierName: currentTier?.name || null,
+          totalSpending: 0,
+          changed: false,
+          error: "Customer has manual tier override - calculation skipped"
+        };
+      }
     }
 
     // Get customer data
