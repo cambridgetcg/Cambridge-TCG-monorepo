@@ -441,7 +441,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const tierName = formData.get("tierName") as string;
       const price = parseFloat(formData.get("price") as string);
       const duration = formData.get("duration") as string;
-      const description = formData.get("description") as string;
       const enableSubscription = formData.get("enableSubscription") === "true";
       const subscriptionOptions = enableSubscription ? JSON.parse(formData.get("subscriptionOptions") as string || "{}") : null;
       
@@ -521,7 +520,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Prepare product input with proper structure
         const productInput = {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-          descriptionHtml: description ? `<p>${description}</p>` : `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
+          descriptionHtml: `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
           vendor: shop.split('.')[0],
           productType: "Tier Membership",
           status: "ACTIVE",
@@ -704,7 +703,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
-                description,
                 isActive: true,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -811,7 +809,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(`[TierProducts] Creating product with price: ${price}, SKU: ${sku}`);
         const result = await ProductCreatorV2.createAndPublishProductWithRetry(admin, {
           title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-          description: description || `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
+          description: `Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.`,
           vendor: shop.split('.')[0],
           productType: "Tier Membership",
           price: price.toString(),
@@ -864,7 +862,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
-                description,
                 isActive: true,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -911,10 +908,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } else if (intent === "update-product") {
       const productId = formData.get("productId") as string;
       const price = parseFloat(formData.get("price") as string);
-      const description = formData.get("description") as string;
       const tierName = formData.get("tierName") as string;
       const duration = formData.get("duration") as string;
-      
+
       // Update product using productUpdate mutation
       const updateProductResponse = await admin.graphql(
         `#graphql
@@ -925,7 +921,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               title
               handle
               status
-              descriptionHtml
               variants(first: 1) {
                 edges {
                   node {
@@ -947,7 +942,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             input: {
               id: productId,
               title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
-              descriptionHtml: description || `<p>Unlock exclusive ${tierName} tier benefits with this ${formatDuration(duration).toLowerCase()} membership.</p>`,
               status: "ACTIVE",
             }
           },
@@ -1425,7 +1419,6 @@ export default function TierProducts() {
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<string>("MONTHLY");
-  const [description, setDescription] = useState<string>("");
   const [enableSubscription, setEnableSubscription] = useState(false);
   const [subscriptionDiscountPercent, setSubscriptionDiscountPercent] = useState("10");
   const [subscriptionOptions, setSubscriptionOptions] = useState({
@@ -1495,7 +1488,6 @@ export default function TierProducts() {
     setSelectedTier("");
     setPrice("");
     setDuration("MONTHLY");
-    setDescription("");
     setEnableSubscription(false);
     setSubscriptionDiscountPercent("10");
     setSubscriptionOptions({
@@ -1524,7 +1516,6 @@ export default function TierProducts() {
     setSelectedTier(product.tierId);
     setPrice(product.price.toString());
     setDuration(product.duration);
-    setDescription(""); // Would need to fetch from Shopify if needed
     setEditModalActive(true);
   }, []);
   
@@ -1583,7 +1574,6 @@ export default function TierProducts() {
     formData.append("tierName", tier.name);
     formData.append("price", price);
     formData.append("duration", duration);
-    formData.append("description", description);
     formData.append("enableSubscription", enableSubscription.toString());
     if (enableSubscription) {
       formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
@@ -1591,7 +1581,7 @@ export default function TierProducts() {
 
     submit(formData, { method: "post" });
     handleModalClose();
-  }, [selectedTier, price, duration, description, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose]);
+  }, [selectedTier, price, duration, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose]);
   
   // Handle update product
   const handleUpdateProduct = useCallback(() => {
@@ -1610,15 +1600,14 @@ export default function TierProducts() {
     formData.append("tierName", editingProduct.tierName);
     formData.append("price", price);
     formData.append("duration", duration);
-    formData.append("description", description);
     formData.append("enableSubscription", enableSubscription.toString());
     if (enableSubscription) {
       formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
     }
-    
+
     submit(formData, { method: "post" });
     handleEditModalClose();
-  }, [editingProduct, price, duration, description, enableSubscription, subscriptionOptions, submit, handleEditModalClose]);
+  }, [editingProduct, price, duration, enableSubscription, subscriptionOptions, submit, handleEditModalClose]);
   
   // Handle action response
   useEffect(() => {
@@ -2133,16 +2122,7 @@ export default function TierProducts() {
                 onChange={setDuration}
                 helpText="How long the membership lasts"
               />
-              
-              <TextField
-                label="Description"
-                value={description}
-                onChange={setDescription}
-                multiline={4}
-                helpText="Optional product description"
-                autoComplete="off"
-              />
-              
+
               <Divider />
               
               <SubscriptionOptionsManager
@@ -2211,16 +2191,7 @@ export default function TierProducts() {
                     onChange={setDuration}
                     helpText="Change how long the membership lasts"
                   />
-                  
-                  <TextField
-                    label="Description"
-                    value={description}
-                    onChange={setDescription}
-                    multiline={4}
-                    helpText="Update the product description"
-                    autoComplete="off"
-                  />
-                  
+
                   <BlockStack gap="200">
                     <Divider />
                     
