@@ -297,6 +297,7 @@ export default function BillingPage() {
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [enterpriseForm, setEnterpriseForm] = useState({
     companyName: "",
     email: "",
@@ -463,6 +464,16 @@ export default function BillingPage() {
                   <p>{actionData.message || "Subscription updated successfully"}</p>
                 </Banner>
               )}
+
+              {/* Plan Comparison Button */}
+              <Box paddingBlockEnd="400">
+                <Button
+                  onClick={() => setShowComparisonModal(true)}
+                  variant="plain"
+                >
+                  View plan comparison
+                </Button>
+              </Box>
 
               {/* Tabs for plan categories */}
               <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
@@ -1100,6 +1111,162 @@ export default function BillingPage() {
             </BlockStack>
           </Layout.Section>
         </Layout>
+
+        {/* Plan Comparison Modal */}
+        <Modal
+          open={showComparisonModal}
+          onClose={() => setShowComparisonModal(false)}
+          title="Plan Comparison"
+          large
+        >
+          <Modal.Section>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f6f6f7' }}>
+                    <th style={{ padding: '16px', textAlign: 'left', borderBottom: '1px solid #e1e3e5' }}></th>
+                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="h3" variant="headingMd">Pro</Text>
+                    </th>
+                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="h3" variant="headingMd">Max</Text>
+                    </th>
+                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="h3" variant="headingMd">Ultra</Text>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Order volume section */}
+                  <tr>
+                    <td colSpan={4} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Order volume</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Monthly orders</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Up to 500</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Up to 2,000</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Unlimited</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Additional order rate</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">$10 per 100 orders</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">$5 per 100 orders</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">No overage charges</Text>
+                    </td>
+                  </tr>
+
+                  {/* Features section */}
+                  <tr>
+                    <td colSpan={4} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Features</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Loyalty program</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Tier memberships</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Advanced analytics</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">White label email</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">A/B testing</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Custom SMTP</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </Modal.Section>
+        </Modal>
 
         {/* Enterprise Contact Modal */}
         <Modal
