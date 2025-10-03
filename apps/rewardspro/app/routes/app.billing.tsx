@@ -31,6 +31,7 @@ import { authenticate, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } from ".
 import { db } from "../db.server";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { updatePlanLimit, unlockShop } from "~/utils/plan-access-control.server";
 
 // Rate limiting function for billing attempts
 async function checkRecentBillingAttempts(shop: string): Promise<number> {
@@ -196,7 +197,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const subscription = billingCheck.appSubscriptions[0];
     console.log(`[Billing] ${session.shop} successfully subscribed to Pro plan`);
     await logBillingAttempt(session.shop, action, "pro", true, null, request);
-    return json({ success: true, subscription });
+
+    // Update plan limit and unlock shop
+    await updatePlanLimit(session.shop, "RewardsPro Pro", 500);
+    await unlockShop(session.shop);
+    console.log(`[Billing] ${session.shop} unlocked after Pro upgrade`);
+
+    return json({ success: true, subscription, unlocked: true });
   }
 
   if (action === "subscribe-max") {
@@ -212,7 +219,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const subscription = billingCheck.appSubscriptions[0];
     console.log(`[Billing] ${session.shop} successfully subscribed to Max plan`);
     await logBillingAttempt(session.shop, action, "max", true, null, request);
-    return json({ success: true, subscription });
+
+    // Update plan limit and unlock shop
+    await updatePlanLimit(session.shop, "RewardsPro Max", 2000);
+    await unlockShop(session.shop);
+    console.log(`[Billing] ${session.shop} unlocked after Max upgrade`);
+
+    return json({ success: true, subscription, unlocked: true });
   }
 
   if (action === "subscribe-ultra") {
@@ -221,14 +234,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [ULTRA_PLAN],
       onFailure: () => billing.request({
         plan: ULTRA_PLAN,
-        isTest: process.env.NODE_ENV === 'development',
+        isTest: process.NODE_ENV === 'development',
       }),
     });
 
     const subscription = billingCheck.appSubscriptions[0];
     console.log(`[Billing] ${session.shop} successfully subscribed to Ultra plan`);
     await logBillingAttempt(session.shop, action, "ultra", true, null, request);
-    return json({ success: true, subscription });
+
+    // Update plan limit and unlock shop (Ultra = unlimited)
+    await updatePlanLimit(session.shop, "RewardsPro Ultra", 999999);
+    await unlockShop(session.shop);
+    console.log(`[Billing] ${session.shop} unlocked after Ultra upgrade`);
+
+    return json({ success: true, subscription, unlocked: true });
   }
 
   if (action === "contact-enterprise") {

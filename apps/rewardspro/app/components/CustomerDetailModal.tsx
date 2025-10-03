@@ -313,7 +313,7 @@ export function CustomerDetailModal({
                     {details.tier && (
                       <Card>
                         <BlockStack gap="300">
-                          <InlineStack gap="200" blockAlign="center">
+                          <InlineStack gap="200" align="start" blockAlign="center">
                             <Icon source={StarIcon} tone="base" />
                             <Text variant="headingMd" as="h3">Tier Details</Text>
                           </InlineStack>

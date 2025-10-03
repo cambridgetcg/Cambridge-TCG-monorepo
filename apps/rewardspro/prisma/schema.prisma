@@ -630,6 +630,11 @@ model MonthlyOrderUsage {
   planLimit         Int                 // 100 for free, 1000 for paid
   planName          String              // Current plan name
 
+  // Lock state (for plan enforcement)
+  isLocked          Boolean             @default(false)
+  lockedAt          DateTime?           // When the shop was locked
+  lockReason        String?             // Why the shop was locked
+
   // Metadata
   lastOrderDate     DateTime?           // Last order processed
   createdAt         DateTime            @default(now())
@@ -637,6 +642,7 @@ model MonthlyOrderUsage {
 
   @@unique([shop, year, month])
   @@index([shop, year, month])
+  @@index([shop, isLocked])
 }
 
 // ============================================
