@@ -48,11 +48,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
   });
 
   // Get all tier products
-  const tierProducts = await db.tierProduct.findMany({
-    where: { shop },
-    include: { tier: true },
-    orderBy: { createdAt: 'desc' }
-  });
+  let tierProducts = [];
+  try {
+    tierProducts = await (db as any).tierProduct.findMany({
+      where: { shop },
+      include: { tier: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    console.log(`[TestPage] Found ${tierProducts.length} tier products for shop ${shop}`);
+  } catch (error) {
+    console.log('[TestPage] TierProduct table query error:', error);
+    // Table might not exist yet, continue with empty array
+  }
 
   // Get test customers (or all customers)
   const customers = await db.customer.findMany({
@@ -96,7 +103,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const orderAmount = parseFloat(formData.get("orderAmount") as string || "0");
 
       // Get tier product details
-      const tierProduct = await db.tierProduct.findFirst({
+      const tierProduct = await (db as any).tierProduct.findFirst({
         where: { id: tierProductId, shop },
         include: { tier: true }
       });
