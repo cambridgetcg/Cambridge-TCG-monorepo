@@ -1422,6 +1422,8 @@ export default function TierProducts() {
   // State
   const [modalActive, setModalActive] = useState(false);
   const [editModalActive, setEditModalActive] = useState(false);
+  const [deleteModalActive, setDeleteModalActive] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<TierProduct | null>(null);
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
@@ -1662,9 +1664,11 @@ export default function TierProducts() {
       if ('message' in actionData) {
         toastContent = actionData.message;
         toastError = !actionData.success;
-        // Close modal on success
+        // Close modal and reload data on success
         if (actionData.success) {
           setModalActive(false);
+          // Revalidate to refresh the product list
+          setTimeout(() => revalidate(), 500);
         }
       } else if (actionData.success) {
         toastContent = "Product created successfully! The product is now available in your Shopify admin.";
@@ -1701,13 +1705,25 @@ export default function TierProducts() {
   
   // Handle delete product
   const handleDeleteProduct = useCallback((productId: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
+    setProductToDelete(productId);
+    setDeleteModalActive(true);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (productToDelete) {
       const formData = new FormData();
       formData.append("intent", "delete-product");
-      formData.append("productId", productId);
+      formData.append("productId", productToDelete);
       submit(formData, { method: "post" });
+      setDeleteModalActive(false);
+      setProductToDelete(null);
     }
-  }, [submit]);
+  }, [productToDelete, submit]);
+
+  const cancelDelete = useCallback(() => {
+    setDeleteModalActive(false);
+    setProductToDelete(null);
+  }, []);
   
   return (
     <Frame>
@@ -2482,6 +2498,49 @@ export default function TierProducts() {
           </Modal.Section>
         </Modal>
 
+        {/* Delete Confirmation Modal */}
+        <Modal
+          open={deleteModalActive}
+          onClose={cancelDelete}
+          title="Delete Tier Product"
+          primaryAction={{
+            content: "Delete",
+            destructive: true,
+            onAction: confirmDelete,
+            loading: navigation.state === "submitting",
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: cancelDelete,
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              <Text as="p" variant="bodyMd">
+                Are you sure you want to delete this tier product? This will:
+              </Text>
+              <BlockStack gap="200">
+                <InlineStack gap="200" blockAlign="start">
+                  <Icon source={AlertTriangleIcon} tone="critical" />
+                  <Text as="p" variant="bodyMd">
+                    Remove the product from your Shopify store
+                  </Text>
+                </InlineStack>
+                <InlineStack gap="200" blockAlign="start">
+                  <Icon source={AlertTriangleIcon} tone="critical" />
+                  <Text as="p" variant="bodyMd">
+                    Delete the tier product record from the database
+                  </Text>
+                </InlineStack>
+              </BlockStack>
+              <Text as="p" variant="bodyMd" tone="critical">
+                This action cannot be undone.
+              </Text>
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
 
         {/* Toast */}
         {toast.active && (
