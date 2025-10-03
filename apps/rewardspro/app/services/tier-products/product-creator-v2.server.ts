@@ -286,8 +286,8 @@ export class ProductCreatorV2 {
   }
 
   /**
-   * Update variant with price and SKU using productVariantsBulkUpdate mutation
-   * Compatible with Shopify API 2025-01
+   * Update variant with price and SKU using productSet mutation
+   * This uses the same approach as the working update-product action
    */
   private static async updateVariantPriceAndSku(
     admin: AdminApiContext,
@@ -304,14 +304,60 @@ export class ProductCreatorV2 {
       console.error(`${this.SERVICE_PREFIX} Invalid variant ID format: ${variantId}`);
     }
 
-    // Use productVariantsBulkUpdate for updating variant price and SKU (API 2025-01 compatible)
-    const mutation = `#graphql
-      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-          productVariants {
+    // First, get product options (required for productSet)
+    const getOptionsQuery = `#graphql
+      query getProductOptions($id: ID!) {
+        product(id: $id) {
+          options {
             id
-            price
-            sku
+            name
+            position
+            values
+          }
+        }
+      }
+    `;
+
+    let productOptions: any[];
+    let optionValues: any[];
+
+    try {
+      const optionsResponse = await admin.graphql(getOptionsQuery, {
+        variables: { id: productId }
+      });
+
+      const optionsResult = await optionsResponse.json() as any;
+      productOptions = optionsResult.data?.product?.options || [
+        { name: "Title", values: ["Default Title"] }
+      ];
+
+      // Build optionValues array for the variant
+      optionValues = productOptions.map((option: any) => ({
+        optionName: option.name,
+        name: option.values?.[0] || "Default Title"
+      }));
+    } catch (error) {
+      console.error(`${this.SERVICE_PREFIX} Error fetching product options:`, error);
+      // Use defaults if fetch fails
+      productOptions = [{ name: "Title", values: ["Default Title"] }];
+      optionValues = [{ optionName: "Title", name: "Default Title" }];
+    }
+
+    // Use productSet mutation (same as working update-product action)
+    const mutation = `#graphql
+      mutation productSet($input: ProductSetInput!) {
+        productSet(synchronous: true, input: $input) {
+          product {
+            id
+            variants(first: 1) {
+              edges {
+                node {
+                  id
+                  price
+                  sku
+                }
+              }
+            }
           }
           userErrors {
             field
@@ -331,14 +377,22 @@ export class ProductCreatorV2 {
 
         const response = await admin.graphql(mutation, {
           variables: {
-            productId: productId,
-            variants: [
-              {
+            input: {
+              id: productId,
+              // Include productOptions at the product level
+              productOptions: productOptions.map((opt: any) => ({
+                name: opt.name,
+                values: opt.values?.map((v: string) => ({ name: v })) || [{ name: "Default Title" }]
+              })),
+              variants: [{
                 id: variantId,
                 price: price,
-                sku: sku
-              }
-            ]
+                sku: sku,
+                taxable: true,
+                // Include optionValues to match product options
+                optionValues: optionValues
+              }]
+            }
           }
         });
 
@@ -365,8 +419,8 @@ export class ProductCreatorV2 {
         }
 
         // Handle user errors
-        if (data.data?.productVariantsBulkUpdate?.userErrors?.length > 0) {
-          const errors = data.data.productVariantsBulkUpdate.userErrors;
+        if (data.data?.productSet?.userErrors?.length > 0) {
+          const errors = data.data.productSet.userErrors;
           const errorMsg = errors.map((e: any) => `${e.field}: ${e.message}`).join(", ");
           console.error(`${this.SERVICE_PREFIX} User errors updating variant:`, errorMsg);
 
@@ -388,9 +442,9 @@ export class ProductCreatorV2 {
         }
 
         // Success case - verify the variant was updated
-        const updatedVariants = data.data?.productVariantsBulkUpdate?.productVariants;
-        if (updatedVariants && updatedVariants.length > 0) {
-          const updatedVariant = updatedVariants.find((v: any) => v.id === variantId);
+        const updatedProduct = data.data?.productSet?.product;
+        if (updatedProduct?.variants?.edges?.length > 0) {
+          const updatedVariant = updatedProduct.variants.edges[0]?.node;
           if (updatedVariant) {
             console.log(`${this.SERVICE_PREFIX} Variant updated successfully. New price: ${updatedVariant.price}, SKU: ${updatedVariant.sku}`);
             return { success: true };
