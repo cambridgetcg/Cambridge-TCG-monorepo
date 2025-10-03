@@ -106,13 +106,14 @@ export class ProductCreatorV2 {
       }
 
       // Step 2: Publish to online store
-      const publishResult = await this.publishToOnlineStore(admin, createResult.productId);
-      
+      // DISABLED: Missing read_publications and read_product_listings scopes
+      // const publishResult = await this.publishToOnlineStore(admin, createResult.productId);
+
       return {
         ...createResult,
         publicationStatus: {
-          published: publishResult.success,
-          publicationCount: publishResult.publicationCount || 0
+          published: false,
+          publicationCount: 0
         }
       };
 

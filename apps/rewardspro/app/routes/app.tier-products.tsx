@@ -892,18 +892,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Verify publication status
-        const publicationStatus = await ProductCreatorV2.verifyPublication(admin, result.productId!);
-        
-        return json({ 
-          success: true, 
-          message: publicationStatus.onlineStorePublished 
-            ? `Product created and published to online store for ${tierName} tier`
-            : `Product created successfully for ${tierName} tier (manual publication may be required)`,
+        // DISABLED: Missing read_publications and read_product_listings scopes
+        // const publicationStatus = await ProductCreatorV2.verifyPublication(admin, result.productId!);
+
+        return json({
+          success: true,
+          message: `Product created successfully for ${tierName} tier`,
           productId: result.productId,
           hasSubscription: enableSubscription,
           publicationStatus: {
-            onlineStore: publicationStatus.onlineStorePublished,
-            totalChannels: publicationStatus.publicationCount
+            onlineStore: false,
+            totalChannels: 0
           }
         });
       }
