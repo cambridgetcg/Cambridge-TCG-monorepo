@@ -414,7 +414,9 @@ export async function action({ request }: ActionFunctionArgs) {
           activePurchases: activeTierPurchases.map(p => ({
             id: p.id,
             tierName: p.tier.name,
-            endDate: p.endDate?.toISOString() || 'LIFETIME',
+            shopifyOrderId: p.shopifyOrderId,
+            startDate: p.startDate.toISOString(),
+            endDate: p.endDate?.toISOString() || null,
             daysRemaining: p.endDate ? Math.ceil((p.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null
           })),
           subscriptions: tierSubscriptions.map(s => ({
