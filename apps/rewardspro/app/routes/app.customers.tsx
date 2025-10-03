@@ -1350,7 +1350,9 @@ export default function Customers() {
     setManualTierCustomer(customer);
     setManualTierSelection(customer.currentTier?.id || "none");
     setManualTierReason("");
-    setPermanentOverride(false);
+    // Pre-check "permanent override" if customer already has one
+    // This makes it clear that the override will continue unless unchecked
+    setPermanentOverride(customer.hasManualOverride || false);
     setManualTierModalActive(true);
   }, []);
   
@@ -1979,14 +1981,21 @@ export default function Customers() {
                       tone="warning"
                       icon={AlertTriangleIcon}
                     >
-                      <p>Previous manual assignment is active. Setting a new tier will replace it.</p>
+                      <BlockStack gap="200">
+                        <Text as="p" variant="bodySm">
+                          This customer currently has a permanent manual override preventing automatic tier recalculation.
+                        </Text>
+                        <Text as="p" variant="bodySm" fontWeight="semibold">
+                          Assigning a new tier will replace the existing override with your new settings below.
+                        </Text>
+                      </BlockStack>
                     </Banner>
                   )}
-                  
+
                   <Divider />
                 </BlockStack>
               )}
-              
+
               <Select
                 label="Select New Tier"
                 options={[
@@ -1998,9 +2007,11 @@ export default function Customers() {
                 ]}
                 value={manualTierSelection}
                 onChange={setManualTierSelection}
-                helpText="This will override automatic tier calculation"
+                helpText={manualTierCustomer?.hasManualOverride
+                  ? "Choose a new tier for this customer (will replace current override)"
+                  : "This will override automatic tier calculation"}
               />
-              
+
               <TextField
                 label="Reason for Change"
                 value={manualTierReason}
@@ -2010,13 +2021,41 @@ export default function Customers() {
                 placeholder="e.g., VIP customer upgrade, promotional offer, customer service resolution"
                 autoComplete="off"
               />
-              
-              <Checkbox
-                label="Permanent override"
-                checked={permanentOverride}
-                onChange={setPermanentOverride}
-                helpText="When enabled, automatic tier recalculation will be disabled for this customer"
-              />
+
+              <BlockStack gap="200">
+                <Checkbox
+                  label={manualTierCustomer?.hasManualOverride
+                    ? "Keep permanent override active"
+                    : "Set as permanent override"}
+                  checked={permanentOverride}
+                  onChange={setPermanentOverride}
+                  helpText={permanentOverride
+                    ? "Automatic tier recalculation will remain disabled for this customer"
+                    : "Allow automatic tier recalculation after this change"}
+                />
+
+                {manualTierCustomer?.hasManualOverride && !permanentOverride && (
+                  <Banner
+                    title="Override will be removed"
+                    tone="info"
+                  >
+                    <Text as="p" variant="bodySm">
+                      By unchecking "Keep permanent override", this customer's tier can be automatically recalculated in the future based on their spending.
+                    </Text>
+                  </Banner>
+                )}
+
+                {permanentOverride && (
+                  <Banner
+                    title="Override will continue"
+                    tone="warning"
+                  >
+                    <Text as="p" variant="bodySm">
+                      The new tier assignment will remain permanent until manually changed again. Automatic recalculation will stay disabled.
+                    </Text>
+                  </Banner>
+                )}
+              </BlockStack>
               
               <Banner
                 title="Manual Assignment Impact"
