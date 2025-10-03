@@ -1322,7 +1322,7 @@ export default function OrdersPage() {
         setToast({
           active: true,
           content: actionData.message,
-          error: actionData.failCount > 0
+          error: actionData.failCount > 0 && actionData.successCount === 0 // Only error if all failed
         });
       }
     }
@@ -1717,7 +1717,7 @@ export default function OrdersPage() {
       setToast({
         active: true,
         content: data.message || (data.success ? "Action completed" : "Action failed"),
-        error: !data.success,
+        error: data.failCount > 0 && data.successCount === 0 ? true : !data.success, // Success if any succeeded
       });
     }
   }, [fetcher.data]);
@@ -1742,7 +1742,7 @@ export default function OrdersPage() {
       setToast({
         active: true,
         content: data.message || (data.success ? "Action completed" : "Action failed"),
-        error: !data.success,
+        error: data.failCount > 0 && data.successCount === 0 ? true : !data.success, // Success if any succeeded
       });
 
       // Reset processing state
