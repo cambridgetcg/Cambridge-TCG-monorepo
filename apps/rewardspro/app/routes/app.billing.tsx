@@ -1289,6 +1289,214 @@ export default function BillingPage() {
                       <Icon source={CheckCircleIcon} tone="success" />
                     </td>
                   </tr>
+
+                  {/* Processing & Operations section */}
+                  <tr>
+                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Processing & Operations</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Batch cashback processing</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Customer bulk sync</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Limited</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Incremental order sync</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Store credit ledger</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+
+                  {/* Customer Experience section */}
+                  <tr>
+                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Customer Experience</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Customer portal widget</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Multi-currency support</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">5 currencies</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">15 currencies</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">33 currencies</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">All currencies</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Widget localization</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">English only</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Subscription management</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+
+                  {/* Support section */}
+                  <tr>
+                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Support</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Email support</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Standard</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Priority</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Priority</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Dedicated</Text>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Phone support</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Response time</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">48 hours</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">24 hours</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">12 hours</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">1 hour</Text>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
