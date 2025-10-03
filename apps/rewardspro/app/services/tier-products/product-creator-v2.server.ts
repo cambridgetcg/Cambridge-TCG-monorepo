@@ -286,9 +286,8 @@ export class ProductCreatorV2 {
   }
 
   /**
-   * Update variant with price and SKU using productSet mutation
-   * According to Shopify 2025-01 docs, productSet is the preferred method for price updates
-   * productVariantUpdate was deprecated in 2024-10 and removed in 2025-01
+   * Update variant with price and SKU using productVariantsBulkUpdate mutation
+   * Compatible with Shopify API 2025-01
    */
   private static async updateVariantPriceAndSku(
     admin: AdminApiContext,
@@ -305,73 +304,14 @@ export class ProductCreatorV2 {
       console.error(`${this.SERVICE_PREFIX} Invalid variant ID format: ${variantId}`);
     }
 
-    // First, fetch the product's current options and variant option values
-    const getProductQuery = `#graphql
-      query getProduct($id: ID!) {
-        product(id: $id) {
-          id
-          productOptions {
-            name
-            values
-          }
-          variants(first: 5) {
-            nodes {
-              id
-              optionValues {
-                name
-                optionName
-              }
-            }
-          }
-        }
-      }
-    `;
-
-    let productOptions: any[] = [];
-    let optionValues: any[] = [];
-
-    try {
-      const productResponse = await admin.graphql(getProductQuery, {
-        variables: { id: productId }
-      });
-
-      const productData = await productResponse.json() as any;
-
-      if (productData.data?.product) {
-        productOptions = productData.data.product.productOptions || [];
-
-        // Find the option values for the specific variant
-        const variants = productData.data.product.variants?.nodes || [];
-        const targetVariant = variants.find((v: any) => v.id === variantId);
-
-        if (targetVariant?.optionValues) {
-          optionValues = targetVariant.optionValues;
-        } else if (productOptions.length === 0) {
-          // If no options exist, use default
-          optionValues = [{ optionName: "Title", name: "Default Title" }];
-        }
-      }
-    } catch (error) {
-      console.error(`${this.SERVICE_PREFIX} Error fetching product options:`, error);
-      // Continue with default values
-      optionValues = [{ optionName: "Title", name: "Default Title" }];
-    }
-
-    // Use productSet for updating variant price and SKU (best practice from 2025-01)
+    // Use productVariantsBulkUpdate for updating variant price and SKU (API 2025-01 compatible)
     const mutation = `#graphql
-      mutation updateProductVariantPricing($input: ProductSetInput!, $synchronous: Boolean!, $identifier: ProductSetIdentifiers) {
-        productSet(synchronous: $synchronous, input: $input, identifier: $identifier) {
-          product {
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
             id
-            variants(first: 5) {
-              nodes {
-                id
-                price
-                compareAtPrice
-                sku
-                inventoryPolicy
-              }
-            }
+            price
+            sku
           }
           userErrors {
             field
@@ -391,24 +331,14 @@ export class ProductCreatorV2 {
 
         const response = await admin.graphql(mutation, {
           variables: {
-            synchronous: true,
-            identifier: { id: productId },
-            input: {
-              productOptions: productOptions.map((opt: any) => ({
-                name: opt.name,
-                values: opt.values?.map((v: string) => ({ name: v })) || [{ name: "Default Title" }]
-              })),
-              variants: [
-                {
-                  id: variantId,
-                  price: price,
-                  sku: sku,
-                  taxable: true,
-                  optionValues: optionValues
-                  // Note: inventoryPolicy removed - not valid at variant level in productSet
-                }
-              ]
-            }
+            productId: productId,
+            variants: [
+              {
+                id: variantId,
+                price: price,
+                sku: sku
+              }
+            ]
           }
         });
 
@@ -435,8 +365,8 @@ export class ProductCreatorV2 {
         }
 
         // Handle user errors
-        if (data.data?.productSet?.userErrors?.length > 0) {
-          const errors = data.data.productSet.userErrors;
+        if (data.data?.productVariantsBulkUpdate?.userErrors?.length > 0) {
+          const errors = data.data.productVariantsBulkUpdate.userErrors;
           const errorMsg = errors.map((e: any) => `${e.field}: ${e.message}`).join(", ");
           console.error(`${this.SERVICE_PREFIX} User errors updating variant:`, errorMsg);
 
@@ -458,7 +388,7 @@ export class ProductCreatorV2 {
         }
 
         // Success case - verify the variant was updated
-        const updatedVariants = data.data?.productSet?.product?.variants?.nodes;
+        const updatedVariants = data.data?.productVariantsBulkUpdate?.productVariants;
         if (updatedVariants && updatedVariants.length > 0) {
           const updatedVariant = updatedVariants.find((v: any) => v.id === variantId);
           if (updatedVariant) {

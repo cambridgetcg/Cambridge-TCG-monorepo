@@ -1662,10 +1662,15 @@ export default function TierProducts() {
       if ('message' in actionData) {
         toastContent = actionData.message;
         toastError = !actionData.success;
+        // Close modal on success
+        if (actionData.success) {
+          setModalActive(false);
+        }
       } else if (actionData.success) {
         toastContent = "Product created successfully! The product is now available in your Shopify admin.";
         toastError = false;
-        // Reload data on success
+        // Close modal and reload data on success
+        setModalActive(false);
         setTimeout(() => revalidate(), 1000);
       } else {
         toastContent = actionData.error || "Operation failed. Please try again.";

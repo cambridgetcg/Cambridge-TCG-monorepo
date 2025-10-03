@@ -462,17 +462,29 @@ export class DataAPIModelProxy<T = any> {
   }): Promise<T> {
     const fields = Object.keys(args.data);
     const params: SqlParameter[] = [];
-    
+
     // Build values with proper type casting for enums, timestamps, and JSON
     const values = fields.map((field, i) => {
       const value = args.data[field];
-      params.push(AuroraDataAPI.buildParameter(`param${i}`, value));
-      
+
+      // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
+      // Aurora Data API doesn't support array parameters directly
+      let paramValue = value;
+      let needsJsonbCast = false;
+
+      if (value && (Array.isArray(value) || (typeof value === 'object' && !(value instanceof Date)))) {
+        // JSON-stringify arrays and objects
+        paramValue = JSON.stringify(value);
+        needsJsonbCast = true;
+      }
+
+      params.push(AuroraDataAPI.buildParameter(`param${i}`, paramValue));
+
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
         return `:param${i}::text::${this.getEnumType(field)}`;
       }
-      
+
       // Check if this is a timestamp field
       if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' ||
           field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt' ||
@@ -485,16 +497,14 @@ export class DataAPIModelProxy<T = any> {
           field === 'originalUpdatedAt' || field.endsWith('At') || field.endsWith('Date')) {
         return `:param${i}::timestamp`;
       }
-      
-      // Check if this is a JSON field (metadata or any field that contains objects/arrays)
-      if (field === 'metadata' || field === 'data' || field === 'config' || field === 'payload') {
-        // If value is an object or array, it will be stringified by buildParameter
-        // We need to cast it to jsonb for PostgreSQL
-        if (value && typeof value === 'object') {
-          return `:param${i}::jsonb`;
-        }
+
+      // Check if this is a JSON/JSONB field (metadata, features, data, config, payload, etc.)
+      // Cast to jsonb if value is an array or object
+      if (needsJsonbCast || field === 'metadata' || field === 'data' || field === 'config' ||
+          field === 'payload' || field === 'features') {
+        return `:param${i}::jsonb`;
       }
-      
+
       return `:param${i}`;
     });
 
@@ -600,13 +610,25 @@ export class DataAPIModelProxy<T = any> {
     // Build SET clause with enum, timestamp, and JSON casting
     const setClauses = setFields.map((field, i) => {
       const value = args.data[field];
-      params.push(AuroraDataAPI.buildParameter(`set${i}`, value));
-      
+
+      // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
+      // Aurora Data API doesn't support array parameters directly
+      let paramValue = value;
+      let needsJsonbCast = false;
+
+      if (value && (Array.isArray(value) || (typeof value === 'object' && !(value instanceof Date)))) {
+        // JSON-stringify arrays and objects
+        paramValue = JSON.stringify(value);
+        needsJsonbCast = true;
+      }
+
+      params.push(AuroraDataAPI.buildParameter(`set${i}`, paramValue));
+
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
         return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
       }
-      
+
       // Check if this is a timestamp field
       if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' ||
           field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt' ||
@@ -619,14 +641,14 @@ export class DataAPIModelProxy<T = any> {
           field === 'originalUpdatedAt' || field.endsWith('At') || field.endsWith('Date')) {
         return `"${field}" = :set${i}::timestamp`;
       }
-      
-      // Check if this is a JSON field
-      if (field === 'metadata' || field === 'data' || field === 'config' || field === 'payload') {
-        if (value && typeof value === 'object') {
-          return `"${field}" = :set${i}::jsonb`;
-        }
+
+      // Check if this is a JSON/JSONB field (metadata, features, data, config, payload, etc.)
+      // Cast to jsonb if value is an array or object
+      if (needsJsonbCast || field === 'metadata' || field === 'data' || field === 'config' ||
+          field === 'payload' || field === 'features') {
+        return `"${field}" = :set${i}::jsonb`;
       }
-      
+
       return `"${field}" = :set${i}`;
     });
 
@@ -666,13 +688,25 @@ export class DataAPIModelProxy<T = any> {
     // Build SET clause with enum, timestamp, and JSON casting
     const setClauses = setFields.map((field, i) => {
       const value = args.data[field];
-      params.push(AuroraDataAPI.buildParameter(`set${i}`, value));
-      
+
+      // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
+      // Aurora Data API doesn't support array parameters directly
+      let paramValue = value;
+      let needsJsonbCast = false;
+
+      if (value && (Array.isArray(value) || (typeof value === 'object' && !(value instanceof Date)))) {
+        // JSON-stringify arrays and objects
+        paramValue = JSON.stringify(value);
+        needsJsonbCast = true;
+      }
+
+      params.push(AuroraDataAPI.buildParameter(`set${i}`, paramValue));
+
       // Check if this field needs enum casting
       if (this.isEnumField(field)) {
         return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
       }
-      
+
       // Check if this is a timestamp field
       if (field === 'createdAt' || field === 'updatedAt' || field === 'expires' ||
           field === 'currentPeriodStart' || field === 'currentPeriodEnd' || field === 'processedAt' ||
@@ -685,14 +719,14 @@ export class DataAPIModelProxy<T = any> {
           field === 'originalUpdatedAt' || field.endsWith('At') || field.endsWith('Date')) {
         return `"${field}" = :set${i}::timestamp`;
       }
-      
-      // Check if this is a JSON field
-      if (field === 'metadata' || field === 'data' || field === 'config' || field === 'payload') {
-        if (value && typeof value === 'object') {
-          return `"${field}" = :set${i}::jsonb`;
-        }
+
+      // Check if this is a JSON/JSONB field (metadata, features, data, config, payload, etc.)
+      // Cast to jsonb if value is an array or object
+      if (needsJsonbCast || field === 'metadata' || field === 'data' || field === 'config' ||
+          field === 'payload' || field === 'features') {
+        return `"${field}" = :set${i}::jsonb`;
       }
-      
+
       return `"${field}" = :set${i}`;
     });
 
