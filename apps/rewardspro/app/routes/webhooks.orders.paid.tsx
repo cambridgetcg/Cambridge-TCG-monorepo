@@ -350,6 +350,24 @@ async function processLineItem(tx: any, params: {
   console.log(`  - Matching by SKU: ${lineItem.sku}`);
   console.log(`  - Purchase Type: ONE_TIME or BOTH`);
 
+  // DEBUG: Show all tier products in database for this shop
+  const allTierProducts = await tx.tierProduct.findMany({
+    where: { shop },
+    select: {
+      id: true,
+      shopifyProductId: true,
+      shopifyVariantId: true,
+      sku: true,
+      purchaseType: true,
+      duration: true,
+      oneTimePrice: true
+    }
+  });
+  console.log(`[TIER PRODUCT RECOGNITION] DEBUG: Found ${allTierProducts.length} tier products in database:`);
+  allTierProducts.forEach((tp, idx) => {
+    console.log(`[TIER PRODUCT RECOGNITION]   ${idx + 1}. Product ID: ${tp.shopifyProductId}, Variant ID: ${tp.shopifyVariantId}, SKU: ${tp.sku}, Type: ${tp.purchaseType}`);
+  });
+
   const tierProduct = await tx.tierProduct.findFirst({
     where: {
       shop,
