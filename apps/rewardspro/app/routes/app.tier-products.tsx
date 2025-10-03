@@ -1446,7 +1446,18 @@ export default function TierProducts() {
 
   const isLoading = navigation.state === "submitting";
   const isRefreshing = navigation.state === "loading";
-  
+
+  // Automatically revalidate when navigation completes (after create/update/delete)
+  useEffect(() => {
+    if (navigation.state === "idle" && navigation.formData) {
+      const intent = navigation.formData.get("intent");
+      if (intent === "create-product" || intent === "delete-product" || intent === "update-product") {
+        // Revalidate immediately when action completes
+        revalidate();
+      }
+    }
+  }, [navigation.state, navigation.formData, revalidate]);
+
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
@@ -1619,18 +1630,17 @@ export default function TierProducts() {
       if ('message' in actionData) {
         toastContent = actionData.message;
         toastError = !actionData.success;
-        // Close modal and reload data on success
+        // Close modal on success (revalidation happens automatically via navigation effect)
         if (actionData.success) {
           setModalActive(false);
-          // Revalidate to refresh the product list
-          setTimeout(() => revalidate(), 500);
+          setEditModalActive(false);
         }
       } else if (actionData.success) {
         toastContent = "Product created successfully! The product is now available in your Shopify admin.";
         toastError = false;
-        // Close modal and reload data on success
+        // Close modals on success (revalidation happens automatically via navigation effect)
         setModalActive(false);
-        setTimeout(() => revalidate(), 1000);
+        setEditModalActive(false);
       } else {
         toastContent = actionData.error || "Operation failed. Please try again.";
         toastError = true;
