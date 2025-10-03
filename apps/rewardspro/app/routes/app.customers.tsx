@@ -78,6 +78,7 @@ import {
   hasManualOverride,
   getTierHistory
 } from "../services/manual-tier-assignment.server";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { checkTierMembershipExpiry } from "../services/tier-product-purchase.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { TierBadge } from "../components/TierBadge";
@@ -1092,15 +1093,69 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       });
 
-      console.log("[TIER RECALCULATION] Calling calculateCustomerTier...");
-      const result = await calculateCustomerTier(shop, customerId, admin as any);
+      // Check for active tier purchases
+      console.log("[TIER RECALCULATION] Checking tier purchases...");
+      const tierPurchases = await db.tierPurchase.findMany({
+        where: {
+          customerId,
+          shop,
+          status: 'ACTIVE',
+          OR: [
+            { endDate: null },
+            { endDate: { gte: new Date() } }
+          ]
+        },
+        include: { tier: true }
+      });
+      console.log(`[TIER RECALCULATION] Found ${tierPurchases.length} active tier purchases`);
+      if (tierPurchases.length > 0) {
+        tierPurchases.forEach((purchase, idx) => {
+          console.log(`  [Purchase ${idx + 1}]:`, {
+            tierName: purchase.tier.name,
+            status: purchase.status,
+            endDate: purchase.endDate,
+            purchasePrice: purchase.purchasePrice.toString(),
+            currency: purchase.currency
+          });
+        });
+      }
 
-      console.log("[TIER RECALCULATION] Calculation result:", {
+      // Check for active tier subscriptions
+      console.log("[TIER RECALCULATION] Checking tier subscriptions...");
+      const tierSubscriptions = await db.tierSubscription.findMany({
+        where: {
+          customerId,
+          shop,
+          status: 'ACTIVE'
+        },
+        include: { tier: true }
+      });
+      console.log(`[TIER RECALCULATION] Found ${tierSubscriptions.length} active tier subscriptions`);
+      if (tierSubscriptions.length > 0) {
+        tierSubscriptions.forEach((subscription, idx) => {
+          console.log(`  [Subscription ${idx + 1}]:`, {
+            tierName: subscription.tier.name,
+            status: subscription.status,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+            billingInterval: subscription.billingInterval,
+            finalPrice: subscription.finalPrice.toString()
+          });
+        });
+      }
+
+      // Use tier resolution system (checks ALL sources: manual, subscription, purchase, spending)
+      console.log("[TIER RECALCULATION] Calling tier resolution system...");
+      const result = await updateCustomerToEffectiveTier(shop, customerId, {
+        triggeredBy: 'MANUAL_RECALCULATION',
+        orderId: undefined
+      });
+
+      console.log("[TIER RECALCULATION] Resolution result:", {
         changed: result.changed,
-        previousTier: result.previousTierName,
-        newTier: result.newTierName,
-        totalSpending: result.totalSpending,
-        error: result.error
+        previousTierId: result.previousTierId,
+        newTierId: result.newTierId,
+        source: result.source,
+        success: result.success
       });
 
       // Check state after recalculation
@@ -1128,11 +1183,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
       console.log("========================================");
 
+      // Get tier names for the message
+      let previousTierName = 'None';
+      let newTierName = 'None';
+
+      if (result.previousTierId) {
+        const prevTier = await db.tier.findUnique({ where: { id: result.previousTierId } });
+        previousTierName = prevTier?.name || 'None';
+      }
+
+      if (result.newTierId) {
+        const newTier = await db.tier.findUnique({ where: { id: result.newTierId } });
+        newTierName = newTier?.name || 'None';
+      }
+
       return json({
         success: true,
         message: result.changed
-          ? `Tier updated from ${result.previousTierName || 'None'} to ${result.newTierName || 'None'}`
-          : "Tier unchanged",
+          ? `Tier updated from ${previousTierName} to ${newTierName} (Source: ${result.source})`
+          : `Tier unchanged (${newTierName}, Source: ${result.source})`,
         result
       });
     }
