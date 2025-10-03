@@ -38,7 +38,7 @@ import { useState, useCallback } from "react";
 // ============================================
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
 
   // Get all tiers
@@ -47,19 +47,119 @@ export async function loader({ request }: LoaderFunctionArgs) {
     orderBy: { minSpend: 'asc' }
   });
 
-  // Get all tier products
-  let tierProducts = [];
+  // Try to fetch tier products from database (if table exists)
+  let dbTierProducts: any[] = [];
   try {
-    tierProducts = await (db as any).tierProduct.findMany({
+    dbTierProducts = await (db as any).tierProduct.findMany({
       where: { shop },
-      include: { tier: true },
-      orderBy: { createdAt: 'desc' }
+      include: {
+        tier: true,
+      }
     });
-    console.log(`[TestPage] Found ${tierProducts.length} tier products for shop ${shop}`);
+    console.log(`[TestPage] Found ${dbTierProducts.length} tier products in database`);
   } catch (error) {
-    console.log('[TestPage] TierProduct table query error:', error);
+    console.log('[TestPage] Database table not yet available, using Shopify data only');
     // Table might not exist yet, continue with empty array
   }
+
+  // Fetch tier products from Shopify using GraphQL (same query as tier-products page)
+  const productsResponse = await admin.graphql(
+    `#graphql
+    query getTierProducts {
+      products(first: 100, query: "tag:tier-membership") {
+        edges {
+          node {
+            id
+            title
+            handle
+            status
+            tags
+            productType
+            publishedAt
+            variants(first: 10) {
+              edges {
+                node {
+                  id
+                  sku
+                  price
+                  title
+                }
+              }
+            }
+            sellingPlanGroups(first: 1) {
+              edges {
+                node {
+                  id
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }`
+  );
+
+  const productsResult = await productsResponse.json();
+
+  // Transform Shopify products to our TierProduct format (same logic as tier-products page)
+  const tierProducts: any[] = [];
+
+  if (productsResult.data?.products?.edges) {
+    for (const edge of productsResult.data.products.edges) {
+      const product = edge.node;
+      const variant = product.variants.edges[0]?.node;
+
+      if (variant) {
+        // Extract tier name and duration from tags or title
+        const tags = product.tags || [];
+        let duration = 'MONTHLY';
+
+        // Check tags for duration
+        if (tags.includes('monthly')) duration = 'MONTHLY';
+        else if (tags.includes('annual')) duration = 'ANNUAL';
+        else if (tags.includes('lifetime')) duration = 'LIFETIME';
+
+        // Extract tier name from title (assuming format: "TierName Tier Membership - Duration")
+        const tierNameMatch = product.title.match(/^(.+?)\s+Tier\s+Membership/);
+        const tierName = tierNameMatch ? tierNameMatch[1] : product.title;
+
+        // Find matching tier
+        const matchingTier = tiers.find(t =>
+          product.title.toLowerCase().includes(t.name.toLowerCase())
+        );
+
+        // Check if this product exists in database
+        const dbProduct = dbTierProducts.find(p =>
+          p.shopifyProductId === product.id.replace('gid://shopify/Product/', '')
+        );
+
+        const hasSubscription = product.sellingPlanGroups?.edges?.length > 0 || dbProduct?.hasSubscription;
+        const sellingPlanGroupId = product.sellingPlanGroups?.edges?.[0]?.node?.id || dbProduct?.sellingPlanGroupId;
+
+        tierProducts.push({
+          id: dbProduct?.id || product.id,
+          tierId: matchingTier?.id || dbProduct?.tierId || '',
+          tierName: dbProduct?.tier?.name || tierName,
+          shopifyProductId: product.id,
+          shopifyVariantId: variant.id,
+          productHandle: product.handle,
+          sku: variant.sku || dbProduct?.sku || '',
+          price: parseFloat(variant.price || '0'),
+          duration: dbProduct?.duration || duration,
+          features: dbProduct?.features || [],
+          isActive: product.status === 'ACTIVE',
+          hasSubscription,
+          sellingPlanGroupId,
+          publishedAt: product.publishedAt,
+          createdAt: dbProduct?.createdAt?.toISOString() || new Date().toISOString(),
+          updatedAt: dbProduct?.updatedAt?.toISOString() || new Date().toISOString(),
+        });
+      }
+    }
+  }
+
+  console.log(`[TestPage] Final tier products count: ${tierProducts.length}`);
 
   // Get test customers (or all customers)
   const customers = await db.customer.findMany({
