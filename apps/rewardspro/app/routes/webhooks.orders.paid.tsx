@@ -134,11 +134,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // This must happen AFTER the transaction completes and BEFORE spending-based tier check
         if (tierPurchaseMade && tierPurchaseCustomerId) {
           try {
-            console.log(`[OrderPaid] Tier purchase detected, resolving effective tier for customer ${tierPurchaseCustomerId}`);
+            console.log('========================================');
+            console.log('[TIER RESOLUTION] Tier Purchase Detected - Starting Resolution');
+            console.log('========================================');
+            console.log(`[TIER RESOLUTION] Customer ID: ${tierPurchaseCustomerId}`);
 
             const tierPurchaseResults = results.filter(r => r?.type === 'one_time_tier' && r?.needsResolution);
+            console.log(`[TIER RESOLUTION] Number of tier purchases to resolve: ${tierPurchaseResults.length}`);
 
             for (const purchaseResult of tierPurchaseResults) {
+              console.log('[TIER RESOLUTION] Processing purchase:');
+              console.log(`  - Customer ID: ${purchaseResult.customerId}`);
+              console.log(`  - Tier ID: ${purchaseResult.tierId}`);
+              console.log(`  - Purchase ID: ${purchaseResult.tierPurchaseId}`);
+              console.log(`  - Order ID: ${order.id}`);
+              console.log('[TIER RESOLUTION] → Calling updateCustomerToEffectiveTier()...');
+
               const resolutionResult = await updateCustomerToEffectiveTier(
                 shop!,
                 purchaseResult.customerId,
@@ -149,16 +160,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 }
               );
 
-              console.log(`[OrderPaid] Tier resolution after purchase:`, {
-                customerId: purchaseResult.customerId,
-                changed: resolutionResult.changed,
-                source: resolutionResult.source,
-                previousTier: resolutionResult.previousTierId,
-                newTier: resolutionResult.newTierId
-              });
+              console.log('[TIER RESOLUTION] ✅ Resolution Complete');
+              console.log('[TIER RESOLUTION] Result:');
+              console.log(`  - Changed: ${resolutionResult.changed}`);
+              console.log(`  - Source: ${resolutionResult.source}`);
+              console.log(`  - Previous Tier ID: ${resolutionResult.previousTierId || 'None'}`);
+              console.log(`  - New Tier ID: ${resolutionResult.newTierId || 'None'}`);
+
+              if (resolutionResult.changed) {
+                console.log('[TIER RESOLUTION] 🎉 Customer tier has been updated!');
+              } else {
+                console.log('[TIER RESOLUTION] ℹ️ Customer tier unchanged (higher priority source exists)');
+              }
+              console.log('========================================');
             }
           } catch (e) {
-            console.error(`[OrderPaid] Error resolving tier after purchase:`, e);
+            console.error(`[TIER RESOLUTION] ❌ Error resolving tier after purchase:`, e);
             // Don't fail the whole webhook - purchase is already recorded
           }
         }
@@ -288,15 +305,30 @@ async function processLineItem(tx: any, params: {
   lineItem: any;
 }) {
   const { shop, admin, order, lineItem } = params;
-  
+
+  console.log('========================================');
+  console.log('[TIER PRODUCT RECOGNITION] Processing Line Item');
+  console.log('========================================');
+  console.log('[TIER PRODUCT RECOGNITION] Line Item Details:');
+  console.log(`  - Line Item ID: ${lineItem.id}`);
+  console.log(`  - Product ID: ${lineItem.product_id}`);
+  console.log(`  - Variant ID: ${lineItem.variant_id}`);
+  console.log(`  - SKU: ${lineItem.sku || 'N/A'}`);
+  console.log(`  - Name: ${lineItem.name}`);
+  console.log(`  - Price: ${lineItem.price} ${order.currency}`);
+  console.log(`  - Quantity: ${lineItem.quantity}`);
+
   // Check if this is a subscription purchase
   const sellingPlanAllocation = lineItem.selling_plan_allocation;
   const isSubscription = !!sellingPlanAllocation;
-  
+
+  console.log(`[TIER PRODUCT RECOGNITION] Is Subscription: ${isSubscription}`);
+
   if (isSubscription) {
+    console.log('[TIER PRODUCT RECOGNITION] ✅ Identified as SUBSCRIPTION - routing to subscription handler');
     // Process subscription purchase
     const contractId = sellingPlanAllocation.selling_plan_id; // This would need proper extraction
-    
+
     return await TierSubscriptionBridgeV2.handleTierSubscriptionPurchase({
       shop,
       admin,
@@ -308,8 +340,16 @@ async function processLineItem(tx: any, params: {
       contractId,
     });
   }
-  
+
   // Check if this is a one-time tier product purchase
+  console.log('[TIER PRODUCT RECOGNITION] Checking for tier product match...');
+  console.log('[TIER PRODUCT RECOGNITION] Query criteria:');
+  console.log(`  - Shop: ${shop}`);
+  console.log(`  - Matching by Product ID: ${lineItem.product_id?.toString()}`);
+  console.log(`  - Matching by Variant ID: ${lineItem.variant_id?.toString()}`);
+  console.log(`  - Matching by SKU: ${lineItem.sku}`);
+  console.log(`  - Purchase Type: ONE_TIME or BOTH`);
+
   const tierProduct = await tx.tierProduct.findFirst({
     where: {
       shop,
@@ -321,8 +361,20 @@ async function processLineItem(tx: any, params: {
       purchaseType: { in: ['ONE_TIME', 'BOTH'] }
     }
   });
-  
+
   if (tierProduct) {
+    console.log('[TIER PRODUCT RECOGNITION] ✅ TIER PRODUCT MATCH FOUND!');
+    console.log('[TIER PRODUCT RECOGNITION] Matched TierProduct:');
+    console.log(`  - ID: ${tierProduct.id}`);
+    console.log(`  - Tier ID: ${tierProduct.tierId}`);
+    console.log(`  - Shopify Product ID: ${tierProduct.shopifyProductId}`);
+    console.log(`  - Shopify Variant ID: ${tierProduct.shopifyVariantId}`);
+    console.log(`  - SKU: ${tierProduct.sku}`);
+    console.log(`  - Purchase Type: ${tierProduct.purchaseType}`);
+    console.log(`  - Duration: ${tierProduct.duration}`);
+    console.log(`  - Price: ${tierProduct.price || tierProduct.oneTimePrice}`);
+    console.log('[TIER PRODUCT RECOGNITION] → Proceeding to create TierPurchase record');
+
     return await processOneTimeTierPurchase(tx, {
       shop,
       order,
@@ -330,7 +382,11 @@ async function processLineItem(tx: any, params: {
       tierProduct,
     });
   }
-  
+
+  console.log('[TIER PRODUCT RECOGNITION] ❌ No tier product match found');
+  console.log('[TIER PRODUCT RECOGNITION] → Processing as regular line item');
+  console.log('========================================');
+
   return { type: 'regular', processed: false };
 }
 
@@ -341,14 +397,29 @@ async function processOneTimeTierPurchase(tx: any, params: {
   tierProduct: any;
 }) {
   const { shop, order, lineItem, tierProduct } = params;
-  
+
+  console.log('========================================');
+  console.log('[TIER PURCHASE CREATION] Starting Tier Purchase Creation');
+  console.log('========================================');
+
   // Validate price
+  console.log('[TIER PURCHASE CREATION] Step 1: Validating Price');
+  console.log(`  - Line Item Price: ${lineItem.price}`);
+  console.log(`  - Currency: ${order.currency}`);
+
   const priceValidation = validatePrice(lineItem.price, order.currency);
   if (!priceValidation.valid) {
+    console.log(`[TIER PURCHASE CREATION] ❌ Price validation failed: ${priceValidation.error}`);
     throw new Error(`Invalid price for tier product: ${priceValidation.error}`);
   }
-  
+
+  console.log(`[TIER PURCHASE CREATION] ✅ Price validated: ${priceValidation.sanitizedPrice}`);
+
   // Get or create customer
+  console.log('[TIER PURCHASE CREATION] Step 2: Get or Create Customer');
+  console.log(`  - Shopify Customer ID: ${order.customer?.id}`);
+  console.log(`  - Email: ${order.customer?.email || order.email}`);
+
   const customer = await tx.customer.upsert({
     where: {
       shop_shopifyCustomerId: {
@@ -370,30 +441,56 @@ async function processOneTimeTierPurchase(tx: any, params: {
       updatedAt: new Date(),
     }
   });
-  
+
+  console.log(`[TIER PURCHASE CREATION] ✅ Customer: ${customer.id} (${customer.email})`);
+
   // Calculate tier duration
+  console.log('[TIER PURCHASE CREATION] Step 3: Calculate Tier Duration');
   const now = new Date();
   let tierEndDate: Date | null = null;
-  
+
+  console.log(`  - Duration Type: ${tierProduct.duration}`);
+  console.log(`  - Start Date: ${now.toISOString()}`);
+
   if (tierProduct.duration) {
     tierEndDate = new Date(now);
     switch (tierProduct.duration) {
       case 'MONTHLY':
         tierEndDate.setMonth(tierEndDate.getMonth() + 1);
+        console.log(`  - Calculated End Date (MONTHLY): ${tierEndDate.toISOString()}`);
         break;
       case 'ANNUAL':
         tierEndDate.setFullYear(tierEndDate.getFullYear() + 1);
+        console.log(`  - Calculated End Date (ANNUAL): ${tierEndDate.toISOString()}`);
         break;
       case 'LIFETIME':
         tierEndDate = null; // No expiry
+        console.log(`  - End Date: LIFETIME (null)`);
         break;
     }
   }
-  
+
   // Create tier purchase record
+  console.log('[TIER PURCHASE CREATION] Step 4: Creating TierPurchase Record');
+  const tierPurchaseId = uuidv4();
+
+  console.log('[TIER PURCHASE CREATION] TierPurchase Data:');
+  console.log(`  - ID: ${tierPurchaseId}`);
+  console.log(`  - Shop: ${shop}`);
+  console.log(`  - Customer ID: ${customer.id}`);
+  console.log(`  - Tier ID: ${tierProduct.tierId}`);
+  console.log(`  - Tier Product ID: ${tierProduct.id}`);
+  console.log(`  - Shopify Order ID: ${order.id}`);
+  console.log(`  - Shopify Line Item ID: ${lineItem.id}`);
+  console.log(`  - Purchase Price: ${priceValidation.sanitizedPrice}`);
+  console.log(`  - Currency: ${order.currency}`);
+  console.log(`  - Start Date: ${now.toISOString()}`);
+  console.log(`  - End Date: ${tierEndDate?.toISOString() || 'LIFETIME'}`);
+  console.log(`  - Status: ACTIVE`);
+
   const tierPurchase = await tx.tierPurchase.create({
     data: {
-      id: uuidv4(),
+      id: tierPurchaseId,
       shop,
       customerId: customer.id,
       tierId: tierProduct.tierId,
@@ -415,8 +512,12 @@ async function processOneTimeTierPurchase(tx: any, params: {
     }
   });
 
-  console.log(`[OrderPaid] Created TierPurchase record: ${tierPurchase.id}`);
-  console.log(`[OrderPaid] Duration: ${tierProduct.duration}, End Date: ${tierEndDate?.toISOString() || 'LIFETIME'}`);
+  console.log('[TIER PURCHASE CREATION] ✅ TierPurchase record created successfully!');
+  console.log(`[TIER PURCHASE CREATION] Purchase ID: ${tierPurchase.id}`);
+  console.log(`[TIER PURCHASE CREATION] Duration: ${tierProduct.duration}`);
+  console.log(`[TIER PURCHASE CREATION] End Date: ${tierEndDate?.toISOString() || 'LIFETIME'}`);
+  console.log('[TIER PURCHASE CREATION] → Tier resolution will be triggered next');
+  console.log('========================================');
 
   // NOTE: Do NOT directly update customer tier here!
   // Tier resolution will be called OUTSIDE the transaction to handle conflicts
