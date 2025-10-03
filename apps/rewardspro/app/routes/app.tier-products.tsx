@@ -1452,8 +1452,10 @@ export default function TierProducts() {
     if (navigation.state === "idle" && navigation.formData) {
       const intent = navigation.formData.get("intent");
       if (intent === "create-product" || intent === "delete-product" || intent === "update-product") {
-        // Revalidate immediately when action completes
-        revalidate();
+        // Add small delay to ensure database operation completes
+        setTimeout(() => {
+          revalidate();
+        }, 500);
       }
     }
   }, [navigation.state, navigation.formData, revalidate]);
