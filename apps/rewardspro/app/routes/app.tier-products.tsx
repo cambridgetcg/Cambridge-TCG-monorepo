@@ -65,7 +65,7 @@ interface TierProduct {
   productHandle: string;
   sku: string;
   price: number;
-  duration: 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'LIFETIME';
+  duration: 'MONTHLY' | 'ANNUAL' | 'LIFETIME';
   features: string[];
   publishedAt?: string | null;
   isActive: boolean;
@@ -114,7 +114,6 @@ function generateTierSKU(tierName: string, duration: string, shop: string): stri
 function formatDuration(duration: string): string {
   const durations: Record<string, string> = {
     'MONTHLY': 'Monthly',
-    'QUARTERLY': 'Quarterly',
     'ANNUAL': 'Annual',
     'LIFETIME': 'Lifetime'
   };
@@ -126,8 +125,6 @@ function getSubscriptionInterval(duration: string): { interval: string; interval
   switch (duration) {
     case 'MONTHLY':
       return { interval: 'MONTH', intervalCount: 1 };
-    case 'QUARTERLY':
-      return { interval: 'MONTH', intervalCount: 3 };
     case 'ANNUAL':
       return { interval: 'YEAR', intervalCount: 1 };
     case 'LIFETIME':
@@ -243,7 +240,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           
           // Check tags for duration
           if (tags.includes('monthly')) duration = 'MONTHLY';
-          else if (tags.includes('quarterly')) duration = 'QUARTERLY';
           else if (tags.includes('annual')) duration = 'ANNUAL';
           else if (tags.includes('lifetime')) duration = 'LIFETIME';
           
@@ -708,7 +704,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 hasSubscription: enableSubscription,
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
-                quarterlyPrice: enableSubscription && duration === "QUARTERLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
                 features: features.length > 0 ? features : null,
                 description,
@@ -726,7 +721,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 name: `${tierName} Tier Subscription`,
                 merchantCode: `TIER_${tierName.toUpperCase()}`,
                 description: `Subscription plans for ${tierName} tier membership`,
-                options: [duration as "MONTHLY" | "QUARTERLY" | "ANNUAL"],
+                options: [duration as "MONTHLY" | "ANNUAL"],
                 products: [product.id]
               });
 
@@ -870,7 +865,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 hasSubscription: enableSubscription,
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
-                quarterlyPrice: enableSubscription && duration === "QUARTERLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
                 features: features.length > 0 ? features : null,
                 description,
@@ -888,7 +882,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 name: `${tierName} Tier Subscription`,
                 merchantCode: `TIER_${tierName.toUpperCase()}`,
                 description: `Subscription plans for ${tierName} tier membership`,
-                options: [duration as "MONTHLY" | "QUARTERLY" | "ANNUAL"],
+                options: [duration as "MONTHLY" | "ANNUAL"],
                 products: [result.productId]
               });
               
@@ -1443,10 +1437,8 @@ export default function TierProducts() {
   const [subscriptionDiscountPercent, setSubscriptionDiscountPercent] = useState("10");
   const [subscriptionOptions, setSubscriptionOptions] = useState({
     enableMonthly: true,
-    enableQuarterly: true,
     enableAnnual: true,
     monthlyDiscount: "0",
-    quarterlyDiscount: "5",
     annualDiscount: "15",
   });
   const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
@@ -1520,10 +1512,8 @@ export default function TierProducts() {
     setSubscriptionDiscountPercent("10");
     setSubscriptionOptions({
       enableMonthly: true,
-      enableQuarterly: true,
       enableAnnual: true,
       monthlyDiscount: "0",
-      quarterlyDiscount: "5",
       annualDiscount: "15",
     });
   }, []);
@@ -1534,10 +1524,8 @@ export default function TierProducts() {
     setSubscriptionDiscountPercent("10");
     setSubscriptionOptions({
       enableMonthly: true,
-      enableQuarterly: true,
       enableAnnual: true,
       monthlyDiscount: "0",
-      quarterlyDiscount: "5",
       annualDiscount: "15",
     });
   }, []);
@@ -1565,10 +1553,8 @@ export default function TierProducts() {
     setSubscriptionDiscountPercent("10");
     setSubscriptionOptions({
       enableMonthly: true,
-      enableQuarterly: true,
       enableAnnual: true,
       monthlyDiscount: "0",
-      quarterlyDiscount: "5",
       annualDiscount: "15",
     });
   }, []);
@@ -1704,7 +1690,6 @@ export default function TierProducts() {
   // Duration options
   const durationOptions = [
     { label: "Monthly", value: "MONTHLY" },
-    { label: "Quarterly (3 months)", value: "QUARTERLY" },
     { label: "Annual", value: "ANNUAL" },
     { label: "Lifetime (one-time)", value: "LIFETIME" },
   ];
@@ -2319,26 +2304,7 @@ export default function TierProducts() {
                                 />
                               </div>
                             </InlineStack>
-                            
-                            <InlineStack gap="400" align="space-between">
-                              <Checkbox
-                                label="Quarterly billing (3 months)"
-                                checked={subscriptionOptions.enableQuarterly}
-                                onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableQuarterly: value})}
-                              />
-                              <div style={{ width: '120px' }}>
-                                <TextField
-                                  label=""
-                                  type="number"
-                                  value={subscriptionOptions.quarterlyDiscount}
-                                  onChange={(value) => setSubscriptionOptions({...subscriptionOptions, quarterlyDiscount: value})}
-                                  suffix="% off"
-                                  disabled={!subscriptionOptions.enableQuarterly}
-                                  autoComplete="off"
-                                />
-                              </div>
-                            </InlineStack>
-                            
+
                             <InlineStack gap="400" align="space-between">
                               <Checkbox
                                 label="Annual billing (12 months)"
@@ -2366,9 +2332,6 @@ export default function TierProducts() {
                             <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
                               {subscriptionOptions.enableMonthly && (
                                 <li>Monthly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * (1 - parseFloat(subscriptionOptions.monthlyDiscount) / 100)).toFixed(2)}/month</li>
-                              )}
-                              {subscriptionOptions.enableQuarterly && (
-                                <li>Quarterly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 3 * (1 - parseFloat(subscriptionOptions.quarterlyDiscount) / 100)).toFixed(2)} every 3 months</li>
                               )}
                               {subscriptionOptions.enableAnnual && (
                                 <li>Annual: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 12 * (1 - parseFloat(subscriptionOptions.annualDiscount) / 100)).toFixed(2)}/year</li>

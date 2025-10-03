@@ -10,7 +10,8 @@ import { json } from "@remix-run/node";
 import db from "~/db.server";
 import { verifyWebhookHMAC } from "~/utils/webhook-validation.server";
 import { roundToCurrencyPrecision } from "~/services/currency-formatter.server";
-import type { Currency } from "@prisma/client";
+import { updateCustomerToEffectiveTier } from "~/services/tier-resolution.server";
+import type { Currency, SubscriptionStatus } from "@prisma/client";
 
 export async function action({ request }: ActionFunctionArgs) {
   const rawBody = await request.text();
@@ -38,103 +39,216 @@ export async function action({ request }: ActionFunctionArgs) {
       nextBillingDate: data.next_billing_date,
     });
 
-    // Find existing subscription
-    const subscription = await db.subscription.findUnique({
-      where: { shopifyContractId: contractId },
-      include: { customer: true },
+    // Try to find TierSubscription first (tier product subscriptions)
+    const tierSubscription = await db.tierSubscription.findFirst({
+      where: { subscriptionContractId: contractId },
+      include: {
+        customer: true,
+        tier: true
+      },
     });
 
-    if (!subscription) {
+    // Fall back to legacy Subscription table
+    const subscription = !tierSubscription ? await db.subscription.findFirst({
+      where: { shopifyContractId: contractId },
+      include: { customer: true },
+    }) : null;
+
+    if (!tierSubscription && !subscription) {
       console.error(`[SubscriptionUpdated] Subscription not found: ${contractId}`);
       // Create new subscription if it doesn't exist
       return createSubscriptionFromWebhook(shop, data);
     }
 
-    const previousStatus = subscription.status;
     const nextBillingDate = data.next_billing_date ? new Date(data.next_billing_date) : null;
-
-    // Update subscription
-    const updatedSubscription = await db.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        status: mapSubscriptionStatus(status),
-        nextBillingDate,
-        lastBillingDate: data.last_billing_date ? new Date(data.last_billing_date) : subscription.lastBillingDate,
-        
-        // Update lifecycle dates based on status changes
-        ...(status === 'ACTIVE' && previousStatus !== 'ACTIVE' ? {
-          activatedAt: new Date(),
-          resumedAt: previousStatus === 'PAUSED' ? new Date() : subscription.resumedAt,
-        } : {}),
-        
-        ...(status === 'PAUSED' && previousStatus !== 'PAUSED' ? {
-          pausedAt: new Date(),
-        } : {}),
-        
-        ...(status === 'CANCELLED' && previousStatus !== 'CANCELLED' ? {
-          cancelledAt: new Date(),
-          cancellationReason: data.cancellation_reason || null,
-        } : {}),
-
-        // Update metadata
-        metadata: {
-          ...subscription.metadata as any,
-          lastWebhookUpdate: data,
-          updatedAt: new Date().toISOString(),
-        },
-        
-        updatedAt: new Date(),
-      },
-    });
-
-    // Update customer subscription status
-    await db.customer.update({
-      where: { id: subscription.customerId },
-      data: {
-        hasActiveSubscription: status === 'ACTIVE',
-        subscriptionTier: status === 'ACTIVE' ? subscription.planName : null,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Determine event type based on status change
     let eventType = 'BILLING_UPDATED';
-    if (previousStatus !== status) {
-      if (status === 'ACTIVE' && previousStatus === 'PAUSED') {
-        eventType = 'RESUMED';
-      } else if (status === 'PAUSED') {
-        eventType = 'PAUSED';
-      } else if (status === 'CANCELLED') {
-        eventType = 'CANCELLED';
-      } else if (status === 'ACTIVE') {
-        eventType = 'ACTIVATED';
+    let statusChanged = false;
+
+    // Handle TierSubscription update
+    if (tierSubscription) {
+      const previousStatus = tierSubscription.status;
+      const newStatus = mapSubscriptionStatus(status) as SubscriptionStatus;
+      statusChanged = previousStatus !== newStatus;
+
+      console.log(`[SubscriptionUpdated] Updating TierSubscription:`, {
+        contractId,
+        tier: tierSubscription.tier.name,
+        previousStatus,
+        newStatus,
+      });
+
+      // Update tier subscription
+      await db.tierSubscription.update({
+        where: { id: tierSubscription.id },
+        data: {
+          status: newStatus,
+          nextBillingDate,
+          lastBillingDate: data.last_billing_date ? new Date(data.last_billing_date) : tierSubscription.lastBillingDate,
+
+          // Update lifecycle dates based on status changes
+          ...(newStatus === 'ACTIVE' && previousStatus !== 'ACTIVE' ? {
+            startedAt: new Date(),
+            resumedAt: previousStatus === 'PAUSED' ? new Date() : tierSubscription.resumedAt,
+          } : {}),
+
+          ...(newStatus === 'PAUSED' && previousStatus !== 'PAUSED' ? {
+            pausedAt: new Date(),
+            pauseReason: data.pause_reason || 'Customer requested',
+          } : {}),
+
+          ...(newStatus === 'CANCELLED' && previousStatus !== 'CANCELLED' ? {
+            cancelledAt: new Date(),
+            cancellationReason: data.cancellation_reason || null,
+          } : {}),
+
+          // Update metadata
+          metadata: {
+            ...tierSubscription.metadata as any,
+            lastWebhookUpdate: data,
+            updatedAt: new Date().toISOString(),
+          },
+
+          updatedAt: new Date(),
+        },
+      });
+
+      // Determine event type based on status change
+      if (statusChanged) {
+        if (newStatus === 'ACTIVE' && previousStatus === 'PAUSED') {
+          eventType = 'RESUMED';
+        } else if (newStatus === 'PAUSED') {
+          eventType = 'PAUSED';
+        } else if (newStatus === 'CANCELLED') {
+          eventType = 'CANCELLED';
+        } else if (newStatus === 'ACTIVE') {
+          eventType = 'ACTIVATED';
+        }
       }
+
+      // CRITICAL: Re-resolve effective tier when subscription status changes
+      if (statusChanged) {
+        console.log(`[SubscriptionUpdated] Subscription status changed, resolving effective tier for customer ${tierSubscription.customer.email}`);
+
+        const resolutionResult = await updateCustomerToEffectiveTier(
+          shop,
+          tierSubscription.customerId,
+          {
+            triggeredBy: `SUBSCRIPTION_${eventType}`,
+            subscriptionId: tierSubscription.id,
+          }
+        );
+
+        console.log(`[SubscriptionUpdated] Tier resolution result:`, {
+          changed: resolutionResult.changed,
+          source: resolutionResult.source,
+          previousTier: resolutionResult.previousTierId,
+          newTier: resolutionResult.newTierId,
+        });
+      }
+
+      // Update customer subscription status
+      await db.customer.update({
+        where: { id: tierSubscription.customerId },
+        data: {
+          hasActiveSubscription: newStatus === 'ACTIVE',
+          subscriptionTier: newStatus === 'ACTIVE' ? tierSubscription.tier.name : null,
+          updatedAt: new Date(),
+        },
+      });
+    }
+    // Handle legacy Subscription update
+    else if (subscription) {
+      const previousStatus = subscription.status;
+      statusChanged = previousStatus !== status;
+
+      // Update subscription
+      await db.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: mapSubscriptionStatus(status),
+          nextBillingDate,
+          lastBillingDate: data.last_billing_date ? new Date(data.last_billing_date) : subscription.lastBillingDate,
+
+          // Update lifecycle dates based on status changes
+          ...(status === 'ACTIVE' && previousStatus !== 'ACTIVE' ? {
+            activatedAt: new Date(),
+            resumedAt: previousStatus === 'PAUSED' ? new Date() : subscription.resumedAt,
+          } : {}),
+
+          ...(status === 'PAUSED' && previousStatus !== 'PAUSED' ? {
+            pausedAt: new Date(),
+          } : {}),
+
+          ...(status === 'CANCELLED' && previousStatus !== 'CANCELLED' ? {
+            cancelledAt: new Date(),
+            cancellationReason: data.cancellation_reason || null,
+          } : {}),
+
+          // Update metadata
+          metadata: {
+            ...subscription.metadata as any,
+            lastWebhookUpdate: data,
+            updatedAt: new Date().toISOString(),
+          },
+
+          updatedAt: new Date(),
+        },
+      });
+
+      // Determine event type based on status change
+      if (statusChanged) {
+        if (status === 'ACTIVE' && previousStatus === 'PAUSED') {
+          eventType = 'RESUMED';
+        } else if (status === 'PAUSED') {
+          eventType = 'PAUSED';
+        } else if (status === 'CANCELLED') {
+          eventType = 'CANCELLED';
+        } else if (status === 'ACTIVE') {
+          eventType = 'ACTIVATED';
+        }
+      }
+
+      // Update customer subscription status
+      await db.customer.update({
+        where: { id: subscription.customerId },
+        data: {
+          hasActiveSubscription: status === 'ACTIVE',
+          subscriptionTier: status === 'ACTIVE' ? subscription.planName : null,
+          updatedAt: new Date(),
+        },
+      });
     }
 
     // Track subscription event
-    await db.subscriptionEvent.create({
-      data: {
-        id: crypto.randomUUID(),
-        shop,
-        customerId: subscription.customerId,
-        subscriptionId: subscription.id,
-        eventType,
-        eventData: {
-          contractId,
-          previousStatus,
-          newStatus: status,
-          nextBillingDate: nextBillingDate?.toISOString(),
-          changes: getChanges(subscription, data),
-        },
-        createdAt: new Date(),
-      },
-    });
+    const customerId = tierSubscription?.customerId || subscription?.customerId;
+    const subscriptionId = tierSubscription?.id || subscription?.id;
 
-    console.log(`[SubscriptionUpdated] Updated subscription ${contractId}:`, {
-      previousStatus,
-      newStatus: status,
-      eventType,
-    });
+    if (customerId && subscriptionId) {
+      await db.subscriptionEvent.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          customerId,
+          subscriptionId,
+          eventType,
+          eventData: {
+            contractId,
+            previousStatus: tierSubscription?.status || subscription?.status,
+            newStatus: status,
+            nextBillingDate: nextBillingDate?.toISOString(),
+            isTierSubscription: !!tierSubscription,
+            statusChanged,
+          },
+          createdAt: new Date(),
+        },
+      });
+
+      console.log(`[SubscriptionUpdated] Updated subscription ${contractId}:`, {
+        isTierSubscription: !!tierSubscription,
+        eventType,
+        statusChanged,
+      });
+    }
 
     return json({ success: true, eventType });
   } catch (error) {

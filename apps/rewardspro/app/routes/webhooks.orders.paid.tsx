@@ -8,10 +8,11 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
-import { calculateCustomerTierFromDB } from "../services/tier-calculation.server";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
+// Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
 
@@ -106,6 +107,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Step 3: Process special line items (subscriptions, tier products)
         const results = [];
+        let tierPurchaseMade = false;
+        let tierPurchaseCustomerId: string | null = null;
+
         for (const lineItem of order.line_items) {
           try {
             const itemResult = await processLineItem(db, {
@@ -115,8 +119,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               lineItem,
             });
             results.push(itemResult);
+
+            // Check if this was a tier purchase that needs resolution
+            if (itemResult?.needsResolution && itemResult?.customerId) {
+              tierPurchaseMade = true;
+              tierPurchaseCustomerId = itemResult.customerId;
+            }
           } catch (e) {
             console.error(`[OrderPaid] Error processing line item ${lineItem.id}:`, e);
+          }
+        }
+
+        // Step 3.5: Resolve effective tier if tier purchase was made
+        // This must happen AFTER the transaction completes and BEFORE spending-based tier check
+        if (tierPurchaseMade && tierPurchaseCustomerId) {
+          try {
+            console.log(`[OrderPaid] Tier purchase detected, resolving effective tier for customer ${tierPurchaseCustomerId}`);
+
+            const tierPurchaseResults = results.filter(r => r?.type === 'one_time_tier' && r?.needsResolution);
+
+            for (const purchaseResult of tierPurchaseResults) {
+              const resolutionResult = await updateCustomerToEffectiveTier(
+                shop!,
+                purchaseResult.customerId,
+                {
+                  triggeredBy: 'TIER_PURCHASE',
+                  orderId: order.id?.toString(),
+                  purchaseId: purchaseResult.tierPurchaseId
+                }
+              );
+
+              console.log(`[OrderPaid] Tier resolution after purchase:`, {
+                customerId: purchaseResult.customerId,
+                changed: resolutionResult.changed,
+                source: resolutionResult.source,
+                previousTier: resolutionResult.previousTierId,
+                newTier: resolutionResult.newTierId
+              });
+            }
+          } catch (e) {
+            console.error(`[OrderPaid] Error resolving tier after purchase:`, e);
+            // Don't fail the whole webhook - purchase is already recorded
           }
         }
 
@@ -338,9 +381,6 @@ async function processOneTimeTierPurchase(tx: any, params: {
       case 'MONTHLY':
         tierEndDate.setMonth(tierEndDate.getMonth() + 1);
         break;
-      case 'QUARTERLY':
-        tierEndDate.setMonth(tierEndDate.getMonth() + 3);
-        break;
       case 'ANNUAL':
         tierEndDate.setFullYear(tierEndDate.getFullYear() + 1);
         break;
@@ -351,7 +391,7 @@ async function processOneTimeTierPurchase(tx: any, params: {
   }
   
   // Create tier purchase record
-  await tx.tierPurchase.create({
+  const tierPurchase = await tx.tierPurchase.create({
     data: {
       id: uuidv4(),
       shop,
@@ -374,42 +414,22 @@ async function processOneTimeTierPurchase(tx: any, params: {
       updatedAt: now,
     }
   });
-  
-  // Update customer tier
-  await tx.customer.update({
-    where: { id: customer.id },
-    data: {
-      currentTierId: tierProduct.tierId,
-      updatedAt: now,
-    }
-  });
-  
-  // Log tier change
-  await tx.tierChangeLog.create({
-    data: {
-      id: uuidv4(),
-      customerId: customer.id,
-      shop,
-      fromTierId: customer.currentTierId,
-      toTierId: tierProduct.tierId,
-      changeType: customer.currentTierId ? 'UPGRADE' : 'INITIAL_ASSIGNMENT',
-      triggerType: 'PRODUCT_PURCHASE',
-      metadata: {
-        orderId: order.id,
-        productId: tierProduct.id,
-        duration: tierProduct.duration,
-        endDate: tierEndDate?.toISOString(),
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-  });
-  
+
+  console.log(`[OrderPaid] Created TierPurchase record: ${tierPurchase.id}`);
+  console.log(`[OrderPaid] Duration: ${tierProduct.duration}, End Date: ${tierEndDate?.toISOString() || 'LIFETIME'}`);
+
+  // NOTE: Do NOT directly update customer tier here!
+  // Tier resolution will be called OUTSIDE the transaction to handle conflicts
+  // This allows the resolution system to check all tier sources (manual override, subscription, purchase, spending)
+
   return {
     type: 'one_time_tier',
     processed: true,
     tierId: tierProduct.tierId,
+    tierPurchaseId: tierPurchase.id,
+    customerId: customer.id,
     endDate: tierEndDate,
+    needsResolution: true, // Signal that tier resolution should be called
   };
 }
 
@@ -759,43 +779,41 @@ async function checkTierProgression(_dbOrTx: any, params: {
   }
 
   try {
-    // Calculate tier based on customer's spending from LOCAL DATABASE
-    // This is more reliable than Shopify API calls and includes the just-processed order
-    console.log(`[OrderPaid] Starting tier calculation from LOCAL DB for customer ${customerId}`, orderId ? `triggered by order ${orderId}` : '');
+    // Use TIER RESOLUTION SYSTEM to handle all tier sources
+    // This checks: manual override, tier subscription, tier purchase, AND spending-based
+    console.log(`[OrderPaid] Resolving effective tier for customer ${customerId} after order ${orderId || 'unknown'}`);
 
-    // Use local database for tier calculation (more reliable, includes current order)
-    const result = await calculateCustomerTierFromDB(shop, customerId, {
-      orderId: orderId,
-      triggerType: 'SPENDING_MILESTONE'
+    const result = await updateCustomerToEffectiveTier(shop, customerId, {
+      triggeredBy: 'ORDER_PAID',
+      orderId: orderId
     });
 
-    console.log(`[OrderPaid] Tier calculation result:`, {
-      customerId: result.customerId,
+    console.log(`[OrderPaid] Tier resolution result:`, {
+      customerId,
       changed: result.changed,
-      previousTier: result.previousTierName,
-      newTier: result.newTierName,
-      totalSpending: result.totalSpending,
-      error: result.error,
+      source: result.source,
+      previousTier: result.previousTierId,
+      newTier: result.newTierId,
       orderId: orderId
     });
 
     if (result.error) {
-      console.error(`[OrderPaid] Tier calculation returned error: ${result.error}`);
+      console.error(`[OrderPaid] Tier resolution returned error: ${result.error}`);
     }
 
     if (result.changed) {
-      console.log(`[OrderPaid] ✅ Tier changed for customer ${customerId}: ${result.previousTierName} → ${result.newTierName}`);
+      console.log(`[OrderPaid] ✅ Tier changed for customer ${customerId} via ${result.source}`);
     } else {
-      console.log(`[OrderPaid] No tier change for customer ${customerId}, current tier: ${result.previousTierName || 'None'}`);
+      console.log(`[OrderPaid] No tier change for customer ${customerId}, effective tier source: ${result.source}`);
     }
 
-    // Note: We've removed TierResolver here to avoid dual calculation issues
-    // The calculateCustomerTier function now handles all tier logic using Shopify API data
-    // This prevents conflicts between Shopify API data and potentially outdated local DB data
+    // Note: Using tier resolution system instead of direct calculation
+    // This ensures manual overrides, tier subscriptions, and tier purchases are respected
+    // The resolution system automatically handles priority: Manual > Subscription > Purchase > Spending
 
   } catch (error) {
-    console.error(`[OrderPaid] ❌ Error calculating tier for customer ${customerId}:`, error);
+    console.error(`[OrderPaid] ❌ Error resolving tier for customer ${customerId}:`, error);
     console.error(`[OrderPaid] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
-    // Don't throw - we don't want tier calculation errors to fail the webhook
+    // Don't throw - we don't want tier resolution errors to fail the webhook
   }
 }

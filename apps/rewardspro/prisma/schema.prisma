@@ -1241,8 +1241,6 @@ enum SubscriptionStatus {
 enum BillingInterval {
   WEEKLY
   MONTHLY
-  QUARTERLY          // 3 months
-  SEMIANNUAL        // 6 months
   ANNUAL            // 12 months
 }
 
@@ -1268,8 +1266,6 @@ enum PurchaseType {
 
 enum ProductDuration {
   MONTHLY           // 30 days
-  QUARTERLY         // 90 days
-  SEMIANNUAL       // 180 days
   ANNUAL           // 365 days
   LIFETIME         // Permanent
 }

@@ -10,7 +10,8 @@ import { json } from "@remix-run/node";
 import db from "~/db.server";
 import { verifyWebhookHMAC } from "~/utils/webhook-validation.server";
 import { roundToCurrencyPrecision } from "~/services/currency-formatter.server";
-import type { Currency } from "@prisma/client";
+import { updateCustomerToEffectiveTier } from "~/services/tier-resolution.server";
+import type { Currency, SubscriptionStatus, BillingInterval } from "@prisma/client";
 
 export async function action({ request }: ActionFunctionArgs) {
   const rawBody = await request.text();
@@ -85,63 +86,186 @@ export async function action({ request }: ActionFunctionArgs) {
     const lineItem = data.lines?.length > 0 ? data.lines[0] : null;
     const amount = lineItem?.price ? parseFloat(lineItem.price) : 0;
     const planName = lineItem?.title || 'Subscription';
+    const variantId = lineItem?.variant_id;
+    const sellingPlanId = lineItem?.selling_plan_id;
 
-    // Check if subscription already exists
-    const existingSubscription = await db.subscription.findFirst({
+    // Check if subscription already exists (idempotency)
+    const existingTierSubscription = await db.tierSubscription.findFirst({
       where: {
-        shopifyContractId: contractId,
+        subscriptionContractId: contractId,
       },
     });
 
-    if (existingSubscription) {
-      console.log(`[SubscriptionCreated] Subscription already exists: ${contractId}`);
+    if (existingTierSubscription) {
+      console.log(`[SubscriptionCreated] Tier subscription already exists: ${contractId}`);
       return json({ message: "Subscription already processed" });
     }
 
-    // Create subscription record
-    const subscription = await db.subscription.create({
-      data: {
-        id: crypto.randomUUID(),
-        shop,
-        customerId: customer.id,
-        shopifyContractId: contractId,
-        planName,
-        status: mapSubscriptionStatus(status),
-        amount: roundToCurrencyPrecision(amount, currency),
-        currency,
-        billingInterval: billingPolicy.interval || 'MONTH',
-        billingIntervalCount: billingPolicy.interval_count || 1,
-        nextBillingDate,
-        activatedAt: status === 'ACTIVE' ? new Date() : null,
-        features: lineItem?.properties || null,
-        metadata: {
-          originalWebhook: data,
-          lineItems: data.lines,
-          billingPolicy,
-          deliveryPolicy: data.delivery_policy,
+    // Try to find the tier product by variant ID
+    let tierProduct = null;
+    if (variantId) {
+      const variantIdString = String(variantId);
+      tierProduct = await db.tierProduct.findFirst({
+        where: {
+          shop,
+          shopifyVariantId: variantIdString,
         },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+        include: {
+          tier: true,
+        },
+      });
+
+      if (!tierProduct) {
+        console.warn(`[SubscriptionCreated] No tier product found for variant ${variantIdString}`);
+      }
+    }
+
+    // If this is a tier product subscription, create TierSubscription
+    let tierSubscription = null;
+    if (tierProduct && tierProduct.hasSubscription) {
+      console.log(`[SubscriptionCreated] Creating tier subscription for tier: ${tierProduct.tier.name}`);
+
+      // Calculate period dates
+      const now = new Date();
+      const billingInterval = billingPolicy.interval || 'MONTH';
+      const intervalCount = billingPolicy.interval_count || 1;
+
+      let periodEnd = new Date(now);
+      switch (billingInterval.toUpperCase()) {
+        case 'WEEK':
+          periodEnd.setDate(periodEnd.getDate() + (intervalCount * 7));
+          break;
+        case 'MONTH':
+          periodEnd.setMonth(periodEnd.getMonth() + intervalCount);
+          break;
+        case 'YEAR':
+          periodEnd.setFullYear(periodEnd.getFullYear() + intervalCount);
+          break;
+        default:
+          // Default to monthly if unknown interval
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+          break;
+      }
+
+      // Map Shopify billing interval to our enum
+      const mappedInterval = mapBillingInterval(billingInterval);
+
+      tierSubscription = await db.tierSubscription.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          customerId: customer.id,
+          tierId: tierProduct.tierId,
+          tierProductId: tierProduct.id,
+
+          // Shopify Integration
+          subscriptionContractId: contractId,
+          sellingPlanId: String(sellingPlanId || ''),
+          sellingPlanGroupId: tierProduct.sellingPlanGroupId || '',
+          productVariantId: String(variantId),
+
+          // Subscription Details
+          status: mapSubscriptionStatus(status) as SubscriptionStatus,
+          billingInterval: mappedInterval,
+          deliveryInterval: mappedInterval,
+
+          // Pricing
+          basePrice: roundToCurrencyPrecision(amount, currency),
+          discountPercentage: 0,
+          finalPrice: roundToCurrencyPrecision(amount, currency),
+          currency,
+
+          // Period Tracking
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          nextBillingDate,
+          lastBillingDate: null,
+
+          // Lifecycle
+          startedAt: status === 'ACTIVE' ? now : null,
+
+          // Metadata
+          metadata: {
+            webhookData: data,
+            lineItem,
+            billingPolicy,
+            deliveryPolicy: data.delivery_policy,
+          },
+
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+
+      console.log(`[SubscriptionCreated] Created tier subscription:`, {
+        id: tierSubscription.id,
+        contractId,
+        tierId: tierProduct.tierId,
+        tierName: tierProduct.tier.name,
+        status: tierSubscription.status,
+      });
+
+      // If subscription is ACTIVE, update customer's effective tier using resolution system
+      if (status === 'ACTIVE') {
+        console.log(`[SubscriptionCreated] Resolving effective tier for customer ${customer.email}`);
+
+        const resolutionResult = await updateCustomerToEffectiveTier(
+          shop,
+          customer.id,
+          {
+            triggeredBy: 'SUBSCRIPTION_CREATED',
+            subscriptionId: tierSubscription.id,
+          }
+        );
+
+        console.log(`[SubscriptionCreated] Tier resolution result:`, {
+          changed: resolutionResult.changed,
+          source: resolutionResult.source,
+          previousTier: resolutionResult.previousTierId,
+          newTier: resolutionResult.newTierId,
+        });
+      }
+    } else {
+      // Legacy: Create regular subscription record for non-tier subscriptions
+      console.log(`[SubscriptionCreated] Creating legacy subscription (not a tier product)`);
+
+      const subscription = await db.subscription.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          customerId: customer.id,
+          shopifyContractId: contractId,
+          planName,
+          status: mapSubscriptionStatus(status),
+          amount: roundToCurrencyPrecision(amount, currency),
+          currency,
+          billingInterval: billingPolicy.interval || 'MONTH',
+          billingIntervalCount: billingPolicy.interval_count || 1,
+          nextBillingDate,
+          activatedAt: status === 'ACTIVE' ? new Date() : null,
+          features: lineItem?.properties || null,
+          metadata: {
+            originalWebhook: data,
+            lineItems: data.lines,
+            billingPolicy,
+            deliveryPolicy: data.delivery_policy,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      console.log(`[SubscriptionCreated] Created legacy subscription: ${subscription.id}`);
+    }
 
     // Update customer subscription status
     await db.customer.update({
       where: { id: customer.id },
       data: {
         hasActiveSubscription: status === 'ACTIVE',
-        subscriptionTier: planName,
+        subscriptionTier: tierProduct ? tierProduct.tier.name : planName,
         updatedAt: new Date(),
       },
-    });
-
-    console.log(`[SubscriptionCreated] Created subscription for ${customer.email}:`, {
-      id: subscription.id,
-      contractId,
-      planName,
-      amount,
-      currency,
-      status,
     });
 
     // Track subscription event
@@ -150,20 +274,26 @@ export async function action({ request }: ActionFunctionArgs) {
         id: crypto.randomUUID(),
         shop,
         customerId: customer.id,
-        subscriptionId: subscription.id,
+        subscriptionId: tierSubscription?.id || null,
         eventType: 'CREATED',
         eventData: {
           contractId,
-          planName,
+          planName: tierProduct ? tierProduct.tier.name : planName,
           amount,
           currency,
           status,
+          isTierSubscription: !!tierProduct,
+          tierProductId: tierProduct?.id || null,
         },
         createdAt: new Date(),
       },
     });
 
-    return json({ success: true, subscriptionId: subscription.id });
+    return json({
+      success: true,
+      tierSubscriptionId: tierSubscription?.id || null,
+      isTierProduct: !!tierProduct
+    });
   } catch (error) {
     console.error("[SubscriptionCreated] Error processing webhook:", error);
 
@@ -197,4 +327,17 @@ function mapSubscriptionStatus(shopifyStatus: string): any {
   };
 
   return statusMap[shopifyStatus] || 'PENDING';
+}
+
+/**
+ * Map Shopify billing interval to our BillingInterval enum
+ */
+function mapBillingInterval(shopifyInterval: string): BillingInterval {
+  const intervalMap: Record<string, BillingInterval> = {
+    'WEEK': 'WEEKLY',
+    'MONTH': 'MONTHLY',
+    'YEAR': 'ANNUAL',
+  };
+
+  return intervalMap[shopifyInterval.toUpperCase()] || 'MONTHLY';
 }
