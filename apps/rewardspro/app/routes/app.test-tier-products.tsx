@@ -590,6 +590,108 @@ export async function action({ request }: ActionFunctionArgs) {
       });
     }
 
+    // ============================================
+    // 5. DIAGNOSE TIER PRODUCT DATABASE
+    // ============================================
+    if (intent === "diagnose-tier-products") {
+      // Count total tier products
+      const totalCount = await (db as any).tierProduct.count({
+        where: { shop }
+      });
+
+      // Get ALL tier products for this shop
+      const allTierProducts = await (db as any).tierProduct.findMany({
+        where: { shop },
+        include: { tier: true },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Search for specific product from webhook
+      const productId = '10152964915539';
+      const variantId = '51929965199699';
+      const sku = 'TESTST-PLATI-T-MON-2509-UUF';
+
+      const exactMatch = await (db as any).tierProduct.findFirst({
+        where: {
+          shop,
+          OR: [
+            { shopifyProductId: productId },
+            { shopifyVariantId: variantId },
+            { sku: sku }
+          ],
+          purchaseType: { in: ['ONE_TIME', 'BOTH'] }
+        },
+        include: { tier: true }
+      });
+
+      // Search with LIKE for partial matches
+      const partialMatches = await (db as any).tierProduct.findMany({
+        where: {
+          shop,
+          OR: [
+            { shopifyProductId: { contains: productId } },
+            { shopifyVariantId: { contains: variantId } },
+            { sku: { contains: 'PLATI' } },
+            { sku: { contains: 'TESTST' } }
+          ]
+        },
+        include: { tier: true }
+      });
+
+      return json({
+        success: true,
+        operation: "diagnose-tier-products",
+        data: {
+          summary: {
+            totalTierProducts: totalCount,
+            lookingFor: {
+              productId,
+              variantId,
+              sku,
+              purchaseType: 'ONE_TIME or BOTH'
+            },
+            exactMatchFound: !!exactMatch,
+            partialMatchesFound: partialMatches.length
+          },
+          exactMatch: exactMatch ? {
+            id: exactMatch.id,
+            tierId: exactMatch.tierId,
+            tierName: exactMatch.tier.name,
+            shopifyProductId: exactMatch.shopifyProductId,
+            shopifyVariantId: exactMatch.shopifyVariantId,
+            sku: exactMatch.sku,
+            purchaseType: exactMatch.purchaseType,
+            duration: exactMatch.duration,
+            price: exactMatch.price || exactMatch.oneTimePrice,
+            createdAt: exactMatch.createdAt
+          } : null,
+          partialMatches: partialMatches.map(tp => ({
+            id: tp.id,
+            tierId: tp.tierId,
+            tierName: tp.tier.name,
+            shopifyProductId: tp.shopifyProductId,
+            shopifyVariantId: tp.shopifyVariantId,
+            sku: tp.sku,
+            purchaseType: tp.purchaseType,
+            duration: tp.duration,
+            price: tp.price || tp.oneTimePrice
+          })),
+          allTierProducts: allTierProducts.map(tp => ({
+            id: tp.id,
+            tierId: tp.tierId,
+            tierName: tp.tier.name,
+            shopifyProductId: tp.shopifyProductId,
+            shopifyVariantId: tp.shopifyVariantId,
+            sku: tp.sku,
+            purchaseType: tp.purchaseType,
+            duration: tp.duration,
+            price: tp.price || tp.oneTimePrice,
+            createdAt: tp.createdAt
+          }))
+        }
+      });
+    }
+
     return json({ success: false, error: "Unknown intent" });
 
   } catch (error) {
@@ -613,7 +715,7 @@ export default function TierProductsTestPage() {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedTierProduct, setSelectedTierProduct] = useState("");
   const [orderAmount, setOrderAmount] = useState("50.00");
-  const [activeTab, setActiveTab] = useState<"simulate" | "inspect" | "purchases" | "results">("simulate");
+  const [activeTab, setActiveTab] = useState<"simulate" | "inspect" | "purchases" | "diagnose" | "results">("simulate");
   const [checkPurchasesCustomer, setCheckPurchasesCustomer] = useState("");
 
   // Customer options
@@ -684,6 +786,15 @@ export default function TierProductsTestPage() {
     setActiveTab("results");
   }, [checkPurchasesCustomer, submit]);
 
+  // Handle diagnose tier products
+  const handleDiagnoseTierProducts = useCallback(() => {
+    const formData = new FormData();
+    formData.append("intent", "diagnose-tier-products");
+
+    submit(formData, { method: "post" });
+    setActiveTab("results");
+  }, [submit]);
+
   // Get selected customer details
   const selectedCustomerData = data.customers.find(c => c.id === selectedCustomer);
 
@@ -729,6 +840,12 @@ export default function TierProductsTestPage() {
                 onClick={() => setActiveTab("purchases")}
               >
                 Purchase State
+              </Button>
+              <Button
+                pressed={activeTab === "diagnose"}
+                onClick={() => setActiveTab("diagnose")}
+              >
+                Diagnose DB
               </Button>
               <Button
                 pressed={activeTab === "results"}
@@ -877,6 +994,59 @@ export default function TierProductsTestPage() {
                 <Button variant="primary" onClick={handleCheckPurchases} disabled={!checkPurchasesCustomer}>
                   Check Purchase State
                 </Button>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        )}
+
+        {/* Diagnose Tier Products Tab */}
+        {activeTab === "diagnose" && (
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">🔍 Tier Product Database Diagnostic</Text>
+                <Divider />
+
+                <Banner status="info">
+                  <p>
+                    This diagnostic tool checks the TierProduct table for the Platinum Tier Membership
+                    that failed to be recognized in Order #1084.
+                  </p>
+                  <BlockStack gap="200">
+                    <Text as="p" variant="bodyMd">
+                      <strong>Looking for:</strong>
+                    </Text>
+                    <ul>
+                      <li>Product ID: <code>10152964915539</code></li>
+                      <li>Variant ID: <code>51929965199699</code></li>
+                      <li>SKU: <code>TESTST-PLATI-T-MON-2509-UUF</code></li>
+                      <li>Purchase Type: <code>ONE_TIME</code> or <code>BOTH</code></li>
+                    </ul>
+                  </BlockStack>
+                </Banner>
+
+                <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="300">
+                    <Text variant="headingSm" as="h3">What This Tool Does:</Text>
+                    <ul>
+                      <li>Counts total TierProduct records for this shop</li>
+                      <li>Searches for exact match using the webhook query</li>
+                      <li>Searches for partial matches (GID prefix, case differences)</li>
+                      <li>Lists ALL tier products in the database</li>
+                    </ul>
+                  </BlockStack>
+                </Box>
+
+                <Button
+                  variant="primary"
+                  onClick={handleDiagnoseTierProducts}
+                >
+                  Run Diagnostic
+                </Button>
+
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Results will appear in the "View Results" tab
+                </Text>
               </BlockStack>
             </Card>
           </Layout.Section>
@@ -1333,6 +1503,177 @@ export default function TierProductsTestPage() {
                             new Date(s.currentPeriodEnd).toLocaleDateString()
                           ])}
                         />
+                      </BlockStack>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Diagnostic Results */}
+              {actionData.success && actionData.operation === "diagnose-tier-products" && actionData.data && (
+                <>
+                  {/* Summary Card */}
+                  <Card>
+                    <BlockStack gap="400">
+                      <Text variant="headingMd" as="h2">🔍 Diagnostic Summary</Text>
+                      <Divider />
+
+                      <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                        <BlockStack gap="200">
+                          <Text variant="bodyMd" as="p">
+                            <strong>Total TierProducts:</strong> {actionData.data.summary.totalTierProducts}
+                          </Text>
+                          <Text variant="bodyMd" as="p">
+                            <strong>Exact Match Found:</strong>{" "}
+                            {actionData.data.summary.exactMatchFound ? (
+                              <Badge tone="success">YES ✅</Badge>
+                            ) : (
+                              <Badge tone="critical">NO ❌</Badge>
+                            )}
+                          </Text>
+                          <Text variant="bodyMd" as="p">
+                            <strong>Partial Matches:</strong> {actionData.data.summary.partialMatchesFound}
+                          </Text>
+                        </BlockStack>
+                      </Box>
+
+                      <Box padding="300" background="bg-surface-tertiary" borderRadius="200">
+                        <BlockStack gap="200">
+                          <Text variant="headingSm" as="h3">Looking For:</Text>
+                          <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                            <li>Product ID: <code>{actionData.data.summary.lookingFor.productId}</code></li>
+                            <li>Variant ID: <code>{actionData.data.summary.lookingFor.variantId}</code></li>
+                            <li>SKU: <code>{actionData.data.summary.lookingFor.sku}</code></li>
+                            <li>Purchase Type: <code>{actionData.data.summary.lookingFor.purchaseType}</code></li>
+                          </ul>
+                        </BlockStack>
+                      </Box>
+                    </BlockStack>
+                  </Card>
+
+                  {/* Exact Match */}
+                  {actionData.data.exactMatch && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">✅ Exact Match Found!</Text>
+                        <Divider />
+                        <Banner status="success">
+                          <p>The webhook query SHOULD recognize this product!</p>
+                        </Banner>
+                        <DataTable
+                          columnContentTypes={["text", "text"]}
+                          headings={["Field", "Value"]}
+                          rows={[
+                            ["Tier Name", actionData.data.exactMatch.tierName],
+                            ["Product ID", actionData.data.exactMatch.shopifyProductId || "N/A"],
+                            ["Variant ID", actionData.data.exactMatch.shopifyVariantId || "N/A"],
+                            ["SKU", actionData.data.exactMatch.sku || "N/A"],
+                            ["Purchase Type", actionData.data.exactMatch.purchaseType],
+                            ["Duration", actionData.data.exactMatch.duration || "N/A"],
+                            ["Price", `$${actionData.data.exactMatch.price || 0}`],
+                            ["Created At", new Date(actionData.data.exactMatch.createdAt).toLocaleString()]
+                          ]}
+                        />
+                      </BlockStack>
+                    </Card>
+                  )}
+
+                  {/* No Exact Match - Possible Issues */}
+                  {!actionData.data.exactMatch && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">❌ No Exact Match Found</Text>
+                        <Divider />
+                        <Banner status="critical">
+                          <p>The webhook cannot recognize this product! This is why Order #1084 failed.</p>
+                        </Banner>
+                        <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="300">
+                            <Text variant="headingSm" as="h3">Possible Issues:</Text>
+                            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                              <li>TierProduct record doesn't exist for this product</li>
+                              <li>Product/Variant IDs have GID prefix (e.g., gid://shopify/Product/...)</li>
+                              <li>SKU case mismatch (database has different case)</li>
+                              <li>purchaseType is set to SUBSCRIPTION (needs ONE_TIME or BOTH)</li>
+                            </ul>
+                          </BlockStack>
+                        </Box>
+                      </BlockStack>
+                    </Card>
+                  )}
+
+                  {/* Partial Matches */}
+                  {actionData.data.partialMatches && actionData.data.partialMatches.length > 0 && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">🔍 Partial Matches ({actionData.data.partialMatches.length})</Text>
+                        <Divider />
+                        <Banner status="warning">
+                          <p>These products match partially - check for GID prefix or SKU differences</p>
+                        </Banner>
+                        <DataTable
+                          columnContentTypes={["text", "text", "text", "text", "text"]}
+                          headings={["Tier", "Product ID", "Variant ID", "SKU", "Purchase Type"]}
+                          rows={actionData.data.partialMatches.map((pm: any) => [
+                            pm.tierName,
+                            pm.shopifyProductId || "N/A",
+                            pm.shopifyVariantId || "N/A",
+                            pm.sku || "N/A",
+                            pm.purchaseType
+                          ])}
+                        />
+                      </BlockStack>
+                    </Card>
+                  )}
+
+                  {/* All Tier Products */}
+                  {actionData.data.allTierProducts && actionData.data.allTierProducts.length > 0 && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">📋 All Tier Products ({actionData.data.allTierProducts.length})</Text>
+                        <Divider />
+                        <DataTable
+                          columnContentTypes={["text", "text", "text", "text", "text", "text"]}
+                          headings={["Tier", "Product ID", "Variant ID", "SKU", "Type", "Duration"]}
+                          rows={actionData.data.allTierProducts.map((tp: any) => [
+                            tp.tierName,
+                            tp.shopifyProductId || "N/A",
+                            tp.shopifyVariantId || "N/A",
+                            tp.sku || "N/A",
+                            tp.purchaseType,
+                            tp.duration || "N/A"
+                          ])}
+                        />
+                      </BlockStack>
+                    </Card>
+                  )}
+
+                  {/* No Tier Products At All */}
+                  {actionData.data.allTierProducts && actionData.data.allTierProducts.length === 0 && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">⚠️ No Tier Products Found</Text>
+                        <Divider />
+                        <Banner status="critical">
+                          <p>There are NO tier products in the database for this shop!</p>
+                        </Banner>
+                        <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="300">
+                            <Text variant="headingSm" as="h3">Next Steps:</Text>
+                            <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                              <li>Go to <strong>/app/tier-products</strong> page</li>
+                              <li>Create a Platinum tier product with:
+                                <ul>
+                                  <li>Duration: MONTHLY</li>
+                                  <li>Price: 4.75 GBP</li>
+                                  <li>Purchase Type: ONE_TIME</li>
+                                </ul>
+                              </li>
+                              <li>Verify the product/variant IDs match Shopify</li>
+                              <li>Test with a new order</li>
+                            </ol>
+                          </BlockStack>
+                        </Box>
                       </BlockStack>
                     </Card>
                   )}
