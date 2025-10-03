@@ -143,20 +143,21 @@ export async function resolveEffectiveTier(
   // SOURCE 2: Active Tier Subscription
   // ============================================
 
-  const activeTierSubscription = await db.tierSubscription.findFirst({
+  // Get all active tier subscriptions (can't use relation orderBy with Aurora Data API)
+  const activeTierSubscriptions = await db.tierSubscription.findMany({
     where: {
       customerId,
       shop,
       status: 'ACTIVE',
       // Optionally check currentPeriodEnd if you want strict expiry
     },
-    include: { tier: true },
-    orderBy: {
-      tier: {
-        minSpend: 'desc'  // If multiple, pick highest tier
-      }
-    }
+    include: { tier: true }
   });
+
+  // Sort by tier minSpend in memory (highest first)
+  const activeTierSubscription = activeTierSubscriptions.sort((a, b) =>
+    b.tier.minSpend - a.tier.minSpend
+  )[0];
 
   if (activeTierSubscription) {
     console.log(`[TierResolution] ✓ Active tier subscription found: ${activeTierSubscription.tier.name}`);
@@ -181,7 +182,9 @@ export async function resolveEffectiveTier(
   // ============================================
 
   const now = new Date();
-  const activeTierPurchase = await db.tierPurchase.findFirst({
+
+  // Get all active tier purchases (can't use relation orderBy with Aurora Data API)
+  const activeTierPurchases = await db.tierPurchase.findMany({
     where: {
       customerId,
       shop,
@@ -192,13 +195,13 @@ export async function resolveEffectiveTier(
         ...(options?.includeExpired ? [{ endDate: { lt: now } }] : [])
       ]
     },
-    include: { tier: true },
-    orderBy: {
-      tier: {
-        minSpend: 'desc'  // If multiple, pick highest tier
-      }
-    }
+    include: { tier: true }
   });
+
+  // Sort by tier minSpend in memory (highest first)
+  const activeTierPurchase = activeTierPurchases.sort((a, b) =>
+    b.tier.minSpend - a.tier.minSpend
+  )[0];
 
   if (activeTierPurchase) {
     const isExpired = activeTierPurchase.endDate && activeTierPurchase.endDate < now;
