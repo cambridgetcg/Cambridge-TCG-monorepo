@@ -32,6 +32,7 @@
       "routes/webhooks.orders.refunded": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.proxy.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -52,6 +53,7 @@
       "routes/app.test-order-strategies": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-pending-orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.test-tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.subscription-demo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.test-order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.design-showcase": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -71,6 +73,7 @@
       "routes/app.billing.upgrade": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing.plans": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.locked": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
     "routes": {
@@ -278,6 +281,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.monthly-reset": {
+        "id": "routes/api.cron.monthly-reset",
+        "parentId": "root",
+        "file": "app/routes/api.cron.monthly-reset.tsx",
+        "path": "api/cron/monthly-reset",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.cron.usage-billing": {
         "id": "routes/api.cron.usage-billing",
         "parentId": "root",
@@ -463,6 +475,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.test-tier-products": {
+        "id": "routes/app.test-tier-products",
+        "parentId": "routes/app",
+        "file": "app/routes/app.test-tier-products.tsx",
+        "path": "test-tier-products",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.subscription-demo": {
         "id": "routes/app.subscription-demo",
         "parentId": "routes/app",
@@ -616,6 +637,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app._index.tsx",
         "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.locked": {
+        "id": "routes/app.locked",
+        "parentId": "routes/app",
+        "file": "app/routes/app.locked.tsx",
+        "path": "locked",
         "config": {
           "runtime": "nodejs"
         }
@@ -784,6 +814,12 @@
         "file": "routes/api.subscription-action.tsx",
         "path": "api/subscription-action"
       },
+      "routes/api.cron.monthly-reset": {
+        "id": "routes/api.cron.monthly-reset",
+        "parentId": "root",
+        "file": "routes/api.cron.monthly-reset.tsx",
+        "path": "api/cron/monthly-reset"
+      },
       "routes/api.cron.usage-billing": {
         "id": "routes/api.cron.usage-billing",
         "parentId": "root",
@@ -910,6 +946,12 @@
         "file": "routes/app.test-pending-orders.tsx",
         "path": "test-pending-orders"
       },
+      "routes/app.test-tier-products": {
+        "id": "routes/app.test-tier-products",
+        "parentId": "routes/app",
+        "file": "routes/app.test-tier-products.tsx",
+        "path": "test-tier-products"
+      },
       "routes/app.subscription-demo": {
         "id": "routes/app.subscription-demo",
         "parentId": "routes/app",
@@ -1023,6 +1065,12 @@
         "parentId": "routes/app",
         "file": "routes/app._index.tsx",
         "index": true
+      },
+      "routes/app.locked": {
+        "id": "routes/app.locked",
+        "parentId": "routes/app",
+        "file": "routes/app.locked.tsx",
+        "path": "locked"
       },
       "routes/app.orders": {
         "id": "routes/app.orders",

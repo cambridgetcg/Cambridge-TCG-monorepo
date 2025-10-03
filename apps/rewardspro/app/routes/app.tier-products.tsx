@@ -859,6 +859,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
                 duration: duration as any,
                 hasSubscription: enableSubscription,
+                price: price,  // Required base price field
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
@@ -885,10 +886,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               }
             }
           } catch (dbError) {
-            console.log('[TierProducts] Could not create database record:', dbError);
+            console.error('[TierProducts] Could not create database record:', dbError);
+            console.error('[TierProducts] Error details:', JSON.stringify(dbError, null, 2));
           }
         }
-        
+
         // Verify publication status
         const publicationStatus = await ProductCreatorV2.verifyPublication(admin, result.productId!);
         
