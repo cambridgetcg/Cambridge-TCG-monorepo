@@ -854,7 +854,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 tierId,
                 shopifyProductId: result.productId.replace('gid://shopify/Product/', ''),
                 shopifyVariantId: result.variantId.replace('gid://shopify/ProductVariant/', ''),
-                productHandle: result.handle || sku,
+                // productHandle: result.handle || sku,  // Column doesn't exist in database yet
                 sku,
                 purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
                 duration: duration as any,
