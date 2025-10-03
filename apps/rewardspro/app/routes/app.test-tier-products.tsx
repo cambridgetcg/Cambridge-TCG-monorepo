@@ -134,13 +134,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
           p.shopifyProductId === product.id.replace('gid://shopify/Product/', '')
         );
 
+        // Get tier from database product or matched tier
+        const tier = dbProduct?.tier || matchingTier;
+
+        // Skip products without a matching tier - fail fast
+        if (!tier) {
+          console.warn(`[TestPage] Skipping product "${product.title}" - no matching tier found`);
+          continue;
+        }
+
         const hasSubscription = product.sellingPlanGroups?.edges?.length > 0 || dbProduct?.hasSubscription;
         const sellingPlanGroupId = product.sellingPlanGroups?.edges?.[0]?.node?.id || dbProduct?.sellingPlanGroupId;
 
         tierProducts.push({
           id: dbProduct?.id || product.id,
-          tierId: matchingTier?.id || dbProduct?.tierId || '',
-          tierName: dbProduct?.tier?.name || tierName,
+          tierId: tier.id,
+          tierName: tier.name,
           shopifyProductId: product.id,
           shopifyVariantId: variant.id,
           productHandle: product.handle,
@@ -512,7 +521,7 @@ export default function TierProductsTestPage() {
 
   // Tier product options
   const tierProductOptions = data.tierProducts.map(tp => ({
-    label: `${tp.tier.name} - ${tp.duration} (${tp.currency} ${tp.price})`,
+    label: `${tp.tierName} - ${tp.duration} ($${tp.price})`,
     value: tp.id
   }));
 
@@ -1066,9 +1075,9 @@ export default function TierProductsTestPage() {
                   columnContentTypes={["text", "text", "text", "text"]}
                   headings={["Tier", "Duration", "Price", "Type"]}
                   rows={data.tierProducts.map(tp => [
-                    tp.tier.name,
+                    tp.tierName,
                     tp.duration,
-                    `${tp.currency} ${tp.price}`,
+                    `$${tp.price}`,
                     tp.hasSubscription ? "Subscription" : "One-time"
                   ])}
                 />
