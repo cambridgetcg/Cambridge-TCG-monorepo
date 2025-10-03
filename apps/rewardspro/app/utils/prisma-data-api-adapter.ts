@@ -542,7 +542,7 @@ export class DataAPIModelProxy<T = any> {
       Subscription: ['status', 'currency', 'lastPaymentStatus'],
       BillingAttempt: ['status', 'currency'],
       SellingPlan: ['billingInterval', 'discountType'],
-      TierPurchase: ['status'],
+      TierPurchase: ['status', 'currency'],
       SubscriptionRetry: ['status'],
       SubscriptionEvent: ['eventType'],
       SyncStatus: ['status'],
