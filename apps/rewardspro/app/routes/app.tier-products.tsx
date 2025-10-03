@@ -442,7 +442,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const price = parseFloat(formData.get("price") as string);
       const duration = formData.get("duration") as string;
       const description = formData.get("description") as string;
-      const features = JSON.parse(formData.get("features") as string || "[]");
       const enableSubscription = formData.get("enableSubscription") === "true";
       const subscriptionOptions = enableSubscription ? JSON.parse(formData.get("subscriptionOptions") as string || "{}") : null;
       
@@ -705,7 +704,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
-                features: features.length > 0 ? features : null,
                 description,
                 isActive: true,
                 createdAt: new Date(),
@@ -866,7 +864,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
-                features: features.length > 0 ? features : null,
                 description,
                 isActive: true,
                 createdAt: new Date(),
@@ -1429,12 +1426,6 @@ export default function TierProducts() {
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<string>("MONTHLY");
   const [description, setDescription] = useState<string>("");
-  const [features, setFeatures] = useState<string[]>([
-    "Access to exclusive tier benefits",
-    "Cashback rewards on purchases",
-    "Priority customer support"
-  ]);
-  const [newFeature, setNewFeature] = useState<string>("");
   const [enableSubscription, setEnableSubscription] = useState(false);
   const [subscriptionDiscountPercent, setSubscriptionDiscountPercent] = useState("10");
   const [subscriptionOptions, setSubscriptionOptions] = useState({
@@ -1505,11 +1496,6 @@ export default function TierProducts() {
     setPrice("");
     setDuration("MONTHLY");
     setDescription("");
-    setFeatures([
-      "Access to exclusive tier benefits",
-      "Cashback rewards on purchases",
-      "Priority customer support"
-    ]);
     setEnableSubscription(false);
     setSubscriptionDiscountPercent("10");
     setSubscriptionOptions({
@@ -1539,11 +1525,6 @@ export default function TierProducts() {
     setPrice(product.price.toString());
     setDuration(product.duration);
     setDescription(""); // Would need to fetch from Shopify if needed
-    setFeatures(product.features || [
-      "Access to exclusive tier benefits",
-      "Cashback rewards on purchases",
-      "Priority customer support"
-    ]);
     setEditModalActive(true);
   }, []);
   
@@ -1603,15 +1584,14 @@ export default function TierProducts() {
     formData.append("price", price);
     formData.append("duration", duration);
     formData.append("description", description);
-    formData.append("features", JSON.stringify(features));
     formData.append("enableSubscription", enableSubscription.toString());
     if (enableSubscription) {
       formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
     }
-    
+
     submit(formData, { method: "post" });
     handleModalClose();
-  }, [selectedTier, price, duration, description, features, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose]);
+  }, [selectedTier, price, duration, description, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose]);
   
   // Handle update product
   const handleUpdateProduct = useCallback(() => {
@@ -1631,7 +1611,6 @@ export default function TierProducts() {
     formData.append("price", price);
     formData.append("duration", duration);
     formData.append("description", description);
-    formData.append("features", JSON.stringify(features));
     formData.append("enableSubscription", enableSubscription.toString());
     if (enableSubscription) {
       formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
@@ -1639,20 +1618,7 @@ export default function TierProducts() {
     
     submit(formData, { method: "post" });
     handleEditModalClose();
-  }, [editingProduct, price, duration, description, features, enableSubscription, subscriptionOptions, submit, handleEditModalClose]);
-  
-  // Handle add feature
-  const handleAddFeature = useCallback(() => {
-    if (newFeature.trim()) {
-      setFeatures([...features, newFeature.trim()]);
-      setNewFeature("");
-    }
-  }, [features, newFeature]);
-  
-  // Handle remove feature
-  const handleRemoveFeature = useCallback((index: number) => {
-    setFeatures(features.filter((_, i) => i !== index));
-  }, [features]);
+  }, [editingProduct, price, duration, description, enableSubscription, subscriptionOptions, submit, handleEditModalClose]);
   
   // Handle action response
   useEffect(() => {
@@ -2189,40 +2155,6 @@ export default function TierProducts() {
                 showAdvanced={false}
                 compactMode={true}
               />
-              
-              <Divider />
-              
-              <BlockStack gap="200">
-                <Text variant="bodyMd" fontWeight="semibold" as="span">
-                  Membership Features
-                </Text>
-                
-                {features.map((feature, index) => (
-                  <InlineStack key={index} gap="200" align="space-between">
-                    <Text variant="bodyMd" as="span">• {feature}</Text>
-                    <Button
-                      size="slim"
-                      plain
-                      onClick={() => handleRemoveFeature(index)}
-                    >
-                      Remove
-                    </Button>
-                  </InlineStack>
-                ))}
-                
-                <InlineStack gap="200">
-                  <div style={{ flex: 1 }}>
-                    <TextField
-                      label=""
-                      value={newFeature}
-                      onChange={setNewFeature}
-                      placeholder="Add a feature..."
-                      autoComplete="off"
-                    />
-                  </div>
-                  <Button onClick={handleAddFeature}>Add</Button>
-                </InlineStack>
-              </BlockStack>
             </FormLayout>
           </Modal.Section>
         </Modal>
@@ -2362,40 +2294,6 @@ export default function TierProducts() {
                         </BlockStack>
                       </Box>
                     )}
-                  </BlockStack>
-                  
-                  <Divider />
-                  
-                  <BlockStack gap="200">
-                    <Text variant="bodyMd" fontWeight="semibold" as="span">
-                      Membership Features
-                    </Text>
-                    
-                    {features.map((feature, index) => (
-                      <InlineStack key={index} gap="200" align="space-between">
-                        <Text variant="bodyMd" as="span">• {feature}</Text>
-                        <Button
-                          size="slim"
-                          plain
-                          onClick={() => handleRemoveFeature(index)}
-                        >
-                          Remove
-                        </Button>
-                      </InlineStack>
-                    ))}
-                    
-                    <InlineStack gap="200">
-                      <div style={{ flex: 1 }}>
-                        <TextField
-                          label=""
-                          value={newFeature}
-                          onChange={setNewFeature}
-                          placeholder="Add a feature..."
-                          autoComplete="off"
-                        />
-                      </div>
-                      <Button onClick={handleAddFeature}>Add</Button>
-                    </InlineStack>
                   </BlockStack>
                 </>
               )}
