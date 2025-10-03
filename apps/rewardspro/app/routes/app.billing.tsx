@@ -465,16 +465,6 @@ export default function BillingPage() {
                 </Banner>
               )}
 
-              {/* Plan Comparison Button */}
-              <Box paddingBlockEnd="400">
-                <Button
-                  onClick={() => setShowComparisonModal(true)}
-                  variant="plain"
-                >
-                  View plan comparison
-                </Button>
-              </Box>
-
               {/* Tabs for plan categories */}
               <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
                 {/* Individual Plans Tab */}
@@ -570,6 +560,16 @@ export default function BillingPage() {
                     </Box>
                   </Card>
                       ))}
+                    </div>
+
+                    {/* Plan Comparison Button - Centered */}
+                    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '24px' }}>
+                      <Button
+                        onClick={() => setShowComparisonModal(true)}
+                        variant="plain"
+                      >
+                        View plan comparison
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -1126,6 +1126,9 @@ export default function BillingPage() {
                   <tr style={{ backgroundColor: '#f6f6f7' }}>
                     <th style={{ padding: '16px', textAlign: 'left', borderBottom: '1px solid #e1e3e5' }}></th>
                     <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="h3" variant="headingMd">Free</Text>
+                    </th>
+                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="h3" variant="headingMd">Pro</Text>
                     </th>
                     <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
@@ -1139,13 +1142,16 @@ export default function BillingPage() {
                 <tbody>
                   {/* Order volume section */}
                   <tr>
-                    <td colSpan={4} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
                       <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Order volume</Text>
                     </td>
                   </tr>
                   <tr>
                     <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">Monthly orders</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd">Up to 200</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">Up to 500</Text>
@@ -1162,6 +1168,9 @@ export default function BillingPage() {
                       <Text as="p" variant="bodyMd">Additional order rate</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">$10 per 100 orders</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
@@ -1174,13 +1183,16 @@ export default function BillingPage() {
 
                   {/* Features section */}
                   <tr>
-                    <td colSpan={4} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
+                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
                       <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Features</Text>
                     </td>
                   </tr>
                   <tr>
                     <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">Loyalty program</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Icon source={CheckCircleIcon} tone="success" />
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Icon source={CheckCircleIcon} tone="success" />
@@ -1200,6 +1212,9 @@ export default function BillingPage() {
                       <Text as="p" variant="bodyMd" tone="subdued">—</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Icon source={CheckCircleIcon} tone="success" />
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
@@ -1209,6 +1224,9 @@ export default function BillingPage() {
                   <tr>
                     <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">Advanced analytics</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Icon source={CheckCircleIcon} tone="success" />
@@ -1223,6 +1241,9 @@ export default function BillingPage() {
                   <tr>
                     <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">White label email</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd" tone="subdued">—</Text>
@@ -1245,12 +1266,18 @@ export default function BillingPage() {
                       <Text as="p" variant="bodyMd" tone="subdued">—</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Icon source={CheckCircleIcon} tone="success" />
                     </td>
                   </tr>
                   <tr>
                     <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">Custom SMTP</Text>
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
+                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd" tone="subdued">—</Text>
