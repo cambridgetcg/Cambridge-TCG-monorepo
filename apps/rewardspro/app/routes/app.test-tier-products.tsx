@@ -336,7 +336,107 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // ============================================
-    // 2. CHECK TIER RESOLUTION
+    // 2. CHECK CUSTOMER TIER PURCHASES
+    // ============================================
+    if (intent === "check-purchases") {
+      const customerId = formData.get("customerId") as string;
+
+      if (!customerId) {
+        return json({ success: false, message: "Customer ID required" });
+      }
+
+      const customer = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        include: { currentTier: true }
+      });
+
+      if (!customer) {
+        return json({ success: false, message: "Customer not found" });
+      }
+
+      // Get ALL tier purchases (not just active)
+      const allTierPurchases = await db.tierPurchase.findMany({
+        where: { customerId, shop },
+        include: { tier: true, tierProduct: true },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Get active tier purchases
+      const now = new Date();
+      const activeTierPurchases = await db.tierPurchase.findMany({
+        where: {
+          customerId,
+          shop,
+          status: 'ACTIVE',
+          OR: [
+            { endDate: null },
+            { endDate: { gte: now } }
+          ]
+        },
+        include: { tier: true, tierProduct: true },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      // Get tier subscriptions
+      const tierSubscriptions = await db.tierSubscription.findMany({
+        where: { customerId, shop },
+        include: { tier: true },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return json({
+        success: true,
+        operation: "check-purchases",
+        data: {
+          customer: {
+            id: customer.id,
+            email: customer.email,
+            currentTierId: customer.currentTierId,
+            currentTierName: customer.currentTier?.name || null,
+            storeCredit: customer.storeCredit.toString(),
+            totalSpent: customer.totalSpent.toString(),
+            netSpent: customer.netSpent.toString()
+          },
+          allPurchases: allTierPurchases.map(p => ({
+            id: p.id,
+            tierName: p.tier.name,
+            tierProductName: p.tierProduct?.sku || 'N/A',
+            shopifyOrderId: p.shopifyOrderId,
+            purchasePrice: p.purchasePrice.toString(),
+            currency: p.currency,
+            startDate: p.startDate.toISOString(),
+            endDate: p.endDate?.toISOString() || null,
+            status: p.status,
+            createdAt: p.createdAt.toISOString(),
+            isExpired: p.endDate ? p.endDate < now : false,
+            daysRemaining: p.endDate ? Math.ceil((p.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null
+          })),
+          activePurchases: activeTierPurchases.map(p => ({
+            id: p.id,
+            tierName: p.tier.name,
+            endDate: p.endDate?.toISOString() || 'LIFETIME',
+            daysRemaining: p.endDate ? Math.ceil((p.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null
+          })),
+          subscriptions: tierSubscriptions.map(s => ({
+            id: s.id,
+            tierName: s.tier.name,
+            status: s.status,
+            billingInterval: s.billingInterval,
+            currentPeriodEnd: s.currentPeriodEnd.toISOString()
+          })),
+          summary: {
+            totalPurchases: allTierPurchases.length,
+            activePurchases: activeTierPurchases.length,
+            expiredPurchases: allTierPurchases.filter(p => p.endDate && p.endDate < now).length,
+            refundedPurchases: allTierPurchases.filter(p => p.status === 'REFUNDED').length,
+            activeSubscriptions: tierSubscriptions.filter(s => s.status === 'ACTIVE').length
+          }
+        }
+      });
+    }
+
+    // ============================================
+    // 3. CHECK TIER RESOLUTION
     // ============================================
     if (intent === "check-resolution") {
       const customerId = formData.get("customerId") as string;
@@ -511,7 +611,8 @@ export default function TierProductsTestPage() {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedTierProduct, setSelectedTierProduct] = useState("");
   const [orderAmount, setOrderAmount] = useState("50.00");
-  const [activeTab, setActiveTab] = useState<"simulate" | "inspect" | "results">("simulate");
+  const [activeTab, setActiveTab] = useState<"simulate" | "inspect" | "purchases" | "results">("simulate");
+  const [checkPurchasesCustomer, setCheckPurchasesCustomer] = useState("");
 
   // Customer options
   const customerOptions = data.customers.map(c => ({
@@ -566,6 +667,21 @@ export default function TierProductsTestPage() {
     }
   }, [submit]);
 
+  // Handle check purchases
+  const handleCheckPurchases = useCallback(() => {
+    if (!checkPurchasesCustomer) {
+      alert("Please select a customer");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("intent", "check-purchases");
+    formData.append("customerId", checkPurchasesCustomer);
+
+    submit(formData, { method: "post" });
+    setActiveTab("results");
+  }, [checkPurchasesCustomer, submit]);
+
   // Get selected customer details
   const selectedCustomerData = data.customers.find(c => c.id === selectedCustomer);
 
@@ -605,6 +721,12 @@ export default function TierProductsTestPage() {
                 onClick={() => setActiveTab("inspect")}
               >
                 Inspect Customer
+              </Button>
+              <Button
+                pressed={activeTab === "purchases"}
+                onClick={() => setActiveTab("purchases")}
+              >
+                Purchase State
               </Button>
               <Button
                 pressed={activeTab === "results"}
@@ -724,6 +846,34 @@ export default function TierProductsTestPage() {
 
                 <Button variant="primary" onClick={handleCheckResolution} disabled={!selectedCustomer}>
                   Inspect Tier Sources
+                </Button>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        )}
+
+        {/* Purchase State Tab */}
+        {activeTab === "purchases" && (
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <Text variant="headingMd" as="h2">Customer Purchase State</Text>
+                <Text variant="bodyMd" as="p" tone="subdued">
+                  View all tier purchases and subscriptions for a customer
+                </Text>
+
+                <Select
+                  label="Select Customer"
+                  options={[
+                    { label: "Select a customer...", value: "" },
+                    ...customerOptions
+                  ]}
+                  value={checkPurchasesCustomer}
+                  onChange={setCheckPurchasesCustomer}
+                />
+
+                <Button variant="primary" onClick={handleCheckPurchases} disabled={!checkPurchasesCustomer}>
+                  Check Purchase State
                 </Button>
               </BlockStack>
             </Card>
@@ -1029,6 +1179,161 @@ export default function TierProductsTestPage() {
                       />
                     </BlockStack>
                   </Card>
+                </>
+              )}
+
+              {/* Check Purchases Results */}
+              {actionData.success && actionData.operation === "check-purchases" && actionData.data && (
+                <>
+                  {/* Customer Summary */}
+                  <Card>
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h2">👤 Customer Purchase State</Text>
+                      <Divider />
+
+                      <InlineGrid columns={2} gap="400">
+                        <Box>
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" as="p"><strong>Email:</strong></Text>
+                            <Text variant="bodyMd" as="p">{actionData.data.customer.email}</Text>
+                          </BlockStack>
+                        </Box>
+                        <Box>
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" as="p"><strong>Current Tier:</strong></Text>
+                            {actionData.data.customer.currentTierName ? (
+                              <Badge tone="success">{actionData.data.customer.currentTierName}</Badge>
+                            ) : (
+                              <Badge>No tier</Badge>
+                            )}
+                          </BlockStack>
+                        </Box>
+                      </InlineGrid>
+                    </BlockStack>
+                  </Card>
+
+                  {/* Summary Statistics */}
+                  <Card>
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h2">📊 Purchase Summary</Text>
+                      <Divider />
+
+                      <InlineGrid columns={4} gap="400">
+                        <Box>
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" as="p"><strong>Total Purchases:</strong></Text>
+                            <Text variant="bodyMd" as="p" tone="subdued">{actionData.data.summary.totalPurchases}</Text>
+                          </BlockStack>
+                        </Box>
+                        <Box>
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" as="p"><strong>Active:</strong></Text>
+                            <Badge tone="success">{actionData.data.summary.activePurchases}</Badge>
+                          </BlockStack>
+                        </Box>
+                        <Box>
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" as="p"><strong>Expired:</strong></Text>
+                            <Badge tone="warning">{actionData.data.summary.expiredPurchases}</Badge>
+                          </BlockStack>
+                        </Box>
+                        <Box>
+                          <BlockStack gap="200">
+                            <Text variant="bodyMd" as="p"><strong>Refunded:</strong></Text>
+                            <Badge tone="critical">{actionData.data.summary.refundedPurchases}</Badge>
+                          </BlockStack>
+                        </Box>
+                      </InlineGrid>
+                    </BlockStack>
+                  </Card>
+
+                  {/* Active Purchases */}
+                  {actionData.data.activePurchases.length > 0 ? (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">✅ Active Tier Purchases</Text>
+                        <Divider />
+
+                        <DataTable
+                          columnContentTypes={["text", "text", "text", "text", "numeric"]}
+                          headings={["Tier", "Order ID", "Start Date", "End Date", "Days Remaining"]}
+                          rows={actionData.data.activePurchases.map((p: any) => [
+                            <Badge tone="success">{p.tierName}</Badge>,
+                            p.shopifyOrderId,
+                            new Date(p.startDate).toLocaleDateString(),
+                            p.endDate ? new Date(p.endDate).toLocaleDateString() : "♾️ LIFETIME",
+                            p.daysRemaining !== null ? p.daysRemaining : "∞"
+                          ])}
+                        />
+                      </BlockStack>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <BlockStack gap="200">
+                        <Text variant="headingMd" as="h2">✅ Active Tier Purchases</Text>
+                        <Divider />
+                        <Text variant="bodyMd" as="p" tone="subdued">No active tier purchases found</Text>
+                      </BlockStack>
+                    </Card>
+                  )}
+
+                  {/* All Purchases History */}
+                  {actionData.data.allPurchases.length > 0 && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">📜 All Purchase History</Text>
+                        <Divider />
+
+                        <DataTable
+                          columnContentTypes={["text", "text", "text", "text", "text", "text"]}
+                          headings={["Tier", "Status", "Order ID", "Start Date", "End Date", "Expired?"]}
+                          rows={actionData.data.allPurchases.map((p: any) => [
+                            p.tierName,
+                            p.status === "ACTIVE" ? (
+                              <Badge tone="success">{p.status}</Badge>
+                            ) : p.status === "EXPIRED" ? (
+                              <Badge tone="warning">{p.status}</Badge>
+                            ) : (
+                              <Badge tone="critical">{p.status}</Badge>
+                            ),
+                            p.shopifyOrderId,
+                            new Date(p.startDate).toLocaleDateString(),
+                            p.endDate ? new Date(p.endDate).toLocaleDateString() : "LIFETIME",
+                            p.isExpired ? (
+                              <Badge tone="warning">Yes</Badge>
+                            ) : (
+                              <Badge tone="success">No</Badge>
+                            )
+                          ])}
+                        />
+                      </BlockStack>
+                    </Card>
+                  )}
+
+                  {/* Tier Subscriptions */}
+                  {actionData.data.subscriptions.length > 0 && (
+                    <Card>
+                      <BlockStack gap="300">
+                        <Text variant="headingMd" as="h2">🔄 Tier Subscriptions</Text>
+                        <Divider />
+
+                        <DataTable
+                          columnContentTypes={["text", "text", "text", "text"]}
+                          headings={["Tier", "Status", "Billing Interval", "Current Period End"]}
+                          rows={actionData.data.subscriptions.map((s: any) => [
+                            s.tierName,
+                            s.status === "ACTIVE" ? (
+                              <Badge tone="info">{s.status}</Badge>
+                            ) : (
+                              <Badge tone="subdued">{s.status}</Badge>
+                            ),
+                            s.billingInterval,
+                            new Date(s.currentPeriodEnd).toLocaleDateString()
+                          ])}
+                        />
+                      </BlockStack>
+                    </Card>
+                  )}
                 </>
               )}
 
