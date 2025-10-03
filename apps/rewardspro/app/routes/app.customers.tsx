@@ -1206,6 +1206,116 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
     }
 
+    if (action === "recalculate-all") {
+      console.log("========================================");
+      console.log("[RECALCULATE ALL] Starting bulk tier recalculation");
+      console.log("[RECALCULATE ALL] Shop:", shop);
+      console.log("========================================");
+
+      // Get all customers for this shop
+      const allCustomers = await db.customer.findMany({
+        where: { shop },
+        orderBy: { email: 'asc' }
+      });
+
+      console.log(`[RECALCULATE ALL] Found ${allCustomers.length} customers to process`);
+
+      const results = {
+        total: allCustomers.length,
+        processed: 0,
+        changed: 0,
+        unchanged: 0,
+        errors: 0,
+        details: [] as Array<{
+          customerId: string;
+          email: string;
+          success: boolean;
+          changed: boolean;
+          previousTier: string | null;
+          newTier: string | null;
+          source: string;
+          error?: string;
+        }>
+      };
+
+      // Process each customer
+      for (const customer of allCustomers) {
+        try {
+          console.log(`[RECALCULATE ALL] Processing customer ${results.processed + 1}/${allCustomers.length}: ${customer.email}`);
+
+          // Get current tier before recalculation
+          const customerBefore = await db.customer.findFirst({
+            where: { id: customer.id, shop },
+            include: { currentTier: true }
+          });
+          const previousTierName = customerBefore?.currentTier?.name || null;
+
+          // Run tier resolution
+          const result = await updateCustomerToEffectiveTier(shop, customer.id, {
+            triggeredBy: 'BULK_RECALCULATION',
+            orderId: undefined
+          });
+
+          // Get tier name after resolution
+          let newTierName = null;
+          if (result.newTierId) {
+            const newTier = await db.tier.findUnique({ where: { id: result.newTierId } });
+            newTierName = newTier?.name || null;
+          }
+
+          results.processed++;
+          if (result.changed) {
+            results.changed++;
+            console.log(`  ✅ Changed: ${previousTierName || 'None'} → ${newTierName || 'None'} (${result.source})`);
+          } else {
+            results.unchanged++;
+            console.log(`  ⚪ Unchanged: ${newTierName || 'None'} (${result.source})`);
+          }
+
+          results.details.push({
+            customerId: customer.id,
+            email: customer.email,
+            success: result.success,
+            changed: result.changed,
+            previousTier: previousTierName,
+            newTier: newTierName,
+            source: result.source
+          });
+
+        } catch (error) {
+          results.errors++;
+          results.processed++;
+          console.error(`  ❌ Error processing ${customer.email}:`, error);
+
+          results.details.push({
+            customerId: customer.id,
+            email: customer.email,
+            success: false,
+            changed: false,
+            previousTier: null,
+            newTier: null,
+            source: 'ERROR',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      console.log("========================================");
+      console.log("[RECALCULATE ALL] Bulk recalculation complete");
+      console.log(`[RECALCULATE ALL] Total: ${results.total}`);
+      console.log(`[RECALCULATE ALL] Processed: ${results.processed}`);
+      console.log(`[RECALCULATE ALL] Changed: ${results.changed}`);
+      console.log(`[RECALCULATE ALL] Unchanged: ${results.unchanged}`);
+      console.log(`[RECALCULATE ALL] Errors: ${results.errors}`);
+      console.log("========================================");
+
+      return json({
+        success: true,
+        message: `Recalculated ${results.processed} customers: ${results.changed} changed, ${results.unchanged} unchanged, ${results.errors} errors`,
+        results
+      });
+    }
+
     return json({ success: false, message: "Invalid action" });
   } catch (error) {
     console.error("[Customers] Action error:", error);
@@ -1291,7 +1401,10 @@ export default function Customers() {
   const [manualTierSelection, setManualTierSelection] = useState<string>("");
   const [manualTierReason, setManualTierReason] = useState("");
   const [permanentOverride, setPermanentOverride] = useState(false);
-  
+
+  // Recalculate all tiers state
+  const [isRecalculatingAll, setIsRecalculatingAll] = useState(false);
+
   // Animation refs
   const tableRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -1434,17 +1547,64 @@ export default function Customers() {
       });
       return;
     }
-    
+
     const formData = new FormData();
     formData.append("action", "manual-tier-assignment");
     formData.append("customerId", manualTierCustomer.id);
     formData.append("tierId", manualTierSelection);
     formData.append("reason", manualTierReason);
     formData.append("permanentOverride", permanentOverride.toString());
-    
+
     submit(formData, { method: "post" });
     setManualTierModalActive(false);
   }, [manualTierCustomer, manualTierSelection, manualTierReason, permanentOverride, submit]);
+
+  // Recalculate all tiers handler
+  const handleRecalculateAllTiers = useCallback(async () => {
+    if (isRecalculatingAll) return;
+
+    const confirmed = window.confirm(
+      `This will recalculate tiers for all ${data.totalCustomers} customers. This may take some time. Continue?`
+    );
+
+    if (!confirmed) return;
+
+    setIsRecalculatingAll(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("action", "recalculate-all");
+
+      const response = await fetch("/app/customers", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setToast({
+          active: true,
+          content: result.message,
+        });
+        // Refresh the page to show updated tiers
+        window.location.reload();
+      } else {
+        setToast({
+          active: true,
+          content: result.message || "Failed to recalculate tiers",
+        });
+      }
+    } catch (error) {
+      console.error("Error recalculating all tiers:", error);
+      setToast({
+        active: true,
+        content: "Failed to recalculate tiers",
+      });
+    } finally {
+      setIsRecalculatingAll(false);
+    }
+  }, [isRecalculatingAll, data.totalCustomers]);
 
   // Tier management handlers
   const handleSaveTier = useCallback(() => {
@@ -1798,18 +1958,29 @@ export default function Customers() {
                 </Text>
               </InlineStack>
 
-              <Select
-                label=""
-                labelHidden
-                options={[
-                  { label: '25 per page', value: '25' },
-                  { label: '50 per page', value: '50' },
-                  { label: '100 per page', value: '100' },
-                  { label: '200 per page', value: '200' },
-                ]}
-                value={String(pageSize)}
-                onChange={handlePageSizeChange}
-              />
+              <InlineStack gap="200" blockAlign="center">
+                <Button
+                  icon={RefreshIcon}
+                  onClick={handleRecalculateAllTiers}
+                  loading={isRecalculatingAll}
+                  disabled={isRecalculatingAll}
+                >
+                  Recalculate All Tiers
+                </Button>
+
+                <Select
+                  label=""
+                  labelHidden
+                  options={[
+                    { label: '25 per page', value: '25' },
+                    { label: '50 per page', value: '50' },
+                    { label: '100 per page', value: '100' },
+                    { label: '200 per page', value: '200' },
+                  ]}
+                  value={String(pageSize)}
+                  onChange={handlePageSizeChange}
+                />
+              </InlineStack>
             </InlineStack>
 
             {/* Search bar - simplified like orders */}
