@@ -217,32 +217,3 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 }
-
-// Handle OPTIONS preflight requests for CORS
-export async function loader({ request }: ActionFunctionArgs) {
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Max-Age": "86400", // 24 hours
-      },
-    });
-  }
-
-  // GET not supported, only POST
-  return json(
-    {
-      error: "Method not allowed",
-      message: "Use POST to fetch loyalty data",
-    },
-    {
-      status: 405,
-      headers: {
-        Allow: "POST, OPTIONS",
-      },
-    }
-  );
-}
