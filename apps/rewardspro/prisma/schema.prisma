@@ -82,6 +82,14 @@ model ShopSettings {
   billingStatus           String?             @default("INACTIVE")  // ACTIVE, INACTIVE, TRIAL
   currentPlan             String?             @default("free")  // free, pro, max, ultra
 
+  // Onboarding Progress
+  onboardingSyncedOrders      Boolean          @default(false)  // Step 1: Synced orders
+  onboardingCreatedTiers      Boolean          @default(false)  // Step 2: Created tiers
+  onboardingSyncedCustomers   Boolean          @default(false)  // Step 3: Synced customers
+  onboardingConfiguredSettings Boolean         @default(false)  // Step 4: Configured settings
+  onboardingCompleted         Boolean          @default(false)  // All steps complete
+  onboardingDismissed         Boolean          @default(false)  // User dismissed onboarding
+
   // Metadata
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
