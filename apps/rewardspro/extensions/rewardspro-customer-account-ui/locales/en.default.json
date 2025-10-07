@@ -1,0 +1,12 @@
+{
+  "earnPoints": "You've earned 1,000 points from this order. You've been upgraded to Platinum tier.",
+  "membership": "Membership",
+  "membershipTitle": "Rewards Membership",
+  "errorLoading": "Unable to load your rewards information. Please try again later.",
+  "notEnrolled": "Join our Rewards Program",
+  "welcome": "Welcome back, {{name}}!",
+  "lifetimeEarned": "Lifetime Earned",
+  "totalSpent": "Total Spent",
+  "rewardsRedeemed": "Rewards Redeemed",
+  "yourBenefits": "Your Benefits"
+}

@@ -1,0 +1,12 @@
+{
+  "earnPoints": "Vous avez gagné 1,000 points avec cette commande. Vous avez été promu au niveau Platine.",
+  "membership": "Adhésion",
+  "membershipTitle": "Programme de récompenses",
+  "errorLoading": "Impossible de charger vos informations de récompenses. Veuillez réessayer plus tard.",
+  "notEnrolled": "Rejoignez notre programme de récompenses",
+  "welcome": "Bienvenue, {{name}}!",
+  "lifetimeEarned": "Total gagné",
+  "totalSpent": "Total dépensé",
+  "rewardsRedeemed": "Récompenses échangées",
+  "yourBenefits": "Vos avantages"
+}

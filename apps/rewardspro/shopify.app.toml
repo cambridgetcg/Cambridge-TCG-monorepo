@@ -41,9 +41,10 @@ api_version = "2025-07"
   topics = [ "orders/cancelled" ]
   uri = "/webhooks/orders/cancelled"
 
-  [[webhooks.subscriptions]]
-  topics = [ "orders/refunded" ]
-  uri = "/webhooks/orders/refunded"
+  # Refunds are handled through orders/updated webhook
+  # [[webhooks.subscriptions]]
+  # topics = [ "orders/refunded" ]
+  # uri = "/webhooks/orders/refunded"
 
   [[webhooks.subscriptions]]
   compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]

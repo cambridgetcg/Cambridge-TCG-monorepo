@@ -1,0 +1,38 @@
+# Learn more about configuring your Customer account UI extension:
+# https://shopify.dev/api/customer-account-ui-extensions/unstable/configuration
+
+# The version of APIs your extension will receive. Learn more:
+# https://shopify.dev/docs/api/usage/versioning
+api_version = "2025-07"
+
+[[extensions]]
+name = "rewardspro-customer-account-UI"
+handle = "rewardspro-customer-account-ui"
+type = "ui_extension"
+uid = "a54ec767-1919-c3e0-0f50-aab7d82fe6e9ab1e9c06"
+
+# Controls where in Shopify your extension will be injected,
+# and the file that contains your extension’s source code. Learn more:
+# https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/extension-targets-overview
+
+# Membership page - appears as "Membership" in navigation automatically
+# NOTE: customer-account.page.render cannot be combined with other targets
+[[extensions.targeting]]
+module = "./src/MembershipPage.tsx"
+target = "customer-account.page.render"
+
+# Order status block removed - page.render target is exclusive
+# If you need order status rewards, create a separate extension
+# [[extensions.targeting]]
+# module = "./src/OrderStatusBlock.tsx"
+# target = "customer-account.order-status.block.render"
+
+[extensions.capabilities]
+# Gives your extension access to directly query Shopify's storefront API.
+# https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/configuration#api-access
+api_access = true
+
+# Gives your extension access to make external network calls, using the
+# JavaScript `fetch()` API. Learn more:
+# https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/configuration#network-access
+network_access = true
