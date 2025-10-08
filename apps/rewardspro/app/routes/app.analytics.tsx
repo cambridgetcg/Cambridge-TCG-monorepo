@@ -452,19 +452,29 @@ async function calculateCRR(
   });
 
   // CE: Customers at end who made purchases
-  // Only count customers who were at start OR acquired during period AND made purchase
-  const customersAtEnd = await db.customer.count({
+  // Get all customers created before or during the period
+  const allCustomersAtEnd = await db.customer.findMany({
     where: {
       shop,
-      createdAt: { lte: endDate },
-      orders: {
-        some: {
-          shopifyCreatedAt: { gte: startDate, lte: endDate },
-          financialStatus: 'PAID'
-        }
-      }
-    }
+      createdAt: { lte: endDate }
+    },
+    select: { id: true }
   });
+
+  // Get orders in the period
+  const ordersInPeriod = await db.order.findMany({
+    where: {
+      shop,
+      shopifyCreatedAt: { gte: startDate, lte: endDate },
+      financialStatus: 'PAID'
+    },
+    select: { customerId: true },
+    distinct: ['customerId']
+  });
+
+  // Count unique customers who made purchases
+  const customerIdsWithOrders = new Set(ordersInPeriod.map(o => o.customerId));
+  const customersAtEnd = allCustomersAtEnd.filter(c => customerIdsWithOrders.has(c.id)).length;
 
   const crr = customersAtStart > 0
     ? ((customersAtEnd - newCustomers) / customersAtStart) * 100
