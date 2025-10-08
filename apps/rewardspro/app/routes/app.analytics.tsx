@@ -58,8 +58,17 @@ interface AnalyticsData {
   conversionRate: number;
   totalStoreCredit: number;
   creditUtilization: number;
-  
-  
+
+  // Retention metrics (Phase 1)
+  retentionMetrics: {
+    crr: number;
+    crrDetails: { cs: number; ce: number; cn: number };
+    rpr: number;
+    repeatCustomers: number;
+    oneTimeBuyers: number;
+    purchaseFrequency: number;
+  };
+
   // Trends (last 30 days)
   trends: {
     revenue: TrendData[];
@@ -67,7 +76,7 @@ interface AnalyticsData {
     orders: TrendData[];
     credit: TrendData[];
   };
-  
+
   // Tier analytics
   tierPerformance: {
     id: string;
@@ -80,14 +89,14 @@ interface AnalyticsData {
     cashbackPercent: number;
     upgradeRate?: number;
   }[];
-  
+
   // Insights
   insights: {
     opportunities: Insight[];
     warnings: Insight[];
     successes: Insight[];
   };
-  
+
   // Financial breakdown
   financial: {
     directRevenue: number;
@@ -100,7 +109,7 @@ interface AnalyticsData {
       operationalCost: number;
     };
   };
-  
+
   // Customer segments
   segments: {
     vip: { count: number; revenue: number; avgCredit: number; };
@@ -108,7 +117,7 @@ interface AnalyticsData {
     new: { count: number; revenue: number; activationRate: number; };
     dormant: { count: number; lastRevenue: number; daysSinceLastOrder: number; };
   };
-  
+
   // Comparison data
   comparison: {
     period: 'week' | 'month' | 'quarter' | 'year';
@@ -116,7 +125,7 @@ interface AnalyticsData {
     previous: number;
     change: number;
   };
-  
+
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
@@ -370,6 +379,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       change: previousPeriodRevenue > 0 ? Math.round(((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 * 100) / 100 : 0,
     };
 
+    // Calculate retention metrics (Phase 1 implementation)
+    const crrResult = await calculateCRR(shop, startDate, endDate);
+    const rprResult = await calculateRPR(shop, startDate, endDate);
+    const pfResult = await calculatePurchaseFrequency(shop, startDate, endDate);
+
     const analyticsData: AnalyticsData = {
       revenueImpact,
       activeMembers,
@@ -378,6 +392,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       conversionRate,
       totalStoreCredit,
       creditUtilization,
+      retentionMetrics: {
+        crr: crrResult.crr,
+        crrDetails: crrResult.details,
+        rpr: rprResult.rpr,
+        repeatCustomers: rprResult.repeatCustomers,
+        oneTimeBuyers: rprResult.oneTimeBuyers,
+        purchaseFrequency: pfResult.pf,
+      },
       trends,
       tierPerformance,
       insights,
@@ -401,6 +423,133 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // HELPER FUNCTIONS
 // ============================================
 
+// Customer Retention Rate (CRR) Calculation
+async function calculateCRR(
+  shop: string,
+  startDate: Date | null,
+  endDate: Date
+): Promise<{ crr: number; details: { cs: number; ce: number; cn: number } }> {
+
+  if (!startDate) {
+    // Cannot calculate CRR for "all time" - need a defined period
+    return { crr: 0, details: { cs: 0, ce: 0, cn: 0 } };
+  }
+
+  // CS: Customers at start (customers who existed before startDate)
+  const customersAtStart = await db.customer.count({
+    where: {
+      shop,
+      createdAt: { lt: startDate }
+    }
+  });
+
+  // CN: New customers acquired during period
+  const newCustomers = await db.customer.count({
+    where: {
+      shop,
+      createdAt: { gte: startDate, lte: endDate }
+    }
+  });
+
+  // CE: Customers at end who made purchases
+  // Only count customers who were at start OR acquired during period AND made purchase
+  const customersAtEnd = await db.customer.count({
+    where: {
+      shop,
+      createdAt: { lte: endDate },
+      orders: {
+        some: {
+          shopifyCreatedAt: { gte: startDate, lte: endDate },
+          financialStatus: 'PAID'
+        }
+      }
+    }
+  });
+
+  const crr = customersAtStart > 0
+    ? ((customersAtEnd - newCustomers) / customersAtStart) * 100
+    : 0;
+
+  return {
+    crr: Math.round(crr * 100) / 100,
+    details: { cs: customersAtStart, ce: customersAtEnd, cn: newCustomers }
+  };
+}
+
+// Repeat Purchase Rate (RPR) Calculation
+async function calculateRPR(
+  shop: string,
+  startDate: Date | null,
+  endDate: Date
+): Promise<{ rpr: number; repeatCustomers: number; oneTimeBuyers: number; totalCustomers: number }> {
+
+  const dateFilter = startDate ? {
+    shopifyCreatedAt: { gte: startDate, lte: endDate }
+  } : {};
+
+  // Get all customers with order counts in the period
+  const customers = await db.customer.findMany({
+    where: { shop },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          orders: {
+            where: {
+              financialStatus: 'PAID',
+              ...dateFilter
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const repeatCustomers = customers.filter(c => c._count.orders > 1).length;
+  const oneTimeBuyers = customers.filter(c => c._count.orders === 1).length;
+  const totalCustomers = customers.length;
+
+  const rpr = totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0;
+
+  return {
+    rpr: Math.round(rpr * 100) / 100,
+    repeatCustomers,
+    oneTimeBuyers,
+    totalCustomers
+  };
+}
+
+// Purchase Frequency Calculation
+async function calculatePurchaseFrequency(
+  shop: string,
+  startDate: Date | null,
+  endDate: Date
+): Promise<{ pf: number; totalOrders: number; uniqueCustomers: number }> {
+
+  const dateFilter = startDate ? {
+    shopifyCreatedAt: { gte: startDate, lte: endDate }
+  } : {};
+
+  const orders = await db.order.findMany({
+    where: {
+      shop,
+      financialStatus: 'PAID',
+      ...dateFilter
+    },
+    select: { customerId: true }
+  });
+
+  const uniqueCustomers = new Set(orders.map(o => o.customerId)).size;
+  const totalOrders = orders.length;
+
+  const pf = uniqueCustomers > 0 ? totalOrders / uniqueCustomers : 0;
+
+  return {
+    pf: Math.round(pf * 100) / 100,
+    totalOrders,
+    uniqueCustomers
+  };
+}
 
 function generateTrendData(customers: any[], transactions: any[]): AnalyticsData['trends'] {
   // Legacy function - keeping for backward compatibility
@@ -1058,6 +1207,7 @@ export default function AnalyticsPage() {
 
   const tabs = [
     { id: 'overview', content: 'Overview' },
+    { id: 'retention', content: 'Retention' },
     { id: 'engagement', content: 'Engagement' },
     { id: 'financial', content: 'Financial' },
     { id: 'insights', content: 'Insights' },
@@ -1285,8 +1435,159 @@ export default function AnalyticsPage() {
                 </Box>
               )}
 
-              {/* Engagement Tab */}
+              {/* Retention Tab */}
               {selectedTab === 1 && (
+                <Box padding="400">
+                  <BlockStack gap="500">
+                    {/* Customer Retention Rate Card */}
+                    <Card>
+                      <Box padding="400">
+                        <BlockStack gap="400">
+                          <Text variant="headingMd" as="h2">
+                            Customer Retention Rate (CRR)
+                          </Text>
+
+                          <InlineStack gap="400" wrap={false} align="start">
+                            <div style={{ flex: 1 }}>
+                              <BlockStack gap="300">
+                                <Text variant="heading2xl" as="p" tone={data.retentionMetrics.crr > 40 ? 'success' : 'critical'}>
+                                  {data.retentionMetrics.crr}%
+                                </Text>
+                                <Text variant="bodyMd" tone="subdued" as="p">
+                                  {data.retentionMetrics.crr > 40
+                                    ? 'Above industry average (40%)'
+                                    : 'Below industry average (40%)'}
+                                </Text>
+                              </BlockStack>
+                            </div>
+
+                            <Divider borderColor="border" />
+
+                            <div style={{ flex: 1 }}>
+                              <BlockStack gap="200">
+                                <InlineStack align="space-between">
+                                  <Text variant="bodyMd" as="span" tone="subdued">Customers at Start (CS)</Text>
+                                  <Text variant="bodyMd" fontWeight="semibold" as="span">{data.retentionMetrics.crrDetails.cs}</Text>
+                                </InlineStack>
+                                <InlineStack align="space-between">
+                                  <Text variant="bodyMd" as="span" tone="subdued">New Customers (CN)</Text>
+                                  <Text variant="bodyMd" fontWeight="semibold" as="span">{data.retentionMetrics.crrDetails.cn}</Text>
+                                </InlineStack>
+                                <InlineStack align="space-between">
+                                  <Text variant="bodyMd" as="span" tone="subdued">Customers at End (CE)</Text>
+                                  <Text variant="bodyMd" fontWeight="semibold" as="span">{data.retentionMetrics.crrDetails.ce}</Text>
+                                </InlineStack>
+                              </BlockStack>
+                            </div>
+                          </InlineStack>
+
+                          <Box background="bg-surface-secondary" padding="300" borderRadius="200">
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              Formula: CRR = ((CE - CN) / CS) × 100 = (({data.retentionMetrics.crrDetails.ce} - {data.retentionMetrics.crrDetails.cn}) / {data.retentionMetrics.crrDetails.cs}) × 100 = {data.retentionMetrics.crr}%
+                            </Text>
+                          </Box>
+                        </BlockStack>
+                      </Box>
+                    </Card>
+
+                    {/* Repeat Purchase Metrics Grid */}
+                    <Grid>
+                      <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                        <Card>
+                          <Box padding="400">
+                            <BlockStack gap="300">
+                              <Text variant="headingSm" as="h3">Repeat Purchase Rate</Text>
+                              <Text variant="heading2xl" as="p" tone={data.retentionMetrics.rpr > 40 ? 'success' : 'critical'}>
+                                {data.retentionMetrics.rpr}%
+                              </Text>
+                              <ProgressBar
+                                progress={data.retentionMetrics.rpr}
+                                tone={data.retentionMetrics.rpr > 40 ? 'success' : 'critical'}
+                              />
+                              <BlockStack gap="200">
+                                <InlineStack align="space-between">
+                                  <Text variant="bodySm" tone="subdued" as="span">Repeat Customers</Text>
+                                  <Text variant="bodySm" fontWeight="semibold" as="span">{data.retentionMetrics.repeatCustomers}</Text>
+                                </InlineStack>
+                                <InlineStack align="space-between">
+                                  <Text variant="bodySm" tone="subdued" as="span">One-Time Buyers</Text>
+                                  <Text variant="bodySm" fontWeight="semibold" as="span">{data.retentionMetrics.oneTimeBuyers}</Text>
+                                </InlineStack>
+                              </BlockStack>
+                              <Text variant="bodySm" tone="subdued" as="p">
+                                Benchmark: E-commerce 20-40%, Loyalty programs 40-70%
+                              </Text>
+                            </BlockStack>
+                          </Box>
+                        </Card>
+                      </Grid.Cell>
+
+                      <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
+                        <Card>
+                          <Box padding="400">
+                            <BlockStack gap="300">
+                              <Text variant="headingSm" as="h3">Purchase Frequency</Text>
+                              <Text variant="heading2xl" as="p">
+                                {data.retentionMetrics.purchaseFrequency}
+                              </Text>
+                              <Text variant="bodyMd" tone="subdued" as="p">
+                                orders per customer
+                              </Text>
+                              <ProgressBar
+                                progress={Math.min(100, (data.retentionMetrics.purchaseFrequency / 6) * 100)}
+                                tone={data.retentionMetrics.purchaseFrequency > 3 ? 'success' : 'info'}
+                              />
+                              <Text variant="bodySm" tone="subdued" as="p">
+                                Benchmark: E-commerce 1.5-3, Subscription 4-12
+                              </Text>
+                            </BlockStack>
+                          </Box>
+                        </Card>
+                      </Grid.Cell>
+                    </Grid>
+
+                    {/* Retention Insights */}
+                    {data.retentionMetrics.crr < 30 && (
+                      <Banner
+                        tone="warning"
+                        title="Low Customer Retention"
+                      >
+                        <p>
+                          Your retention rate of {data.retentionMetrics.crr}% is below industry average (35%).
+                          Consider implementing win-back campaigns to re-engage customers.
+                        </p>
+                      </Banner>
+                    )}
+
+                    {data.retentionMetrics.rpr < 25 && (
+                      <Banner
+                        tone="info"
+                        title="Low Repeat Purchase Rate"
+                      >
+                        <p>
+                          Only {data.retentionMetrics.rpr}% of customers make repeat purchases.
+                          Focus on first-purchase experience and follow-up engagement.
+                        </p>
+                      </Banner>
+                    )}
+
+                    {data.retentionMetrics.crr > 60 && (
+                      <Banner
+                        tone="success"
+                        title="Excellent Customer Retention"
+                      >
+                        <p>
+                          Your retention rate of {data.retentionMetrics.crr}% is in the top 10% of loyalty programs.
+                          Keep up the great work!
+                        </p>
+                      </Banner>
+                    )}
+                  </BlockStack>
+                </Box>
+              )}
+
+              {/* Engagement Tab */}
+              {selectedTab === 2 && (
                 <Box padding="400">
                   <BlockStack gap="400">
                     <Text variant="headingMd" as="h2">
@@ -1347,7 +1648,7 @@ export default function AnalyticsPage() {
               )}
 
               {/* Financial Tab */}
-              {selectedTab === 2 && (
+              {selectedTab === 3 && (
                 <Box padding="400">
                   <BlockStack gap="500">
                     <Card>
@@ -1407,7 +1708,7 @@ export default function AnalyticsPage() {
               )}
 
               {/* Insights Tab */}
-              {selectedTab === 3 && (
+              {selectedTab === 4 && (
                 <Box padding="400">
                   <BlockStack gap="500">
                     {/* Opportunities */}
