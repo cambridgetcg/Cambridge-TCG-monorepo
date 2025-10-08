@@ -346,7 +346,7 @@ export default function BillingPage() {
     {
       name: "Pro",
       id: "pro",
-      price: "$49",
+      price: "$39",
       description: "Everything you need to grow your loyalty program",
       features: [
         "Up to 2,000 customers",

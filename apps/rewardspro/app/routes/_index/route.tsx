@@ -70,7 +70,7 @@ const pricingPlans = [
   },
   {
     name: "Starter",
-    price: "$49",
+    price: "$39",
     period: "month",
     ordersIncluded: "500 orders/month",
     features: [
