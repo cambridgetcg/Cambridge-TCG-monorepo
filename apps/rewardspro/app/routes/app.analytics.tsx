@@ -494,29 +494,37 @@ async function calculateRPR(
 ): Promise<{ rpr: number; repeatCustomers: number; oneTimeBuyers: number; totalCustomers: number }> {
 
   const dateFilter = startDate ? {
-    shopifyCreatedAt: { gte: startDate, lte: endDate }
-  } : {};
+    shopifyCreatedAt: { gte: startDate, lte: endDate },
+    financialStatus: 'PAID'
+  } : {
+    financialStatus: 'PAID'
+  };
 
-  // Get all customers with order counts in the period
+  // Get all customers
   const customers = await db.customer.findMany({
     where: { shop },
-    select: {
-      id: true,
-      _count: {
-        select: {
-          orders: {
-            where: {
-              financialStatus: 'PAID',
-              ...dateFilter
-            }
-          }
-        }
-      }
-    }
+    select: { id: true }
   });
 
-  const repeatCustomers = customers.filter(c => c._count.orders > 1).length;
-  const oneTimeBuyers = customers.filter(c => c._count.orders === 1).length;
+  // Get all orders in the period
+  const orders = await db.order.findMany({
+    where: {
+      shop,
+      ...dateFilter
+    },
+    select: { customerId: true }
+  });
+
+  // Count orders per customer using JavaScript
+  const orderCountsByCustomer = new Map<string, number>();
+  orders.forEach(order => {
+    const count = orderCountsByCustomer.get(order.customerId) || 0;
+    orderCountsByCustomer.set(order.customerId, count + 1);
+  });
+
+  // Calculate metrics
+  const repeatCustomers = Array.from(orderCountsByCustomer.values()).filter(count => count > 1).length;
+  const oneTimeBuyers = Array.from(orderCountsByCustomer.values()).filter(count => count === 1).length;
   const totalCustomers = customers.length;
 
   const rpr = totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0;
