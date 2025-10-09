@@ -1219,19 +1219,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Import the sync service dynamically
         const { OrderSyncService } = await import("../services/order-sync.service");
 
+        console.log("[ORDERS PAGE] Starting order sync for 1 year of historical orders");
+
         const syncService = new OrderSyncService(admin, {
           shop,
           batchSize: 50,
           startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // Last 1 year
+          endDate: new Date(),
         });
 
-        // Start sync in background (in production, use a queue)
-        syncService.syncAllOrders().catch(console.error);
+        console.log("[ORDERS PAGE] Sync service created, starting sync...");
 
-        return json({
-          success: true,
-          message: "Order sync started. This may take a few minutes."
-        });
+        // Run sync synchronously to ensure it completes before Vercel timeout
+        // For small order counts (<100 orders), this should complete quickly
+        try {
+          const result = await syncService.syncAllOrders();
+          console.log("[ORDERS PAGE] Sync completed:", result);
+
+          // Mark orders as synced in onboarding if successful
+          if (result.success && result.progress.successful > 0) {
+            const { updateOnboardingProgress } = await import("~/utils/onboarding");
+            await updateOnboardingProgress(shop, { syncedOrders: true });
+          }
+
+          return json({
+            success: result.success,
+            message: result.message,
+            stats: {
+              successful: result.progress.successful,
+              failed: result.progress.failed,
+              skipped: result.progress.skipped,
+              duration: result.duration
+            }
+          });
+        } catch (error) {
+          console.error("[ORDERS PAGE] Sync failed:", error);
+          return json({
+            success: false,
+            message: error instanceof Error ? error.message : "Sync failed",
+            error: String(error)
+          }, { status: 500 });
+        }
       }
 
       default:
