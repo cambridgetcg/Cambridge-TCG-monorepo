@@ -64,7 +64,6 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
-import type { Prisma } from "@prisma/client";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -104,7 +103,6 @@ interface Order {
   creditLedgerEntries: Array<{
     id: string;
     amount: Decimal;
-    balance: Decimal | null;
     type: string;
     createdAt: Date;
   }>;
@@ -145,9 +143,6 @@ interface LoaderData {
   };
 }
 
-const decimalToNumber = (value: Decimal | number | null | undefined) =>
-  value == null ? 0 : typeof value === "number" ? value : parseFloat(value.toString());
-
 // ============================================
 // LOADER
 // ============================================
@@ -170,13 +165,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
 
-    // Build where clause with optional filters
-    const whereClause: Prisma.OrderWhereInput = { shop };
+    // Build where clause - handle search separately to avoid OR issues with Data API
+    let whereClause: any = { shop };
 
+    // Add status filter
     if (statusFilter !== "all") {
       whereClause.financialStatus = statusFilter;
     }
 
+    // Add cashback filter
     if (cashbackFilter === "processed") {
       whereClause.cashbackProcessed = true;
     } else if (cashbackFilter === "pending") {
@@ -186,19 +183,43 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       whereClause.cashbackEligible = false;
     }
 
+    // If there's a search query, fetch all orders and filter in memory
+    // This is a workaround for Data API limitations with OR queries
+    let ordersQuery;
     if (searchQuery) {
-      const searchTerm = searchQuery.trim();
-      if (searchTerm.length > 0) {
-        whereClause.OR = [
-          { shopifyOrderNumber: { contains: searchTerm, mode: "insensitive" } },
-          { shopifyOrderName: { contains: searchTerm, mode: "insensitive" } },
-          { email: { contains: searchTerm, mode: "insensitive" } },
-        ];
-      }
-    }
+      // Fetch all orders for the shop first, then filter
+      const allOrders = await db.order.findMany({
+        where: whereClause,
+        include: {
+          customer: {
+            include: {
+              currentTier: true,
+            },
+          },
+          creditLedgerEntries: {
+            orderBy: { createdAt: 'desc' },
+          },
+          lineItems: {
+            take: 5,
+          },
+          refunds: true,
+        },
+        orderBy: { shopifyCreatedAt: 'desc' },
+      });
 
-    const [ordersQuery, filteredTotalCount, shopSettings] = await Promise.all([
-      db.order.findMany({
+      // Filter in memory (order number and email only)
+      const searchLower = searchQuery.toLowerCase();
+      const filteredOrders = allOrders.filter(order =>
+        order.shopifyOrderNumber?.toLowerCase().includes(searchLower) ||
+        order.email?.toLowerCase().includes(searchLower)
+      );
+
+      // Apply pagination
+      ordersQuery = filteredOrders.slice((page - 1) * pageSize, page * pageSize);
+      var filteredTotalCount = filteredOrders.length;
+    } else {
+      // No search, use normal pagination
+      ordersQuery = await db.order.findMany({
         where: whereClause,
         include: {
           customer: {
@@ -217,14 +238,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderBy: { shopifyCreatedAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-      }),
-      db.order.count({ where: whereClause }),
-      db.shopSettings.findUnique({ where: { shop } }),
-    ]);
+      });
+      var filteredTotalCount = await db.order.count({ where: whereClause });
+    }
 
     // Fetch shop settings
-    const orders = ordersQuery;
-    const totalCount = filteredTotalCount;
+    const [orders, totalCount, shopSettings] = await Promise.all([
+      Promise.resolve(ordersQuery),
+      Promise.resolve(filteredTotalCount),
+      db.shopSettings.findUnique({ where: { shop } }),
+    ]);
 
     // Calculate stats
     const allOrders = await db.order.findMany({
@@ -238,19 +261,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const stats = {
       totalOrders: allOrders.length,
-      totalCashback: allOrders.reduce(
-        (sum, o) => sum + decimalToNumber(o.cashbackAmount),
-        0,
+      totalCashback: allOrders.reduce((sum, o) =>
+        sum + (o.cashbackAmount ? Number(o.cashbackAmount) : 0), 0
       ),
       pendingCashback: allOrders
         .filter(o => o.cashbackAmount && !o.cashbackProcessed)
-        .reduce((sum, o) => sum + decimalToNumber(o.cashbackAmount), 0),
+        .reduce((sum, o) => sum + Number(o.cashbackAmount), 0),
       processedCashback: allOrders
         .filter(o => o.cashbackAmount && o.cashbackProcessed)
-        .reduce((sum, o) => sum + decimalToNumber(o.cashbackAmount), 0),
-      totalRefunded: allOrders.reduce(
-        (sum, o) => sum + decimalToNumber(o.totalRefunded),
-        0,
+        .reduce((sum, o) => sum + Number(o.cashbackAmount), 0),
+      totalRefunded: allOrders.reduce((sum, o) =>
+        sum + Number(o.totalRefunded), 0
       ),
     };
 
@@ -259,42 +280,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Serialize orders to ensure Decimal values are converted to numbers
     const serializedOrders = orders.map(order => {
-      const cashbackAmountNumber =
-        order.cashbackAmount != null ? decimalToNumber(order.cashbackAmount) : null;
+      const cashbackAmountNumber = order.cashbackAmount ? Number(order.cashbackAmount) : null;
       return {
         ...order,
-        customerId: order.customerId,
-        totalPrice: decimalToNumber(order.totalPrice),
-        netAmount: decimalToNumber(order.netAmount),
+        customerId: order.customerId, // Include the customerId field
         cashbackAmount: cashbackAmountNumber,
-        totalRefunded: decimalToNumber(order.totalRefunded),
+        totalAmount: order.totalAmount ? Number(order.totalAmount) : null,
+        totalRefunded: order.totalRefunded ? Number(order.totalRefunded) : null,
+        // Add computed cashbackStatus based on cashbackProcessed
         cashbackStatus: cashbackAmountNumber && cashbackAmountNumber > 0
           ? (order.cashbackProcessed ? 'PROCESSED' : 'PENDING')
           : null,
-        customer: order.customer
-          ? {
-              ...order.customer,
-              storeCredit: decimalToNumber(order.customer.storeCredit),
-              totalCashbackEarned: decimalToNumber(order.customer.totalCashbackEarned),
-              totalSpent: decimalToNumber(order.customer.totalSpent),
-            }
-          : null,
+        customer: order.customer ? {
+          ...order.customer,
+          storeCredit: order.customer.storeCredit
+            ? parseFloat(order.customer.storeCredit.toString())
+            : 0,
+          totalCashbackEarned: order.customer.totalCashbackEarned
+            ? parseFloat(order.customer.totalCashbackEarned.toString())
+            : 0,
+          totalSpent: order.customer.totalSpent
+            ? parseFloat(order.customer.totalSpent.toString())
+            : 0,
+          lifetimeSpent: order.customer.lifetimeSpent
+            ? parseFloat(order.customer.lifetimeSpent.toString())
+            : 0
+        } : null,
         creditLedgerEntries: order.creditLedgerEntries?.map(entry => ({
           ...entry,
-          amount: decimalToNumber(entry.amount),
-          balance: decimalToNumber(entry.balance),
-        })) ?? [],
-        lineItems: order.lineItems?.map(item => ({
-          ...item,
-          price: decimalToNumber(item.price),
-        })) ?? [],
-        refunds: order.refunds?.map(refund => ({
-          ...refund,
-          amount: decimalToNumber(refund.amount),
-          cashbackAdjustment: refund.cashbackAdjustment
-            ? decimalToNumber(refund.cashbackAdjustment)
-            : null,
-        })) ?? [],
+          amount: entry.amount ? parseFloat(entry.amount.toString()) : 0,
+          balance: entry.balance ? parseFloat(entry.balance.toString()) : 0
+        }))
       };
     });
 
@@ -590,7 +606,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         const currency = shopSettings?.storeCurrency || order.currency || "USD";
-        const cashbackAmount = decimalToNumber(order.cashbackAmount);
+        const cashbackAmount = Number(order.cashbackAmount);
         const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
 
         // Use GraphQL mutation to add credit directly
@@ -737,7 +753,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           console.error(`[Orders] Error processing cashback:`, error);
 
           // Still create a local ledger entry but mark as failed
-          const currentBalance = decimalToNumber(customer.storeCredit);
+          const currentBalance = Number(customer.storeCredit);
           const localNewBalance = currentBalance + cashbackAmount;
 
           // Check if a ledger entry already exists before creating failed entry
@@ -854,8 +870,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Get current balance from customer record
-        const currentBalance = decimalToNumber(refundCustomer.storeCredit);
-        const adjustmentAmount = decimalToNumber(refund.cashbackAdjustment);
+        const currentBalance = Number(refundCustomer.storeCredit);
+        const adjustmentAmount = Number(refund.cashbackAdjustment);
         const newBalance = Math.max(0, currentBalance - adjustmentAmount);
 
         // Create ledger entry for refund
@@ -871,7 +887,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             orderId: refund.orderId,
             refundId: refund.id,
             metadata: {
-              refundAmount: decimalToNumber(refund.amount),
+              refundAmount: Number(refund.amount),
               orderNumber: refundOrder.shopifyOrderNumber,
             },
             createdAt: new Date(),
@@ -1014,7 +1030,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               continue;
             }
 
-            const amount = order.cashbackAmount ? decimalToNumber(order.cashbackAmount) : 0;
+            const amount = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
             if (amount <= 0) {
               failCount++;
               const msg = `Order ${order.shopifyOrderId}: Invalid cashback amount (${amount})`;
@@ -1306,7 +1322,7 @@ export default function OrdersPage() {
         setToast({
           active: true,
           content: actionData.message,
-          error: actionData.failCount > 0 && actionData.successCount === 0 // Only error if all failed
+          error: actionData.failCount > 0
         });
       }
     }
@@ -1369,7 +1385,7 @@ export default function OrdersPage() {
     // Check if any selected orders have pending cashback
     const selectedOrders = orders.filter(order => selectedResources.includes(order.id));
     const pendingCashbackOrders = selectedOrders.filter(order => {
-      const cashbackAmountNum = order.cashbackAmount ?? 0;
+      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
       const hasCustomer = !!(
         order.customer &&
         order.customer.id &&
@@ -1507,7 +1523,7 @@ export default function OrdersPage() {
         email: customerData.email || order.email || 'Unknown',
         storeCredit: customerData.storeCredit ? parseFloat(customerData.storeCredit.toString()) : 0
       });
-      setDefaultCashbackAmount(order.cashbackAmount ?? 0);
+      setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
     } else {
       // Fallback to database balance if no Shopify ID
       const currentBalance = customerData.storeCredit
@@ -1520,7 +1536,7 @@ export default function OrdersPage() {
         email: customerData.email || order.email || 'Unknown',
         storeCredit: currentBalance
       });
-      setDefaultCashbackAmount(order.cashbackAmount ?? 0);
+      setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
       setFetchingBalance(false);
       setIsCashbackModalOpen(true);
     }
@@ -1567,7 +1583,7 @@ export default function OrdersPage() {
   const handleProcessQualifying = useCallback(() => {
     // Get all qualifying cashback orders using the same logic as qualifyingOrdersCount
     const qualifyingOrders = orders.filter(order => {
-      const cashbackAmountNum = order.cashbackAmount ?? 0;
+      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
 
       // More detailed customer detection (same as test page)
       const hasCustomer = !!(
@@ -1701,7 +1717,7 @@ export default function OrdersPage() {
       setToast({
         active: true,
         content: data.message || (data.success ? "Action completed" : "Action failed"),
-        error: data.failCount > 0 && data.successCount === 0 ? true : !data.success, // Success if any succeeded
+        error: !data.success,
       });
     }
   }, [fetcher.data]);
@@ -1726,7 +1742,7 @@ export default function OrdersPage() {
       setToast({
         active: true,
         content: data.message || (data.success ? "Action completed" : "Action failed"),
-        error: data.failCount > 0 && data.successCount === 0 ? true : !data.success, // Success if any succeeded
+        error: !data.success,
       });
 
       // Reset processing state
@@ -1764,7 +1780,7 @@ export default function OrdersPage() {
   // Count qualifying cashback orders (orders that qualify for processing)
   const qualifyingOrdersCount = useMemo(() => {
     const qualifying = orders.filter(order => {
-      const cashbackAmountNum = order.cashbackAmount ?? 0;
+      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
 
       // More detailed customer detection (same as test page)
       const hasCustomer = !!(
@@ -1835,14 +1851,14 @@ export default function OrdersPage() {
       </IndexTable.Cell>
       <IndexTable.Cell>
         <Text variant="bodyMd" as="span">
-          {formatCurrency(order.totalPrice, shopSettings)}
+          {formatCurrency(Number(order.totalPrice), shopSettings)}
         </Text>
       </IndexTable.Cell>
       <IndexTable.Cell>
         <BlockStack gap="100">
           <Text variant="bodyMd" as="span">
             {order.cashbackAmount
-              ? formatCurrency(order.cashbackAmount ?? 0, shopSettings)
+              ? formatCurrency(Number(order.cashbackAmount), shopSettings)
               : "-"
             }
           </Text>
@@ -2199,15 +2215,15 @@ export default function OrdersPage() {
                       },
                       {
                         term: "Total",
-                        description: formatCurrency(selectedOrder.totalPrice, shopSettings),
+                        description: formatCurrency(Number(selectedOrder.totalPrice), shopSettings),
                       },
                       {
                         term: "Refunded",
-                        description: formatCurrency(selectedOrder.totalRefunded, shopSettings),
+                        description: formatCurrency(Number(selectedOrder.totalRefunded), shopSettings),
                       },
                       {
                         term: "Net Amount",
-                        description: formatCurrency(selectedOrder.netAmount, shopSettings),
+                        description: formatCurrency(Number(selectedOrder.netAmount), shopSettings),
                       },
                     ]}
                   />
@@ -2231,7 +2247,7 @@ export default function OrdersPage() {
                       {
                         term: "Cashback Amount",
                         description: selectedOrder.cashbackAmount
-                          ? formatCurrency(selectedOrder.cashbackAmount ?? 0, shopSettings)
+                          ? formatCurrency(Number(selectedOrder.cashbackAmount), shopSettings)
                           : "No cashback",
                       },
                       {
@@ -2273,7 +2289,7 @@ export default function OrdersPage() {
                             )}
                           </InlineStack>
                           <Text variant="bodyMd" as="span">
-                            {item.quantity} × {formatCurrency(item.price, shopSettings)}
+                            {item.quantity} × {formatCurrency(Number(item.price), shopSettings)}
                           </Text>
                         </InlineStack>
                       ))}
@@ -2294,7 +2310,7 @@ export default function OrdersPage() {
                             <BlockStack gap="200">
                               <InlineStack align="space-between">
                                 <Text variant="bodyMd" as="span">
-                                  Refund Amount: {formatCurrency(refund.amount, shopSettings)}
+                                  Refund Amount: {formatCurrency(Number(refund.amount), shopSettings)}
                                 </Text>
                                 <Text variant="bodySm" as="span" tone="subdued">
                                   {new Date(refund.shopifyCreatedAt).toLocaleDateString()}
@@ -2303,7 +2319,7 @@ export default function OrdersPage() {
                               {refund.cashbackAdjustment && (
                                 <InlineStack align="space-between">
                                   <Text variant="bodyMd" as="span">
-                                    Cashback Adjustment: -{formatCurrency(refund.cashbackAdjustment ?? 0, shopSettings)}
+                                    Cashback Adjustment: -{formatCurrency(Number(refund.cashbackAdjustment), shopSettings)}
                                   </Text>
                                   {!refund.cashbackProcessed ? (
                                     <Button
@@ -2343,8 +2359,8 @@ export default function OrdersPage() {
                             </Text>
                           </InlineStack>
                           <Text variant="bodyMd" fontWeight="semibold">
-                            {entry.amount > 0 ? "+" : ""}
-                            {formatCurrency(entry.amount, shopSettings)}
+                            {Number(entry.amount) > 0 ? "+" : ""}
+                            {formatCurrency(Number(entry.amount), shopSettings)}
                           </Text>
                         </InlineStack>
                       ))}
