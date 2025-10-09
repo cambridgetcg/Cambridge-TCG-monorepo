@@ -47,7 +47,17 @@ export class DataAPIModelProxy<T = any> {
                 orConditions.push(`"${orKey}" IS NULL`);
               } else if (orValue !== undefined && typeof orValue === 'object') {
                 // Handle complex comparisons within OR
-                if ('gte' in orValue) {
+                if ('contains' in orValue) {
+                  // Handle { contains: 'text', mode: 'insensitive' }
+                  const searchValue = orValue.contains;
+                  const mode = orValue.mode || 'sensitive';
+                  if (mode === 'insensitive') {
+                    orConditions.push(`LOWER("${orKey}") LIKE LOWER(:${paramName})`);
+                  } else {
+                    orConditions.push(`"${orKey}" LIKE :${paramName}`);
+                  }
+                  params.push(AuroraDataAPI.buildParameter(paramName, `%${searchValue}%`));
+                } else if ('gte' in orValue) {
                   // Check if this is a timestamp field
                   const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 'endDate',
                     'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',

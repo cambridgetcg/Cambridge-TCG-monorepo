@@ -193,7 +193,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           { shopifyOrderNumber: { contains: searchTerm, mode: "insensitive" } },
           { shopifyOrderName: { contains: searchTerm, mode: "insensitive" } },
           { email: { contains: searchTerm, mode: "insensitive" } },
-          { customer: { email: { contains: searchTerm, mode: "insensitive" } } },
         ];
       }
     }
