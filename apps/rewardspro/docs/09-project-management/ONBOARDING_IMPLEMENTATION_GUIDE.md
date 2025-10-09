@@ -417,6 +417,411 @@ Five high-performing SaaS products with comparable onboarding complexity were an
 
 ---
 
+## Shopify Integration Considerations
+
+### Critical Platform Requirements
+
+RewardsPro must align with Shopify's technical requirements, API constraints, and compliance standards to pass app review and deliver seamless merchant experience.
+
+#### Built for Shopify Requirements
+
+**Mandatory Requirements** (Source: [Shopify Built for Shopify](https://shopify.dev/docs/apps/launch/built-for-shopify/requirements)):
+
+1. **Embedded Experience**: All primary workflows must use Shopify App Bridge and remain inside Shopify admin - no external dashboards
+2. **Session Token Authentication**: Use session tokens (not OAuth tokens) for embedded requests
+3. **One-Click Install**: Seamless installation using merchant's Shopify credentials - no separate account creation
+4. **Polaris UI**: Use Shopify Polaris components for consistent interface
+5. **Responsive Design**: Must work on desktop, tablet, and mobile admin
+
+**Onboarding Guidelines** (Source: [Shopify Onboarding UX](https://shopify.dev/docs/apps/design/user-experience/onboarding)):
+- Limit to **< 5 essential steps**
+- Provide **progress indicators**
+- Allow **skipping optional steps**
+- Use **clear value propositions**
+- Offer **contextual help** at each step
+
+---
+
+### GraphQL Admin API Requirements
+
+**CRITICAL**: Apps released after **April 2025** must use GraphQL Admin API - REST is legacy.
+
+#### Required API Scopes
+
+| Scope | Purpose | Priority | Notes |
+|-------|---------|----------|-------|
+| `read_customers` | Fetch customer data for loyalty calculations | **Required** | Level 1 protected data |
+| `read_orders` | Access orders from last 60 days | **Required** | For recent purchase history |
+| `read_all_orders` | Access orders > 60 days old | **Recommended** | Needed for historical loyalty points |
+| `write_discounts` | Create discount codes as rewards | **Required** | Core loyalty feature |
+| `read_products` | Customize discount eligibility | Optional | For product-specific rewards |
+| `write_customers` | Update customer metafields with points | Optional | For storing loyalty data in Shopify |
+| `write_gift_cards` | Issue gift card rewards | Optional | Advanced reward type |
+
+**Scope Request Strategy**:
+1. Request minimal scopes initially (`read_customers`, `read_orders`, `write_discounts`)
+2. Clearly explain why each scope is needed during OAuth
+3. Detect missing scopes and degrade gracefully (e.g., disable auto-discounts if `write_discounts` not granted)
+4. Provide messaging to guide merchants on granting additional scopes
+
+---
+
+### Rate Limits & Throttling
+
+#### GraphQL Rate Limits
+
+**Cost-Based System**:
+- Each query field has a **cost** (simple fields: 0-1, complex fields: 10-100)
+- Shop has a **throttle budget** (refills over time)
+- Exceeding budget returns `THROTTLED` error with cost details in headers
+
+**Mitigation Strategies**:
+```typescript
+// app/utils/shopify-graphql.ts
+export class ShopifyGraphQLClient {
+
+  async query<T>(query: string, variables?: any): Promise<T> {
+    try {
+      const response = await fetch(GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': this.accessToken,
+        },
+        body: JSON.stringify({ query, variables }),
+      });
+
+      const data = await response.json();
+
+      // Check for throttling
+      if (data.errors?.some(e => e.extensions?.code === 'THROTTLED')) {
+        const throttleStatus = response.headers.get('X-Shopify-Shop-Api-Call-Limit');
+        console.warn('[GraphQL] Throttled:', throttleStatus);
+
+        // Exponential backoff
+        await this.sleep(2000);
+        return this.query(query, variables); // Retry
+      }
+
+      // Check cost and log for optimization
+      const cost = data.extensions?.cost;
+      if (cost?.actualQueryCost > 50) {
+        console.warn('[GraphQL] High-cost query:', cost);
+      }
+
+      return data.data;
+    } catch (error) {
+      console.error('[GraphQL] Query failed:', error);
+      throw error;
+    }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+```
+
+**Best Practices**:
+- Use **pagination** (`first: 50`, `after: cursor`) instead of large queries
+- **Batch operations** where possible (e.g., `customerUpdate` with multiple IDs)
+- **Schedule background jobs** for heavy operations (historical point calculations)
+- **Cache reference data** (products, collections) to avoid repeated queries
+- **Monitor cost headers** and optimize expensive queries
+
+#### REST Rate Limits (Legacy - Avoid)
+
+- **40 requests/minute** per app per store (standard)
+- **10× higher** for Shopify Plus stores
+- **2 req/sec refill rate**
+- Returns `Retry-After` header when exceeded
+
+---
+
+### Protected Customer Data Compliance
+
+#### Level 1 vs Level 2 Data
+
+| Level | Data Types | Requirements |
+|-------|-----------|-------------|
+| **Level 1** | General customer info (excluding PII) | Minimize collection, encrypt in transit/at rest, limit staff access, retention periods |
+| **Level 2** | Names, addresses, phone, email | **Level 1 +** encrypted backups, test/prod separation, strong password policies, incident response |
+
+**RewardsPro Data Classification**:
+- **Level 1**: Customer IDs, order totals, loyalty points, tier assignments
+- **Level 2**: Email (if sending referral links), name (if personalizing emails)
+
+**Recommendation**: Request Level 2 **only if necessary** for email features. Otherwise, use Level 1 and store email references (encrypted customer ID).
+
+#### Mandatory GDPR Webhooks
+
+```typescript
+// app/routes/webhooks.customers.data-request.tsx
+export async function action({ request }: ActionFunctionArgs) {
+  const rawBody = await request.text();
+  if (!verifyWebhookHMAC(request, rawBody)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { shop_domain, customer } = JSON.parse(rawBody);
+
+  // Log data request for merchant to fulfill
+  await db.dataRequest.create({
+    data: {
+      id: uuidv4(),
+      shop: shop_domain,
+      customerId: customer.id,
+      requestType: 'DATA_REQUEST',
+      createdAt: new Date(),
+    }
+  });
+
+  return json({ success: true });
+}
+
+// app/routes/webhooks.customers.redact.tsx
+export async function action({ request }: ActionFunctionArgs) {
+  const rawBody = await request.text();
+  if (!verifyWebhookHMAC(request, rawBody)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { shop_domain, customer } = JSON.parse(rawBody);
+
+  // Delete all customer loyalty data
+  await db.$transaction([
+    db.storeCreditLedger.deleteMany({ where: { customerId: customer.id } }),
+    db.customer.deleteMany({ where: { shopifyCustomerId: customer.id.toString() } }),
+  ]);
+
+  return json({ success: true });
+}
+
+// app/routes/webhooks.shop.redact.tsx
+export async function action({ request }: ActionFunctionArgs) {
+  const rawBody = await request.text();
+  if (!verifyWebhookHMAC(request, rawBody)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { shop_domain } = JSON.parse(rawBody);
+
+  // Delete all shop data (48 hours after uninstall)
+  await db.$transaction([
+    db.storeCreditLedger.deleteMany({ where: { shop: shop_domain } }),
+    db.customer.deleteMany({ where: { shop: shop_domain } }),
+    db.tier.deleteMany({ where: { shop: shop_domain } }),
+    db.order.deleteMany({ where: { shop: shop_domain } }),
+    db.shopSettings.deleteMany({ where: { shop: shop_domain } }),
+  ]);
+
+  return json({ success: true });
+}
+```
+
+---
+
+### Theme App Extension Requirements
+
+#### App Blocks for Customer Accounts
+
+**CRITICAL**: Must use **theme app extension** with app blocks - merchants should NOT edit theme code.
+
+**Configuration** (`extensions/rewardspro-customer-account-ui/shopify.extension.toml`):
+```toml
+api_version = "2025-01"
+
+[[extensions]]
+type = "customer_account_ui_extension"
+name = "RewardsPro Loyalty Widget"
+handle = "rewardspro-loyalty-widget"
+
+[[extensions.targeting]]
+target = "customer-account.profile.block.render"
+
+[[extensions.targeting]]
+target = "customer-account.order-status.block.render"
+```
+
+**App Block Implementation** (`src/LoyaltyWidget.tsx`):
+```tsx
+import { CustomerAccountUIExtensionAPI } from '@shopify/customer-account-ui-extensions';
+
+export default function LoyaltyWidget({ api }: { api: CustomerAccountUIExtensionAPI }) {
+  const [loyaltyData, setLoyaltyData] = useState(null);
+
+  useEffect(() => {
+    // Fetch loyalty data from RewardsPro API
+    fetch(`/apps/rewardspro/membership?shop=${api.shop}`)
+      .then(res => res.json())
+      .then(setLoyaltyData);
+  }, [api.shop]);
+
+  if (!loyaltyData) return <SkeletonText lines={3} />;
+
+  return (
+    <BlockStack spacing="tight">
+      <Heading level={2}>Your Loyalty Status</Heading>
+      <Text>Tier: {loyaltyData.tier}</Text>
+      <Text>Points: {loyaltyData.points}</Text>
+      <ProgressBar progress={loyaltyData.progress} />
+    </BlockStack>
+  );
+}
+```
+
+**Onboarding Integration**:
+- Include step: "Add loyalty widget to customer account"
+- Provide deep link: `https://admin.shopify.com/store/{shop}/themes/current/editor?context=apps`
+- Detect if block installed via theme API
+- Show reminder if not installed
+
+---
+
+### Risk Assessment & Mitigation
+
+| Risk Scenario | Impact | Probability | Mitigation Strategy |
+|---------------|--------|-------------|---------------------|
+| **Missing customer segments** | Can't target loyalty campaigns | High (new stores) | Provide default segments using `customers` query filters (e.g., "All Customers", "Recent Purchasers"). Allow skipping segmentation. |
+| **Limited order history** | Can't calculate historical loyalty | Medium | Request `read_all_orders` scope. If denied, inform merchant and use recent orders only. Offer to backfill when scope granted. |
+| **Permission denied** | Features don't work (e.g., no discounts without `write_discounts`) | Medium | Detect missing scopes, show actionable error message, guide merchant to reinstall with additional scopes. Disable affected features gracefully. |
+| **GraphQL throttling** | Data sync failures, slow onboarding | High (heavy queries) | Implement exponential backoff, check cost headers, use pagination, schedule background jobs for historical processing. |
+| **Theme block not installed** | Loyalty widget doesn't appear on storefront | High (requires manual step) | Include in onboarding checklist, provide deep link to theme editor, detect installation status, send reminder email if skipped. |
+| **GDPR webhook failures** | Data not deleted, compliance violation | Low | Log webhook failures, implement retry queue, alert engineering team. Test deletion flows in dev environment. |
+| **Data breach (Level 2 data)** | Legal liability, app removal | Low | Encrypt all PII at rest (AES-256-GCM), use TLS 1.3 for transit, implement audit logging, conduct security review before requesting Level 2 scopes. |
+| **Multi-store merchants** | Confusion about cross-store data | Low | Install per store (standard Shopify model). Do not share data across stores unless explicit merchant consent. |
+| **Shopify Plus rate limits** | Higher allowance may mask issues | Low | Don't rely on Plus rates - design for standard limits. Test with non-Plus dev store. |
+
+---
+
+### Shopify Integration Checklist
+
+#### Authentication & Embedding
+- [ ] Use Shopify App Bridge 4.x (`@shopify/app-bridge-react`)
+- [ ] Session token authentication for all embedded requests
+- [ ] All primary workflows inside Shopify admin (no external dashboard)
+- [ ] One-click OAuth install (no separate sign-up form)
+- [ ] Support both online and offline access tokens
+
+#### API Scopes & Queries
+- [ ] Request minimal scopes: `read_customers`, `read_orders`, `write_discounts`
+- [ ] Request `read_all_orders` with clear justification (optional)
+- [ ] Use GraphQL `customers` query with pagination
+- [ ] Use GraphQL `orders` query with date filters
+- [ ] Implement rate limit handling (check `THROTTLED` errors)
+- [ ] Log query costs for optimization
+
+#### Data Protection & Compliance
+- [ ] Publish privacy policy (link in app listing)
+- [ ] Document data use for Level 1/2 classification
+- [ ] Encrypt customer data at rest (AES-256-GCM)
+- [ ] Use TLS 1.3 for all API requests
+- [ ] Subscribe to mandatory webhooks: `customers/data_request`, `customers/redact`, `shop/redact`
+- [ ] Implement data deletion within 48 hours of `shop/redact`
+- [ ] Store minimal PII (avoid Level 2 if possible)
+
+#### Theme Extension
+- [ ] Build theme app extension with app blocks
+- [ ] Support both customer account and order status pages
+- [ ] Use Polaris components for consistent UI
+- [ ] Test responsive design (desktop, tablet, mobile)
+- [ ] Provide merchant customization options (colors, text)
+
+#### Onboarding Flow
+- [ ] Limit to 3-5 essential steps
+- [ ] Show progress indicator (stepper or percentage)
+- [ ] Allow skipping optional steps (soft gating)
+- [ ] Provide contextual help (tooltips, docs links)
+- [ ] Collect minimal info (points name/value, tier config)
+- [ ] Detect missing data (no customers/orders) and provide guidance
+- [ ] Include step to add theme app block
+- [ ] Detect scope denials and show actionable messages
+
+#### Error Handling
+- [ ] Catch `THROTTLED` GraphQL errors and retry with backoff
+- [ ] Handle `ACCESS_DENIED` errors (missing scopes)
+- [ ] Log errors to monitoring service (Sentry, Datadog)
+- [ ] Display user-friendly error messages (not raw errors)
+- [ ] Implement circuit breaker for external API calls
+
+#### App Store Listing
+- [ ] Accurate description of features
+- [ ] Transparent pricing (all tiers disclosed)
+- [ ] Clear data usage statement
+- [ ] Contact information and support resources
+- [ ] Privacy policy link
+- [ ] Screenshots showing onboarding flow
+
+---
+
+### Competitor Onboarding Analysis
+
+#### Growave
+**Strengths**:
+- Comprehensive onboarding covering loyalty, reviews, wishlists, referrals
+- Easy to follow despite being multi-component
+- Intuitive dashboard post-setup
+
+**Lessons**: Multi-step onboarding acceptable if flow is guided and demonstrates value at each step.
+
+#### Rivo
+**Strengths**:
+- Simple, clean dashboard
+- Fast setup
+
+**Weaknesses**:
+- Full-screen mode in admin felt inflexible
+
+**Lessons**: Ensure responsiveness and give merchants UI control (e.g., collapsible panels).
+
+#### LoyaltyLion
+**Strengths**:
+- Incentivizes customer onboarding (points for account creation, first purchase)
+- Aligns user onboarding with loyalty mechanics
+
+**Lessons**: Consider rewarding merchant's customers during initial setup to drive adoption.
+
+---
+
+### Recommended Onboarding Strategy for Shopify
+
+**Step 1: Welcome & Scope Request (1 min)**
+- Show value proposition (increase repeat purchases)
+- Request scopes: `read_customers`, `read_orders`, `write_discounts`
+- Optional: `read_all_orders` (explain historical points)
+- Clear explanations for each scope
+
+**Step 2: Connect Data & Create Segments (2 mins)**
+- Fetch customers using GraphQL `customers` query
+- If no segments exist, create defaults:
+  - "All Customers" (no filter)
+  - "Recent Purchasers" (filter: `created_at > 30 days ago`)
+  - "VIP" (filter: `total_spent > $500`)
+- Allow skipping segmentation
+
+**Step 3: Configure Points & Rewards (2 mins)**
+- Set points name ("Stars", "Points", etc.)
+- Set points value (e.g., 100 points = $1)
+- Configure cashback rate (e.g., 5% of order total)
+- Set expiration (optional)
+- Create first discount reward template
+
+**Step 4: Add Theme App Block (1 min)**
+- Provide deep link to theme editor: `https://admin.shopify.com/store/{shop}/themes/current/editor?context=apps&template=customers/account`
+- Show video/GIF of adding block
+- Detect if block added (poll theme API)
+- Allow skipping with reminder
+
+**Step 5: Launch & Dashboard (< 1 min)**
+- Celebrate with confetti 🎉
+- Show dashboard: total customers, points issued, active tiers
+- Offer next actions: customize emails, create campaigns
+- Link to help docs
+
+**Total Time**: < 7 minutes (meets TTFV goal)
+
+---
+
 ## Architecture Overview
 
 ### System Components
