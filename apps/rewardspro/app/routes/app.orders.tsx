@@ -1236,11 +1236,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const result = await syncService.syncAllOrders();
           console.log("[ORDERS PAGE] Sync completed:", result);
 
-          // Mark orders as synced in onboarding if successful
-          if (result.success && result.progress.successful > 0) {
-            const { updateOnboardingProgress } = await import("~/utils/onboarding");
-            await updateOnboardingProgress(shop, { syncedOrders: true });
-          }
+          // Sync completed successfully
+          console.log("[ORDERS PAGE] Successfully synced", result.progress.successful, "orders");
+
+          // TODO: Update onboarding progress if needed
+          // if (result.success && result.progress.successful > 0) {
+          //   await updateOnboardingProgress(shop, { syncedOrders: true });
+          // }
 
           return json({
             success: result.success,
