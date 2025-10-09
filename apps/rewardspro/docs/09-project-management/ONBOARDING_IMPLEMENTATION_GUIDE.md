@@ -3126,24 +3126,814 @@ export default function OnboardingWizardRoute() {
 
 ## UI/UX Patterns & Components
 
-### Design Principles
+### Overview
 
-1. **Simplicity**: 3-5 steps max, progressive disclosure
-2. **Clarity**: Clear labels, avoid jargon
-3. **Action-oriented**: Every step requires user action
-4. **Celebratory**: Confetti on completion 🎉
-5. **Accessible**: WCAG AA compliance, keyboard navigation
+The onboarding experience for RewardsPro must feel approachable, relevant and trustworthy to drive merchant adoption. This section synthesizes research from Shopify's design guidelines[1][20], UX best practices[3][11][13], and accessibility standards[15][24] to provide actionable recommendations for visual hierarchy, progress communication, micro-interactions, content strategy and validation testing.
 
-### Reusable Components
+### Core Design Principles
 
-| Component | Purpose | Props |
-|-----------|---------|-------|
-| `WizardProgress` | Show step indicator | `currentStep`, `totalSteps` |
-| `ChecklistItem` | Task with checkbox | `title`, `completed`, `action` |
-| `ProgressBar` | Visual progress meter | `progress`, `tone` |
-| `ConfettiAnimation` | Canvas-based celebration | `duration`, `colors` |
-| `TooltipTour` | Contextual help bubble | `content`, `target`, `position` |
-| `EmptyStateTemplate` | Prefilled program samples | `type`, `data` |
+1. **Simplicity**: Keep onboarding to 3-5 essential steps; group related tasks into modules. Apply the 80/20 rule by teaching the few features that deliver the most value[2]
+2. **Clarity**: Use clean layouts with clear visual hierarchy; avoid cognitive overload with progressive disclosure[3]
+3. **Action-oriented**: Every step requires merchant action with strong, direct verbs (Connect, Customize, Launch)[22]
+4. **Celebratory**: Leverage micro-interactions and milestone celebrations (confetti, checkmarks) to motivate completion[9][10]
+5. **Accessible**: Meet WCAG 2.1 AA compliance with keyboard navigation, sufficient color contrast, and screen reader support[15][24]
+6. **Benefit-focused**: Speak to merchants' goals and business outcomes, not technical features[21]
+
+---
+
+### Visual Hierarchy & Layout Patterns
+
+Onboarding should make it obvious what actions merchants need to take and how far they've progressed. A clean layout with clear hierarchy helps merchants quickly grasp the next step without cognitive overload[1].
+
+#### Split-Pane Layout (Desktop)
+
+**Structure**: Divide the screen into two panes for desktop; stack vertically on mobile
+
+**Left Pane** (Setup Guide):
+- Task cards with status indicators
+- Progress bar showing completion percentage
+- Persistent through onboarding journey
+- Scrollable if tasks exceed viewport
+
+**Right Pane** (Contextual Content):
+- Updates dynamically based on selected task
+- Contains brief description (2-3 sentences)
+- Form fields and input controls
+- Clear call-to-action button
+- Optional "Learn more" link to documentation
+
+**Mobile Adaptation**:
+- Stack panes vertically
+- Use sticky header for progress bar
+- Collapse completed tasks to reduce scroll
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  RewardsPro Setup                                [?] Help   │
+│  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  75% complete │
+├──────────────────────┬──────────────────────────────────────┤
+│  Setup Guide         │  Connect your Shopify store          │
+│                      │                                      │
+│  ✓ Create account    │  Link your store to sync orders and  │
+│  ✓ Connect store     │  customers automatically.            │
+│  ▶ Sync orders       │                                      │
+│  ○ Configure rewards │  Store URL: example.myshopify.com    │
+│  ○ Launch program    │  [Connect Store]                     │
+│                      │                                      │
+│  Need help?          │  Learn more about permissions →      │
+│  [View docs]         │                                      │
+└──────────────────────┴──────────────────────────────────────┘
+```
+
+---
+
+#### Task Cards & States
+
+Each task card should clearly communicate status and next actions:
+
+**Card Structure**:
+- **Title**: Descriptive, action-oriented (12-18pt, semibold)
+- **Description**: Brief explanation, 2 lines maximum (14pt, regular)
+- **Status Icon**: Visual indicator of progress
+- **Action Link**: "Start," "Continue," or "Review" button
+- **Optional Badge**: "Recommended" or "Optional" tag
+
+**Status States**:
+
+| State | Visual Treatment | Icon | Interaction |
+|-------|-----------------|------|-------------|
+| **Not Started** | Muted gray, reduced opacity | ○ Empty circle | Clickable to begin |
+| **In Progress** | Highlighted with border, primary color accent | ◐ Half-filled circle with spinner | Clickable to resume |
+| **Complete** | Green checkmark, full opacity | ✓ Filled checkmark | Collapsed or read-only |
+| **Blocked** | Lock icon, disabled state | 🔒 Lock | Tooltip explains dependency |
+
+**Progressive Disclosure**: Future steps appear muted until relevant; completed tasks can be collapsed to reduce clutter. This allows merchants to focus on one step at a time[3].
+
+---
+
+#### Progress Indicators
+
+**Determinate Progress**: Use when total steps are known; reduces uncertainty and harnesses the Zeigarnik effect (incomplete tasks stay top-of-mind)[4][5]
+
+**Types**:
+1. **Horizontal Progress Bar**: Visual bar filling from left to right
+   - Show percentage (e.g., "75% complete") or step count (e.g., "3 of 4 steps")
+   - Minimum height: 8px with 3:1 contrast ratio[28]
+   - Smooth animations for incremental changes (200-300ms)[11]
+
+2. **Step Counter**: Numbered badges for each step
+   - Current step highlighted in primary color
+   - Completed steps with checkmarks
+   - Future steps in muted state
+
+3. **Circular Progress**: Donut chart showing completion percentage
+   - Use sparingly; best for dashboard summary, not inline tasks
+
+**Placement**: Sticky header or floating element to maintain orientation without consuming vertical space
+
+**Endowed Progress Effect**: Pre-check first task (e.g., "Created account") to provide immediate sense of progress[8]
+
+---
+
+### Communicating Progress & Celebrating Milestones
+
+Merchants feel more confident when they know where they are in a process and what remains. Progress indicators should be explicit, encouraging and actionable[6].
+
+#### Interactive Setup Guide Pattern
+
+Based on Shopify's setup guide pattern[7], the checklist should:
+
+**Features**:
+- Track completion across all onboarding tasks
+- Link directly to configuration pages (no searching required)
+- Display "X tasks remaining" beside progress bar
+- Pre-check first item to trigger endowed progress effect[8]
+- Persist progress across sessions
+
+**Implementation**:
+```typescript
+interface SetupGuideProps {
+  tasks: Task[];
+  completedCount: number;
+  totalCount: number;
+  onTaskClick: (taskId: string) => void;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: 'not_started' | 'in_progress' | 'complete' | 'blocked';
+  isOptional: boolean;
+  dependency?: string; // Task ID that must complete first
+}
+```
+
+**Progressive Task Revelation**: Show only relevant next steps; reveal advanced tasks (VIP tiers, integrations) after core setup completes
+
+---
+
+#### Completion Celebrations
+
+Use subtle celebratory micro-interactions to acknowledge merchant effort:
+
+**Milestone Triggers**:
+- First task completed: Animated checkmark (200ms)
+- 50% completion: Brief confetti burst (500ms)
+- All tasks completed: Full confetti celebration (1000ms) + success modal
+
+**Examples from Best-in-Class Apps**:
+- **Canva**: Confetti animation on major achievements[9]
+- **Toggl**: Hotspot celebrations with visual feedback[10]
+- **Wistia**: Pre-checked first item for immediate progress[8]
+
+**Accessibility Considerations**:
+- Respect `prefers-reduced-motion` media query[11][15]
+- Provide option to disable animations in settings
+- Never rely solely on motion to convey completion (pair with text/icon)
+
+**Implementation**:
+```typescript
+// Confetti utility that respects accessibility
+export function triggerConfetti(duration: number = 1000) {
+  const prefersReducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+
+  if (prefersReducedMotion) {
+    // Show static success message instead
+    showSuccessModal();
+  } else {
+    // Trigger canvas-based confetti animation
+    const confetti = new Confetti({ duration, particleCount: 100 });
+    confetti.play();
+  }
+}
+```
+
+---
+
+#### Progress Reminders
+
+If a merchant closes the app mid-onboarding:
+
+**Strategy**:
+- Store progress in database (persists across sessions)
+- Show lightweight banner on dashboard: "You're 2 steps away from launching your loyalty program"
+- Include "Continue setup" CTA button
+- **Avoid intrusive modals**; let merchants resume at their own pace
+
+**Email Re-engagement**: Send reminder emails after 24 hours and 7 days of inactivity (see Email Onboarding Sequences section)
+
+---
+
+#### Repeat Engagement Pattern
+
+For repeat visits after onboarding completion:
+
+**Approach**:
+- Hide completed core tasks (collapse or archive)
+- Surface new optional tasks: "Import more orders," "Enable referral program," "Review analytics"
+- Use same checklist format for continuity
+- Prevents clutter while maintaining engagement
+
+---
+
+### Micro-Interactions & Feedback Mechanisms
+
+Micro-interactions are small responsive details that provide immediate feedback and guide users through the interface. Effective micro-interactions consist of a **trigger**, **rules**, **feedback**, and **loops/modes**[12].
+
+#### Principles for Onboarding Micro-Interactions
+
+1. **Immediate Feedback**: Provide visible responses to user actions
+   - Green checkmarks when field is completed
+   - Subtle shaking for validation errors (guardrails)
+   - Skeleton loaders when data is being fetched[13]
+
+2. **Communicate State Changes**: Each micro-interaction should clearly show:
+   - **What happened**: Action was received (button press, form submit)
+   - **What is happening**: Loading spinner, progress indicator
+   - **What will happen next**: Success message, next step reveal[14]
+
+3. **Motion Guidelines**:
+   - Keep animations brief: 200-300ms for most interactions[11]
+   - Use natural easing curves (ease-out for entrances, ease-in for exits)
+   - Respect `prefers-reduced-motion` media query[15]
+   - Never rely on sound to convey information (WCAG 2.1.4)[16]
+
+---
+
+#### Specific Micro-Interaction Patterns
+
+**Form Validation**:
+```typescript
+// Real-time validation with visual feedback
+<TextField
+  value={storeName}
+  onChange={handleChange}
+  onBlur={validateStoreName}
+  error={errors.storeName}
+  success={isValid.storeName}
+  helpText={
+    errors.storeName
+      ? "Store name must be at least 3 characters"
+      : "✓ Valid store name"
+  }
+/>
+```
+
+**Loading States**:
+- **Skeleton screens**: Show structure immediately while data loads
+- **Spinners**: For short waits (<2 seconds)
+- **Progress bars**: For longer operations with known duration (data import)
+
+**Tooltips & Hotspots**:
+- **Pulsating hotspots**: Draw attention to complex UI areas[18]
+- **Click to reveal**: Tooltip appears on click/focus, not hover (better for mobile/accessibility)
+- **Keyboard accessible**: Focusable with Tab, dismissible with Esc
+- **ARIA labels**: `aria-describedby` links tooltip to trigger element[30]
+
+**Example from Smartcat**: Pulsing dots reveal tooltips with brief instructions when clicked[18]
+
+**Button States**:
+```css
+/* Micro-interaction for primary button */
+.Button-primary {
+  transition: all 200ms ease-out;
+  transform: scale(1);
+}
+
+.Button-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.Button-primary:active {
+  transform: scale(0.98);
+}
+
+.Button-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+```
+
+**Success Animations**:
+- **Checkmark draw**: SVG path animation for completed tasks (300ms)
+- **Slide-in**: New content slides in from right with fade (250ms)
+- **Fade-out**: Completed tasks fade and collapse (200ms)
+
+---
+
+#### Gamification (Light Touch)
+
+Light gamification can boost motivation when aligned with user goals, not as distraction[19]:
+
+**Effective Patterns**:
+- **Badges**: Award badges for milestones ("First Reward Issued," "100 Customers Enrolled")
+- **Unlock features**: Complete 3 core tasks to unlock analytics dashboard
+- **Progress streaks**: "You've been active 5 days in a row!"
+
+**Avoid**:
+- Forced gamification that feels manipulative
+- Badges unrelated to business outcomes
+- Overly complex point systems
+
+**Example from Drops App**: Micro-interactions explain rules before tasks and reward correct actions[19]
+
+---
+
+### Tone of Voice & Content Strategy
+
+Language is central to building trust. Shopify's content guidelines advocate for plain, concise language written at a **grade-7 reading level**[20]. Messages should focus on **benefits, not features**, because merchants care more about solving their problems than learning every product detail[21].
+
+#### Content Guidelines
+
+**1. Speak to Merchants' Goals**
+
+Start each task with a benefit, not a technical instruction:
+
+❌ **Poor**: "Configure earn rate parameters"
+✅ **Good**: "Decide how many points customers earn per dollar spent"
+
+❌ **Poor**: "Enable webhook integration"
+✅ **Good**: "Automatically sync orders to reward customers in real-time"
+
+**2. Strong, Direct Verbs**
+
+Use action verbs for CTAs and headings[22]:
+- **Connect** your store
+- **Customize** rewards
+- **Launch** your program
+- **Review** performance
+
+Avoid weak or vague language:
+- ❌ "You can set up rewards" → ✅ "Set up rewards"
+- ❌ "It's possible to import orders" → ✅ "Import orders"
+
+**3. Progressive Disclosure**
+
+Provide only essential information upfront; allow merchants to expand for details[3]:
+
+```tsx
+<Card>
+  <Text as="h3" variant="headingMd">Sync past orders</Text>
+  <Text as="p">Import orders from the last 90 days to award points retroactively.</Text>
+
+  <Collapsible id="sync-details">
+    <Button plain disclosure>Learn more about syncing</Button>
+    <CollapsibleContent>
+      <Text as="p" tone="subdued">
+        We'll calculate points based on your earn rate and credit
+        customers' accounts. This helps you launch with engaged members.
+      </Text>
+    </CollapsibleContent>
+  </Collapsible>
+
+  <Button>Import orders</Button>
+</Card>
+```
+
+**4. Personalization & Localization**
+
+- **Variables**: Insert merchant's store name or plan where appropriate
+  - "Hi {storeName}, let's get your program set up"
+- **Localization**: Translate all copy for supported languages
+- **RTL support**: Ensure layout works for right-to-left languages (Arabic, Hebrew)
+
+**5. Welcome & Reassurance**
+
+Start with a friendly welcome that sets expectations[23]:
+
+```
+Welcome to RewardsPro! 🎉
+
+Let's set up your loyalty program so you can start turning
+shoppers into repeat customers. This will take about 5 minutes.
+
+Need help? [Contact support] or [Watch video tutorial]
+```
+
+---
+
+#### Sample Messaging for Key Steps
+
+| Step | Sample Copy | Rationale |
+|------|------------|-----------|
+| **Welcome** | "Welcome to RewardsPro! Let's set up your loyalty program so you can start turning shoppers into repeat customers." | Sets expectations and highlights benefits using plain language and the merchant's goal[21] |
+| **Connect store** | "Connect your Shopify store to sync orders and customers automatically." | Strong verb; explains why connecting is valuable |
+| **Sync orders** | "Select which past orders you want to import. We'll calculate points for these customers." | Describes the action and immediate benefit |
+| **Customize rewards** | "Choose how many points shoppers earn and decide what they can redeem them for." | Encourages personalization; uses "choose" to empower merchants |
+| **Launch program** | "Turn on your loyalty program and watch your customers engage more often." | Celebratory call to action; future-oriented |
+| **Completion** | "Your loyalty program is live! 🎉 Customers can now earn and redeem points with every purchase." | Celebrates success; confirms program is active |
+
+---
+
+### Accessibility Guidelines (WCAG 2.1)
+
+Onboarding must be usable by all merchants, including those using screen readers, keyboards, or with visual impairments. WCAG 2.1 provides actionable criteria for inclusive design[15][24].
+
+#### Keyboard Navigation (WCAG 2.1.1, 2.1.2)
+
+**Requirements**:
+- All functionality must be operable via keyboard[24]
+- No keyboard traps (users can move both into and out of interactive elements)[24]
+- Provide skip links to bypass repeated navigation[25]
+- Ensure logical focus order (top-to-bottom, left-to-right)[25]
+
+**Implementation Checklist**:
+- [ ] All buttons, links, and form fields are keyboard-focusable
+- [ ] Tab order follows visual layout
+- [ ] Modal dialogs trap focus until closed (Esc key dismisses)
+- [ ] Tooltips are dismissible with Esc key
+- [ ] Skip link at top of page: "Skip to main content"
+
+---
+
+#### Focus Indicators (WCAG 2.4.7)
+
+**Requirements**:
+- Every focusable element needs a visible focus state[26]
+- Minimum contrast ratio: 3:1 against adjacent colors[26]
+- Do not remove outlines unless replaced with equally visible indicator[26]
+
+**Implementation**:
+```css
+/* Polaris-style focus indicator */
+*:focus-visible {
+  outline: 2px solid #005BD3; /* Shopify blue */
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default outline only if custom indicator present */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+```
+
+---
+
+#### Color Contrast (WCAG 1.4.3, 1.4.11)
+
+**Requirements**:
+- Text contrast: Minimum 4.5:1 for normal text, 3:1 for large text (18pt+)[27]
+- Non-text elements: 3:1 for UI components and icons[28]
+- Never rely on color alone to convey state[29]
+
+**Examples**:
+```tsx
+// ❌ Bad: Color-only differentiation
+<Button tone="success">Complete</Button>
+
+// ✅ Good: Color + icon + text
+<Button tone="success" icon={CheckmarkIcon}>
+  Complete
+</Button>
+```
+
+**Testing Tools**:
+- Chrome DevTools Lighthouse audit
+- WebAIM Contrast Checker: https://webaim.org/resources/contrastchecker/
+- axe DevTools browser extension
+
+---
+
+#### Forms & Labels (WCAG 1.3.1, 3.3.2)
+
+**Requirements**:
+- Associate labels with form fields using HTML `<label>` elements[30]
+- Provide instructions adjacent to inputs
+- Avoid referencing location or shape alone (e.g., "click the green button")[16]
+
+**Implementation**:
+```tsx
+// ✅ Accessible form field
+<TextField
+  label="Program name"
+  value={programName}
+  onChange={handleChange}
+  helpText="Choose a name customers will see (e.g., 'Rewards Club')"
+  error={errors.programName}
+  requiredIndicator
+/>
+
+// ❌ Inaccessible form field
+<input
+  type="text"
+  placeholder="Program name" // Placeholder is not a label!
+/>
+```
+
+---
+
+#### Animations & Timing (WCAG 2.2.2, 2.3.3)
+
+**Requirements**:
+- Allow users to pause, stop, or hide animations that begin automatically[15]
+- Keep time-limited tasks adjustable or warn before timeout[15]
+- Respect `prefers-reduced-motion` media query[11]
+
+**Implementation**:
+```tsx
+// Respect user's motion preferences
+const prefersReducedMotion = window.matchMedia(
+  '(prefers-reduced-motion: reduce)'
+).matches;
+
+<motion.div
+  animate={prefersReducedMotion ? {} : { scale: [1, 1.05, 1] }}
+  transition={{ duration: 0.3 }}
+>
+  {children}
+</motion.div>
+```
+
+---
+
+#### Keyboard Shortcuts (WCAG 2.1.4)
+
+**Requirements**:
+- For shortcuts using printable characters, allow users to disable or remap them[31]
+- Document all keyboard shortcuts in help documentation
+- Avoid conflicting with browser/screen reader shortcuts
+
+---
+
+### Design System & Component Audit
+
+Shopify's Polaris design system provides foundational components (cards, buttons, banners), but onboarding requires specialized patterns. Conduct a component audit to identify reusable parts and gaps.
+
+#### Required Onboarding Components
+
+**1. Welcome Modal/Slide**
+
+**Purpose**: Introduce benefits of loyalty program on first launch
+
+**Structure**:
+- Simple illustration or icon
+- Friendly headline: "Welcome to RewardsPro!"
+- 2-3 sentences explaining value
+- Primary CTA: "Start setup" (primary button)
+- Secondary CTA: "Maybe later" (plain button)
+
+**Behavior**:
+- Appears only on first app launch
+- Dismissible with Esc key or close button
+- Respects merchant's choice (if dismissed, don't show again)
+
+**Component API**:
+```typescript
+interface WelcomeModalProps {
+  isOpen: boolean;
+  onStart: () => void;
+  onDismiss: () => void;
+  merchantName?: string;
+}
+```
+
+---
+
+**2. Setup Guide Component**
+
+**Purpose**: Ordered checklist with progress tracking and task links
+
+**Based on**: Shopify's setup guide pattern[7]
+
+**Features**:
+- Full-page or sidebar variants
+- Handles long titles with ellipsis
+- Help icon linking to documentation
+- Collapsible completed tasks
+
+**Component API**:
+```typescript
+interface SetupGuideProps {
+  tasks: Task[];
+  variant: 'full' | 'sidebar';
+  onTaskClick: (taskId: string) => void;
+  helpUrl?: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  isOptional: boolean;
+  ctaLabel: string; // "Start", "Continue", "Review"
+}
+```
+
+---
+
+**3. Task Card Pattern**
+
+**Purpose**: Reusable card for individual onboarding tasks
+
+**Structure**:
+- Heading (16-18pt, semibold)
+- Description (14pt, regular, 2 lines max)
+- Status icon (24×24px)
+- Optional tag (e.g., "Recommended")
+- Primary action button
+
+**States**:
+- Not started: Muted, empty circle icon
+- In progress: Highlighted, half-filled icon with spinner
+- Complete: Green, filled checkmark icon
+
+**Component API**:
+```typescript
+interface TaskCardProps {
+  title: string;
+  description: string;
+  status: TaskStatus;
+  icon?: React.ReactNode;
+  tag?: 'recommended' | 'optional';
+  action: {
+    label: string;
+    onClick: () => void;
+  };
+}
+```
+
+---
+
+**4. Tooltip & Hotspot Primitives**
+
+**Purpose**: Contextual guidance without clutter
+
+**Hotspot**:
+- Pulsing dot (animated scale: 1 → 1.2 → 1)
+- Keyboard focusable (Tab key)
+- Click/focus triggers tooltip
+- ARIA label: "Learn more about [feature]"
+
+**Tooltip**:
+- Positioned relative to hotspot (top, right, bottom, left)
+- Arrow pointing to trigger
+- Short instructions (1-2 sentences)
+- Optional action button
+- Dismissible with Esc key
+
+**Example from Smartcat**: Pulsing dots reveal tooltips on click[18]
+
+**Component API**:
+```typescript
+interface TooltipProps {
+  content: React.ReactNode;
+  position: 'top' | 'right' | 'bottom' | 'left';
+  trigger: React.ReactElement; // Element that triggers tooltip
+  dismissible?: boolean;
+}
+
+interface HotspotProps {
+  ariaLabel: string;
+  tooltip: React.ReactNode;
+  position: { x: number; y: number };
+}
+```
+
+---
+
+**5. Progress Bar Component**
+
+**Purpose**: Visual representation of completion
+
+**Modes**:
+- **Determinate**: Known total steps (e.g., "3 of 5 steps")
+- **Indeterminate**: Unknown duration (pulsing animation)
+
+**Features**:
+- Percentage or step count label
+- Respects high-contrast themes
+- Smooth animation for incremental changes (200ms)
+- Minimum height: 8px with 3:1 contrast[28]
+
+**Component API**:
+```typescript
+interface ProgressBarProps {
+  current: number;
+  total: number;
+  mode: 'determinate' | 'indeterminate';
+  label?: string; // "75% complete"
+  tone?: 'success' | 'info' | 'warning';
+}
+```
+
+---
+
+**6. Confetti/Celebration Utility**
+
+**Purpose**: Celebrate major milestones
+
+**Implementation**:
+- Canvas-based particle system or Lottie animation
+- Respects `prefers-reduced-motion`[11]
+- Global utility callable from anywhere: `triggerConfetti()`
+- Configurable: duration, particle count, colors
+
+**Fallback**: If reduced motion enabled, show static success modal instead
+
+**Component API**:
+```typescript
+interface ConfettiOptions {
+  duration?: number; // Default: 1000ms
+  particleCount?: number; // Default: 100
+  colors?: string[]; // Default: Shopify brand colors
+  origin?: { x: number; y: number }; // Default: center
+}
+
+function triggerConfetti(options?: ConfettiOptions): void;
+```
+
+---
+
+**7. Help Panel**
+
+**Purpose**: Self-serve support for onboarding questions
+
+**Structure**:
+- Collapsible side panel (slides in from right)
+- FAQs with accordion sections
+- Glossary of key terms
+- Links to video tutorials
+- Search functionality (optional for MVP)
+
+**Behavior**:
+- Accessible from each onboarding step
+- Keyboard navigable (Tab, Esc to close)
+- Maintains focus context when closed
+- Lazy-loads content for performance
+
+**Component API**:
+```typescript
+interface HelpPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  sections: HelpSection[];
+  currentStep?: string; // Highlights relevant FAQs
+}
+
+interface HelpSection {
+  title: string;
+  items: { question: string; answer: React.ReactNode }[];
+}
+```
+
+---
+
+### Competitive & Inspirational Review
+
+Analyzing successful onboarding flows from other apps reveals effective patterns:
+
+#### Wistia
+- **Pattern**: Interactive checklist with first item pre-checked[8]
+- **Impact**: Endowed progress effect encourages continuation
+- **Lesson**: Give merchants immediate sense of progress
+
+#### Crunch
+- **Pattern**: Full interactive guides with dimmed background[32]
+- **Impact**: Focuses attention on current step
+- **Lesson**: Merchants can exit at any time (sense of control)
+
+#### Canva & Toggl
+- **Pattern**: Confetti celebrations for major milestones[9][10]
+- **Impact**: Injects delight without overwhelming
+- **Lesson**: Small touches boost emotional engagement
+
+#### Smartcat
+- **Pattern**: Pulsing hotspots reveal tooltips on click[18]
+- **Impact**: Contextual help without cluttering interface
+- **Lesson**: Just-in-time guidance respects merchant's pace
+
+#### Drops App
+- **Pattern**: Micro-interactions explain rules and reward actions[19]
+- **Impact**: Gamification supports user goals
+- **Lesson**: Visual feedback reinforces learning
+
+**Common Themes**:
+1. Show progress explicitly (bars, step counts)
+2. Break tasks into manageable pieces
+3. Provide contextual guidance (tooltips, tours)
+4. Celebrate achievements (confetti, badges)
+5. Respect merchant autonomy (skippable, pausable)
+
+---
+
+### Reusable Component Summary
+
+| Component | Purpose | Key Props | Accessibility Notes |
+|-----------|---------|-----------|-------------------|
+| `WelcomeModal` | First-launch introduction | `isOpen`, `onStart`, `onDismiss` | Focus trap, Esc dismisses, ARIA role="dialog" |
+| `SetupGuide` | Ordered checklist with progress | `tasks`, `variant`, `onTaskClick` | Keyboard navigable, ARIA role="list" |
+| `TaskCard` | Individual task with status | `title`, `status`, `action` | Semantic HTML (h3, p, button), focus indicator |
+| `ProgressBar` | Visual completion meter | `current`, `total`, `mode` | ARIA role="progressbar", live region |
+| `Tooltip` | Contextual help bubble | `content`, `position`, `trigger` | ARIA-describedby, focusable, Esc dismisses |
+| `Hotspot` | Pulsing guidance dot | `ariaLabel`, `tooltip`, `position` | Keyboard focusable, ARIA label |
+| `ConfettiAnimation` | Milestone celebration | `duration`, `particleCount` | Respects prefers-reduced-motion |
+| `HelpPanel` | Self-serve support drawer | `isOpen`, `onClose`, `sections` | Focus trap, Esc closes, landmark role="complementary" |
 
 ---
 
@@ -4348,7 +5138,255 @@ Install → Step 1 → Step 2 → Step 3 → Step 4 → Complete
 
 ---
 
-## Testing Strategy
+## Validation & Testing Strategy
+
+### Overview
+
+A robust testing strategy ensures that the onboarding experience is effective, accessible, and delivers measurable results across devices. This section outlines usability metrics, testing methods (moderated vs unmoderated), testing procedures, and success criteria based on UX research best practices[33][34][35][36][37].
+
+---
+
+### Usability Metrics
+
+Select quantitative and qualitative metrics that reflect user success and perception:
+
+#### Primary Metrics
+
+| Metric | Definition | Target | Measurement Method |
+|--------|-----------|--------|-------------------|
+| **Task Completion Rate** | % of merchants who complete onboarding without assistance | **≥90%** | Unmoderated tests with success/fail tracking[33] |
+| **Time on Task** | Duration to complete each step and full onboarding flow | **5-7 minutes total** | Automated timer in analytics tool[34] |
+| **Error Rate** | Count of misclicks, form errors, navigational mistakes | **<5%** | Heatmaps, session recordings[33] |
+| **Help Requests** | Frequency of opening help panel or contacting support | **<10%** | Event tracking + support ticket analysis |
+| **System Usability Scale (SUS)** | Post-onboarding survey (10 questions, 0-100 score) | **≥80** | Survey after onboarding completion[35] |
+| **Net Promoter Score (NPS)** | "How likely are you to recommend RewardsPro?" (0-10) | **≥40** | Post-onboarding survey[35] |
+| **Single Ease Question (SEQ)** | "How easy was it to complete setup?" (1-7 scale) | **≥6** | Survey after each major step[35] |
+
+#### Secondary Metrics
+
+- **First-click accuracy**: Did merchant click correct element first?[33]
+- **Drop-off rate by step**: Which steps have highest abandonment?
+- **Feature discovery rate**: % who find optional features (referrals, tiers)
+- **Mobile vs desktop completion**: Success rate by device type
+
+---
+
+### Moderated vs Unmoderated Testing
+
+#### Moderated Testing
+
+**Definition**: A facilitator guides merchants through the prototype in real-time (video call or in-person)[36]
+
+**Advantages**:
+- Observe body language and non-verbal cues
+- Ask follow-up questions during session
+- Clarify instructions if merchant is confused
+- Uncover unexpected insights through dialogue
+
+**Disadvantages**:
+- Time-consuming (1-2 hours per session)
+- Limited scale (typically 5-10 participants)
+- Facilitator bias may influence results
+- Scheduling challenges across time zones
+
+**Best Use Cases**:
+- Early wireframes and low-fidelity prototypes
+- Complex interactions requiring explanation
+- Exploratory research to uncover unknown problems
+- International merchants (language barriers)
+
+**Recommended Tools**:
+- Zoom, Google Meet (remote moderated)
+- UserTesting (moderated option)
+- Ethnio (recruit and schedule)
+
+---
+
+#### Unmoderated Testing
+
+**Definition**: Participants complete tasks on their own time using an online platform[37]
+
+**Advantages**:
+- Cost-effective and scalable (100+ participants possible)
+- Natural behavior (no facilitator pressure)
+- Faster results (parallel sessions)
+- Geographic diversity without travel
+
+**Disadvantages**:
+- Cannot ask follow-up questions mid-session
+- Miss non-verbal cues and context
+- Requires clear, self-explanatory instructions
+- Less suitable for low-fidelity prototypes
+
+**Best Use Cases**:
+- High-fidelity prototypes with realistic interactions
+- A/B testing specific design variations
+- Quantitative validation of metrics (completion rate, time on task)
+- Large-scale validation before launch
+
+**Recommended Tools**:
+- Maze (unmoderated usability testing + analytics)
+- UserTesting (unmoderated option)
+- Useberry (tree testing, first-click tests)
+- Hotjar (session recordings, heatmaps)
+
+---
+
+#### Hybrid Approach (Recommended)
+
+**Phase 1: Moderated (Early Design)**
+- Conduct 5-8 moderated sessions with wireframes
+- Identify major usability issues and confusing language
+- Iterate design based on qualitative feedback
+
+**Phase 2: Unmoderated (Validation)**
+- Run unmoderated tests with 50-100 participants
+- Measure quantitative metrics (completion rate, time, errors)
+- Validate that design changes resolved issues
+
+**Phase 3: Continuous (Post-Launch)**
+- Ongoing unmoderated tests with new features
+- Quarterly moderated sessions for deep insights
+- A/B tests for incremental improvements
+
+---
+
+### Testing Procedure
+
+#### Step 1: Define Tasks & Scenarios
+
+Create realistic tasks that mirror actual merchant workflows:
+
+**Example Tasks**:
+1. "Install the RewardsPro app from the Shopify App Store"
+2. "Navigate to the onboarding wizard and start setup"
+3. "Connect your Shopify store to sync orders and customers"
+4. "Configure a loyalty program where customers earn 1 point per $1 spent, and 100 points = $5 discount"
+5. "Customize the widget colors to match your brand"
+6. "Publish your loyalty program and launch it to customers"
+
+**Scenario Context**:
+> "You run an online stationery shop called 'Paper & Co.' with about 500 customers per month. You want to launch a loyalty program to encourage repeat purchases and build a community of engaged customers. Walk through the RewardsPro setup process as if you were setting up your actual store."
+
+---
+
+#### Step 2: Determine Prototype Fidelity
+
+**Low-Fidelity (Wireframes)**:
+- Use for early concept validation
+- Focus on layout, hierarchy, and task flow
+- Tools: Figma, Balsamiq, Sketch
+
+**High-Fidelity (Interactive Prototype)**:
+- Realistic copy, branding, micro-interactions
+- Use for moderated and unmoderated tests
+- Tools: Figma with prototyping, Framer, ProtoPie
+
+**Live Staging Environment** (Beta Testing):
+- Fully functional app with real data
+- Use for final validation before production
+- Limited to selected merchants (10-20)
+
+---
+
+#### Step 3: Recruitment
+
+**Participant Criteria**:
+- **Mix of experience levels**:
+  - New to Shopify (0-3 months)
+  - Experienced Shopify merchants (1-3 years)
+  - Power users (3+ years, multiple apps)
+- **Geographic diversity**: Test localization and international usability
+- **Device mix**: 60% desktop, 30% mobile, 10% tablet
+- **Business size**: Small (1-10 employees), Medium (10-50), Large (50+)
+
+**Recruitment Methods**:
+- Partner with Shopify to access merchant panel
+- Post in Shopify Community forums
+- Reach out to existing RewardsPro beta testers
+- Offer incentive: $50 gift card or extended trial
+
+**Sample Size**:
+- Moderated: 5-10 participants (80% of usability issues found with 5 users)
+- Unmoderated: 50-100 participants (statistical significance)
+
+---
+
+#### Step 4: Data Collection
+
+**Quantitative Data**:
+- Screen recordings and heatmaps (Hotjar, FullStory)
+- Task completion metrics (Maze, UserTesting)
+- Time on task and error counts
+- Analytics events (Mixpanel, Amplitude)
+
+**Qualitative Data**:
+- Open-ended survey responses
+- Think-aloud transcripts (moderated sessions)
+- Follow-up interview notes
+- SEQ ratings after each task[35]
+
+**Survey Questions** (Post-Onboarding):
+1. System Usability Scale (SUS): 10 standard questions[35]
+2. "On a scale of 0-10, how likely are you to recommend RewardsPro?" (NPS)
+3. "How easy was it to get started with RewardsPro?" (1-7, SEQ)[35]
+4. "What was the most confusing or frustrating part of setup?" (open-ended)
+5. "What did you like most about the onboarding experience?" (open-ended)
+6. "Is there anything you expected to see but didn't find?" (open-ended)
+
+---
+
+#### Step 5: Analysis & Iteration
+
+**Prioritize Issues by Severity**:
+
+| Severity | Definition | Action | Example |
+|----------|-----------|--------|---------|
+| **Critical** | Task cannot be completed; blocks progress | Fix immediately | Button doesn't work, form submission fails |
+| **High** | Task is very difficult; requires workaround | Fix before launch | Confusing labels, unclear error messages |
+| **Medium** | Task is possible but takes longer than expected | Fix in next iteration | Slow loading, extra clicks required |
+| **Low** | Minor inconvenience or cosmetic issue | Backlog for future | Text alignment, icon size |
+
+**Issue Examples**:
+- **Critical**: 30% of merchants couldn't connect their store (broken OAuth flow)
+- **High**: 50% of merchants confused by "Sync orders" label (change to "Import past orders")
+- **Medium**: Average time on "Customize rewards" step is 5 minutes (target: 2 minutes)
+- **Low**: Widget preview doesn't update instantly (add loading spinner)
+
+**Iteration Process**:
+1. Identify top 3-5 critical/high issues
+2. Update design or copy to address issues
+3. Run follow-up tests with 10-15 new participants
+4. Repeat until metrics reach success criteria
+
+---
+
+### Success Criteria
+
+The onboarding experience is considered **ready for production** when:
+
+**Completion & Performance**:
+- ✅ **≥90%** of participants complete all onboarding steps without assistance
+- ✅ Average time to complete full onboarding is **5-7 minutes** (within target)
+- ✅ Error rate is **<5%** of interactions (minimal misclicks or form errors)
+
+**Satisfaction**:
+- ✅ System Usability Scale (SUS) score **≥80** (industry benchmark: 68)[35]
+- ✅ Net Promoter Score (NPS) **≥40** (SaaS average: 36)
+- ✅ Single Ease Question (SEQ) **≥6** (out of 7, industry avg: 5.4)
+
+**Accessibility**:
+- ✅ Keyboard navigation works for all interactive elements
+- ✅ Screen reader announces all status changes and errors
+- ✅ Color contrast ratios meet WCAG AA (4.5:1 for text, 3:1 for UI)[27][28]
+- ✅ Animations respect `prefers-reduced-motion` setting[11]
+
+**Business Metrics** (Post-Launch):
+- ✅ Onboarding completion rate **≥25%** (vs 19.2% industry avg)
+- ✅ Time-to-first-value **<24 hours** for 50% of merchants
+- ✅ Support tickets **<5 per 100 merchants** during first 14 days
+
+---
 
 ### Unit Tests
 
@@ -4364,6 +5402,13 @@ describe('OnboardingService', () => {
     await OnboardingService.completeStep('test-shop.myshopify.com', 'configuredSettings');
     const status = await OnboardingService.getStatus('test-shop.myshopify.com');
     expect(status.completed).toBe(true);
+  });
+
+  it('should respect task dependencies', async () => {
+    // Cannot complete step 3 before step 2
+    await expect(
+      OnboardingService.completeStep('test-shop', 'syncedCustomers')
+    ).rejects.toThrow('Dependency not met: createdTiers');
   });
 });
 ```
@@ -4385,6 +5430,81 @@ describe('OnboardingWizard', () => {
       expect(screen.getByText(/Choose a template/i)).toBeInTheDocument();
     });
   });
+
+  it('should show progress bar updates', async () => {
+    render(<OnboardingWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
+
+    const progressBar = screen.getByRole('progressbar');
+    expect(progressBar).toHaveAttribute('aria-valuenow', '0');
+
+    // Complete first step
+    fireEvent.click(screen.getByText('Get Started'));
+    await waitFor(() => {
+      expect(progressBar).toHaveAttribute('aria-valuenow', '25');
+    });
+  });
+
+  it('should respect prefers-reduced-motion', () => {
+    // Mock media query
+    window.matchMedia = jest.fn().mockImplementation(query => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+
+    render(<OnboardingWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
+
+    // Verify confetti is not triggered
+    const confetti = screen.queryByTestId('confetti-animation');
+    expect(confetti).not.toBeInTheDocument();
+  });
+});
+```
+
+### Accessibility Tests
+
+```typescript
+// Example: OnboardingWizard.a11y.test.tsx
+import { axe, toHaveNoViolations } from 'jest-axe';
+
+expect.extend(toHaveNoViolations);
+
+describe('OnboardingWizard Accessibility', () => {
+  it('should have no WCAG violations', async () => {
+    const { container } = render(
+      <OnboardingWizard open onClose={jest.fn()} onComplete={jest.fn()} />
+    );
+
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it('should trap focus within modal', async () => {
+    render(<OnboardingWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
+
+    const firstFocusable = screen.getByText('Get Started');
+    const lastFocusable = screen.getByLabelText('Close modal');
+
+    // Tab from first to last
+    firstFocusable.focus();
+    userEvent.tab();
+    // ... should eventually reach last focusable
+
+    // Tab from last should cycle back to first
+    userEvent.tab();
+    expect(document.activeElement).toBe(firstFocusable);
+  });
+
+  it('should announce status changes to screen readers', async () => {
+    render(<OnboardingWizard open onClose={jest.fn()} onComplete={jest.fn()} />);
+
+    fireEvent.click(screen.getByText('Get Started'));
+
+    // Check for live region announcement
+    const liveRegion = screen.getByRole('status');
+    expect(liveRegion).toHaveTextContent('Step 1 of 4 completed');
+  });
 });
 ```
 
@@ -4392,26 +5512,109 @@ describe('OnboardingWizard', () => {
 
 ```typescript
 // Example: onboarding.spec.ts
-test('complete onboarding flow', async ({ page }) => {
-  await page.goto('/app/onboarding/wizard');
+import { test, expect } from '@playwright/test';
 
-  // Step 1
-  await expect(page.locator('text=Welcome to RewardsPro')).toBeVisible();
-  await page.click('button:has-text("Get Started")');
+test.describe('Onboarding Flow', () => {
+  test('should complete full onboarding flow', async ({ page }) => {
+    await page.goto('/app/onboarding/wizard');
 
-  // Step 2
-  await page.click('[data-testid="template-loyalty"]');
-  await page.click('button:has-text("Next")');
+    // Step 1: Welcome
+    await expect(page.locator('text=Welcome to RewardsPro')).toBeVisible();
+    await page.click('button:has-text("Get Started")');
 
-  // Step 3
-  await page.fill('[name="program-name"]', 'My Loyalty Program');
-  await page.click('button:has-text("Preview")');
+    // Step 2: Template Selection
+    await page.click('[data-testid="template-loyalty"]');
+    await page.click('button:has-text("Next")');
 
-  // Step 4
-  await page.click('button:has-text("Publish")');
+    // Step 3: Configuration
+    await page.fill('[name="program-name"]', 'My Loyalty Program');
+    await page.fill('[name="points-per-dollar"]', '1');
+    await page.click('button:has-text("Preview")');
 
-  // Celebration
-  await expect(page.locator('text=Congratulations')).toBeVisible();
+    // Step 4: Publish
+    await page.click('button:has-text("Publish")');
+
+    // Celebration
+    await expect(page.locator('text=Congratulations')).toBeVisible();
+    await expect(page.locator('[data-testid="confetti"]')).toBeVisible();
+  });
+
+  test('should allow skipping optional steps', async ({ page }) => {
+    await page.goto('/app/onboarding/wizard');
+
+    // Skip widget customization
+    await page.click('button:has-text("Skip for now")');
+
+    // Should still allow completion
+    await expect(page.locator('text=Launch program')).toBeVisible();
+  });
+
+  test('should persist progress across page reloads', async ({ page }) => {
+    await page.goto('/app/onboarding/wizard');
+
+    // Complete first step
+    await page.click('button:has-text("Get Started")');
+    await page.click('[data-testid="template-loyalty"]');
+
+    // Reload page
+    await page.reload();
+
+    // Should resume at step 2
+    await expect(page.locator('text=Step 2 of 4')).toBeVisible();
+    await expect(page.locator('[data-testid="template-loyalty"]')).toHaveClass(/selected/);
+  });
+
+  test('should be keyboard navigable', async ({ page }) => {
+    await page.goto('/app/onboarding/wizard');
+
+    // Tab through interactive elements
+    await page.keyboard.press('Tab');
+    await expect(page.locator('button:has-text("Get Started")')).toBeFocused();
+
+    // Enter to activate
+    await page.keyboard.press('Enter');
+
+    // Verify navigation occurred
+    await expect(page.locator('text=Step 2')).toBeVisible();
+  });
+});
+
+test.describe('Onboarding Accessibility', () => {
+  test('should meet WCAG AA contrast requirements', async ({ page }) => {
+    await page.goto('/app/onboarding/wizard');
+
+    // Check contrast ratios (requires axe-playwright)
+    const accessibilityScanResults = await page.accessibility.snapshot();
+    expect(accessibilityScanResults.violations).toHaveLength(0);
+  });
+
+  test('should respect prefers-reduced-motion', async ({ page, context }) => {
+    // Set prefers-reduced-motion
+    await context.addInitScript(() => {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: (query: string) => ({
+          matches: query === '(prefers-reduced-motion: reduce)',
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }),
+      });
+    });
+
+    await page.goto('/app/onboarding/wizard');
+
+    // Complete onboarding
+    await page.click('button:has-text("Get Started")');
+    // ... complete all steps
+
+    // Verify confetti animation is disabled
+    const confetti = page.locator('[data-testid="confetti"]');
+    await expect(confetti).not.toBeVisible();
+
+    // Verify static success message is shown instead
+    await expect(page.locator('text=Success! Your program is live')).toBeVisible();
+  });
 });
 ```
 
@@ -4593,6 +5796,24 @@ backfillOnboardingStatus();
 30. [BrandMovers: How to Implement a Loyalty Program - Step-by-Step Guide From Planning To Launch](https://blog.brandmovers.com/loyalty-program-implementation-timeline-and-best-practices) - Soft launch best practices, pilot testing, staff training, stakeholder strategy sessions
 31. [Whatfix: 12 Must-Track User Onboarding Metrics & KPIs (2025)](https://whatfix.com/blog/user-onboarding-metrics/) - Support request rate, onboarding funnel drop-off analysis
 32. [Onramp: The Top Customer Onboarding Metrics to Prioritize in 2025](https://onramp.us/blog/customer-onboarding-metrics) - Time to Value (TTV) measurement, activation rate definitions
+
+### Interface & Interaction Design
+
+33. [Shopify: Onboarding](https://shopify.dev/docs/apps/design/user-experience/onboarding) - Official Shopify onboarding guidelines, step limits, progress indicators
+34. [Shopify Partners: How to Improve Your Shopify App's Onboarding Flow](https://www.shopify.com/partners/blog/improving-your-shopify-apps-onboarding-flow) - 80/20 rule for feature prioritization
+35. [UX Design Institute: UX Onboarding Best Practices in 2025](https://www.uxdesigninstitute.com/blog/ux-onboarding-best-practices-guide/) - Progressive disclosure patterns
+36. [UserGuiding: Progress Trackers and Indicators – With 6 Examples](https://userguiding.com/blog/progress-trackers-and-indicators) - Determinate indicators, uncertainty reduction, state communication
+37. [Userpilot: The Psychology Behind Progress Bars and Their Impact](https://userpilot.com/blog/progress-bar-psychology/) - Zeigarnik effect, Goal Gradient effect
+38. [Shopify: Setup guide](https://shopify.dev/docs/api/app-home/patterns/compositions/setup-guide) - Shopify's interactive checklist pattern
+39. [UserGuiding: 15 Onboarding Micro-Interactions to Inspire Your Design](https://userguiding.com/blog/onboarding-microinteractions) - Endowed progress, confetti celebrations, Wistia/Canva/Toggl/Smartcat/Drops examples, Crunch interactive guides
+40. [UXPin: Designing Onboarding Microinteractions Guide](https://www.uxpin.com/studio/blog/designing-onboarding-microinteractions-guide/) - Animation timing (200-300ms), trigger-rules-feedback-loops framework
+41. [Raw.Studio: Microinteractions Unveiled](https://raw.studio/blog/microinteractions-unveiled-transitioning-from-usability-to-emotion-in-modern-design/) - Immediate feedback, skeleton loaders, cause-and-effect communication
+42. [WebAIM: WCAG 2 Checklist](https://webaim.org/standards/wcag/checklist) - Complete WCAG 2.1 accessibility requirements (keyboard navigation, focus indicators, color contrast, forms, animations, keyboard shortcuts)
+43. [NudgeNow: What is Onboarding UX? Different Pattern Types and Practices](https://nudgenow.com/blogs/onboarding-ux-guide) - Contextual onboarding, tooltips, hotspots
+44. [Shopify: Content](https://shopify.dev/docs/apps/design/content) - Plain language (grade-7 reading level), strong verbs, benefits over features
+45. [ProductLed: SaaS onboarding best practices for 2025](https://productled.com/blog/5-best-practices-for-better-saas-user-onboarding) - Focus on benefits, personalization, welcome messages
+46. [Maze: 12 Key Usability Metrics to Unlock User Insights](https://maze.co/collections/reporting-analysis/measure-usability-metrics/) - Task completion rate, time on task, error rate, SUS, NPS, SEQ
+47. [Maze: Moderated vs. Unmoderated Usability Testing](https://maze.co/guides/usability-testing/moderated-vs-unmoderated/) - Advantages/disadvantages, best use cases for each testing method
 
 ---
 
