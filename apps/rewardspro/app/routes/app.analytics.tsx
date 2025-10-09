@@ -106,7 +106,6 @@ interface AnalyticsData {
     roi: number;
     costBreakdown: {
       creditCost: number;
-      operationalCost: number;
     };
   };
 
@@ -362,7 +361,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       roi: totalCreditIssued > 0 ? Math.round(((totalRevenue - totalCreditIssued) / totalCreditIssued) * 100 * 100) / 100 : 0,
       costBreakdown: {
         creditCost: Math.round(totalCreditIssued * 100) / 100,
-        operationalCost: Math.round(totalCreditIssued * 0.1 * 100) / 100, // Assume 10% operational cost
       },
     };
 
@@ -1692,14 +1690,7 @@ export default function AnalyticsPage() {
                                 -{formatAmount(data.financial.creditIssued)}
                               </Text>
                             </InlineStack>
-                            
-                            <InlineStack align="space-between">
-                              <Text variant="bodyMd" as="span">Operational Costs</Text>
-                              <Text variant="bodyMd" tone="critical" as="span">
-                                -{formatAmount(data.financial.costBreakdown.operationalCost)}
-                              </Text>
-                            </InlineStack>
-                            
+
                             <Divider />
                             
                             <InlineStack align="space-between">
