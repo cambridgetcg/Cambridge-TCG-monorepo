@@ -1893,6 +1893,371 @@ model ABTestAssignment {
 
 ---
 
+## Experimentation Framework
+
+RewardsPro should adopt a structured experimentation framework to test onboarding variations and identify which interventions drive better metrics. The framework combines guidance from Amplitude's 7-step process and Statsig's B2B experimentation best practices.
+
+### 7-Step Experimentation Process
+
+#### 1. Define Growth Lever & Problem
+
+**Purpose**: Clarify whether the experiment aims to improve activation, retention, or monetization.
+
+**Action**: Articulate the customer problem from the merchant's viewpoint.
+
+**Example**:
+- Problem: "Merchants are unclear about loyalty tier benefits"
+- Growth lever: Activation (onboarding completion)
+
+#### 2. Develop Hypothesis
+
+**Format**: "We believe that [change] will cause [impact] for [merchant segment] because [reasoning]."
+
+**Examples**:
+- "We believe that embedding a progress indicator will increase completion rate for small merchants by 12% because it provides a sense of progress and reduces uncertainty."
+- "We believe that adding a 60-second explainer video in Step 1 will increase activation rate by 15% for self-serve merchants because it clarifies value proposition quickly."
+
+#### 3. Ideate Solutions & Associate KPIs
+
+**Process**:
+- Brainstorm possible solutions (video walkthrough, interactive checklist, in-app chat support)
+- Associate each idea with primary KPIs (completion rate, activation rate, CES)
+- Consider implementation cost and expected impact
+
+**Example Solutions**:
+| Solution | Primary KPI | Expected Impact | Implementation Cost |
+|----------|-------------|-----------------|---------------------|
+| Progress indicator | Completion rate | +12% | Low (CSS/JS) |
+| Video in Step 1 | Activation rate | +15% | Medium (video production) |
+| Self-triggered tour | Feature adoption | +50% engagement | Medium (tour platform) |
+| Embedded GIFs in tooltips | Support ticket reduction | -20% tickets | Low (screen recording) |
+
+#### 4. Prioritize Experiments
+
+**Evaluation Criteria**:
+- **Expected Impact**: High/Medium/Low
+- **Confidence**: Based on research evidence
+- **Development Cost**: Engineering hours required
+
+**Prioritization Matrix**:
+```
+High Impact + High Confidence + Low Cost = Priority 1 (do immediately)
+High Impact + Medium Confidence + Medium Cost = Priority 2 (plan for next sprint)
+Low Impact or High Cost = Deprioritize
+```
+
+**Statsig Guidance**: Focus on high-impact changes (major workflow redesigns) rather than trivial tweaks (button colors), especially when sample sizes are small in B2B.
+
+#### 5. Design & Implement
+
+**Tools**:
+- **Feature Flagging**: LaunchDarkly or Statsig for controlled rollouts
+- **Analytics**: Mixpanel or Amplitude for event tracking
+- **Error Tracking**: Sentry for reliability monitoring
+
+**Feature Flag Best Practices**:
+- Use clear naming: `onboarding_progress_indicator_v1`
+- Monitor flag usage with platform analytics
+- Schedule periodic cleanup to avoid technical debt
+
+**Implementation Checklist**:
+- [ ] Create feature flag in LaunchDarkly
+- [ ] Implement variant logic in code
+- [ ] Add tracking events for both control and treatment
+- [ ] QA both variants in dev environment
+- [ ] Document experiment in tracking plan
+- [ ] Set rollout percentage (e.g., 50/50 split)
+
+#### 6. Run & Analyze
+
+**Execution**:
+- Randomize merchants into control and treatment groups
+- Track relevant events with proper identity resolution
+- Monitor for statistical significance AND practical significance
+
+**Statsig Warning**: Don't focus solely on p-values. Consider:
+- **Directionality**: Is the change moving metric in expected direction?
+- **Practical significance**: Is a 0.5% increase worth the development cost?
+- **Sample size**: B2B products need longer run times due to smaller cohorts
+
+**Monitoring During Experiment**:
+- Daily check on sample size per variant
+- Weekly review of early indicators
+- Alert if error rates spike in treatment group
+
+#### 7. Learn & Iterate
+
+**Decision Framework**:
+| Outcome | Action |
+|---------|--------|
+| Clear winner (>10% improvement, p<0.05) | Roll out to 100% |
+| Marginal win (2-10% improvement) | Consider trade-offs, may ship |
+| No significant difference | Deprecate experiment, try alternative |
+| Negative impact | Immediately stop, roll back |
+
+**Documentation**:
+- Record results in experiment log
+- Update hypothesis based on learnings
+- Share insights with team in bi-weekly review
+
+**Iteration**:
+- Use outcomes to refine hypothesis
+- Stop experiments when business priority changes or diminishing returns are evident
+- Archive inactive feature flags quarterly
+
+---
+
+### Quick-Win Experiments (Based on Research)
+
+These experiments are backed by industry research and have high probability of success:
+
+#### 1. Progress Indicators & Shorter Tours
+
+**Evidence**: Chameleon's 2025 benchmarks show progress indicators increase completion by **12%**, and tours with <5 steps have substantially higher completion.
+
+**Implementation**:
+- Add progress bar to wizard (e.g., "Step 2 of 4")
+- Split any steps >5 minutes into smaller sub-steps
+- Show % complete in checklist
+
+**Expected Impact**: +12% completion rate
+**Effort**: Low (1-2 days dev)
+**Priority**: 1
+
+#### 2. Self-Triggered Help Tour
+
+**Evidence**: Chameleon found self-triggered tours **double engagement** vs. auto-triggered.
+
+**Implementation**:
+- Add "?" icon next to tier configuration section
+- Merchant can click to start optional 3-step tour
+- Tour explains cashback %, min spend, tier progression
+
+**Expected Impact**: +50% engagement with tier feature
+**Effort**: Medium (3-5 days with tour platform integration)
+**Priority**: 2
+
+#### 3. Multimedia in Tooltips
+
+**Evidence**: >80% of companies with activation >50% use videos, GIFs, or animations.
+
+**Implementation**:
+- Embed 15-second GIF in tooltip explaining "How cashback tiers work"
+- Add 30-second video in Step 1 showing end-to-end customer experience
+- Use animated illustrations for complex concepts
+
+**Expected Impact**: +20% activation rate, -15% support tickets
+**Effort**: Medium (video production 2-3 days, implementation 1 day)
+**Priority**: 1
+
+#### 4. Early NPS/CES Survey Placement
+
+**Evidence**: Userpilot found surveying after 5th login yields higher response rates.
+
+**Implementation**:
+- Test A: Survey after completing onboarding (current)
+- Test B: Survey after 5th login
+- Test C: Survey after first reward issuance
+
+**Expected Impact**: +15% response rate, better predictive power
+**Effort**: Low (1 day dev, survey platform integration)
+**Priority**: 2
+
+---
+
+## Governance & Operational Playbook
+
+Effective onboarding requires clear governance, documentation standards, and regular review cadences to ensure data quality and continuous improvement.
+
+### Data & Experimentation Governance
+
+#### Central Data Ownership
+
+**Role**: Data Governor (Analytics Lead or Product Manager)
+
+**Responsibilities**:
+- Maintain tracking plan and event taxonomy
+- Enforce naming conventions (`object_action`, snake_case)
+- Review data quality weekly
+- Conduct quarterly audits of events and properties
+- Approve new events before implementation
+
+**Process**:
+1. Engineer/PM proposes new event
+2. Data Governor reviews against naming standards
+3. Governor checks for duplicates or alternatives
+4. Approved events added to tracking plan with documentation
+5. QA validates event fires correctly in dev
+
+#### Feature Flag Lifecycle Management
+
+**Register of Active Flags**: Maintain spreadsheet or dashboard with:
+- Flag name
+- Owner (engineer or PM)
+- Purpose (brief description)
+- Rollout date
+- Expiry date (default: 90 days after 100% rollout)
+- Status (planning, active, deprecated)
+
+**Flag Naming Convention**: `<feature>_<variant>_<version>`
+- Example: `onboarding_progress_indicator_v1`
+- Example: `checklist_gamification_trial_extension_v2`
+
+**Cleanup Schedule**:
+- **Monthly**: Review flags >90 days old, archive if unused
+- **Quarterly**: Audit all flags, remove technical debt
+- **Best Practice**: LaunchDarkly analytics show flag usage; delete flags with 0% or 100% allocation for >30 days
+
+**Flag Deprecation Process**:
+1. Flag reaches 100% rollout (or 0% if experiment failed)
+2. Wait 30 days to ensure no issues
+3. Remove flag from code, keep logic
+4. Archive flag in LaunchDarkly
+5. Update tracking plan to mark experiment complete
+
+#### Documentation & Versioning
+
+**Central Repository**: GitHub `/docs/` or Confluence space
+
+**Required Documents**:
+- **Tracking Plan**: Living document with all events, properties, owners
+- **Experiment Log**: Record of all A/B tests with results
+- **Onboarding Changelog**: Updates to wizard, checklist, or flows
+- **Governance Playbook**: This document
+
+**Version Control**:
+- Use semantic versioning for tracking plan (v1.0, v1.1, v2.0)
+- Major version bump when events are deprecated or schema changes
+- Minor version bump when new events added
+
+**Update Cadence**:
+- Update tracking plan within 24h of adding/removing events
+- Update experiment log immediately after experiment concludes
+- Review and refresh governance playbook quarterly
+
+#### Review Cadence
+
+**Bi-Weekly Onboarding Review (1 hour)**
+
+**Attendees**: Product, Engineering, Customer Success, Marketing
+
+**Agenda**:
+1. Review KPI dashboard (completion rate, activation, TTFV, NPS, CES)
+2. Analyze funnel drop-offs and identify friction points
+3. Review support tickets categorized by onboarding stage
+4. Discuss active experiments and early signals
+5. Decide on new experiments or improvements
+6. Assign action items
+
+**Quarterly Deep-Dive (2-3 hours)**
+
+**Attendees**: Leadership, Product, Engineering, Customer Success, Data
+
+**Agenda**:
+1. Assess Onboarding Success Score trend (70+ target)
+2. Compare cohorts (e.g., Q4 2024 vs Q1 2025)
+3. Review major experiments and cumulative impact
+4. Refresh event taxonomy and deprecate unused events
+5. Conduct feature flag cleanup
+6. Set priorities for next quarter
+
+**Monthly Leadership Report**
+
+**Format**: One-page summary or dashboard
+
+**Contents**:
+- **Onboarding Success Score**: Current score + trend
+- **Key Metrics**: Completion rate, activation rate, TTFV, NPS, churn
+- **Experiments**: Active tests, completed tests, planned tests
+- **Insights**: Top 3 opportunities and top 3 risks
+- **Actions**: Decisions needed from leadership
+
+---
+
+### Operational Practices for Continuous Improvement
+
+#### Monitoring & Alerting
+
+**Tools**: DataDog (infrastructure), Sentry (errors), Mixpanel (product analytics)
+
+**Alert Rules**:
+| Alert | Trigger | Channel | Owner | Response Time |
+|-------|---------|---------|-------|---------------|
+| Onboarding completion <15% | 2 consecutive days | Slack #rewardspro-alerts | Product Manager | 4 hours |
+| TTFV >36h | 10+ merchants in 24h | Slack #rewardspro-alerts | Engineering Lead | 8 hours |
+| Error rate >5% on step | 5+ errors in 1h | PagerDuty + Slack | On-call Engineer | 30 minutes |
+| NPS <20 | 3+ responses in 7 days | Email to PM & CSM | Customer Success | 24 hours |
+| Shopify API failures | 10+ failures in 5 min | PagerDuty | On-call Engineer | 15 minutes |
+
+**Monitoring Best Practices**:
+- Use DataDog APM to track P95 latency for each onboarding step
+- Set SLOs: 95% of API calls <1s, 99.5% uptime
+- Monitor Shopify webhook delivery rates (should be >98%)
+
+#### Customer Support Integration
+
+**Feedback Loop**:
+1. Support team tags tickets with onboarding stage (e.g., `onboarding_step_2_tier_creation`)
+2. Weekly report shows ticket count and categories by stage
+3. Product team reviews high-volume categories for UI improvements
+4. CES/NPS survey responses linked to support tickets for context
+
+**Support Ticket Categories**:
+- Authentication/access issues
+- Data sync problems (orders, customers)
+- Configuration questions (tiers, rewards)
+- Theme app block installation
+- Feature requests
+
+**Escalation Path**:
+- Merchant reports onboarding blocker → CSM logs ticket
+- If blocker affects >5 merchants → Escalate to Product Manager
+- PM determines if quick fix or requires experiment
+- Resolution tracked and documented in changelog
+
+#### Education & Training
+
+**Internal Onboarding for Team Members**:
+- New engineers: Read tracking plan, review past experiments, shadow bi-weekly review
+- New PMs: Complete onboarding wizard as merchant, analyze funnel, propose improvement
+- New CSMs: Watch onboarding recordings, practice support scenarios
+
+**Merchant Education**:
+- Help center articles for each onboarding step
+- Video library (embedded in wizard and accessible from dashboard)
+- Monthly webinar: "Maximize Your Loyalty Program" (post-onboarding training)
+
+**Continuous Learning**:
+- Quarterly training on new analytics tools or experimentation best practices
+- Share industry benchmarks and competitor analysis in team meetings
+- Celebrate wins: When experiment succeeds, share results company-wide
+
+---
+
+## Conclusion
+
+RewardsPro's onboarding success depends on evidence-based metrics, robust instrumentation, and disciplined experimentation. By setting ambitious yet realistic targets—**25-30% onboarding completion**, **40% activation**, and **TTFV under 24 hours**—and by continuously testing features like progress indicators and multimedia guidance, the app can significantly improve merchant satisfaction and retention.
+
+A structured tracking plan and governance process ensure data remains accurate and actionable, while regular review cadences and feature flag management prevent technical debt. Adopting these practices will help RewardsPro deliver a world-class onboarding experience that drives long-term merchant loyalty and positions the app competitively in the Shopify ecosystem.
+
+**Key Takeaways**:
+1. **Benchmark against industry**: Use Userpilot, Chameleon, and Gartner benchmarks to set realistic targets
+2. **Composite metrics matter**: Onboarding Success Score (weighted index) provides holistic view
+3. **Experiment systematically**: Follow 7-step framework, prioritize high-impact changes
+4. **Govern rigorously**: Appoint Data Governor, maintain tracking plan, clean up feature flags quarterly
+5. **Learn continuously**: Bi-weekly reviews, quarterly deep-dives, monthly leadership reports
+
+**Next Actions**:
+- [ ] Appoint Data Governor and establish governance structure
+- [ ] Create tracking plan document in GitHub `/docs/analytics/tracking-plan.md`
+- [ ] Set up KPI dashboard in Mixpanel/Amplitude
+- [ ] Configure DataDog alerts for onboarding metrics
+- [ ] Schedule bi-weekly onboarding review meetings
+- [ ] Prioritize and implement Quick-Win Experiments 1-3
+- [ ] Instrument all onboarding events according to taxonomy
+
+---
+
 ## Accessibility & Responsive Design
 
 ### WCAG AA Compliance Checklist
@@ -2185,41 +2550,372 @@ The RewardsPro Team
 
 ## Analytics & Instrumentation
 
-### Key Metrics
+### Industry Benchmarks & Context
 
-| Metric | Definition | Target |
-|--------|------------|--------|
-| **Time to First Value (TTFV)** | Time from install to first program created | < 5 min |
-| **Activation Rate** | % of installs completing onboarding | 8-10% |
-| **Step Completion Rate** | % completing each step | > 80% |
-| **Dismiss Rate** | % dismissing wizard | < 30% |
-| **30-Day Retention** | % active after 30 days | > 60% |
+RewardsPro's onboarding metrics should be evaluated against industry standards to set realistic targets and identify areas for improvement.
+
+#### Onboarding Completion Benchmarks
+
+**Industry Data (Userpilot 2024, 188 companies)**:
+- Average completion rate: **19.2%** (median 10.1%)
+- FinTech & Insurance: **~24.5%**
+- MarTech: **~12.5%**
+- By revenue:
+  - $1-5M: **27.1%**
+  - $10-50M: **~15%**
+
+**B2B SaaS Best Practice (Userlist)**:
+- Good completion rate: **40-60%**
+- B2C target: **30-50%**
+
+**RewardsPro Target**: **25-30%** within 14 days (higher than industry average due to sales-assisted model)
+
+#### Activation Rate Benchmarks
+
+**Industry Data (Userpilot 2024, 62 B2B companies)**:
+- Average activation: **37.5%** (median 37%)
+- By industry:
+  - AI & ML: **54.8%**
+  - CRM & Sales: **42.6%**
+  - MarTech: **24%**
+  - Healthcare: **23.8%**
+  - HR: **8.3%**
+  - FinTech & Insurance: **5%**
+- By GTM motion:
+  - Sales-led: **41.6%**
+  - Product-led: **34.6%**
+
+**RewardsPro Target**: **40%** (above SaaS average, leveraging sales-assisted onboarding)
+
+#### Time-to-First-Value (TTFV) Benchmarks
+
+**Industry Data**:
+- Sales-led companies: **1 day 11h**
+- Product-led companies: **1 day 12h**
+- **60% of SaaS companies** actively measure TTFV
+- Customer expectation: **hours to days** (not weeks)
+
+**Research Insight**: Long TTFV drives churn; focus should be on delivering early value without feature overload.
+
+**RewardsPro Target**: **≤24 hours** (median time from install to first cashback redemption or store credit issuance)
+
+#### NPS & Customer Effort Score (CES) Benchmarks
+
+**NPS Benchmarks (CustomerGauge 2024)**:
+- SaaS average: **+36**
+- Good score: **>20**
+- Best-in-class: **>50**
+- By revenue:
+  - $5-10M: **23.3**
+  - $10-50M: **37.5**
+  - $50M+: **39.1**
+  - $1-5M: **34.5** (higher due to agility)
+
+**Best Practice**: Survey after 5th login or ~10 minutes in-app for higher response rates.
+
+**RewardsPro Target**: **40+** (above industry average)
+
+**CES Benchmarks (Gartner via Dock)**:
+- SaaS average: **5.4**
+- Below 3: Poor ease of use
+- 4-5: Good
+- 6-7: Excellent
+- **40% more accurate** at predicting loyalty than CSAT
+
+**RewardsPro Target**: **≥5** (aim for 6-7 excellent range)
+
+#### Churn & Retention Indicators
+
+**Industry Data (Dock)**:
+- SaaS monthly churn: **10-14%**
+
+**RewardsPro Target**: **<10% churn within 60 days**
+
+#### Best Practice Insights
+
+**Multimedia & Interactivity**:
+- **>80%** of companies with activation >50% use videos, GIFs, or animations
+- Self-triggered product tours **double engagement** (Chameleon 2025)
+- Tours with **<5 steps** have substantially higher completion
+- Progress indicators boost completion by **12%**
+- Embedded cards drive **1.5× more actions** than pop-ups
+
+**User Empowerment**:
+- **80% of customers** uninstall apps because they don't understand how to use them
+- Sales-led firms have higher activation due to commitment and hands-on guidance
+
+---
+
+### KPI Framework for RewardsPro
+
+The following KPI framework translates industry benchmarks into actionable metrics tailored to RewardsPro's mid-market Shopify merchant audience with sales-assisted onboarding.
+
+| Metric & Definition | Baseline Target | Alert Threshold | Owner & Notes |
+|---------------------|----------------|-----------------|---------------|
+| **Onboarding Completion Rate** <br> % of merchants completing all 4 stages (order sync, tier setup, customer sync, settings) within 14 days | **25-30%** <br> Higher than industry avg (~19%) yet attainable for mid-market app | **<15%** or sustained drop of ≥10% WoW | Product Manager & CSM <br> Benchmark vs. Userpilot average; adjust target upward to 40% as onboarding is refined |
+| **Activation Rate** <br> % of merchants who actively use core features (issue reward or create campaign) within 30 days of installation | **40%** <br> Slightly above SaaS average (37.5%) | **<25%** or decline >15% after changes | Product & Growth teams <br> Use segmentation to compare PLG vs. sales-assisted cohorts |
+| **Time-to-First-Value (TTFV)** <br> Median hours from install to first cashback redemption or store credit issuance | **≤24h** <br> Aligns with best practice (1-1.5 days for sales-led) | **>36h** or continuous increase | Engineering & CSM <br> If TTFV rises, audit step durations and ensure syncing processes are performant |
+| **Onboarding Completion Time** <br> Average time from install to completing all 4 steps | **≤48h** <br> Should be short for Shopify merchants | **>72h** | Product & Support <br> Compare time across steps to identify friction points; use targeted messaging |
+| **Net Promoter Score (NPS)** <br> Survey merchants after completing setup or after 5th login | **40+** <br> Above industry average of 36 | **<20** | Customer Success <br> Use NPS as outcome metric; pair with qualitative feedback to prioritize improvements |
+| **Customer Effort Score (CES)** <br> Merchant rating of ease of onboarding tasks | **≥5** (good; aim for 6-7 excellent) | **<4** | Product & UX <br> Lower scores trigger usability reviews or additional guidance |
+| **Churn Rate (60-day)** <br> % of merchants uninstalling within 60 days | **<10%** <br> Align with SaaS churn benchmarks | **>15%** | Product & Growth <br> Monitor segments (store size, plan) and follow up with at-risk merchants |
+| **Onboarding Success Score** <br> Composite weighted index: <br> • Activation (35%) <br> • Product adoption (30%) <br> • NPS (20%) <br> • Completion rate (15%) | **≥70/100** <br> Use this composite to report onboarding health | **<60/100** | Leadership <br> Provides holistic KPI and reduces reliance on single metric |
+
+---
+
+### Analytics Strategy & Data Sources
+
+#### 1. Product Analytics Platform
+
+**Recommended**: Mixpanel or Amplitude
+
+**Implementation**:
+- Track each onboarding step as discrete event
+- User properties: `store_plan`, `merchant_segment` (small/medium/enterprise), `sales_assisted` (boolean), `install_date`
+- Event properties: `step_name`, `duration_seconds`, `method` (api/app), `error_code`
+
+**Key Events**:
+```typescript
+// Event naming convention: object_action format, snake_case
+{
+  "onboarding_started": {
+    shop: string,
+    timestamp: Date,
+    source: "wizard" | "checklist",
+    merchant_segment: "small" | "medium" | "enterprise"
+  },
+
+  "onboarding_step_viewed": {
+    shop: string,
+    step_name: string,
+    step_number: number,
+    timestamp: Date
+  },
+
+  "onboarding_step_completed": {
+    shop: string,
+    step_name: string,
+    step_number: number,
+    duration_seconds: number,
+    timestamp: Date
+  },
+
+  "onboarding_step_skipped": {
+    shop: string,
+    step_name: string,
+    reason: string | null,
+    timestamp: Date
+  },
+
+  "onboarding_dismissed": {
+    shop: string,
+    current_step: string,
+    reason: string | null,
+    timestamp: Date
+  },
+
+  "onboarding_completed": {
+    shop: string,
+    total_duration_seconds: number,
+    steps_completed: number,
+    timestamp: Date
+  },
+
+  "onboarding_checklist_item_clicked": {
+    shop: string,
+    item_id: string,
+    item_name: string,
+    already_completed: boolean,
+    timestamp: Date
+  },
+
+  "onboarding_tooltip_shown": {
+    shop: string,
+    tooltip_id: string,
+    context: string,
+    timestamp: Date
+  },
+
+  "onboarding_tooltip_interacted": {
+    shop: string,
+    tooltip_id: string,
+    action: "clicked" | "dismissed" | "completed",
+    timestamp: Date
+  },
+
+  "reward_issued": {
+    shop: string,
+    reward_type: "cashback" | "store_credit" | "discount",
+    amount: number,
+    customer_id: string,
+    is_first_reward: boolean,
+    timestamp: Date
+  },
+
+  "program_activated": {
+    shop: string,
+    program_type: "tier" | "referral" | "vip",
+    timestamp: Date
+  }
+}
+```
+
+#### 2. Shopify Analytics & Backend Logs
+
+**Data Sources**:
+- Shopify built-in analytics for orders and customer events
+- Node/React codebase logging to DataDog
+- Aurora Data API query logs
+
+**Integration**: Supplement product analytics with Shopify events to validate data accuracy
+
+#### 3. Customer Success & CRM Integration
+
+**Data Sources**:
+- Support tickets categorized by onboarding stage
+- Onboarding call notes and outcomes
+- NPS and CES survey responses
+
+**Purpose**: Correlate qualitative feedback with quantitative metrics to identify friction points
+
+#### 4. Support/Chat Systems
+
+**Tracked Data**:
+- Number of support contacts during onboarding
+- Support ticket categories (authentication, data sync, configuration, etc.)
+- Resolution time by category
+
+**Purpose**: Identify friction points requiring UI improvements or better documentation
+
+---
+
+### Event Taxonomy & Tracking Plan
+
+A tracking plan is a central document that defines what to track, where to implement events in code, and why the data matters. This prevents redundant events and enables consistent analytics across teams.
+
+#### Tracking Plan Best Practices
+
+1. **Standardize Naming Conventions**
+   - Format: `object_action` (e.g., `tier_create`, `reward_issue`)
+   - Use lower_case snake_case
+   - Define standard event properties: `method` (api/app), `duration_seconds`, `error_code`
+   - Store naming standards in accessible repository or wiki
+
+2. **Define Success Questions Before Building**
+   - Determine business questions each event will answer
+   - Define key success metrics (e.g., "Which step has highest drop-off?")
+   - Form hypotheses (e.g., "Which acquisition channels produce merchants who complete onboarding?")
+
+3. **Collaborate with Engineers & Appoint Data Governor**
+   - Product managers work with engineers to finalize taxonomy
+   - Ensure events are technically feasible
+   - Appoint a Data Governor to maintain standards and reduce duplication
+   - Engineers involved from outset so instrumentation becomes part of development workflow
+
+4. **Document and Centralize**
+   - Store tracking plan in shared location (Confluence, GitHub)
+   - Update whenever new events added or deprecated
+   - Clarify event's location in code, description, and justification
+
+5. **Validate and QA**
+   - Product managers and engineers validate events fire correctly
+   - Verify properties have correct types and values
+   - Test in dev environment before production deployment
+
+#### Tracking Plan Template
+
+| Event Name | Description | Location in Code | Properties | Success Question | Owner | Status |
+|------------|-------------|------------------|------------|------------------|-------|--------|
+| `onboarding_started` | Merchant opens onboarding wizard | `app/routes/app.onboarding.wizard.tsx` | `shop`, `timestamp`, `source`, `merchant_segment` | What % of new installs start onboarding? | Product | Implemented |
+| `onboarding_step_completed` | Merchant completes an onboarding step | `app/services/onboarding.service.ts` | `shop`, `step_name`, `step_number`, `duration_seconds`, `timestamp` | What is completion rate per step? What is average time per step? | Product | Implemented |
+| `reward_issued` | First reward issued to customer | `app/routes/webhooks.orders.paid.tsx` | `shop`, `reward_type`, `amount`, `customer_id`, `is_first_reward`, `timestamp` | What is TTFV (time to first reward)? | Engineering | Planned |
+
+---
+
+### Dashboard & Reporting
+
+#### 1. Onboarding Funnel Dashboard
+
+**Route**: `app/routes/app.analytics.onboarding.tsx`
+
+**Visualizations**:
+- Funnel chart showing conversion through each of 4 stages
+- Completion rate segmented by:
+  - Store size (small/medium/enterprise)
+  - Subscription plan (Free/Pro/Max/Ultra)
+  - Acquisition channel (Shopify App Store, direct, referral)
+  - Sales-assisted vs. self-serve
+- Median time per step with percentile distribution (P50, P75, P95)
+
+**Example Funnel**:
+```
+Install → Step 1 → Step 2 → Step 3 → Step 4 → Complete
+100%      85%      70%      60%      55%      50%
+```
+
+#### 2. Activation & Adoption Dashboard
+
+**Metrics**:
+- Activation rate over time (weekly cohort analysis)
+- Time to first reward issuance (TTFV histogram)
+- Time to first credit redemption
+- Time to first campaign creation
+- Retention curves (Day 1, Day 7, Day 30, Day 60)
+- Cohort analysis comparing merchants who completed onboarding vs. those who didn't
+
+**Implementation**: Use Mixpanel's retention curves and cohort analysis features
+
+#### 3. Experience Metrics Dashboard
+
+**Metrics**:
+- NPS scores segmented by:
+  - Merchant type (SMB/Enterprise/Agency)
+  - Survey trigger point (5th login vs. post-completion)
+  - Time since install
+- CES scores by onboarding step
+- Open-ended feedback categories:
+  - Clarity issues
+  - Technical friction
+  - Missing features
+  - Positive feedback
+
+**Visualization**: Sentiment analysis word cloud from qualitative responses
+
+#### 4. Alerting & Monitoring
+
+**Tools**: DataDog + Slack integration
+
+**Alert Triggers**:
+- Completion rate <15% for 2 consecutive days
+- TTFV >36h for 10+ merchants in 24h period
+- Error rate >5% on any onboarding step
+- NPS <20 with 3+ responses
+- Shopify API failures during order/customer sync
+
+**Integration**: Alerts posted to `#rewardspro-alerts` Slack channel with context and suggested actions
+
+**Error Tracking**: Use Sentry to capture errors during onboarding with full context (merchant segment, step, stack trace)
+
+---
 
 ### Event Taxonomy
 
 ```typescript
 // Standard format: onboarding_<action>_<object>
 {
-  "onboarding_started_wizard": { shop, timestamp },
-  "onboarding_viewed_step": { shop, stepName, timestamp },
-  "onboarding_completed_step": { shop, stepName, completionTimeMs, timestamp },
+  "onboarding_started_wizard": { shop, timestamp, source, merchant_segment },
+  "onboarding_viewed_step": { shop, stepName, stepNumber, timestamp },
+  "onboarding_completed_step": { shop, stepName, stepNumber, durationSeconds, timestamp },
   "onboarding_skipped_step": { shop, stepName, reason, timestamp },
   "onboarding_dismissed_wizard": { shop, currentStep, reason, timestamp },
-  "onboarding_completed_wizard": { shop, totalTimeMs, stepsCompleted, timestamp },
-  "onboarding_clicked_checklist_item": { shop, itemId, completed, timestamp },
-  "onboarding_shown_tooltip": { shop, tooltipId, timestamp },
+  "onboarding_completed_wizard": { shop, totalDurationSeconds, stepsCompleted, timestamp },
+  "onboarding_clicked_checklist_item": { shop, itemId, itemName, alreadyCompleted, timestamp },
+  "onboarding_shown_tooltip": { shop, tooltipId, context, timestamp },
+  "onboarding_tooltip_interacted": { shop, tooltipId, action, timestamp },
+  "reward_issued": { shop, rewardType, amount, customerId, isFirstReward, timestamp },
+  "program_activated": { shop, programType, timestamp },
 }
 ```
-
-### Analytics Dashboard
-
-Create dedicated route: `app/routes/app.analytics.onboarding.tsx`
-
-**Metrics to display:**
-- Funnel visualization (step 1 → step 2 → ... → complete)
-- Median TTFV by cohort
-- Drop-off points (heatmap)
-- Comparison: dismissed vs completed merchants (retention)
 
 ---
 
@@ -2422,12 +3118,40 @@ backfillOnboardingStatus();
 
 ## References
 
+### Original Research Sources
+
 1. [Appcues: Product Tour UI/UX Best Practices](https://www.appcues.com/blog/product-tours-ui-patterns)
 2. [Intercom: User Onboarding First Impressions](https://www.intercom.com/blog/product-tours-first-use-onboarding/)
 3. [ProductLed: SaaS Onboarding Checklist](https://productled.com/blog/5-best-practices-for-better-saas-user-onboarding)
 4. [Nebulab: Shopify Data Architecture](https://nebulab.com/blog/shopify-data-architecture)
 5. [Shopify: App Bridge Documentation](https://shopify.dev/docs/apps/build/integrating-with-shopify)
 6. [Amplitude: Analytics Instrumentation Guide](https://amplitude.com/blog/analytics-instrumentation)
+
+### Industry Benchmarks & KPIs
+
+7. [Userpilot: Customer Onboarding Checklist Completion Rate 2024 Benchmark Report](https://userpilot.com/blog/onboarding-checklist-completion-rate-benchmarks/) - Completion rate benchmarks across 188 companies
+8. [Userpilot: User Activation Rate Benchmark Report 2024](https://userpilot.com/blog/user-activation-rate-benchmark-report-2024/) - Activation rates by industry and GTM motion
+9. [Userpilot: Product Metrics Benchmark Report 2024](https://userpilot.com/blog/product-metrics-benchmark-report/) - NPS, multimedia usage, and time-to-value insights
+10. [Baremetrics: Time to Value (TTV)](https://baremetrics.com/academy/time-to-value-ttv) - TTFV best practices and churn reduction
+11. [Databox: 5 Customer Onboarding Metrics Every SaaS Should Monitor](https://databox.com/customer-onboarding-metrics) - TTFV measurement and industry insights
+12. [CustomerGauge: 38 SaaS NPS Benchmarks & Top SaaS eNPS scores](https://customergauge.com/benchmarks/blog/nps-saas-net-promoter-score-benchmarks) - NPS by revenue and industry
+13. [Dock: Customer Onboarding Metrics - 14 metrics, KPIs & benchmarks](https://www.dock.us/library/customer-onboarding-metrics) - CES, churn, and comprehensive metric definitions
+14. [GetCensus: Customer Onboarding Metrics: Measuring Success](https://www.getcensus.com/ops_glossary/customer-onboarding-metrics-measuring-success) - Onboarding Success Score framework
+15. [Chameleon: Benchmark Report 2025](https://www.chameleon.io/benchmark-report) - Progress indicators, self-triggered tours, embedded cards
+16. [Custify: The Power of Time to Value (TTV): From Sign-up to Success](https://www.custify.com/blog/measure-time-to-value/) - App uninstall statistics (80% due to lack of understanding)
+
+### Analytics & Instrumentation
+
+17. [Amplitude: How To Create a Tracking Plan? - The Definitive Guide](https://amplitude.com/blog/create-tracking-plan) - Tracking plan creation and best practices
+18. [Amplitude: A 5 Step Guide to Sustainable Analytics Instrumentation](https://amplitude.com/blog/analytics-instrumentation) - Naming conventions, collaboration, validation
+19. [Segment: Collecting the right data - How to create a tracking plan](https://segment.com/academy/collecting-data/how-to-create-a-tracking-plan/) - Taxonomy and documentation standards
+20. [Mixpanel: Retention Analysis Methodology](https://mixpanel.com/topics/retention-analysis/) - Cohort analysis and TTFV tracking
+
+### Experimentation & A/B Testing
+
+21. [Amplitude: Change the Way You Approach Experiments with This 7-Step Framework - Elena Verna](https://amplitude.com/blog/7-step-experimentation-framework) - Comprehensive experimentation process
+22. [Statsig: A/B Testing for B2B Products: Best Practices](https://www.statsig.com/perspectives/ab-testing-b2b-best-practices) - B2B-specific guidance, sample sizes, practical significance
+23. [LaunchDarkly: Feature Flags 101: Use Cases, Benefits, and Best Practices](https://launchdarkly.com/blog/what-are-feature-flags/) - Feature flag management and technical debt prevention
 
 ---
 
