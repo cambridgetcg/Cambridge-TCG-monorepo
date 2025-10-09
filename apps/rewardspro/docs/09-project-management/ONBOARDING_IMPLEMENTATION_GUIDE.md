@@ -2,38 +2,51 @@
 
 **Status**: Planning Phase
 **Last Updated**: January 2025
-**Based On**: Research from Appcues, Intercom, ProductLed, Userflow, Nebulab
+**Based On**: Research from Appcues, Intercom, ProductLed, Userflow, Nebulab, Box, Productboard, FullStory, Airtable, Help Scout
 
 ---
 
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)
-2. [Architecture Overview](#architecture-overview)
-3. [Database Schema](#database-schema)
-4. [Phase 1: MVP Implementation](#phase-1-mvp-implementation)
-5. [Phase 2: Enhanced Personalization](#phase-2-enhanced-personalization)
-6. [Phase 3: Advanced Features](#phase-3-advanced-features)
-7. [UI/UX Patterns & Components](#uiux-patterns--components)
-8. [Analytics & Instrumentation](#analytics--instrumentation)
-9. [Testing Strategy](#testing-strategy)
-10. [Performance Considerations](#performance-considerations)
-11. [Open Questions & Risks](#open-questions--risks)
+2. [Benchmark Analysis: B2B SaaS Examples](#benchmark-analysis-b2b-saas-examples)
+3. [Presentation Modalities Deep Dive](#presentation-modalities-deep-dive)
+4. [Architecture Overview](#architecture-overview)
+5. [Database Schema](#database-schema)
+6. [Phase 1: MVP Implementation](#phase-1-mvp-implementation)
+7. [Phase 2: Enhanced Personalization](#phase-2-enhanced-personalization)
+8. [Phase 3: Advanced Features](#phase-3-advanced-features)
+9. [UI/UX Patterns & Components](#uiux-patterns--components)
+10. [Analytics & Instrumentation](#analytics--instrumentation)
+11. [A/B Testing Plan](#ab-testing-plan)
+12. [Accessibility & Responsive Design](#accessibility--responsive-design)
+13. [Email Onboarding Sequences](#email-onboarding-sequences)
+14. [Testing Strategy](#testing-strategy)
+15. [Performance Considerations](#performance-considerations)
+16. [Open Questions & Risks](#open-questions--risks)
 
 ---
 
 ## Executive Summary
 
-### Research Insights
+### Critical Research Insights
 
-RewardsPro's onboarding must deliver value quickly, minimize friction, personalize experiences, and embed seamlessly within Shopify. Key findings:
+RewardsPro's onboarding must deliver value quickly, minimize friction, personalize experiences, and embed seamlessly within Shopify. Research across 10+ sources and 5 B2B SaaS benchmarks reveals:
 
+#### User Behavior Statistics
+- **74% of customers switch providers** if onboarding is complicated
+- **9 out of 10 users abandon** difficult sign-up processes
+- **75% of mobile users churn within 3 days** of poor onboarding
 - **70% of top companies** use gamification in onboarding
-- **Interactive guides** can increase activation by **10%**
-- **Poor onboarding** loses **75% of mobile users within 3 days**
-- **At least 30% of form fields** are unnecessary
+- **Interactive guides** increase activation by **10%**
+- **Structured checklists** reduce stalled projects by **67%**
+
+#### Design Principles
+- **At least 30% of form fields** are unnecessary - use progressive disclosure
 - **Time-to-value** should be **≤7 minutes** for first value delivery
-- **Activation rate at maturity**: 2-10%
+- **Activation rate at maturity**: 2-10% industry standard
+- **Micro-actions and early wins** significantly reduce churn
+- **Milestone-based checklists** act as guideposts and improve completion
 
 ### Goals
 
@@ -47,9 +60,360 @@ RewardsPro's onboarding must deliver value quickly, minimize friction, personali
 
 | Phase | Description | Timeline | Key Deliverables |
 |-------|-------------|----------|------------------|
-| **MVP** | Essential 4-step wizard with checklist | Sprint 1-2 | Embedded wizard, progress tracking, basic analytics |
-| **Enhanced** | Personalization + hybrid data sync | Sprint 3-4 | Goal selection, adaptive flows, webhook sync |
-| **Advanced** | Gamification + ML-driven recommendations | Sprint 5+ | Badges, resource center, predictive next actions |
+| **MVP** | 3-5 step wizard + dashboard checklist + soft gating | Sprint 1-2 | Wizard, checklist, email sequence, analytics |
+| **Enhanced** | Personalization + interactive guides + A/B testing | Sprint 3-4 | Persona questions, adaptive flows, experiments |
+| **Advanced** | Gamification + ML + resource center | Sprint 5+ | Badges, AI recommendations, self-service help |
+
+### Recommended Initial Strategy (Based on Benchmark Analysis)
+
+**Modality**: Multi-step wizard + Dashboard checklist + Soft gating + Email sequence
+
+**Rationale**:
+- Multi-step wizards reduce cognitive load and improve conversion (proven by Box, Productboard)
+- Soft gating balances data collection with minimal friction (74% abandon if too complex)
+- Dashboard checklists provide visible progress and foster accomplishment (Help Scout model)
+- Email sequences re-engage merchants who drop off (behavior-driven triggers)
+- Accessibility ensures 1B+ people with disabilities can complete onboarding
+
+---
+
+## Benchmark Analysis: B2B SaaS Examples
+
+Five high-performing SaaS products with comparable onboarding complexity were analyzed for presentation patterns, gating mechanisms, incentives, and communication channels.
+
+### Comparative Summary
+
+| Product | Presentation Pattern | Gating | Key Strengths | Notable Weaknesses |
+|---------|---------------------|--------|---------------|-------------------|
+| **Box** (file sharing) | Dashboard checklist with tooltips | Soft-gated (trial extension upon completion) | Gamified completion extends trial; progress bar motivates | May be ignored by experienced users; feels manipulative if unclear |
+| **Productboard** (product mgmt) | Multi-step wizard with optional email verification | Soft-gated (verification can be skipped) | Minimal friction; persona survey personalizes; checklist guides | Personalization questions add initial effort; soft gating may defer setup |
+| **FullStory** (analytics) | Guided setup wizard with immediate script installation | Hard-gated (value locked behind install) | Forces high-intent engagement; fast activation | Deters busy users or those without dev privileges |
+| **Airtable** (database) | Empty state-driven with clear CTAs | Ungated (immediate full access) | Frictionless exploration; persona questions after value demo | Risk of incomplete setup; lacks progress indicators |
+| **Help Scout** (support) | Checklists + interactive guides with tooltips | Soft-gated (reminders for skipped tasks) | Clear multi-step checklist; interactive guides reduce load | Constant prompts may feel intrusive |
+
+### Key Takeaways for RewardsPro
+
+1. **Soft gating wins**: Products using soft gating (Box, Productboard, Help Scout) balance lead qualification with low friction
+2. **Checklists drive completion**: Visible progress trackers and task lists reduce abandonment by 67%
+3. **Personalization early**: Collecting minimal persona info (industry, business size) improves relevance without adding burden
+4. **Interactive guides help**: Context-sensitive tooltips and step-by-step overlays reduce confusion for complex UIs
+5. **Hard gating risky**: FullStory's hard-gating filters for quality but loses volume - not ideal for RewardsPro's self-serve model
+
+---
+
+## Presentation Modalities Deep Dive
+
+### 1. Multi-Step Wizard (Progressive Disclosure)
+
+**Description**: Sequential onboarding flow with discrete steps and progress indicator. Uses progressive disclosure to reduce cognitive load.
+
+**Research Evidence**:
+- Breaking forms into small steps with progress bar lowers abandonment (Webstacks)
+- Progressive disclosure improves UX, enables conditional logic, provides immediate feedback (Userpilot)
+- 30% of form fields are unnecessary - wizards allow hiding optional fields (Hopscotch)
+
+**Pros**:
+- Clear direction and focus
+- Reduces overwhelm with single-task screens
+- Enables personalized branching (e.g., "Choose industry" → show relevant templates)
+- Mobile-friendly with swipe navigation
+- Progress bar motivates completion
+
+**Cons**:
+- Too many steps lengthen time-to-value
+- Mandatory steps (hard gating) increase abandonment risk
+- Requires robust state management to save progress
+
+**Use When**:
+- Onboarding tasks are sequential and dependent (e.g., set currency before adding rewards)
+- Personalization based on role/industry is valuable
+- Users need guided hand-holding through complex setup
+
+**Implementation Notes**:
+- Keep to 3-5 steps maximum
+- Allow skip/save for later (soft gating)
+- Show clear progress indicator (e.g., "Step 2 of 4")
+- Use branching logic for persona-based flows
+- Validate inputs in real-time
+- Provide "Back" button to allow corrections
+
+---
+
+### 2. Dashboard Checklist / Milestone Tracker
+
+**Description**: Task list visible within the product dashboard, showing required and optional actions with completion tracking.
+
+**Research Evidence**:
+- Milestone-based checklists break journeys into guideposts and reduce stalled projects by 67% (ContentSnare)
+- Checklists foster sense of accomplishment and clarity (Appcues)
+- Psychology of completion (Zeigarnik effect) motivates finishing incomplete tasks (ProductLed)
+
+**Pros**:
+- High visibility without being intrusive
+- Users can self-pace completion
+- Fosters sense of progress and achievement
+- Works alongside dashboard functions
+- Can be collapsed/expanded to reduce clutter
+
+**Cons**:
+- Tasks may be ignored if not incentivized
+- Can clutter interface if too prominent
+- Lacks sequential guidance for novice users
+- Doesn't prevent users from skipping critical steps
+
+**Use When**:
+- Tasks can be completed in any order
+- Users may return multiple times over days/weeks
+- Ideal for post-registration continuous adoption
+- Want to encourage exploration without forcing linear flow
+
+**Implementation Notes**:
+- Prioritize 4-6 high-impact tasks
+- Use visual checkmarks and progress percentage
+- Celebrate completion with confetti/badges
+- Allow dismissing checklist (but track event)
+- Consider gamification (e.g., unlock analytics after 3 tasks)
+
+---
+
+### 3. Interactive Guides & Tooltips
+
+**Description**: Step-by-step overlays that guide users through in-product actions with contextual help bubbles.
+
+**Research Evidence**:
+- Interactive guides reduce cognitive load and help users become competent (Appcues)
+- Context-sensitive tooltips deliver help on demand without clutter (Userpilot)
+- Best combined with checklists or wizards for complex UIs (Help Scout example)
+
+**Pros**:
+- Directly embedded in workflow
+- Encourages hands-on learning by doing
+- Reduces confusion with just-in-time help
+- Can be segmented by role or context
+- Tooltips avoid clutter by appearing only when needed
+
+**Cons**:
+- Overuse can annoy users ("tooltip fatigue")
+- Requires instrumentation investment
+- Must be responsive and accessible (keyboard navigation, screen readers)
+- Can feel patronizing to experienced users
+
+**Use When**:
+- Users need to perform sequence of in-product actions
+- Explaining complex features (e.g., tier configuration, campaign creation)
+- Offering optional deeper dives without forcing
+- New feature announcements
+
+**Implementation Notes**:
+- Limit to 3-5 tooltip steps per guide
+- Make skippable and dismissible
+- Use visual anchors (arrows, highlights)
+- Track which users skip vs complete
+- Ensure WCAG AA compliance (high contrast, keyboard nav)
+
+---
+
+### 4. Modal Overlays & Pre-Access Pages
+
+**Description**: Pop-up windows or dedicated landing pages that block main UI until critical task is completed.
+
+**Research Evidence**:
+- High-friction modality but ensures critical steps aren't missed (Canden)
+- Effective for legal agreements or mandatory configuration (Userpilot)
+- Should be used sparingly to avoid abandonment (74% switch if too complicated - Hopscotch)
+
+**Pros**:
+- Commands undivided attention
+- Ensures important steps are completed
+- Prevents users from missing critical tasks
+- Good for one-time legal/compliance requirements
+
+**Cons**:
+- Highly interruptive and adds friction
+- May trigger abandonment if overused
+- Accessibility issues if not keyboard navigable
+- Can feel aggressive or pushy
+
+**Use When**:
+- Legal agreements must be accepted
+- Critical configuration prevents product from working (e.g., currency selection)
+- GDPR consent required
+- One-time onboarding survey (use sparingly)
+
+**Implementation Notes**:
+- Use only for truly critical tasks
+- Allow escape key to close (but track dismissal)
+- Ensure modal is keyboard accessible
+- Provide clear value proposition for why info is needed
+- Never nest modals (modal within modal)
+
+---
+
+### 5. Gating Strategies
+
+#### Hard Gating
+
+**Description**: Full product access withheld until tasks are completed.
+
+**Research Evidence**:
+- Filters for high-intent users but loses casual traffic (Chameleon)
+- Increases friction and encourages fake data entry (Chameleon)
+- Best for high ACV or sales-led products where quality > quantity
+
+**Pros**:
+- Qualifies leads effectively
+- Ensures setup completion before use
+- Good for enterprise/sales-led products
+
+**Cons**:
+- High abandonment rate (9 in 10 abandon difficult sign-ups - Cieden)
+- Loses potential advocates who might share
+- Users may enter fake data to bypass
+
+**Use When**: High ACV products ($10K+ annual), complex B2B sales, legal requirements
+
+#### Soft Gating
+
+**Description**: Partial exploration allowed; gating occurs after a few steps or actions.
+
+**Research Evidence**:
+- Builds curiosity and qualifies interest based on behavior (Chameleon)
+- Reduces friction while still collecting data
+- Suits mid-market products with complexity
+
+**Pros**:
+- Balances lead qualification with low friction
+- Qualifies based on behavior (e.g., "viewed 3 pages")
+- Reduces fake sign-ups vs hard gating
+
+**Cons**:
+- Users may drop off after gating moment
+- May attract some unqualified traffic
+- Requires tracking engagement to trigger gate
+
+**Use When**: Mid-market products, complex value propositions, need for personalization data
+
+**✅ RECOMMENDED FOR REWARDSPRO**
+
+#### Ungated
+
+**Description**: Full product access with no barriers.
+
+**Research Evidence**:
+- Maximizes volume and exploration (Chameleon)
+- Builds trust and good for product-led growth
+- Effective for top-of-funnel awareness
+
+**Pros**:
+- Frictionless experience
+- Builds trust quickly
+- Good for viral/word-of-mouth growth
+- Demonstrates value before asking for commitment
+
+**Cons**:
+- May lead to low-quality sign-ups
+- Risk of incomplete setups
+- Harder to personalize experience
+- May lose potential for early data collection
+
+**Use When**: Top-of-funnel marketing, self-serve products, freemium models
+
+---
+
+### 6. Onboarding Email Sequences
+
+**Description**: Series of behavior-triggered emails that complement in-app onboarding and re-engage merchants.
+
+**Research Evidence**:
+- Email sequences re-engage users who leave product and reduce churn (Userpilot)
+- Behavior-driven sequences with single CTA are most effective (Howdygo)
+- Examples: Clay's 6-part series, ActiveCampaign's layered approach (Howdygo)
+
+**Effective Email Patterns**:
+1. **Welcome email** (immediate): Greet merchant, introduce value, link to getting started
+2. **Setup reminder** (Day 1, if incomplete): "Complete your reward catalog" with tutorial video
+3. **Feature introduction** (Day 3): Highlight one advanced feature with use case
+4. **Success story** (Day 5): Social proof from similar merchant
+5. **Offer help** (Day 7): "Need assistance?" with human support option
+6. **Re-engagement** (Day 14, if inactive): "We noticed you haven't logged in..." with incentive
+
+**Email Best Practices**:
+- Clear subject lines (e.g., "Next step: Add your first reward tier")
+- Short copy (< 100 words)
+- Single call-to-action button
+- Visual or GIF showing the feature
+- Mobile-responsive design
+- Personalization tokens (merchant name, store name)
+
+**Metrics to Track**:
+- Open rate (target: 20-30%)
+- Click-through rate (target: 5-10%)
+- Conversion to in-app action (target: 3-5%)
+
+---
+
+### 7. Accessibility & Device Responsiveness
+
+**Research Evidence**:
+- Over 1 billion people live with disabilities - neglecting accessibility excludes significant market (Reciteme)
+- Accessible design is legally required (ADA, WCAG) and improves UX for all users (Reciteme)
+- Extensions like `rewardspro-customer-account-ui` already implement responsive patterns
+
+**Accessibility Requirements** (WCAG AA):
+
+1. **Keyboard Navigation**:
+   - All interactive elements reachable via Tab/Shift+Tab
+   - No keyboard traps (can escape from modals)
+   - Focus indicators visible and high contrast
+
+2. **Screen Readers**:
+   - Semantic HTML (`<button>`, `<nav>`, `<main>`)
+   - Alt text for all icons and images
+   - ARIA labels for complex interactions
+   - Announce dynamic content changes
+
+3. **Visual Design**:
+   - Color contrast ratio ≥ 4.5:1 for text
+   - Don't rely on color alone to convey information
+   - Text resizable to 200% without loss of function
+   - Clear focus states
+
+4. **Forms**:
+   - Labels associated with inputs
+   - Error messages descriptive and actionable
+   - Real-time validation with clear feedback
+
+5. **Multimedia**:
+   - Captions for videos
+   - Transcripts for audio
+   - Pause/stop controls for animations
+
+6. **Responsive Design**:
+   - Large touch targets (min 44x44px)
+   - Readable text without zooming
+   - Horizontal scrolling avoided
+   - Test on iPhone, Android, iPad
+
+**Implementation**:
+- Use Shopify Polaris components (built-in accessibility)
+- Run automated tests (axe-core, WAVE)
+- Manual testing with screen readers (VoiceOver, NVDA)
+- Offer dark mode, text size controls
+
+---
+
+### Comparative Matrix: Presentation Options
+
+| Option | Pros | Cons | Ideal For | RewardsPro Fit |
+|--------|------|------|-----------|----------------|
+| **Multi-step wizard** | Clear direction, reduces cognitive load, mobile-friendly, personalizable | Too many steps lengthen TTV, state management required | Sequential setups, personalization needed | ✅ **Phase 1 MVP** |
+| **Dashboard checklist** | Self-paced, fosters accomplishment, non-intrusive | May be ignored, lacks guidance | Independent tasks, repeat visits | ✅ **Phase 1 MVP** |
+| **Interactive guides** | Hands-on learning, context-sensitive, reduces confusion | Can annoy if overused, dev overhead | Complex features, optional deep dives | ✅ **Phase 2** |
+| **Modal overlay** | Ensures completion, grabs attention | High friction, accessibility challenges | Legal requirements, critical steps | ⚠️ **Sparingly** |
+| **Hard gating** | Filters high-intent users, qualifies leads | Loses volume, encourages fake data | High ACV, sales-led | ❌ **Not recommended** |
+| **Soft gating** | Balances data collection with low friction | May lose some after gating | Mid-market, complex products | ✅ **Phase 1 MVP** |
+| **Ungated** | Frictionless, builds trust | Low-quality sign-ups, incomplete setups | Top-of-funnel, freemium | ❌ **Not recommended** |
+| **Email sequence** | Re-engages absent users, reduces churn | Requires marketing coordination | Complementing in-app | ✅ **Phase 1 MVP** |
 
 ---
 
@@ -946,6 +1310,471 @@ export default function OnboardingWizardRoute() {
 | `ConfettiAnimation` | Canvas-based celebration | `duration`, `colors` |
 | `TooltipTour` | Contextual help bubble | `content`, `target`, `position` |
 | `EmptyStateTemplate` | Prefilled program samples | `type`, `data` |
+
+---
+
+## A/B Testing Plan
+
+### Phase 1 MVP Experiments
+
+#### Experiment 1: Gating Level
+
+**Hypothesis**: Soft gating (skip allowed) increases completion rate and reduces drop-off while still driving essential setup.
+
+**Variants**:
+- **Control**: Soft gating - merchants can skip steps, reminded later
+- **Variant A**: Moderate hard gating - first 3 steps mandatory
+- **Variant B**: Full ungated - all steps skippable
+
+**Metrics**:
+- Primary: Activation rate (% completing onboarding)
+- Secondary: TTFV, drop-off rate, 7-day retention
+
+**Sample Size**: 300 merchants per variant (900 total)
+**Duration**: 2 weeks
+**Success Criteria**: Control or Variant A achieves >8% activation with <30% drop-off
+
+---
+
+#### Experiment 2: Checklist Incentive
+
+**Hypothesis**: Gamified checklist with incentives increases completion rate and feature adoption.
+
+**Variants**:
+- **Control**: Standard checklist with visual checkmarks
+- **Variant A**: Gamified checklist (unlock analytics after 3 tasks)
+- **Variant B**: Trial extension checklist (extend trial by 7 days for completion)
+
+**Metrics**:
+- Primary: Checklist completion rate
+- Secondary: Feature adoption rate, engagement score
+
+**Sample Size**: 250 merchants per variant
+**Duration**: 2 weeks
+**Success Criteria**: Variant achieves >15% increase in checklist completion vs control
+
+---
+
+#### Experiment 3: Email Sequence Intensity
+
+**Hypothesis**: Structured 6-email sequence with targeted content improves user return rates compared to minimal 3-email sequence.
+
+**Variants**:
+- **Control**: 3-email sequence (welcome, reminder Day 1, re-engagement Day 7)
+- **Variant**: 6-email sequence (welcome, setup reminder Day 1, feature intro Day 3, success story Day 5, offer help Day 7, re-engagement Day 14)
+
+**Metrics**:
+- Primary: Re-engagement rate (return to app after email)
+- Secondary: Email open rate, click-through rate, conversion to in-app action
+
+**Sample Size**: 400 merchants per variant
+**Duration**: 3 weeks
+**Success Criteria**: Variant achieves >20% improvement in re-engagement rate
+
+---
+
+#### Experiment 4: Persona Personalization
+
+**Hypothesis**: Collecting minimal persona information (industry, business size) increases activation and satisfaction by tailoring guidance.
+
+**Variants**:
+- **Control**: Default flow without initial persona questions
+- **Variant**: Wizard includes Step 0 with 2 persona questions, then adapts checklist
+
+**Metrics**:
+- Primary: Activation rate, task completion rate
+- Secondary: User satisfaction (NPS survey), support tickets
+
+**Sample Size**: 300 merchants per variant
+**Duration**: 2 weeks
+**Success Criteria**: Variant achieves >10% increase in activation without increasing support tickets
+
+---
+
+### Phase 2 Enhanced Experiments
+
+#### Experiment 5: Interactive Guide Overlay
+
+**Hypothesis**: Context-sensitive tooltips reduce confusion and improve feature adoption for complex features.
+
+**Variants**:
+- **Control**: No interactive guides, only static documentation
+- **Variant A**: Tooltips for tier configuration
+- **Variant B**: Full interactive guide (5 steps) for tier configuration
+
+**Metrics**:
+- Primary: Feature adoption rate (tier configuration)
+- Secondary: Error rate, support tickets, time on feature
+
+---
+
+### Experiment Tracking Implementation
+
+```typescript
+// app/utils/ab-testing.ts
+export class ABTestingService {
+
+  static async assignVariant(
+    shop: string,
+    experimentName: string,
+    variants: string[]
+  ): Promise<string> {
+    // Check if shop already assigned to variant
+    const existing = await db.abTestAssignment.findFirst({
+      where: { shop, experimentName }
+    });
+
+    if (existing) return existing.variant;
+
+    // Randomly assign variant
+    const variant = variants[Math.floor(Math.random() * variants.length)];
+
+    await db.abTestAssignment.create({
+      data: {
+        id: uuidv4(),
+        shop,
+        experimentName,
+        variant,
+        assignedAt: new Date(),
+      }
+    });
+
+    return variant;
+  }
+
+  static async trackExperimentEvent(
+    shop: string,
+    experimentName: string,
+    eventType: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    const assignment = await db.abTestAssignment.findFirst({
+      where: { shop, experimentName }
+    });
+
+    if (!assignment) return;
+
+    await db.onboardingEvent.create({
+      data: {
+        id: uuidv4(),
+        shop,
+        eventType,
+        stepName: experimentName,
+        metadata: {
+          variant: assignment.variant,
+          ...metadata
+        },
+        createdAt: new Date(),
+      }
+    });
+  }
+}
+```
+
+**Database Schema Addition**:
+
+```prisma
+model ABTestAssignment {
+  id              String   @id @default(uuid())
+  shop            String
+  experimentName  String   // e.g., "gating_level_v1"
+  variant         String   // e.g., "control", "variant_a"
+  assignedAt      DateTime @default(now())
+
+  @@unique([shop, experimentName])
+  @@index([experimentName])
+}
+```
+
+---
+
+## Accessibility & Responsive Design
+
+### WCAG AA Compliance Checklist
+
+#### Keyboard Navigation
+- [ ] All interactive elements reachable via Tab/Shift+Tab
+- [ ] Focus order follows logical reading order
+- [ ] No keyboard traps (can escape modals with Esc)
+- [ ] Focus indicators visible (2px outline, high contrast)
+- [ ] Skip links provided for long content
+
+#### Screen Reader Support
+- [ ] Semantic HTML used (`<button>`, `<nav>`, `<main>`, `<article>`)
+- [ ] Alt text for all images and icons (descriptive, not redundant)
+- [ ] ARIA labels for complex interactions (e.g., `aria-label="Close wizard"`)
+- [ ] ARIA live regions announce dynamic changes (`aria-live="polite"`)
+- [ ] Form inputs have associated labels (`<label for="email">`)
+
+#### Visual Design
+- [ ] Color contrast ≥ 4.5:1 for normal text
+- [ ] Color contrast ≥ 3:1 for large text (18pt+)
+- [ ] Don't rely on color alone (use icons + text)
+- [ ] Text resizable to 200% without horizontal scrolling
+- [ ] Focus states clearly visible
+- [ ] Animations can be paused/stopped
+
+#### Form Accessibility
+- [ ] Labels visible and associated with inputs
+- [ ] Error messages descriptive ("Email required" not "Error")
+- [ ] Errors announced to screen readers (`aria-describedby`)
+- [ ] Required fields marked (`aria-required="true"` or asterisk + explanation)
+- [ ] Real-time validation with clear feedback
+
+#### Responsive Design (Mobile, Tablet, Desktop)
+- [ ] Touch targets ≥ 44x44px (Fitts's Law)
+- [ ] Text readable without zooming (min 16px body text)
+- [ ] No horizontal scrolling on mobile
+- [ ] Images responsive with `srcset` for retina
+- [ ] Test on iPhone SE, iPhone 14, iPad, Android (Samsung Galaxy)
+
+#### Multimedia & Animations
+- [ ] Videos have captions (WebVTT format)
+- [ ] Audio content has transcripts
+- [ ] Animations respect `prefers-reduced-motion`
+- [ ] Autoplay videos muted and pauseable
+- [ ] Confetti animation can be disabled
+
+### Testing Tools
+
+**Automated Testing**:
+```bash
+# Install axe-core
+npm install --save-dev @axe-core/react
+
+# Run in test
+import { axe, toHaveNoViolations } from 'jest-axe';
+expect.extend(toHaveNoViolations);
+
+it('should have no accessibility violations', async () => {
+  const { container } = render(<OnboardingWizard />);
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+**Manual Testing**:
+- VoiceOver (macOS): Cmd+F5, navigate with VO+arrows
+- NVDA (Windows): Free screen reader, test with Tab/arrows
+- Keyboard only: Unplug mouse, navigate with Tab/Enter/Esc
+- Color blindness simulator: Use browser extensions (Colorblind Web Page Filter)
+- Mobile screen readers: TalkBack (Android), VoiceOver (iOS)
+
+**Browser DevTools**:
+- Chrome Lighthouse: Accessibility audit (target score: >90)
+- Firefox Accessibility Inspector: Contrast checker
+- WAVE browser extension: Visual feedback on violations
+
+---
+
+## Email Onboarding Sequences
+
+### Behavior-Driven Email Strategy
+
+Emails complement in-app onboarding by re-engaging merchants who leave the product and guiding them through milestones.
+
+### Email Sequence Architecture
+
+#### Email 1: Welcome (Immediate - Trigger: Account created)
+
+**Subject**: Welcome to RewardsPro - Let's Build Your Loyalty Program 🎉
+
+**Content**:
+```
+Hi [MerchantName],
+
+Welcome to RewardsPro! You're about to transform your customers into loyal fans.
+
+We've made it easy to get started. Here's what's next:
+
+1. Create your first reward tier (2 mins)
+2. Customize your rewards (3 mins)
+3. Preview on your storefront (1 min)
+
+[Get Started →]
+
+Need help? Our support team is standing by.
+
+Best,
+The RewardsPro Team
+```
+
+**Metrics**:
+- Open rate target: 40-50% (welcome emails have highest open rates)
+- CTA click: 15-20%
+
+---
+
+#### Email 2: Setup Reminder (Day 1 - Trigger: Onboarding not completed)
+
+**Subject**: [MerchantName], Complete Your Reward Program in 3 Steps
+
+**Content**:
+```
+Hi [MerchantName],
+
+We noticed you started setting up your loyalty program yesterday. You're almost there!
+
+Here's what's left to do:
+✓ Account created
+○ Create reward tiers [Complete this step →]
+○ Customize settings
+○ Launch program
+
+[Watch 2-Min Tutorial →]
+
+80% of merchants who complete setup see their first reward redemption within 7 days.
+
+Questions? Reply to this email or chat with us.
+
+Best,
+[SupportName] from RewardsPro
+```
+
+**Personalization**:
+- Show completed vs pending steps
+- Include progress percentage
+
+---
+
+#### Email 3: Feature Introduction (Day 3 - Trigger: Setup complete, low engagement)
+
+**Subject**: Boost Retention with VIP Tiers
+
+**Content**:
+```
+Hi [MerchantName],
+
+Great job setting up your loyalty program!
+
+Here's a pro tip: Merchants who use tiered rewards see 2x higher repeat purchase rates.
+
+[GIF showing tier configuration]
+
+Create Bronze, Silver, Gold tiers in under 5 minutes:
+
+[Set Up Tiers →]
+
+Not sure how? Check out how [ExampleStore] increased retention by 45% with tiers.
+
+[Read Case Study →]
+
+Best,
+The RewardsPro Team
+```
+
+---
+
+#### Email 4: Success Story (Day 5 - Trigger: Feature usage < 50%)
+
+**Subject**: How [SimilarStore] Increased Repeat Purchases 67%
+
+**Content**:
+```
+Hi [MerchantName],
+
+We thought you'd find this inspiring:
+
+[SimilarStore], a [Industry] business like yours, used RewardsPro to increase repeat purchases by 67% in 90 days.
+
+Their secret?
+- 3 simple reward tiers
+- Automated cashback on every order
+- Customer dashboard widget
+
+[See Their Full Story →]
+
+You can replicate their setup in under 10 minutes.
+
+[Copy Their Strategy →]
+
+Best,
+The RewardsPro Team
+```
+
+---
+
+#### Email 5: Offer Help (Day 7 - Trigger: Low engagement)
+
+**Subject**: Need help setting up? Let's hop on a call
+
+**Content**:
+```
+Hi [MerchantName],
+
+We noticed you haven't fully launched your loyalty program yet.
+
+No worries - we're here to help!
+
+Common questions we answer:
+- "How do I set the right cashback percentage?"
+- "Should I use points or store credit?"
+- "How do I customize the widget?"
+
+[Book 15-Min Setup Call →]
+
+Or reply to this email with your questions.
+
+Best,
+[SupportName] from RewardsPro
+```
+
+---
+
+#### Email 6: Re-Engagement (Day 14 - Trigger: Inactive for 7+ days)
+
+**Subject**: We miss you! Here's $50 in free rewards to get started
+
+**Content**:
+```
+Hi [MerchantName],
+
+We noticed it's been a while since you logged into RewardsPro.
+
+To help you get started, we're giving you $50 in free rewards to distribute to your customers.
+
+[Claim $50 Credit →]
+
+This is enough to reward ~25-50 customers and see the power of loyalty programs firsthand.
+
+Offer expires in 48 hours.
+
+Not interested? [Unsubscribe preferences →]
+
+Best,
+The RewardsPro Team
+```
+
+---
+
+### Email Implementation Checklist
+
+**Technical Setup**:
+- [ ] Email service provider configured (SendGrid, Mailchimp, Customer.io)
+- [ ] Behavior triggers defined in onboarding service
+- [ ] Personalization tokens working (merchant name, store name, progress)
+- [ ] Unsubscribe link in footer (CAN-SPAM compliance)
+- [ ] Mobile-responsive templates (60% of emails opened on mobile)
+- [ ] Plain text version for accessibility
+- [ ] A/B test subject lines
+
+**Content Guidelines**:
+- Maximum 100 words per email
+- Single call-to-action (one button, one goal)
+- Include visual (GIF, screenshot) for context
+- Personal tone (from named team member, not generic "Team")
+- Clear value proposition in first sentence
+- Escape hatch (unsubscribe, preferences)
+
+**Metrics to Track**:
+| Email | Open Rate Target | CTR Target | Conversion Target |
+|-------|-----------------|-----------|------------------|
+| Welcome | 40-50% | 15-20% | 5-8% |
+| Setup Reminder | 25-35% | 8-12% | 4-6% |
+| Feature Intro | 20-30% | 5-10% | 2-4% |
+| Success Story | 20-30% | 5-10% | 2-4% |
+| Offer Help | 25-35% | 10-15% | 3-5% |
+| Re-Engagement | 15-25% | 8-12% | 3-5% |
 
 ---
 
