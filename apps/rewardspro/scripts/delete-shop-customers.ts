@@ -17,6 +17,7 @@
 
 import 'dotenv/config';
 import { RDSDataClient, ExecuteStatementCommand } from '@aws-sdk/client-rds-data';
+import * as readline from 'readline';
 
 // ============================================
 // CONFIGURATION
@@ -346,15 +347,15 @@ async function main() {
     console.log('⚠️  This operation CANNOT be undone!\n');
 
     // Confirmation prompt
-    const readline = require('readline').createInterface({
+    const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
     const answer = await new Promise<string>((resolve) => {
-      readline.question(`Type the shop domain '${shop}' to confirm deletion: `, resolve);
+      rl.question(`Type the shop domain '${shop}' to confirm deletion: `, resolve);
     });
-    readline.close();
+    rl.close();
 
     if (answer.trim() !== shop) {
       console.log('\n❌ Deletion cancelled. Shop domain did not match.\n');
