@@ -10,6 +10,7 @@ import {
   Progress,
   Badge,
   Icon,
+  useApi,
 } from '@shopify/ui-extensions-react/customer-account';
 
 interface TierInfoCardProps {
@@ -21,6 +22,7 @@ interface TierInfoCardProps {
   progressPercentage: number;
   remainingToNextTier: number;
   currency: string;
+  formatCurrency: (amount: number) => string;
 }
 
 export function TierInfoCard({
@@ -32,7 +34,10 @@ export function TierInfoCard({
   progressPercentage,
   remainingToNextTier,
   currency,
+  formatCurrency,
 }: TierInfoCardProps) {
+  const { analytics } = useApi();
+
   // Determine badge tone based on tier level
   const getBadgeTone = (level: number): 'info' | 'success' | 'warning' | 'critical' => {
     if (level >= 4) return 'critical'; // Highest tier
@@ -41,12 +46,20 @@ export function TierInfoCard({
     return 'info';
   };
 
+  // Track tier card view
+  analytics.publish('tier_card_view', {
+    tier_name: tierName,
+    tier_level: tierLevel,
+    cashback_rate: cashbackRate,
+    has_next_tier: !!nextTier,
+  });
+
   return (
     <Card>
-      <BlockStack spacing="base">
+      <BlockStack spacing="base" role="region" aria-label={`${tierName} tier information`}>
         {/* Header: Tier Name + Badge */}
         <InlineStack spacing="tight" blockAlignment="center">
-          <Text size="large" emphasis="bold">
+          <Text size="large" emphasis="bold" id="tier-name">
             {tierName} Tier
           </Text>
           <Badge tone={getBadgeTone(tierLevel)}>
@@ -56,10 +69,10 @@ export function TierInfoCard({
 
         {/* Cashback Rate */}
         <BlockStack spacing="extraTight">
-          <Text size="small" appearance="subdued">
+          <Text size="small" appearance="subdued" id="cashback-label">
             Cashback Rate
           </Text>
-          <Text size="large" emphasis="bold">
+          <Text size="large" emphasis="bold" aria-labelledby="cashback-label">
             {cashbackRate}%
           </Text>
           <Text size="small" appearance="subdued">
@@ -71,7 +84,7 @@ export function TierInfoCard({
         {nextTier && (
           <BlockStack spacing="extraTight">
             <InlineStack spacing="tight" blockAlignment="center">
-              <Text size="small" appearance="subdued">
+              <Text size="small" appearance="subdued" id="progress-label">
                 Progress to {nextTier}
               </Text>
             </InlineStack>
@@ -79,10 +92,11 @@ export function TierInfoCard({
             <Progress
               value={progressPercentage}
               label={`${Math.round(progressPercentage * 100)}%`}
+              aria-label={`${Math.round(progressPercentage * 100)}% progress to ${nextTier} tier`}
             />
 
-            <Text size="small" appearance="subdued">
-              Spend {currency}{remainingToNextTier.toFixed(2)} more to unlock {nextTier} tier
+            <Text size="small" appearance="subdued" role="status">
+              Spend {formatCurrency(remainingToNextTier)} more to unlock {nextTier} tier
             </Text>
           </BlockStack>
         )}
@@ -90,13 +104,13 @@ export function TierInfoCard({
         {/* Current Spend */}
         {!nextTier && (
           <BlockStack spacing="extraTight">
-            <Text size="small" appearance="subdued">
+            <Text size="small" appearance="subdued" id="spend-label">
               Total Lifetime Spend
             </Text>
-            <Text size="medium" emphasis="bold">
-              {currency}{currentSpend.toFixed(2)}
+            <Text size="medium" emphasis="bold" aria-labelledby="spend-label">
+              {formatCurrency(currentSpend)}
             </Text>
-            <Text size="small" appearance="subdued">
+            <Text size="small" appearance="subdued" role="status">
               🎉 You've reached the highest tier!
             </Text>
           </BlockStack>

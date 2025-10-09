@@ -12,17 +12,19 @@ type = "ui_extension"
 uid = "a54ec767-1919-c3e0-0f50-aab7d82fe6e9ab1e9c06"
 
 # Controls where in Shopify your extension will be injected,
-# and the file that contains your extension’s source code. Learn more:
+# and the file that contains your extension's source code. Learn more:
 # https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/extension-targets-overview
 
-# Membership page - appears as "Membership" in navigation automatically
-# NOTE: customer-account.page.render cannot be combined with other targets
+# Profile block - appears on profile page
 [[extensions.targeting]]
-module = "./src/MembershipPage.tsx"
-target = "customer-account.page.render"
+module = "./src/ProfileBlock.tsx"
+target = "customer-account.profile.block.render"
 
-# Order status block removed - page.render target is exclusive
-# If you need order status rewards, create a separate extension
+# Note: customer-account.page.render cannot be combined with other targets
+# If you need a full-page membership view, create a separate extension directory
+# For now, ProfileBlock provides all essential loyalty information
+
+# Order status block - can be added if needed
 # [[extensions.targeting]]
 # module = "./src/OrderStatusBlock.tsx"
 # target = "customer-account.order-status.block.render"

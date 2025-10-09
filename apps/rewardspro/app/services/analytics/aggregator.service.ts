@@ -14,9 +14,9 @@ export class AnalyticsAggregator {
     if (cached) return cached;
 
     const rows = await query<{ day: string; revenue: number }>(
-      `SELECT date_trunc('day', "createdAt") AS day, SUM(total_price)::float AS revenue
+      `SELECT date_trunc('day', "shopifyCreatedAt") AS day, SUM("netAmount")::float AS revenue
        FROM "Order"
-       WHERE shop = :shopId AND "createdAt" BETWEEN :start AND :end
+       WHERE shop = :shopId AND "shopifyCreatedAt" BETWEEN :start AND :end
        GROUP BY 1
        ORDER BY 1`,
       { shopId, start: range.start, end: range.end }
@@ -31,11 +31,11 @@ export class AnalyticsAggregator {
     if (cached) return cached;
 
     const rows = await query<{ tier: string; customers: number }>(
-      `SELECT t.name AS tier, COUNT(*)::int AS customers
+      `SELECT COALESCE(t.name, 'No Tier') AS tier, COUNT(*)::int AS customers
        FROM "Customer" c
-       LEFT JOIN "Tier" t ON c."tierId" = t.id
+       LEFT JOIN "Tier" t ON c."currentTierId" = t.id
        WHERE c.shop = :shopId
-       GROUP BY t.name
+       GROUP BY COALESCE(t.name, 'No Tier')
        ORDER BY customers DESC`,
       { shopId }
     );
@@ -52,7 +52,7 @@ export class AnalyticsAggregator {
       `WITH active AS (
          SELECT COUNT(DISTINCT "customerId") AS active_30d
            FROM "Order"
-          WHERE shop = :shopId AND "createdAt" >= (NOW() - INTERVAL '30 days')
+          WHERE shop = :shopId AND "shopifyCreatedAt" >= (NOW() - INTERVAL '30 days')
        )
        SELECT (SELECT COUNT(*) FROM "Customer" WHERE shop = :shopId) AS total,
               active.active_30d
@@ -71,12 +71,12 @@ export class AnalyticsAggregator {
 
     const rows = await query<{ cohort_month: string; month_index: number; active_users: number }>(
       `WITH first_order AS (
-         SELECT "customerId", date_trunc('month', MIN("createdAt")) AS cohort_month
+         SELECT "customerId", date_trunc('month', MIN("shopifyCreatedAt")) AS cohort_month
            FROM "Order" WHERE shop = :shopId
            GROUP BY "customerId"
        ),
        activity AS (
-         SELECT o."customerId", date_trunc('month', o."createdAt") AS active_month
+         SELECT o."customerId", date_trunc('month', o."shopifyCreatedAt") AS active_month
            FROM "Order" o WHERE o.shop = :shopId
            GROUP BY 1,2
        )
@@ -123,12 +123,12 @@ export class AnalyticsAggregator {
       `SELECT
         c.id AS customer_id,
         c.email,
-        c."lifetimeSpent"::float AS total_spent,
+        c."totalSpent"::float AS total_spent,
         t.name AS tier
        FROM "Customer" c
-       LEFT JOIN "Tier" t ON c."tierId" = t.id
+       LEFT JOIN "Tier" t ON c."currentTierId" = t.id
        WHERE c.shop = :shopId
-       ORDER BY c."lifetimeSpent" DESC
+       ORDER BY c."totalSpent" DESC
        LIMIT :limit`,
       { shopId, limit }
     );
@@ -143,17 +143,124 @@ export class AnalyticsAggregator {
 
     const rows = await query<{ day: string; order_count: number; avg_order_value: number }>(
       `SELECT
-        date_trunc('day', "createdAt") AS day,
+        date_trunc('day', "shopifyCreatedAt") AS day,
         COUNT(*)::int AS order_count,
-        AVG(total_price)::float AS avg_order_value
+        AVG("netAmount")::float AS avg_order_value
        FROM "Order"
-       WHERE shop = :shopId AND "createdAt" BETWEEN :start AND :end
+       WHERE shop = :shopId AND "shopifyCreatedAt" BETWEEN :start AND :end
        GROUP BY 1
        ORDER BY 1`,
       { shopId, start: range.start, end: range.end }
     );
     analyticsCache.set(key, rows, 60_000);
     return rows;
+  }
+
+  async getRetentionMetrics(shopId: string, range: DateRange) {
+    const key = cacheKey("retention", { shopId, range });
+    const cached = analyticsCache.get<any>(key);
+    if (cached) return cached;
+
+    const end = range.end;
+    const start =
+      range.start ??
+      new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [counts] = await query<{
+      cs: number;
+      ce: number;
+      cn: number;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM "Customer" WHERE shop = :shopId AND "createdAt" < :start) AS cs,
+         (SELECT COUNT(*) FROM "Customer" WHERE shop = :shopId AND "createdAt" <= :end) AS ce,
+         (SELECT COUNT(*) FROM "Customer" WHERE shop = :shopId AND "createdAt" BETWEEN :start AND :end) AS cn`,
+      { shopId, start, end }
+    );
+
+    const [orderStats] = await query<{
+      total_orders: number;
+      unique_customers: number;
+      repeat_customers: number;
+    }>(
+      `WITH orders_in_period AS (
+         SELECT "customerId"
+             FROM "Order"
+            WHERE shop = :shopId
+              AND "financialStatus" = 'PAID'
+              AND "shopifyCreatedAt" BETWEEN :start AND :end
+       )
+       SELECT
+         (SELECT COUNT(*) FROM orders_in_period) AS total_orders,
+         (SELECT COUNT(DISTINCT "customerId") FROM orders_in_period) AS unique_customers,
+         (SELECT COUNT(*) FROM (
+             SELECT "customerId"
+               FROM "Order"
+              WHERE shop = :shopId
+                AND "financialStatus" = 'PAID'
+                AND "shopifyCreatedAt" BETWEEN :start AND :end
+              GROUP BY "customerId"
+             HAVING COUNT(*) > 1
+         ) repeaters) AS repeat_customers`,
+      { shopId, start, end }
+    );
+
+    const cs = counts?.cs || 0;
+    const ce = counts?.ce || 0;
+    const cn = counts?.cn || 0;
+    const retained = ce - cn;
+    const crr = cs > 0 ? ((retained / cs) * 100) : 0;
+
+    const { total_orders = 0, unique_customers = 0, repeat_customers = 0 } = orderStats || {};
+    const purchaseFrequency = unique_customers > 0 ? total_orders / unique_customers : 0;
+    const rpr = unique_customers > 0 ? (repeat_customers / unique_customers) * 100 : 0;
+
+    const result = {
+      crr: Number.isFinite(crr) ? Math.round(crr * 100) / 100 : 0,
+      counts: { cs, ce, cn, retained },
+      rpr: Number.isFinite(rpr) ? Math.round(rpr * 100) / 100 : 0,
+      repeatCustomers: repeat_customers,
+      uniqueCustomers: unique_customers,
+      totalOrders: total_orders,
+      purchaseFrequency: Number.isFinite(purchaseFrequency)
+        ? Math.round(purchaseFrequency * 100) / 100
+        : 0,
+    };
+
+    analyticsCache.set(key, result, 60_000);
+    return result;
+  }
+
+  async getRedemptionSummary(shopId: string, range: DateRange) {
+    const key = cacheKey("redemption", { shopId, range });
+    const cached = analyticsCache.get<any>(key);
+    if (cached) return cached;
+
+    const end = range.end;
+    const start =
+      range.start ??
+      new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [row] = await query<{
+      issued: number | null;
+      redeemed: number | null;
+    }>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN type IN ('CASHBACK_EARNED', 'MANUAL_ADJUSTMENT') THEN amount ELSE 0 END), 0)::float AS issued,
+         COALESCE(SUM(CASE WHEN type = 'ORDER_PAYMENT' THEN ABS(amount) ELSE 0 END), 0)::float AS redeemed
+       FROM "StoreCreditLedger"
+       WHERE shop = :shopId
+         AND "createdAt" BETWEEN :start AND :end`,
+      { shopId, start, end }
+    );
+
+    const result = {
+      issued: row?.issued || 0,
+      redeemed: row?.redeemed || 0,
+    };
+
+    analyticsCache.set(key, result, 60_000);
+    return result;
   }
 }
 

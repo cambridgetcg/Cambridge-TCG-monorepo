@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -13,7 +13,6 @@ import {
   Button,
   Grid,
   Divider,
-  Select,
   Tabs,
   DataTable,
   EmptyState,
@@ -35,7 +34,7 @@ import { ChartContainer } from "../components/charts/ChartContainer";
 import { LineChartVisx } from "../components/charts/LineChartVisx";
 import { BarChartVisx } from "../components/charts/BarChartVisx";
 import { useRealtimeMetrics } from "../hooks/useRealtimeMetrics";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, type ReactNode } from "react";
 
 interface LoaderData {
   analytics: {
@@ -45,6 +44,20 @@ interface LoaderData {
     activeCustomers: number;
     avgOrderValue: number;
     conversionRate: number;
+  };
+  retention: {
+    crr: number;
+    counts: { cs: number; ce: number; cn: number; retained: number };
+    rpr: number;
+    purchaseFrequency: number;
+    repeatCustomers: number;
+    uniqueCustomers: number;
+    totalOrders: number;
+  };
+  redemption: {
+    issued: number;
+    redeemed: number;
+    rate: number;
   };
   shopSettings: {
     storeCurrency: string;
@@ -76,13 +89,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const range = { start: startDate, end: endDate };
 
   // Fetch analytics data in parallel
-  const [revenueData, tierDistribution, customerMetrics, cashbackData, orderTrends, topCustomers] = await Promise.all([
+  const [
+    revenueData,
+    tierDistribution,
+    customerMetrics,
+    cashbackData,
+    orderTrends,
+    topCustomers,
+    retentionMetrics,
+    redemptionSummary,
+  ] = await Promise.all([
     analytics.getRevenueMetrics(session.shop, range).catch(() => []),
     analytics.getTierDistribution(session.shop).catch(() => []),
     analytics.getCustomerMetrics(session.shop, range).catch(() => ({ total: 0, active_30d: 0 })),
     analytics.getCashbackMetrics(session.shop, range).catch(() => []),
     analytics.getOrderTrends(session.shop, range).catch(() => []),
     analytics.getTopCustomers(session.shop, 5).catch(() => []),
+    analytics.getRetentionMetrics(session.shop, range).catch(() => null),
+    analytics.getRedemptionSummary(session.shop, range).catch(() => ({ issued: 0, redeemed: 0 })),
   ]);
 
   // Calculate aggregate metrics
@@ -103,6 +127,33 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return json({
     analytics: analyticsData,
+    retention: retentionMetrics
+      ? {
+          crr: retentionMetrics.crr,
+          counts: retentionMetrics.counts,
+          rpr: retentionMetrics.rpr,
+          purchaseFrequency: retentionMetrics.purchaseFrequency,
+          repeatCustomers: retentionMetrics.repeatCustomers,
+          uniqueCustomers: retentionMetrics.uniqueCustomers,
+          totalOrders: retentionMetrics.totalOrders,
+        }
+      : {
+          crr: 0,
+          counts: { cs: 0, ce: 0, cn: 0, retained: 0 },
+          rpr: 0,
+          purchaseFrequency: 0,
+          repeatCustomers: 0,
+          uniqueCustomers: 0,
+          totalOrders: 0,
+        },
+    redemption: {
+      issued: redemptionSummary?.issued || 0,
+      redeemed: redemptionSummary?.redeemed || 0,
+      rate:
+        redemptionSummary && redemptionSummary.issued > 0
+          ? (redemptionSummary.redeemed / redemptionSummary.issued) * 100
+          : 0,
+    },
     shopSettings,
     revenueData,
     tierDistribution,
@@ -112,7 +163,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 };
 
-function MetricCard({ title, value, trend, icon }: any) {
+function MetricCard({
+  title,
+  value,
+  trendPercent,
+  badgeText,
+  icon,
+}: {
+  title: string;
+  value: string;
+  trendPercent?: number;
+  badgeText?: string;
+  icon?: ReactNode;
+}) {
+  const roundedTrend =
+    trendPercent !== undefined && Number.isFinite(trendPercent)
+      ? Math.round(trendPercent * 10) / 10
+      : undefined;
   return (
     <Card>
       <Box padding="400">
@@ -122,9 +189,13 @@ function MetricCard({ title, value, trend, icon }: any) {
             {icon && <div style={{ color: '#637381' }}>{icon}</div>}
           </InlineStack>
           <Text variant="heading2xl" as="p">{value}</Text>
-          {trend && (
-            <Badge tone={trend > 0 ? 'success' : 'critical'}>
-              {trend > 0 ? '+' : ''}{trend}%
+          {badgeText && (
+            <Badge tone="info">{badgeText}</Badge>
+          )}
+          {roundedTrend !== undefined && (
+            <Badge tone={roundedTrend >= 0 ? 'success' : 'critical'}>
+              {roundedTrend >= 0 ? '+' : ''}
+              {roundedTrend}%
             </Badge>
           )}
         </BlockStack>
@@ -156,7 +227,6 @@ function TierDistributionChart({ data }: { data: Array<{ tier: string; customers
 export default function AnalyticsPage() {
   const data = useLoaderData<typeof loader>();
   const [selectedTab, setSelectedTab] = useState(0);
-  const [dateRange, setDateRange] = useState('30days');
 
   // Real-time metrics (optional)
   const realtimeData = useRealtimeMetrics('/app/analytics/realtime');
@@ -164,6 +234,25 @@ export default function AnalyticsPage() {
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
   }, [data.shopSettings]);
+  const formatPercentValue = useCallback((value: number) => `${value.toFixed(1)}%`, []);
+  const formatNumberValue = useCallback((value: number) => new Intl.NumberFormat().format(value), []);
+
+  const revenueTrend = useMemo(
+    () => calculatePercentChange(data.revenueData.map((d) => d.revenue)),
+    [data.revenueData]
+  );
+  const cashbackTrend = useMemo(
+    () => calculatePercentChange(data.cashbackData.map((d) => d.cashback_earned)),
+    [data.cashbackData]
+  );
+  const avgOrderTrend = useMemo(
+    () => calculatePercentChange(data.orderTrends.map((d) => d.avg_order_value)),
+    [data.orderTrends]
+  );
+  const activePct = useMemo(() => {
+    if (!data.analytics.totalCustomers) return undefined;
+    return Math.round((data.analytics.activeCustomers / data.analytics.totalCustomers) * 100);
+  }, [data.analytics.activeCustomers, data.analytics.totalCustomers]);
 
   const tabs = [
     { id: 'overview', content: 'Overview' },
@@ -197,7 +286,7 @@ export default function AnalyticsPage() {
               <MetricCard
                 title="Total Revenue"
                 value={formatAmount(data.analytics.totalRevenue)}
-                trend={12}
+                trendPercent={revenueTrend}
                 icon={<CashDollarIcon />}
               />
             </Grid.Cell>
@@ -205,7 +294,7 @@ export default function AnalyticsPage() {
               <MetricCard
                 title="Active Customers"
                 value={`${data.analytics.activeCustomers}/${data.analytics.totalCustomers}`}
-                trend={8}
+                badgeText={activePct !== undefined ? `${activePct}% active` : undefined}
                 icon={<PersonIcon />}
               />
             </Grid.Cell>
@@ -213,6 +302,7 @@ export default function AnalyticsPage() {
               <MetricCard
                 title="Total Cashback"
                 value={formatAmount(data.analytics.totalCashback)}
+                trendPercent={cashbackTrend}
                 icon={<ChartLineIcon />}
               />
             </Grid.Cell>
@@ -220,7 +310,7 @@ export default function AnalyticsPage() {
               <MetricCard
                 title="Avg Order Value"
                 value={formatAmount(data.analytics.avgOrderValue)}
-                trend={5}
+                trendPercent={avgOrderTrend}
                 icon={<ChartVerticalFilledIcon />}
               />
             </Grid.Cell>
@@ -269,9 +359,96 @@ export default function AnalyticsPage() {
                     {/* Tier Distribution */}
                     <BlockStack gap="300">
                       <Text variant="headingMd" as="h2">Tier Distribution</Text>
-                      <ClientOnly>
-                        <TierDistributionChart data={data.tierDistribution} />
-                      </ClientOnly>
+                      {data.tierDistribution.length > 0 ? (
+                        <ClientOnly>
+                          <TierDistributionChart data={data.tierDistribution} />
+                        </ClientOnly>
+                      ) : (
+                        <EmptyState
+                          heading="No tier data yet"
+                          image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                        >
+                          <p>When customers join tiers, their distribution will appear here.</p>
+                        </EmptyState>
+                      )}
+                    </BlockStack>
+
+                    <Divider />
+
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h2">Retention & Engagement</Text>
+                      <Grid>
+                        <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+                          <MetricCard
+                            title="Retention Rate (CRR)"
+                            value={formatPercentValue(data.retention.crr)}
+                            badgeText={`${formatNumberValue(data.retention.counts.retained)} of ${formatNumberValue(data.retention.counts.cs)} retained`}
+                            icon={<PersonIcon />}
+                          />
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+                          <MetricCard
+                            title="Repeat Purchase Rate"
+                            value={formatPercentValue(data.retention.rpr)}
+                            badgeText={`${formatNumberValue(data.retention.repeatCustomers)} repeat customers`}
+                            icon={<ChartLineIcon />}
+                          />
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+                          <MetricCard
+                            title="Purchase Frequency"
+                            value={`${data.retention.purchaseFrequency.toFixed(2)} orders`}
+                            badgeText={`${formatNumberValue(data.retention.totalOrders)} orders / ${formatNumberValue(data.retention.uniqueCustomers)} customers`}
+                            icon={<ChartVerticalFilledIcon />}
+                          />
+                        </Grid.Cell>
+                      </Grid>
+                      <Card>
+                        <Box padding="400">
+                          <DataTable
+                            columnContentTypes={['text', 'numeric']}
+                            headings={['Metric', 'Value']}
+                            rows={[
+                              ['Customers at start', formatNumberValue(data.retention.counts.cs)],
+                              ['Customers at end', formatNumberValue(data.retention.counts.ce)],
+                              ['New customers', formatNumberValue(data.retention.counts.cn)],
+                              ['Retained from start', formatNumberValue(data.retention.counts.retained)],
+                              ['Unique customers (orders)', formatNumberValue(data.retention.uniqueCustomers)],
+                              ['Repeat customers', formatNumberValue(data.retention.repeatCustomers)],
+                              ['Total orders in period', formatNumberValue(data.retention.totalOrders)],
+                            ]}
+                          />
+                        </Box>
+                      </Card>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h2">Redemption Performance</Text>
+                      <Grid>
+                        <Grid.Cell columnSpan={{ xs: 6, sm: 3, md: 3, lg: 3, xl: 3 }}>
+                          <MetricCard
+                            title="Redemption Rate"
+                            value={formatPercentValue(data.redemption.rate)}
+                            badgeText={`${formatAmount(data.redemption.redeemed)} used of ${formatAmount(data.redemption.issued)}`}
+                            icon={<CashDollarIcon />}
+                          />
+                        </Grid.Cell>
+                      </Grid>
+                      <Card>
+                        <Box padding="400">
+                          <DataTable
+                            columnContentTypes={['text', 'numeric']}
+                            headings={['Metric', 'Amount']}
+                            rows={[
+                              ['Rewards issued', formatAmount(data.redemption.issued)],
+                              ['Rewards redeemed', formatAmount(data.redemption.redeemed)],
+                              ['Redemption rate', formatPercentValue(data.redemption.rate)],
+                            ]}
+                          />
+                        </Box>
+                      </Card>
                     </BlockStack>
                   </BlockStack>
                 </Box>
@@ -379,4 +556,17 @@ export default function AnalyticsPage() {
       </Layout>
     </Page>
   );
+}
+
+function calculatePercentChange(values: number[]): number | undefined {
+  if (!values || values.length < 2) return undefined;
+  const last = values[values.length - 1];
+  let prevIndex = values.length - 2;
+  while (prevIndex >= 0 && values[prevIndex] === 0) {
+    prevIndex -= 1;
+  }
+  if (prevIndex < 0) return undefined;
+  const prev = values[prevIndex];
+  if (prev === 0) return undefined;
+  return ((last - prev) / Math.abs(prev)) * 100;
 }

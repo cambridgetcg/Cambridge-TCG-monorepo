@@ -8,6 +8,8 @@ handle = "rewardspro-production"
 
 [build]
 automatically_update_urls_on_dev = true
+# Skip database migrations - using Aurora Data API (no direct connections)
+skip_database_migrations = true
 
 [webhooks]
 api_version = "2025-07"

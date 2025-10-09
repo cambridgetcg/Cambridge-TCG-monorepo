@@ -1,0 +1,22 @@
+# Customer Account UI Extension - Membership Page
+# Full-page dedicated view for loyalty program details
+
+api_version = "2025-07"
+
+[[extensions]]
+name = "RewardsPro Membership"
+handle = "rewardspro-membership"
+uid = "be72a1b4-3ed3-d78d-61f7-19361e1583d89ba79ee3"
+type = "ui_extension"
+
+# Full-page membership view - appears as "Membership" in customer account navigation
+[[extensions.targeting]]
+module = "./src/MembershipPage.tsx"
+target = "customer-account.page.render"
+
+[extensions.capabilities]
+# Enable API access for querying Shopify data
+api_access = true
+
+# Enable network access for calling external APIs
+network_access = true

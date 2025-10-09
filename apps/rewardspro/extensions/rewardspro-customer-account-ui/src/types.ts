@@ -19,6 +19,7 @@ export interface LoyaltyData {
   progress: {
     currentSpend: number;
     nextTier: string | null;
+    nextTierCashback?: number;
     progressPercentage: number;
     remainingToNextTier: number;
   };
@@ -26,6 +27,8 @@ export interface LoyaltyData {
     earned: number;
     spent: number;
     redeemed: number;
+    orderCount?: number;
+    averageCashback?: number;
   };
   transactions: Transaction[];
   referral?: {

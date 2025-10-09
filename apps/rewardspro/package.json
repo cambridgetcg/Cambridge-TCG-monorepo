@@ -4,7 +4,8 @@
   "scripts": {
     "build": "prisma generate && remix vite:build",
     "build:migrate": "prisma generate && prisma migrate deploy && remix vite:build",
-    "dev": "shopify app dev",
+    "dev": "SKIP_DB_CHECKS=1 shopify app dev",
+    "dev:with-tunnel": "npm run tunnel:setup && npm run dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
     "deploy": "shopify app deploy",
