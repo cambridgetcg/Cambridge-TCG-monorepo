@@ -824,54 +824,556 @@ export default function LoyaltyWidget({ api }: { api: CustomerAccountUIExtension
 
 ## Architecture Overview
 
-### System Components
+### Executive Summary
+
+RewardsPro's onboarding system requires a stateful, extensible architecture that:
+1. **Persists progress** across sessions and devices using Aurora PostgreSQL
+2. **Integrates** with RewardsPro services and Shopify APIs (GraphQL + webhooks)
+3. **Scales reliably** using event-driven architecture with async processing
+4. **Maintains state** using finite state machines for predictable task flow
+5. **Enables flexibility** through feature flags and A/B testing infrastructure
+
+### Current State Audit
+
+#### Existing Architecture
+
+**Frontend**:
+- Embedded Shopify app (Remix + React + App Bridge)
+- Runs in iframe within Shopify Admin
+- Obtains short-lived session token (~1 min expiry) for each request
+- Session tokens sent in `Authorization: Bearer` header
+
+**Backend**:
+- Remix server on Node.js with Prisma (Aurora Data API)
+- Validates session tokens and extracts shop ID
+- Uses permanent OAuth access token for Shopify GraphQL calls
+- ShopSettings stores boolean flags (`onboardingCompleted`) but no per-task state
+
+**RewardsPro Services**:
+- Existing routes for loyalty accrual, redemption, notifications
+- Must be invoked as merchants complete onboarding tasks
+
+**Shopify Integration**:
+- GraphQL Admin API with `X-Shopify-Access-Token` header
+- Webhooks for app lifecycle (APP_UNINSTALLED, GDPR topics)
+- Optional webhooks for products/orders sync
+
+#### Identified Gaps
+
+1. **No per-task data model**: Single boolean flag prevents tracking individual task progress, timestamps, or metadata
+2. **No dedicated onboarding API**: Frontend coupled to internal implementation details
+3. **Missing event infrastructure**: No unified queue for reminders, sync tasks, or analytics
+4. **Ad-hoc feature gating**: Lacks structured feature flag service for rollouts and A/B tests
+5. **No cross-device persistence**: Progress not explicitly maintained across sessions/devices
+
+### Proposed System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Shopify Admin                           │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │          RewardsPro Embedded App (App Bridge)        │  │
-│  │  ┌────────────────────────────────────────────────┐  │  │
-│  │  │          Onboarding Wizard (Modal/Page)        │  │  │
-│  │  │  • Step 1: Welcome & Value Proposition         │  │  │
-│  │  │  • Step 2: Create First Reward Program         │  │  │
-│  │  │  • Step 3: Preview & Customize                 │  │  │
-│  │  │  • Step 4: Publish & Activate                  │  │  │
-│  │  └────────────────────────────────────────────────┘  │  │
-│  │  ┌────────────────────────────────────────────────┐  │  │
-│  │  │     Persistent Onboarding Checklist            │  │  │
-│  │  │  [▓▓▓▓░░░░] 50% Complete                       │  │  │
-│  │  │  ✓ Sync customers                              │  │  │
-│  │  │  ✓ Create tiers                                │  │  │
-│  │  │  ○ Configure rewards                           │  │  │
-│  │  │  ○ Test on storefront                          │  │  │
-│  │  └────────────────────────────────────────────────┘  │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                            ↕
-┌─────────────────────────────────────────────────────────────┐
-│                   RewardsPro Backend                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │  Onboarding  │  │   Analytics  │  │  Shopify API    │  │
-│  │   Service    │  │   Events     │  │   (GraphQL)     │  │
-│  └──────────────┘  └──────────────┘  └─────────────────┘  │
-│           ↕                ↕                    ↕           │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │            Aurora PostgreSQL (Data API)               │ │
-│  │  • ShopSettings (onboarding flags)                    │ │
-│  │  • OnboardingEvent (analytics)                        │ │
-│  │  • Customer, Tier, Order (synced data)                │ │
-│  └───────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Shopify Admin (Browser)                          │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │          RewardsPro Embedded App (Shopify App Bridge)             │  │
+│  │  ┌────────────────────┐  ┌───────────────────────────────────┐   │  │
+│  │  │  Onboarding Wizard │  │  Persistent Checklist Dashboard   │   │  │
+│  │  │  • Step 1: Welcome │  │  [▓▓▓▓░░░░] 50% Complete         │   │  │
+│  │  │  • Step 2: Program │  │  ✓ Sync orders                    │   │  │
+│  │  │  • Step 3: Preview │  │  ✓ Create tiers                   │   │  │
+│  │  │  • Step 4: Publish │  │  ○ Sync customers                 │   │  │
+│  │  └────────────────────┘  │  ○ Configure settings             │   │  │
+│  │                           └───────────────────────────────────┘   │  │
+│  │              ↓ Session Token (1-min expiry)                       │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Remix Backend (Node.js)                         │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │  Authentication Layer                                             │  │
+│  │  • Validate session token (JWT, 1-min expiry)                     │  │
+│  │  • Extract shop ID + user context                                 │  │
+│  │  • Use OAuth access token for Shopify GraphQL                     │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+│  ┌────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │
+│  │ Onboarding API │  │ State Machine    │  │ Feature Flag Service   │  │
+│  │ • GET /tasks   │  │ • XState FSM     │  │ • Unleash/LaunchDarkly │  │
+│  │ • POST /complete│ │ • Task states    │  │ • Server-side eval     │  │
+│  │ • GET /progress│  │ • Transitions    │  │ • Gradual rollouts     │  │
+│  └────────────────┘  └──────────────────┘  └────────────────────────┘  │
+│          ↓                    ↓                        ↓                 │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │             Event Queue (Bull + Redis / AWS EventBridge)          │  │
+│  │  Producers: API routes, webhooks, state machine actions           │  │
+│  │  Events: TASK_COMPLETED, SEND_REMINDER, SYNC_SHOPIFY              │  │
+│  │  Consumers: Workers for emails, RewardsPro calls, analytics       │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│          ↓                                                                │
+│  ┌────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │
+│  │ RewardsPro     │  │ Shopify GraphQL  │  │ Shopify Webhooks       │  │
+│  │ Services       │  │ API Client       │  │ • APP_UNINSTALLED      │  │
+│  │ • Loyalty      │  │ • Query shop     │  │ • products/update      │  │
+│  │ • Redemption   │  │ • Mutations      │  │ • orders/create        │  │
+│  │ • Notifications│  │                  │  │ • GDPR topics          │  │
+│  └────────────────┘  └──────────────────┘  └────────────────────────┘  │
+│                                      ↓                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Aurora PostgreSQL (Data API Only)                    │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │  ShopSettings          OnboardingTask          OnboardingEvent    │  │
+│  │  • id (shop domain)    • id (task UUID)        • id (event UUID)  │  │
+│  │  • onboardingEnabled   • shopId (FK)           • shopId           │  │
+│  │  • onboardingCompleted • taskId (enum)         • eventType        │  │
+│  │  • flags...            • state (FSM state)     • payload (JSON)   │  │
+│  │                        • metadata (JSON)       • processingStatus │  │
+│  │                        • completedAt           • timestamp        │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │  Customer, Tier, Order, StoreCreditLedger (existing models)       │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                      ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Analytics & Telemetry Pipeline                       │
+│  • Mixpanel / Amplitude                                                 │
+│  • AWS Firehose / Segment                                               │
+│  • 12-month retention, then purged                                      │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### Data Flow Sequence
 
-1. **Installation** → Create `ShopSettings` with all `onboarding*` flags = `false`
-2. **First Load** → Check flags, show wizard if `onboardingCompleted = false`
-3. **Step Completion** → Update flag, emit analytics event, show celebration
-4. **Skip/Dismiss** → Set `onboardingDismissed = true`, allow resuming later
-5. **Completion** → Set `onboardingCompleted = true`, show confetti 🎉
+#### 1. Installation & First Load
+
+```
+1. Merchant installs app → OAuth flow completes
+2. Backend creates ShopSettings with onboardingEnabled = true, onboardingCompleted = false
+3. Seed default OnboardingTask records (state = 'pending')
+4. Merchant visits app → Frontend fetches session token via App Bridge
+5. GET /api/onboarding/tasks → Returns task list with current states
+6. If onboardingCompleted = false → Show wizard or checklist
+```
+
+#### 2. Task Completion Flow
+
+```
+1. Merchant completes action (e.g., creates tier via UI)
+2. Frontend → POST /api/onboarding/tasks/:taskId/complete
+3. Backend validates session token, extracts shop ID
+4. Update OnboardingTask.state = 'completed', set completedAt timestamp
+5. Publish TASK_COMPLETED event to queue with event-outbox pattern
+6. Check if all tasks complete → Update ShopSettings.onboardingCompleted = true
+7. Event consumer processes:
+   - Call RewardsPro service if needed (e.g., activate loyalty program)
+   - Send celebration email
+   - Log analytics event to pipeline
+8. Return updated progress to frontend → Show confetti 🎉
+```
+
+#### 3. Webhook Integration Flow
+
+```
+1. Shopify sends webhook (e.g., script_tag/create when widget installed)
+2. Backend validates HMAC signature
+3. Log event in OnboardingEvent table
+4. Check if webhook relates to onboarding task (e.g., "Install widget")
+5. Trigger state machine transition → Update OnboardingTask.state
+6. Publish event to queue for async processing
+7. Return 200 OK immediately (webhook must respond <5s)
+```
+
+#### 4. Cross-Device Persistence
+
+```
+1. Merchant starts onboarding on desktop → Completes Step 1
+2. OnboardingTask.state persisted in Aurora
+3. Merchant switches to mobile device
+4. Mobile app fetches session token, calls GET /api/onboarding/tasks
+5. Returns current state from database → Shows Step 2 (continuity maintained)
+```
+
+#### 5. Reminder & Re-engagement
+
+```
+1. Cron job runs daily → Queries OnboardingTask where state != 'completed' and createdAt < 3 days ago
+2. Publish SEND_REMINDER event to queue
+3. Event consumer sends email with task-specific CTA
+4. Track email open/click events → Update OnboardingEvent for analytics
+```
+
+### State Machine Design
+
+Each onboarding task is a node in a finite state machine (FSM). Using XState or similar library:
+
+**Task States**:
+- `pending`: Task not started
+- `in_progress`: Merchant actively working on task
+- `completed`: Task finished successfully
+- `skipped`: Merchant chose to skip
+- `failed`: Task encountered error (retry or escalate)
+
+**Example Task: "Install Storefront Widget"**
+
+```typescript
+import { createMachine } from 'xstate';
+
+const installWidgetMachine = createMachine({
+  id: 'installWidget',
+  initial: 'pending',
+  states: {
+    pending: {
+      on: {
+        START: 'in_progress'
+      }
+    },
+    in_progress: {
+      on: {
+        WEBHOOK_RECEIVED: 'verifying',
+        SKIP: 'skipped',
+        TIMEOUT: 'failed'
+      }
+    },
+    verifying: {
+      invoke: {
+        src: 'checkShopifyGraphQL',
+        onDone: 'completed',
+        onError: 'failed'
+      }
+    },
+    completed: { type: 'final' },
+    skipped: { type: 'final' },
+    failed: {
+      on: {
+        RETRY: 'in_progress',
+        SKIP: 'skipped'
+      }
+    }
+  }
+});
+```
+
+**Actions on Transitions**:
+- `START`: Log event, show instructions
+- `WEBHOOK_RECEIVED`: Validate webhook payload, update metadata
+- `checkShopifyGraphQL`: Query Shopify to confirm widget installed
+- `TIMEOUT`: Merchant took >72h, send reminder or mark failed
+- `RETRY`: Reset state, allow merchant to try again
+- `SKIP`: Mark skipped, proceed to next task
+
+### Integration Patterns
+
+#### Shopify Authentication
+
+**Session Tokens** (Frontend → Backend):
+```typescript
+// Frontend: Obtain session token via App Bridge
+const app = createApp({
+  apiKey: SHOPIFY_API_KEY,
+  host: new URLSearchParams(location.search).get('host')
+});
+
+const sessionToken = await app.idToken();
+
+// Send with API request
+fetch('/api/onboarding/tasks', {
+  headers: {
+    'Authorization': `Bearer ${sessionToken}`
+  }
+});
+```
+
+**Backend Token Validation**:
+```typescript
+// Backend: Validate and extract shop
+import { authenticate } from '@shopify/shopify-app-remix/server';
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { session, admin } = await authenticate.admin(request);
+
+  if (!session?.shop) {
+    throw new Response("Unauthorized", { status: 401 });
+  }
+
+  // session.shop = "example.myshopify.com"
+  // session.accessToken = permanent OAuth token for GraphQL
+
+  // Fetch onboarding tasks for this shop
+  const tasks = await db.onboardingTask.findMany({
+    where: { shopId: session.shop }
+  });
+
+  return json({ tasks });
+}
+```
+
+#### Shopify GraphQL Queries
+
+```typescript
+// Use authenticated admin client
+const { admin } = await authenticate.admin(request);
+
+// Query shop data
+const shopQuery = await admin.graphql(`
+  query {
+    shop {
+      name
+      email
+      plan {
+        displayName
+      }
+    }
+  }
+`);
+
+const shopData = await shopQuery.json();
+
+// Check if app extension installed
+const extensionQuery = await admin.graphql(`
+  query {
+    app {
+      installation {
+        activeSubscriptions {
+          name
+          status
+        }
+      }
+    }
+  }
+`);
+```
+
+#### Webhook Handling with Idempotency
+
+```typescript
+// app/routes/webhooks.script-tag-create.tsx
+export async function action({ request }: ActionFunctionArgs) {
+  // Get raw body for HMAC validation
+  const rawBody = await request.text();
+
+  // CRITICAL: Verify HMAC signature
+  if (!verifyWebhookHMAC(request, rawBody)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const webhookData = JSON.parse(rawBody);
+  const shop = request.headers.get('X-Shopify-Shop-Domain');
+  const webhookId = request.headers.get('X-Shopify-Webhook-Id');
+
+  // Idempotency check: Have we processed this webhook before?
+  const existingEvent = await db.onboardingEvent.findFirst({
+    where: {
+      shopId: shop,
+      eventType: 'WEBHOOK_RECEIVED',
+      metadata: {
+        path: ['webhookId'],
+        equals: webhookId
+      }
+    }
+  });
+
+  if (existingEvent) {
+    console.log('[Webhook] Already processed, skipping');
+    return json({ success: true, duplicate: true });
+  }
+
+  // Log event
+  await db.onboardingEvent.create({
+    data: {
+      id: uuidv4(),
+      shopId: shop,
+      eventType: 'WEBHOOK_RECEIVED',
+      payload: { webhook: webhookData, webhookId },
+      processingStatus: 'pending',
+      timestamp: new Date()
+    }
+  });
+
+  // Find related onboarding task
+  const task = await db.onboardingTask.findFirst({
+    where: {
+      shopId: shop,
+      taskId: 'install_widget',
+      state: { in: ['pending', 'in_progress'] }
+    }
+  });
+
+  if (task) {
+    // Trigger state machine transition
+    await transitionTask(task.id, 'WEBHOOK_RECEIVED', {
+      scriptTagId: webhookData.script_tag.id
+    });
+  }
+
+  // Respond quickly (<5s)
+  return json({ success: true });
+}
+```
+
+### Infrastructure Components
+
+#### Event Queue Architecture
+
+**Option 1: Bull + Redis** (Medium scale, self-hosted)
+
+```typescript
+// app/queues/onboarding.queue.ts
+import Bull from 'bull';
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+export const onboardingQueue = new Bull('onboarding', {
+  redis,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 2000
+    },
+    removeOnComplete: 100, // Keep last 100 completed jobs
+    removeOnFail: 500      // Keep last 500 failed jobs
+  }
+});
+
+// Producer: Publish event
+export async function publishTaskCompleted(shop: string, taskId: string, metadata: any) {
+  await onboardingQueue.add('task_completed', {
+    shop,
+    taskId,
+    metadata,
+    timestamp: new Date().toISOString()
+  }, {
+    jobId: `${shop}-${taskId}-${Date.now()}`, // Unique job ID for deduplication
+    priority: 1 // Higher priority = processed first
+  });
+}
+
+// Consumer: Process events
+onboardingQueue.process('task_completed', async (job) => {
+  const { shop, taskId, metadata } = job.data;
+
+  console.log(`[Queue] Processing task_completed for ${shop}, task ${taskId}`);
+
+  // Call RewardsPro service
+  await activateLoyaltyProgram(shop, metadata);
+
+  // Send celebration email
+  await sendEmail(shop, 'onboarding_task_complete', { taskId });
+
+  // Log to analytics
+  await trackEvent('onboarding_task_completed', { shop, taskId });
+
+  return { success: true };
+});
+
+// Dead-letter queue for failed jobs
+onboardingQueue.on('failed', (job, err) => {
+  console.error(`[Queue] Job ${job.id} failed:`, err);
+
+  // After 3 attempts, move to dead-letter queue
+  if (job.attemptsMade >= 3) {
+    deadLetterQueue.add('failed_job', {
+      originalJob: job.data,
+      error: err.message,
+      timestamp: new Date()
+    });
+  }
+});
+```
+
+**Option 2: AWS EventBridge** (High scale, managed)
+
+```typescript
+// app/events/eventbridge.client.ts
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+
+const client = new EventBridgeClient({ region: 'us-east-1' });
+
+export async function publishEvent(eventType: string, detail: any) {
+  const command = new PutEventsCommand({
+    Entries: [
+      {
+        Source: 'rewardspro.onboarding',
+        DetailType: eventType,
+        Detail: JSON.stringify(detail),
+        EventBusName: 'rewardspro-onboarding-bus'
+      }
+    ]
+  });
+
+  const response = await client.send(command);
+
+  if (response.FailedEntryCount > 0) {
+    throw new Error(`EventBridge publish failed: ${JSON.stringify(response.Entries)}`);
+  }
+
+  return response;
+}
+
+// Lambda consumer (separate function)
+export const handler = async (event) => {
+  const { shop, taskId, metadata } = JSON.parse(event.detail);
+
+  // Process event...
+
+  return { statusCode: 200, body: 'Event processed' };
+};
+```
+
+#### Feature Flag Service
+
+**Unleash Integration** (Self-hosted or cloud):
+
+```typescript
+// app/services/feature-flags.service.ts
+import { Unleash } from 'unleash-client';
+
+const unleash = new Unleash({
+  url: process.env.UNLEASH_API_URL,
+  appName: 'rewardspro',
+  instanceId: process.env.INSTANCE_ID || 'default',
+  customHeaders: {
+    Authorization: process.env.UNLEASH_API_TOKEN
+  }
+});
+
+export function isOnboardingEnabled(shop: string, userId?: string): boolean {
+  return unleash.isEnabled('onboarding_flow_v2', {
+    shopId: shop,
+    userId,
+    properties: {
+      plan: getShopPlan(shop) // 'free', 'pro', 'max', etc.
+    }
+  });
+}
+
+export function getOnboardingVariant(shop: string): 'control' | 'variant_a' | 'variant_b' {
+  const variant = unleash.getVariant('onboarding_experiment_1', {
+    shopId: shop
+  });
+
+  return variant.name as any;
+}
+
+// Use in route loader
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { session } = await authenticate.admin(request);
+
+  if (!isOnboardingEnabled(session.shop)) {
+    // Fall back to old onboarding or skip
+    return redirect('/app/dashboard');
+  }
+
+  const variant = getOnboardingVariant(session.shop);
+
+  // Load tasks based on variant
+  const tasks = await getTasksForVariant(session.shop, variant);
+
+  return json({ tasks, variant });
+}
+```
 
 ---
 
@@ -963,6 +1465,222 @@ enum OnboardingGoal {
   AOV_INCREASE     // Increase average order value
 }
 ```
+
+#### 3. OnboardingTask (Enhanced State Machine Model)
+
+```prisma
+model OnboardingTask {
+  id            String            @id @default(uuid())
+  shopId        String            // FK to ShopSettings.shop
+  taskId        OnboardingTaskId  // Enum of predefined tasks
+  state         TaskState         @default(PENDING)
+  metadata      Json?             // Task-specific data (e.g., Shopify resource IDs)
+  completedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([shopId, taskId])  // One task per shop
+  @@index([shopId, state])
+  @@index([state, createdAt]) // For reminder queries
+}
+
+enum OnboardingTaskId {
+  SYNC_ORDERS              // Import historical orders
+  CREATE_TIERS             // Set up loyalty tiers
+  SYNC_CUSTOMERS           // Import customer data
+  CONFIGURE_SETTINGS       // Configure store settings
+  INSTALL_WIDGET           // Install storefront widget
+  CREATE_EARNING_RULE      // Set up first earning rule
+  TEST_STOREFRONT          // Verify widget on live storefront
+}
+
+enum TaskState {
+  PENDING       // Not started
+  IN_PROGRESS   // Merchant actively working
+  VERIFYING     // System checking completion (e.g., webhook received)
+  COMPLETED     // Finished successfully
+  SKIPPED       // Merchant chose to skip
+  FAILED        // Encountered error, can retry
+}
+```
+
+#### 4. OnboardingEvent (Enhanced with Processing Status)
+
+```prisma
+model OnboardingEvent {
+  id                String    @id @default(uuid())
+  shopId            String
+  taskId            String?   // Optional: link to OnboardingTask.id
+  eventType         OnboardingEventType
+  payload           Json?     // Event data (webhook body, user action, etc.)
+  processingStatus  EventProcessingStatus @default(PENDING)
+  processedAt       DateTime?
+  errorMessage      String?
+  retryCount        Int       @default(0)
+  createdAt         DateTime  @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([eventType])
+  @@index([processingStatus, createdAt]) // For queue reconciliation
+}
+
+enum OnboardingEventType {
+  ONBOARDING_STARTED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_SKIPPED
+  TASK_FAILED
+  REMINDER_SENT
+  WEBHOOK_RECEIVED
+  ONBOARDING_COMPLETED
+  ONBOARDING_DISMISSED
+}
+
+enum EventProcessingStatus {
+  PENDING     // In queue, not processed yet
+  PROCESSING  // Currently being processed
+  PROCESSED   // Successfully completed
+  FAILED      // Failed after retries, needs manual intervention
+}
+```
+
+### API Endpoints
+
+**Onboarding API Routes** (Remix loaders & actions):
+
+| Route | Method | Description | Authentication |
+|-------|--------|-------------|----------------|
+| `/api/onboarding/tasks` | GET | Returns list of tasks with current state for authenticated shop. Uses session token to look up shop. | Session token (App Bridge) |
+| `/api/onboarding/tasks/:taskId/start` | POST | Marks task as `IN_PROGRESS`. Logs event, returns updated task state. | Session token |
+| `/api/onboarding/tasks/:taskId/complete` | POST | Marks task as `COMPLETED` or `SKIPPED`. Updates `completedAt`, publishes `TASK_COMPLETED` event to queue, calls RewardsPro services if needed, re-computes `onboardingCompleted` on `ShopSettings`. | Session token |
+| `/api/onboarding/tasks/:taskId/retry` | POST | Resets task from `FAILED` to `IN_PROGRESS` for retry. | Session token |
+| `/api/onboarding/progress` | GET | Returns overall progress (% complete, current step, next action). | Session token |
+| `/api/onboarding/feature-gate` | GET | Checks feature flag (via Unleash) and returns whether onboarding v2 is enabled for shop. | Session token |
+| `/webhooks/onboarding/*` | POST | Receives Shopify webhooks (script_tag/create, app/uninstalled, etc.). Validates HMAC, logs in `OnboardingEvent`, triggers state machine transitions. | HMAC signature |
+
+### Event-Outbox Pattern for Reliability
+
+To ensure transactional consistency between database updates and event publishing:
+
+```typescript
+// app/services/onboarding.service.ts
+export async function completeTask(
+  shopId: string,
+  taskId: string,
+  metadata?: any
+): Promise<OnboardingTask> {
+  return await db.$transaction(async (tx) => {
+    // 1. Update task state
+    const task = await tx.onboardingTask.update({
+      where: { shopId_taskId: { shopId, taskId } },
+      data: {
+        state: 'COMPLETED',
+        completedAt: new Date(),
+        metadata
+      }
+    });
+
+    // 2. Log event in database (outbox)
+    await tx.onboardingEvent.create({
+      data: {
+        id: uuidv4(),
+        shopId,
+        taskId: task.id,
+        eventType: 'TASK_COMPLETED',
+        payload: { taskId, metadata },
+        processingStatus: 'PENDING',
+        createdAt: new Date()
+      }
+    });
+
+    // 3. Check if all tasks complete
+    const allTasks = await tx.onboardingTask.findMany({
+      where: { shopId }
+    });
+
+    const allComplete = allTasks.every(t =>
+      t.state === 'COMPLETED' || t.state === 'SKIPPED'
+    );
+
+    if (allComplete) {
+      await tx.shopSettings.update({
+        where: { shop: shopId },
+        data: { onboardingCompleted: true }
+      });
+
+      await tx.onboardingEvent.create({
+        data: {
+          id: uuidv4(),
+          shopId,
+          eventType: 'ONBOARDING_COMPLETED',
+          processingStatus: 'PENDING',
+          createdAt: new Date()
+        }
+      });
+    }
+
+    return task;
+  });
+
+  // 4. After transaction commits, publish to queue asynchronously
+  // (Worker polls OnboardingEvent table for PENDING events)
+}
+```
+
+---
+
+## Risk Assessment & Mitigation
+
+| Risk | Impact | Likelihood | Mitigation Strategy |
+|------|--------|------------|---------------------|
+| **Transactional Consistency** <br> Task marked complete but event not published or RewardsPro service call fails | High | Medium | Use event-outbox pattern: persist events in database within transaction, then publish asynchronously. Implement reconciliation job to retry failed events. |
+| **Event Queue Saturation** <br> Self-hosted Redis queue overwhelmed during promotional spikes | High | Medium | Start with Bull+Redis for MVP, monitor queue depth. Upgrade to AWS EventBridge for high-scale production. Set up auto-scaling for worker processes. |
+| **Feature Flag Complexity** <br> Too many flags lead to flag debt, confusion, and maintenance burden | Medium | High | Adopt flag lifecycle management: short-lived flags, clear ownership, monthly cleanup schedule. Use naming convention: `<feature>_<variant>_<version>`. |
+| **Data Model Migration** <br> Adding new tables breaks existing shops, requires backfill scripts | Medium | Low | Write careful Prisma migrations with expand-and-contract pattern. Seed default tasks for new shops on install. Backfill existing shops with script (mark onboarding complete if shop has tiers/customers). |
+| **Privacy Compliance** <br> Retaining onboarding data longer than necessary violates GDPR/CCPA | High | Medium | Implement 12-month retention policy with automated purge job. Provide merchant-facing "Delete my data" API. Log retention period in privacy policy. |
+| **State Machine Complexity** <br> As tasks evolve, state machine becomes unwieldy with many states/transitions | Medium | Medium | Start simple with 5 core states. Document state diagrams clearly. If flows become highly branched (>10 tasks), consider upgrading to workflow engine like Temporal. |
+| **Webhook Reliability** <br> Shopify webhooks delayed, duplicated, or missed entirely | High | High | Implement idempotency checks using `X-Shopify-Webhook-Id`. Run daily reconciliation job to query Shopify GraphQL for missing data (e.g., check if widget still installed). Handle webhook processing <5s to avoid timeouts. |
+| **Cross-Service Dependencies** <br> Onboarding task requires calling RewardsPro service that is down or slow | Medium | Medium | Use circuit breaker pattern to fail fast. Retry failed service calls via queue. Provide manual override in admin UI to mark task complete if service is unavailable. |
+| **Session Persistence** <br> Merchant switches devices or browsers, loses onboarding progress | Medium | Low | Store all state in Aurora database (not client localStorage). Use shared session store (Redis) or JWTs for horizontal scaling. Test cross-device scenarios in QA. |
+
+---
+
+## Prioritized Backlog of Technical Enablers
+
+### Phase 0: Foundation (Pre-MVP, 1-2 sprints)
+
+| Priority | Enabler | Description | Effort | Dependencies |
+|----------|---------|-------------|--------|--------------|
+| **P0** | **Data Model & Migration** | Design and add `OnboardingTask`, `OnboardingEvent`, enhanced `OnboardingEventType` enums to Prisma schema. Write migration scripts. Seed default tasks on shop creation. Backfill existing shops. | 5 days | None |
+| **P0** | **API Endpoints** | Implement secure Remix routes for fetching tasks, updating task status, checking progress. Validate session tokens. Scope queries to authenticated shop. | 3 days | Data model |
+| **P0** | **State Machine Foundation** | Choose library (XState or bespoke). Define 5 core states (pending, in_progress, verifying, completed, failed). Implement `transitionTask()` function. Persist state in Aurora. | 3 days | Data model |
+
+### Phase 1: MVP (2-3 sprints)
+
+| Priority | Enabler | Description | Effort | Dependencies |
+|----------|---------|-------------|--------|--------------|
+| **P1** | **Event Queue Infrastructure** | Deploy Bull + Redis queue. Write producer logic (publish from API routes). Write consumer workers (process TASK_COMPLETED, SEND_REMINDER). Implement dead-letter queue. | 5 days | API endpoints |
+| **P1** | **Webhook Integration** | Register mandatory webhooks (APP_UNINSTALLED, GDPR). Add optional webhooks (script_tag/create, products/update). Implement HMAC validation. Add idempotency checks. Link webhook events to task state machine. | 4 days | State machine, event queue |
+| **P1** | **Frontend Wizard & Checklist** | Build React components for 4-step wizard and persistent checklist. Connect to API endpoints. Show progress bar, confetti on completion. Implement skip/dismiss functionality. | 5 days | API endpoints |
+| **P1** | **Event-Outbox Pattern** | Wrap task updates in Prisma transactions. Persist events in database before publishing. Implement worker that polls `processingStatus=PENDING` events and publishes to queue. | 3 days | Event queue |
+
+### Phase 2: Production-Ready (2 sprints)
+
+| Priority | Enabler | Description | Effort | Dependencies |
+|----------|---------|-------------|--------|--------------|
+| **P2** | **Feature Flag Integration** | Integrate Unleash (self-hosted) or LaunchDarkly. Create flags for onboarding v2, task variants. Implement server-side evaluation with shop context. | 3 days | None (parallel with Phase 1) |
+| **P2** | **Admin & Monitoring Tools** | Build internal admin UI for viewing onboarding progress per shop. Manual override controls. Set up DataDog dashboards for queue depth, job failures, completion rates. Configure alerts. | 4 days | MVP complete |
+| **P2** | **Authentication & Session Enhancements** | Move to shared Redis session store or JWT-based tokens for horizontal scaling. Implement cross-device continuity tests. | 3 days | None (parallel) |
+| **P2** | **Telemetry Pipeline** | Hook onboarding events into Mixpanel/Amplitude. Define metrics (TTFV, drop-off rate, completion rate). Create onboarding analytics dashboard. | 3 days | MVP complete |
+
+### Phase 3: Optimization (Ongoing)
+
+| Priority | Enabler | Description | Effort | Dependencies |
+|----------|---------|-------------|--------|--------------|
+| **P3** | **Reconciliation & Cron Jobs** | Implement daily cron to reconcile Shopify data (query GraphQL for widget status, product configs). Purge onboarding events older than 12 months. Send reminders for incomplete tasks >3 days old. | 3 days | MVP complete |
+| **P3** | **Circuit Breaker for External Services** | Wrap RewardsPro service calls in circuit breaker (fail fast after N failures). Implement retry logic with exponential backoff. | 2 days | MVP complete |
+| **P3** | **Upgrade Event Queue (if needed)** | Migrate from Bull+Redis to AWS EventBridge or Google Pub/Sub for higher scale and managed reliability. | 5 days | Production data on queue saturation |
+| **P3** | **Documentation & Training** | Write architecture docs with state machine diagrams, event flows, admin procedures. Train developers and support staff on how to operate and debug onboarding system. | 3 days | Production deployment |
 
 ---
 
