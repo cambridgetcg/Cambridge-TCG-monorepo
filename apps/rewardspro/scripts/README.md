@@ -39,6 +39,49 @@ npx tsx scripts/delete-all-orders.ts my-store.myshopify.com
 - Provides 5-second countdown before deletion
 - Can be cancelled with Ctrl+C
 
+---
+
+### Delete All Customers for Shop
+
+Deletes all customers and ALL related data for a specific shop. Useful for testing customer sync or cleaning up test data.
+
+**⚠️ WARNING: This is EXTREMELY DESTRUCTIVE and cannot be undone!**
+
+```bash
+npx tsx scripts/delete-shop-customers.ts <shop-domain>
+```
+
+**Example:**
+```bash
+npx tsx scripts/delete-shop-customers.ts my-store.myshopify.com
+```
+
+**What it deletes:**
+- All customers for the specified shop
+- All subscription events
+- All app-level subscriptions
+- All tier subscriptions
+- All tier purchases
+- All tier change logs
+- All order refund line items
+- All order refunds
+- All order line items
+- All orders
+- All store credit ledger entries
+
+**Safety features:**
+- Validates shop domain format
+- Shows detailed count of ALL records to be deleted
+- Requires typing the exact shop domain to confirm
+- Respects foreign key constraints (deletes in correct order)
+- Provides detailed deletion summary with timing
+
+**Use cases:**
+- Testing customer sync functionality
+- Cleaning up test shop data
+- Resetting a shop to initial state
+- Removing all data before re-importing
+
 ## Adding New Scripts
 
 When creating new scripts:

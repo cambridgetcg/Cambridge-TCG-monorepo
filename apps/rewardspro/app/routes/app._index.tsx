@@ -48,6 +48,8 @@ import {
 import { CurrentPlanCard } from "~/components/Billing";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
+import { OnboardingChecklist, type OnboardingProgress } from "~/components/OnboardingChecklist";
+import { AutoSyncStatus, type SyncStatus } from "~/components/AutoSyncStatus";
 
 // ============================================
 // CONSTANTS
@@ -211,7 +213,46 @@ interface DashboardData {
   } | null;
   currentMonth: string;
   daysRemaining: number;
+  // Onboarding progress
+  onboardingProgress: OnboardingProgress;
+  // Auto-sync status
+  autoSyncStatus: SyncStatus | null;
 }
+
+// ============================================
+// ACTION - Handle onboarding actions
+// ============================================
+
+export const action = async ({ request }: LoaderFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+
+  if (!session?.shop) {
+    throw new Response("Unauthorized", { status: 401 });
+  }
+
+  const formData = await request.formData();
+  const actionType = formData.get("action");
+
+  if (actionType === "dismiss_onboarding") {
+    await db.shopSettings.update({
+      where: { shop: session.shop },
+      data: { onboardingDismissed: true },
+    });
+
+    return json({ success: true, message: "Onboarding dismissed" });
+  }
+
+  if (actionType === "complete_onboarding") {
+    await db.shopSettings.update({
+      where: { shop: session.shop },
+      data: { onboardingCompleted: true },
+    });
+
+    return json({ success: true, message: "Onboarding completed" });
+  }
+
+  return json({ success: false, error: "Invalid action" }, { status: 400 });
+};
 
 // ============================================
 // LOADER - Fetch dashboard data
@@ -493,6 +534,40 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         : billingPlan.updatedAt,
     } : null;
 
+    // Get onboarding progress from shop settings
+    const onboardingProgress: OnboardingProgress = {
+      syncedOrders: shopSettings?.onboardingSyncedOrders ?? false,
+      createdTiers: shopSettings?.onboardingCreatedTiers ?? false,
+      syncedCustomers: shopSettings?.onboardingSyncedCustomers ?? false,
+      configuredSettings: shopSettings?.onboardingConfiguredSettings ?? false,
+      completed: shopSettings?.onboardingCompleted ?? false,
+      dismissed: shopSettings?.onboardingDismissed ?? false,
+    };
+
+    // Get auto-sync status
+    let autoSyncStatus: SyncStatus | null = null;
+    try {
+      const syncStatusRecord = await db.syncStatus.findUnique({
+        where: {
+          shop_syncType: {
+            shop,
+            syncType: 'auto-install'
+          }
+        }
+      });
+
+      if (syncStatusRecord) {
+        autoSyncStatus = {
+          status: syncStatusRecord.status as 'IDLE' | 'RUNNING' | 'COMPLETED' | 'FAILED',
+          lastSyncAt: syncStatusRecord.lastSyncAt,
+          errorMessage: syncStatusRecord.errorMessage,
+          recordsProcessed: syncStatusRecord.recordsProcessed,
+        };
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to fetch auto-sync status:', error);
+    }
+
     const dashboardData: DashboardData = {
       shop,
       metrics: {
@@ -517,6 +592,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       monthlyOrderUsage,
       currentMonth,
       daysRemaining,
+      // Onboarding progress
+      onboardingProgress,
+      // Auto-sync status
+      autoSyncStatus,
     };
 
     console.log(`[Dashboard] Returning data for ${shop}`);
@@ -614,6 +693,23 @@ export default function Dashboard() {
       ]}
     >
       <Layout>
+        {/* Auto-Sync Status */}
+        {data.autoSyncStatus && (
+          <Layout.Section>
+            <AutoSyncStatus syncStatus={data.autoSyncStatus} />
+          </Layout.Section>
+        )}
+
+        {/* Onboarding Checklist */}
+        {!data.onboardingProgress.completed && !data.onboardingProgress.dismissed && (
+          <Layout.Section>
+            <OnboardingChecklist
+              progress={data.onboardingProgress}
+              shop={data.shop}
+            />
+          </Layout.Section>
+        )}
+
         {/* Key Metrics Overview */}
         <Layout.Section>
           <StatsOverview
