@@ -16,16 +16,20 @@
       "routes/webhooks.subscription-billing-failure": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.subscription-billing-success": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.cancelled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.order-rewards": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.created": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app-subscriptions-update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.locales.$locale": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.customers.data-request": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-subscriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/apps.rewardspro.membership": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-maintenance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.customers.redact": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -39,6 +43,7 @@
       "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid.old": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.shop.redact": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.proxy.locales.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -137,6 +142,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.customer-account.order-rewards": {
+        "id": "routes/api.customer-account.order-rewards",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.order-rewards.tsx",
+        "path": "api/customer-account/order-rewards",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/webhooks.tier-subscription.billing": {
         "id": "routes/webhooks.tier-subscription.billing",
         "parentId": "root",
@@ -182,6 +196,24 @@
           "runtime": "nodejs"
         }
       },
+      "routes/webhooks.customers.data-request": {
+        "id": "routes/webhooks.customers.data-request",
+        "parentId": "root",
+        "file": "app/routes/webhooks.customers.data-request.tsx",
+        "path": "webhooks/customers/data-request",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-account.loyalty": {
+        "id": "routes/api.customer-account.loyalty",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.loyalty.tsx",
+        "path": "api/customer-account/loyalty",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.customer-subscriptions": {
         "id": "routes/api.customer-subscriptions",
         "parentId": "root",
@@ -223,6 +255,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.customers.create.tsx",
         "path": "webhooks/customers/create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.customers.redact": {
+        "id": "routes/webhooks.customers.redact",
+        "parentId": "root",
+        "file": "app/routes/webhooks.customers.redact.tsx",
+        "path": "webhooks/customers/redact",
         "config": {
           "runtime": "nodejs"
         }
@@ -341,6 +382,15 @@
         "file": "app/routes/webhooks.orders.paid.old.tsx",
         "path": "old",
         "config": {}
+      },
+      "routes/webhooks.shop.redact": {
+        "id": "routes/webhooks.shop.redact",
+        "parentId": "root",
+        "file": "app/routes/webhooks.shop.redact.tsx",
+        "path": "webhooks/shop/redact",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/webhooks.shop.update": {
         "id": "routes/webhooks.shop.update",
@@ -718,6 +768,12 @@
         "file": "routes/webhooks.tier-subscription.cancelled.tsx",
         "path": "webhooks/tier-subscription/cancelled"
       },
+      "routes/api.customer-account.order-rewards": {
+        "id": "routes/api.customer-account.order-rewards",
+        "parentId": "root",
+        "file": "routes/api.customer-account.order-rewards.tsx",
+        "path": "api/customer-account/order-rewards"
+      },
       "routes/webhooks.tier-subscription.billing": {
         "id": "routes/webhooks.tier-subscription.billing",
         "parentId": "root",
@@ -748,6 +804,18 @@
         "file": "routes/apps.rewardspro.locales.$locale.tsx",
         "path": "apps/rewardspro/locales/:locale"
       },
+      "routes/webhooks.customers.data-request": {
+        "id": "routes/webhooks.customers.data-request",
+        "parentId": "root",
+        "file": "routes/webhooks.customers.data-request.tsx",
+        "path": "webhooks/customers/data-request"
+      },
+      "routes/api.customer-account.loyalty": {
+        "id": "routes/api.customer-account.loyalty",
+        "parentId": "root",
+        "file": "routes/api.customer-account.loyalty.tsx",
+        "path": "api/customer-account/loyalty"
+      },
       "routes/api.customer-subscriptions": {
         "id": "routes/api.customer-subscriptions",
         "parentId": "root",
@@ -777,6 +845,12 @@
         "parentId": "root",
         "file": "routes/webhooks.customers.create.tsx",
         "path": "webhooks/customers/create"
+      },
+      "routes/webhooks.customers.redact": {
+        "id": "routes/webhooks.customers.redact",
+        "parentId": "root",
+        "file": "routes/webhooks.customers.redact.tsx",
+        "path": "webhooks/customers/redact"
       },
       "routes/webhooks.customers.update": {
         "id": "routes/webhooks.customers.update",
@@ -855,6 +929,12 @@
         "parentId": "routes/webhooks.orders.paid",
         "file": "routes/webhooks.orders.paid.old.tsx",
         "path": "old"
+      },
+      "routes/webhooks.shop.redact": {
+        "id": "routes/webhooks.shop.redact",
+        "parentId": "root",
+        "file": "routes/webhooks.shop.redact.tsx",
+        "path": "webhooks/shop/redact"
       },
       "routes/webhooks.shop.update": {
         "id": "routes/webhooks.shop.update",
