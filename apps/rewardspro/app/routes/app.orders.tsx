@@ -1222,7 +1222,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const syncService = new OrderSyncService(admin, {
           shop,
           batchSize: 50,
-          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+          startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // Last 1 year
         });
 
         // Start sync in background (in production, use a queue)
