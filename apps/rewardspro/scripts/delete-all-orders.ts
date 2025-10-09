@@ -12,6 +12,10 @@
  */
 
 import { RDSDataClient, ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
+import * as dotenv from "dotenv";
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Validate environment variables
 const requiredEnvVars = [
