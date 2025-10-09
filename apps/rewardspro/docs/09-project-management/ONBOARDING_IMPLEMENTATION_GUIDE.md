@@ -11,19 +11,20 @@
 1. [Executive Summary](#executive-summary)
 2. [Benchmark Analysis: B2B SaaS Examples](#benchmark-analysis-b2b-saas-examples)
 3. [Presentation Modalities Deep Dive](#presentation-modalities-deep-dive)
-4. [Architecture Overview](#architecture-overview)
-5. [Database Schema](#database-schema)
-6. [Phase 1: MVP Implementation](#phase-1-mvp-implementation)
-7. [Phase 2: Enhanced Personalization](#phase-2-enhanced-personalization)
-8. [Phase 3: Advanced Features](#phase-3-advanced-features)
-9. [UI/UX Patterns & Components](#uiux-patterns--components)
-10. [Analytics & Instrumentation](#analytics--instrumentation)
-11. [A/B Testing Plan](#ab-testing-plan)
-12. [Accessibility & Responsive Design](#accessibility--responsive-design)
-13. [Email Onboarding Sequences](#email-onboarding-sequences)
-14. [Testing Strategy](#testing-strategy)
-15. [Performance Considerations](#performance-considerations)
-16. [Open Questions & Risks](#open-questions--risks)
+4. [Merchant Personas & Journey Maps](#merchant-personas--journey-maps)
+5. [Architecture Overview](#architecture-overview)
+6. [Database Schema](#database-schema)
+7. [Phase 1: MVP Implementation](#phase-1-mvp-implementation)
+8. [Phase 2: Enhanced Personalization](#phase-2-enhanced-personalization)
+9. [Phase 3: Advanced Features](#phase-3-advanced-features)
+10. [UI/UX Patterns & Components](#uiux-patterns--components)
+11. [Analytics & Instrumentation](#analytics--instrumentation)
+12. [A/B Testing Plan](#ab-testing-plan)
+13. [Accessibility & Responsive Design](#accessibility--responsive-design)
+14. [Email Onboarding Sequences](#email-onboarding-sequences)
+15. [Testing Strategy](#testing-strategy)
+16. [Performance Considerations](#performance-considerations)
+17. [Open Questions & Risks](#open-questions--risks)
 
 ---
 
@@ -819,6 +820,716 @@ export default function LoyaltyWidget({ api }: { api: CustomerAccountUIExtension
 - Link to help docs
 
 **Total Time**: < 7 minutes (meets TTFV goal)
+
+---
+
+## Merchant Personas & Journey Maps
+
+### Overview
+
+RewardsPro serves two primary merchant personas with distinct needs, pain points and onboarding requirements. Understanding these personas enables targeted journey design that balances ease of use (for small businesses) with necessary configuration depth (for enterprises). This section synthesizes research from loyalty program experts, user onboarding literature and existing platforms[1][4][6][8].
+
+### Primary Personas
+
+#### Persona 1: Small Business Owner ("Sarah")
+
+**Description & Motivation**:
+- Runs a single or small set of Shopify stores with limited staff
+- Wants a loyalty program to drive repeat purchases, referrals and brand community
+- Lacks deep technical expertise and has a tight marketing budget
+- Time-poor and often handles multiple roles (owner, marketer, support)
+
+**Pain Points**:
+- Needs low-cost, easy-to-use tools that integrate smoothly with Shopify and POS systems
+- App installation, configuration and widget placement should not require coding
+- Limited time to invest in complex setup or ongoing program management
+- Requires quick wins to justify continued investment
+
+**Platform Needs**:
+- Free or low-priced plans with clear value at each tier
+- Integration with Shopify Flow and POS for automated workflows
+- Basic points and referral rewards with optional VIP tiers
+- Automated notifications to reduce manual work
+- Simple analytics to track program performance
+- White-label branding and social media integration for marketing[1]
+- Pre-built templates and sensible defaults to minimize configuration
+
+**Success Criteria**:
+- Complete onboarding in < 30 minutes
+- Issue first loyalty transaction within 24 hours
+- Minimal support requests during setup
+- Active program usage (points issued/redeemed weekly)
+
+---
+
+#### Persona 2: Enterprise E-Commerce Manager ("Michael")
+
+**Description & Motivation**:
+- Oversees a multi-store or omnichannel retail business with large order volumes
+- Company already runs a loyalty program and wants to migrate or upgrade to RewardsPro for deeper engagement
+- Works with IT and marketing teams; decisions require stakeholder approval
+- Needs to demonstrate ROI and ensure scalability before full rollout
+
+**Pain Points**:
+- Complex systems require robust APIs and 360-degree integration (POS, ERP, CRM)
+- Concerned about scalability, data privacy, compliance and customization
+- Needs employee engagement features and advanced analytics to demonstrate ROI
+- Legacy data migration is critical to preserve customer trust
+- Requires custom workflows and approval processes
+
+**Platform Needs**:
+- Ability to process millions of transactions with guaranteed uptime
+- Real-time dashboards and predictive analytics for data-driven decisions[2]
+- Multi-channel integration (web, mobile, in-store) with unified customer profiles[3]
+- Personalized rewards and flexible multi-tier structures
+- Advanced segmentation for targeted campaigns[2]
+- Security features: encryption, audit trails, GDPR compliance[2]
+- API/webhook access for custom integrations
+- Dedicated support and implementation guidance
+
+**Success Criteria**:
+- Complete strategy and planning within 1-4 weeks
+- Successful pilot launch with measurable KPIs
+- Smooth legacy data migration with zero customer impact
+- Full launch across all channels within 3-4 months
+- Continuous optimization based on analytics insights
+
+---
+
+### Onboarding Task Inventory & Prioritization
+
+The following tasks were compiled from research on implementing loyalty programs and onboarding flows[4][6][9][10][11][12]. Each task is categorized by effort (low/medium/high), dependency and impact on activation. Early tasks deliver quick wins to encourage progress; later tasks add sophistication.
+
+#### Task Matrix
+
+| Phase | Task | Effort | Dependency/Notes | Impact Rationale |
+|-------|------|--------|------------------|------------------|
+| **1. Setup & Basic Configuration** | | | | |
+| | 1.1 Install RewardsPro from Shopify App Store and grant permissions | Low | Starting point; required for any action | Ensures connection to store and data |
+| | 1.2 Connect store data and import orders/customers (optional back-date) | Medium | Requires installation and permissions | Allows calculating points on past orders and seeding members – recommended for migrating programs[4] |
+| | 1.3 Define program basics: program name, currency, brand colors | Low | Precedes any earning rules and design[4] | Establishes the brand's identity and displays in widgets |
+| | 1.4 Enable required accounts and authentication (ensure customer accounts enabled, choose SSO) | Low | Works with Shopify settings; must be done before points are awarded | Ensures shoppers can join the program |
+| **2. Core Earning & Redeeming Rules** | | | | |
+| | 2.1 Set base earn rate (points per currency unit) and redemption rate | Medium | Requires program basics | Determines program economics; early setting provides quick win (customers can start earning points)[4] |
+| | 2.2 Configure earn actions beyond purchases (e.g., account creation, social share, referrals) | Medium | Dependent on store integration; optional | Encourages engagement; start with essential actions to avoid overload (progressive disclosure)[5] |
+| | 2.3 Define redemption options (discounts, free products, charitable donations) | Medium | Dependent on earn rate | Align rewards with value to boost redemption rates[6] |
+| **3. Tier Structure & Segmentation** | | | | |
+| | 3.1 Decide whether to enable VIP tiers; if yes, define tier thresholds and benefits | Medium–High | Requires earn/redemption rates; optional for small merchants | Increases long-term loyalty; advanced feature for enterprises[4] |
+| | 3.2 Create customer segments (e.g., new vs existing members; high-value vs low) | Medium | Follows data import; optional for small merchants | Enables personalized journeys and targeted rewards[7] |
+| **4. Program Experience & Branding** | | | | |
+| | 4.1 Design loyalty widgets (header bar, floating button) and embed them on store | Medium | Requires program basics and earn rules | Provides visible touchpoint; customizing color and messaging strengthens brand identity[6] |
+| | 4.2 Create dedicated loyalty page with tiers, FAQs, and benefits | Medium | Follows design guidelines; optional for small merchants | Educates customers; reduces confusion and support queries[8] |
+| | 4.3 Customize email templates (welcome, reward earned/redeemed, tier upgrades) | Medium | Dependent on messaging strategy | Reinforces brand voice and ensures communication; crucial for small merchants with limited marketing resources[8] |
+| **5. Advanced Settings & Integrations** | | | | |
+| | 5.1 Integrate with marketing tools (Klaviyo, Mailchimp) and POS/CRM systems | Medium–High | Optional; more relevant for enterprise persona | Allows automated campaigns, analytics and offline redemption; enterprise requires 360-degree integration[2] |
+| | 5.2 Implement API/webhooks for custom experiences | High | Requires developer resources; for enterprise | Enables unique workflows and advanced personalization |
+| | 5.3 Migrate legacy loyalty data (points balances, tier status) | High | For merchants switching from another provider; may require CSV import and mapping | Preserves customer trust; critical for enterprises |
+| **6. Testing & Launch** | | | | |
+| | 6.1 Activate sandbox or preview mode to test earning and redemption flows | Low | Should happen before full launch; available in many loyalty apps | Identifies issues and ensures program mechanics work as expected[9] |
+| | 6.2 Run soft launch (beta) to a small customer cohort; gather feedback | Medium | Follows sandbox testing | Validates user experience; informs final adjustments[9] |
+| | 6.3 Full launch and promotion | Medium | After testing; needs marketing content and trained staff[10] | Drives initial adoption; success depends on promotional efforts |
+| **7. Post-Launch & Optimization** | | | | |
+| | 7.1 Monitor KPIs and review program performance | Ongoing | After launch; requires analytics tooling | Allows continuous improvement; measure redemption, engagement, retention[6] |
+| | 7.2 Educate staff and update program rules based on feedback | Medium | Ongoing | Enhances program clarity and reduces support tickets[8] |
+| | 7.3 Plan periodic campaigns (double points days, surprise rewards) | Medium | Ongoing; depends on resources | Keeps members engaged; fosters emotional connection[6] |
+
+---
+
+### Journey Map for Small Business Persona (Sarah)
+
+**Goal**: Launch a simple loyalty program quickly to drive repeat purchases and referrals without heavy technical setup.
+
+#### Timeline: 2 Weeks to Launch
+
+**Phase 1: Install & Connect (Day 0)**
+
+*Duration: 15-20 minutes*
+
+**Tasks**:
+1. Install RewardsPro via Shopify App Store and grant permissions
+2. Ensure customer accounts are enabled in Shopify settings
+3. Import existing customers and orders for historical context (optional but recommended)
+4. Define program name, currency and brand colors for the widget
+
+**Expected Outcome**: Store connected, basic program identity established
+
+**Key Success Metrics**:
+- Installation completion rate: >95%
+- Time to complete: <20 minutes
+- Support tickets: <5% of installs
+
+---
+
+**Phase 2: Quick Wins (Days 1-3)**
+
+*Duration: 30-45 minutes spread over 3 days*
+
+**Tasks**:
+1. Set base earn rate and redemption rate to allow members to earn and redeem points immediately
+   - Use default rules to reduce cognitive load
+   - Example: 1 point per $1 spent, 100 points = $1 discount
+2. Enable common earn actions gradually using progressive disclosure[5]:
+   - Start with account creation bonus (e.g., 100 points)
+   - Add social share rewards (e.g., 50 points per Instagram share)
+   - Enable referral program (e.g., referrer gets 200 points, friend gets 10% off)
+3. **Skip advanced tiers initially** – focus on simple points and referrals
+
+**Expected Outcome**: Core earning and redemption mechanics functional; customers can start earning points
+
+**Key Success Metrics**:
+- Configuration completion rate: >80%
+- First loyalty transaction within 24 hours: >30%
+- Earn actions enabled: ≥2 actions
+
+**Progressive Disclosure Strategy**:
+- Show only essential earn actions first (purchase, account creation)
+- Surface advanced actions (social share, referrals) in Phase 3
+- Avoid overwhelming merchant with all 10+ possible actions upfront
+
+---
+
+**Phase 3: Customize Experience (Days 3-7)**
+
+*Duration: 45-60 minutes*
+
+**Tasks**:
+1. Design and embed loyalty widgets:
+   - Customize colors to match store brand
+   - Choose widget position (header bar or floating button)
+   - Preview on desktop and mobile before publishing
+2. Set up referral program to leverage word-of-mouth:
+   - Define referrer and friend rewards
+   - Customize referral link message
+   - Test referral flow with test customer
+3. Create a loyalty page (optional) summarizing how to earn and redeem points:
+   - Include FAQ section[8]
+   - Add clear value proposition ("Earn 5% back on every purchase")
+   - Link from navigation menu
+4. Design simple email templates:
+   - Welcome email when customer joins program
+   - Reward earned notification
+   - Reward redeemed confirmation[8]
+
+**Expected Outcome**: Program visually branded, customer-facing touchpoints configured, automated communications enabled
+
+**Key Success Metrics**:
+- Widget embed completion: >70%
+- Email template customization: >60%
+- Loyalty page created: >40% (optional feature)
+
+---
+
+**Phase 4: Soft Launch & Promotion (Week 2)**
+
+*Duration: 1-2 hours*
+
+**Tasks**:
+1. Test the program using sandbox mode or test customer accounts:
+   - Verify points accrue correctly after purchase
+   - Test discount code redemption
+   - Check email notifications fire[9]
+2. Launch to all customers and announce via multiple channels:
+   - Email announcement with program benefits
+   - Pop-up or banner on website
+   - Social media posts
+   - Offer a small sign-up bonus for early participation (e.g., 100 bonus points)
+
+**Expected Outcome**: Program live and promoted to customer base
+
+**Key Success Metrics**:
+- Program activation rate: >25% (from onboarding completion benchmarks)
+- Customer enrollment rate: >10% within first week
+- First redemption rate: >5% within first week
+
+---
+
+**Phase 5: Optimize & Grow (Month 1+)**
+
+*Ongoing*
+
+**Tasks**:
+1. Monitor KPIs such as:
+   - Enrollment rate (% of customers who join)
+   - Redemption rate (% of earned points redeemed)
+   - Engagement rate (% of members who earn points in last 30 days)
+   - Repeat purchase rate for members vs non-members
+2. Adjust earn rates or add special earn actions as needed:
+   - Birthday rewards (e.g., 2x points on birthday month)
+   - Product review rewards
+   - Milestone bonuses (e.g., 500 bonus points after 10 purchases)
+3. Introduce VIP tiers once the base program is stable:
+   - Define 2-3 tiers (e.g., Bronze, Silver, Gold)
+   - Set spend thresholds based on customer data
+   - Offer higher earn rates for top spenders (e.g., Gold members earn 2x points)
+4. Use segmentation to personalize offers and deliver quick wins[7]:
+   - Target lapsed customers with bonus point offers
+   - Reward high-spenders with exclusive perks
+   - Re-engage one-time purchasers with referral incentives
+
+**Expected Outcome**: Data-driven program refinement, increased engagement and retention
+
+**Key Success Metrics**:
+- Program engagement rate: >40% (industry benchmark)
+- Redemption rate: 20-40% (healthy range[6])
+- Repeat purchase rate lift: +15-25% for members vs non-members
+- NPS score for program: >40
+
+---
+
+### Journey Map for Enterprise Persona (Michael)
+
+**Goal**: Implement a scalable, customizable loyalty program integrated across channels and aligned with existing systems.
+
+#### Timeline: 3-4 Months to Full Launch
+
+**Phase 1: Discovery & Planning (Weeks 1-4)**
+
+*Duration: 20-30 hours of stakeholder time*
+
+**Tasks**:
+1. Conduct strategy sessions with stakeholders to define:
+   - Program value proposition and positioning
+   - Compliance requirements (GDPR, CCPA, payment card industry)
+   - Earn/burn mechanics and economic model
+   - KPIs and success metrics[11]
+2. Map personas and customer journeys:
+   - Identify key customer segments
+   - Design tier structure and benefits for each segment[12]
+   - Plan personalization and targeting strategies
+3. Audit existing loyalty data and plan migration:
+   - Inventory current points balances, tier statuses, transaction history
+   - Map data fields to RewardsPro schema
+   - Define migration timeline and rollback plan
+4. Assign roles and responsibilities:
+   - IT team: API integrations, data migration, security
+   - Marketing team: program design, communications, campaigns
+   - Customer success team: training, support documentation
+   - Executive sponsor: budget approval, stakeholder alignment
+
+**Expected Outcome**: Comprehensive program strategy document, stakeholder alignment, migration plan finalized
+
+**Key Success Metrics**:
+- Strategy document completed: Yes/No
+- Stakeholder sign-off: All key stakeholders approve
+- Migration plan defined: Yes/No with rollback strategy
+
+**Deliverables**:
+- Program strategy document (15-20 pages)
+- Persona maps and journey flows
+- Economic model with ROI projections
+- Data migration plan with timeline
+- Stakeholder RACI matrix
+
+---
+
+**Phase 2: Development & Integration (Weeks 5-12)**
+
+*Duration: 60-100 hours of development time*
+
+**Tasks**:
+1. Define program basics and set earn/redemption rates:
+   - Program name, currency, brand identity
+   - Base earn rate with adjustments by segment/tier
+   - Design multiple tiers (3-5 tiers) with tailored benefits:
+     - Tier 1: Basic (0-$500 annual spend)
+     - Tier 2: Silver ($500-$2,000)
+     - Tier 3: Gold ($2,000-$5,000)
+     - Tier 4: Platinum ($5,000+)
+2. Build custom UI/UX and integrate RewardsPro API:
+   - Develop custom loyalty dashboard if needed
+   - Integrate with existing systems:
+     - POS: Offline points accrual and redemption
+     - ERP: Sync customer and transaction data
+     - CRM: Unified customer profiles[2]
+     - Marketing automation: Klaviyo, Salesforce Marketing Cloud
+   - Implement webhooks for real-time event processing
+3. Configure advanced earn actions and personalization:
+   - Multi-channel earn actions (web, mobile app, in-store)
+   - Referral program with tiered rewards
+   - Personalized rewards using segmentation and AI-powered recommendations[3]
+4. Import legacy points and tier statuses:
+   - Run migration scripts in staging environment
+   - Validate data accuracy (sample 1,000 customers)
+   - Back-date orders to calculate historical points[4]
+
+**Expected Outcome**: Fully configured program with API integrations, legacy data migrated, staging environment ready for testing
+
+**Key Success Metrics**:
+- API integrations completed: 100% of planned integrations
+- Data migration accuracy: >99.5%
+- Staging environment functional: Yes/No
+- Custom UI/UX approved by stakeholders: Yes/No
+
+**Technical Deliverables**:
+- API integration documentation
+- Data migration validation report
+- Custom UI/UX designs and implementation
+- Webhook configuration and testing results
+
+---
+
+**Phase 3: Pilot Launch (Weeks 13-16)**
+
+*Duration: 20-30 hours of testing and refinement*
+
+**Tasks**:
+1. Run soft launch with a segment of customers (5-10%):
+   - Select diverse cohort representing key segments
+   - Enable program for pilot group only
+   - Monitor KPIs daily during pilot period[9]
+2. Gather feedback and adjust program rules and UI:
+   - Conduct customer surveys (NPS, satisfaction)
+   - Analyze behavioral data (enrollment, engagement, redemption)
+   - Interview 10-15 pilot participants for qualitative insights
+   - Identify and fix bugs or UX issues
+3. Train staff across all touchpoints:
+   - Customer service team: How to answer loyalty questions, manual adjustments
+   - Store associates (if applicable): How to enroll members, process redemptions
+   - Marketing team: Campaign tools and segmentation[10]
+4. Prepare marketing content for full launch:
+   - Email sequences (announcement, education, engagement)
+   - SMS and push notification templates
+   - In-store signage and POS displays
+   - Social media ads and organic content
+   - Website banners and pop-ups
+
+**Expected Outcome**: Validated program with pilot feedback incorporated, staff trained, marketing materials ready
+
+**Key Success Metrics**:
+- Pilot enrollment rate: >40%
+- Pilot engagement rate: >30%
+- Customer satisfaction (NPS): >40
+- Critical bugs identified and resolved: 100%
+- Staff training completion: 100% of customer-facing teams
+
+**Pilot Success Criteria**:
+- Zero critical bugs (program-breaking issues)
+- <10 support tickets per 100 pilot customers
+- Positive NPS trend (score increases week-over-week)
+- Key KPIs meet or exceed targets
+
+---
+
+**Phase 4: Full Launch & Scaling (Weeks 17+)**
+
+*Ongoing*
+
+**Tasks**:
+1. Launch across all channels:
+   - Enable program for 100% of customers
+   - Ensure website, mobile app and in-store systems display loyalty balances and redemption options
+   - Coordinate launch timing across channels (same-day activation)
+2. Execute multi-channel marketing campaign:
+   - Email: Announcement series (3 emails over 2 weeks)
+   - SMS: Launch notification with sign-up link
+   - Push notifications: In-app alerts for mobile users
+   - Social media: Paid ads and organic posts
+   - In-store: Signage, POS prompts, associate training
+3. Continuously monitor performance metrics:
+   - Real-time dashboards tracking enrollment, engagement, redemption
+   - Use predictive analytics to identify churn risks and optimize rewards[2]
+   - Set up automated alerts for anomalies (e.g., redemption rate spike, system errors)
+4. Roll out periodic campaigns and adapt based on data:
+   - Double points days (e.g., holidays, anniversaries)
+   - Birthday rewards with personalized offers
+   - Tier migration campaigns (e.g., "You're $100 away from Gold status!")
+   - Surprise and delight rewards for VIPs
+5. Quarterly program reviews:
+   - Analyze ROI and present to executive team
+   - Identify optimization opportunities (e.g., adjust tier thresholds, add new earn actions)
+   - Plan roadmap for next quarter
+
+**Expected Outcome**: Fully scaled loyalty program driving measurable business impact, continuous optimization based on analytics
+
+**Key Success Metrics**:
+- Program enrollment rate: >50% of customers within 6 months
+- Engagement rate: >40% (industry benchmark)
+- Redemption rate: 30-50% (healthy range for enterprise[6])
+- Repeat purchase rate lift: +20-30% for members vs non-members
+- Customer lifetime value (CLV) lift: +25-35% for active members
+- ROI: 3-5x return on loyalty program investment
+
+**Long-Term Optimization Metrics**:
+- Tier distribution: Balanced across tiers (avoid 90% in lowest tier)
+- Churn rate for loyalty members: <10% annually
+- Net Promoter Score (NPS): >50 for program participants
+- Referral program contribution: 10-15% of new customer acquisition
+
+---
+
+### Journey Swimlane Diagram
+
+Below is a simplified swimlane table showing who owns each step for the two personas. Roles include **Merchant** (Small Business or Enterprise), **RewardsPro Product** (platform features), and **Support/Success** (onboarding assistance and guidance).
+
+| Step | Merchant (Small Business) | Merchant (Enterprise) | RewardsPro Product | Support/Success |
+|------|---------------------------|----------------------|-------------------|----------------|
+| **Install App & Connect Data** | Install app; grant permissions; import customers | Coordinate installation with IT; schedule data migration | Provide seamless installation and importer | Onboard merchants via automated guide; answer basic queries |
+| **Define Basics & Earn Rules** | Set program name, currency, colors; apply default earn/redemption rates | Customize earn/burn rates; design tier structures | Offer templates and calculators | Provide best-practice documentation; review economic models |
+| **Add Earn Actions & Referral Program** | Add simple earn actions; enable referrals | Configure advanced actions and referral tiers | Provide configuration UI; enable referral tracking | Offer recommendations on actions and share promotion materials |
+| **Design Widgets & Loyalty Page** | Customize widget color/text; embed in theme | Build custom UI or integrate via API | Provide widget library and API endpoints | Assist with theme integration and code snippets |
+| **Test & Soft Launch** | Use sandbox to test rules; soft launch to limited customers | Run pilot with selected stores; gather feedback | Offer test modes; analytics | Analyze pilot results; schedule training sessions |
+| **Full Launch & Promotion** | Announce program via email/social; monitor metrics | Launch cross-channel with marketing plan | Deliver transactional emails & notifications | Provide training, monitor support tickets; suggest improvements |
+| **Ongoing Optimization** | Adjust earn rules; add VIP tiers; plan campaigns | Leverage analytics to refine segmentation; integrate new channels | Provide analytics dashboard; advanced segmentation tools | Conduct periodic reviews; share benchmarking insights |
+
+---
+
+### Validation Activities
+
+To ensure the onboarding journeys meet merchant needs and deliver expected outcomes, RewardsPro should conduct the following validation activities throughout development and post-launch:
+
+#### 1. Early-Access Merchant Interviews
+
+**Objective**: Identify friction points and unclear language before wide release
+
+**Method**:
+- Recruit 5-10 merchants representing both personas (3-4 small business, 2-3 enterprise)
+- Conduct moderated "think aloud" usability sessions where merchants walk through the onboarding flow
+- Record sessions and note confusion, hesitation, errors
+- Ask follow-up questions: "What did you expect to happen here?" "What would make this clearer?"
+
+**Success Criteria**:
+- <3 critical friction points identified per session
+- >80% of merchants complete core setup without assistance
+- Average satisfaction rating >4/5
+
+**Timing**: Before MVP launch; repeat after major feature releases
+
+---
+
+#### 2. Usability Tests & Surveys
+
+**Objective**: Validate specific screens and gather quantitative feedback
+
+**Method**:
+- After soft launch, run remote unmoderated usability tests focusing on:
+  - Earn rule configuration screen
+  - Widget embed process
+  - Tier structure setup (enterprise only)
+- Follow up with quick surveys (3-5 questions) to rate clarity and satisfaction
+- Use tools like UserTesting, Maze, or Hotjar to record sessions and collect data
+
+**Success Criteria**:
+- Task completion rate >85% for core onboarding tasks
+- Average time to complete task within expected range (e.g., <3 min to configure earn rules)
+- Survey satisfaction score >4/5
+
+**Timing**: During soft launch and quarterly thereafter
+
+---
+
+#### 3. Support Ticket Analysis
+
+**Objective**: Identify recurring issues and knowledge gaps
+
+**Method**:
+- Categorize onboarding-related support tickets by topic:
+  - Installation issues
+  - Configuration confusion (tiers, earn actions, redemptions)
+  - Widget embed problems
+  - Integration questions (POS, marketing tools)
+- Track volume and trends over time
+- Create tutorials, FAQs and in-app help addressing the top 5 problems[8]
+
+**Success Criteria**:
+- Support ticket volume decreases by 30% quarter-over-quarter
+- <5 support tickets per 100 new merchants
+- Top 5 issues have dedicated help articles with >80% helpfulness rating
+
+**Timing**: Ongoing; review weekly during first month, then monthly
+
+---
+
+#### 4. Product Analytics
+
+**Objective**: Measure where merchants drop off and optimize funnel
+
+**Method**:
+- Instrument step-by-step funnel tracking in product analytics tool (Mixpanel, Amplitude, Heap)
+- Measure for each onboarding step:
+  - Completion rate
+  - Time spent on step
+  - Drop-off rate
+- Use cohort analysis to compare personas, traffic sources, and A/B test variants[13]
+- Set up automated alerts for abnormal drop-off or extended time-to-value
+
+**Success Criteria**:
+- Funnel completion rate >25% (benchmark: 19.2% industry avg, target 25-30%)
+- Time-to-first-value <24 hours for >50% of merchants
+- Drop-off rate <15% at any single step
+
+**Timing**: Continuous monitoring with weekly reviews
+
+---
+
+### Measurement Framework
+
+Tracking onboarding success requires a comprehensive set of metrics covering completion, engagement and satisfaction. The following metrics are recommended based on research[13][14][15] and industry best practices.
+
+#### Core Onboarding Metrics
+
+| Metric | Definition & Formula | Target | Rationale & Source |
+|--------|---------------------|--------|-------------------|
+| **Onboarding Completion Rate** | % of merchants who complete all required onboarding tasks (installation, setting earn rules, activating widgets) | **25-30%** | Primary indicator of funnel health; identifies drop-off points. A high completion rate shows that the flow is intuitive[14]. Higher than industry avg (~19.2%) |
+| **Time to Value (TTV)** | Duration from installation to first recorded loyalty transaction (e.g., first purchase with points accrued or first redemption) | **≤24 hours** | Shorter TTV correlates with higher retention and reduced churn; measuring TTV helps focus on quick wins[15]. Industry benchmark: 1d 11h |
+| **Feature Adoption Rate** | % of merchants who enable key features (referral program, VIP tiers, integrations) | **Referrals: >60%**<br>**Tiers: >40%**<br>**Integrations: >30%** | Shows whether optional features are discoverable and appealing[14]. Adoption rates indicate product-market fit |
+| **Activation Rate** | % of merchants who issue first rewards (points or discounts to customers) | **>40%** | Proxies merchant commitment and initial success[15]. Industry avg 37.5% (SaaS), 41.6% (sales-led) |
+| **Support Request Rate** | Number of support tickets per merchant during onboarding (first 14 days) | **<5 per 100 merchants** | High rates indicate unclear documentation or UX friction[13]. Target: <5% of merchants request support |
+| **Onboarding Funnel Drop-Off** | Drop-off rate between individual steps (e.g., from installation to earn rule setup). Use funnel analytics tools. | **<15% per step** | Pinpoints specific friction points; informs design improvements[14]. Steps with >20% drop-off require immediate attention |
+| **Net Promoter Score (NPS) after Onboarding** | Survey merchants after completing onboarding: "How likely are you to recommend RewardsPro?" (0-10 scale) | **>40** | Provides qualitative feedback and signals advocacy potential[14]. Industry SaaS avg: +36 |
+| **Customer Effort Score (CES)** | "How easy was it to get started with RewardsPro?" (1-7 scale, 7 = very easy) | **≥6** | Measures perceived ease of onboarding. Industry avg: 5.4; target ≥6 (aim for 6-7)[14] |
+
+---
+
+#### Instrumentation Recommendations
+
+To effectively track these metrics, RewardsPro should implement the following instrumentation strategy:
+
+**1. Event Tracking**
+
+Use existing telemetry tools (Mixpanel, Amplitude, or Segment) to log events at each onboarding step:
+
+```typescript
+// Example events to track
+{
+  "onboarding_started": {
+    shop: string,
+    timestamp: Date,
+    source: "app_store" | "partner_referral" | "direct",
+    merchant_segment: "small_business" | "enterprise",
+    plan_tier: "free" | "starter" | "pro"
+  },
+
+  "onboarding_step_completed": {
+    shop: string,
+    step_name: "install" | "configure_earn_rules" | "embed_widget" | "launch",
+    step_number: number,
+    duration_seconds: number,
+    timestamp: Date
+  },
+
+  "onboarding_step_skipped": {
+    shop: string,
+    step_name: string,
+    step_number: number,
+    reason: "user_skipped" | "error" | "timeout"
+  },
+
+  "first_loyalty_transaction": {
+    shop: string,
+    transaction_type: "earn" | "redeem",
+    points_amount: number,
+    time_from_install_hours: number,
+    timestamp: Date
+  },
+
+  "feature_enabled": {
+    shop: string,
+    feature_name: "referrals" | "tiers" | "klaviyo_integration" | "pos_sync",
+    timestamp: Date
+  },
+
+  "support_ticket_created": {
+    shop: string,
+    ticket_category: "installation" | "configuration" | "integration" | "bug",
+    onboarding_step: string,
+    days_since_install: number
+  },
+
+  "nps_survey_completed": {
+    shop: string,
+    score: number, // 0-10
+    feedback: string,
+    days_since_install: number
+  }
+}
+```
+
+**2. Metadata Collection**
+
+Attach metadata to events to enable segmentation and analysis:
+
+- **Merchant characteristics**: Store size (small/medium/enterprise), industry, order volume, plan tier
+- **Session data**: Device type, browser, geographic location
+- **Cohort identifiers**: Install date, traffic source, A/B test variant
+
+**3. Dashboards & Alerts**
+
+Build real-time dashboards to display:
+
+- **Funnel visualization**: Conversion rates for each step with drop-off percentages
+- **Time-to-value distribution**: Histogram showing TTV across cohorts
+- **Feature adoption trends**: Weekly adoption rates for key features
+- **Support ticket volume**: Daily ticket count categorized by topic
+
+Set up automated alerts for:
+
+- **Abnormal drop-off**: >25% drop-off at any single step
+- **Extended TTV**: >50% of merchants with TTV >36 hours
+- **Support spike**: >10 tickets per 100 merchants in a week
+- **Low NPS**: Average NPS drops below 35
+
+**4. Self-Identification Prompts**
+
+During installation, encourage merchants to self-identify:
+
+- "What best describes your business?" (Small business, Growing brand, Enterprise)
+- "How many orders per month?" (<100, 100-1,000, 1,000-10,000, 10,000+)
+- "What's your primary goal?" (Increase repeat purchases, Reduce acquisition cost, Build brand community, Migrate from another platform)
+
+Use responses to:
+- Personalize default configurations (e.g., enterprise merchants skip basic tutorials)
+- Customize onboarding flows (e.g., migration-focused for switchers)
+- Segment analytics to compare persona performance
+
+**5. A/B Testing Infrastructure**
+
+Integrate with feature flag service (Unleash, LaunchDarkly) to run experiments:
+
+- Test step ordering (e.g., widget embed before vs after earn rules)
+- Test copy and messaging (e.g., "Launch Program" vs "Activate Loyalty")
+- Test gating (e.g., hard vs soft gate on widget embed)
+- Test incentives (e.g., offer setup bonus points vs no incentive)
+
+Track experiment variants in event metadata and measure impact on completion rate, TTV and activation rate.
+
+**6. Periodic Review Cadence**
+
+- **Weekly**: Review funnel metrics, identify new drop-off points, triage support tickets
+- **Monthly**: Analyze cohort performance, review NPS/CES feedback, plan optimization experiments
+- **Quarterly**: Deep-dive analysis by persona, traffic source and feature adoption; update benchmarks and targets
+
+---
+
+### Success Criteria by Persona
+
+Different success metrics apply to each persona based on their goals and expected journey:
+
+#### Small Business Persona (Sarah)
+
+| Metric | Target | Timing |
+|--------|--------|--------|
+| Onboarding completion rate | >30% | Within 14 days of install |
+| Time-to-first-value | <24 hours | Day 1 |
+| Widget embed rate | >70% | Within 7 days |
+| Referral program enabled | >60% | Within 14 days |
+| First loyalty transaction | >30% | Within 24 hours |
+| Support tickets | <5 per 100 merchants | First 14 days |
+| NPS after onboarding | >40 | Day 15 survey |
+
+---
+
+#### Enterprise Persona (Michael)
+
+| Metric | Target | Timing |
+|--------|--------|--------|
+| Strategy document completion | 100% | Week 4 |
+| Pilot launch | 100% | Week 16 |
+| Data migration accuracy | >99.5% | Week 12 |
+| API integration completion | 100% of planned integrations | Week 12 |
+| Pilot enrollment rate | >40% | Week 16 |
+| Full launch | 100% | Week 20 |
+| Program enrollment rate (all customers) | >50% | Month 6 |
+| ROI | 3-5x | Year 1 |
 
 ---
 
@@ -3870,6 +4581,18 @@ backfillOnboardingStatus();
 21. [Amplitude: Change the Way You Approach Experiments with This 7-Step Framework - Elena Verna](https://amplitude.com/blog/7-step-experimentation-framework) - Comprehensive experimentation process
 22. [Statsig: A/B Testing for B2B Products: Best Practices](https://www.statsig.com/perspectives/ab-testing-b2b-best-practices) - B2B-specific guidance, sample sizes, practical significance
 23. [LaunchDarkly: Feature Flags 101: Use Cases, Benefits, and Best Practices](https://launchdarkly.com/blog/what-are-feature-flags/) - Feature flag management and technical debt prevention
+
+### Loyalty Program Implementation & Merchant Journey Research
+
+24. [Loyera: Small Business Vs Enterprise Loyalty Program Software](https://www.loyera.com/small-business-vs-enterprise-loyalty-program-software/) - Persona differences, platform needs for small business vs enterprise
+25. [LoyaltyXpert: 10 Game-Changing Loyalty Program Software Picks for 2025!](https://www.loyaltyxpert.com/blog/top-loyalty-program-software/) - Enterprise requirements: 360-degree integration, real-time analytics, personalization
+26. [Okendo: Loyalty Onboarding Help Center](https://support.okendo.io/en/articles/8989604-loyalty-onboarding) - Task sequencing, program basics, earn/redemption rates
+27. [BuildWithToki: Top 7 Best Customer Onboarding Practices to Boost Loyalty](https://www.buildwithtoki.com/blog-post/best-customer-onboarding-practices) - Progressive disclosure, personalization strategies
+28. [SoftwareHouse: Implement a Loyalty Program on Shopify – Complete Guide](https://softwarehouse.au/blog/implementing-a-loyalty-program-on-shopify-a-step-by-step-guide-to-boosting-customer-retention/) - Redemption optimization, reward value alignment
+29. [LoyaltyLion: Unlock Customer Loyalty - The Ultimate Guide to Effective Program Management](https://loyaltylion.com/blog/loyalty-program-management) - Email templates, loyalty page creation, support ticket reduction
+30. [BrandMovers: How to Implement a Loyalty Program - Step-by-Step Guide From Planning To Launch](https://blog.brandmovers.com/loyalty-program-implementation-timeline-and-best-practices) - Soft launch best practices, pilot testing, staff training, stakeholder strategy sessions
+31. [Whatfix: 12 Must-Track User Onboarding Metrics & KPIs (2025)](https://whatfix.com/blog/user-onboarding-metrics/) - Support request rate, onboarding funnel drop-off analysis
+32. [Onramp: The Top Customer Onboarding Metrics to Prioritize in 2025](https://onramp.us/blog/customer-onboarding-metrics) - Time to Value (TTV) measurement, activation rate definitions
 
 ---
 
