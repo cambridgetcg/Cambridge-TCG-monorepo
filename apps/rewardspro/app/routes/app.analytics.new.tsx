@@ -99,12 +99,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     retentionMetrics,
     redemptionSummary,
   ] = await Promise.all([
-    analytics.getRevenueMetrics(session.shop, range).catch(() => []),
-    analytics.getTierDistribution(session.shop).catch(() => []),
+    analytics.getRevenueMetrics(session.shop, range).catch(() => [] as Array<{ day: string; revenue: number }>),
+    analytics.getTierDistribution(session.shop).catch(() => [] as Array<{ tier: string; customers: number }>),
     analytics.getCustomerMetrics(session.shop, range).catch(() => ({ total: 0, active_30d: 0 })),
-    analytics.getCashbackMetrics(session.shop, range).catch(() => []),
-    analytics.getOrderTrends(session.shop, range).catch(() => []),
-    analytics.getTopCustomers(session.shop, 5).catch(() => []),
+    analytics.getCashbackMetrics(session.shop, range).catch(() => [] as Array<{ day: string; cashback_earned: number; cashback_used: number }>),
+    analytics.getOrderTrends(session.shop, range).catch(() => [] as Array<{ day: string; order_count: number; avg_order_value: number }>),
+    analytics.getTopCustomers(session.shop, 5).catch(() => [] as Array<{ customer_id: string; email: string; total_spent: number; tier: string }>),
     analytics.getRetentionMetrics(session.shop, range).catch(() => null),
     analytics.getRedemptionSummary(session.shop, range).catch(() => ({ issued: 0, redeemed: 0 })),
   ]);
@@ -194,8 +194,7 @@ function MetricCard({
           )}
           {roundedTrend !== undefined && (
             <Badge tone={roundedTrend >= 0 ? 'success' : 'critical'}>
-              {roundedTrend >= 0 ? '+' : ''}
-              {roundedTrend}%
+              {`${roundedTrend >= 0 ? '+' : ''}${roundedTrend}%`}
             </Badge>
           )}
         </BlockStack>
@@ -326,10 +325,10 @@ export default function AnalyticsPage() {
                   <Text variant="headingSm" as="h3">Live Updates</Text>
                   <InlineStack gap="400">
                     <Badge tone="success">
-                      Today's Revenue: {formatAmount(realtimeData.todayRevenue || 0)}
+                      {`Today's Revenue: ${formatAmount(realtimeData.todayRevenue || 0)}`}
                     </Badge>
                     <Badge tone="info">
-                      Today's Cashback: {formatAmount(realtimeData.todayCashback || 0)}
+                      {`Today's Cashback: ${formatAmount(realtimeData.todayCashback || 0)}`}
                     </Badge>
                   </InlineStack>
                 </InlineStack>
