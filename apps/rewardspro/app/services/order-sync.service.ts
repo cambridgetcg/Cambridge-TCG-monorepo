@@ -47,7 +47,7 @@ const ORDERS_BATCH_QUERY = `#graphql
         node {
           id
           name
-          orderNumber
+          number
           email
           createdAt
           updatedAt
@@ -361,7 +361,7 @@ export class OrderSyncService {
         progress.processed++;
         progress.errors.push({
           orderId: order.id,
-          orderNumber: order.orderNumber,
+          orderNumber: order.number,
           error: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date()
         });
@@ -440,7 +440,7 @@ export class OrderSyncService {
         id: orderId,
         shop: this.options.shop,
         shopifyOrderId,
-        shopifyOrderNumber: order.orderNumber?.toString() || "",
+        shopifyOrderNumber: order.number?.toString() || "",
         shopifyOrderName: order.name || "",
         customerId: customer?.id || "unknown",
         email: order.email || customer?.email || "",
@@ -724,7 +724,7 @@ export class OrderSyncService {
         order(id: $id) {
           id
           name
-          orderNumber
+          number
           email
           createdAt
           updatedAt
