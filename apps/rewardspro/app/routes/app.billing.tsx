@@ -4,7 +4,7 @@
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useActionData, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData, useNavigation, useSearchParams } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -294,6 +294,7 @@ export default function BillingPage() {
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
@@ -462,6 +463,34 @@ export default function BillingPage() {
               {actionData?.success && !actionData?.isEnterpriseInquiry && (
                 <Banner tone="success">
                   <p>{actionData.message || "Subscription updated successfully"}</p>
+                </Banner>
+              )}
+
+              {/* Cancellation Banner */}
+              {searchParams.get('cancelled') === 'true' && (
+                <Banner
+                  tone="warning"
+                  onDismiss={() => {
+                    searchParams.delete('cancelled');
+                    searchParams.delete('message');
+                    setSearchParams(searchParams);
+                  }}
+                >
+                  <p>{decodeURIComponent(searchParams.get('message') || 'Billing approval was cancelled. You can try again or select a different plan.')}</p>
+                </Banner>
+              )}
+
+              {/* Error Banner */}
+              {searchParams.get('error') && (
+                <Banner
+                  tone="critical"
+                  onDismiss={() => {
+                    searchParams.delete('error');
+                    searchParams.delete('message');
+                    setSearchParams(searchParams);
+                  }}
+                >
+                  <p>{decodeURIComponent(searchParams.get('message') || 'An error occurred during billing. Please try again.')}</p>
                 </Banner>
               )}
 

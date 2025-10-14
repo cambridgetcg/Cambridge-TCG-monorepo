@@ -19,9 +19,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const chargeId = url.searchParams.get('charge_id');
   const shop = url.searchParams.get('shop'); // Optional but recommended
 
+  // Handle cancellation - when merchant clicks "Cancel" on Shopify billing page
+  // Shopify redirects back WITHOUT charge_id parameter
   if (!chargeId) {
-    console.error("[Billing Callback] No charge_id in URL");
-    return redirect('/app/billing?error=no_charge_id');
+    console.log("[Billing Callback] No charge_id in URL - merchant cancelled billing approval");
+    return redirect('/app/billing?cancelled=true&message=Billing%20approval%20was%20cancelled');
   }
 
   // Verify shop matches session (security check since no HMAC)
