@@ -15,6 +15,11 @@ export const MAX_PLAN = "RewardsPro Max";
 export const ULTRA_PLAN = "RewardsPro Ultra";
 export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
 
+// Annual billing plans with monthly cost breakdown
+export const PRO_ANNUAL_PLAN = "RewardsPro Pro Annual"; // $28/month ($336/year)
+export const MAX_ANNUAL_PLAN = "RewardsPro Max Annual"; // $108/month ($1,296/year)
+export const ULTRA_ANNUAL_PLAN = "RewardsPro Ultra Annual"; // $358/month ($4,296/year)
+
 // Legacy plans - keeping for backward compatibility
 export const STARTER_PLAN = "RewardsPro Starter";
 export const GROWTH_PLAN = "RewardsPro Growth";
@@ -70,6 +75,36 @@ const shopify = shopifyApp({
           amount: 499,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
+        }
+      ],
+    },
+    // Pro Annual plan - $336/year ($28/month) - Save $132/year vs monthly
+    [PRO_ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 336,
+          currencyCode: 'USD',
+          interval: BillingInterval.Annual,
+        }
+      ],
+    },
+    // Max Annual plan - $1,296/year ($108/month) - Save $492/year vs monthly
+    [MAX_ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 1296,
+          currencyCode: 'USD',
+          interval: BillingInterval.Annual,
+        }
+      ],
+    },
+    // Ultra Annual plan - $4,296/year ($358/month) - Save $1,692/year vs monthly
+    [ULTRA_ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 4296,
+          currencyCode: 'USD',
+          interval: BillingInterval.Annual,
         }
       ],
     },

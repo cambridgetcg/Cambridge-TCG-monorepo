@@ -27,7 +27,7 @@ import {
   Collapsible
 } from "@shopify/polaris";
 import { CheckCircleIcon, PhoneIcon, EmailIcon, ChevronDownIcon, ChevronUpIcon } from "@shopify/polaris-icons";
-import { authenticate, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
+import { authenticate, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import { db } from "../db.server";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -100,11 +100,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   try {
     // Import plan names for checking
-    const { FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN } = await import("../shopify.server");
+    const {
+      FREE_PLAN,
+      PRO_PLAN,
+      MAX_PLAN,
+      ULTRA_PLAN,
+      PRO_ANNUAL_PLAN,
+      MAX_ANNUAL_PLAN,
+      ULTRA_ANNUAL_PLAN,
+      ENTERPRISE_PLAN
+    } = await import("../shopify.server");
 
     // Get active subscription
     const { hasActivePayment, appSubscriptions } = await billing.check({
-      plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, ENTERPRISE_PLAN],
+      plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
       isTest: process.env.NODE_ENV === 'development',
     });
     const activeSubscription = appSubscriptions?.[0];
@@ -119,6 +128,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       currentPlanName = 'RewardsPro Max';
     } else if (activeSubscription?.name === 'RewardsPro Ultra') {
       currentPlanName = 'RewardsPro Ultra';
+    } else if (activeSubscription?.name === 'RewardsPro Pro Annual') {
+      currentPlanName = 'RewardsPro Pro Annual';
+    } else if (activeSubscription?.name === 'RewardsPro Max Annual') {
+      currentPlanName = 'RewardsPro Max Annual';
+    } else if (activeSubscription?.name === 'RewardsPro Ultra Annual') {
+      currentPlanName = 'RewardsPro Ultra Annual';
     } else if (activeSubscription?.name === 'RewardsPro Enterprise') {
       currentPlanName = 'RewardsPro Enterprise';
     } else if (!hasActivePayment) {
@@ -148,7 +163,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const action = formData.get("action") as string;
 
   // Security: Plan validation (free plan accessible but hidden)
-  const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'contact-enterprise'];
+  const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'pro-annual', 'max-annual', 'ultra-annual', 'contact-enterprise'];
   const planType = action?.replace('subscribe-', '');
 
   if (action?.startsWith('subscribe-') && !ALLOWED_PLANS.includes(planType)) {
@@ -246,6 +261,72 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     await updatePlanLimit(session.shop, "RewardsPro Ultra", 999999);
     await unlockShop(session.shop);
     console.log(`[Billing] ${session.shop} unlocked after Ultra upgrade`);
+
+    return json({ success: true, subscription, unlocked: true });
+  }
+
+  if (action === "subscribe-pro-annual") {
+    console.log(`[Billing] ${session.shop} attempting to subscribe to Pro Annual plan`);
+    const billingCheck = await billing.require({
+      plans: [PRO_ANNUAL_PLAN],
+      onFailure: () => billing.request({
+        plan: PRO_ANNUAL_PLAN,
+        isTest: process.env.NODE_ENV === 'development',
+      }),
+    });
+
+    const subscription = billingCheck.appSubscriptions[0];
+    console.log(`[Billing] ${session.shop} successfully subscribed to Pro Annual plan`);
+    await logBillingAttempt(session.shop, action, "pro-annual", true, null, request);
+
+    // Update plan limit and unlock shop
+    await updatePlanLimit(session.shop, "RewardsPro Pro Annual", 500);
+    await unlockShop(session.shop);
+    console.log(`[Billing] ${session.shop} unlocked after Pro Annual upgrade`);
+
+    return json({ success: true, subscription, unlocked: true });
+  }
+
+  if (action === "subscribe-max-annual") {
+    console.log(`[Billing] ${session.shop} attempting to subscribe to Max Annual plan`);
+    const billingCheck = await billing.require({
+      plans: [MAX_ANNUAL_PLAN],
+      onFailure: () => billing.request({
+        plan: MAX_ANNUAL_PLAN,
+        isTest: process.env.NODE_ENV === 'development',
+      }),
+    });
+
+    const subscription = billingCheck.appSubscriptions[0];
+    console.log(`[Billing] ${session.shop} successfully subscribed to Max Annual plan`);
+    await logBillingAttempt(session.shop, action, "max-annual", true, null, request);
+
+    // Update plan limit and unlock shop
+    await updatePlanLimit(session.shop, "RewardsPro Max Annual", 2000);
+    await unlockShop(session.shop);
+    console.log(`[Billing] ${session.shop} unlocked after Max Annual upgrade`);
+
+    return json({ success: true, subscription, unlocked: true });
+  }
+
+  if (action === "subscribe-ultra-annual") {
+    console.log(`[Billing] ${session.shop} attempting to subscribe to Ultra Annual plan`);
+    const billingCheck = await billing.require({
+      plans: [ULTRA_ANNUAL_PLAN],
+      onFailure: () => billing.request({
+        plan: ULTRA_ANNUAL_PLAN,
+        isTest: process.env.NODE_ENV === 'development',
+      }),
+    });
+
+    const subscription = billingCheck.appSubscriptions[0];
+    console.log(`[Billing] ${session.shop} successfully subscribed to Ultra Annual plan`);
+    await logBillingAttempt(session.shop, action, "ultra-annual", true, null, request);
+
+    // Update plan limit and unlock shop (Ultra = unlimited)
+    await updatePlanLimit(session.shop, "RewardsPro Ultra Annual", 999999);
+    await unlockShop(session.shop);
+    console.log(`[Billing] ${session.shop} unlocked after Ultra Annual upgrade`);
 
     return json({ success: true, subscription, unlocked: true });
   }

@@ -40,6 +40,7 @@ interface LoyaltyData {
       storeCredit: number;
       storeCreditFormatted: string;
       pendingCredit: number;
+      pendingCreditFormatted: string;
     };
     tier: {
       name: string;
@@ -52,10 +53,13 @@ interface LoyaltyData {
       nextTier: string | null;
       progressPercentage: number; // 0-100 integer
       remainingToNextTier: number;
+      remainingToNextTierFormatted: string;
     };
     lifetime: {
       earned: number;
+      earnedFormatted: string;
       spent: number;
+      spentFormatted: string;
       redeemed: number;
       orderCount?: number;
     };
@@ -184,9 +188,6 @@ function ProfileBlock() {
   const constrainedProgress = Math.min(100, Math.max(0, progress.progressPercentage));
   const progressRatio = constrainedProgress / 100;
 
-  // Currency formatter using i18n (respects buyer's locale)
-  const formatAmount = (amount: number) => i18n.formatCurrency(amount);
-
   return (
     <BlockStack spacing="loose">
       {/* Tier Card */}
@@ -229,7 +230,7 @@ function ProfileBlock() {
               />
 
               <Text size="small" appearance="subdued">
-                Spend {formatAmount(progress.remainingToNextTier)} more to unlock{' '}
+                Spend {progress.remainingToNextTierFormatted} more to unlock{' '}
                 {progress.nextTier}
               </Text>
             </BlockStack>
@@ -260,7 +261,7 @@ function ProfileBlock() {
 
           {balance.pendingCredit > 0 && (
             <Text size="small" appearance="subdued">
-              + {formatAmount(balance.pendingCredit)} pending
+              + {balance.pendingCreditFormatted} pending
             </Text>
           )}
         </BlockStack>
@@ -278,7 +279,7 @@ function ProfileBlock() {
                 Total Spent
               </Text>
               <Text size="medium" emphasis="bold">
-                {formatAmount(lifetime.spent)}
+                {lifetime.spentFormatted}
               </Text>
             </BlockStack>
 
@@ -288,7 +289,7 @@ function ProfileBlock() {
                 Total Earned
               </Text>
               <Text size="medium" emphasis="bold">
-                {formatAmount(lifetime.earned)}
+                {lifetime.earnedFormatted}
               </Text>
             </BlockStack>
 

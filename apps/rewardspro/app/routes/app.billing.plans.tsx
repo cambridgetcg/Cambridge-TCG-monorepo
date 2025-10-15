@@ -31,6 +31,7 @@ interface Plan {
   name: string;
   displayName: string;
   price: number;
+  annualPrice?: number; // Annual price if applicable
   interval: string;
   ordersIncluded: number;
   features: string[];
@@ -38,6 +39,7 @@ interface Plan {
   description: string;
   badge?: string;
   tone?: "success" | "info" | "warning" | "critical" | "new";
+  savings?: string; // Savings text for annual plans
 }
 
 // Free plan exists but is not displayed to encourage upgrades
@@ -47,11 +49,39 @@ const PLANS: Plan[] = [
     id: "RewardsPro Pro",
     name: "RewardsPro Pro",
     displayName: "Pro",
-    price: 49,
+    price: 39,
     interval: "month",
     ordersIncluded: 500,
     description: "Ideal for growing stores with regular customers",
     features: [
+      "Up to 2,000 total customers",
+      "Up to 500 orders/month",
+      "$10 per 100 additional orders",
+      "Unlimited loyalty tiers",
+      "Batch process cashback orders",
+      "Advanced tier rules",
+      "Customer segmentation",
+      "Custom email templates",
+      "1,000 emails/month included",
+      "Priority email support",
+      "Detailed analytics",
+      "Webhook integrations",
+    ],
+  },
+  {
+    id: "RewardsPro Pro Annual",
+    name: "RewardsPro Pro Annual",
+    displayName: "Pro Annual",
+    price: 28,
+    annualPrice: 336,
+    interval: "month",
+    ordersIncluded: 500,
+    description: "Save 28% with annual billing",
+    badge: "Save 28%",
+    tone: "success",
+    savings: "Save $132/year",
+    features: [
+      "All Pro features included",
       "Up to 2,000 total customers",
       "Up to 500 orders/month",
       "$10 per 100 additional orders",
@@ -78,6 +108,41 @@ const PLANS: Plan[] = [
     badge: "Recommended",
     tone: "info",
     features: [
+      "Unlimited customers",
+      "Up to 2,000 orders/month",
+      "$5 per 100 additional orders",
+      "Everything in Pro",
+      "Sell tier memberships as products",
+      "Batch process cashback orders",
+      "White label email (custom domain)",
+      "5,000 emails/month included",
+      "Custom email branding",
+      "Email API access (SendGrid/Mailgun)",
+      "VIP tier features",
+      "Automated campaigns",
+      "Live chat support",
+      "Advanced reporting",
+      "API access",
+      "Bulk operations",
+      "Custom cashback rules",
+      "Multi-currency support",
+    ],
+  },
+  {
+    id: "RewardsPro Max Annual",
+    name: "RewardsPro Max Annual",
+    displayName: "Max Annual",
+    price: 108,
+    annualPrice: 1296,
+    interval: "month",
+    ordersIncluded: 2000,
+    description: "Save 28% with annual billing",
+    recommended: true,
+    badge: "Save 28%",
+    tone: "success",
+    savings: "Save $492/year",
+    features: [
+      "All Max features included",
       "Unlimited customers",
       "Up to 2,000 orders/month",
       "$5 per 100 additional orders",
@@ -133,6 +198,44 @@ const PLANS: Plan[] = [
       "Training sessions",
     ],
   },
+  {
+    id: "RewardsPro Ultra Annual",
+    name: "RewardsPro Ultra Annual",
+    displayName: "Ultra Annual",
+    price: 358,
+    annualPrice: 4296,
+    interval: "month",
+    ordersIncluded: 999999,
+    description: "Save 28% with annual billing",
+    badge: "Save 28%",
+    tone: "success",
+    savings: "Save $1,692/year",
+    features: [
+      "All Ultra features included",
+      "Unlimited customers",
+      "Unlimited orders/month",
+      "Everything in Max",
+      "Full white label email solution",
+      "Unlimited emails/month",
+      "Custom SMTP integration",
+      "Multiple email domains",
+      "Advanced email analytics",
+      "Transactional email API",
+      "Dedicated email deliverability support",
+      "Sell tier memberships as products",
+      "Batch process cashback orders",
+      "Dedicated account manager",
+      "Custom integrations",
+      "Phone support",
+      "White-label branding",
+      "Advanced API limits",
+      "Custom reporting",
+      "SLA guarantee",
+      "Priority feature requests",
+      "Quarterly business reviews",
+      "Training sessions",
+    ],
+  },
 ];
 
 // ============================================
@@ -154,11 +257,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   try {
     // Import plan names
-    const { FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+    const {
+      FREE_PLAN,
+      PRO_PLAN,
+      MAX_PLAN,
+      ULTRA_PLAN,
+      PRO_ANNUAL_PLAN,
+      MAX_ANNUAL_PLAN,
+      ULTRA_ANNUAL_PLAN,
+      STARTER_PLAN,
+      GROWTH_PLAN,
+      ENTERPRISE_PLAN,
+      MONTHLY_PLAN,
+      ANNUAL_PLAN
+    } = await import("../shopify.server");
 
     if (billing) {
       const { hasActivePayment, appSubscriptions } = await billing.check({
-        plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
+        plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
         isTest: process.env.NODE_ENV === 'development',
       });
       
@@ -225,13 +341,42 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     // Import plan names
-    const { FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN } = await import("../shopify.server");
-    
+    const {
+      FREE_PLAN,
+      PRO_PLAN,
+      MAX_PLAN,
+      ULTRA_PLAN,
+      PRO_ANNUAL_PLAN,
+      MAX_ANNUAL_PLAN,
+      ULTRA_ANNUAL_PLAN,
+      STARTER_PLAN,
+      GROWTH_PLAN,
+      ENTERPRISE_PLAN
+    } = await import("../shopify.server");
+
     // Map plan ID to actual plan constant
     let requestPlan;
     switch (planId) {
       case "RewardsPro Free":
         requestPlan = FREE_PLAN;
+        break;
+      case "RewardsPro Pro":
+        requestPlan = PRO_PLAN;
+        break;
+      case "RewardsPro Max":
+        requestPlan = MAX_PLAN;
+        break;
+      case "RewardsPro Ultra":
+        requestPlan = ULTRA_PLAN;
+        break;
+      case "RewardsPro Pro Annual":
+        requestPlan = PRO_ANNUAL_PLAN;
+        break;
+      case "RewardsPro Max Annual":
+        requestPlan = MAX_ANNUAL_PLAN;
+        break;
+      case "RewardsPro Ultra Annual":
+        requestPlan = ULTRA_ANNUAL_PLAN;
         break;
       case "RewardsPro Starter":
         requestPlan = STARTER_PLAN;
@@ -357,6 +502,16 @@ export default function BillingPlansPage() {
                                 /{plan.interval}
                               </Text>
                             </InlineStack>
+                            {plan.annualPrice && (
+                              <Text as="p" variant="bodyMd" tone="subdued">
+                                ${plan.annualPrice}/year billed annually
+                              </Text>
+                            )}
+                            {plan.savings && (
+                              <Text as="p" variant="bodyMd" tone="success" fontWeight="semibold">
+                                {plan.savings}
+                              </Text>
+                            )}
                             <Text as="p" variant="bodyMd" tone="subdued">
                               {plan.ordersIncluded.toLocaleString()} orders/month
                             </Text>
