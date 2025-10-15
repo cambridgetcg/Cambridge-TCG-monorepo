@@ -17,6 +17,7 @@ import {
   List,
   Banner,
   ButtonGroup,
+  Collapsible,
 } from "@shopify/polaris";
 import {
   CheckIcon,
@@ -420,6 +421,7 @@ export default function BillingPlansPage() {
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const [billingInterval, setBillingInterval] = React.useState<'monthly' | 'annual'>('monthly');
+  const [comparisonOpen, setComparisonOpen] = React.useState(false);
 
   const handleSelectPlan = (planId: string) => {
     if (planId === currentPlan) return;
@@ -604,30 +606,40 @@ export default function BillingPlansPage() {
             <Card>
               <Box padding="400">
                 <BlockStack gap="400">
-                  <Text variant="headingLg" as="h2">
-                    Plan Comparison
-                  </Text>
-                  
-                  <Box>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
-                          <th style={{ padding: "12px", textAlign: "left" }}>
-                            <Text variant="headingSm" as="span">Feature</Text>
-                          </th>
-                          {plans.map(plan => (
-                            <th key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
-                              <Text variant="headingSm" as="span">{plan.displayName}</Text>
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingLg" as="h2">
+                      Plan Comparison
+                    </Text>
+                    <Button onClick={() => setComparisonOpen(!comparisonOpen)}>
+                      {comparisonOpen ? 'Hide Comparison' : 'View Comparison'}
+                    </Button>
+                  </InlineStack>
+
+                  <Collapsible
+                    open={comparisonOpen}
+                    id="plan-comparison"
+                    transition={{ duration: '200ms', timingFunction: 'ease-in-out' }}
+                  >
+                    <Box>
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
+                            <th style={{ padding: "12px", textAlign: "left" }}>
+                              <Text variant="headingSm" as="span">Feature</Text>
                             </th>
-                          ))}
-                        </tr>
-                      </thead>
+                            {filteredPlans.map(plan => (
+                              <th key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
+                                <Text variant="headingSm" as="span">{plan.displayName}</Text>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
                       <tbody>
                         <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
                           <td style={{ padding: "12px" }}>
                             <Text variant="bodyMd" as="span">Monthly Price</Text>
                           </td>
-                          {plans.map(plan => (
+                          {filteredPlans.map(plan => (
                             <td key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
                               <Text variant="bodyMd" as="span" fontWeight="semibold">
                                 ${plan.price}
@@ -639,85 +651,56 @@ export default function BillingPlansPage() {
                           <td style={{ padding: "12px" }}>
                             <Text variant="bodyMd" as="span">Orders Included</Text>
                           </td>
-                          {plans.map(plan => (
+                          {filteredPlans.map(plan => (
                             <td key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
                               <Text variant="bodyMd" as="span">
-                                {plan.ordersIncluded.toLocaleString()}
+                                {plan.ordersIncluded === 999999 ? 'Unlimited' : plan.ordersIncluded.toLocaleString()}
                               </Text>
                             </td>
                           ))}
                         </tr>
                         <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
                           <td style={{ padding: "12px" }}>
-                            <Text variant="bodyMd" as="span">Loyalty Tiers</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Basic</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Unlimited</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Unlimited + VIP</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Unlimited + White-label</Text>
-                          </td>
-                        </tr>
-                        <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
-                          <td style={{ padding: "12px" }}>
                             <Text variant="bodyMd" as="span">Support</Text>
                           </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Email</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Priority Email</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Live Chat</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Phone + Dedicated Manager</Text>
-                          </td>
+                          {filteredPlans.map((plan) => (
+                            <td key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
+                              <Text variant="bodyMd" as="span">
+                                {plan.displayName.includes('Pro') ? 'Priority Email' :
+                                 plan.displayName.includes('Max') ? 'Live Chat' :
+                                 'Phone + Dedicated'}
+                              </Text>
+                            </td>
+                          ))}
                         </tr>
                         <tr style={{ borderBottom: "1px solid #e1e3e5" }}>
                           <td style={{ padding: "12px" }}>
                             <Text variant="bodyMd" as="span">Analytics</Text>
                           </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Basic</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Detailed</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Advanced</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">Custom + Reporting</Text>
-                          </td>
+                          {filteredPlans.map((plan) => (
+                            <td key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
+                              <Text variant="bodyMd" as="span">
+                                {plan.displayName.includes('Pro') ? 'Detailed' :
+                                 plan.displayName.includes('Max') ? 'Advanced' :
+                                 'Custom + Reporting'}
+                              </Text>
+                            </td>
+                          ))}
                         </tr>
                         <tr>
                           <td style={{ padding: "12px" }}>
                             <Text variant="bodyMd" as="span">API Access</Text>
                           </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Text variant="bodyMd" as="span">—</Text>
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Icon source={CheckIcon} tone="success" />
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Icon source={CheckIcon} tone="success" />
-                          </td>
-                          <td style={{ padding: "12px", textAlign: "center" }}>
-                            <Icon source={CheckIcon} tone="success" />
-                          </td>
+                          {filteredPlans.map(plan => (
+                            <td key={plan.id} style={{ padding: "12px", textAlign: "center" }}>
+                              <Icon source={CheckIcon} tone="success" />
+                            </td>
+                          ))}
                         </tr>
                       </tbody>
                     </table>
                   </Box>
+                </Collapsible>
                 </BlockStack>
               </Box>
             </Card>
