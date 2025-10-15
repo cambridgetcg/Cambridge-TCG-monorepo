@@ -36,7 +36,7 @@ import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
 import { CurrentPlanCard } from "~/components/Billing";
-import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
+import { MANAGED_PLANS, PLAN_COMPARISON, getPlanDetails } from "~/constants/billing.constants";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { v4 as uuidv4 } from "uuid";
 
@@ -538,17 +538,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderCountStrategy = "TotalFallback";
     }
 
-    // Determine plan based on active subscription
-    let planLimit = 200; // Default for free plan
-    let planName = 'RewardsPro Free';
-
-    if (activeSubscription?.name === 'RewardsPro Monthly') {
-      planLimit = 1000;
-      planName = 'RewardsPro Monthly';
-    } else if (activeSubscription?.name === 'RewardsPro Annual') {
-      planLimit = 1000; // 12,000/year = 1,000/month average
-      planName = 'RewardsPro Annual';
-    }
+    // Determine plan based on active subscription using constants
+    const planDetails = getPlanDetails(activeSubscription, billingPlan);
+    const planLimit = planDetails.ordersIncluded;
+    const planName = planDetails.name;
 
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
 
