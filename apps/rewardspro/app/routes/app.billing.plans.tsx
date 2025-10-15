@@ -482,7 +482,7 @@ export default function BillingPlansPage() {
                       pressed={billingInterval === 'annual'}
                       onClick={() => setBillingInterval('annual')}
                     >
-                      Annual <Badge tone="success">Save 28%</Badge>
+                      Annual (Save 28%)
                     </Button>
                   </ButtonGroup>
                 </InlineStack>
