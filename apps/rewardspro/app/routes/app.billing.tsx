@@ -39,6 +39,12 @@ async function checkRecentBillingAttempts(shop: string): Promise<number> {
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
   try {
+    // Check if db and billingAuditLog are available
+    if (!db || !db.billingAuditLog) {
+      console.warn("[Billing] BillingAuditLog table not available, skipping rate limit check");
+      return 0;
+    }
+
     const recentAttempts = await db.billingAuditLog.count({
       where: {
         shop,
@@ -66,6 +72,12 @@ async function logBillingAttempt(
   request: Request
 ) {
   try {
+    // Check if db and billingAuditLog are available
+    if (!db || !db.billingAuditLog) {
+      console.warn("[Billing] BillingAuditLog table not available, skipping audit log");
+      return;
+    }
+
     const ipAddress = request.headers.get("x-forwarded-for") ||
                      request.headers.get("x-real-ip") ||
                      "unknown";
