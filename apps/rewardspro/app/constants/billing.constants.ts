@@ -213,7 +213,37 @@ export function getPlanDetails(
   activeSubscription?: { name: string; status: string } | null,
   currentPlan?: { planName: string; status: string } | null
 ): ManagedPlan {
-  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
+  // Determine which data source is being used
+  let dataSource: string;
+  let activePlanName: string;
+
+  if (activeSubscription?.name) {
+    dataSource = "Shopify Billing API (activeSubscription)";
+    activePlanName = activeSubscription.name;
+  } else if (currentPlan?.planName) {
+    dataSource = "Local Database (BillingPlan table)";
+    activePlanName = currentPlan.planName;
+  } else {
+    dataSource = "Default Fallback";
+    activePlanName = "RewardsPro Free";
+  }
+
+  // Log the data source and plan details
+  console.log('========================================');
+  console.log('[getPlanDetails] Plan Detection');
+  console.log('========================================');
+  console.log(`[getPlanDetails] Data Source: ${dataSource}`);
+  console.log('[getPlanDetails] Input Values:');
+  console.log(`  - activeSubscription?.name: ${activeSubscription?.name || 'null'}`);
+  console.log(`  - activeSubscription?.status: ${activeSubscription?.status || 'null'}`);
+  console.log(`  - currentPlan?.planName: ${currentPlan?.planName || 'null'}`);
+  console.log(`  - currentPlan?.status: ${currentPlan?.status || 'null'}`);
+  console.log('[getPlanDetails] Result:');
+  console.log(`  - Selected Plan Name: ${activePlanName}`);
+  console.log(`  - Orders Included: ${MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS]?.ordersIncluded || MANAGED_PLANS["RewardsPro Free"].ordersIncluded}`);
+  console.log(`  - Price: $${MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS]?.price || MANAGED_PLANS["RewardsPro Free"].price}`);
+  console.log('========================================');
+
   return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
 }
 

@@ -46,7 +46,7 @@ import {
   sortTiersByPriority
 } from "../utils/tier-styles";
 import { CurrentPlanCard } from "~/components/Billing";
-import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { MANAGED_PLANS, getPlanDetails } from "~/constants/billing.constants";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { OnboardingChecklist, type OnboardingProgress } from "~/components/OnboardingChecklist";
 import { AutoSyncStatus, type SyncStatus } from "~/components/AutoSyncStatus";
@@ -488,20 +488,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderCountStrategy = "TotalFallback";
     }
 
-    // Determine plan based on active subscription
-    let planLimit = 100; // Default for free plan
-    let planName = 'RewardsPro Free';
-
-    if (activeSubscription?.name === 'RewardsPro Pro') {
-      planLimit = 500;
-      planName = 'RewardsPro Pro';
-    } else if (activeSubscription?.name === 'RewardsPro Max') {
-      planLimit = 2000;
-      planName = 'RewardsPro Max';
-    } else if (activeSubscription?.name === 'RewardsPro Ultra') {
-      planLimit = 999999; // Effectively unlimited
-      planName = 'RewardsPro Ultra';
-    }
+    // Determine plan based on active subscription using constants
+    const planDetails = getPlanDetails(activeSubscription, billingPlan);
+    const planLimit = planDetails.ordersIncluded;
+    const planName = planDetails.name;
 
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
 
