@@ -30,20 +30,22 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ],
     isFree: true
   },
+  // Monthly Plans
   "RewardsPro Pro": {
     name: "RewardsPro Pro",
     displayName: "Pro",
-    price: 49,
+    price: 39,
     interval: "month",
     ordersIncluded: 500,
     overageRate: 0.10, // $10 per 100 orders = $0.10 per order
     features: [
-      "Up to 2,000 total customers",
-      "Up to 500 orders/month",
-      "$10 per 100 additional orders",
+      "Up to 2,000 customers",
+      "500 orders/month",
       "Batch processing cashback",
       "1,000 emails/month",
-      "Priority support"
+      "Priority support",
+      "Advanced analytics",
+      "$10 per 100 extra orders"
     ],
     isFree: false
   },
@@ -56,12 +58,13 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     overageRate: 0.05, // $5 per 100 orders = $0.05 per order
     features: [
       "Unlimited customers",
-      "Up to 2,000 orders/month",
-      "$5 per 100 additional orders",
+      "2,000 orders/month",
       "Sell tier memberships",
       "White label email",
       "5,000 emails/month",
-      "Advanced analytics"
+      "Advanced analytics",
+      "Phone support",
+      "$5 per 100 extra orders"
     ],
     isFree: false
   },
@@ -73,13 +76,74 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 999999, // Effectively unlimited
     overageRate: 0,
     features: [
-      "Unlimited everything",
       "Unlimited customers",
       "Unlimited orders",
       "Unlimited emails",
       "Full white label solution",
       "Custom SMTP integration",
-      "Dedicated support"
+      "A/B testing",
+      "Dedicated support",
+      "No overage charges"
+    ],
+    isFree: false
+  },
+  // Annual Plans (Save 28%)
+  "RewardsPro Pro Annual": {
+    name: "RewardsPro Pro Annual",
+    displayName: "Pro Annual",
+    price: 28,
+    interval: "month",
+    ordersIncluded: 500,
+    overageRate: 0.10, // $10 per 100 orders = $0.10 per order
+    features: [
+      "Up to 2,000 customers",
+      "500 orders/month",
+      "Batch processing cashback",
+      "1,000 emails/month",
+      "Priority support",
+      "Advanced analytics",
+      "$10 per 100 extra orders",
+      "Save 28% with annual billing"
+    ],
+    isFree: false
+  },
+  "RewardsPro Max Annual": {
+    name: "RewardsPro Max Annual",
+    displayName: "Max Annual",
+    price: 108,
+    interval: "month",
+    ordersIncluded: 2000,
+    overageRate: 0.05, // $5 per 100 orders = $0.05 per order
+    features: [
+      "Unlimited customers",
+      "2,000 orders/month",
+      "Sell tier memberships",
+      "White label email",
+      "5,000 emails/month",
+      "Advanced analytics",
+      "Phone support",
+      "$5 per 100 extra orders",
+      "Save 28% with annual billing"
+    ],
+    isFree: false
+  },
+  "RewardsPro Ultra Annual": {
+    name: "RewardsPro Ultra Annual",
+    displayName: "Ultra Annual",
+    price: 358,
+    interval: "month",
+    ordersIncluded: 999999, // Effectively unlimited
+    overageRate: 0,
+    features: [
+      "Unlimited customers",
+      "Unlimited orders",
+      "Unlimited emails",
+      "Full white label solution",
+      "Custom SMTP integration",
+      "A/B testing",
+      "Dedicated support",
+      "No overage charges",
+      "Save 28% with annual billing"
     ],
     isFree: false
   }

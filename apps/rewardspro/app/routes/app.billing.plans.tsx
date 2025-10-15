@@ -57,7 +57,6 @@ const PLANS: Plan[] = [
     ordersIncluded: 500,
     description: "Ideal for growing stores with regular customers",
     features: [
-      "Up to 2,000 total customers",
       "Up to 500 orders/month",
       "$10 per 100 additional orders",
       "Unlimited loyalty tiers",
@@ -85,7 +84,6 @@ const PLANS: Plan[] = [
     savings: "Save $132/year",
     features: [
       "All Pro features included",
-      "Up to 2,000 total customers",
       "Up to 500 orders/month",
       "$10 per 100 additional orders",
       "Unlimited loyalty tiers",
@@ -111,7 +109,6 @@ const PLANS: Plan[] = [
     badge: "Recommended",
     tone: "info",
     features: [
-      "Unlimited customers",
       "Up to 2,000 orders/month",
       "$5 per 100 additional orders",
       "Everything in Pro",
@@ -146,7 +143,6 @@ const PLANS: Plan[] = [
     savings: "Save $492/year",
     features: [
       "All Max features included",
-      "Unlimited customers",
       "Up to 2,000 orders/month",
       "$5 per 100 additional orders",
       "Everything in Pro",
@@ -177,7 +173,6 @@ const PLANS: Plan[] = [
     badge: "Unlimited",
     tone: "warning",
     features: [
-      "Unlimited customers",
       "Unlimited orders/month",
       "Everything in Max",
       "Full white label email solution",
@@ -215,7 +210,6 @@ const PLANS: Plan[] = [
     savings: "Save $1,692/year",
     features: [
       "All Ultra features included",
-      "Unlimited customers",
       "Unlimited orders/month",
       "Everything in Max",
       "Full white label email solution",

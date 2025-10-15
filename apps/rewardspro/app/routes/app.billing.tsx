@@ -433,7 +433,6 @@ export default function BillingPage() {
       price: "$39",
       description: "Everything you need to grow your loyalty program",
       features: [
-        "Up to 2,000 customers",
         "500 orders/month",
         "Batch processing cashback",
         "1,000 emails/month",
@@ -451,7 +450,6 @@ export default function BillingPage() {
       price: "$149",
       description: "For established businesses with advanced needs",
       features: [
-        "Unlimited customers",
         "2,000 orders/month",
         "Sell tier memberships",
         "White label email",
@@ -470,7 +468,6 @@ export default function BillingPage() {
       price: "$499",
       description: "Unlimited everything for growing enterprises",
       features: [
-        "Unlimited customers",
         "Unlimited orders",
         "Unlimited emails",
         "Full white label solution",
@@ -495,7 +492,6 @@ export default function BillingPage() {
       badge: "Save 28%",
       savings: "Save $132/year",
       features: [
-        "Up to 2,000 customers",
         "500 orders/month",
         "Batch processing cashback",
         "1,000 emails/month",
@@ -516,7 +512,6 @@ export default function BillingPage() {
       badge: "Save 28%",
       savings: "Save $492/year",
       features: [
-        "Unlimited customers",
         "2,000 orders/month",
         "Sell tier memberships",
         "White label email",
@@ -538,7 +533,6 @@ export default function BillingPage() {
       badge: "Save 28%",
       savings: "Save $1,692/year",
       features: [
-        "Unlimited customers",
         "Unlimited orders",
         "Unlimited emails",
         "Full white label solution",
@@ -647,33 +641,26 @@ export default function BillingPage() {
                 </Banner>
               )}
 
-              {/* Billing Interval Switcher */}
-              <Card>
-                <Box padding="400">
-                  <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingMd" as="h2">
-                      Select billing frequency
-                    </Text>
-                    <ButtonGroup variant="segmented">
-                      <Button
-                        pressed={billingInterval === 'monthly'}
-                        onClick={() => setBillingInterval('monthly')}
-                      >
-                        Monthly
-                      </Button>
-                      <Button
-                        pressed={billingInterval === 'annual'}
-                        onClick={() => setBillingInterval('annual')}
-                      >
-                        Annual (Save 28%)
-                      </Button>
-                    </ButtonGroup>
-                  </InlineStack>
-                </Box>
-              </Card>
+              {/* Tabs for plan categories with billing frequency switcher */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab} fitted={false} />
+                <ButtonGroup variant="segmented">
+                  <Button
+                    pressed={billingInterval === 'monthly'}
+                    onClick={() => setBillingInterval('monthly')}
+                  >
+                    Monthly
+                  </Button>
+                  <Button
+                    pressed={billingInterval === 'annual'}
+                    onClick={() => setBillingInterval('annual')}
+                  >
+                    Annual (Save 28%)
+                  </Button>
+                </ButtonGroup>
+              </div>
 
-              {/* Tabs for plan categories */}
-              <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+              <div>
                 {/* Individual Plans Tab */}
                 {selectedTab === 0 && (
                   <div style={{ paddingTop: '16px' }}>
@@ -1005,7 +992,7 @@ export default function BillingPage() {
                     </Card>
                   </div>
                 )}
-              </Tabs>
+              </div>
 
               {/* FAQ Section */}
               <Card>
@@ -1028,7 +1015,7 @@ export default function BillingPage() {
                           icon={faqOpen.changeTime ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.changeTime ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             Can I upgrade or downgrade my plan at any time?
                           </Text>
                         </Button>
@@ -1038,7 +1025,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately. When you upgrade, you'll be charged the prorated amount for the remainder of the billing cycle. When you downgrade, credits will be applied to your next invoice.
                             </Text>
                           </Box>
@@ -1059,7 +1046,7 @@ export default function BillingPage() {
                           icon={faqOpen.billing ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.billing ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             How does billing work?
                           </Text>
                         </Button>
@@ -1069,7 +1056,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               All plans are billed monthly through your Shopify invoice. The charge appears on your regular Shopify bill, making it simple to manage all your expenses in one place. Enterprise plans can have custom billing arrangements including annual contracts or custom payment terms.
                             </Text>
                           </Box>
@@ -1090,7 +1077,7 @@ export default function BillingPage() {
                           icon={faqOpen.enterprise ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.enterprise ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             What makes Enterprise different?
                           </Text>
                         </Button>
@@ -1100,7 +1087,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Enterprise plans include custom development, dedicated infrastructure, and the ability to build custom modules specific to your business needs. You get a dedicated success team, 24/7 priority support, custom integrations, and the flexibility to scale infinitely. Pricing is tailored to your specific requirements and usage patterns.
                             </Text>
                           </Box>
@@ -1121,7 +1108,7 @@ export default function BillingPage() {
                           icon={faqOpen.freeLimit ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.freeLimit ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             What happens when I exceed my plan limits?
                           </Text>
                         </Button>
@@ -1131,7 +1118,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Pro and Max plans have overage pricing for orders beyond your monthly limit. Pro plan charges $10 per 100 additional orders, Max plan charges $5 per 100 additional orders. Ultra plan has no limits - everything is unlimited. We'll notify you when you're approaching your limits so you can upgrade if needed.
                             </Text>
                           </Box>
@@ -1152,7 +1139,7 @@ export default function BillingPage() {
                           icon={faqOpen.trial ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.trial ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             Is there a free trial for paid plans?
                           </Text>
                         </Button>
@@ -1162,7 +1149,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Yes! All plans come with a 14-day free trial. You won't be charged until the trial ends, and you can cancel anytime during the trial without any charges.
                             </Text>
                           </Box>
@@ -1183,7 +1170,7 @@ export default function BillingPage() {
                           icon={faqOpen.cancellation ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.cancellation ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             Can I cancel my subscription anytime?
                           </Text>
                         </Button>
@@ -1193,7 +1180,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Yes, you can cancel your subscription at any time with no cancellation fees. When you cancel, you'll continue to have access to the paid features until the end of your current billing cycle. After that, you'll need to select a new plan to continue using the app.
                             </Text>
                           </Box>
@@ -1214,7 +1201,7 @@ export default function BillingPage() {
                           icon={faqOpen.dataRetention ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.dataRetention ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             What happens to my data if I cancel or downgrade?
                           </Text>
                         </Button>
@@ -1224,7 +1211,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Your data is always safe with us. If you cancel or downgrade, all your customer data, tier configurations, and store credit balances are preserved. You can upgrade again at any time and pick up right where you left off. We never delete your data unless you explicitly request it or uninstall the app.
                             </Text>
                           </Box>
@@ -1245,7 +1232,7 @@ export default function BillingPage() {
                           icon={faqOpen.multiStore ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.multiStore ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             Can I use RewardsPro on multiple stores?
                           </Text>
                         </Button>
@@ -1255,7 +1242,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Each Shopify store requires its own RewardsPro subscription. However, Enterprise plans can include multi-store support with centralized management and special pricing for multiple locations. Contact our sales team to discuss multi-store options.
                             </Text>
                           </Box>
@@ -1276,7 +1263,7 @@ export default function BillingPage() {
                           icon={faqOpen.charges ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.charges ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             When will I be charged?
                           </Text>
                         </Button>
@@ -1286,7 +1273,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Charges appear on your regular Shopify invoice. After your 14-day free trial, you'll be charged monthly on the same billing cycle as your Shopify subscription. There are no setup fees, hidden charges, or long-term contracts. The price you see is the price you pay.
                             </Text>
                           </Box>
@@ -1305,7 +1292,7 @@ export default function BillingPage() {
                           icon={faqOpen.support ? ChevronUpIcon : ChevronDownIcon}
                           disclosure={faqOpen.support ? "up" : "down"}
                         >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
                             What kind of support is included?
                           </Text>
                         </Button>
@@ -1315,7 +1302,7 @@ export default function BillingPage() {
                           transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
                         >
                           <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" tone="subdued">
+                            <Text as="p" variant="bodyMd" alignment="start">
                               Pro plan includes priority email support with 24-hour response time and access to our knowledge base. Max plan adds phone support and white label features. Ultra plan includes dedicated support with no limits on anything. Enterprise includes 24/7 phone & email support with a dedicated success team.
                             </Text>
                           </Box>
@@ -1368,7 +1355,7 @@ export default function BillingPage() {
                       <Text as="p" variant="bodyMd">Monthly orders</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Up to 200</Text>
+                      <Text as="p" variant="bodyMd">Up to 100</Text>
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
                       <Text as="p" variant="bodyMd">Up to 500</Text>
