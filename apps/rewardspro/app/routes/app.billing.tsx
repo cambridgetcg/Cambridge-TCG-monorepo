@@ -24,12 +24,13 @@ import {
   Toast,
   Frame,
   Tabs,
-  Collapsible
+  Collapsible,
+  ButtonGroup
 } from "@shopify/polaris";
 import { CheckCircleIcon, PhoneIcon, EmailIcon, ChevronDownIcon, ChevronUpIcon } from "@shopify/polaris-icons";
 import { authenticate, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import { db } from "../db.server";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { updatePlanLimit, unlockShop } from "~/utils/plan-access-control.server";
 
@@ -378,6 +379,7 @@ export default function BillingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedTab, setSelectedTab] = useState(0);
+  const [billingInterval, setBillingInterval] = React.useState<'monthly' | 'annual'>('monthly');
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [enterpriseForm, setEnterpriseForm] = useState({
@@ -423,7 +425,7 @@ export default function BillingPage() {
   const currentPlan = data.currentPlanName;
 
   // Free plan hidden from display but still functional for existing users
-  const individualPlans = [
+  const monthlyPlans = [
     // Removed Free plan to encourage upgrades
     {
       name: "Pro",
@@ -482,6 +484,76 @@ export default function BillingPage() {
       recommended: false
     }
   ];
+
+  const annualPlans = [
+    {
+      name: "Pro Annual",
+      id: "pro-annual",
+      price: "$28",
+      annualPrice: "$336",
+      description: "Save 28% with annual billing",
+      badge: "Save 28%",
+      savings: "Save $132/year",
+      features: [
+        "Up to 2,000 customers",
+        "500 orders/month",
+        "Batch processing cashback",
+        "1,000 emails/month",
+        "Priority support",
+        "Advanced analytics",
+        "$10 per 100 extra orders"
+      ],
+      buttonText: currentPlan === "RewardsPro Pro Annual" ? "Current Plan" : "Upgrade to Pro Annual",
+      isCurrentPlan: currentPlan === "RewardsPro Pro Annual",
+      recommended: false
+    },
+    {
+      name: "Max Annual",
+      id: "max-annual",
+      price: "$108",
+      annualPrice: "$1,296",
+      description: "Save 28% with annual billing",
+      badge: "Save 28%",
+      savings: "Save $492/year",
+      features: [
+        "Unlimited customers",
+        "2,000 orders/month",
+        "Sell tier memberships",
+        "White label email",
+        "5,000 emails/month",
+        "Advanced analytics",
+        "Phone support",
+        "$5 per 100 extra orders"
+      ],
+      buttonText: currentPlan === "RewardsPro Max Annual" ? "Current Plan" : "Upgrade to Max Annual",
+      isCurrentPlan: currentPlan === "RewardsPro Max Annual",
+      recommended: true
+    },
+    {
+      name: "Ultra Annual",
+      id: "ultra-annual",
+      price: "$358",
+      annualPrice: "$4,296",
+      description: "Save 28% with annual billing",
+      badge: "Save 28%",
+      savings: "Save $1,692/year",
+      features: [
+        "Unlimited customers",
+        "Unlimited orders",
+        "Unlimited emails",
+        "Full white label solution",
+        "Custom SMTP integration",
+        "A/B testing",
+        "Dedicated support",
+        "No overage charges"
+      ],
+      buttonText: currentPlan === "RewardsPro Ultra Annual" ? "Current Plan" : "Upgrade to Ultra Annual",
+      isCurrentPlan: currentPlan === "RewardsPro Ultra Annual",
+      recommended: false
+    }
+  ];
+
+  const individualPlans = billingInterval === 'monthly' ? monthlyPlans : annualPlans;
 
   const enterprisePlan = {
     name: "Enterprise",
@@ -575,6 +647,31 @@ export default function BillingPage() {
                 </Banner>
               )}
 
+              {/* Billing Interval Switcher */}
+              <Card>
+                <Box padding="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingMd" as="h2">
+                      Select billing frequency
+                    </Text>
+                    <ButtonGroup variant="segmented">
+                      <Button
+                        pressed={billingInterval === 'monthly'}
+                        onClick={() => setBillingInterval('monthly')}
+                      >
+                        Monthly
+                      </Button>
+                      <Button
+                        pressed={billingInterval === 'annual'}
+                        onClick={() => setBillingInterval('annual')}
+                      >
+                        Annual (Save 28%)
+                      </Button>
+                    </ButtonGroup>
+                  </InlineStack>
+                </Box>
+              </Card>
+
               {/* Tabs for plan categories */}
               <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
                 {/* Individual Plans Tab */}
@@ -618,6 +715,16 @@ export default function BillingPage() {
                               </Text>
                             )}
                           </InlineStack>
+                          {billingInterval === 'annual' && (plan as any).annualPrice && (
+                            <InlineStack gap="200" blockAlign="center">
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Billed annually at {(plan as any).annualPrice}
+                              </Text>
+                              {(plan as any).badge && (
+                                <Badge tone="success">{(plan as any).badge}</Badge>
+                              )}
+                            </InlineStack>
+                          )}
                         </BlockStack>
 
                         {/* Description */}
