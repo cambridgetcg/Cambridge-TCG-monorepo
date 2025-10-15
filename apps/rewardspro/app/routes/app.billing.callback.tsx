@@ -72,11 +72,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
           }
         });
 
-        // Update shop settings
+        // Update shop settings with current plan
         await db.shopSettings.update({
           where: { shop: session.shop },
           data: {
             billingStatus: "ACTIVE",
+            currentPlan: subscriptionStatus.subscription?.name || "RewardsPro Free",
             updatedAt: new Date(),
           }
         });
