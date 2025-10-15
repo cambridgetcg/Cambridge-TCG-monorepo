@@ -127,7 +127,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Get active subscription
     const { hasActivePayment, appSubscriptions } = await billing.check({
       plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
-      isTest: process.env.NODE_ENV === 'development',
+      isTest: true, // Always test mode for development stores
     });
     const activeSubscription = appSubscriptions?.[0];
 
@@ -218,7 +218,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [PRO_PLAN],
       onFailure: () => billing.request({
         plan: PRO_PLAN,
-        isTest: process.env.NODE_ENV === 'development',
+        isTest: true, // Always test mode for development stores
       }),
     });
 
@@ -240,7 +240,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [MAX_PLAN],
       onFailure: () => billing.request({
         plan: MAX_PLAN,
-        isTest: process.env.NODE_ENV === 'development',
+        isTest: true, // Always test mode for development stores
       }),
     });
 
@@ -262,7 +262,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [ULTRA_PLAN],
       onFailure: () => billing.request({
         plan: ULTRA_PLAN,
-        isTest: process.NODE_ENV === 'development',
+        isTest: true, // Always test mode for development stores
       }),
     });
 
@@ -284,7 +284,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [PRO_ANNUAL_PLAN],
       onFailure: () => billing.request({
         plan: PRO_ANNUAL_PLAN,
-        isTest: process.env.NODE_ENV === 'development',
+        isTest: true, // Always test mode for development stores
       }),
     });
 
@@ -306,7 +306,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [MAX_ANNUAL_PLAN],
       onFailure: () => billing.request({
         plan: MAX_ANNUAL_PLAN,
-        isTest: process.env.NODE_ENV === 'development',
+        isTest: true, // Always test mode for development stores
       }),
     });
 
@@ -328,7 +328,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       plans: [ULTRA_ANNUAL_PLAN],
       onFailure: () => billing.request({
         plan: ULTRA_ANNUAL_PLAN,
-        isTest: process.env.NODE_ENV === 'development',
+        isTest: true, // Always test mode for development stores
       }),
     });
 
