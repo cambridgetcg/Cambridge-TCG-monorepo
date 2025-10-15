@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
+import * as React from "react";
 import {
   Page,
   Layout,
@@ -15,6 +16,7 @@ import {
   Icon,
   List,
   Banner,
+  ButtonGroup,
 } from "@shopify/polaris";
 import {
   CheckIcon,
@@ -417,15 +419,25 @@ export default function BillingPlansPage() {
   const { currentPlan, monthlyOrderUsage, plans } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const navigate = useNavigate();
+  const [billingInterval, setBillingInterval] = React.useState<'monthly' | 'annual'>('monthly');
 
   const handleSelectPlan = (planId: string) => {
     if (planId === currentPlan) return;
-    
+
     fetcher.submit(
       { planId },
       { method: "post" }
     );
   };
+
+  // Filter plans based on selected billing interval
+  const filteredPlans = plans.filter(plan => {
+    if (billingInterval === 'monthly') {
+      return !plan.name.includes('Annual');
+    } else {
+      return plan.name.includes('Annual');
+    }
+  });
 
   return (
     <Page
@@ -446,19 +458,44 @@ export default function BillingPlansPage() {
               >
                 <p>
                   You've processed {monthlyOrderUsage.orderCount} of {monthlyOrderUsage.planLimit} orders this month.
-                  {monthlyOrderUsage.orderCount >= monthlyOrderUsage.planLimit && 
+                  {monthlyOrderUsage.orderCount >= monthlyOrderUsage.planLimit &&
                     " Please upgrade to continue processing orders."}
                 </p>
               </Banner>
             )}
 
+            {/* Billing Interval Switcher */}
+            <Card>
+              <Box padding="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text variant="headingMd" as="h2">
+                    Select billing frequency
+                  </Text>
+                  <ButtonGroup variant="segmented">
+                    <Button
+                      pressed={billingInterval === 'monthly'}
+                      onClick={() => setBillingInterval('monthly')}
+                    >
+                      Monthly
+                    </Button>
+                    <Button
+                      pressed={billingInterval === 'annual'}
+                      onClick={() => setBillingInterval('annual')}
+                    >
+                      Annual <Badge tone="success">Save 28%</Badge>
+                    </Button>
+                  </ButtonGroup>
+                </InlineStack>
+              </Box>
+            </Card>
+
             {/* Plans Grid */}
             <Grid>
-              {plans.map((plan: Plan) => {
+              {filteredPlans.map((plan: Plan) => {
                 const isCurrentPlan = plan.id === currentPlan;
-                const isUpgrade = PLANS.findIndex(p => p.id === plan.id) > 
+                const isUpgrade = PLANS.findIndex(p => p.id === plan.id) >
                                   PLANS.findIndex(p => p.id === currentPlan);
-                const isDowngrade = PLANS.findIndex(p => p.id === plan.id) < 
+                const isDowngrade = PLANS.findIndex(p => p.id === plan.id) <
                                    PLANS.findIndex(p => p.id === currentPlan);
 
                 return (
