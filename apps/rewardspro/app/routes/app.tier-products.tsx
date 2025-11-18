@@ -1785,20 +1785,6 @@ export default function TierProducts() {
             </Layout.Section>
           )}
 
-          {/* Information Banner */}
-          <Layout.Section>
-            <Banner
-              title="Sell tier memberships as products"
-              tone="info"
-              icon={PackageIcon}
-            >
-              <p>
-                Create Shopify products that customers can purchase to gain access to specific loyalty tiers.
-                These products can be one-time purchases or recurring subscriptions.
-              </p>
-            </Banner>
-          </Layout.Section>
-
           {/* Loyalty Tiers Management */}
           <Layout.Section>
             <Card>
@@ -1959,6 +1945,20 @@ export default function TierProducts() {
                 </BlockStack>
               </Box>
             </Card>
+          </Layout.Section>
+
+          {/* Information Banner */}
+          <Layout.Section>
+            <Banner
+              title="Sell tier memberships as products"
+              tone="info"
+              icon={PackageIcon}
+            >
+              <p>
+                Create Shopify products that customers can purchase to gain access to specific loyalty tiers.
+                These products can be one-time purchases or recurring subscriptions.
+              </p>
+            </Banner>
           </Layout.Section>
 
           {/* Tier-Duration Matrix View */}
