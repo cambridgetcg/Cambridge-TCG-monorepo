@@ -134,6 +134,7 @@ interface LoaderData {
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
+    autoCashbackProcessingEnabled?: boolean;
   } | null;
   pagination: {
     page: number;
@@ -2123,6 +2124,9 @@ export default function OrdersPage() {
                       </Text>
                       <Badge>
                         {`${orders.length} of ${pagination.totalCount}`}
+                      </Badge>
+                      <Badge tone={shopSettings?.autoCashbackProcessingEnabled !== false ? "success" : "warning"}>
+                        {shopSettings?.autoCashbackProcessingEnabled !== false ? "Auto Processing: On" : "Auto Processing: Off"}
                       </Badge>
                     </InlineStack>
                     <Select
