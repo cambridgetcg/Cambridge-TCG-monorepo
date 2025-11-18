@@ -13,9 +13,10 @@ import { authenticate } from "~/shopify.server";
 export async function action({ request }: ActionFunctionArgs) {
   try {
     // Verify the request is from our extension
-    const { sessionToken, shop } = await authenticate.public.appProxy(request);
-    
-    if (!sessionToken) {
+    const { session } = await authenticate.public.appProxy(request);
+    const shop = session?.shop;
+
+    if (!session || !shop) {
       return json({ error: "Unauthorized" }, { status: 401 });
     }
 

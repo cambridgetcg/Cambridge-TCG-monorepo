@@ -220,11 +220,17 @@ export async function processPendingCashback(shop: string) {
       }
     });
 
-    // Update customer balance
+    // Update customer balance and total cashback earned
+    const currentTotalCashback = order.customer.totalCashbackEarned
+      ? parseFloat(order.customer.totalCashbackEarned.toString())
+      : 0;
+
     await db.customer.update({
       where: { id: order.customerId },
       data: {
-        storeCredit: newBalance
+        storeCredit: newBalance,
+        totalCashbackEarned: currentTotalCashback + Number(order.cashbackAmount),
+        updatedAt: new Date()
       }
     });
 

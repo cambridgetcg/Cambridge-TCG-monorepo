@@ -10,6 +10,7 @@ export interface OrderSyncOptions {
   onProgress?: (progress: OrderSyncProgress) => void;
   startDate?: Date;
   endDate?: Date;
+  maxExecutionTime?: number; // Maximum execution time in milliseconds (default: 50 seconds for Vercel)
 }
 
 export interface OrderSyncProgress {
@@ -38,7 +39,7 @@ export interface OrderSyncResult {
   duration: number;
 }
 
-// GraphQL Query for Orders - Based on the guide
+// GraphQL Query for Orders - Updated for 2025-01 API
 const ORDERS_BATCH_QUERY = `#graphql
   query GetOrdersBatch($cursor: String, $first: Int = 50, $query: String) {
     orders(first: $first, after: $cursor, query: $query, reverse: true) {
@@ -47,21 +48,49 @@ const ORDERS_BATCH_QUERY = `#graphql
         node {
           id
           name
-          number
           email
           createdAt
           updatedAt
           processedAt
-          currency
-          subtotalPrice
-          totalDiscounts
-          totalShippingPrice
-          totalTax
-          totalPrice
-          totalRefunded
-          netPayment
-          financialStatus
-          fulfillmentStatus
+          currencyCode
+          subtotalPriceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+          }
+          totalDiscountsSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalShippingPriceSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalTaxSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalPriceSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalRefundedSet {
+            shopMoney {
+              amount
+            }
+          }
+          netPaymentSet {
+            shopMoney {
+              amount
+            }
+          }
+          displayFinancialStatus
+          displayFulfillmentStatus
           customer {
             id
             email
@@ -75,8 +104,16 @@ const ORDERS_BATCH_QUERY = `#graphql
                 sku
                 vendor
                 quantity
-                price
-                totalDiscount
+                originalUnitPriceSet {
+                  shopMoney {
+                    amount
+                  }
+                }
+                totalDiscountSet {
+                  shopMoney {
+                    amount
+                  }
+                }
                 requiresShipping
                 taxable
                 product {
@@ -99,11 +136,19 @@ const ORDERS_BATCH_QUERY = `#graphql
                     id
                   }
                   quantity
-                  subtotal
+                  subtotalSet {
+                    shopMoney {
+                      amount
+                    }
+                  }
                 }
               }
             }
-            totalRefunded
+            totalRefundedSet {
+              shopMoney {
+                amount
+              }
+            }
           }
         }
       }
@@ -175,6 +220,7 @@ export class OrderSyncService {
       onProgress: () => {},
       startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // Default to 1 year ago
       endDate: new Date(),
+      maxExecutionTime: 50000, // Default: 50 seconds (safe for Vercel 60s timeout)
       ...options
     };
     // Shopify allows 2 requests per second with max 1000 cost points
@@ -185,8 +231,9 @@ export class OrderSyncService {
    * Sync all orders from Shopify to local database
    */
   async syncAllOrders(): Promise<OrderSyncResult> {
+    console.log("[Order Sync] Starting sync service");
     this.startTime = Date.now();
-    
+
     const progress: OrderSyncProgress = {
       total: 0,
       processed: 0,
@@ -201,33 +248,63 @@ export class OrderSyncService {
     try {
       // Build query filter for date range and status
       const queryParts: string[] = [];
-      
+
       // Add date filter
       const startDateStr = this.options.startDate.toISOString().split('T')[0];
       const endDateStr = this.options.endDate.toISOString().split('T')[0];
       queryParts.push(`created_at:>=${startDateStr}`);
       queryParts.push(`created_at:<=${endDateStr}`);
-      
+
       // Only sync paid orders (for cashback calculation)
       queryParts.push(`financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded`);
-      
+
       const query = queryParts.join(' AND ');
-      console.log(`Syncing orders with query: ${query}`);
+      console.log(`[Order Sync] Date range: ${startDateStr} to ${endDateStr}, batch size: ${this.options.batchSize}`);
 
       let cursor: string | null = null;
       let hasNextPage = true;
       let estimatedTotal = 0;
 
+      console.log("[SYNC] Starting batch processing loop");
+
       // Process orders in batches
       while (hasNextPage) {
+        // Check if we're approaching timeout
+        const elapsedTime = Date.now() - this.startTime;
+        console.log(`[SYNC] Elapsed time: ${elapsedTime}ms / ${this.options.maxExecutionTime}ms`);
+
+        if (elapsedTime > this.options.maxExecutionTime) {
+          console.log(`[SYNC] ⚠️ Approaching timeout (${elapsedTime}ms), stopping sync gracefully...`);
+          progress.errors.push({
+            error: `Sync stopped after ${elapsedTime}ms to avoid timeout. Processed ${progress.processed} orders. Continue sync to process remaining orders.`,
+            timestamp: new Date()
+          });
+          break;
+        }
+
         progress.currentBatch = (progress.currentBatch || 0) + 1;
-        
+        console.log(`[SYNC] ========== BATCH ${progress.currentBatch} START ==========`);
+
         try {
           // Fetch batch with rate limiting
+          console.log("[SYNC] Applying rate limit throttle...");
           await this.rateLimiter.throttle();
+          console.log("[SYNC] Rate limit check passed");
+
+          console.log("[SYNC] Fetching order batch from Shopify API...", {
+            cursor: cursor || "null (first batch)",
+            batchSize: this.options.batchSize
+          });
+
           const batch = await this.fetchOrderBatch(cursor, query);
-          
+
+          console.log("[SYNC] Batch fetched successfully", {
+            ordersCount: batch.orders?.length || 0,
+            hasNextPage: batch.pageInfo?.hasNextPage
+          });
+
           if (!batch.orders || batch.orders.length === 0) {
+            console.log("[SYNC] No orders in batch, ending sync");
             break;
           }
 
@@ -236,24 +313,42 @@ export class OrderSyncService {
             // Rough estimate based on first batch
             estimatedTotal = batch.orders.length * 10; // Assume ~10 pages
             progress.total = estimatedTotal;
+            console.log(`[SYNC] Estimated total orders: ${estimatedTotal}`);
           }
 
           // Process batch
+          console.log(`[SYNC] Processing batch of ${batch.orders.length} orders...`);
           await this.processBatch(batch.orders, progress);
+          console.log(`[SYNC] Batch processed. Progress: ${progress.processed}/${progress.total} (${progress.successful} successful, ${progress.failed} failed)`);
 
           cursor = batch.pageInfo.endCursor;
           hasNextPage = batch.pageInfo.hasNextPage;
 
+          console.log("[SYNC] Batch pagination info:", {
+            endCursor: cursor || "null",
+            hasNextPage
+          });
+
           // Report progress
+          console.log("[SYNC] Calling onProgress callback");
           this.options.onProgress(progress);
 
           // Small delay between batches
           if (hasNextPage) {
+            console.log("[SYNC] More pages available, waiting 100ms before next batch...");
             await new Promise(resolve => setTimeout(resolve, 100));
+          } else {
+            console.log("[SYNC] No more pages, sync complete");
           }
+
+          console.log(`[SYNC] ========== BATCH ${progress.currentBatch} END ==========`);
         } catch (error) {
-          console.error(`Error processing batch ${progress.currentBatch}:`, error);
-          
+          console.error(`[SYNC] ❌ Error processing batch ${progress.currentBatch}:`, error);
+          console.error("[SYNC] Error details:", {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
+
           // Add to errors but continue processing
           progress.errors.push({
             error: `Batch ${progress.currentBatch} failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -267,7 +362,7 @@ export class OrderSyncService {
 
           // Retry with exponential backoff
           await new Promise(resolve => setTimeout(resolve, 2000 * progress.errors.length));
-          
+
           if (hasNextPage && cursor) {
             continue;
           }
@@ -275,10 +370,24 @@ export class OrderSyncService {
       }
 
       // Update customer spending totals after all orders are synced
+      console.log("[SYNC] Updating customer spending totals...");
       await this.updateCustomerSpendingTotals(progress);
+      console.log("[SYNC] Customer spending totals updated");
 
       const duration = Date.now() - this.startTime;
-      
+
+      console.log("========================================");
+      console.log("ORDER SYNC SERVICE - COMPLETE");
+      console.log("========================================");
+      console.log("[SYNC] Final stats:", {
+        successful: progress.successful,
+        failed: progress.failed,
+        skipped: progress.skipped,
+        total: progress.processed,
+        duration: `${duration}ms`,
+        errors: progress.errors.length
+      });
+
       return {
         success: progress.successful > 0,
         message: this.generateSyncMessage(progress),
@@ -287,10 +396,17 @@ export class OrderSyncService {
         duration
       };
     } catch (error) {
-      console.error("Order sync failed:", error);
-      
+      console.error("========================================");
+      console.error("ORDER SYNC SERVICE - FAILED");
+      console.error("========================================");
+      console.error("[SYNC] ❌ Fatal error:", error);
+      console.error("[SYNC] Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+
       const duration = Date.now() - this.startTime;
-      
+
       return {
         success: false,
         message: error instanceof Error ? error.message : "Failed to sync orders",
@@ -302,9 +418,15 @@ export class OrderSyncService {
   }
 
   /**
-   * Fetch a batch of orders from Shopify
+   * Fetch a batch of orders from Shopify with retry logic
    */
-  private async fetchOrderBatch(cursor: string | null, query: string): Promise<any> {
+  private async fetchOrderBatch(cursor: string | null, query: string, retryCount = 0): Promise<any> {
+    console.log("[FETCH] Fetching order batch...", {
+      cursor: cursor || "null (first page)",
+      batchSize: this.options.batchSize,
+      retryCount
+    });
+
     const variables = {
       cursor,
       first: this.options.batchSize,
@@ -312,37 +434,57 @@ export class OrderSyncService {
     };
 
     try {
+      console.log("[FETCH] Sending GraphQL request to Shopify...");
       const response = await this.admin.graphql(ORDERS_BATCH_QUERY, { variables });
+      console.log("[FETCH] Response received, parsing JSON...");
       const result = await response.json() as any;
+      console.log("[FETCH] JSON parsed successfully");
 
       if (result.errors && result.errors.length > 0) {
         const errorMessages = result.errors.map((e: any) => e.message).join(', ');
-        
+
         // Check for rate limiting
         if (result.errors.some((e: any) => e.extensions?.code === 'THROTTLED')) {
           // Wait and retry with exponential backoff
           console.log("Rate limited, waiting 5 seconds...");
           await new Promise(resolve => setTimeout(resolve, 5000));
           this.rateLimiter.reset();
-          return this.fetchOrderBatch(cursor, query);
+          return this.fetchOrderBatch(cursor, query, retryCount);
         }
-        
+
         throw new Error(`GraphQL errors: ${errorMessages}`);
       }
 
       // Extract orders from edges
+      console.log("[FETCH] Extracting order data from response...");
       const edges = result.data?.orders?.edges || [];
       const orders = edges.map((edge: any) => edge.node);
       const pageInfo = result.data?.orders?.pageInfo || { hasNextPage: false, endCursor: null };
 
-      console.log(`Fetched ${orders.length} orders, hasNextPage: ${pageInfo.hasNextPage}`);
+      console.log(`[FETCH] ✅ Successfully fetched ${orders.length} orders`, {
+        ordersCount: orders.length,
+        hasNextPage: pageInfo.hasNextPage,
+        endCursor: pageInfo.endCursor ? "present" : "null"
+      });
 
       return {
         orders,
         pageInfo
       };
-    } catch (error) {
-      console.error("Error fetching orders:", error);
+    } catch (error: any) {
+      console.error("[FETCH] ❌ Error fetching orders:", error);
+      console.error("[FETCH] Error type:", error?.constructor?.name);
+      console.error("[FETCH] Error message:", error?.message);
+
+      // Retry on network errors with exponential backoff
+      if (retryCount < this.options.maxRetries) {
+        const waitTime = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        console.log(`[FETCH] 🔄 Network error, retrying in ${waitTime}ms (attempt ${retryCount + 1}/${this.options.maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.fetchOrderBatch(cursor, query, retryCount + 1);
+      }
+
+      console.error("[FETCH] ❌ Max retries exceeded, throwing error");
       throw error;
     }
   }
@@ -361,7 +503,7 @@ export class OrderSyncService {
         progress.processed++;
         progress.errors.push({
           orderId: order.id,
-          orderNumber: order.number,
+          orderNumber: order.orderNumber,
           error: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date()
         });
@@ -378,14 +520,23 @@ export class OrderSyncService {
    * Process a single order and save to database
    */
   private async processOrder(order: any): Promise<void> {
+    console.log(`[PROCESS] Processing order ${order.name}...`);
+
     // Extract Shopify order ID from GraphQL global ID
     const shopifyOrderId = order.id.replace('gid://shopify/Order/', '');
-    
+
     // Extract customer ID if exists
-    const shopifyCustomerId = order.customer?.id ? 
+    const shopifyCustomerId = order.customer?.id ?
       order.customer.id.replace('gid://shopify/Customer/', '') : null;
 
+    console.log(`[PROCESS] Order IDs extracted`, {
+      orderName: order.name,
+      shopifyOrderId,
+      shopifyCustomerId: shopifyCustomerId || "none"
+    });
+
     // Check if order already exists
+    console.log(`[PROCESS] Checking if order exists in database...`);
     const existingOrder = await (db as any).order.findFirst({
       where: {
         shop: this.options.shop,
@@ -394,16 +545,24 @@ export class OrderSyncService {
     });
 
     if (existingOrder) {
-      console.log(`Order ${order.name} already exists, updating...`);
-      
+      console.log(`[PROCESS] Order ${order.name} already exists (ID: ${existingOrder.id}), updating...`);
+
       // Update existing order with latest data
       await this.updateOrder(existingOrder.id, order, shopifyCustomerId);
+      console.log(`[PROCESS] ✅ Order ${order.name} updated successfully`);
       return;
     }
+
+    console.log(`[PROCESS] Order ${order.name} does not exist, creating new record...`);
 
     // Find the customer in our database
     let customer = null;
     if (shopifyCustomerId) {
+      console.log(`[PROCESS] Looking up customer in database...`, {
+        shopifyCustomerId,
+        shop: this.options.shop
+      });
+
       customer = await db.customer.findFirst({
         where: {
           shop: this.options.shop,
@@ -413,9 +572,28 @@ export class OrderSyncService {
           currentTier: true
         }
       });
+
+      if (customer) {
+        console.log(`[PROCESS] Customer found:`, {
+          customerId: customer.id,
+          email: customer.email,
+          hasTier: !!customer.currentTier,
+          tierName: customer.currentTier?.name
+        });
+      } else {
+        console.log(`[PROCESS] ⚠️ Customer NOT found in database - skipping order`, {
+          shopifyCustomerId,
+          orderName: order.name
+        });
+        return; // Skip orders for customers not in our database
+      }
+    } else {
+      console.log(`[PROCESS] ⚠️ Skipping order - no customer ID (guest checkout)`);
+      return; // Skip guest checkout orders - can't track rewards without customer
     }
 
     // Calculate cashback if customer has a tier
+    console.log(`[PROCESS] Calculating cashback...`);
     let cashbackPercent = 0;
     let cashbackAmount = 0;
     let tierIdAtOrder = null;
@@ -425,35 +603,55 @@ export class OrderSyncService {
       cashbackPercent = customer.currentTier.cashbackPercent;
       tierIdAtOrder = customer.currentTier.id;
       tierNameAtOrder = customer.currentTier.name;
-      
+
       // Calculate cashback on net amount (after discounts, before tax/shipping)
-      const netAmount = parseFloat(order.subtotalPrice || "0") - parseFloat(order.totalDiscounts || "0");
+      const subtotal = parseFloat(order.subtotalPriceSet?.shopMoney?.amount || "0");
+      const discounts = parseFloat(order.totalDiscountsSet?.shopMoney?.amount || "0");
+      const netAmount = subtotal - discounts;
       cashbackAmount = (netAmount * cashbackPercent) / 100;
+
+      console.log(`[PROCESS] Cashback calculated:`, {
+        tierName: tierNameAtOrder,
+        cashbackPercent,
+        subtotal,
+        discounts,
+        netAmount,
+        cashbackAmount
+      });
+    } else {
+      console.log(`[PROCESS] No tier assigned, cashback will be 0`);
     }
 
     // Create the order
     const orderId = uuidv4();
     const now = new Date();
-    
+
+    console.log(`[PROCESS] Creating order record in database...`, {
+      orderId,
+      orderName: order.name,
+      customerId: customer.id,
+      cashbackAmount
+    });
+
     await (db as any).order.create({
       data: {
         id: orderId,
         shop: this.options.shop,
         shopifyOrderId,
-        shopifyOrderNumber: order.number?.toString() || "",
+        shopifyOrderNumber: order.name?.replace('#', '') || "",
         shopifyOrderName: order.name || "",
-        customerId: customer?.id || "unknown",
+        customerId: customer.id,
         email: order.email || customer?.email || "",
-        currency: order.currency || "USD",
-        subtotalPrice: parseFloat(order.subtotalPrice || "0"),
-        totalDiscounts: parseFloat(order.totalDiscounts || "0"),
-        totalShipping: parseFloat(order.totalShippingPrice || "0"),
-        totalTax: parseFloat(order.totalTax || "0"),
-        totalPrice: parseFloat(order.totalPrice || "0"),
-        totalRefunded: parseFloat(order.totalRefunded || "0"),
-        netAmount: parseFloat(order.netPayment || order.totalPrice || "0"),
-        financialStatus: this.mapFinancialStatus(order.financialStatus),
-        fulfillmentStatus: order.fulfillmentStatus || null,
+        currency: order.currencyCode || "USD",
+        subtotalPrice: parseFloat(order.subtotalPriceSet?.shopMoney?.amount || "0"),
+        totalDiscounts: parseFloat(order.totalDiscountsSet?.shopMoney?.amount || "0"),
+        totalShipping: parseFloat(order.totalShippingPriceSet?.shopMoney?.amount || "0"),
+        totalTax: parseFloat(order.totalTaxSet?.shopMoney?.amount || "0"),
+        totalPrice: parseFloat(order.totalPriceSet?.shopMoney?.amount || "0"),
+        totalRefunded: parseFloat(order.totalRefundedSet?.shopMoney?.amount || "0"),
+        netAmount: parseFloat(order.netPaymentSet?.shopMoney?.amount || order.totalPriceSet?.shopMoney?.amount || "0"),
+        financialStatus: this.mapFinancialStatus(order.displayFinancialStatus),
+        fulfillmentStatus: order.displayFulfillmentStatus || null,
         cashbackEligible: true,
         cashbackPercent,
         cashbackAmount,
@@ -468,17 +666,50 @@ export class OrderSyncService {
       }
     });
 
+    console.log(`[PROCESS] ✅ Order record created successfully in database`);
+
+    // Create historical ledger entry for cashback tracking (NOT added to customer balance)
+    // This allows totalEarned calculation to work for historical orders
+    if (cashbackAmount > 0) {
+      console.log(`[PROCESS] Creating historical ledger entry for cashback tracking...`);
+      await db.storeCreditLedger.create({
+        data: {
+          id: uuidv4(),
+          shop: this.options.shop,
+          customerId: customer.id,
+          orderId: orderId,
+          type: 'CASHBACK_EARNED',
+          amount: cashbackAmount,
+          balance: 0, // Historical - not added to balance
+          description: `Historical cashback from order ${order.name} (synced from past orders)`,
+          metadata: {
+            orderName: order.name,
+            orderDate: order.createdAt,
+            historical: true, // Mark as historical sync
+            tierName: tierNameAtOrder,
+            cashbackPercent
+          },
+          createdAt: new Date(order.createdAt), // Use order date for proper chronological sorting
+        }
+      });
+      console.log(`[PROCESS] Historical ledger entry created`);
+    }
+
     // Process line items
     if (order.lineItems?.edges) {
+      console.log(`[PROCESS] Processing ${order.lineItems.edges.length} line items...`);
       await this.processLineItems(orderId, order.lineItems.edges);
+      console.log(`[PROCESS] Line items processed`);
     }
 
     // Process refunds if any
     if (order.refunds && order.refunds.length > 0) {
+      console.log(`[PROCESS] Processing ${order.refunds.length} refunds...`);
       await this.processRefunds(orderId, order.refunds);
+      console.log(`[PROCESS] Refunds processed`);
     }
 
-    console.log(`Created order ${order.name} with cashback: ${cashbackAmount} ${order.currency}`);
+    console.log(`[PROCESS] ✅ Order ${order.name} fully processed with cashback: ${cashbackAmount} ${order.currencyCode}`);
   }
 
   /**
@@ -489,10 +720,10 @@ export class OrderSyncService {
     await (db as any).order.update({
       where: { id: orderId },
       data: {
-        totalRefunded: parseFloat(order.totalRefunded || "0"),
-        netAmount: parseFloat(order.netPayment || order.totalPrice || "0"),
-        financialStatus: this.mapFinancialStatus(order.financialStatus),
-        fulfillmentStatus: order.fulfillmentStatus || null,
+        totalRefunded: parseFloat(order.totalRefundedSet?.shopMoney?.amount || "0"),
+        netAmount: parseFloat(order.netPaymentSet?.shopMoney?.amount || order.totalPriceSet?.shopMoney?.amount || "0"),
+        financialStatus: this.mapFinancialStatus(order.displayFinancialStatus),
+        fulfillmentStatus: order.displayFulfillmentStatus || null,
         shopifyUpdatedAt: new Date(order.updatedAt),
         updatedAt: new Date()
       }
@@ -530,6 +761,9 @@ export class OrderSyncService {
       const shopifyVariantId = item.variant?.id ? 
         item.variant.id.replace('gid://shopify/ProductVariant/', '') : null;
 
+      const unitPrice = parseFloat(item.originalUnitPriceSet?.shopMoney?.amount || "0");
+      const totalDiscount = parseFloat(item.totalDiscountSet?.shopMoney?.amount || "0");
+
       await (db as any).orderLineItem.create({
         data: {
           id: uuidv4(),
@@ -542,9 +776,9 @@ export class OrderSyncService {
           sku: item.sku || null,
           vendor: item.vendor || null,
           quantity: item.quantity || 1,
-          price: parseFloat(item.price || "0"),
-          totalPrice: parseFloat(item.price || "0") * (item.quantity || 1),
-          totalDiscount: parseFloat(item.totalDiscount || "0"),
+          price: unitPrice,
+          totalPrice: unitPrice * (item.quantity || 1),
+          totalDiscount: totalDiscount,
           requiresShipping: item.requiresShipping !== false,
           taxable: item.taxable !== false,
           giftCard: false, // Will need to check product type
@@ -583,7 +817,7 @@ export class OrderSyncService {
           id: refundId,
           orderId,
           shopifyRefundId,
-          amount: parseFloat(refund.totalRefunded?.amount || "0"),
+          amount: parseFloat(refund.totalRefundedSet?.shopMoney?.amount || "0"),
           shippingAmount: 0, // Not available in this query
           taxAmount: 0, // Not available in this query
           reason: null,
@@ -609,7 +843,7 @@ export class OrderSyncService {
               refundId,
               shopifyLineItemId,
               quantity: item.quantity || 1,
-              subtotal: parseFloat(item.subtotal?.amount || "0"),
+              subtotal: parseFloat(item.subtotalSet?.shopMoney?.amount || "0"),
               createdAt: new Date()
             }
           });
@@ -724,21 +958,48 @@ export class OrderSyncService {
         order(id: $id) {
           id
           name
-          number
           email
           createdAt
           updatedAt
           processedAt
-          currency
-          subtotalPrice
-          totalDiscounts
-          totalShippingPrice
-          totalTax
-          totalPrice
-          totalRefunded
-          netPayment
-          financialStatus
-          fulfillmentStatus
+          currencyCode
+          subtotalPriceSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalDiscountsSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalShippingPriceSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalTaxSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalPriceSet {
+            shopMoney {
+              amount
+            }
+          }
+          totalRefundedSet {
+            shopMoney {
+              amount
+            }
+          }
+          netPaymentSet {
+            shopMoney {
+              amount
+            }
+          }
+          displayFinancialStatus
+          displayFulfillmentStatus
           customer {
             id
             email
@@ -752,8 +1013,16 @@ export class OrderSyncService {
                 sku
                 vendor
                 quantity
-                price
-                totalDiscount
+                originalUnitPriceSet {
+                  shopMoney {
+                    amount
+                  }
+                }
+                totalDiscountSet {
+                  shopMoney {
+                    amount
+                  }
+                }
                 requiresShipping
                 taxable
                 product {
@@ -776,11 +1045,19 @@ export class OrderSyncService {
                     id
                   }
                   quantity
-                  subtotal
+                  subtotalSet {
+                    shopMoney {
+                      amount
+                    }
+                  }
                 }
               }
             }
-            totalRefunded
+            totalRefundedSet {
+              shopMoney {
+                amount
+              }
+            }
           }
         }
       }

@@ -78,23 +78,56 @@ model ShopSettings {
   // Email Templates (JSON)
   emailTemplates          Json?               // Custom email templates configuration
 
-  // Billing
-  billingStatus           String?             @default("INACTIVE")  // ACTIVE, INACTIVE, TRIAL
-  currentPlan             String?             @default("free")  // free, pro, max, ultra
+  // Billing (simplified - using billing.check() as source of truth)
+  billingStatus           String?             @default("INACTIVE")  // ACTIVE, INACTIVE, TRIAL (legacy)
+  currentPlan             String?             @default("free")  // free, pro, max, ultra (legacy)
 
-  // Onboarding Progress
-  onboardingSyncedOrders      Boolean          @default(false)  // Step 1: Synced orders
-  onboardingCreatedTiers      Boolean          @default(false)  // Step 2: Created tiers
-  onboardingSyncedCustomers   Boolean          @default(false)  // Step 3: Synced customers
-  onboardingConfiguredSettings Boolean         @default(false)  // Step 4: Configured settings
-  onboardingCompleted         Boolean          @default(false)  // All steps complete
-  onboardingDismissed         Boolean          @default(false)  // User dismissed onboarding
+  // NEW: Simplified billing fields (Phase 1)
+  subscriptionStatus      String?             // ACTIVE, CANCELLED, EXPIRED, PENDING (from webhook)
+  subscriptionUpdatedAt   DateTime?           // When webhook last updated subscription
+  currentPlanName         String?             // Plan name for display only (optional)
+  usageCapReached         Boolean?            @default(false)  // Flag when usage cap reached
+  usageCapReachedAt       DateTime?           // Timestamp when cap was reached
+
+  // Initial Data Sync Status
+  customersInitialSynced  Boolean             @default(false)  // Has initial customer sync completed
+  customersSyncInProgress Boolean             @default(false)  // Is customer sync currently running
+
+  // Widget Detection (Theme-based)
+  widgetIsActive          Boolean             @default(false)  // Cache of last known widget status from theme detection
+  widgetSetupDismissed    Boolean             @default(false)  // Has merchant clicked "Enable widget" button
+
+  // Customer Account Block Detection (Cache-based)
+  customerAccountBlockDismissed Boolean       @default(false)  // Has merchant clicked "Enable customer account block" button
+  customerAccountBlockIsActive  Boolean       @default(false)  // Cache of last known block status
+
+  currencySelected        Boolean             @default(false)  // Has merchant selected cashback currency
+
+  // Tier Recalculation Settings
+  tierRecalculationFrequency  RecalculationFrequency @default(WEEKLY)  // How often to recalculate tiers
+  tierRecalculationEnabled    Boolean                @default(true)     // Enable/disable automatic recalculation
+  tierRecalculationLastRun    DateTime?                                  // Track last run for frequency logic
+
+  // Store Business Metrics (for analytics calculations)
+  averageProfitMargin     Decimal?            @db.Decimal(5, 2)  // Average profit margin % (e.g., 45.00 for 45%)
+  averageCogsPercent      Decimal?            @db.Decimal(5, 2)  // Average COGS as % of revenue (e.g., 55.00 for 55%)
+  averageShippingCost     Decimal?            @db.Decimal(10, 2) // Average shipping cost per order
+  averageOrderValue       Decimal?            @db.Decimal(10, 2) // Historical average order value
+  targetRoiPercent        Decimal?            @db.Decimal(5, 2)  // Target ROI % for loyalty program
+  metricsLastUpdated      DateTime?                               // When merchant last updated these metrics
+
+  // Feature Toggles (enable/disable specific features)
+  advancedAnalyticsEnabled      Boolean       @default(true)   // Advanced analytics features
+  autoCashbackProcessingEnabled Boolean       @default(false)  // Automatic cashback processing
+  emailMarketingEnabled         Boolean       @default(false)  // Email marketing campaigns
+  tierProductsEnabled           Boolean       @default(true)   // Tier products module
 
   // Metadata
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
   @@index([shop])
+  @@index([tierRecalculationEnabled, tierRecalculationLastRun])  // Index for cron job queries
 }
 
 model Tier {
@@ -104,6 +137,11 @@ model Tier {
   minSpend          Int
   cashbackPercent   Int
   evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
+
+  // Display properties for storefront widgets
+  icon              String?             @default("⭐")  // Emoji or icon identifier
+  color             String?             @default("#FFD700")  // Hex color code
+  threshold         Int?                // Alternative field for progress tracking (can map to minSpend)
 
   // Subscription pricing
   monthlyPrice      Decimal?            @db.Decimal(10, 2)  // Monthly subscription price
@@ -183,14 +221,23 @@ model Customer {
   id                String          @id @default(uuid())
   shop              String
   shopifyCustomerId String          @db.VarChar(255)
+
+  // Storefront widget authentication
+  shopifyCustomerMetafieldId String?  @db.VarChar(255)  // Metafield ID for storefront API auth
+
   email             String          @db.VarChar(255)
   firstName         String?         @db.VarChar(255)  // Added for Shopify sync
   lastName          String?         @db.VarChar(255)  // Added for Shopify sync
   tags              String?         @db.Text           // Added for customer tagging
   storeCredit       Decimal         @default(0) @db.Decimal(10, 2)
 
+  // Points tracking for loyalty widgets
+  pointsBalance     Decimal         @default(0) @db.Decimal(10, 2)  // Current available points
+  lifetimePoints    Decimal         @default(0) @db.Decimal(10, 2)  // Total points ever earned
+
   // Spending tracking fields
-  totalSpent            Decimal     @default(0) @db.Decimal(10, 2)  // Total order value
+  totalSpent            Decimal     @default(0) @db.Decimal(10, 2)  // Total order value (all-time)
+  annualSpent           Decimal     @default(0) @db.Decimal(10, 2)  // Spending in last 12 months (for tier calculation)
   totalCashbackEarned   Decimal     @default(0) @db.Decimal(10, 2)  // Total cashback earned
   totalRefunded         Decimal     @default(0) @db.Decimal(10, 2)  // Total refunds received
   netSpent              Decimal     @default(0) @db.Decimal(10, 2)  // totalSpent - totalRefunded
@@ -224,6 +271,7 @@ model Customer {
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
   @@index([email])                     // Speed up queries by email
+  @@index([shop, shopifyCustomerMetafieldId])  // Speed up storefront widget queries
 }
 
 model StoreCreditLedger {
@@ -251,15 +299,19 @@ model StoreCreditLedger {
   
   // Flexible data field
   metadata          Json?       // Store everything else here (cashback %, order amount, description, etc.)
-  
+
+  // Point expiration (for storefront widgets)
+  expiresAt         DateTime?   // When points expire (null = never expires)
+
   createdAt         DateTime    @default(now())
-  
+
   customer          Customer    @relation(fields: [customerId], references: [id])
   
   @@unique([shop, shopifyOrderId, type]) // Prevent duplicate entries
   @@index([customerId])
   @@index([type])
   @@index([createdAt])
+  @@index([customerId, expiresAt])  // Speed up expiring points queries
 }
 
 model TierChangeLog {
@@ -301,38 +353,7 @@ model TierChangeLog {
   @@index([triggerType])                         // Filter by trigger type
 }
 
-model BillingPlan {
-  id                String              @id @default(uuid())
-  shop              String              @unique  // One billing plan per shop
-
-  // Plan details
-  planName          String              // RewardsPro Monthly, RewardsPro Annual, etc
-  status            String              // active, cancelled, past_due
-
-  // Pricing
-  monthlyPrice      Decimal?            @db.Decimal(10, 2)  // Monthly subscription price
-  usageCap          Decimal?            @db.Decimal(10, 2)  // Monthly usage cap
-
-  // Billing period
-  currentPeriodEnd  DateTime?           // End of current billing period
-
-  // Usage alerts
-  cap80AlertSent    Boolean             @default(false)
-  cap90AlertSent    Boolean             @default(false)
-  lastCapAlert      DateTime?
-
-  // Metadata
-  metadata          Json?               // Store webhook data and additional info
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-
-  // Relations
-  usageRecords      UsageRecord[]       // Track usage charges
-  billingHistory    BillingHistory[]    // Track billing events
-
-  @@index([shop])
-  @@index([status])
-}
+// Legacy BillingPlan model removed - now using BillingSubscription for GraphQL API
 
 // ============================================
 // GRAPHQL BILLING SUBSCRIPTION MODEL
@@ -361,6 +382,7 @@ model BillingSubscription {
   currentPeriodUsageFee   Decimal   @default(0) @db.Decimal(10, 2)
   lastUsageReset          DateTime?
   usageCappedAmount       Decimal?  @db.Decimal(10, 2)
+  lastChargedBatch        Int?      // Track which batch was last charged (e.g., 1 = first 100, 2 = second 100)
 
   // Migration Info
   billingVersion          String    @default("graphql") // "legacy" or "graphql"
@@ -379,37 +401,92 @@ model BillingSubscription {
   @@index([subscriptionStatus])
 }
 
+// ============================================
+// APP-LEVEL SUBSCRIPTION MODEL (Shopify App Billing)
+// ============================================
+
+model AppSubscription {
+  id                      String    @id @default(uuid())
+  shop                    String    @unique
+
+  // Shopify Subscription Info
+  shopifySubscriptionId   String?   @unique // Full GID: gid://shopify/AppSubscription/123
+  chargeId                String?   // Numeric ID from charge_id parameter
+
+  // Plan Details
+  planName                String    // "RewardsPro Pro", "RewardsPro Max", etc.
+  status                  String    // ACTIVE, CANCELLED, EXPIRED, PENDING
+  test                    Boolean   @default(false)
+
+  // Trial Period
+  trialDays               Int?
+  trialEndsAt             DateTime?
+
+  // Recurring Pricing
+  recurringAmount         Decimal?  @db.Decimal(10, 2)
+  recurringCurrency       String?   // USD, EUR, etc.
+  recurringInterval       String?   // EVERY_30_DAYS, ANNUAL
+
+  // Usage-Based Pricing
+  usageCap                Decimal?  @db.Decimal(10, 2)
+  usageCurrency           String?
+  usageTerms              String?   // Description of usage pricing
+  usageBalanceUsed        Decimal?  @db.Decimal(10, 2)  // Current usage balance
+
+  // Billing Periods
+  currentPeriodEnd        DateTime?
+  nextBillingDate         DateTime?
+
+  // Lifecycle Dates
+  activatedAt             DateTime? // When first activated
+  cancelledAt             DateTime? // When cancelled
+  cancellationReason      String?
+
+  // Webhook Tracking
+  lastWebhookUpdate       DateTime? // Last time webhook updated this
+  webhookUpdateCount      Int       @default(0)
+
+  // Return URL Tracking
+  returnUrlProcessed      Boolean   @default(false) // Has return URL been processed
+  returnUrlProcessedAt    DateTime?
+
+  // Metadata
+  metadata                Json?     // Additional subscription data
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([shop, status])
+  @@index([shopifySubscriptionId])
+  @@index([chargeId])
+  @@index([status, nextBillingDate])
+}
+
 model UsageRecord {
   id                   String              @id @default(uuid())
   shop                 String
-  
+
   // Shopify reference
   shopifyUsageRecordId String?             // Shopify's usage record ID
-  
+
   // Usage details
   description          String              // Description of the usage
   amount               Decimal             @db.Decimal(10, 2)  // Amount charged
   currencyCode         String              @default("USD")
-  
+
   // Idempotency
   idempotencyKey       String              // Prevent duplicate charges
-  
+
   // Processing details
   processedAt          DateTime            @default(now())  // When charge was created
   metadata             Json?               // Additional data
-  
+
   // Timestamps
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
-  
-  // Relations
-  billingPlanId        String?
-  billingPlan          BillingPlan?        @relation(fields: [billingPlanId], references: [id])
-  
+
   // Indexes for queries
   @@index([shop, processedAt(sort: Desc)])  // Recent usage by shop
   @@index([shop, idempotencyKey])           // For idempotency checks
-  @@index([billingPlanId])                  // Usage by billing plan
 }
 
 
@@ -451,10 +528,6 @@ model BillingHistory {
   // Metadata
   metadata          Json?               // Additional event data
   createdAt         DateTime            @default(now())
-
-  // Relations
-  billingPlanId     String?
-  billingPlan       BillingPlan?        @relation(fields: [billingPlanId], references: [id])
 
   @@index([shop, createdAt(sort: Desc)])
   @@index([eventType])
@@ -501,6 +574,40 @@ model BillingAuditLog {
 
   @@index([shop, attemptedAt(sort: Desc)])  // Recent attempts by shop
   @@index([shop, planName])                  // Attempts by shop and plan
+}
+
+// ============================================
+// USAGE CAP ALERT MODEL (Phase 1)
+// ============================================
+
+model UsageCapAlert {
+  id                String   @id @default(uuid())
+  shop              String
+
+  // Subscription details
+  subscriptionId    String   // Shopify AppSubscription GID
+  subscriptionName  String   // Plan name (e.g., "RewardsPro Pro")
+
+  // Usage details
+  cappedAmount      Decimal  @db.Decimal(10, 2)  // Maximum allowed usage
+  balanceUsed       Decimal  @db.Decimal(10, 2)  // Current usage
+  balanceRemaining  Decimal  @db.Decimal(10, 2)  // Remaining before cap
+  usagePercentage   Decimal  @db.Decimal(5, 2)   // Percentage of cap used
+
+  // Alert level
+  alertLevel        String   // WARNING (>80%), CRITICAL (>95%)
+
+  // Notification tracking
+  notificationSent  Boolean  @default(false)
+  notifiedAt        DateTime?
+
+  // Metadata
+  metadata          Json?    // Additional webhook data
+  createdAt         DateTime @default(now())
+
+  @@index([shop, createdAt(sort: Desc)])  // Recent alerts by shop
+  @@index([shop, usagePercentage])         // Query by usage level
+  @@index([alertLevel, notificationSent])  // Find unsent critical alerts
 }
 
 // ============================================
@@ -1192,6 +1299,13 @@ enum CurrencyDisplayType {
   CODE    // Currency Code (GBP)
 }
 
+enum RecalculationFrequency {
+  DAILY      // Recalculate every day
+  WEEKLY     // Recalculate every week
+  MONTHLY    // Recalculate every month
+  QUARTERLY  // Recalculate every quarter (90 days)
+}
+
 enum EvaluationPeriod {
   ANNUAL         // 12 months rolling (default)
   LIFETIME       // All-time spending, never expires
@@ -1430,4 +1544,171 @@ model SystemAlert {
 
   @@index([type, resolved])
   @@index([severity, createdAt(sort: Desc)])
+}
+
+// ============================================
+// EMAIL MARKETING MODELS
+// ============================================
+
+model EmailTemplate {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Template details
+  name              String              // Template name (e.g., "Welcome Email", "Tier Upgrade")
+  type              String              // welcome, tier_change, points_reminder, etc.
+  subject           String              // Email subject line
+  content           Json                // Block-based content structure
+
+  // Status
+  isActive          Boolean             @default(true)
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  campaigns         EmailCampaign[]
+  automations       EmailAutomation[]
+
+  @@index([shop, type])
+  @@index([shop, isActive])
+}
+
+model EmailCampaign {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Campaign details
+  name              String              // Campaign name
+  templateId        String              // Reference to EmailTemplate
+  template          EmailTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Status
+  status            String              // draft, scheduled, sending, sent, failed
+
+  // Segmentation
+  segmentRules      Json                // Segment criteria
+
+  // Scheduling
+  scheduledFor      DateTime?           // When to send
+  sentAt            DateTime?           // When actually sent
+
+  // Metrics
+  metrics           Json?               // { sent, delivered, opened, clicked, revenue, orders }
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, scheduledFor])
+  @@index([sentAt(sort: Desc)])
+}
+
+model EmailAutomation {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Automation details
+  name              String              // Automation name
+  trigger           String              // welcome, tier_upgrade, points_expiry, etc.
+  templateId        String              // Reference to EmailTemplate
+  template          EmailTemplate       @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Status
+  isEnabled         Boolean             @default(true)
+
+  // Conditions & Timing
+  conditions        Json                // Conditional logic
+  delayMinutes      Int                 @default(0)  // Delay before sending
+
+  // Metrics
+  totalSent         Int                 @default(0)
+  totalOpened       Int                 @default(0)
+  totalClicked      Int                 @default(0)
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([shop, trigger])
+  @@index([shop, isEnabled])
+}
+
+model EmailSettings {
+  shop              String              @id  // Shop domain (primary key)
+
+  // Sender configuration
+  senderName        String              @default("Store")
+  senderEmail       String              // From email
+  replyToEmail      String?             // Reply-to email
+
+  // Brand customization
+  brandColors       Json                @default("{\"primary\":\"#5C6AC4\",\"secondary\":\"#F4F6F8\"}")
+  typography        Json                @default("{\"fontFamily\":\"Inter\"}")
+  headerContent     Json?               // Logo, navigation, etc.
+  footerContent     Json?               // Legal, social, etc.
+
+  // Compliance
+  suppressionList   String[]            @default([])  // Emails to never send to
+  includeUnsubscribe Boolean            @default(true)
+  includePhysicalAddress Boolean        @default(true)
+  gdprEnabled       Boolean             @default(true)
+
+  // Send controls
+  sendTimePrefs     Json                @default("{\"preferredTime\":\"10:00\",\"timezone\":\"America/New_York\",\"dailyLimit\":1000,\"hourlyLimit\":100}")
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model EmailEvent {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Event details
+  campaignId        String?             // Reference to campaign if applicable
+  automationId      String?             // Reference to automation if applicable
+  customerId        String?             // Shopify customer ID
+  customerEmail     String              // Customer email
+
+  // Event type
+  eventType         String              // sent, delivered, opened, clicked, bounced, complained, unsubscribed
+
+  // Metadata
+  metadata          Json?               // Additional event data (links clicked, bounce reason, etc.)
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+
+  @@index([shop, eventType, createdAt(sort: Desc)])
+  @@index([campaignId, eventType])
+  @@index([customerEmail, eventType])
+}
+
+// Analytics-powered marketing recommendations
+model AnalyticsRecommendation {
+  id               String    @id @default(uuid())
+  shop             String
+  slug             String    // Unique identifier for the recommendation type
+  type             String    // e.g., 'inactive_customers', 'tier_upgrade_opportunity'
+  title            String
+  description      String    @db.Text
+  segmentPayload   Json      // Customer segment criteria and rules
+  metadata         Json?     // Additional recommendation data
+  predictedRevenue Float?
+  affectedCount    Int       // Number of customers affected
+  priority         Int       @default(0) // Higher number = higher priority
+  status           String    @default("pending") // pending, applied, dismissed, expired
+  appliedAt        DateTime?
+  dismissedAt      DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([shop, slug])
+  @@index([shop, status])
+  @@index([shop, expiresAt])
 }

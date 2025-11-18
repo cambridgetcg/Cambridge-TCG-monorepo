@@ -144,6 +144,139 @@ interface LoaderData {
 }
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Update customer spending totals from Order table (source of truth)
+ * This ensures totalSpent, netSpent, totalRefunded are accurate
+ */
+async function updateCustomerSpendingTotals(customerId: string, shop: string) {
+  console.log(`[Orders] Starting spending totals update for customer ${customerId}`);
+
+  // First, check ALL orders for this customer (no filter)
+  const allOrders = await db.order.findMany({
+    where: {
+      shop,
+      customerId
+    },
+    select: {
+      id: true,
+      shopifyOrderName: true,
+      financialStatus: true,
+      totalPrice: true,
+      totalRefunded: true
+    }
+  });
+
+  console.log(`[Orders] Found ${allOrders.length} total orders for customer ${customerId}`);
+  allOrders.forEach(o => {
+    console.log(`  - Order ${o.shopifyOrderName}: status=${o.financialStatus}, price=${o.totalPrice}`);
+  });
+
+  // Aggregate all-time spending (PAID/PARTIALLY_REFUNDED)
+  const orderStats = await db.order.aggregate({
+    where: {
+      shop,
+      customerId,
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+    },
+    _sum: {
+      totalPrice: true,
+      totalRefunded: true,
+      cashbackAmount: true
+    },
+    _count: {
+      id: true
+    },
+    _max: {
+      shopifyCreatedAt: true
+    }
+  });
+
+  console.log(`[Orders] Aggregation results (PAID/PARTIALLY_REFUNDED only):`, {
+    count: orderStats._count.id,
+    totalPrice: orderStats._sum.totalPrice,
+    totalRefunded: orderStats._sum.totalRefunded
+  });
+
+  const totalSpent = orderStats._sum.totalPrice || 0;
+  const totalRefunded = orderStats._sum.totalRefunded || 0;
+  const netSpent = totalSpent - totalRefunded;
+
+  // Calculate annual spending (last 12 months) for tier calculations
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+  console.log(`[Orders] 📅 Calculating annual spending from ${twelveMonthsAgo.toISOString()} to now`);
+
+  // First, get the list of orders included in annual calculation for logging
+  const annualOrders = await db.order.findMany({
+    where: {
+      shop,
+      customerId,
+      shopifyCreatedAt: { gte: twelveMonthsAgo },
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+    },
+    select: {
+      shopifyOrderName: true,
+      shopifyCreatedAt: true,
+      totalPrice: true,
+      totalRefunded: true,
+      financialStatus: true
+    },
+    orderBy: {
+      shopifyCreatedAt: 'desc'
+    }
+  });
+
+  console.log(`[Orders] 📦 Found ${annualOrders.length} orders in last 12 months for annualSpent calculation:`);
+  annualOrders.forEach(order => {
+    const netAmount = Number(order.totalPrice) - Number(order.totalRefunded);
+    console.log(`  - ${order.shopifyOrderName} (${order.shopifyCreatedAt.toISOString().split('T')[0]}): ${order.totalPrice} - ${order.totalRefunded} = ${netAmount} [${order.financialStatus}]`);
+  });
+
+  // Now do the aggregation
+  const annualOrderStats = await db.order.aggregate({
+    where: {
+      shop,
+      customerId,
+      shopifyCreatedAt: { gte: twelveMonthsAgo },
+      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+    },
+    _sum: {
+      totalPrice: true,
+      totalRefunded: true
+    }
+  });
+
+  const annualSpent = (annualOrderStats._sum.totalPrice || 0) - (annualOrderStats._sum.totalRefunded || 0);
+
+  console.log(`[Orders] 💰 Annual spending calculation: ${annualOrderStats._sum.totalPrice} - ${annualOrderStats._sum.totalRefunded} = ${annualSpent}`);
+
+  await db.customer.update({
+    where: { id: customerId },
+    data: {
+      totalSpent,
+      annualSpent,
+      totalRefunded,
+      // Note: totalCashbackEarned is NOT updated here - it's updated when cashback is processed
+      netSpent,
+      orderCount: orderStats._count.id || 0,
+      lastOrderDate: orderStats._max.shopifyCreatedAt || null,
+      updatedAt: new Date()
+    }
+  });
+
+  console.log(`[Orders] ✅ Updated customer ${customerId}:`);
+  console.log(`[Orders]    - totalSpent (all-time): ${totalSpent}`);
+  console.log(`[Orders]    - annualSpent (12 months): ${annualSpent}`);
+  console.log(`[Orders]    - netSpent: ${netSpent}`);
+  console.log(`[Orders]    - totalRefunded: ${totalRefunded}`);
+  console.log(`[Orders]    - orderCount: ${orderStats._count.id}`);
+}
+
+// ============================================
 // LOADER
 // ============================================
 
@@ -278,6 +411,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Calculate pagination
     const totalPages = Math.ceil(totalCount / pageSize);
 
+    console.log('[Orders Loader] Orders fetched:', orders.length);
+    console.log('[Orders Loader] Total count:', totalCount);
+    console.log('[Orders Loader] Search query:', searchQuery);
+    console.log('[Orders Loader] Status filter:', statusFilter);
+    console.log('[Orders Loader] Cashback filter:', cashbackFilter);
+
     // Serialize orders to ensure Decimal values are converted to numbers
     const serializedOrders = orders.map(order => {
       const cashbackAmountNumber = order.cashbackAmount ? Number(order.cashbackAmount) : null;
@@ -313,6 +452,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }))
       };
     });
+
+    console.log('[Orders Loader] Serialized orders count:', serializedOrders.length);
+    console.log('[Orders Loader] Returning data...');
 
     return json({
       orders: serializedOrders,
@@ -555,6 +697,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               updatedAt: new Date(),
             },
           });
+
+          // Update customer spending totals from Order table
+          await updateCustomerSpendingTotals(order.customerId, shop);
 
           return json({
             success: true,
@@ -1176,6 +1321,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 },
               });
 
+              // Update customer spending totals from Order table
+              await updateCustomerSpendingTotals(customer.id, shop);
+
               successCount++;
               if (enableDebugLog) {
                 debugLog.push(`[SUCCESS] Order ${order.shopifyOrderName} processed successfully for customer ${customer.email}`);
@@ -1235,14 +1383,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         try {
           const result = await syncService.syncAllOrders();
           console.log("[ORDERS PAGE] Sync completed:", result);
-
-          // Sync completed successfully
-          console.log("[ORDERS PAGE] Successfully synced", result.progress.successful, "orders");
-
-          // TODO: Update onboarding progress if needed
-          // if (result.success && result.progress.successful > 0) {
-          //   await updateOnboardingProgress(shop, { syncedOrders: true });
-          // }
 
           return json({
             success: result.success,
@@ -1316,7 +1456,7 @@ export default function OrdersPage() {
     message: string;
     orderIds: string[];
     orders?: any[]; // Full order data
-    action: "process-qualifying" | "process-selected";
+    action: "process-all" | "process-selected";
   } | null>(null);
 
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
@@ -1609,8 +1749,8 @@ export default function OrdersPage() {
     );
   }, [submit]);
 
-  // Process qualifying orders (replaces Process All Pending)
-  const handleProcessQualifying = useCallback(() => {
+  // Process all orders (replaces Process All Pending)
+  const handleProcessAll = useCallback(() => {
     // Get all qualifying cashback orders using the same logic as qualifyingOrdersCount
     const qualifyingOrders = orders.filter(order => {
       const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
@@ -1647,11 +1787,11 @@ export default function OrdersPage() {
 
     // Show confirmation modal with full order data
     setConfirmModalData({
-      title: "Process Qualifying Orders",
+      title: "Process All Orders",
       message: `Are you sure you want to process cashback for ${qualifyingOrders.length} qualifying order${qualifyingOrders.length > 1 ? 's' : ''}?`,
       orderIds: qualifyingOrders.map(o => o.id),
       orders: qualifyingOrders, // Pass full order data
-      action: "process-qualifying"
+      action: "process-all"
     });
     setShowConfirmModal(true);
   }, [orders]);
@@ -1936,10 +2076,10 @@ export default function OrdersPage() {
         secondaryActions={[
           {
             content: qualifyingOrdersCount > 0
-              ? `Process Qualifying (${qualifyingOrdersCount})`
-              : "Process Qualifying",
+              ? `Process All (${qualifyingOrdersCount})`
+              : "Process All",
             icon: CashDollarIcon,
-            onAction: handleProcessQualifying,
+            onAction: handleProcessAll,
             loading: isProcessingAll,
             disabled: qualifyingOrdersCount === 0,
           },

@@ -54,7 +54,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     order = webhookData.payload;
     admin = webhookData.admin; // Get admin API access for GraphQL
 
-    console.log(`[OrderPaid] Processing order ${order.id} for shop ${shop}`);
+    console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
+    console.log('║  ORDERS/PAID WEBHOOK RECEIVED                                     ║');
+    console.log('╚═══════════════════════════════════════════════════════════════════╝');
+    console.log(`[OrderPaid] Webhook Details:`);
+    console.log(`  - Order ID: ${order.id}`);
+    console.log(`  - Order Name: ${order.name}`);
+    console.log(`  - Shop: ${shop}`);
+    console.log(`  - Topic: ${topic}`);
+    console.log(`  - Webhook ID: ${request.headers.get('X-Shopify-Webhook-Id') || 'N/A'}`);
+    console.log(`  - Order Updated At: ${order.updated_at}`);
+    console.log(`  - Customer: ${order.customer?.email || 'Guest'}`);
+    console.log(`  - Total: ${order.total_price} ${order.currency}`);
+    console.log('─────────────────────────────────────────────────────────────────────\n');
 
     // Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
@@ -94,6 +106,100 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           console.log(`[OrderPaid] Could not record webhook processing (table may not exist)`);
         }
 
+        // ========================================
+        // INSPECT LINE ITEMS BEFORE PROCESSING
+        // ========================================
+        console.log('\n========================================');
+        console.log('[OrderPaid Webhook] ORDER LINE ITEMS INSPECTION (Before Duplicate Check)');
+        console.log('========================================');
+        console.log(`[OrderPaid] Order ID: ${order.id}`);
+        console.log(`[OrderPaid] Order Name: ${order.name}`);
+        console.log(`[OrderPaid] Shop: ${shop}`);
+        console.log(`[OrderPaid] Customer: ${order.customer?.email || 'Guest'}`);
+        console.log(`[OrderPaid] Total Line Items: ${order.line_items?.length || 0}`);
+        console.log('----------------------------------------');
+
+        // Log each line item details
+        if (order.line_items && order.line_items.length > 0) {
+          for (let i = 0; i < order.line_items.length; i++) {
+            const item = order.line_items[i];
+            console.log(`\n[OrderPaid] Line Item #${i + 1}:`);
+            console.log(`  - Line Item ID: ${item.id}`);
+            console.log(`  - Product ID: ${item.product_id || 'N/A'}`);
+            console.log(`  - Variant ID: ${item.variant_id || 'N/A'}`);
+            console.log(`  - SKU: ${item.sku || 'N/A'}`);
+            console.log(`  - Title: ${item.title || item.name}`);
+            console.log(`  - Price: ${item.price}`);
+            console.log(`  - Quantity: ${item.quantity}`);
+            console.log(`  - Fulfillment Status: ${item.fulfillment_status || 'unfulfilled'}`);
+            console.log(`  - Has Selling Plan: ${!!item.selling_plan_allocation}`);
+
+            // Check if it's a tier product
+            const tierProduct = await db.tierProduct.findFirst({
+              where: {
+                shop: shop!,
+                OR: [
+                  { shopifyProductId: item.product_id?.toString() },
+                  { shopifyVariantId: item.variant_id?.toString() },
+                  { sku: item.sku },
+                ],
+              },
+              include: {
+                tier: {
+                  select: {
+                    name: true,
+                    id: true
+                  }
+                }
+              }
+            });
+
+            if (tierProduct) {
+              console.log(`  - ✅ TIER PRODUCT MATCH!`);
+              console.log(`    - Tier Product ID: ${tierProduct.id}`);
+              console.log(`    - Tier: ${tierProduct.tier?.name} (${tierProduct.tierId})`);
+              console.log(`    - Purchase Type: ${tierProduct.purchaseType}`);
+              console.log(`    - Duration: ${tierProduct.duration}`);
+              console.log(`    - Price: ${tierProduct.price || tierProduct.oneTimePrice}`);
+            } else {
+              console.log(`  - ❌ Not a tier product`);
+            }
+          }
+        } else {
+          console.log('[OrderPaid] ⚠️ No line items in order');
+        }
+
+        // Show all tier products in database for comparison
+        console.log('\n[OrderPaid] DATABASE TIER PRODUCTS FOR THIS SHOP:');
+        console.log('----------------------------------------');
+        const allTierProducts = await db.tierProduct.findMany({
+          where: { shop: shop! },
+          include: {
+            tier: {
+              select: {
+                name: true,
+                id: true
+              }
+            }
+          }
+        });
+
+        if (allTierProducts.length > 0) {
+          console.log(`[OrderPaid] Found ${allTierProducts.length} tier products in database:`);
+          allTierProducts.forEach((tp, idx) => {
+            console.log(`\n  ${idx + 1}. ${tp.tier?.name || 'Unknown Tier'}`);
+            console.log(`     - Tier Product ID: ${tp.id}`);
+            console.log(`     - Shopify Product ID: ${tp.shopifyProductId || 'N/A'}`);
+            console.log(`     - Shopify Variant ID: ${tp.shopifyVariantId || 'N/A'}`);
+            console.log(`     - SKU: ${tp.sku || 'N/A'}`);
+            console.log(`     - Purchase Type: ${tp.purchaseType}`);
+            console.log(`     - Duration: ${tp.duration}`);
+          });
+        } else {
+          console.log(`[OrderPaid] ⚠️ NO TIER PRODUCTS CONFIGURED FOR THIS SHOP`);
+        }
+        console.log('========================================\n');
+
         // Step 2: Create Order record (NO TRANSACTION - match sync service)
         const orderCreated = await createOrderRecord(db, {
           shop: shop!,
@@ -101,7 +207,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         if (!orderCreated) {
-          console.log(`[OrderPaid] Order already exists, skipping further processing`);
+          console.log(`\n[OrderPaid] ⚠️ Order already exists (webhook retry detected)`);
+          console.log(`[OrderPaid] Order ID: ${order.id}, Order Name: ${order.name}`);
+          console.log(`[OrderPaid] This is likely a Shopify webhook retry - order was already processed`);
+
+          // Check if tier purchases exist for this order
+          const existingTierPurchases = await db.tierPurchase.findMany({
+            where: {
+              shop: shop!,
+              shopifyOrderId: order.id.toString()
+            },
+            include: {
+              tier: {
+                select: {
+                  name: true
+                }
+              },
+              tierProduct: {
+                select: {
+                  shopifyProductId: true,
+                  shopifyVariantId: true,
+                  sku: true
+                }
+              }
+            }
+          });
+
+          if (existingTierPurchases.length > 0) {
+            console.log(`[OrderPaid] ✅ Found ${existingTierPurchases.length} tier purchase(s) already recorded:`);
+            existingTierPurchases.forEach((purchase, idx) => {
+              console.log(`  ${idx + 1}. Tier: ${purchase.tier?.name || 'Unknown'}`);
+              console.log(`     - Purchase ID: ${purchase.id}`);
+              console.log(`     - Status: ${purchase.status}`);
+              console.log(`     - Start Date: ${purchase.startDate}`);
+              console.log(`     - End Date: ${purchase.endDate || 'LIFETIME'}`);
+              console.log(`     - Product ID: ${purchase.tierProduct?.shopifyProductId || 'N/A'}`);
+            });
+          } else {
+            console.log(`[OrderPaid] ℹ️ No tier purchases found for this order (it may not contain tier products)`);
+          }
+
+          console.log(`[OrderPaid] ℹ️ See line items inspection above for tier product details`);
+          console.log('========================================\n');
           return { success: true, results: [] };
         }
 
@@ -110,8 +257,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         let tierPurchaseMade = false;
         let tierPurchaseCustomerId: string | null = null;
 
+        console.log('========================================');
+        console.log('[OrderPaid] Walking through raw line items from webhook payload');
+        console.log('========================================');
+        order.line_items.forEach((item: any, index: number) => {
+          console.log(`[OrderPaid] Line Item #${index + 1}`, {
+            id: item.id,
+            product_id: item.product_id,
+            variant_id: item.variant_id,
+            sku: item.sku,
+            title: item.title,
+            quantity: item.quantity,
+            price: item.price,
+            fulfillment_status: item.fulfillment_status,
+          });
+        });
+
         for (const lineItem of order.line_items) {
           try {
+            console.log('----------------------------------------');
+            console.log('[OrderPaid] Processing line item', {
+              id: lineItem.id,
+              product_id: lineItem.product_id,
+              variant_id: lineItem.variant_id,
+              sku: lineItem.sku,
+              name: lineItem.name,
+              quantity: lineItem.quantity,
+            });
             const itemResult = await processLineItem(db, {
               shop: shop!,
               admin,
@@ -227,6 +399,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   storeCredit: 0,
                   totalSpent: 0,
                   netSpent: 0,
+                  totalRefunded: 0,
                   orderCount: 0,
                   createdAt: new Date(),
                   updatedAt: new Date()
@@ -454,6 +627,10 @@ async function processOneTimeTierPurchase(tx: any, params: {
       shopifyCustomerId: order.customer?.id?.toString() || '',
       email: order.customer?.email || order.email || '',
       storeCredit: 0,
+      totalSpent: 0,
+      netSpent: 0,
+      totalRefunded: 0,
+      orderCount: 0,
       currentTierId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -563,6 +740,17 @@ async function processCashback(tx: any, params: {
   admin: any;
 }) {
   const { shop, order, admin } = params;
+
+  // Check if automatic cashback processing is enabled
+  const shopSettings = await tx.shopSettings.findUnique({
+    where: { shop },
+    select: { autoCashbackProcessingEnabled: true }
+  });
+
+  if (!shopSettings?.autoCashbackProcessingEnabled) {
+    console.log('[OrderPaid] Automatic cashback processing is disabled for this shop - skipping cashback');
+    return;
+  }
 
   if (!order.customer?.id) {
     console.log('[OrderPaid] No customer ID, skipping cashback');

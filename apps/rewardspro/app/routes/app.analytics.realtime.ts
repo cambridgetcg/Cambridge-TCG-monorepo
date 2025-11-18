@@ -24,14 +24,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }, 20000);
 
       // Initial payload
-      const initialNow = new Date();
-      const startOfDay = new Date(initialNow);
+      const now = new Date();
+      const startOfDay = new Date(now);
       startOfDay.setHours(0,0,0,0);
 
       try {
-        const revenue = await analytics.getRevenueMetrics(shopId, { start: startOfDay, end: initialNow });
-        const cashback = await analytics.getCashbackMetrics(shopId, { start: startOfDay, end: initialNow });
-        const customerMetrics = await analytics.getCustomerMetrics(shopId, { start: startOfDay, end: initialNow });
+        const revenue = await analytics.getRevenueMetrics(shopId, { start: startOfDay, end: now });
+        const cashback = await analytics.getCashbackMetrics(shopId, { start: startOfDay, end: now });
+        const customerMetrics = await analytics.getCustomerMetrics(shopId, { start: startOfDay, end: now });
 
         const initial = {
           activeCustomers: customerMetrics?.active_30d || 0,
@@ -46,14 +46,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       // Update every 5 seconds
       const tick = setInterval(async () => {
         try {
-          const now = new Date();
           const revenue = await analytics.getRevenueMetrics(shopId, { start: startOfDay, end: now });
           const cashback = await analytics.getCashbackMetrics(shopId, { start: startOfDay, end: now });
 
           controller.enqueue(encoder.encode(sseEvent("metrics", {
             todayRevenue: revenue[revenue.length - 1]?.revenue || 0,
             todayCashback: cashback[cashback.length - 1]?.cashback_earned || 0,
-            timestamp: now.toISOString(),
+            timestamp: new Date().toISOString(),
           })));
         } catch (err) {
           console.error("SSE metrics update error:", err);

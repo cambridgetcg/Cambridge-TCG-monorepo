@@ -104,12 +104,16 @@ export async function countOrdersDateExtraction(
   month: number
 ): Promise<number> {
   try {
+    // Ensure year and month are integers to avoid Data API serialization issues
+    const yearInt = Math.floor(year);
+    const monthInt = Math.floor(month);
+
     const result = await db.$queryRaw`
       SELECT COUNT(*) as count
       FROM "Order"
       WHERE shop = ${shop}
-        AND EXTRACT(YEAR FROM "shopifyCreatedAt") = ${year}
-        AND EXTRACT(MONTH FROM "shopifyCreatedAt") = ${month}
+        AND EXTRACT(YEAR FROM "shopifyCreatedAt")::integer = ${yearInt}
+        AND EXTRACT(MONTH FROM "shopifyCreatedAt")::integer = ${monthInt}
     ` as any[];
 
     return Number(result[0]?.count || 0);
@@ -137,8 +141,8 @@ export async function countOrdersEpochComparison(
       SELECT COUNT(*) as count
       FROM "Order"
       WHERE shop = ${shop}
-        AND EXTRACT(EPOCH FROM "shopifyCreatedAt") >= ${startEpoch}
-        AND EXTRACT(EPOCH FROM "shopifyCreatedAt") <= ${endEpoch}
+        AND EXTRACT(EPOCH FROM "shopifyCreatedAt")::bigint >= ${startEpoch}
+        AND EXTRACT(EPOCH FROM "shopifyCreatedAt")::bigint <= ${endEpoch}
     ` as any[];
 
     return Number(result[0]?.count || 0);
@@ -159,13 +163,12 @@ export async function getOrCreateMonthlyCount(
 ): Promise<number> {
   try {
     // Check if we have a cached count
-    const cached = await db.monthlyOrderUsage.findUnique({
+    // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
+    const cached = await db.monthlyOrderUsage.findFirst({
       where: {
-        shop_year_month: {
-          shop,
-          year,
-          month
-        }
+        shop: shop,
+        year: year,
+        month: month
       }
     });
 
@@ -191,30 +194,38 @@ export async function getOrCreateMonthlyCount(
     }).length;
 
     // Cache the result
-    await db.monthlyOrderUsage.upsert({
+    // Note: Using findFirst + create/update instead of upsert for Aurora Data API compatibility
+    const existing = await db.monthlyOrderUsage.findFirst({
       where: {
-        shop_year_month: {
-          shop,
-          year,
-          month
-        }
-      },
-      create: {
-        id: crypto.randomUUID(),
-        shop,
-        year,
-        month,
-        orderCount: count,
-        planLimit: 1000,
-        planName: "Current Plan",
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      update: {
-        orderCount: count,
-        updatedAt: new Date()
+        shop: shop,
+        year: year,
+        month: month
       }
     });
+
+    if (existing) {
+      await db.monthlyOrderUsage.update({
+        where: { id: existing.id },
+        data: {
+          orderCount: count,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      await db.monthlyOrderUsage.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          year,
+          month,
+          orderCount: count,
+          planLimit: 1000,
+          planName: "Current Plan",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+    }
 
     return count;
   } catch (error) {
@@ -308,6 +319,16 @@ export async function countOrdersBetween(
 /**
  * Master function that tries multiple strategies
  * Returns the first successful result
+ *
+ * Strategy order optimized for Aurora Serverless Data API:
+ * 1. DirectDataAPI - Most reliable, bypasses Prisma
+ * 2. EpochComparison - Numeric comparison works well
+ * 3. StringComparison - String comparison fallback
+ * 4. Between - Alternative SQL operator
+ * 5. WithTimezone - Explicit timezone handling
+ * 6. InMemory - Last resort, fetches all and filters in JS
+ *
+ * Note: DateExtraction removed - causes SerializationException with Data API
  */
 export async function countOrdersWithFallback(
   shop: string,
@@ -316,7 +337,6 @@ export async function countOrdersWithFallback(
 ): Promise<{ count: number; strategy: string }> {
   const strategies = [
     { name: "DirectDataAPI", fn: () => countOrdersDirectDataAPI(shop, startDate, endDate) },
-    { name: "DateExtraction", fn: () => countOrdersDateExtraction(shop, startDate.getUTCFullYear(), startDate.getUTCMonth() + 1) },
     { name: "EpochComparison", fn: () => countOrdersEpochComparison(shop, startDate, endDate) },
     { name: "StringComparison", fn: () => countOrdersStringComparison(shop, startDate, endDate) },
     { name: "Between", fn: () => countOrdersBetween(shop, startDate, endDate) },
@@ -339,6 +359,99 @@ export async function countOrdersWithFallback(
   // If all strategies fail, return 0
   console.error("[OrderCount] All strategies failed!");
   return { count: 0, strategy: "none" };
+}
+
+/**
+ * Increment monthly order count for real-time usage tracking
+ * Called from orders.create webhook to track all orders
+ *
+ * @param shop - Shop domain
+ * @param orderCreatedAt - When the order was created in Shopify (from webhook payload)
+ * @param planLimit - Optional plan limit to set (defaults to existing or 100)
+ * @param planName - Optional plan name to set (defaults to existing or "RewardsPro Free")
+ */
+export async function incrementMonthlyOrderCount(
+  shop: string,
+  orderCreatedAt: string | Date,
+  planLimit?: number,
+  planName?: string
+): Promise<void> {
+  try {
+    // Parse the order creation date
+    const orderDate = new Date(orderCreatedAt);
+    const year = orderDate.getFullYear();
+    const month = orderDate.getMonth() + 1; // 1-12
+
+    console.log(`[IncrementOrderCount] Processing order for ${shop}`, {
+      orderDate: orderDate.toISOString(),
+      year,
+      month,
+      targetPeriod: `${year}-${month.toString().padStart(2, '0')}`
+    });
+
+    // Get existing record to preserve plan info
+    // Note: Using findFirst instead of findUnique to avoid composite key issues with Aurora Data API
+    const existing = await db.monthlyOrderUsage.findFirst({
+      where: {
+        shop: shop,
+        year: year,
+        month: month
+      }
+    });
+
+    if (existing) {
+      // Calculate new count manually (Aurora Data API doesn't support { increment: 1 })
+      const newCount = existing.orderCount + 1;
+
+      await db.monthlyOrderUsage.update({
+        where: {
+          id: existing.id
+        },
+        data: {
+          orderCount: newCount,
+          // Optionally update plan info if provided
+          ...(planLimit !== undefined && { planLimit }),
+          ...(planName !== undefined && { planName }),
+          updatedAt: new Date()
+        }
+      });
+
+      console.log(`[IncrementOrderCount] ✅ Incremented count for ${shop}`, {
+        previousCount: existing.orderCount,
+        newCount: newCount,
+        planLimit: planLimit ?? existing.planLimit,
+        planName: planName ?? existing.planName
+      });
+    } else {
+      // Create new record starting at 1
+      await db.monthlyOrderUsage.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          year,
+          month,
+          orderCount: 1,
+          planLimit: planLimit ?? 100, // Default to Free plan
+          planName: planName ?? "RewardsPro Free",
+          isLocked: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+
+      console.log(`[IncrementOrderCount] ✅ Created new usage record for ${shop}`, {
+        year,
+        month,
+        orderCount: 1,
+        planLimit: planLimit ?? 100,
+        planName: planName ?? "RewardsPro Free"
+      });
+    }
+
+  } catch (error) {
+    console.error(`[IncrementOrderCount] ❌ Failed to increment count for ${shop}:`, error);
+    // Don't throw - this is non-critical tracking that shouldn't fail webhooks
+  }
 }
 
 // Helper for crypto

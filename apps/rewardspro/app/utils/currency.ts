@@ -99,10 +99,15 @@ export function formatCurrency(
   // Default settings if none provided
   const currency = settings?.storeCurrency || "USD";
   const displayType = settings?.currencyDisplayType || "SYMBOL";
-  
+
+  // Handle null/undefined amounts
+  if (amount === null || amount === undefined) {
+    return displayType === "SYMBOL" ? `${CURRENCY_SYMBOLS[currency]}0` : `0 ${currency}`;
+  }
+
   // Convert to number if string
   const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-  
+
   // Handle invalid amounts
   if (isNaN(numAmount)) {
     return displayType === "SYMBOL" ? `${CURRENCY_SYMBOLS[currency]}0` : `0 ${currency}`;

@@ -12,7 +12,13 @@ import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
 
-export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
+export const links = () => [
+  { rel: "stylesheet", href: polarisStyles },
+  {
+    rel: "stylesheet",
+    href: "https://cdn.shopify.com/shopifycloud/app-home/latest/app-home.css"
+  },
+];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { startTime, requestId } = await logRequest(request, 'App Route Loader');
@@ -80,14 +86,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const now = new Date();
           const year = now.getFullYear();
           const month = now.getMonth() + 1;
-          
-          const monthlyUsage = await db.monthlyOrderUsage.findUnique({
+
+          // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
+          const monthlyUsage = await db.monthlyOrderUsage.findFirst({
             where: {
-              shop_year_month: {
-                shop: session.shop,
-                year,
-                month
-              }
+              shop: session.shop,
+              year: year,
+              month: month
             }
           });
           
@@ -168,18 +173,23 @@ export default function App() {
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <AppBridgeInitializer />
       <AuthenticatedFetchProvider>
+        {/* Load Polaris web components for s-switch */}
+        <script
+          src="https://cdn.shopify.com/shopifycloud/app-home/latest/app-home.js"
+          type="module"
+          defer
+        />
         <NavMenu>
           <Link to="/app" rel="home">
             Home
           </Link>
-          <Link to="/app/analytics/new">Analytics</Link>
+          <Link to="/app/analytics">Analytics</Link>
+          <Link to="/app/marketing">Marketing</Link>
           <Link to="/app/customers">Customers</Link>
           <Link to="/app/orders">Orders</Link>
           <Link to="/app/tier-products">Tier Products</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
-          <Link to="/app/test-tier-products">Test: Tier Products</Link>
-          <Link to="/app/test-pending-orders">Test: Pending Orders</Link>
         </NavMenu>
         <Outlet />
         

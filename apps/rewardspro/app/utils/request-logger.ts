@@ -211,41 +211,57 @@ export function logShopifyContext(data: {
 
 /**
  * Check for common authentication issues
+ * Only shows warnings for actual auth problems, not for normal Remix data fetches
  */
 export function checkAuthenticationIssues(request: Request): void {
   const url = new URL(request.url);
-  const issues: string[] = [];
-  
-  // Check for missing shop parameter
-  if (!url.searchParams.get('shop')) {
-    issues.push('⚠️ Missing "shop" parameter in URL');
-  }
-  
-  // Check for missing host parameter
-  if (!url.searchParams.get('host')) {
-    issues.push('⚠️ Missing "host" parameter in URL');
-  }
-  
-  // Check for session token in headers
   const authHeader = request.headers.get('authorization');
+
+  // Skip warnings for Remix client-side data fetches - these use session auth
+  // and don't need shop/host params
+  const isRemixDataFetch = url.searchParams.has('_data');
+  if (isRemixDataFetch && authHeader) {
+    // This is a normal authenticated Remix fetch, no warnings needed
+    return;
+  }
+
+  // Skip warnings for embedded app requests - these use signed host param + session cookie
+  // instead of bearer token (standard Shopify embedded app auth flow)
+  const isEmbedded = url.searchParams.get('embedded') === '1' || url.searchParams.has('host');
+  if (isEmbedded) {
+    // Embedded apps authenticate via session + signed host param, not bearer token
+    return;
+  }
+
+  const issues: string[] = [];
+
+  // Only check for missing params if there's no auth header
+  // (initial OAuth flow needs these params)
+  if (!authHeader) {
+    if (!url.searchParams.get('shop')) {
+      issues.push('⚠️ Missing "shop" parameter in URL');
+    }
+
+    if (!url.searchParams.get('host')) {
+      issues.push('⚠️ Missing "host" parameter in URL');
+    }
+  }
+
+  // Check for session token in headers
   if (!authHeader) {
     issues.push('⚠️ No Authorization header found');
   } else if (!authHeader.startsWith('Bearer ')) {
     issues.push('⚠️ Authorization header is not a Bearer token');
   }
-  
-  // Check for embedded context
-  const referer = request.headers.get('referer');
-  if (!referer?.includes('myshopify.com')) {
-    issues.push('⚠️ Request not coming from Shopify admin (check Referer header)');
+
+  // Only warn about referer if we're missing auth completely
+  if (!authHeader) {
+    const referer = request.headers.get('referer');
+    if (!referer?.includes('myshopify.com')) {
+      issues.push('⚠️ Request not coming from Shopify admin (check Referer header)');
+    }
   }
-  
-  // Check for frame ancestors
-  const isEmbedded = request.headers.get('sec-fetch-dest') === 'iframe';
-  if (!isEmbedded) {
-    issues.push('ℹ️ Request is not in iframe context');
-  }
-  
+
   if (issues.length > 0) {
     console.log(`\n${'⚠️'.repeat(20)}`);
     console.log('POTENTIAL AUTHENTICATION ISSUES DETECTED:');

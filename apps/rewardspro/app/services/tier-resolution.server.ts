@@ -198,8 +198,22 @@ export async function resolveEffectiveTier(
     include: { tier: true }
   });
 
+  // CRITICAL: Filter out tier purchases with missing tier records
+  // This prevents crashes when tier products reference non-existent tiers
+  const validPurchases = activeTierPurchases.filter((p) => p.tier !== null);
+
+  if (validPurchases.length !== activeTierPurchases.length) {
+    const invalidCount = activeTierPurchases.length - validPurchases.length;
+    const invalidPurchases = activeTierPurchases.filter((p) => p.tier === null);
+
+    console.warn(`[TierResolution] ⚠️ Found ${invalidCount} tier purchase(s) with missing tier records!`);
+    console.warn(`[TierResolution] Invalid purchase IDs: ${invalidPurchases.map(p => p.id).join(', ')}`);
+    console.warn(`[TierResolution] These purchases reference non-existent tiers and will be skipped.`);
+    console.warn(`[TierResolution] Action required: Run cleanup script to fix orphaned tier products.`);
+  }
+
   // Sort by tier minSpend in memory (highest first)
-  const activeTierPurchase = activeTierPurchases.sort((a, b) =>
+  const activeTierPurchase = validPurchases.sort((a, b) =>
     b.tier.minSpend - a.tier.minSpend
   )[0];
 

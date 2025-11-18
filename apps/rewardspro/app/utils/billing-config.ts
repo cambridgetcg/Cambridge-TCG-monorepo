@@ -9,6 +9,7 @@ export interface PlanConfig {
   orderLimit: number;
   usageRate?: string; // Price per order overage
   usageCap?: string; // Maximum usage charge per month
+  usageTerms?: string; // Description of usage pricing
   features: string[];
   trialDays?: number;
 }
@@ -43,21 +44,131 @@ export const BillingConfig: BillingConfigType = {
   // Plan definitions
   plans: {
     free: {
-      name: "Free Plan",
+      name: "RewardsPro Free",
       price: "0.00",
-      orderLimit: 200,
+      orderLimit: 100,
       features: [
-        "Basic loyalty tiers",
-        "200 orders/month",
-        "Email support"
+        "Up to 500 customers",
+        "Up to 100 orders/month",
+        "Basic tier management",
+        "Store credit system",
+        "Email support",
+        "Basic analytics"
       ]
     },
+    pro: {
+      name: "RewardsPro Pro",
+      price: "39.00",
+      orderLimit: 500,
+      usageRate: "0.10", // $0.10 per order over limit ($10 per 100 orders)
+      usageCap: "200.00", // Max $200 additional charges
+      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $200/month)",
+      features: [
+        "Up to 2,000 total customers",
+        "Up to 500 orders/month",
+        "$10 per 100 additional orders",
+        "Batch processing cashback",
+        "1,000 emails/month",
+        "Priority support"
+      ],
+      trialDays: 7
+    },
+    proAnnual: {
+      name: "RewardsPro Pro Annual",
+      price: "336.00", // $28/month billed annually - 28% discount
+      orderLimit: 500,
+      usageRate: "0.10",
+      usageCap: "200.00",
+      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $200/month)",
+      features: [
+        "Up to 2,000 total customers",
+        "Up to 500 orders/month",
+        "$10 per 100 additional orders",
+        "Batch processing cashback",
+        "1,000 emails/month",
+        "Priority support",
+        "💰 Save $132/year (28% discount)",
+        "🗓️ $28/month when billed annually"
+      ],
+      trialDays: 7
+    },
+    max: {
+      name: "RewardsPro Max",
+      price: "149.00",
+      orderLimit: 2000,
+      usageRate: "0.05", // $0.05 per order over limit ($5 per 100 orders)
+      usageCap: "500.00", // Max $500 additional charges
+      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)",
+      features: [
+        "Unlimited customers",
+        "Up to 2,000 orders/month",
+        "$5 per 100 additional orders",
+        "Sell tier memberships",
+        "White label email",
+        "5,000 emails/month",
+        "Advanced analytics"
+      ],
+      trialDays: 7
+    },
+    maxAnnual: {
+      name: "RewardsPro Max Annual",
+      price: "1296.00", // $108/month billed annually - 27% discount
+      orderLimit: 2000,
+      usageRate: "0.05",
+      usageCap: "500.00",
+      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)",
+      features: [
+        "Unlimited customers",
+        "Up to 2,000 orders/month",
+        "$5 per 100 additional orders",
+        "Sell tier memberships",
+        "White label email",
+        "5,000 emails/month",
+        "Advanced analytics",
+        "💰 Save $492/year (27% discount)",
+        "🗓️ $108/month when billed annually"
+      ],
+      trialDays: 7
+    },
+    ultra: {
+      name: "RewardsPro Ultra",
+      price: "499.00",
+      orderLimit: 999999, // Effectively unlimited
+      features: [
+        "Unlimited everything",
+        "Unlimited customers",
+        "Unlimited orders",
+        "Unlimited emails",
+        "Full white label solution",
+        "Custom SMTP integration",
+        "Dedicated support"
+      ],
+      trialDays: 14
+    },
+    ultraAnnual: {
+      name: "RewardsPro Ultra Annual",
+      price: "4296.00", // $358/month billed annually - 28% discount
+      orderLimit: 999999,
+      features: [
+        "Unlimited everything",
+        "Unlimited customers",
+        "Unlimited orders",
+        "Unlimited emails",
+        "Full white label solution",
+        "Custom SMTP integration",
+        "Dedicated support",
+        "💰 Save $1,692/year (28% discount)",
+        "🗓️ $358/month when billed annually"
+      ],
+      trialDays: 14
+    },
+    // Legacy plans - keeping for backward compatibility
     starter: {
       name: "Starter Plan",
       price: "49.00",
       orderLimit: 1000,
-      usageRate: "0.001", // $0.001 per order over limit
-      usageCap: "50.00", // Max $50 additional charges
+      usageRate: "0.001",
+      usageCap: "50.00",
       features: [
         "1,000 orders/month",
         "Advanced tiers",
@@ -84,7 +195,7 @@ export const BillingConfig: BillingConfigType = {
     enterprise: {
       name: "Enterprise",
       price: "299.00",
-      orderLimit: -1, // Unlimited
+      orderLimit: -1,
       features: [
         "Unlimited orders",
         "Dedicated support",
@@ -111,18 +222,16 @@ export const BillingConfig: BillingConfigType = {
 };
 
 /**
- * Helper to determine if shop is on development store
+ * Test mode detection utilities
+ * Re-exported from centralized billing test mode utility
  */
-export function isDevelopmentStore(shopDomain: string): boolean {
-  const devPatterns = [
-    '.myshopify.io',
-    '-dev.myshopify.com',
-    'development-',
-    '-staging'
-  ];
-
-  return devPatterns.some(pattern => shopDomain.includes(pattern));
-}
+export {
+  checkDevStoreByDomain as isDevelopmentStore,
+  getTestMode,
+  isTestMode,
+  clearTestModeCache,
+  getTestModeCacheStats
+} from "./billing-test-mode.server";
 
 /**
  * Get plan configuration by type

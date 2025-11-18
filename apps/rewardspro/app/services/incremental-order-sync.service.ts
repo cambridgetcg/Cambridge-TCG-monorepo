@@ -334,11 +334,110 @@ export class IncrementalOrderSync {
       // Process line items if needed
       await this.syncLineItems(existingOrder.id, orderData.lineItems?.edges || []);
 
+      // Update customer spending totals after order update
+      if (existingOrder.customerId && existingOrder.customerId !== 'unknown') {
+        // Aggregate all-time spending
+        const orderStats = await db.order.aggregate({
+          where: {
+            shop,
+            customerId: existingOrder.customerId,
+            financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+          },
+          _sum: {
+            totalPrice: true,
+            totalRefunded: true,
+            cashbackAmount: true
+          },
+          _count: {
+            id: true
+          },
+          _max: {
+            shopifyCreatedAt: true
+          }
+        });
+
+        // Calculate annual spending (last 12 months)
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+        console.log(`[IncrementalSync] 📅 Calculating annual spending from ${twelveMonthsAgo.toISOString()} to now`);
+
+        // Get the list of orders included in annual calculation for logging
+        const annualOrders = await db.order.findMany({
+          where: {
+            shop,
+            customerId: existingOrder.customerId,
+            shopifyCreatedAt: { gte: twelveMonthsAgo },
+            financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+          },
+          select: {
+            shopifyOrderName: true,
+            shopifyCreatedAt: true,
+            totalPrice: true,
+            totalRefunded: true,
+            financialStatus: true
+          },
+          orderBy: {
+            shopifyCreatedAt: 'desc'
+          }
+        });
+
+        console.log(`[IncrementalSync] 📦 Found ${annualOrders.length} orders in last 12 months:`);
+        annualOrders.forEach(order => {
+          const netAmount = Number(order.totalPrice) - Number(order.totalRefunded);
+          console.log(`  - ${order.shopifyOrderName} (${order.shopifyCreatedAt.toISOString().split('T')[0]}): ${order.totalPrice} - ${order.totalRefunded} = ${netAmount} [${order.financialStatus}]`);
+        });
+
+        // Now do the aggregation
+        const annualOrderStats = await db.order.aggregate({
+          where: {
+            shop,
+            customerId: existingOrder.customerId,
+            shopifyCreatedAt: { gte: twelveMonthsAgo },
+            financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+          },
+          _sum: {
+            totalPrice: true,
+            totalRefunded: true
+          }
+        });
+
+        const annualSpent = (annualOrderStats._sum.totalPrice || 0) - (annualOrderStats._sum.totalRefunded || 0);
+
+        console.log(`[IncrementalSync] 💰 Annual spending calculation: ${annualOrderStats._sum.totalPrice} - ${annualOrderStats._sum.totalRefunded} = ${annualSpent}`);
+
+        await db.customer.update({
+          where: { id: existingOrder.customerId },
+          data: {
+            totalSpent: orderStats._sum.totalPrice || 0,
+            annualSpent,
+            totalRefunded: orderStats._sum.totalRefunded || 0,
+            netSpent: (orderStats._sum.totalPrice || 0) - (orderStats._sum.totalRefunded || 0),
+            orderCount: orderStats._count.id || 0,
+            lastOrderDate: orderStats._max.shopifyCreatedAt || null,
+            updatedAt: new Date()
+          }
+        });
+
+        console.log(`[IncrementalSync] ✅ Updated spending totals for customer ${existingOrder.customerId}:`);
+        console.log(`[IncrementalSync]    - totalSpent (all-time): ${orderStats._sum.totalPrice}`);
+        console.log(`[IncrementalSync]    - annualSpent (12 months): ${annualSpent}`);
+        console.log(`[IncrementalSync]    - netSpent: ${(orderStats._sum.totalPrice || 0) - (orderStats._sum.totalRefunded || 0)}`);
+        console.log(`[IncrementalSync]    - totalRefunded: ${orderStats._sum.totalRefunded}`);
+        console.log(`[IncrementalSync]    - orderCount: ${orderStats._count.id}`);
+      }
+
       return { updated: true };
     } else {
       // Create new order in a transaction
       return await db.$transaction(async (tx) => {
-        const customerId = await this.getOrCreateCustomer(shop, orderData.customer, orderData.email);
+        // Check if customer exists in database
+        const customerId = await this.findCustomer(shop, orderData.customer, orderData.email);
+
+        if (!customerId) {
+          console.log(`[IncrementalSync] Skipping order ${orderData.name} - customer not in database`);
+          return { skipped: true };
+        }
 
         // Import tier management functions
         const { assignDefaultTierToCustomer, calculateAndAssignTier } = await import('./tier-management.server');
@@ -527,7 +626,39 @@ export class IncrementalOrderSync {
   }
 
   /**
+   * Find customer in database (without creating)
+   * Returns customer ID if found, null if not found
+   */
+  private async findCustomer(shop: string, customerData: any, orderEmail?: string): Promise<string | null> {
+    // Handle guest customers - skip them
+    if (!customerData) {
+      console.log(`[IncrementalSync] No customer data - skipping guest order`);
+      return null;
+    }
+
+    // Extract customer ID
+    const customerId = extractNumericId(customerData.id) || customerData.legacyResourceId;
+    if (!customerId) {
+      console.log(`[IncrementalSync] No customer ID - skipping order`);
+      return null;
+    }
+
+    // Check if customer exists in our database
+    const existingCustomer = await db.customer.findFirst({
+      where: { shop, shopifyCustomerId: customerId }
+    });
+
+    if (existingCustomer) {
+      return existingCustomer.id;
+    }
+
+    console.log(`[IncrementalSync] Customer ${customerId} not found in database - skipping order`);
+    return null;
+  }
+
+  /**
    * Get or create customer with transaction support
+   * DEPRECATED: Use findCustomer instead to skip orders without customers
    */
   private async getOrCreateCustomer(shop: string, customerData: any, orderEmail?: string): Promise<string> {
     // Handle guest customers

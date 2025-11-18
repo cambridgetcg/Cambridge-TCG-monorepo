@@ -68,7 +68,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       FROM "StoreCreditLedger"
       WHERE shop = ${session.shop}
         AND "createdAt" > ${oneDayAgo}
-        AND "entryType" = 'ERROR_CORRECTION'
+        AND "type" = 'ERROR_CORRECTION'
     `;
 
     // Get business metrics for this shop
@@ -91,7 +91,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         FROM "StoreCreditLedger"
         WHERE shop = ${session.shop}
           AND "createdAt" > ${oneDayAgo}
-          AND "entryType" = 'CASHBACK_EARNED'
+          AND "type" = 'CASHBACK_EARNED'
         LIMIT 100
       ) as webhook_logs
       GROUP BY topic

@@ -47,17 +47,7 @@ export class DataAPIModelProxy<T = any> {
                 orConditions.push(`"${orKey}" IS NULL`);
               } else if (orValue !== undefined && typeof orValue === 'object') {
                 // Handle complex comparisons within OR
-                if ('contains' in orValue) {
-                  // Handle { contains: 'text', mode: 'insensitive' }
-                  const searchValue = orValue.contains;
-                  const mode = orValue.mode || 'sensitive';
-                  if (mode === 'insensitive') {
-                    orConditions.push(`LOWER("${orKey}") LIKE LOWER(:${paramName})`);
-                  } else {
-                    orConditions.push(`"${orKey}" LIKE :${paramName}`);
-                  }
-                  params.push(AuroraDataAPI.buildParameter(paramName, `%${searchValue}%`));
-                } else if ('gte' in orValue) {
+                if ('gte' in orValue) {
                   // Check if this is a timestamp field
                   const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt', 'endDate',
                     'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
@@ -542,7 +532,7 @@ export class DataAPIModelProxy<T = any> {
     // Map of known enum fields per table
     const enumFields: Record<string, string[]> = {
       Tier: ['evaluationPeriod', 'billingInterval'],
-      ShopSettings: ['storeCurrency', 'currencyDisplayType'],
+      ShopSettings: ['storeCurrency', 'currencyDisplayType', 'tierRecalculationFrequency'],
       StoreCreditLedger: ['type'],
       TierChangeLog: ['changeType', 'triggerType'],
       TierProduct: ['purchaseType', 'duration', 'currency'],
@@ -571,6 +561,7 @@ export class DataAPIModelProxy<T = any> {
       storeCurrency: '"Currency"',
       currency: '"Currency"',
       currencyDisplayType: '"CurrencyDisplayType"',
+      tierRecalculationFrequency: '"RecalculationFrequency"',
       type: '"LedgerEntryType"',
       changeType: '"TierChangeType"',
       triggerType: '"TierTriggerType"',
@@ -842,7 +833,7 @@ export class DataAPIModelProxy<T = any> {
           if (Array.isArray(inValues) && inValues.length > 0) {
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
             // Check if this field is an enum type that needs casting
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'financialStatus', 'fulfillmentStatus'];
             if (enumFields.includes(key)) {
               // Cast enum types explicitly for PostgreSQL
               conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
@@ -855,7 +846,10 @@ export class DataAPIModelProxy<T = any> {
           }
         } else if (value !== undefined) {
           // Check if this field is an enum type that needs casting
-          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+                             'evaluationPeriod', 'purchaseType', 'duration', 'currency', 'status',
+                             'billingInterval', 'deliveryInterval', 'financialStatus', 'fulfillmentStatus',
+                             'lastPaymentStatus', 'discountType', 'eventType'];
           if (enumFields.includes(key)) {
             // Cast enum types explicitly for PostgreSQL
             conditions.push(`"${key}"::text = :param${index}`);
@@ -888,8 +882,15 @@ export class DataAPIModelProxy<T = any> {
   }): Promise<any> {
     const aggregates: string[] = [];
 
+    // Handle _count - can be boolean or object with field names
     if (args._count) {
-      aggregates.push("COUNT(*) as _count");
+      if (typeof args._count === 'boolean') {
+        aggregates.push('COUNT(*) as "_count"');
+      } else if (typeof args._count === 'object') {
+        Object.keys(args._count).forEach((field) => {
+          aggregates.push(`COUNT("${field}") as "_count_${field}"`);
+        });
+      }
     }
 
     ["_sum", "_avg", "_min", "_max"].forEach((op) => {
@@ -897,13 +898,13 @@ export class DataAPIModelProxy<T = any> {
       if (fields && typeof fields === "object") {
         Object.keys(fields).forEach((field) => {
           const func = op.substring(1).toUpperCase();
-          aggregates.push(`${func}("${field}") as ${op}_${field}`);
+          aggregates.push(`${func}("${field}") as "${op}_${field}"`);
         });
       }
     });
 
     if (aggregates.length === 0) {
-      aggregates.push("COUNT(*) as _count");
+      aggregates.push('COUNT(*) as "_count"');
     }
 
     let sql = `SELECT ${aggregates.join(", ")} FROM "${this.tableName}"`;
@@ -958,7 +959,7 @@ export class DataAPIModelProxy<T = any> {
           if (Array.isArray(inValues) && inValues.length > 0) {
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
             // Check if this field is an enum type that needs casting
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'financialStatus', 'fulfillmentStatus'];
             if (enumFields.includes(key)) {
               // Cast enum types explicitly for PostgreSQL
               conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
@@ -971,7 +972,10 @@ export class DataAPIModelProxy<T = any> {
           }
         } else if (value !== undefined) {
           // Check if this field is an enum type that needs casting
-          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod'];
+          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+                             'evaluationPeriod', 'purchaseType', 'duration', 'currency', 'status',
+                             'billingInterval', 'deliveryInterval', 'financialStatus', 'fulfillmentStatus',
+                             'lastPaymentStatus', 'discountType', 'eventType'];
           if (enumFields.includes(key)) {
             // Cast enum types explicitly for PostgreSQL
             conditions.push(`"${key}"::text = :param${index}`);
@@ -989,12 +993,20 @@ export class DataAPIModelProxy<T = any> {
 
     const result = await this.client.executeStatement(sql, params);
     const record = result.records[0] || {};
-    
+
     // Format the response to match Prisma's structure
     const response: any = {};
-    
+
     if (args._count) {
-      response._count = parseInt(record._count || '0');
+      if (typeof args._count === 'boolean') {
+        response._count = parseInt(record._count || '0');
+      } else if (typeof args._count === 'object') {
+        response._count = {};
+        Object.keys(args._count).forEach(field => {
+          const value = record[`_count_${field}`];
+          response._count[field] = value !== null && value !== undefined ? parseInt(value) : 0;
+        });
+      }
     }
     
     if (args._sum) {
@@ -1138,7 +1150,7 @@ export function createDataAPIPrismaClient() {
           customer: new DataAPIModelProxy("Customer", txAuroraClient),
           storeCreditLedger: new DataAPIModelProxy("StoreCreditLedger", txAuroraClient),
           tierChangeLog: new DataAPIModelProxy("TierChangeLog", txAuroraClient),
-          billingPlan: new DataAPIModelProxy("BillingPlan", txAuroraClient),
+          // billingPlan removed - legacy REST API billing
           usageRecord: new DataAPIModelProxy("UsageRecord", txAuroraClient),
           billingHistory: new DataAPIModelProxy("BillingHistory", txAuroraClient),
           notification: new DataAPIModelProxy("Notification", txAuroraClient),
@@ -1162,6 +1174,17 @@ export function createDataAPIPrismaClient() {
           tierPurchase: new DataAPIModelProxy("TierPurchase", txAuroraClient),
           bulkOperationLog: new DataAPIModelProxy("BulkOperationLog", txAuroraClient),
           syncStatus: new DataAPIModelProxy("SyncStatus", txAuroraClient),
+          billingAuditLog: new DataAPIModelProxy("BillingAuditLog", txAuroraClient),
+          billingSubscription: new DataAPIModelProxy("BillingSubscription", txAuroraClient),
+          appSubscription: new DataAPIModelProxy("AppSubscription", txAuroraClient),
+
+          // Marketing and Analytics models
+          emailTemplate: new DataAPIModelProxy("EmailTemplate", txAuroraClient),
+          emailCampaign: new DataAPIModelProxy("EmailCampaign", txAuroraClient),
+          emailAutomation: new DataAPIModelProxy("EmailAutomation", txAuroraClient),
+          emailSettings: new DataAPIModelProxy("EmailSettings", txAuroraClient),
+          emailEvent: new DataAPIModelProxy("EmailEvent", txAuroraClient),
+          analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", txAuroraClient),
 
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
@@ -1239,7 +1262,7 @@ export function createDataAPIPrismaClient() {
     customer: new DataAPIModelProxy("Customer", client),
     storeCreditLedger: new DataAPIModelProxy("StoreCreditLedger", client),
     tierChangeLog: new DataAPIModelProxy("TierChangeLog", client),
-    billingPlan: new DataAPIModelProxy("BillingPlan", client),
+    // billingPlan removed - legacy REST API billing
     usageRecord: new DataAPIModelProxy("UsageRecord", client),
     billingHistory: new DataAPIModelProxy("BillingHistory", client),
     notification: new DataAPIModelProxy("Notification", client),
@@ -1265,6 +1288,17 @@ export function createDataAPIPrismaClient() {
     tierPurchase: new DataAPIModelProxy("TierPurchase", client),
     bulkOperationLog: new DataAPIModelProxy("BulkOperationLog", client),
     syncStatus: new DataAPIModelProxy("SyncStatus", client),
+    billingAuditLog: new DataAPIModelProxy("BillingAuditLog", client),
+    billingSubscription: new DataAPIModelProxy("BillingSubscription", client),
+    appSubscription: new DataAPIModelProxy("AppSubscription", client),
+
+    // Marketing and Analytics models
+    emailTemplate: new DataAPIModelProxy("EmailTemplate", client),
+    emailCampaign: new DataAPIModelProxy("EmailCampaign", client),
+    emailAutomation: new DataAPIModelProxy("EmailAutomation", client),
+    emailSettings: new DataAPIModelProxy("EmailSettings", client),
+    emailEvent: new DataAPIModelProxy("EmailEvent", client),
+    analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

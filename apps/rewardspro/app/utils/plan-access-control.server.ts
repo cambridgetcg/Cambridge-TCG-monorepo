@@ -33,9 +33,12 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
   const daysRemaining = Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
   // Get or create current month's usage record
-  let usage = await db.monthlyOrderUsage.findUnique({
+  // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
+  let usage = await db.monthlyOrderUsage.findFirst({
     where: {
-      shop_year_month: { shop, year, month }
+      shop: shop,
+      year: year,
+      month: month
     }
   });
 
@@ -168,9 +171,12 @@ export async function updatePlanLimit(
   console.log(`[PlanAccess] Updating ${shop} to ${newPlanName} (limit: ${newLimit})`);
 
   // Get current usage
-  const usage = await db.monthlyOrderUsage.findUnique({
+  // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
+  const usage = await db.monthlyOrderUsage.findFirst({
     where: {
-      shop_year_month: { shop, year, month }
+      shop: shop,
+      year: year,
+      month: month
     }
   });
 

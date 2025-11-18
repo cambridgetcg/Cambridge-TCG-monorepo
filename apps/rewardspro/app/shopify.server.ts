@@ -7,25 +7,41 @@ import {
   DeliveryMethod,
 } from "@shopify/shopify-app-remix/server";
 import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
+import { syncCustomersInBackground } from "./services/background-customer-sync.server";
 
-// Define billing plan names (should match Partner Dashboard configuration)
-export const FREE_PLAN = "RewardsPro Free";
-export const PRO_PLAN = "RewardsPro Pro";
-export const MAX_PLAN = "RewardsPro Max";
-export const ULTRA_PLAN = "RewardsPro Ultra";
-export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
+// Import and re-export billing plan names from shared constants
+import {
+  FREE_PLAN,
+  PRO_PLAN,
+  PRO_ANNUAL_PLAN,
+  MAX_PLAN,
+  MAX_ANNUAL_PLAN,
+  ULTRA_PLAN,
+  ULTRA_ANNUAL_PLAN,
+  ENTERPRISE_PLAN,
+  STARTER_PLAN,
+  GROWTH_PLAN,
+  MONTHLY_PLAN,
+  ANNUAL_PLAN,
+  USAGE_PLAN,
+} from "./constants/plans";
 
-// Annual billing plans with monthly cost breakdown
-export const PRO_ANNUAL_PLAN = "RewardsPro Pro Annual"; // $28/month ($336/year)
-export const MAX_ANNUAL_PLAN = "RewardsPro Max Annual"; // $108/month ($1,296/year)
-export const ULTRA_ANNUAL_PLAN = "RewardsPro Ultra Annual"; // $358/month ($4,296/year)
-
-// Legacy plans - keeping for backward compatibility
-export const STARTER_PLAN = "RewardsPro Starter";
-export const GROWTH_PLAN = "RewardsPro Growth";
-export const MONTHLY_PLAN = "RewardsPro Monthly";
-export const ANNUAL_PLAN = "RewardsPro Annual";
-export const USAGE_PLAN = "RewardsPro Usage";
+// Re-export for backward compatibility
+export {
+  FREE_PLAN,
+  PRO_PLAN,
+  PRO_ANNUAL_PLAN,
+  MAX_PLAN,
+  MAX_ANNUAL_PLAN,
+  ULTRA_PLAN,
+  ULTRA_ANNUAL_PLAN,
+  ENTERPRISE_PLAN,
+  STARTER_PLAN,
+  GROWTH_PLAN,
+  MONTHLY_PLAN,
+  ANNUAL_PLAN,
+  USAGE_PLAN,
+};
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -48,27 +64,77 @@ const shopify = shopifyApp({
         }
       ],
     },
-    // Pro plan - $39/month
+    // Pro plan - $39/month + usage charges
     [PRO_PLAN]: {
       lineItems: [
         {
           amount: 39,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
+        },
+        {
+          amount: 200, // Usage cap
+          currencyCode: 'USD',
+          interval: BillingInterval.Usage,
+          terms: "$10 per 100 additional orders over 500 orders/month (max $200/month)"
         }
       ],
+      trialDays: 7,
     },
-    // Max plan - $149/month
+    // Pro Annual - $336/year (28% discount - save $132/year) + usage charges
+    // Monthly equivalent: $28/month
+    [PRO_ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 336,
+          currencyCode: 'USD',
+          interval: BillingInterval.Annual,
+        },
+        {
+          amount: 200, // Usage cap
+          currencyCode: 'USD',
+          interval: BillingInterval.Usage,
+          terms: "$10 per 100 additional orders over 500 orders/month (max $200/month)"
+        }
+      ],
+      trialDays: 7,
+    },
+    // Max plan - $149/month + usage charges
     [MAX_PLAN]: {
       lineItems: [
         {
           amount: 149,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
+        },
+        {
+          amount: 500, // Usage cap
+          currencyCode: 'USD',
+          interval: BillingInterval.Usage,
+          terms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)"
         }
       ],
+      trialDays: 7,
     },
-    // Ultra plan - $499/month (unlimited everything)
+    // Max Annual - $1,296/year (27% discount - save $492/year) + usage charges
+    // Monthly equivalent: $108/month
+    [MAX_ANNUAL_PLAN]: {
+      lineItems: [
+        {
+          amount: 1296,
+          currencyCode: 'USD',
+          interval: BillingInterval.Annual,
+        },
+        {
+          amount: 500, // Usage cap
+          currencyCode: 'USD',
+          interval: BillingInterval.Usage,
+          terms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)"
+        }
+      ],
+      trialDays: 7,
+    },
+    // Ultra plan - $499/month (unlimited everything - no usage charges)
     [ULTRA_PLAN]: {
       lineItems: [
         {
@@ -77,28 +143,10 @@ const shopify = shopifyApp({
           interval: BillingInterval.Every30Days,
         }
       ],
+      trialDays: 14,
     },
-    // Pro Annual plan - $336/year ($28/month) - Save $132/year vs monthly
-    [PRO_ANNUAL_PLAN]: {
-      lineItems: [
-        {
-          amount: 336,
-          currencyCode: 'USD',
-          interval: BillingInterval.Annual,
-        }
-      ],
-    },
-    // Max Annual plan - $1,296/year ($108/month) - Save $492/year vs monthly
-    [MAX_ANNUAL_PLAN]: {
-      lineItems: [
-        {
-          amount: 1296,
-          currencyCode: 'USD',
-          interval: BillingInterval.Annual,
-        }
-      ],
-    },
-    // Ultra Annual plan - $4,296/year ($358/month) - Save $1,692/year vs monthly
+    // Ultra Annual - $4,296/year (28% discount - save $1,692/year)
+    // Monthly equivalent: $358/month (unlimited everything - no usage charges)
     [ULTRA_ANNUAL_PLAN]: {
       lineItems: [
         {
@@ -107,6 +155,7 @@ const shopify = shopifyApp({
           interval: BillingInterval.Annual,
         }
       ],
+      trialDays: 14,
     },
     // Enterprise plan - Custom pricing (placeholder - actual pricing negotiated)
     [ENTERPRISE_PLAN]: {
@@ -183,24 +232,35 @@ const shopify = shopifyApp({
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/app/uninstalled",
     },
+  },
+  hooks: {
+    afterAuth: async ({ session, admin }) => {
+      console.log(`[AfterAuth] App installed/authenticated for shop: ${session.shop}`);
 
-    // GDPR Compliance webhooks (MANDATORY for App Store)
-    CUSTOMERS_DATA_REQUEST: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/customers/data-request",
-    },
-    CUSTOMERS_REDACT: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/customers/redact",
-    },
-    SHOP_REDACT: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/shop/redact",
+      // Import db here to avoid circular dependencies
+      const db = (await import("./db.server")).default;
+
+      // Check if initial sync already completed
+      const shopSettings = await db.shopSettings.findUnique({
+        where: { shop: session.shop }
+      });
+
+      if (!shopSettings?.customersInitialSynced) {
+        // First install or sync not completed - trigger sync
+        console.log(`[AfterAuth] Starting initial customer sync for ${session.shop}`);
+
+        syncCustomersInBackground(session.shop, admin).catch((error) => {
+          console.error(`[AfterAuth] Customer sync failed for ${session.shop}:`, error);
+        });
+      } else {
+        // Re-auth - customers already synced
+        console.log(`[AfterAuth] Customers already synced for ${session.shop}, skipping re-sync`);
+      }
     },
   },
   future: {
     unstable_newEmbeddedAuthStrategy: true,
-    removeRest: true,
+    removeRest: false, // Keep REST API for theme asset queries
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }

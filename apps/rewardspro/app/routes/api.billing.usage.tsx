@@ -169,36 +169,44 @@ async function checkUsageCaps(shop: string, billing: any) {
     const totalUsage = monthlyUsage._sum.amount || 0;
     console.log(`[Usage Billing] Monthly usage for ${shop}: $${totalUsage}`);
     
-    // Get billing plan to check caps
-    const billingPlan = await db.billingPlan.findUnique({
+    // Get billing subscription to check caps (new GraphQL billing)
+    const billingSubscription = await db.billingSubscription.findUnique({
       where: { shop },
-    });
-    
-    if (billingPlan && billingPlan.usageCap) {
-      const capAmount = Number(billingPlan.usageCap);
+    }).catch(() => null);
+
+    if (billingSubscription && billingSubscription.cappedAmount) {
+      const capAmount = Number(billingSubscription.cappedAmount);
       const usagePercentage = (totalUsage / capAmount) * 100;
-      
+
       // Alert at 80% and 90% of cap
-      if (usagePercentage >= 90 && !billingPlan.cap90AlertSent) {
-        console.log(`[Usage Billing] ${shop} at 90% of usage cap`);
-        
-        // Update alert flag
-        await db.billingPlan.update({
+      if (usagePercentage >= 90) {
+        console.log(`[Usage Billing] ${shop} at ${usagePercentage.toFixed(1)}% of usage cap`);
+
+        // Update balance tracking
+        await db.billingSubscription.update({
           where: { shop },
-          data: { cap90AlertSent: true },
-        });
-        
-        // TODO: Send email notification or in-app alert
-      } else if (usagePercentage >= 80 && !billingPlan.cap80AlertSent) {
-        console.log(`[Usage Billing] ${shop} at 80% of usage cap`);
-        
-        // Update alert flag
-        await db.billingPlan.update({
+          data: {
+            balanceUsed: totalUsage,
+            balanceRemaining: Math.max(0, capAmount - totalUsage),
+            updatedAt: new Date(),
+          },
+        }).catch(err => console.error("[Usage Billing] Failed to update balance:", err));
+
+        // TODO: Send email notification or in-app alert (90% threshold)
+      } else if (usagePercentage >= 80) {
+        console.log(`[Usage Billing] ${shop} at ${usagePercentage.toFixed(1)}% of usage cap`);
+
+        // Update balance tracking
+        await db.billingSubscription.update({
           where: { shop },
-          data: { cap80AlertSent: true },
-        });
-        
-        // TODO: Send email notification or in-app alert
+          data: {
+            balanceUsed: totalUsage,
+            balanceRemaining: Math.max(0, capAmount - totalUsage),
+            updatedAt: new Date(),
+          },
+        }).catch(err => console.error("[Usage Billing] Failed to update balance:", err));
+
+        // TODO: Send email notification or in-app alert (80% threshold)
       }
     }
   } catch (error) {

@@ -21,6 +21,8 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { v4 as uuidv4 } from 'uuid';
+import { incrementMonthlyOrderCount } from "~/utils/order-count-strategies";
+import { getPlanOrderLimit } from "~/constants/billing.constants";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -72,11 +74,31 @@ export async function action({ request }: ActionFunctionArgs) {
     
     console.log(`[OrdersCreateWebhook] Processing order ${order.id} for shop ${shop}`);
     console.log(`[OrdersCreateWebhook] Customer: ${order.customer?.email || 'Guest'}`);
-    
-    // Skip if no customer (guest checkout)
+
+    // Increment monthly order count for ALL orders (including guest orders)
+    try {
+      // Fetch the shop's current subscription to get the correct plan limit
+      const subscription = await db.appSubscription.findUnique({
+        where: { shop },
+        select: { planName: true }
+      });
+
+      const planLimit = getPlanOrderLimit(subscription?.planName);
+      const planName = subscription?.planName || "RewardsPro Free";
+
+      console.log(`[OrdersCreateWebhook] Using plan limit for ${shop}:`, { planName, planLimit });
+
+      await incrementMonthlyOrderCount(shop, order.created_at, planLimit, planName);
+      console.log(`[OrdersCreateWebhook] ✅ Monthly order count incremented for ${shop}`);
+    } catch (error) {
+      console.error(`[OrdersCreateWebhook] ⚠️ Failed to increment monthly count (non-critical):`, error);
+      // Continue - this is just usage tracking, don't fail the webhook
+    }
+
+    // Skip customer credit sync if no customer (guest checkout)
     if (!order.customer || !order.customer.id) {
-      console.log('[OrdersCreateWebhook] Skipping guest order');
-      return json({ success: true, message: 'Guest order - no credit sync needed' });
+      console.log('[OrdersCreateWebhook] Guest order - no customer credit sync needed');
+      return json({ success: true, message: 'Guest order counted' });
     }
     
     const shopifyCustomerId = String(order.customer.id);
@@ -294,7 +316,7 @@ export async function action({ request }: ActionFunctionArgs) {
     // ========================================================================
     // RETURN SUCCESS
     // ========================================================================
-    
+
     return json({
       success: true,
       message: 'Order processed and credit synced',

@@ -142,70 +142,17 @@ export async function calculateAndAssignTier(
   // Determine evaluation period (using customer's current tier or default to LIFETIME)
   const evaluationPeriod = customer.currentTier?.evaluationPeriod || 'LIFETIME';
 
-  // Calculate relevant spending based on evaluation period with currency normalization
+  // Calculate relevant spending based on evaluation period
+  // Use cached fields for fast tier calculation
   let relevantSpending = 0;
   if (evaluationPeriod === 'ANNUAL') {
-    // Get spending from last 12 months
-    const twelveMonthsAgo = new Date();
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-
-    const recentOrders = await db.order.findMany({
-      where: {
-        customerId,
-        shop,
-        shopifyCreatedAt: { gte: twelveMonthsAgo },
-        financialStatus: 'PAID'
-      },
-      select: {
-        netAmount: true,
-        currency: true,
-        totalRefunded: true
-      }
-    });
-
-    // Normalize all orders to USD for consistent tier calculation
-    const { aggregateCustomerSpending } = await import('./currency-normalization.server');
-    const aggregated = await aggregateCustomerSpending(
-      recentOrders.map(o => ({
-        totalPrice: Number(o.netAmount),
-        currency: o.currency,
-        totalRefunded: Number(o.totalRefunded)
-      })),
-      'USD'
-    );
-
-    relevantSpending = aggregated.netSpent;
+    // Use cached annualSpent field (updated during order processing)
+    relevantSpending = Number(customer.annualSpent);
+    console.log(`[Tier Management] Using cached annualSpent: ${relevantSpending}`);
   } else {
-    // LIFETIME - use normalized net spent
-    // For existing customers, use stored value (should be normalized)
-    // For new calculation, normalize all historical orders
-    const allOrders = await db.order.findMany({
-      where: {
-        customerId,
-        shop,
-        financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
-      },
-      select: {
-        totalPrice: true,
-        currency: true,
-        totalRefunded: true
-      }
-    });
-
-    if (allOrders.length > 0) {
-      const { aggregateCustomerSpending } = await import('./currency-normalization.server');
-      const aggregated = await aggregateCustomerSpending(
-        allOrders.map(o => ({
-          totalPrice: Number(o.totalPrice),
-          currency: o.currency,
-          totalRefunded: Number(o.totalRefunded)
-        })),
-        'USD'
-      );
-      relevantSpending = aggregated.netSpent;
-    } else {
-      relevantSpending = Number(customer.netSpent);
-    }
+    // LIFETIME - use cached netSpent field
+    relevantSpending = Number(customer.netSpent);
+    console.log(`[Tier Management] Using cached netSpent: ${relevantSpending}`);
   }
 
   console.log(`[Tier Management] Customer spending (${evaluationPeriod}): ${relevantSpending}`);

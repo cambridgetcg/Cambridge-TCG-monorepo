@@ -5,7 +5,7 @@
 
 import db from "../../db.server";
 import { GraphQLBillingService } from "./graphql-billing.service";
-import { getPlanConfig } from "../../utils/billing-config";
+import { getPlanConfig } from "./plan-subscription.server";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 
 export interface UsageStatus {
@@ -89,12 +89,12 @@ export class UsageTrackerService {
       let overageFee = 0;
 
       if (overage > 0 && planConfig.usageRate) {
-        overageFee = overage * parseFloat(planConfig.usageRate);
+        overageFee = overage * planConfig.usageRate;
       }
 
       // Check if cap reached
       const capReached = planConfig.usageCap
-        ? billingSubscription.currentPeriodUsageFee >= parseFloat(planConfig.usageCap)
+        ? billingSubscription.currentPeriodUsageFee >= planConfig.usageCap
         : false;
 
       // Should warn at 80% and 90%
@@ -142,8 +142,7 @@ export class UsageTrackerService {
 
       // Check if cap reached
       if (planConfig.usageCap) {
-        const capAmount = parseFloat(planConfig.usageCap);
-        if (billingSubscription.currentPeriodUsageFee >= capAmount) {
+        if (billingSubscription.currentPeriodUsageFee >= planConfig.usageCap) {
           return false; // Cap reached, no more charges
         }
       }
@@ -166,6 +165,7 @@ export class UsageTrackerService {
         data: {
           currentPeriodOrders: 0,
           currentPeriodUsageFee: 0,
+          lastChargedBatch: 0,
           lastUsageReset: new Date()
         }
       });
@@ -206,7 +206,7 @@ export class UsageTrackerService {
   }
 
   /**
-   * Charge usage if needed
+   * Charge usage if needed - batches of 100 orders
    */
   private async chargeUsageIfNeeded(shop: string): Promise<void> {
     try {
@@ -219,51 +219,83 @@ export class UsageTrackerService {
       }
 
       const planConfig = getPlanConfig(billingSubscription.planType || 'free');
-      if (!planConfig || !planConfig.usageRate) {
+      if (!planConfig || !planConfig.usageRate || !planConfig.usageBatchSize) {
         return;
       }
 
-      // Calculate overage to charge
+      // Calculate overage
       const overage = billingSubscription.currentPeriodOrders - planConfig.orderLimit;
       if (overage <= 0) {
-        return;
+        return; // Still within limit
       }
 
-      // Charge in batches of 100 orders to avoid many small charges
-      const batchSize = 100;
-      if (overage % batchSize !== 0) {
-        return; // Wait for full batch
+      // Calculate which batch we're in based on overage
+      const batchSize = planConfig.usageBatchSize;
+      const currentBatch = Math.floor(overage / batchSize);
+      const lastChargedBatch = billingSubscription.lastChargedBatch || 0;
+
+      // Only charge if we have new complete batches
+      if (currentBatch <= lastChargedBatch) {
+        return; // No new batches to charge
       }
 
-      const chargeAmount = batchSize * parseFloat(planConfig.usageRate);
+      // Calculate how many batches to charge
+      const batchesToCharge = currentBatch - lastChargedBatch;
+      const chargeAmount = batchesToCharge * batchSize * planConfig.usageRate;
+
+      console.log(`[UsageTracker] Shop ${shop}: ${overage} orders over limit, charging ${batchesToCharge} batch(es) = $${chargeAmount}`);
 
       // Check if would exceed cap
       if (planConfig.usageCap) {
-        const capAmount = parseFloat(planConfig.usageCap);
         const newTotal = billingSubscription.currentPeriodUsageFee + chargeAmount;
 
-        if (newTotal > capAmount) {
+        if (newTotal > planConfig.usageCap) {
           // Charge only up to cap
-          const remainingCap = capAmount - billingSubscription.currentPeriodUsageFee;
+          const remainingCap = planConfig.usageCap - billingSubscription.currentPeriodUsageFee;
+
           if (remainingCap <= 0) {
+            console.log(`[UsageTracker] Cap already reached for ${shop}`);
             return; // Cap already reached
           }
 
           // Create usage record for remaining cap amount
-          await this.graphqlBilling.createUsageRecord(
+          const result = await this.graphqlBilling.createUsageRecord(
             shop,
             remainingCap,
-            `Usage charge for orders (capped)`
+            `Usage charge capped at $${planConfig.usageCap}/month`
           );
+
+          if (result.success) {
+            // Update lastChargedBatch to current to prevent re-charging
+            await db.billingSubscription.update({
+              where: { shop },
+              data: { lastChargedBatch: currentBatch }
+            });
+            console.log(`[UsageTracker] Charged remaining cap $${remainingCap} for ${shop}`);
+          }
+
           return;
         }
       }
 
-      // Create usage record
-      const description = `Usage charge for ${batchSize} orders over limit`;
-      await this.graphqlBilling.createUsageRecord(shop, chargeAmount, description);
+      // Create usage record for full batch amount
+      const description = batchesToCharge === 1
+        ? `${batchSize} orders over ${planConfig.orderLimit} limit`
+        : `${batchesToCharge * batchSize} orders over ${planConfig.orderLimit} limit (${batchesToCharge} batches)`;
 
-      console.log(`[UsageTracker] Charged ${chargeAmount} for ${shop}`);
+      const result = await this.graphqlBilling.createUsageRecord(shop, chargeAmount, description);
+
+      if (result.success) {
+        // Update lastChargedBatch to track what we just charged
+        await db.billingSubscription.update({
+          where: { shop },
+          data: { lastChargedBatch: currentBatch }
+        });
+
+        console.log(`[UsageTracker] Charged $${chargeAmount} for ${shop} (batch ${currentBatch})`);
+      } else {
+        console.error(`[UsageTracker] Failed to charge usage for ${shop}:`, result.error);
+      }
 
     } catch (error) {
       console.error("[UsageTracker] Error charging usage:", error);

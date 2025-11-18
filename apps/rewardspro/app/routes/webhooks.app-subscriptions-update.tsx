@@ -71,6 +71,15 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ success: true, message: "No subscription data" });
     }
 
+    // Extract line items to identify recurring and usage charges
+    const lineItems = subscription.line_items || [];
+    const recurringLineItem = lineItems.find((item: any) =>
+      item.plan?.pricing_details?.__typename === 'AppRecurringPricing'
+    );
+    const usageLineItem = lineItems.find((item: any) =>
+      item.plan?.pricing_details?.__typename === 'AppUsagePricing'
+    );
+
     console.log(`[APP_SUBSCRIPTIONS_UPDATE] Processing subscription update:`, {
       shop: shopDomain,
       subscriptionId: subscription.admin_graphql_api_id,
@@ -81,11 +90,14 @@ export async function action({ request }: ActionFunctionArgs) {
       cappedAmount: subscription.capped_amount?.amount,
       balanceUsed: subscription.balance_used,
       balanceRemaining: subscription.balance_remaining,
+      recurringLineItemId: recurringLineItem?.id,
+      usageLineItemId: usageLineItem?.id,
     });
 
-    // 5. Check if BillingSubscription table exists and update database
+    // 5. Update ShopSettings with simplified billing data
+    // NOTE: We use billing.check() as source of truth, so we only store minimal data here
     try {
-      // First, ensure the shop exists
+      // Ensure the shop exists
       const shop = await db.shopSettings.findUnique({
         where: { shop: shopDomain }
       });
@@ -96,106 +108,55 @@ export async function action({ request }: ActionFunctionArgs) {
           data: {
             id: uuidv4(),
             shop: shopDomain,
+            subscriptionStatus: subscription.status || "ACTIVE",
+            subscriptionUpdatedAt: new Date(),
+            currentPlanName: subscription.name || null,
             createdAt: new Date(),
             updatedAt: new Date(),
           }
         });
+      } else {
+        // Update existing shop with simplified billing data
+        await db.shopSettings.update({
+          where: { shop: shopDomain },
+          data: {
+            subscriptionStatus: subscription.status || "ACTIVE",
+            subscriptionUpdatedAt: new Date(),
+            currentPlanName: subscription.name || null,
+            // Keep legacy billingStatus in sync for backwards compatibility
+            billingStatus: (subscription.status === "ACTIVE") ? "ACTIVE" : "INACTIVE",
+            updatedAt: new Date(),
+          }
+        });
+        console.log(`[APP_SUBSCRIPTIONS_UPDATE] Updated ShopSettings for ${shopDomain}`);
       }
 
-      // Try to update billing subscription if table exists
-      // Using a try-catch in case the table doesn't exist yet
-      try {
-        const existingSubscription = await db.billingSubscription.findUnique({
-          where: { shop: shopDomain }
+      // Log status changes for audit trail
+      if (subscription.status === "CANCELLED" || subscription.status === "EXPIRED") {
+        console.log(`[APP_SUBSCRIPTIONS_UPDATE] ⚠️  Subscription ${subscription.status} for ${shopDomain}`);
+
+        await db.billingHistory.create({
+          data: {
+            shop: shopDomain,
+            eventType: "SUBSCRIPTION_" + subscription.status,
+            planName: subscription.name,
+            status: subscription.status,
+            metadata: {
+              subscriptionId: subscription.admin_graphql_api_id,
+              timestamp: new Date().toISOString(),
+            },
+          },
         });
-
-        const subscriptionData = {
-          shop: shopDomain,
-          subscriptionId: subscription.admin_graphql_api_id,
-          planName: subscription.name || "Unknown",
-          status: subscription.status || "ACTIVE",
-          isTest: subscription.test === true,
-          currentPeriodEnd: subscription.current_period_end ? new Date(subscription.current_period_end) : null,
-          cappedAmount: subscription.capped_amount?.amount ? parseFloat(subscription.capped_amount.amount) : null,
-          balanceUsed: subscription.balance_used ? parseFloat(subscription.balance_used) : 0,
-          balanceRemaining: subscription.balance_remaining ? parseFloat(subscription.balance_remaining) : null,
-          createdAt: subscription.created_at ? new Date(subscription.created_at) : new Date(),
-          updatedAt: new Date(),
-        };
-
-        if (existingSubscription) {
-          // Update existing subscription
-          await db.billingSubscription.update({
-            where: { shop: shopDomain },
-            data: {
-              ...subscriptionData,
-              createdAt: undefined, // Don't update createdAt on updates
-            }
-          });
-          console.log(`[APP_SUBSCRIPTIONS_UPDATE] Updated subscription for ${shopDomain}`);
-        } else {
-          // Create new subscription record
-          await db.billingSubscription.create({
-            data: {
-              id: uuidv4(),
-              ...subscriptionData,
-            }
-          });
-          console.log(`[APP_SUBSCRIPTIONS_UPDATE] Created subscription for ${shopDomain}`);
-        }
-
-        // Handle subscription cancellation
-        if (subscription.status === "CANCELLED" || subscription.status === "EXPIRED") {
-          console.log(`[APP_SUBSCRIPTIONS_UPDATE] Subscription ${subscription.status} for ${shopDomain}`);
-          // You might want to:
-          // - Disable premium features
-          // - Send notification email
-          // - Update shop settings
-          await db.shopSettings.update({
-            where: { shop: shopDomain },
-            data: {
-              billingStatus: "INACTIVE",
-              updatedAt: new Date(),
-            }
-          });
-        } else if (subscription.status === "ACTIVE") {
-          await db.shopSettings.update({
-            where: { shop: shopDomain },
-            data: {
-              billingStatus: "ACTIVE",
-              updatedAt: new Date(),
-            }
-          });
-        }
-
-      } catch (dbError: any) {
-        if (dbError.code === 'P2021' || dbError.message?.includes('billingSubscription')) {
-          console.log("[APP_SUBSCRIPTIONS_UPDATE] BillingSubscription table not found, skipping database update");
-        } else {
-          throw dbError;
-        }
+      } else if (subscription.status === "ACTIVE") {
+        console.log(`[APP_SUBSCRIPTIONS_UPDATE] ✅ Subscription ACTIVE for ${shopDomain}`);
       }
 
     } catch (error) {
       console.error("[APP_SUBSCRIPTIONS_UPDATE] Database error:", error);
       // Don't fail the webhook - Shopify will retry if we return an error
-      // Better to acknowledge receipt and handle errors separately
     }
 
-    // 6. Handle usage cap approaching (90% threshold)
-    if (subscription.balance_remaining && subscription.capped_amount?.amount) {
-      const cappedAmount = parseFloat(subscription.capped_amount.amount);
-      const remaining = parseFloat(subscription.balance_remaining);
-      const usagePercentage = ((cappedAmount - remaining) / cappedAmount) * 100;
-
-      if (usagePercentage >= 90) {
-        console.warn(`[APP_SUBSCRIPTIONS_UPDATE] Shop ${shopDomain} approaching usage cap: ${usagePercentage.toFixed(2)}% used`);
-        // TODO: Send notification to merchant
-        // TODO: Consider pausing usage-based features
-      }
-    }
-
-    // 7. Return success to Shopify
+    // 6. Return success to Shopify
     console.log(`[APP_SUBSCRIPTIONS_UPDATE] Successfully processed for ${shopDomain}`);
     return json({
       success: true,

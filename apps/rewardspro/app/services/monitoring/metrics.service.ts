@@ -168,7 +168,7 @@ export class MetricsService {
     const cashbackEntries = await db.storeCreditLedger.findMany({
       where: {
         shop,
-        entryType: 'CASHBACK_EARNED',
+        type: 'CASHBACK_EARNED',
       },
       select: {
         amount: true,
@@ -270,17 +270,17 @@ export class MetricsService {
         where: { customerId: customer.id },
         select: {
           amount: true,
-          entryType: true,
+          type: true,
         },
       });
 
       const calculatedBalance = ledgerEntries.reduce((balance, entry) => {
         // Credits increase balance
-        if (['CASHBACK_EARNED', 'REFUND_CREDIT', 'MANUAL_CREDIT'].includes(entry.entryType)) {
+        if (['CASHBACK_EARNED', 'REFUND_CREDIT', 'MANUAL_CREDIT'].includes(entry.type)) {
           return balance + entry.amount;
         }
         // Debits decrease balance
-        if (['ORDER_PAYMENT', 'MANUAL_DEBIT', 'EXPIRED'].includes(entry.entryType)) {
+        if (['ORDER_PAYMENT', 'MANUAL_DEBIT', 'EXPIRED'].includes(entry.type)) {
           return balance - entry.amount;
         }
         return balance;

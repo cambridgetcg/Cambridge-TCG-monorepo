@@ -1,0 +1,16 @@
+name = "RewardsPro Theme Extension"
+type = "theme"
+uid = "a58b9b10-e482-42f9-90d4-885a20081116e17dfcf9"
+
+[[extensions]]
+type = "theme"
+name = "RewardsPro Theme Extension"
+handle = "rewardspro-theme-extension"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/star_rating.liquid"
+
+[[extensions.targeting]]
+target = "body"
+module = "./blocks/membership_widget.liquid"

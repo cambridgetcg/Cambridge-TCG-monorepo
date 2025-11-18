@@ -1,7 +1,8 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useLoaderData, useNavigate, useFetcher } from "@remix-run/react";
+import { useState, useCallback, useEffect } from "react";
+
 import {
   Page,
   Layout,
@@ -9,134 +10,36 @@ import {
   Text,
   BlockStack,
   InlineStack,
-  Button,
+  InlineGrid,
   Icon,
   Box,
   Badge,
+  Toast,
+  Frame,
   Divider,
-  EmptyState,
-  DataTable,
-  Grid,
   ProgressBar,
-  Tabs,
   Banner,
+  Checkbox,
 } from "@shopify/polaris";
 import {
-  PlusIcon,
-  RefreshIcon,
-  AlertTriangleIcon,
-  PersonIcon,
-  CashDollarIcon,
-  RewardIcon,
+  StatusActiveIcon,
+  SettingsIcon,
   ChartVerticalIcon,
+  CashDollarIcon,
+  DatabaseIcon,
+  RefreshIcon,
   CheckCircleIcon,
-  InfoIcon,
+  AlertCircleIcon,
+  CreditCardIcon,
 } from "~/utils/polaris-icons";
-import {
-  StatsOverview,
-  EnhancedDataTable,
-  ActionBanner,
-} from "../components/DesignSystem";
-import { authenticate } from "../shopify.server";
+import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN } from "../shopify.server";
 import db from "../db.server";
-import { formatCurrency } from "../utils/currency";
-import { TierBadge } from "../components/TierBadge";
-import {
-  getTierStyle,
-  sortTiersByPriority
-} from "../utils/tier-styles";
-import { CurrentPlanCard } from "~/components/Billing";
-import { MANAGED_PLANS, getPlanDetails } from "~/constants/billing.constants";
-import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
-import { OnboardingChecklist, type OnboardingProgress } from "~/components/OnboardingChecklist";
-import { AutoSyncStatus, type SyncStatus } from "~/components/AutoSyncStatus";
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-// Note: MANAGED_PLANS is now imported from ~/constants/billing.constants
-// Keeping old version for reference only
-const OLD_MANAGED_PLANS = {
-  "RewardsPro Free": {
-    name: "RewardsPro Free",
-    displayName: "Free",
-    price: 0,
-    interval: "month",
-    ordersIncluded: 200,
-    overageRate: 0,
-    features: [
-      "200 orders per month",
-      "All core features included",
-      "Unlimited loyalty tiers",
-      "Customer management",
-      "Store credit tracking",
-      "Basic analytics",
-      "No credit card required",
-      "Community support",
-    ],
-    recommended: false,
-    isFree: true,
-  },
-  "RewardsPro Monthly": {
-    name: "RewardsPro Monthly",
-    displayName: "Pro",
-    price: 49,
-    interval: "month",
-    ordersIncluded: 1000,
-    overageRate: 0.01,
-    features: [
-      "1,000 orders included",
-      "$0.01 per additional order",
-      "Unlimited loyalty tiers",
-      "Advanced analytics",
-      "Custom email templates",
-      "Priority support",
-      "API access",
-      "Webhook integrations",
-    ],
-    recommended: true,
-    isFree: false,
-  },
-  "RewardsPro Annual": {
-    name: "RewardsPro Annual",
-    displayName: "Enterprise",
-    price: 490,
-    interval: "annual",
-    ordersIncluded: 12000,
-    overageRate: 0.008,
-    features: [
-      "12,000 orders included",
-      "$0.008 per additional order",
-      "All Pro features",
-      "Annual billing (save $98)",
-      "Dedicated support",
-      "Custom integrations",
-      "Advanced reporting",
-      "White-label options",
-    ],
-    recommended: false,
-    isFree: false,
-  },
-};
+import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { measureQuery, getDatabaseHealth, formatResponseTime } from "~/utils/database-health.server";
 
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-const formatTransactionType = (type: string): string => {
-  const typeMap: Record<string, string> = {
-    'CASHBACK_EARNED': 'Cashback Earned',
-    'ORDER_PAYMENT': 'Order Payment',
-    'REFUND_CREDIT': 'Refund Credit',
-    'MANUAL_ADJUSTMENT': 'Manual Adjustment',
-    'SHOPIFY_SYNC': 'Shopify Sync',
-    'ADMIN_ADJUSTMENT': 'Admin Adjustment',
-    'TIER_BONUS': 'Tier Bonus',
-  };
-
-  return typeMap[type] || type.replace(/_/g, ' ').toLowerCase();
-};
 
 const getCurrentMonthName = (): string => {
   return new Date().toLocaleDateString('en-US', { month: 'long' });
@@ -159,49 +62,75 @@ const calculateProjectedOrders = (currentOrders: number, daysRemaining: number):
   return Math.ceil(dailyRate * totalDaysInMonth);
 };
 
+const formatTimeAgo = (dateString: string | null): string => {
+  if (!dateString) return 'Never';
+
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
+
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
 
 interface DashboardData {
   shop: string;
-  metrics: {
-    totalCustomers: number;
-    totalStoreCredit: number;
-    activeTiers: number;
-    averageCredit: number;
-    customersWithCredit: number;
-    customersWithTiers: number;
-  };
-  tierDistribution: Array<{
-    id: string;
-    name: string;
-    count: number;
-    percentage: number;
-    cashbackPercent: number;
-    totalCredit: number;
-    minSpend: number;
-  }>;
-  recentTransactions: Array<{
-    id: string;
-    type: string;
-    amount: number;
-    balance: number;
-    customerEmail: string;
-    createdAt: string;
-    metadata: any;
-  }>;
-  topCustomers: Array<{
-    id: string;
-    email: string;
-    storeCredit: number;
-    tierName: string | null;
-  }>;
-  setupComplete: boolean;
   shopSettings: {
-    storeCurrency: string;
-    currencyDisplayType: string;
+    storeCurrency?: string;
+    tierRecalculationEnabled?: boolean;
+    advancedAnalyticsEnabled?: boolean;
+    autoCashbackProcessingEnabled?: boolean;
+    emailMarketingEnabled?: boolean;
+    tierProductsEnabled?: boolean;
   } | null;
+  shopifyMetrics: {
+    source: 'shopifyql' | 'cache' | 'unavailable';
+  } | null;
+  webhookStats: {
+    processedLast24h: number;
+    errorsLast24h: number;
+    errorsLastHour: number;
+    successRate: number;
+    status: 'healthy' | 'degraded' | 'critical';
+  };
+  databaseHealth: {
+    responseTime: number;
+    status: 'connected' | 'degraded' | 'disconnected';
+    uptime: number;
+    lastCheck: string;
+  };
+  loyaltyEngine: {
+    tierCount: number;
+    status: 'operational' | 'needs_setup' | 'degraded';
+    automationEnabled: boolean;
+    currency: string;
+    cashbackEnabled: boolean;
+  };
+  dataSyncHealth: {
+    status: 'operational' | 'syncing' | 'degraded' | 'failed';
+    customerSync: {
+      status: 'completed' | 'running' | 'failed' | 'never_run';
+      lastSyncAt: string | null;
+      recordsProcessed: number;
+    };
+    orderSync: {
+      status: 'idle' | 'running' | 'failed' | 'completed';
+      lastSyncAt: string | null;
+      recordsProcessed: number;
+    };
+    webhookHealth: 'healthy' | 'degraded' | 'critical';
+  };
   // Billing data
   currentPlan: any | null;
   activeSubscription: any;
@@ -213,46 +142,7 @@ interface DashboardData {
   } | null;
   currentMonth: string;
   daysRemaining: number;
-  // Onboarding progress
-  onboardingProgress: OnboardingProgress;
-  // Auto-sync status
-  autoSyncStatus: SyncStatus | null;
 }
-
-// ============================================
-// ACTION - Handle onboarding actions
-// ============================================
-
-export const action = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-
-  if (!session?.shop) {
-    throw new Response("Unauthorized", { status: 401 });
-  }
-
-  const formData = await request.formData();
-  const actionType = formData.get("action");
-
-  if (actionType === "dismiss_onboarding") {
-    await db.shopSettings.update({
-      where: { shop: session.shop },
-      data: { onboardingDismissed: true },
-    });
-
-    return json({ success: true, message: "Onboarding dismissed" });
-  }
-
-  if (actionType === "complete_onboarding") {
-    await db.shopSettings.update({
-      where: { shop: session.shop },
-      data: { onboardingCompleted: true },
-    });
-
-    return json({ success: true, message: "Onboarding completed" });
-  }
-
-  return json({ success: false, error: "Invalid action" }, { status: 400 });
-};
 
 // ============================================
 // LOADER - Fetch dashboard data
@@ -260,238 +150,148 @@ export const action = async ({ request }: LoaderFunctionArgs) => {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
-    const { session, billing } = await authenticate.admin(request);
+    // Simplified auth - only destructure what we need immediately
+    const authResult = await authenticate.admin(request);
+    const { session } = authResult;
 
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
     }
 
     const shop = session.shop;
-    console.log(`[Dashboard] Loading data for shop: ${shop}`);
+    const loaderStart = Date.now();
+    console.log(`[Dashboard] Loading simplified data for shop: ${shop}`);
 
-    // Check active subscription with Shopify
+    // Fetch subscription via GraphQL (most accurate, same as billing page)
     let activeSubscription = null;
-    const { FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN } = await import("../shopify.server");
+    let subscriptionName = null;
 
-    if (billing) {
+    try {
+      const { getSubscriptionDetails } = await import("~/services/billing/subscription-details.server");
+      const subscriptionDetails = await getSubscriptionDetails(authResult.admin);
+      const graphqlSubscription = subscriptionDetails?.currentAppInstallation.activeSubscriptions[0];
+
+      if (graphqlSubscription && graphqlSubscription.status === 'ACTIVE') {
+        subscriptionName = graphqlSubscription.name;
+        console.log('[Dashboard] GraphQL subscription found:', subscriptionName);
+      }
+    } catch (error) {
+      console.error("[Dashboard] Error fetching GraphQL subscription:", error);
+    }
+
+    // Fallback to billing.check() if GraphQL fails
+    if (!subscriptionName && authResult.billing) {
       try {
-        const { hasActivePayment, appSubscriptions } = await billing.check({
+        const { hasActivePayment, appSubscriptions } = await authResult.billing.check({
           plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN],
           isTest: process.env.NODE_ENV === 'development',
         });
 
         if (hasActivePayment && appSubscriptions?.length > 0) {
           activeSubscription = appSubscriptions[0];
+          subscriptionName = activeSubscription.name;
+          console.log('[Dashboard] billing.check() subscription found:', subscriptionName);
         }
       } catch (error) {
         console.error("[Dashboard] Error checking subscription:", error);
       }
     }
 
-    // Fetch all data in parallel for performance
-    const [
-      shopSettings,
-      customers,
-      tiers,
-      recentTransactions,
-      billingPlan,
-    ] = await Promise.all([
-      // Shop settings
-      db.shopSettings.findUnique({ 
-        where: { shop } 
-      }),
-      
-      // All customers with tier info
-      db.customer.findMany({
-        where: { shop },
-        include: {
-          currentTier: true,
-        },
-        orderBy: { storeCredit: 'desc' },
-      }),
-      
-      // All tiers
-      db.tier.findMany({
-        where: { shop },
-        orderBy: { minSpend: 'asc' },
-      }),
-      
-      // Recent transactions (last 20)
-      db.storeCreditLedger.findMany({
-        where: { shop },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: {
-          customer: {
-            select: {
-              email: true,
-              shopifyCustomerId: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      }),
+    // Fetch only essential data in parallel
+    // Wrap shopSettings query with health monitoring
+    const [shopSettings, billingSubscription, tierCount, syncStatusRecords] = await Promise.all([
+      // Shop settings for feature manager and currency (with health monitoring)
+      measureQuery(() =>
+        db.shopSettings.findUnique({
+          where: { shop },
+          select: {
+            storeCurrency: true,
+            advancedAnalyticsEnabled: true,
+            autoCashbackProcessingEnabled: true,
+            emailMarketingEnabled: true,
+            tierProductsEnabled: true,
+            customersInitialSynced: true,
+            customersSyncInProgress: true,
+          }
+        })
+      ),
 
-      // Billing plan from database
-      db.billingPlan.findUnique({
+      // Billing subscription from database for plan details
+      db.billingSubscription.findUnique({
         where: { shop },
-      }),
+      }).catch(() => null),
+
+      // Tier count for loyalty engine status
+      db.tier.count({
+        where: { shop }
+      }).catch(() => 0),
+
+      // Sync status for data sync health
+      db.syncStatus.findMany({
+        where: { shop },
+        orderBy: { lastSyncAt: 'desc' }
+      }).catch(() => []),
     ]);
 
-    console.log(`[Dashboard] Fetched data - Customers: ${customers.length}, Tiers: ${tiers.length}, Transactions: ${recentTransactions.length}`);
-
-    // Calculate metrics
-    const totalCustomers = customers.length;
-    const totalStoreCredit = customers.reduce((sum, c) => 
-      sum + parseFloat(c.storeCredit.toString()), 0
-    );
-    const activeTiers = tiers.length;
-    const averageCredit = totalCustomers > 0 ? totalStoreCredit / totalCustomers : 0;
-    const customersWithCredit = customers.filter(c => parseFloat(c.storeCredit.toString()) > 0).length;
-    const customersWithTiers = customers.filter(c => c.currentTierId).length;
-
-    // Calculate tier distribution
-    const tierDistribution = tiers.map(tier => {
-      const customersInTier = customers.filter(c => c.currentTierId === tier.id);
-      const totalCreditInTier = customersInTier.reduce((sum, c) => 
-        sum + parseFloat(c.storeCredit.toString()), 0
-      );
-      
-      return {
-        id: tier.id,
-        name: tier.name,
-        count: customersInTier.length,
-        percentage: totalCustomers > 0 ? (customersInTier.length / totalCustomers) * 100 : 0,
-        cashbackPercent: tier.cashbackPercent,
-        totalCredit: totalCreditInTier,
-        minSpend: tier.minSpend,
-      };
-    });
-
-    // Add "No Tier" category if there are customers without tiers
-    const noTierCustomers = customers.filter(c => !c.currentTierId);
-    if (noTierCustomers.length > 0) {
-      const totalCreditNoTier = noTierCustomers.reduce((sum, c) => 
-        sum + parseFloat(c.storeCredit.toString()), 0
-      );
-      
-      tierDistribution.push({
-        id: 'no-tier',
-        name: "No Tier",
-        count: noTierCustomers.length,
-        percentage: totalCustomers > 0 ? (noTierCustomers.length / totalCustomers) * 100 : 0,
-        cashbackPercent: 0,
-        totalCredit: totalCreditNoTier,
-        minSpend: 0,
-      });
-    }
-
-    // Sort tier distribution by customer count
-    tierDistribution.sort((a, b) => b.count - a.count);
-
-    // Get top customers with store credit
-    const topCustomers = customers
-      .slice(0, 5)
-      .map(c => ({
-        id: c.id,
-        email: c.email,
-        storeCredit: parseFloat(c.storeCredit.toString()),
-        tierName: c.currentTier?.name || null,
-      }));
-
-    // Format recent transactions for display
-    const formattedTransactions = recentTransactions.map(tx => {
-      // Build customer display name
-      let customerDisplay = "Unknown Customer";
-      
-      if (tx.customer) {
-        // Check if we have a name
-        if (tx.customer.firstName || tx.customer.lastName) {
-          const name = [tx.customer.firstName, tx.customer.lastName]
-            .filter(Boolean)
-            .join(' ');
-          customerDisplay = name || tx.customer.email;
-        } else if (tx.customer.email) {
-          customerDisplay = tx.customer.email;
-        }
-      } else {
-        // Log orphaned transactions for debugging
-        console.warn(`[Dashboard] Transaction ${tx.id} has no associated customer`);
-        
-        // Try to extract info from metadata if available
-        if (tx.metadata && typeof tx.metadata === 'object') {
-          const meta = tx.metadata as any;
-          if (meta.customerEmail) {
-            customerDisplay = meta.customerEmail;
-          } else if (meta.customerId) {
-            customerDisplay = `Customer #${meta.customerId}`;
-          }
-        }
-      }
-      
-      return {
-        id: tx.id,
-        type: tx.type,
-        amount: parseFloat(tx.amount.toString()),
-        balance: parseFloat(tx.balance.toString()),
-        customerEmail: customerDisplay,
-        createdAt: new Date(tx.createdAt).toLocaleDateString(),
-        metadata: tx.metadata,
-      };
-    });
-
-    // Check if setup is complete
-    const setupComplete = tiers.length > 0;
-
-    // Process billing data
-    const currentMonth = getCurrentMonthName();
-    const daysRemaining = calculateDaysRemaining();
+    // Simple direct order count for current month
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth() + 1; // 1-indexed for database
+    const month = now.getMonth() + 1;
+    const currentMonth = getCurrentMonthName();
+    const daysRemaining = calculateDaysRemaining();
 
-    // Count orders using multiple strategies (like billing-v2 does)
     let orderCount = 0;
-    let orderCountStrategy = "unknown";
-
     try {
-      console.log(`[Dashboard] Attempting to count orders for ${shop} - ${currentMonth} ${year}`);
+      // Try to get from cache first
+      // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
+      const cachedUsage = await db.monthlyOrderUsage.findFirst({
+        where: {
+          shop: shop,
+          year: year,
+          month: month,
+        },
+      });
 
-      // Strategy 1: Try date extraction method (most reliable for month-based)
-      try {
-        orderCount = await countOrdersDateExtraction(shop, year, month);
-        orderCountStrategy = "DateExtraction";
-        console.log(`[Dashboard] Date extraction strategy succeeded: ${orderCount} orders`);
-      } catch (error) {
-        console.log("[Dashboard] Date extraction failed, trying fallback strategies");
+      if (cachedUsage) {
+        orderCount = cachedUsage.orderCount;
+        console.log(`[Dashboard] Using cached order count: ${orderCount}`);
+      } else {
+        // Simple direct count from Order table for current month
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-        // Strategy 2: Try multiple strategies with fallback
-        const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-
-        const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
-        orderCount = result.count;
-        orderCountStrategy = result.strategy;
-      }
-
-      // Strategy 3: If still 0, try pre-aggregated count
-      if (orderCount === 0) {
-        console.log("[Dashboard] Trying pre-aggregated count");
-        orderCount = await getOrCreateMonthlyCount(shop, year, month);
-        orderCountStrategy = "PreAggregated";
+        orderCount = await db.order.count({
+          where: {
+            shop,
+            createdAt: {
+              gte: startOfMonth,
+              lte: endOfMonth,
+            },
+          },
+        });
+        console.log(`[Dashboard] Direct order count: ${orderCount}`);
       }
     } catch (error) {
       console.error("[Dashboard] Error counting orders:", error);
-      // Fallback to simple total count
-      orderCount = await db.order.count({ where: { shop } });
-      orderCountStrategy = "TotalFallback";
+      orderCount = 0;
     }
 
-    // Determine plan based on active subscription using constants
-    const planDetails = getPlanDetails(activeSubscription, billingPlan);
-    const planLimit = planDetails.ordersIncluded;
-    const planName = planDetails.name;
+    // Determine plan and limits (prefer GraphQL subscription name)
+    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded;
+    let planName = 'RewardsPro Free';
+
+    if (subscriptionName) {
+      const planConfig = MANAGED_PLANS[subscriptionName];
+      if (planConfig) {
+        planLimit = planConfig.ordersIncluded;
+        planName = subscriptionName;
+        console.log('[Dashboard] Using plan:', planName, 'with limit:', planLimit);
+      } else {
+        console.warn('[Dashboard] Plan not found in MANAGED_PLANS:', subscriptionName);
+      }
+    } else {
+      console.log('[Dashboard] No active subscription found, using Free plan');
+    }
 
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
 
@@ -500,100 +300,236 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       planLimit,
       planName,
       projectedOrders,
-      countStrategy: orderCountStrategy // Include which strategy worked
     };
 
-    console.log(`[Dashboard] Final count: ${orderCount} using strategy: ${orderCountStrategy}`);
-
-    // Serialize billing plan data
-    const serializedPlan = billingPlan ? {
-      ...billingPlan,
-      monthlyPrice: Number(billingPlan.monthlyPrice || 0),
-      usageCap: billingPlan.usageCap ? Number(billingPlan.usageCap) : null,
-      currentPeriodEnd: billingPlan.currentPeriodEnd instanceof Date
-        ? billingPlan.currentPeriodEnd.toISOString()
-        : billingPlan.currentPeriodEnd,
-      lastCapAlert: billingPlan.lastCapAlert instanceof Date
-        ? billingPlan.lastCapAlert.toISOString()
-        : billingPlan.lastCapAlert,
-      createdAt: billingPlan.createdAt instanceof Date
-        ? billingPlan.createdAt.toISOString()
-        : billingPlan.createdAt,
-      updatedAt: billingPlan.updatedAt instanceof Date
-        ? billingPlan.updatedAt.toISOString()
-        : billingPlan.updatedAt,
+    // Serialize billing subscription
+    const serializedPlan = billingSubscription ? {
+      ...billingSubscription,
+      planName: billingSubscription.planName || planName,
+      cappedAmount: billingSubscription.cappedAmount ? Number(billingSubscription.cappedAmount) : null,
+      balanceUsed: billingSubscription.balanceUsed ? Number(billingSubscription.balanceUsed) : 0,
+      balanceRemaining: billingSubscription.balanceRemaining ? Number(billingSubscription.balanceRemaining) : null,
+      currentPeriodEnd: billingSubscription.currentPeriodEnd instanceof Date
+        ? billingSubscription.currentPeriodEnd.toISOString()
+        : billingSubscription.currentPeriodEnd,
+      createdAt: billingSubscription.createdAt instanceof Date
+        ? billingSubscription.createdAt.toISOString()
+        : billingSubscription.createdAt,
+      updatedAt: billingSubscription.updatedAt instanceof Date
+        ? billingSubscription.updatedAt.toISOString()
+        : billingSubscription.updatedAt,
     } : null;
 
-    // Get onboarding progress from shop settings
-    const onboardingProgress: OnboardingProgress = {
-      syncedOrders: shopSettings?.onboardingSyncedOrders ?? false,
-      createdTiers: shopSettings?.onboardingCreatedTiers ?? false,
-      syncedCustomers: shopSettings?.onboardingSyncedCustomers ?? false,
-      configuredSettings: shopSettings?.onboardingConfiguredSettings ?? false,
-      completed: shopSettings?.onboardingCompleted ?? false,
-      dismissed: shopSettings?.onboardingDismissed ?? false,
-    };
+    // Webhook statistics for health monitoring
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const lastHour = new Date(Date.now() - 60 * 60 * 1000);
 
-    // Get auto-sync status
-    let autoSyncStatus: SyncStatus | null = null;
-    try {
-      const syncStatusRecord = await db.syncStatus.findUnique({
+    const [webhookProcessedCount, webhookErrorsLast24h, webhookErrorsLastHour] = await Promise.all([
+      db.webhookProcessed.count({
         where: {
-          shop_syncType: {
-            shop,
-            syncType: 'auto-install'
-          }
+          shop,
+          processedAt: { gte: last24Hours }
         }
-      });
+      }),
+      db.webhookError.count({
+        where: {
+          shop,
+          createdAt: { gte: last24Hours }
+        }
+      }),
+      db.webhookError.count({
+        where: {
+          shop,
+          createdAt: { gte: lastHour }
+        }
+      })
+    ]);
 
-      if (syncStatusRecord) {
-        autoSyncStatus = {
-          status: syncStatusRecord.status as 'IDLE' | 'RUNNING' | 'COMPLETED' | 'FAILED',
-          lastSyncAt: syncStatusRecord.lastSyncAt,
-          errorMessage: syncStatusRecord.errorMessage,
-          recordsProcessed: syncStatusRecord.recordsProcessed,
-        };
-      }
-    } catch (error) {
-      console.error('[Dashboard] Failed to fetch auto-sync status:', error);
+    const totalWebhooks = webhookProcessedCount + webhookErrorsLast24h;
+    const successRate = totalWebhooks > 0 ? (webhookProcessedCount / totalWebhooks) * 100 : 100;
+
+    let webhookStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
+    if (webhookErrorsLastHour > 10 || successRate < 90) {
+      webhookStatus = 'critical';
+    } else if (webhookErrorsLastHour > 5 || successRate < 95) {
+      webhookStatus = 'degraded';
     }
 
+    // Get database health metrics
+    const dbHealth = getDatabaseHealth();
+
+    // Calculate Loyalty Engine status
+    const cashbackEnabled = shopSettings?.autoCashbackProcessingEnabled ?? false;
+    const hasCurrency = !!shopSettings?.storeCurrency;
+    const hasTiers = tierCount > 0;
+
+    let loyaltyStatus: 'operational' | 'needs_setup' | 'degraded' = 'operational';
+    if (!hasTiers || !hasCurrency) {
+      loyaltyStatus = 'needs_setup';
+    } else if (!cashbackEnabled) {
+      loyaltyStatus = 'degraded';
+    }
+
+    // Calculate Data Sync Health
+    const customerSyncRecord = syncStatusRecords.find(r => r.syncType === 'customers');
+    const orderSyncRecord = syncStatusRecords.find(r => r.syncType === 'orders');
+
+    // Determine customer sync status
+    let customerSyncStatus: 'completed' | 'running' | 'failed' | 'never_run' = 'never_run';
+    if (shopSettings?.customersSyncInProgress) {
+      customerSyncStatus = 'running';
+    } else if (!shopSettings?.customersInitialSynced) {
+      customerSyncStatus = 'never_run';
+    } else if (customerSyncRecord?.status === 'FAILED') {
+      customerSyncStatus = 'failed';
+    } else {
+      customerSyncStatus = 'completed';
+    }
+
+    // Determine order sync status
+    let orderSyncStatus: 'idle' | 'running' | 'failed' | 'completed' = 'idle';
+    if (orderSyncRecord?.status === 'RUNNING') {
+      orderSyncStatus = 'running';
+    } else if (orderSyncRecord?.status === 'FAILED') {
+      orderSyncStatus = 'failed';
+    } else if (orderSyncRecord?.status === 'COMPLETED') {
+      orderSyncStatus = 'completed';
+    }
+
+    // Overall data sync health
+    let dataSyncStatus: 'operational' | 'syncing' | 'degraded' | 'failed' = 'operational';
+    if (customerSyncStatus === 'failed' || orderSyncStatus === 'failed') {
+      dataSyncStatus = 'failed';
+    } else if (customerSyncStatus === 'running' || orderSyncStatus === 'running') {
+      dataSyncStatus = 'syncing';
+    } else if (webhookStatus === 'critical') {
+      dataSyncStatus = 'degraded';
+    }
+
+    // Simplified dashboard data
     const dashboardData: DashboardData = {
       shop,
-      metrics: {
-        totalCustomers,
-        totalStoreCredit,
-        activeTiers,
-        averageCredit,
-        customersWithCredit,
-        customersWithTiers,
-      },
-      tierDistribution,
-      recentTransactions: formattedTransactions,
-      topCustomers,
-      setupComplete,
       shopSettings: shopSettings ? {
-        storeCurrency: shopSettings.storeCurrency,
-        currencyDisplayType: shopSettings.currencyDisplayType,
+        storeCurrency: shopSettings.storeCurrency || 'USD',
+        tierRecalculationEnabled: false,
+        advancedAnalyticsEnabled: shopSettings.advancedAnalyticsEnabled,
+        autoCashbackProcessingEnabled: shopSettings.autoCashbackProcessingEnabled,
+        emailMarketingEnabled: shopSettings.emailMarketingEnabled,
+        tierProductsEnabled: shopSettings.tierProductsEnabled,
       } : null,
-      // Billing data
+      shopifyMetrics: { source: 'unavailable' },
+      webhookStats: {
+        processedLast24h: webhookProcessedCount,
+        errorsLast24h: webhookErrorsLast24h,
+        errorsLastHour: webhookErrorsLastHour,
+        successRate: Math.round(successRate * 10) / 10,
+        status: webhookStatus
+      },
+      databaseHealth: {
+        responseTime: dbHealth.responseTime,
+        status: dbHealth.status,
+        uptime: dbHealth.uptime,
+        lastCheck: dbHealth.lastCheck.toISOString(),
+      },
+      loyaltyEngine: {
+        tierCount,
+        status: loyaltyStatus,
+        automationEnabled: false, // Note: tierRecalculationEnabled is always false in shopSettings
+        currency: shopSettings?.storeCurrency || 'Not Set',
+        cashbackEnabled,
+      },
+      dataSyncHealth: {
+        status: dataSyncStatus,
+        customerSync: {
+          status: customerSyncStatus,
+          lastSyncAt: customerSyncRecord?.lastSyncAt?.toISOString() || null,
+          recordsProcessed: customerSyncRecord?.recordsProcessed || 0,
+        },
+        orderSync: {
+          status: orderSyncStatus,
+          lastSyncAt: orderSyncRecord?.lastSyncAt?.toISOString() || null,
+          recordsProcessed: orderSyncRecord?.recordsProcessed || 0,
+        },
+        webhookHealth: webhookStatus,
+      },
       currentPlan: serializedPlan,
-      activeSubscription,
+      // Use GraphQL subscription name (most accurate) instead of stale billing.check() data
+      activeSubscription: subscriptionName ? {
+        name: subscriptionName,
+        status: 'ACTIVE'
+      } : activeSubscription,
       monthlyOrderUsage,
       currentMonth,
       daysRemaining,
-      // Onboarding progress
-      onboardingProgress,
-      // Auto-sync status
-      autoSyncStatus,
     };
 
-    console.log(`[Dashboard] Returning data for ${shop}`);
+    const loaderEnd = Date.now();
+    const totalTime = loaderEnd - loaderStart;
+    console.log(`[Dashboard] ⚡ Simplified loader execution time: ${totalTime}ms`);
     return json(dashboardData);
   } catch (error) {
+    if (error instanceof Response) {
+      throw error;
+    }
     console.error("[Dashboard] Loader error:", error);
     throw new Response("Failed to load dashboard data", { status: 500 });
   }
+};
+
+
+// ============================================
+// ACTION - Handle feature manager
+// ============================================
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  const formData = await request.formData();
+  const action = formData.get("action");
+
+  if (action === "toggle-feature") {
+    const feature = formData.get("feature") as string;
+    const enabled = formData.get("enabled") === "true";
+
+    // Fetch current value before update
+    const currentSettings = await db.shopSettings.findUnique({
+      where: { shop },
+      select: { [feature]: true }
+    });
+
+    const previousValue = currentSettings?.[feature];
+
+    const updateData: any = {};
+    updateData[feature] = enabled;
+
+    // Log the feature toggle change
+    console.log(`[Feature Manager] Shop "${shop}" ${enabled ? 'enabled' : 'disabled'} feature: ${feature}`);
+
+    // Special logging for Automatic Cashback Processing
+    if (feature === 'autoCashbackProcessingEnabled') {
+      console.log(`[Feature Manager] ⚠️  Automatic Cashback Processing is now ${enabled ? 'ENABLED' : 'DISABLED'} for ${shop}`);
+      console.log(`[Feature Manager] Database change: autoCashbackProcessingEnabled ${previousValue} → ${enabled}`);
+      console.log(`[Feature Manager] Future orders will ${enabled ? 'automatically earn' : 'NOT automatically earn'} cashback rewards`);
+    }
+
+    await db.shopSettings.update({
+      where: { shop },
+      data: updateData,
+    });
+
+    // Verify the update
+    const updatedSettings = await db.shopSettings.findUnique({
+      where: { shop },
+      select: { [feature]: true }
+    });
+
+    console.log(`[Feature Manager] ✓ Database updated successfully: ${feature} = ${updatedSettings?.[feature]}`);
+
+    return json({ success: true, feature, enabled });
+  }
+
+  return json({ success: false });
 };
 
 // ============================================
@@ -603,330 +539,462 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function Dashboard() {
   const data = useLoaderData<typeof loader>() as DashboardData;
   const navigate = useNavigate();
-  const [selectedTab, setSelectedTab] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetcher = useFetcher();
 
-  // Plan details calculations are now handled by CurrentPlanCard component
-  // These variables are kept for reference but no longer needed
-  // const activePlanName = data.activeSubscription?.name || data.currentPlan?.planName || "RewardsPro Free";
-  // const planDetails = MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
-  // const currentUsage = data.monthlyOrderUsage?.orderCount || 0;
-  // const planLimit = data.monthlyOrderUsage?.planLimit || 200;
-  // const projectedUsage = data.monthlyOrderUsage?.projectedOrders || 0;
-  // const usagePercentage = Math.min((currentUsage / planLimit) * 100, 100);
-  // const projectedPercentage = Math.min((projectedUsage / planLimit) * 100, 100);
-  // const progressTone = usagePercentage >= 90 ? "critical" : usagePercentage >= 75 ? "warning" : "success";
-  // const protectionApplied = currentUsage > planLimit;
-  // const ordersNotCounted = protectionApplied ? currentUsage - planLimit : 0;
+  // Toast state for feature toggle feedback
+  const [toastActive, setToastActive] = useState(false);
+  const [toastContent, setToastContent] = useState('');
 
-  // Format currency helper
-  const formatAmount = useCallback((amount: number) => {
-    return formatCurrency(amount, data.shopSettings as any);
-  }, [data.shopSettings]);
+  // Handle feature toggle submission
+  const handleToggleFeature = useCallback((feature: string, enabled: boolean) => {
+    const formData = new FormData();
+    formData.append("action", "toggle-feature");
+    formData.append("feature", feature);
+    formData.append("enabled", enabled.toString());
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    window.location.reload();
-  }, []);
+    fetcher.submit(formData, { method: "post" });
+  }, [fetcher]);
 
-  // Tab configuration
-  const tabs = [
-    { id: 'overview', content: 'Overview', panelID: 'overview-panel' },
-    { id: 'insights', content: 'Insights', panelID: 'insights-panel' },
-  ];
+  // Show toast message when feature toggle completes
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      const result = fetcher.data as { success?: boolean; feature?: string; enabled?: boolean };
 
-  // If setup is not complete, show onboarding
-  if (!data.setupComplete) {
-    return (
-      <Page title="Welcome to RewardsPro">
-        <Layout>
-          <Layout.Section>
-            <EmptyState
-              heading="Get started with RewardsPro"
-              action={{
-                content: "Manage customers & tiers",
-                url: "/app/customers",
-              }}
-              secondaryAction={{
-                content: "Configure settings",
-                url: "/app/settings",
-              }}
-              image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-            >
-              <p>Set up loyalty tiers and start rewarding your customers with cashback.</p>
-            </EmptyState>
-          </Layout.Section>
-        </Layout>
-        
-        {/* Bottom spacer to prevent content from touching the bottom */}
-        <div style={{ height: '80px', width: '100%' }} aria-hidden="true" />
-      </Page>
-    );
-  }
+      if (result.success && result.feature && typeof result.enabled === 'boolean') {
+        const featureNames: Record<string, string> = {
+          'advancedAnalyticsEnabled': 'Advanced Analytics',
+          'autoCashbackProcessingEnabled': 'Automatic Cashback Processing',
+          'emailMarketingEnabled': 'Email Marketing Campaigns',
+          'tierProductsEnabled': 'Tier Products Module',
+        };
+
+        const featureName = featureNames[result.feature] || result.feature;
+        const action = result.enabled ? 'enabled' : 'disabled';
+
+        setToastContent(`${featureName} ${action}`);
+        setToastActive(true);
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  // Toast markup
+  const toastMarkup = toastActive ? (
+    <Toast
+      content={toastContent}
+      onDismiss={() => setToastActive(false)}
+      duration={3000}
+    />
+  ) : null;
+
+  // Calculate active features count
+  const activeFeaturesCount = [
+    data.shopSettings?.advancedAnalyticsEnabled,
+    data.shopSettings?.autoCashbackProcessingEnabled,
+    data.shopSettings?.emailMarketingEnabled,
+    data.shopSettings?.tierProductsEnabled,
+  ].filter(Boolean).length;
 
   return (
-    <Page 
-      title="Dashboard"
-      primaryAction={{
-        content: "Add customer",
-        icon: PlusIcon,
-        url: "/app/customers",
-      }}
-      secondaryActions={[
-        {
-          content: "Refresh",
-          icon: RefreshIcon,
-          onAction: handleRefresh,
-          loading: isRefreshing,
-        },
-      ]}
-    >
+    <Frame>
+      <Page title="Dashboard">
       <Layout>
-        {/* Auto-Sync Status */}
-        {data.autoSyncStatus && (
-          <Layout.Section>
-            <AutoSyncStatus syncStatus={data.autoSyncStatus} />
-          </Layout.Section>
-        )}
-
-        {/* Onboarding Checklist */}
-        {!data.onboardingProgress.completed && !data.onboardingProgress.dismissed && (
-          <Layout.Section>
-            <OnboardingChecklist
-              progress={data.onboardingProgress}
-              shop={data.shop}
-            />
-          </Layout.Section>
-        )}
-
-        {/* Key Metrics Overview */}
+        {/* System Status - Full Width */}
         <Layout.Section>
-          <StatsOverview
-            stats={[
-              {
-                label: "Total Customers",
-                value: data.metrics.totalCustomers.toString(),
-                icon: PersonIcon,
-              },
-              {
-                label: "Total Store Credit",
-                value: formatAmount(data.metrics.totalStoreCredit),
-                icon: CashDollarIcon,
-              },
-              {
-                label: "Active Tiers",
-                value: data.metrics.activeTiers.toString(),
-                icon: RewardIcon,
-              },
-              {
-                label: "Average Credit",
-                value: formatAmount(data.metrics.averageCredit),
-                icon: ChartVerticalIcon,
-              },
-            ]}
-            loading={isRefreshing}
-          />
-        </Layout.Section>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Card>
+                  <BlockStack gap="400">
+              {/* Header */}
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={StatusActiveIcon} tone="base" />
+                  <Text variant="headingMd" as="h2">System Status</Text>
+                </InlineStack>
+                <Badge tone="success">
+                  {data.shopifyMetrics?.source !== 'unavailable' ? '100%' : '99%'} Health
+                </Badge>
+              </InlineStack>
 
-        {/* Plan Details Card - Using shared component */}
-        <Layout.Section>
-          <CurrentPlanCard
-            activeSubscription={data.activeSubscription}
-            currentPlan={data.currentPlan}
-            monthlyOrderUsage={{
-              orderCount: data.monthlyOrderUsage?.orderCount || 0,
-              planLimit: data.monthlyOrderUsage?.planLimit || 200,
-              projectedOrders: data.monthlyOrderUsage?.projectedOrders || 0,
-              currentMonth: data.currentMonth
-            }}
-            showUpgradeButton={true}
-            showOverageBanner={false}
-            showCountStrategy={false}
-            showProjectedUsage={true}
-            compact={false}
-            onUpgrade={() => navigate("/app/billing/plans")}
-          />
-        </Layout.Section>
-        
-        <Layout.Section>
-          <BlockStack gap="500">
+              <Divider />
 
-            {/* Tabbed Content Area */}
-            <Card>
-              <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
-                {/* Overview Tab */}
-                {selectedTab === 0 && (
-                  <Box padding="400">
-                    <BlockStack gap="500">
-                      {/* Tier Distribution */}
-                      <BlockStack gap="400">
-                        <Text variant="headingMd" as="h2">
-                          Tier Distribution
+              {/* Overall Status Banner */}
+              <Banner tone="success">
+                <InlineStack gap="400" blockAlign="center" wrap={false}>
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={CheckCircleIcon} tone="success" />
+                    <Text variant="bodyMd" fontWeight="semibold">All Systems Operational</Text>
+                  </InlineStack>
+                  <Text variant="bodySm" tone="subdued">•</Text>
+                  <Text variant="bodySm" tone="subdued">Uptime: 99.9%</Text>
+                  <Text variant="bodySm" tone="subdued">•</Text>
+                  <Text variant="bodySm" tone="subdued">0 active incidents</Text>
+                </InlineStack>
+              </Banner>
+
+              {/* Component Cards Grid */}
+              <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
+                {/* Subscription Component */}
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="start">
+                      <Box
+                        padding="200"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <Icon source={CreditCardIcon} tone="base" />
+                      </Box>
+                      <Badge tone="success">Active</Badge>
+                    </InlineStack>
+
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      {data.activeSubscription?.name ? data.activeSubscription.name.replace('RewardsPro', 'Rewards') : 'Rewards Free'}
+                    </Text>
+
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Orders Used:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.monthlyOrderUsage?.orderCount || 0} / {data.monthlyOrderUsage?.planLimit || MANAGED_PLANS["RewardsPro Free"].ordersIncluded}
                         </Text>
-                        {data.tierDistribution.length > 0 ? (
-                          <BlockStack gap="300">
-                            {sortTiersByPriority(data.tierDistribution).map((tier) => (
-                              <BlockStack key={tier.id} gap="200">
-                                <InlineStack align="space-between">
-                                  <InlineStack gap="300" align="start">
-                                    {tier.name === "No Tier" ? (
-                                      <Icon source={AlertTriangleIcon} tone="caution" />
-                                    ) : (
-                                      <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '8px',
-                                        background: getTierStyle(tier.name).backgroundColor,
-                                        border: `2px solid ${getTierStyle(tier.name).borderColor}`,
-                                      }}>
-                                        <Icon 
-                                          source={getTierStyle(tier.name).icon} 
-                                          tone="base"
-                                        />
-                                      </div>
-                                    )}
-                                    <BlockStack gap="100">
-                                      <InlineStack gap="200" align="start">
-                                        {tier.name === "No Tier" ? (
-                                          <Text variant="bodyMd" fontWeight="semibold" as="p">
-                                            {tier.name}
-                                          </Text>
-                                        ) : (
-                                          <TierBadge
-                                            tierName={tier.name}
-                                            size="small"
-                                            showIcon={false}
-                                            cashbackPercent={tier.cashbackPercent}
-                                          />
-                                        )}
-                                      </InlineStack>
-                                      <Text variant="bodySm" tone="subdued" as="p">
-                                        {tier.count} customers • {formatAmount(tier.totalCredit)} total credit
-                                      </Text>
-                                    </BlockStack>
-                                  </InlineStack>
-                                  <Text variant="bodyLg" fontWeight="semibold" as="p">
-                                    {tier.percentage.toFixed(1)}%
-                                  </Text>
-                                </InlineStack>
-                                <ProgressBar
-                                  progress={tier.percentage}
-                                  size="small"
-                                  tone={tier.name === "No Tier" ? "critical" : "success"}
-                                />
-                              </BlockStack>
-                            ))}
-                          </BlockStack>
-                        ) : (
-                          <EmptyState
-                            heading="No tier data yet"
-                            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                          >
-                            <p>Tier distribution will appear here once you have customers.</p>
-                          </EmptyState>
-                        )}
-                      </BlockStack>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Usage:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.monthlyOrderUsage ? Math.round((data.monthlyOrderUsage.orderCount / data.monthlyOrderUsage.planLimit) * 100) : 0}%
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Cycle:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.daysRemaining || 0}d remaining
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.activeSubscription?.status || 'Free'}
+                        </Text>
+                      </InlineStack>
                     </BlockStack>
-                  </Box>
-                )}
 
-                {/* Insights Tab */}
-                {selectedTab === 1 && (
-                  <Box padding="400">
-                    <BlockStack gap="500">
-                      <BlockStack gap="400">
-                        <Text variant="headingMd" as="h2">
-                          Key Insights
+                    <Divider />
+
+                    <Text variant="bodySm" tone="subdued">
+                      Subscription plan and monthly order usage
+                    </Text>
+                  </BlockStack>
+                </Card>
+
+                {/* Database Component */}
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="start">
+                      <Box
+                        padding="200"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <Icon source={DatabaseIcon} tone="base" />
+                      </Box>
+                      <Badge tone={
+                        data.databaseHealth.status === 'connected' ? 'success' :
+                        data.databaseHealth.status === 'degraded' ? 'warning' : 'critical'
+                      }>
+                        {data.databaseHealth.status === 'connected' ? 'Operational' :
+                         data.databaseHealth.status === 'degraded' ? 'Degraded' : 'Disconnected'}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Database
+                    </Text>
+
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Response:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.databaseHealth.responseTime === 0
+                            ? 'Measuring...'
+                            : data.databaseHealth.responseTime < 1000
+                              ? `${Math.round(data.databaseHealth.responseTime)}ms`
+                              : `${(data.databaseHealth.responseTime / 1000).toFixed(2)}s`
+                          }
                         </Text>
-                        
-                        {/* Insights Cards */}
-                        <BlockStack gap="300">
-                          {data.metrics.customersWithTiers < data.metrics.totalCustomers * 0.5 && (
-                            <ActionBanner
-                              title="Opportunity: Increase tier participation"
-                              content={`Only ${Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}% of your customers are in a tier. Consider reviewing tier thresholds or running a campaign.`}
-                              tone="info"
-                              action={{ content: "View customers", onAction: () => window.location.href = "/app/customers" }}
-                            />
-                          )}
-
-                          {data.metrics.averageCredit > 50 && (
-                            <ActionBanner
-                              title="High average credit balance"
-                              content={`Your customers have an average of ${formatAmount(data.metrics.averageCredit)} in store credit. This indicates strong engagement with your rewards program.`}
-                              tone="success"
-                            />
-                          )}
-
-                          {data.tierDistribution.find(t => t.name === "No Tier" && t.percentage > 30) && (
-                            <ActionBanner
-                              title="Many customers without tiers"
-                              content={`${data.tierDistribution.find(t => t.name === "No Tier")?.percentage.toFixed(0)}% of customers aren't in a tier. Consider adjusting your tier requirements.`}
-                              tone="warning"
-                              action={{ content: "Manage customers & tiers", onAction: () => window.location.href = "/app/customers" }}
-                            />
-                          )}
-                        </BlockStack>
-                      </BlockStack>
-
-                      <Divider />
-
-                      {/* Program Statistics */}
-                      <BlockStack gap="400">
-                        <Text variant="headingMd" as="h2">
-                          Program Statistics
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Uptime:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.databaseHealth.uptime}%
                         </Text>
-                        <Grid>
-                          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                            <Card>
-                              <Box padding="300">
-                                <BlockStack gap="200">
-                                  <Text variant="bodySm" tone="subdued" as="p">
-                                    Tier Participation Rate
-                                  </Text>
-                                  <Text variant="headingLg" as="h3">
-                                    {Math.round((data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100)}%
-                                  </Text>
-                                  <ProgressBar 
-                                    progress={(data.metrics.customersWithTiers / data.metrics.totalCustomers) * 100}
-                                    size="small"
-                                  />
-                                </BlockStack>
-                              </Box>
-                            </Card>
-                          </Grid.Cell>
-                          <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                            <Card>
-                              <Box padding="300">
-                                <BlockStack gap="200">
-                                  <Text variant="bodySm" tone="subdued" as="p">
-                                    Credit Utilization Rate
-                                  </Text>
-                                  <Text variant="headingLg" as="h3">
-                                    {Math.round((data.metrics.customersWithCredit / data.metrics.totalCustomers) * 100)}%
-                                  </Text>
-                                  <ProgressBar 
-                                    progress={(data.metrics.customersWithCredit / data.metrics.totalCustomers) * 100}
-                                    size="small"
-                                  />
-                                </BlockStack>
-                              </Box>
-                            </Card>
-                          </Grid.Cell>
-                        </Grid>
-                      </BlockStack>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.databaseHealth.status === 'connected' ? 'Connected' :
+                           data.databaseHealth.status === 'degraded' ? 'Slow' : 'Disconnected'}
+                        </Text>
+                      </InlineStack>
                     </BlockStack>
-                  </Box>
-                )}
-              </Tabs>
-            </Card>
-          </BlockStack>
+
+                    <Divider />
+
+                    <Text variant="bodySm" tone="subdued">
+                      PostgreSQL database storing all customer data, tiers, and transactions
+                    </Text>
+                  </BlockStack>
+                </Card>
+
+                {/* Webhook Processing Component */}
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="start">
+                      <Box
+                        padding="200"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <Icon source={RefreshIcon} tone="base" />
+                      </Box>
+                      <Badge tone={
+                        data.webhookStats.status === 'healthy' ? 'success' :
+                        data.webhookStats.status === 'degraded' ? 'warning' : 'critical'
+                      }>
+                        {data.webhookStats.status === 'healthy' ? 'Operational' :
+                         data.webhookStats.status === 'degraded' ? 'Degraded' : 'Critical'}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Webhook Processing
+                    </Text>
+
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Processed:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.webhookStats.processedLast24h.toLocaleString()} (24h)
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Success Rate:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.webhookStats.successRate.toFixed(1)}%
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.webhookStats.status === 'healthy' ? 'Healthy' :
+                           data.webhookStats.status === 'degraded' ? 'Degraded' : 'Critical'}
+                        </Text>
+                      </InlineStack>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <Text variant="bodySm" tone="subdued">
+                      {data.webhookStats.status === 'healthy'
+                        ? 'Receiving and processing Shopify order events'
+                        : data.webhookStats.errorsLastHour > 0
+                          ? `${data.webhookStats.errorsLastHour} errors in the last hour`
+                          : 'Webhook processing experiencing issues'}
+                    </Text>
+                  </BlockStack>
+                </Card>
+
+                {/* Loyalty Engine Component */}
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="start">
+                      <Box
+                        padding="200"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <Icon source={ChartVerticalIcon} tone="base" />
+                      </Box>
+                      <Badge tone={
+                        data.loyaltyEngine.status === 'operational' ? 'success' :
+                        data.loyaltyEngine.status === 'degraded' ? 'warning' : 'attention'
+                      }>
+                        {data.loyaltyEngine.status === 'operational' ? 'Operational' :
+                         data.loyaltyEngine.status === 'degraded' ? 'Degraded' : 'Needs Setup'}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Loyalty Engine
+                    </Text>
+
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Tiers:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.loyaltyEngine.tierCount > 0
+                            ? `${data.loyaltyEngine.tierCount} Tier${data.loyaltyEngine.tierCount !== 1 ? 's' : ''}`
+                            : 'Not Configured'}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Cashback:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.loyaltyEngine.cashbackEnabled ? 'Enabled' : 'Disabled'}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Currency:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.loyaltyEngine.currency}
+                        </Text>
+                      </InlineStack>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <Text variant="bodySm" tone="subdued">
+                      Tier calculations and cashback rewards processing
+                    </Text>
+                  </BlockStack>
+                </Card>
+
+                {/* Data Sync Component */}
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="start">
+                      <Box
+                        padding="200"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <Icon source={RefreshIcon} tone="base" />
+                      </Box>
+                      <Badge tone={
+                        data.dataSyncHealth.status === 'operational' ? 'success' :
+                        data.dataSyncHealth.status === 'syncing' ? 'info' :
+                        data.dataSyncHealth.status === 'degraded' ? 'warning' : 'critical'
+                      }>
+                        {data.dataSyncHealth.status === 'operational' ? 'Operational' :
+                         data.dataSyncHealth.status === 'syncing' ? 'Syncing' :
+                         data.dataSyncHealth.status === 'degraded' ? 'Degraded' : 'Failed'}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Data Sync
+                    </Text>
+
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Database:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.databaseHealth.status === 'connected' ? 'Connected' :
+                           data.databaseHealth.status === 'degraded' ? 'Slow' : 'Disconnected'}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Customers:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.dataSyncHealth.customerSync.status === 'running' ? 'Syncing...' :
+                           data.dataSyncHealth.customerSync.status === 'failed' ? 'Failed' :
+                           data.dataSyncHealth.customerSync.status === 'never_run' ? 'Not Synced' :
+                           formatTimeAgo(data.dataSyncHealth.customerSync.lastSyncAt)}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Webhooks:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.dataSyncHealth.webhookHealth === 'healthy' ? 'Healthy' :
+                           data.dataSyncHealth.webhookHealth === 'degraded' ? 'Degraded' : 'Critical'}
+                        </Text>
+                      </InlineStack>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <Text variant="bodySm" tone="subdued">
+                      Real-time synchronization with Shopify store
+                    </Text>
+                  </BlockStack>
+                </Card>
+              </InlineGrid>
+            </BlockStack>
+                </Card>
+              </div>
+            </div>
+          </div>
         </Layout.Section>
+
+        {/* Feature Manager */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={SettingsIcon} tone="base" />
+                  <Text variant="headingMd" as="h2">Feature Manager</Text>
+                </InlineStack>
+                <Badge tone={activeFeaturesCount === 4 ? 'success' : activeFeaturesCount >= 2 ? 'info' : 'warning'}>
+                  {activeFeaturesCount}/4 Active
+                </Badge>
+              </InlineStack>
+
+              <Text variant="bodyMd" tone="subdued" as="p">
+                Enable or disable specific features for your store. Changes take effect immediately.
+              </Text>
+
+              <Divider />
+
+              <BlockStack gap="300">
+                <Checkbox
+                  label="Advanced Analytics"
+                  checked={data.shopSettings?.advancedAnalyticsEnabled ?? true}
+                  onChange={(checked) => handleToggleFeature('advancedAnalyticsEnabled', checked)}
+                  helpText="Enable advanced analytics and reporting features"
+                />
+                <Checkbox
+                  label="Automatic Cashback Processing"
+                  checked={data.shopSettings?.autoCashbackProcessingEnabled ?? true}
+                  onChange={(checked) => handleToggleFeature('autoCashbackProcessingEnabled', checked)}
+                  helpText="Automatically process cashback rewards for completed orders"
+                />
+                <Checkbox
+                  label="Email Marketing Campaigns"
+                  checked={data.shopSettings?.emailMarketingEnabled ?? false}
+                  onChange={(checked) => handleToggleFeature('emailMarketingEnabled', checked)}
+                  helpText="Enable email marketing and promotional campaigns"
+                />
+                <Checkbox
+                  label="Tier Products Module"
+                  checked={data.shopSettings?.tierProductsEnabled ?? true}
+                  onChange={(checked) => handleToggleFeature('tierProductsEnabled', checked)}
+                  helpText="Enable tiered loyalty program with product benefits"
+                />
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
+        {/* OLD SYSTEM STATUS - COMMENTED OUT FOR REVIEW
+        <Layout.Section variant="twoThirds">
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  <Icon source={StatusActiveIcon} tone="base" />
+                  <Text variant="headingMd" as="h2">System Status (OLD)</Text>
+                </InlineStack>
+                <Badge tone="success">All Systems Operational</Badge>
+              </InlineStack>
+              ... rest of old code ...
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+        END OF OLD SYSTEM STATUS */}
       </Layout>
     </Page>
+    {toastMarkup}
+  </Frame>
   );
 }

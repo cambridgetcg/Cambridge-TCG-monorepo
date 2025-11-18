@@ -1,16 +1,18 @@
 /**
- * Billing Page - Four-tier Plans with Enterprise
+ * Billing Page - Using Shopify App Remix Billing
+ * Handles plan selection and subscription management with billing.request()
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useSubmit, useActionData, useNavigation, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
   Card,
   BlockStack,
   InlineStack,
+  InlineGrid,
   Text,
   Button,
   Banner,
@@ -18,152 +20,377 @@ import {
   Box,
   Divider,
   Icon,
-  Modal,
-  TextField,
-  FormLayout,
-  Toast,
-  Frame,
-  Tabs,
-  Collapsible,
-  ButtonGroup
+  ButtonGroup,
+  ProgressBar,
 } from "@shopify/polaris";
-import { CheckCircleIcon, PhoneIcon, EmailIcon, ChevronDownIcon, ChevronUpIcon } from "@shopify/polaris-icons";
-import { authenticate, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
-import { db } from "../db.server";
-import React, { useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { updatePlanLimit, unlockShop } from "~/utils/plan-access-control.server";
+import { CheckCircleIcon } from "@shopify/polaris-icons";
+import { authenticate } from "../shopify.server";
+import { useState, useEffect } from "react";
+import db from "../db.server";
+import {
+  getAllPlans,
+} from "~/services/billing/plan-subscription.server";
+import { detectNewSubscription } from "~/utils/billing-success-detection.server";
+import { getPlanOrderLimit } from "~/constants/billing.constants";
+import {
+  PRO_PLAN,
+  PRO_ANNUAL_PLAN,
+  MAX_PLAN,
+  MAX_ANNUAL_PLAN,
+  ULTRA_PLAN,
+  ULTRA_ANNUAL_PLAN,
+} from "~/constants/plans";
 
-// Rate limiting function for billing attempts
-async function checkRecentBillingAttempts(shop: string): Promise<number> {
-  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-
-  try {
-    // Check if db and billingAuditLog are available
-    if (!db || !db.billingAuditLog) {
-      console.warn("[Billing] BillingAuditLog table not available, skipping rate limit check");
-      return 0;
-    }
-
-    const recentAttempts = await db.billingAuditLog.count({
-      where: {
-        shop,
-        attemptedAt: {
-          gte: fifteenMinutesAgo
-        }
-      }
-    });
-
-    return recentAttempts;
-  } catch (error) {
-    console.error("[Billing] Error checking recent attempts:", error);
-    // If we can't check, allow the attempt but log the error
-    return 0;
-  }
+// Map plan IDs to Shopify plan constants
+function getPlanConstant(planId: string): string {
+  const planMap: Record<string, string> = {
+    'pro': PRO_PLAN,
+    'pro-annual': PRO_ANNUAL_PLAN,
+    'max': MAX_PLAN,
+    'max-annual': MAX_ANNUAL_PLAN,
+    'ultra': ULTRA_PLAN,
+    'ultra-annual': ULTRA_ANNUAL_PLAN,
+  };
+  return planMap[planId] || PRO_PLAN;
 }
 
-// Log billing attempt to audit trail
-async function logBillingAttempt(
-  shop: string,
-  action: string,
-  planName: string | null,
-  success: boolean,
-  errorMessage: string | null = null,
-  request: Request
-) {
-  try {
-    // Check if db and billingAuditLog are available
-    if (!db || !db.billingAuditLog) {
-      console.warn("[Billing] BillingAuditLog table not available, skipping audit log");
-      return;
-    }
-
-    const ipAddress = request.headers.get("x-forwarded-for") ||
-                     request.headers.get("x-real-ip") ||
-                     "unknown";
-    const userAgent = request.headers.get("user-agent") || "unknown";
-
-    await db.billingAuditLog.create({
-      data: {
-        id: uuidv4(),
-        shop,
-        action,
-        planName,
-        success,
-        errorMessage,
-        ipAddress,
-        userAgent,
-        attemptedAt: new Date()
-      }
-    });
-  } catch (error) {
-    console.error("[Billing] Error logging billing attempt:", error);
-    // Don't fail the request if logging fails
-  }
-}
+// ============================================
+// LOADER - Get Current Subscription Status
+// ============================================
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
+  const { session, billing, admin } = await authenticate.admin(request);
 
   if (!session?.shop) {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  const shop = session.shop;
-
   try {
-    // Import plan names for checking
-    const {
-      FREE_PLAN,
-      PRO_PLAN,
-      MAX_PLAN,
-      ULTRA_PLAN,
-      PRO_ANNUAL_PLAN,
-      MAX_ANNUAL_PLAN,
-      ULTRA_ANNUAL_PLAN,
-      ENTERPRISE_PLAN
-    } = await import("../shopify.server");
+    // Log initial request details
+    const url = new URL(request.url);
+    console.log('[Billing Loader] ========================================');
+    console.log('[Billing Loader] Request received');
+    console.log('[Billing Loader] Shop:', session.shop);
+    console.log('[Billing Loader] Full URL:', url.toString());
+    console.log('[Billing Loader] URL Params:', Object.fromEntries(url.searchParams));
+    console.log('[Billing Loader] ========================================');
 
-    // Get active subscription
-    const { hasActivePayment, appSubscriptions } = await billing.check({
-      plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN, PRO_ANNUAL_PLAN, MAX_ANNUAL_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
-      isTest: true, // Always test mode for development stores
+    // Check actual subscription status with billing.check()
+    console.log('[Billing Loader] Calling billing.check()...');
+    const billingCheck = await billing.check({
+      plans: [
+        PRO_PLAN,
+        PRO_ANNUAL_PLAN,
+        MAX_PLAN,
+        MAX_ANNUAL_PLAN,
+        ULTRA_PLAN,
+        ULTRA_ANNUAL_PLAN
+      ],
+      isTest: process.env.NODE_ENV === 'development',
     });
-    const activeSubscription = appSubscriptions?.[0];
 
-    // Determine current plan name
-    let currentPlanName = 'RewardsPro Free'; // Default to Free if no active subscription
-    if (activeSubscription?.name === 'RewardsPro Free') {
-      currentPlanName = 'RewardsPro Free';
-    } else if (activeSubscription?.name === 'RewardsPro Pro') {
-      currentPlanName = 'RewardsPro Pro';
-    } else if (activeSubscription?.name === 'RewardsPro Max') {
-      currentPlanName = 'RewardsPro Max';
-    } else if (activeSubscription?.name === 'RewardsPro Ultra') {
-      currentPlanName = 'RewardsPro Ultra';
-    } else if (activeSubscription?.name === 'RewardsPro Pro Annual') {
-      currentPlanName = 'RewardsPro Pro Annual';
-    } else if (activeSubscription?.name === 'RewardsPro Max Annual') {
-      currentPlanName = 'RewardsPro Max Annual';
-    } else if (activeSubscription?.name === 'RewardsPro Ultra Annual') {
-      currentPlanName = 'RewardsPro Ultra Annual';
-    } else if (activeSubscription?.name === 'RewardsPro Enterprise') {
-      currentPlanName = 'RewardsPro Enterprise';
-    } else if (!hasActivePayment) {
-      // No active payment means Free plan
-      currentPlanName = 'RewardsPro Free';
+    console.log('[Billing Loader] billing.check() completed:', {
+      hasActivePayment: billingCheck.hasActivePayment,
+      subscriptionCount: billingCheck.appSubscriptions.length,
+      subscriptions: billingCheck.appSubscriptions.map(s => ({
+        id: s.id,
+        name: s.name,
+        test: s.test
+      })),
+    });
+
+    // Fetch detailed subscription information via GraphQL
+    console.log('[Billing Loader] Fetching detailed subscription via GraphQL...');
+    const {
+      getSubscriptionDetails,
+      getUsageLineItem,
+      getRecurringLineItem,
+      calculateUsagePercentage,
+      isInTrialPeriod,
+      getRemainingTrialDays,
+    } = await import("~/services/billing/subscription-details.server");
+
+    const subscriptionDetails = await getSubscriptionDetails(admin);
+    const detailedSubscription = subscriptionDetails?.currentAppInstallation.activeSubscriptions[0] || null;
+
+    console.log('[Billing Loader] GraphQL subscription details:', {
+      hasDetails: !!detailedSubscription,
+      name: detailedSubscription?.name,
+      status: detailedSubscription?.status,
+      trialDays: detailedSubscription?.trialDays,
+      createdAt: detailedSubscription?.createdAt,
+      currentPeriodEnd: detailedSubscription?.currentPeriodEnd,
+      lineItemCount: detailedSubscription?.lineItems?.length,
+    });
+
+    // Calculate subscription details server-side
+    let subscriptionInfo = null;
+    if (detailedSubscription) {
+      console.log('[Billing Loader] Calculating subscription details...');
+
+      const usageLineItem = getUsageLineItem(detailedSubscription);
+      const recurringLineItem = getRecurringLineItem(detailedSubscription);
+      const usagePercentage = calculateUsagePercentage(usageLineItem);
+      const inTrialPeriod = isInTrialPeriod(detailedSubscription);
+      const remainingTrialDays = getRemainingTrialDays(detailedSubscription);
+
+      console.log('[Billing Loader] Calculated values:', {
+        hasUsageLineItem: !!usageLineItem,
+        hasRecurringLineItem: !!recurringLineItem,
+        usagePercentage,
+        inTrialPeriod,
+        remainingTrialDays,
+      });
+
+      subscriptionInfo = {
+        id: detailedSubscription.id,
+        name: detailedSubscription.name,
+        status: detailedSubscription.status,
+        test: detailedSubscription.test,
+        trialDays: detailedSubscription.trialDays,
+        createdAt: detailedSubscription.createdAt,
+        currentPeriodEnd: detailedSubscription.currentPeriodEnd,
+        inTrialPeriod,
+        remainingTrialDays,
+        usagePercentage,
+        recurringCharge: recurringLineItem ? {
+          interval: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+            ? recurringLineItem.plan.pricingDetails.interval
+            : null,
+          amount: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+            ? recurringLineItem.plan.pricingDetails.price.amount
+            : null,
+          currencyCode: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+            ? recurringLineItem.plan.pricingDetails.price.currencyCode
+            : null,
+          discount: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+            ? recurringLineItem.plan.pricingDetails.discount
+            : null,
+        } : null,
+        usageCharge: usageLineItem ? {
+          balanceUsed: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+            ? usageLineItem.plan.pricingDetails.balanceUsed
+            : null,
+          cappedAmount: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+            ? usageLineItem.plan.pricingDetails.cappedAmount
+            : null,
+          terms: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+            ? usageLineItem.plan.pricingDetails.terms
+            : null,
+        } : null,
+      };
+
+      console.log('[Billing Loader] Built subscriptionInfo:', {
+        id: subscriptionInfo.id,
+        name: subscriptionInfo.name,
+        inTrialPeriod: subscriptionInfo.inTrialPeriod,
+        remainingTrialDays: subscriptionInfo.remainingTrialDays,
+        hasRecurringCharge: !!subscriptionInfo.recurringCharge,
+        recurringAmount: subscriptionInfo.recurringCharge?.amount,
+        hasUsageCharge: !!subscriptionInfo.usageCharge,
+        usageCappedAmount: subscriptionInfo.usageCharge?.cappedAmount?.amount,
+      });
     }
 
-    return json({
-      hasActivePayment,
-      activeSubscription,
-      currentPlanName
+    // Get URL params to detect return from Shopify
+    const returnedFromShopify = url.searchParams.get('success') === 'true';
+    const chargeId = url.searchParams.get('charge_id');
+
+    console.log('[Billing Loader] Return detection:', {
+      returnedFromShopify,
+      hasChargeId: !!chargeId,
+      chargeId: chargeId,
     });
+
+    // NEW: If charge_id is present, verify and save subscription
+    let subscriptionVerified = false;
+    if (chargeId && returnedFromShopify) {
+      console.log('[Billing Loader] ========================================');
+      console.log('[Billing Loader] 🔐 VERIFYING SUBSCRIPTION VIA CHARGE_ID');
+      console.log('[Billing Loader] ========================================');
+
+      const { getSubscriptionByChargeId } = await import("~/services/billing/subscription-details.server");
+      const { saveSubscription } = await import("~/services/billing/subscription-persistence.server");
+
+      // Fetch subscription using charge_id for direct verification
+      const verifiedSubscription = await getSubscriptionByChargeId(admin, chargeId);
+
+      if (verifiedSubscription) {
+        console.log('[Billing Loader] Subscription verification result:', {
+          id: verifiedSubscription.id,
+          name: verifiedSubscription.name,
+          status: verifiedSubscription.status,
+          test: verifiedSubscription.test,
+        });
+
+        // Check if subscription is ACTIVE
+        if (verifiedSubscription.status === 'ACTIVE') {
+          console.log('[Billing Loader] ✅ Subscription is ACTIVE - saving to database...');
+
+          try {
+            // Save subscription to database
+            await saveSubscription(session.shop, verifiedSubscription);
+            subscriptionVerified = true;
+
+            console.log('[Billing Loader] ✅ Subscription saved successfully!');
+          } catch (saveError) {
+            console.error('[Billing Loader] ❌ Error saving subscription:', saveError);
+          }
+        } else {
+          console.warn('[Billing Loader] ⚠️  Subscription not ACTIVE:', {
+            status: verifiedSubscription.status,
+            chargeId: chargeId,
+          });
+        }
+      } else {
+        console.error('[Billing Loader] ❌ Subscription not found for charge_id:', chargeId);
+      }
+
+      console.log('[Billing Loader] ========================================');
+    }
+
+    // FALLBACK: If no charge_id but we found an ACTIVE subscription via GraphQL,
+    // save it to database (handles case where user navigated back manually)
+    if (!subscriptionVerified && detailedSubscription && detailedSubscription.status === 'ACTIVE') {
+      console.log('[Billing Loader] ========================================');
+      console.log('[Billing Loader] 💾 FALLBACK: Saving active subscription found via GraphQL');
+      console.log('[Billing Loader] ========================================');
+
+      const { saveSubscription, getSubscriptionByShop } = await import("~/services/billing/subscription-persistence.server");
+
+      // Check if we already have this subscription in database
+      const existingSubscription = await getSubscriptionByShop(session.shop);
+
+      if (!existingSubscription || existingSubscription.shopifySubscriptionId !== detailedSubscription.id) {
+        console.log('[Billing Loader] New subscription detected (not in database), saving...');
+
+        try {
+          await saveSubscription(session.shop, detailedSubscription);
+          subscriptionVerified = true;
+          console.log('[Billing Loader] ✅ Subscription saved via fallback method');
+        } catch (saveError) {
+          console.error('[Billing Loader] ❌ Error saving subscription (fallback):', saveError);
+        }
+      } else {
+        console.log('[Billing Loader] Subscription already in database, skipping save');
+      }
+
+      console.log('[Billing Loader] ========================================');
+    }
+
+    // Detect if this is a NEW subscription (just completed)
+    // Use subscriptionVerified flag instead of session-based detection
+    let justSubscribed = false;
+    if (subscriptionVerified) {
+      // If we just verified and saved, this is definitely a new subscription
+      justSubscribed = true;
+      console.log('[Billing Loader] ✅ New subscription detected via charge_id verification or fallback');
+    } else if (returnedFromShopify) {
+      // Fallback to old detection method if no charge_id
+      console.log('[Billing Loader] Calling detectNewSubscription() (fallback)...');
+      justSubscribed = await detectNewSubscription(
+        session,
+        billingCheck,
+        returnedFromShopify
+      );
+    }
+
+    // Detect cancellation (returned from Shopify but no active payment)
+    const cancelled = returnedFromShopify && !billingCheck.hasActivePayment && !subscriptionVerified;
+
+    console.log('[Billing Loader] Success/Cancellation detection:', {
+      subscriptionVerified,
+      justSubscribed,
+      cancelled,
+      newSubscriptionPlan: justSubscribed ? billingCheck.appSubscriptions[0]?.name : null,
+    });
+
+    // Get all available plans for UI
+    const plans = getAllPlans();
+
+    // Fetch usage metrics for dashboard-style card
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
+    let usageMetrics = null;
+    try {
+      const monthlyUsage = await db.monthlyOrderUsage.findFirst({
+        where: {
+          shop: session.shop,
+          year: year,
+          month: month
+        }
+      });
+
+      if (monthlyUsage) {
+        // Get the LIVE plan limit from the current subscription
+        // This ensures we always show the correct limit even if MonthlyOrderUsage hasn't been updated yet
+        const currentPlanName = subscriptionInfo?.name || monthlyUsage.planName;
+        const actualPlanLimit = getPlanOrderLimit(currentPlanName);
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const dayOfMonth = now.getDate();
+        const daysRemaining = daysInMonth - dayOfMonth;
+        const averageDailyOrders = dayOfMonth > 0 ? Math.round(monthlyUsage.orderCount / dayOfMonth) : 0;
+        const usagePercentage = actualPlanLimit > 0
+          ? Math.min((monthlyUsage.orderCount / actualPlanLimit) * 100, 100)
+          : 0;
+
+        console.log('[Billing Loader] Usage metrics calculated:', {
+          ordersUsed: monthlyUsage.orderCount,
+          cachedLimit: monthlyUsage.planLimit,
+          actualLimit: actualPlanLimit,
+          planName: currentPlanName,
+          usagePercentage: usagePercentage.toFixed(1)
+        });
+
+        usageMetrics = {
+          ordersUsed: monthlyUsage.orderCount,
+          ordersLimit: actualPlanLimit, // Use live plan limit, not cached
+          usagePercentage,
+          daysRemaining,
+          averageDailyOrders
+        };
+      }
+    } catch (error) {
+      console.error('[Billing Loader] Error fetching usage metrics:', error);
+      // Continue without usage metrics
+    }
+
+    const loaderData = {
+      hasActivePayment: billingCheck.hasActivePayment,
+      appSubscriptions: billingCheck.appSubscriptions,
+      oneTimePurchases: billingCheck.oneTimePurchases,
+      subscriptionInfo,
+      justSubscribed,
+      cancelled,
+      newSubscriptionPlan: justSubscribed ? billingCheck.appSubscriptions[0]?.name : null,
+      plans,
+      shop: session.shop,
+      usageMetrics,
+    };
+
+    console.log('[Billing Loader] Returning loader data:', {
+      hasActivePayment: loaderData.hasActivePayment,
+      subscriptionCount: loaderData.appSubscriptions.length,
+      hasSubscriptionInfo: !!loaderData.subscriptionInfo,
+      justSubscribed: loaderData.justSubscribed,
+      cancelled: loaderData.cancelled,
+      newSubscriptionPlan: loaderData.newSubscriptionPlan,
+    });
+    console.log('[Billing Loader] ========================================');
+
+    return json(loaderData);
   } catch (error) {
-    console.error("[Billing] Loader error:", error);
-    throw new Response("Failed to load billing data", { status: 500 });
+    console.error("[Billing Loader] Error:", error);
+    throw new Response("Failed to load billing information", { status: 500 });
   }
 };
+
+// ============================================
+// ACTION - Handle Subscription Requests
+// ============================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session, billing } = await authenticate.admin(request);
@@ -175,212 +402,75 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const action = formData.get("action") as string;
 
-  // Security: Plan validation (free plan accessible but hidden)
-  const ALLOWED_PLANS = ['free', 'pro', 'max', 'ultra', 'pro-annual', 'max-annual', 'ultra-annual', 'contact-enterprise'];
-  const planType = action?.replace('subscribe-', '');
+  // Extract plan ID from action (e.g., "subscribe-pro" -> "pro")
+  const planId = action?.replace("subscribe-", "");
 
-  if (action?.startsWith('subscribe-') && !ALLOWED_PLANS.includes(planType)) {
-    console.error(`[Billing] Invalid plan attempt: ${action} from shop: ${session.shop}`);
-    await logBillingAttempt(session.shop, action, planType, false, "Invalid plan selected", request);
+  if (!planId) {
     return json({
       success: false,
-      error: "Invalid plan selected"
+      error: "Invalid action"
     }, { status: 400 });
   }
 
-  // Security: Rate limiting
-  if (action?.startsWith('subscribe-')) {
-    const recentAttempts = await checkRecentBillingAttempts(session.shop);
-    if (recentAttempts > 5) {
-      console.warn(`[Billing] Rate limit exceeded for shop: ${session.shop} (${recentAttempts} attempts in 15 minutes)`);
-      await logBillingAttempt(session.shop, action, planType, false, "Rate limit exceeded", request);
+  console.log(`[Billing Action] Shop ${session.shop} requesting ${planId} plan`);
+
+  try {
+    // Map plan ID to plan constant
+    const planConstant = getPlanConstant(planId) as keyof typeof import("../shopify.server");
+
+    console.log(`[Billing Action] Requesting billing for plan: ${planConstant}`);
+
+    // Use billing.request() - this will automatically redirect to Shopify's confirmation page
+    // and then return the user back to the returnUrl after approval
+    // Use the API callback route to handle the top-level redirect and re-embed into the app
+    await billing.request({
+      plan: planConstant,
+      isTest: process.env.NODE_ENV === 'development' || session.shop.includes('.myshopify.com'),
+      returnUrl: `${process.env.SHOPIFY_APP_URL}/api/billing/callback?success=true&shop=${session.shop}`,
+    });
+
+    // billing.request() throws a redirect, so this code won't be reached
+    // But TypeScript needs a return statement
+    return json({ success: true });
+  } catch (error) {
+    console.log(`[Billing Action] Caught response from billing.request():`, error);
+
+    // Check if this is a Response object with reauthorize URL (expected Shopify flow)
+    if (error instanceof Response) {
+      const reauthorizeUrl = error.headers.get('x-shopify-api-request-failure-reauthorize-url');
+
+      if (reauthorizeUrl) {
+        console.log(`[Billing Action] Got approval URL from Shopify:`, reauthorizeUrl);
+
+        // Return the URL to the client instead of server-side redirect
+        // The client will use App Bridge to break out of iframe and redirect at top level
+        return json({
+          success: true,
+          confirmationUrl: reauthorizeUrl,
+        });
+      }
+
+      // If it's a Response but no reauthorize URL, return the error
+      const status = error.status;
+      const statusText = error.statusText;
       return json({
         success: false,
-        error: "Too many subscription attempts. Please try again later."
-      }, { status: 429 });
+        error: `Billing request failed: ${status} ${statusText}`
+      }, { status: status || 500 });
     }
-  }
 
-  // Security: Log subscription attempts
-  console.log(`[Billing] ${session.shop} attempting action: ${action}`);
-
-  // Free plan subscription (accessible but hidden)
-  if (action === "subscribe-free") {
-    console.log(`[Billing] ${session.shop} subscribing to Free plan`);
-    // Free plan - just return success (no billing required)
-    await logBillingAttempt(session.shop, action, "free", true, null, request);
-    return json({ success: true, message: "Switched to Free plan" });
-  }
-
-  if (action === "subscribe-pro") {
-    console.log(`[Billing] ${session.shop} attempting to subscribe to Pro plan`);
-    const billingCheck = await billing.require({
-      plans: [PRO_PLAN],
-      onFailure: () => billing.request({
-        plan: PRO_PLAN,
-        isTest: true, // Always test mode for development stores
-      }),
-    });
-
-    const subscription = billingCheck.appSubscriptions[0];
-    console.log(`[Billing] ${session.shop} successfully subscribed to Pro plan`);
-    await logBillingAttempt(session.shop, action, "pro", true, null, request);
-
-    // Update plan limit and unlock shop
-    await updatePlanLimit(session.shop, "RewardsPro Pro", 500);
-    await unlockShop(session.shop);
-    console.log(`[Billing] ${session.shop} unlocked after Pro upgrade`);
-
-    return json({ success: true, subscription, unlocked: true });
-  }
-
-  if (action === "subscribe-max") {
-    console.log(`[Billing] ${session.shop} attempting to subscribe to Max plan`);
-    const billingCheck = await billing.require({
-      plans: [MAX_PLAN],
-      onFailure: () => billing.request({
-        plan: MAX_PLAN,
-        isTest: true, // Always test mode for development stores
-      }),
-    });
-
-    const subscription = billingCheck.appSubscriptions[0];
-    console.log(`[Billing] ${session.shop} successfully subscribed to Max plan`);
-    await logBillingAttempt(session.shop, action, "max", true, null, request);
-
-    // Update plan limit and unlock shop
-    await updatePlanLimit(session.shop, "RewardsPro Max", 2000);
-    await unlockShop(session.shop);
-    console.log(`[Billing] ${session.shop} unlocked after Max upgrade`);
-
-    return json({ success: true, subscription, unlocked: true });
-  }
-
-  if (action === "subscribe-ultra") {
-    console.log(`[Billing] ${session.shop} attempting to subscribe to Ultra plan`);
-    const billingCheck = await billing.require({
-      plans: [ULTRA_PLAN],
-      onFailure: () => billing.request({
-        plan: ULTRA_PLAN,
-        isTest: true, // Always test mode for development stores
-      }),
-    });
-
-    const subscription = billingCheck.appSubscriptions[0];
-    console.log(`[Billing] ${session.shop} successfully subscribed to Ultra plan`);
-    await logBillingAttempt(session.shop, action, "ultra", true, null, request);
-
-    // Update plan limit and unlock shop (Ultra = unlimited)
-    await updatePlanLimit(session.shop, "RewardsPro Ultra", 999999);
-    await unlockShop(session.shop);
-    console.log(`[Billing] ${session.shop} unlocked after Ultra upgrade`);
-
-    return json({ success: true, subscription, unlocked: true });
-  }
-
-  if (action === "subscribe-pro-annual") {
-    console.log(`[Billing] ${session.shop} attempting to subscribe to Pro Annual plan`);
-    const billingCheck = await billing.require({
-      plans: [PRO_ANNUAL_PLAN],
-      onFailure: () => billing.request({
-        plan: PRO_ANNUAL_PLAN,
-        isTest: true, // Always test mode for development stores
-      }),
-    });
-
-    const subscription = billingCheck.appSubscriptions[0];
-    console.log(`[Billing] ${session.shop} successfully subscribed to Pro Annual plan`);
-    await logBillingAttempt(session.shop, action, "pro-annual", true, null, request);
-
-    // Update plan limit and unlock shop
-    await updatePlanLimit(session.shop, "RewardsPro Pro Annual", 500);
-    await unlockShop(session.shop);
-    console.log(`[Billing] ${session.shop} unlocked after Pro Annual upgrade`);
-
-    return json({ success: true, subscription, unlocked: true });
-  }
-
-  if (action === "subscribe-max-annual") {
-    console.log(`[Billing] ${session.shop} attempting to subscribe to Max Annual plan`);
-    const billingCheck = await billing.require({
-      plans: [MAX_ANNUAL_PLAN],
-      onFailure: () => billing.request({
-        plan: MAX_ANNUAL_PLAN,
-        isTest: true, // Always test mode for development stores
-      }),
-    });
-
-    const subscription = billingCheck.appSubscriptions[0];
-    console.log(`[Billing] ${session.shop} successfully subscribed to Max Annual plan`);
-    await logBillingAttempt(session.shop, action, "max-annual", true, null, request);
-
-    // Update plan limit and unlock shop
-    await updatePlanLimit(session.shop, "RewardsPro Max Annual", 2000);
-    await unlockShop(session.shop);
-    console.log(`[Billing] ${session.shop} unlocked after Max Annual upgrade`);
-
-    return json({ success: true, subscription, unlocked: true });
-  }
-
-  if (action === "subscribe-ultra-annual") {
-    console.log(`[Billing] ${session.shop} attempting to subscribe to Ultra Annual plan`);
-    const billingCheck = await billing.require({
-      plans: [ULTRA_ANNUAL_PLAN],
-      onFailure: () => billing.request({
-        plan: ULTRA_ANNUAL_PLAN,
-        isTest: true, // Always test mode for development stores
-      }),
-    });
-
-    const subscription = billingCheck.appSubscriptions[0];
-    console.log(`[Billing] ${session.shop} successfully subscribed to Ultra Annual plan`);
-    await logBillingAttempt(session.shop, action, "ultra-annual", true, null, request);
-
-    // Update plan limit and unlock shop (Ultra = unlimited)
-    await updatePlanLimit(session.shop, "RewardsPro Ultra Annual", 999999);
-    await unlockShop(session.shop);
-    console.log(`[Billing] ${session.shop} unlocked after Ultra Annual upgrade`);
-
-    return json({ success: true, subscription, unlocked: true });
-  }
-
-  if (action === "contact-enterprise") {
-    // Store enterprise inquiry in database
-    const companyName = formData.get("companyName") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
-    const requirements = formData.get("requirements") as string;
-
-    // Log the enterprise inquiry attempt
-    await logBillingAttempt(
-      session.shop,
-      action,
-      "enterprise",
-      true,
-      null,
-      request
-    );
-
-    // Here you would typically save this to your database or send to a CRM
-    // For now, we'll just log it and return success
-    console.log("[Enterprise Inquiry]", {
-      shop: session.shop,
-      companyName,
-      email,
-      phone,
-      requirements,
-      timestamp: new Date().toISOString()
-    });
-
+    // Handle other errors (billing.request() throws redirects, not errors for success)
+    console.error(`[Billing Action] Unexpected error:`, error);
     return json({
-      success: true,
-      message: "Thank you for your interest! Our enterprise team will contact you within 24 hours.",
-      isEnterpriseInquiry: true
-    });
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred"
+    }, { status: 500 });
   }
-
-  return json({ success: false });
 };
+
+// ============================================
+// COMPONENT - Billing Page UI
+// ============================================
 
 export default function BillingPage() {
   const data = useLoaderData<typeof loader>();
@@ -388,96 +478,122 @@ export default function BillingPage() {
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [selectedTab, setSelectedTab] = useState(0);
-  const [billingInterval, setBillingInterval] = React.useState<'monthly' | 'annual'>('monthly');
-  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
-  const [showComparisonModal, setShowComparisonModal] = useState(false);
-  const [enterpriseForm, setEnterpriseForm] = useState({
-    companyName: "",
-    email: "",
-    phone: "",
-    requirements: ""
-  });
-  const [toastActive, setToastActive] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
 
-  // FAQ collapsible states
-  const [faqOpen, setFaqOpen] = useState<{[key: string]: boolean}>({
-    changeTime: false,
-    billing: false,
-    enterprise: false,
-    freeLimit: false,
-    trial: false,
-    cancellation: false,
-    dataRetention: false,
-    multiStore: false,
-    charges: false,
-    support: false
-  });
+  // Log when component renders with loader data
+  useEffect(() => {
+    console.log('[Billing Page] Component rendered with loader data:', {
+      hasActivePayment: data.hasActivePayment,
+      subscriptionCount: data.appSubscriptions.length,
+      hasSubscriptionInfo: !!data.subscriptionInfo,
+      justSubscribed: data.justSubscribed,
+      cancelled: data.cancelled,
+      newSubscriptionPlan: data.newSubscriptionPlan,
+      subscriptionName: data.subscriptionInfo?.name,
+      inTrialPeriod: data.subscriptionInfo?.inTrialPeriod,
+      remainingTrialDays: data.subscriptionInfo?.remainingTrialDays,
+    });
+  }, [data]);
 
-  const handleSubscribe = (plan: string) => {
+  // Handle redirect to Shopify charge approval page
+  useEffect(() => {
+    console.log('[Billing Page] useEffect triggered, actionData:', actionData);
+
+    if (actionData?.success && actionData?.confirmationUrl) {
+      console.log('[Billing Page] Conditions met, redirecting to:', actionData.confirmationUrl);
+      console.log('[Billing Page] window.top exists:', !!window.top);
+      console.log('[Billing Page] window.top === window:', window.top === window);
+
+      try {
+        // Use top-level navigation to break out of iframe
+        // This ensures the Shopify charge approval page loads in the main window
+        if (window.top && window.top !== window) {
+          console.log('[Billing Page] Attempting top-level redirect (in iframe)');
+          window.top.location.href = actionData.confirmationUrl;
+        } else {
+          console.log('[Billing Page] Attempting standard redirect (not in iframe or top is same)');
+          window.location.href = actionData.confirmationUrl;
+        }
+        console.log('[Billing Page] Redirect command executed');
+      } catch (error) {
+        console.error('[Billing Page] Redirect failed:', error);
+        // If top-level redirect fails (blocked by browser), fallback to window.open
+        console.log('[Billing Page] Attempting window.open fallback');
+        window.open(actionData.confirmationUrl, '_top');
+      }
+    } else {
+      console.log('[Billing Page] Conditions not met:', {
+        hasActionData: !!actionData,
+        hasSuccess: actionData?.success,
+        hasUrl: !!actionData?.confirmationUrl,
+        actionDataKeys: actionData ? Object.keys(actionData) : []
+      });
+    }
+  }, [actionData]);
+
+  const handleSubscribe = (planId: string) => {
     const formData = new FormData();
-    formData.set("action", `subscribe-${plan}`);
+    formData.set("action", `subscribe-${planId}`);
     submit(formData, { method: "post" });
   };
 
-  const handleEnterpriseSubmit = () => {
-    const formData = new FormData();
-    formData.set("action", "contact-enterprise");
-    formData.set("companyName", enterpriseForm.companyName);
-    formData.set("email", enterpriseForm.email);
-    formData.set("phone", enterpriseForm.phone);
-    formData.set("requirements", enterpriseForm.requirements);
-    submit(formData, { method: "post" });
-    setShowEnterpriseModal(false);
-    setToastActive(true);
-  };
+  // Get current plan - prefer subscriptionInfo (GraphQL) over billing.check()
+  // billing.check() can be slow to update after subscription approval
+  const currentSubscription = data.appSubscriptions[0];
+  const currentPlan = data.subscriptionInfo?.name || currentSubscription?.name;
+  const isCurrentPlanActive = data.subscriptionInfo?.status === 'ACTIVE' || data.hasActivePayment;
 
-  const currentPlan = data.currentPlanName;
+  // Get detailed subscription data (pre-calculated in loader)
+  const subscriptionInfo = data.subscriptionInfo;
 
-  // Free plan hidden from display but still functional for existing users
-  const monthlyPlans = [
-    // Removed Free plan to encourage upgrades
+  // Define plan UI configurations with both monthly and annual pricing
+  const planCards = [
     {
-      name: "Pro",
       id: "pro",
-      price: "$39",
+      idAnnual: "pro-annual",
+      name: "Pro",
+      monthlyPrice: "$39",
+      annualPrice: "$336",
+      annualMonthlyEquivalent: "$28",
+      annualSavings: "Save $132/year",
       description: "Everything you need to grow your loyalty program",
       features: [
         "500 orders/month",
         "Batch processing cashback",
-        "1,000 emails/month",
         "Priority support",
         "Advanced analytics",
         "$10 per 100 extra orders"
       ],
-      buttonText: currentPlan === "RewardsPro Pro" ? "Current Plan" : "Upgrade to Pro",
-      isCurrentPlan: currentPlan === "RewardsPro Pro",
-      recommended: false
+      recommended: false,
     },
     {
-      name: "Max",
       id: "max",
-      price: "$149",
+      idAnnual: "max-annual",
+      name: "Max",
+      monthlyPrice: "$149",
+      annualPrice: "$1,296",
+      annualMonthlyEquivalent: "$108",
+      annualSavings: "Save $492/year",
       description: "For established businesses with advanced needs",
       features: [
         "2,000 orders/month",
         "Sell tier memberships",
         "White label email",
-        "5,000 emails/month",
         "Advanced analytics",
         "Phone support",
         "$5 per 100 extra orders"
       ],
-      buttonText: currentPlan === "RewardsPro Max" ? "Current Plan" : "Upgrade to Max",
-      isCurrentPlan: currentPlan === "RewardsPro Max",
-      recommended: true
+      recommended: true,
     },
     {
-      name: "Ultra",
       id: "ultra",
-      price: "$499",
+      idAnnual: "ultra-annual",
+      name: "Ultra",
+      monthlyPrice: "$499",
+      annualPrice: "$4,296",
+      annualMonthlyEquivalent: "$358",
+      annualSavings: "Save $1,692/year",
       description: "Unlimited everything for growing enterprises",
       features: [
         "Unlimited orders",
@@ -488,201 +604,232 @@ export default function BillingPage() {
         "Dedicated support",
         "No overage charges"
       ],
-      buttonText: currentPlan === "RewardsPro Ultra" ? "Current Plan" : "Upgrade to Ultra",
-      isCurrentPlan: currentPlan === "RewardsPro Ultra",
-      recommended: false
-    }
-  ];
-
-  const annualPlans = [
-    {
-      name: "Pro Annual",
-      id: "pro-annual",
-      price: "$28",
-      annualPrice: "$336",
-      description: "Save 28% with annual billing",
-      badge: "Save 28%",
-      savings: "Save $132/year",
-      features: [
-        "500 orders/month",
-        "Batch processing cashback",
-        "1,000 emails/month",
-        "Priority support",
-        "Advanced analytics",
-        "$10 per 100 extra orders"
-      ],
-      buttonText: currentPlan === "RewardsPro Pro Annual" ? "Current Plan" : "Upgrade to Pro Annual",
-      isCurrentPlan: currentPlan === "RewardsPro Pro Annual",
-      recommended: false
-    },
-    {
-      name: "Max Annual",
-      id: "max-annual",
-      price: "$108",
-      annualPrice: "$1,296",
-      description: "Save 28% with annual billing",
-      badge: "Save 28%",
-      savings: "Save $492/year",
-      features: [
-        "2,000 orders/month",
-        "Sell tier memberships",
-        "White label email",
-        "5,000 emails/month",
-        "Advanced analytics",
-        "Phone support",
-        "$5 per 100 extra orders"
-      ],
-      buttonText: currentPlan === "RewardsPro Max Annual" ? "Current Plan" : "Upgrade to Max Annual",
-      isCurrentPlan: currentPlan === "RewardsPro Max Annual",
-      recommended: true
-    },
-    {
-      name: "Ultra Annual",
-      id: "ultra-annual",
-      price: "$358",
-      annualPrice: "$4,296",
-      description: "Save 28% with annual billing",
-      badge: "Save 28%",
-      savings: "Save $1,692/year",
-      features: [
-        "Unlimited orders",
-        "Unlimited emails",
-        "Full white label solution",
-        "Custom SMTP integration",
-        "A/B testing",
-        "Dedicated support",
-        "No overage charges"
-      ],
-      buttonText: currentPlan === "RewardsPro Ultra Annual" ? "Current Plan" : "Upgrade to Ultra Annual",
-      isCurrentPlan: currentPlan === "RewardsPro Ultra Annual",
-      recommended: false
-    }
-  ];
-
-  const individualPlans = billingInterval === 'monthly' ? monthlyPlans : annualPlans;
-
-  const enterprisePlan = {
-    name: "Enterprise",
-    id: "enterprise",
-    price: "Custom",
-    description: "Tailored solutions for large-scale operations",
-    features: [
-      "Everything in Ultra",
-      "Custom modules & features",
-      "Dedicated infrastructure",
-      "Multi-store support",
-      "Custom development",
-      "24/7 phone & email support",
-      "Dedicated success team",
-      "Custom contracts & billing",
-      "On-premise deployment option"
-    ],
-    buttonText: "Contact Sales",
-    isCurrentPlan: currentPlan === "RewardsPro Enterprise",
-    recommended: false,
-    isEnterprise: true
-  };
-
-  const tabs = [
-    {
-      id: 'individual',
-      content: 'Individual',
-      panelID: 'individual-content',
-    },
-    {
-      id: 'enterprise',
-      content: 'Team & Enterprise',
-      panelID: 'enterprise-content',
-    },
-    {
-      id: 'api',
-      content: 'API',
-      panelID: 'api-content',
+      recommended: false,
     },
   ];
-
-  // Show toast if enterprise inquiry was submitted
-  useEffect(() => {
-    if (actionData?.isEnterpriseInquiry && actionData?.success) {
-      setToastActive(true);
-    }
-  }, [actionData]);
 
   return (
-    <Frame>
-      <Page
-        title="Choose Your Plan"
-        subtitle="Select the perfect plan for your business"
-        backAction={{ url: "/app" }}
-      >
-        <Layout>
-          <Layout.Section>
-            <BlockStack gap="600">
-              {/* Success/Error Banners */}
-              {actionData?.success && !actionData?.isEnterpriseInquiry && (
-                <Banner tone="success">
-                  <p>{actionData.message || "Subscription updated successfully"}</p>
-                </Banner>
-              )}
+    <Page
+      title="Choose Your Plan"
+      subtitle="Select the perfect plan for your business"
+      backAction={{ url: "/app" }}
+    >
+      <Layout>
+        <Layout.Section>
+          <BlockStack gap="600">
+            {/* Success/Error Banners */}
+            {/* Show success banner based on verified subscription data */}
+            {data.justSubscribed && data.newSubscriptionPlan && (
+              <Banner tone="success">
+                <BlockStack gap="200">
+                  <Text variant="headingMd" as="h2">
+                    🎉 Subscription Activated!
+                  </Text>
+                  <Text as="p">
+                    You're now subscribed to <strong>{data.newSubscriptionPlan}</strong>.
+                    {currentSubscription?.test && ' (Test Mode)'}
+                  </Text>
+                </BlockStack>
+              </Banner>
+            )}
 
-              {/* Cancellation Banner */}
-              {searchParams.get('cancelled') === 'true' && (
-                <Banner
-                  tone="warning"
-                  onDismiss={() => {
-                    searchParams.delete('cancelled');
-                    searchParams.delete('message');
-                    setSearchParams(searchParams);
-                  }}
-                >
-                  <p>{decodeURIComponent(searchParams.get('message') || 'Billing approval was cancelled. You can try again or select a different plan.')}</p>
-                </Banner>
-              )}
+            {/* Show cancellation message */}
+            {data.cancelled && (
+              <Banner tone="info">
+                <Text as="p">
+                  Subscription was not completed. Your current plan remains active.
+                </Text>
+              </Banner>
+            )}
 
-              {/* Error Banner */}
-              {searchParams.get('error') && (
-                <Banner
-                  tone="critical"
-                  onDismiss={() => {
-                    searchParams.delete('error');
-                    searchParams.delete('message');
-                    setSearchParams(searchParams);
-                  }}
-                >
-                  <p>{decodeURIComponent(searchParams.get('message') || 'An error occurred during billing. Please try again.')}</p>
-                </Banner>
-              )}
+            {/* Show errors if billing.request() fails */}
+            {actionData && !actionData.success && actionData.error && (
+              <Banner tone="critical">
+                <p>{actionData.error}</p>
+              </Banner>
+            )}
 
-              {/* Tabs for plan categories with billing frequency switcher */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab} fitted={false} />
-                <ButtonGroup variant="segmented">
-                  <Button
-                    pressed={billingInterval === 'monthly'}
-                    onClick={() => setBillingInterval('monthly')}
+            {/* Current Plan Info - Dashboard Style (Variation C) */}
+            {currentPlan && subscriptionInfo && (
+              <Card>
+                <BlockStack gap="400">
+                  {/* Status Header */}
+                  <Box
+                    padding="400"
+                    background="bg-surface-secondary"
+                    borderRadius="200"
                   >
-                    Monthly
-                  </Button>
-                  <Button
-                    pressed={billingInterval === 'annual'}
-                    onClick={() => setBillingInterval('annual')}
-                  >
-                    Annual (Save 28%)
-                  </Button>
-                </ButtonGroup>
-              </div>
+                    <BlockStack gap="300">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Text variant="headingMd" as="h3" fontWeight="semibold">
+                          {currentPlan.replace('RewardsPro', 'Rewards')}
+                        </Text>
+                        <InlineStack gap="200">
+                          <Badge tone="success">ACTIVE</Badge>
+                          {subscriptionInfo.test && <Badge tone="info">TEST</Badge>}
+                        </InlineStack>
+                      </InlineStack>
 
-              <div>
-                {/* Individual Plans Tab */}
-                {selectedTab === 0 && (
-                  <div style={{ paddingTop: '16px' }}>
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: '16px',
-                      marginBottom: '24px'
-                    }}>
-                      {individualPlans.map((plan) => (
+                      <InlineGrid columns={2} gap="400">
+                        <BlockStack gap="050">
+                          <Text variant="bodySm" tone="subdued">
+                            Plan Rate
+                          </Text>
+                          <Text variant="headingLg" as="p">
+                            ${subscriptionInfo.recurringCharge?.amount ? parseFloat(subscriptionInfo.recurringCharge.amount).toFixed(0) : '0'}
+                          </Text>
+                        </BlockStack>
+
+                        <BlockStack gap="050" inlineAlign="end">
+                          <Text variant="bodySm" tone="subdued">
+                            Billing
+                          </Text>
+                          <Text variant="headingLg" as="p">
+                            {subscriptionInfo.recurringCharge?.interval === 'EVERY_30_DAYS' ? 'Monthly' : 'Annual'}
+                          </Text>
+                        </BlockStack>
+                      </InlineGrid>
+                    </BlockStack>
+                  </Box>
+
+                  {/* Usage Monitor */}
+                  {data.usageMetrics && (
+                    <Box
+                      padding="400"
+                      background="bg-surface"
+                      borderRadius="200"
+                    >
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="bodySm" fontWeight="semibold">
+                            Order Usage
+                          </Text>
+                          <Text variant="bodySm" tone="subdued">
+                            {data.usageMetrics.usagePercentage.toFixed(1)}%
+                          </Text>
+                        </InlineStack>
+
+                        <ProgressBar
+                          progress={data.usageMetrics.usagePercentage}
+                          tone={data.usageMetrics.usagePercentage > 90 ? 'critical' : data.usageMetrics.usagePercentage > 75 ? 'warning' : 'success'}
+                        />
+
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="headingLg" as="p">
+                            {data.usageMetrics.ordersUsed.toLocaleString()}
+                          </Text>
+                          <Text variant="bodySm" tone="subdued">
+                            of {data.usageMetrics.ordersLimit.toLocaleString()}
+                          </Text>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  )}
+
+                  {/* Billing Cycle Info */}
+                  {data.usageMetrics && (
+                    <Box
+                      padding="400"
+                      background="bg-surface-secondary"
+                      borderRadius="200"
+                    >
+                      <BlockStack gap="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="bodySm" tone="subdued">
+                            Current Period
+                          </Text>
+                          <Text variant="bodyMd" fontWeight="medium">
+                            {data.usageMetrics.daysRemaining} days remaining
+                          </Text>
+                        </InlineStack>
+
+                        <Divider />
+
+                        <InlineStack align="space-between" blockAlign="center">
+                          <Text variant="bodySm" tone="subdued">
+                            Daily average
+                          </Text>
+                          <Text variant="bodyMd" fontWeight="medium">
+                            {data.usageMetrics.averageDailyOrders} orders/day
+                          </Text>
+                        </InlineStack>
+                      </BlockStack>
+                    </Box>
+                  )}
+
+                  {/* Next Billing */}
+                  {subscriptionInfo.currentPeriodEnd && (
+                    <Box
+                      padding="300"
+                      background="bg-surface"
+                      borderRadius="200"
+                    >
+                      <BlockStack gap="100">
+                        <Text variant="bodySm" fontWeight="semibold">
+                          Next Billing Event
+                        </Text>
+                        <Text variant="bodySm" tone="subdued">
+                          {new Date(subscriptionInfo.currentPeriodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} • ${subscriptionInfo.recurringCharge?.amount ? parseFloat(subscriptionInfo.recurringCharge.amount).toFixed(2) : '0.00'}
+                        </Text>
+                      </BlockStack>
+                    </Box>
+                  )}
+                </BlockStack>
+              </Card>
+            )}
+
+            {/* Fallback for basic subscription info if detailed data not available */}
+            {currentPlan && !subscriptionInfo && (
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text as="h2" variant="headingMd">
+                      Current Plan
+                    </Text>
+                    <Badge tone="success">Active</Badge>
+                  </InlineStack>
+                  <Text as="p" variant="bodyLg">
+                    {currentPlan.replace('RewardsPro', 'Rewards')}
+                  </Text>
+                </BlockStack>
+              </Card>
+            )}
+
+            {/* Billing Interval Toggle */}
+            <InlineStack align="end" blockAlign="center">
+              <ButtonGroup variant="segmented">
+                <Button
+                  pressed={billingInterval === 'monthly'}
+                  onClick={() => setBillingInterval('monthly')}
+                  size="slim"
+                >
+                  Monthly
+                </Button>
+                <Button
+                  pressed={billingInterval === 'annual'}
+                  onClick={() => setBillingInterval('annual')}
+                  size="slim"
+                >
+                  Annual
+                </Button>
+              </ButtonGroup>
+            </InlineStack>
+
+            {/* Plan Cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '16px',
+            }}>
+              {planCards.map((plan) => {
+                const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
+                // Check if this plan matches the current subscription
+                const planConstantMonthly = getPlanConstant(plan.id);
+                const planConstantAnnual = getPlanConstant(plan.idAnnual);
+                const isCurrentPlan = currentPlan === planConstantMonthly ||
+                                     currentPlan === planConstantAnnual;
+
+                return (
                   <Card key={plan.id}>
                     <Box padding="600">
                       <BlockStack gap="400">
@@ -694,35 +841,36 @@ export default function BillingPage() {
                           {plan.recommended && (
                             <Badge tone="info">Recommended</Badge>
                           )}
-                          {plan.isCurrentPlan && (
+                          {isCurrentPlan && (
                             <Badge tone="success">Current</Badge>
-                          )}
-                          {plan.isEnterprise && (
-                            <Badge tone="magic">Custom</Badge>
                           )}
                         </InlineStack>
 
                         {/* Price */}
                         <BlockStack gap="200">
-                          <InlineStack align="start" gap="100">
-                            <Text as="p" variant="heading2xl">
-                              {plan.price}
-                            </Text>
-                            {!plan.isEnterprise && (
+                          {billingInterval === 'monthly' ? (
+                            <InlineStack align="start" gap="100">
+                              <Text as="p" variant="heading2xl">
+                                {plan.monthlyPrice}
+                              </Text>
                               <Text as="span" variant="bodyLg" tone="subdued">
                                 /month
                               </Text>
-                            )}
-                          </InlineStack>
-                          {billingInterval === 'annual' && (plan as any).annualPrice && (
-                            <InlineStack gap="200" blockAlign="center">
-                              <Text as="p" variant="bodySm" tone="subdued">
-                                Billed annually at {(plan as any).annualPrice}
-                              </Text>
-                              {(plan as any).badge && (
-                                <Badge tone="success">{(plan as any).badge}</Badge>
-                              )}
                             </InlineStack>
+                          ) : (
+                            <BlockStack gap="100">
+                              <InlineStack align="start" gap="100">
+                                <Text as="p" variant="heading2xl">
+                                  {plan.annualMonthlyEquivalent}
+                                </Text>
+                                <Text as="span" variant="bodyLg" tone="subdued">
+                                  /month
+                                </Text>
+                              </InlineStack>
+                              <Text as="p" variant="bodyMd" tone="subdued">
+                                {plan.annualPrice}/year • {plan.annualSavings}
+                              </Text>
+                            </BlockStack>
                           )}
                         </BlockStack>
 
@@ -732,27 +880,16 @@ export default function BillingPage() {
                         </Text>
 
                         {/* Action Button */}
-                        {plan.isEnterprise ? (
-                          <Button
-                            fullWidth
-                            size="large"
-                            variant="primary"
-                            onClick={() => setShowEnterpriseModal(true)}
-                            icon={PhoneIcon}
-                          >
-                            {plan.buttonText}
-                          </Button>
-                        ) : (
-                          <Button
-                            fullWidth
-                            size="large"
-                            variant={plan.isCurrentPlan ? "secondary" : (plan.recommended ? "primary" : "primary")}
-                            disabled={plan.isCurrentPlan}
-                            onClick={() => handleSubscribe(plan.id)}
-                          >
-                            {plan.buttonText}
-                          </Button>
-                        )}
+                        <Button
+                          fullWidth
+                          size="large"
+                          variant={isCurrentPlan ? "secondary" : (plan.recommended ? "primary" : "primary")}
+                          disabled={isCurrentPlan || isSubmitting}
+                          loading={isSubmitting}
+                          onClick={() => handleSubscribe(planIdToUse)}
+                        >
+                          {isCurrentPlan ? "Current Plan" : "Subscribe"}
+                        </Button>
 
                         <Divider />
 
@@ -765,7 +902,7 @@ export default function BillingPage() {
                             {plan.features.map((feature, index) => (
                               <InlineStack key={index} gap="200" align="start" blockAlign="start">
                                 <div style={{ flexShrink: 0 }}>
-                                  <Icon source={CheckCircleIcon} tone="positive" />
+                                  <Icon source={CheckCircleIcon} tone="success" />
                                 </div>
                                 <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
                               </InlineStack>
@@ -775,1023 +912,133 @@ export default function BillingPage() {
                       </BlockStack>
                     </Box>
                   </Card>
-                      ))}
-                    </div>
+                );
+              })}
+            </div>
 
-                    {/* Plan Comparison Button - Centered */}
-                    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '24px' }}>
-                      <Button
-                        onClick={() => setShowComparisonModal(true)}
-                        variant="plain"
-                      >
-                        View plan comparison
-                      </Button>
-                    </div>
-                  </div>
-                )}
+            {/* FAQ Section */}
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <Text as="h3" variant="headingLg">
+                    Frequently Asked Questions
+                  </Text>
 
-                {/* Team & Enterprise Tab */}
-                {selectedTab === 1 && (
-                  <div style={{ paddingTop: '16px' }}>
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-                      gap: '16px',
-                      marginBottom: '24px'
-                    }}>
-                      <Card>
-                        <Box padding="600">
-                          <BlockStack gap="400">
-                            {/* Plan Header */}
-                            <InlineStack align="space-between">
-                              <Text as="h3" variant="headingLg">
-                                {enterprisePlan.name}
-                              </Text>
-                              {enterprisePlan.isCurrentPlan && (
-                                <Badge tone="success">Current</Badge>
-                              )}
-                              <Badge tone="magic">Custom</Badge>
-                            </InlineStack>
-
-                            {/* Price */}
-                            <BlockStack gap="200">
-                              <InlineStack align="start" gap="100">
-                                <Text as="p" variant="heading2xl">
-                                  {enterprisePlan.price}
-                                </Text>
-                              </InlineStack>
-                            </BlockStack>
-
-                            {/* Description */}
-                            <Text as="p" variant="bodyMd" tone="subdued">
-                              {enterprisePlan.description}
-                            </Text>
-
-                            {/* Action Button */}
-                            <Button
-                              fullWidth
-                              size="large"
-                              variant="primary"
-                              onClick={() => setShowEnterpriseModal(true)}
-                              icon={PhoneIcon}
-                            >
-                              {enterprisePlan.buttonText}
-                            </Button>
-
-                            <Divider />
-
-                            {/* Features List */}
-                            <BlockStack gap="300" align="start">
-                              <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                                What's included:
-                              </Text>
-                              <BlockStack gap="200" align="start">
-                                {enterprisePlan.features.map((feature, index) => (
-                                  <InlineStack key={index} gap="200" align="start" blockAlign="start">
-                                    <div style={{ flexShrink: 0 }}>
-                                      <Icon source={CheckCircleIcon} tone="positive" />
-                                    </div>
-                                    <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
-                                  </InlineStack>
-                                ))}
-                              </BlockStack>
-                            </BlockStack>
-                          </BlockStack>
-                        </Box>
-                      </Card>
-                    </div>
-
-                    {/* Enterprise Benefits Section */}
-                    <Card>
-                <Box padding="600">
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between">
-                      <Text as="h2" variant="headingLg">
-                        Why Choose Enterprise?
+                  <BlockStack gap="300">
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        How does billing work?
                       </Text>
-                      <Badge tone="magic">Scalable Solution</Badge>
-                    </InlineStack>
-
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                      gap: '16px'
-                    }}>
-                      <BlockStack gap="200">
-                        <Text as="h3" variant="headingMd">Custom Modules</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Build custom features tailored to your unique business requirements. Our team will work with you to develop modules that perfectly fit your workflow.
-                        </Text>
-                      </BlockStack>
-
-                      <BlockStack gap="200">
-                        <Text as="h3" variant="headingMd">Dedicated Support</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Get a dedicated success team, 24/7 priority support, and direct access to our engineering team for rapid issue resolution.
-                        </Text>
-                      </BlockStack>
-
-                      <BlockStack gap="200">
-                        <Text as="h3" variant="headingMd">Flexible Infrastructure</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Choose between cloud or on-premise deployment. Scale infinitely with dedicated infrastructure designed for your needs.
-                        </Text>
-                      </BlockStack>
-                    </div>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        All billing is handled through Shopify. Charges appear on your regular Shopify invoice—the same monthly invoice you already receive for your Shopify subscription. We never charge your card directly; all payments flow through Shopify's secure billing system.
+                      </Text>
+                    </BlockStack>
 
                     <Divider />
 
-                    <InlineStack align="center" gap="400">
-                      <Button variant="primary" size="large" onClick={() => setShowEnterpriseModal(true)}>
-                        Get Enterprise Quote
-                      </Button>
-                    </InlineStack>
-                  </BlockStack>
-                </Box>
-              </Card>
-                  </div>
-                )}
-
-                {/* API Tab */}
-                {selectedTab === 2 && (
-                  <div style={{ paddingTop: '16px' }}>
-                    <Card>
-                      <Box padding="600">
-                        <BlockStack gap="400">
-                          <Text as="h2" variant="headingLg">
-                            API Access & Developer Tools
-                          </Text>
-
-                          <Text as="p" variant="bodyMd" tone="subdued">
-                            Build custom integrations and extend RewardsPro functionality with our comprehensive API.
-                          </Text>
-
-                          <Divider />
-
-                          <BlockStack gap="300">
-                            <Text as="h3" variant="headingMd">
-                              Available Endpoints
-                            </Text>
-
-                            <BlockStack gap="200" align="start">
-                              <InlineStack gap="200" align="start">
-                                <div style={{ flexShrink: 0 }}>
-                                  <Icon source={CheckCircleIcon} tone="positive" />
-                                </div>
-                                <Text as="p" variant="bodyMd">Customer management API</Text>
-                              </InlineStack>
-
-                              <InlineStack gap="200" align="start">
-                                <div style={{ flexShrink: 0 }}>
-                                  <Icon source={CheckCircleIcon} tone="positive" />
-                                </div>
-                                <Text as="p" variant="bodyMd">Store credit balance API</Text>
-                              </InlineStack>
-
-                              <InlineStack gap="200" align="start">
-                                <div style={{ flexShrink: 0 }}>
-                                  <Icon source={CheckCircleIcon} tone="positive" />
-                                </div>
-                                <Text as="p" variant="bodyMd">Tier management API</Text>
-                              </InlineStack>
-
-                              <InlineStack gap="200" align="start">
-                                <div style={{ flexShrink: 0 }}>
-                                  <Icon source={CheckCircleIcon} tone="positive" />
-                                </div>
-                                <Text as="p" variant="bodyMd">Webhook subscriptions</Text>
-                              </InlineStack>
-
-                              <InlineStack gap="200" align="start">
-                                <div style={{ flexShrink: 0 }}>
-                                  <Icon source={CheckCircleIcon} tone="positive" />
-                                </div>
-                                <Text as="p" variant="bodyMd">Analytics & reporting API</Text>
-                              </InlineStack>
-                            </BlockStack>
-                          </BlockStack>
-
-                          <Divider />
-
-                          <BlockStack gap="300">
-                            <Text as="h3" variant="headingMd">
-                              API Access Included In
-                            </Text>
-
-                            <InlineStack gap="400">
-                              <Badge tone="success">Pro Plan</Badge>
-                              <Badge tone="success">Max Plan</Badge>
-                              <Badge tone="magic">Enterprise Plan</Badge>
-                            </InlineStack>
-
-                            <Text as="p" variant="bodyMd" tone="subdued">
-                              API access is available starting with the Pro plan. Higher tiers include increased rate limits and priority support.
-                            </Text>
-                          </BlockStack>
-
-                          <Divider />
-
-                          <BlockStack gap="200">
-                            <Button fullWidth size="large" variant="primary" url="/app/settings#api-keys">
-                              View API Documentation
-                            </Button>
-                            <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                              API keys can be generated from the Settings page after subscribing to a compatible plan.
-                            </Text>
-                          </BlockStack>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-                  </div>
-                )}
-              </div>
-
-              {/* FAQ Section */}
-              <Card>
-                <Box padding="400">
-                  <Text as="h3" variant="headingLg" alignment="start">Frequently Asked Questions</Text>
-
-                  <Box paddingBlockStart="400">
-                    <BlockStack gap="0">
-                      {/* Question 1 */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, changeTime: !faqOpen.changeTime})}
-                          icon={faqOpen.changeTime ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.changeTime ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            Can I upgrade or downgrade my plan at any time?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.changeTime}
-                          id="faq-change-time"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately. When you upgrade, you'll be charged the prorated amount for the remainder of the billing cycle. When you downgrade, credits will be applied to your next invoice.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 2 */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, billing: !faqOpen.billing})}
-                          icon={faqOpen.billing ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.billing ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            How does billing work?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.billing}
-                          id="faq-billing"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              All plans are billed monthly through your Shopify invoice. The charge appears on your regular Shopify bill, making it simple to manage all your expenses in one place. Enterprise plans can have custom billing arrangements including annual contracts or custom payment terms.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 3 */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, enterprise: !faqOpen.enterprise})}
-                          icon={faqOpen.enterprise ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.enterprise ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            What makes Enterprise different?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.enterprise}
-                          id="faq-enterprise"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Enterprise plans include custom development, dedicated infrastructure, and the ability to build custom modules specific to your business needs. You get a dedicated success team, 24/7 priority support, custom integrations, and the flexibility to scale infinitely. Pricing is tailored to your specific requirements and usage patterns.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 4 - Free Plan Limits */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, freeLimit: !faqOpen.freeLimit})}
-                          icon={faqOpen.freeLimit ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.freeLimit ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            What happens when I exceed my plan limits?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.freeLimit}
-                          id="faq-free-limit"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Pro and Max plans have overage pricing for orders beyond your monthly limit. Pro plan charges $10 per 100 additional orders, Max plan charges $5 per 100 additional orders. Ultra plan has no limits - everything is unlimited. We'll notify you when you're approaching your limits so you can upgrade if needed.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 5 - Trial Period */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, trial: !faqOpen.trial})}
-                          icon={faqOpen.trial ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.trial ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            Is there a free trial for paid plans?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.trial}
-                          id="faq-trial"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Yes! All plans come with a 14-day free trial. You won't be charged until the trial ends, and you can cancel anytime during the trial without any charges.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 6 - Cancellation */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, cancellation: !faqOpen.cancellation})}
-                          icon={faqOpen.cancellation ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.cancellation ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            Can I cancel my subscription anytime?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.cancellation}
-                          id="faq-cancellation"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Yes, you can cancel your subscription at any time with no cancellation fees. When you cancel, you'll continue to have access to the paid features until the end of your current billing cycle. After that, you'll need to select a new plan to continue using the app.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 7 - Data Retention */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, dataRetention: !faqOpen.dataRetention})}
-                          icon={faqOpen.dataRetention ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.dataRetention ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            What happens to my data if I cancel or downgrade?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.dataRetention}
-                          id="faq-data-retention"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Your data is always safe with us. If you cancel or downgrade, all your customer data, tier configurations, and store credit balances are preserved. You can upgrade again at any time and pick up right where you left off. We never delete your data unless you explicitly request it or uninstall the app.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 8 - Multiple Stores */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, multiStore: !faqOpen.multiStore})}
-                          icon={faqOpen.multiStore ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.multiStore ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            Can I use RewardsPro on multiple stores?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.multiStore}
-                          id="faq-multi-store"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Each Shopify store requires its own RewardsPro subscription. However, Enterprise plans can include multi-store support with centralized management and special pricing for multiple locations. Contact our sales team to discuss multi-store options.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 9 - When Charged */}
-                      <Box
-                        padding="400"
-                        borderBlockEndWidth="025"
-                        borderColor="border-secondary"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, charges: !faqOpen.charges})}
-                          icon={faqOpen.charges ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.charges ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            When will I be charged?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.charges}
-                          id="faq-charges"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Charges appear on your regular Shopify invoice. After your 14-day free trial, you'll be charged monthly on the same billing cycle as your Shopify subscription. There are no setup fees, hidden charges, or long-term contracts. The price you see is the price you pay.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
-
-                      {/* Question 10 - Support */}
-                      <Box
-                        padding="400"
-                      >
-                        <Button
-                          variant="plain"
-                          fullWidth
-                          textAlign="start"
-                          onClick={() => setFaqOpen({...faqOpen, support: !faqOpen.support})}
-                          icon={faqOpen.support ? ChevronUpIcon : ChevronDownIcon}
-                          disclosure={faqOpen.support ? "up" : "down"}
-                        >
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                            What kind of support is included?
-                          </Text>
-                        </Button>
-                        <Collapsible
-                          open={faqOpen.support}
-                          id="faq-support"
-                          transition={{duration: '200ms', timingFunction: 'ease-in-out'}}
-                        >
-                          <Box paddingBlockStart="200">
-                            <Text as="p" variant="bodyMd" alignment="start">
-                              Pro plan includes priority email support with 24-hour response time and access to our knowledge base. Max plan adds phone support and white label features. Ultra plan includes dedicated support with no limits on anything. Enterprise includes 24/7 phone & email support with a dedicated success team.
-                            </Text>
-                          </Box>
-                        </Collapsible>
-                      </Box>
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        What's the difference between monthly and annual billing?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Annual plans charge the yearly total up front (e.g., Pro Annual is $336/year instead of $39/month) and offer significant savings—up to 28% off. When you switch from monthly to annual or vice versa, Shopify automatically handles proration of your existing subscription. The new billing agreement starts immediately.
+                      </Text>
                     </BlockStack>
-                  </Box>
-                </Box>
-              </Card>
-            </BlockStack>
-          </Layout.Section>
-        </Layout>
 
-        {/* Plan Comparison Modal */}
-        <Modal
-          open={showComparisonModal}
-          onClose={() => setShowComparisonModal(false)}
-          title="Plan Comparison"
-          large
-        >
-          <Modal.Section>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f6f6f7' }}>
-                    <th style={{ padding: '16px', textAlign: 'left', borderBottom: '1px solid #e1e3e5' }}></th>
-                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="h3" variant="headingMd">Free</Text>
-                    </th>
-                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="h3" variant="headingMd">Pro</Text>
-                    </th>
-                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="h3" variant="headingMd">Max</Text>
-                    </th>
-                    <th style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="h3" variant="headingMd">Ultra</Text>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Order volume section */}
-                  <tr>
-                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
-                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Order volume</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Monthly orders</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Up to 100</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Up to 500</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Up to 2,000</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Unlimited</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Additional order rate</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">$10 per 100 orders</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">$5 per 100 orders</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">No overage charges</Text>
-                    </td>
-                  </tr>
+                    <Divider />
 
-                  {/* Features section */}
-                  <tr>
-                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
-                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Features</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Loyalty program</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Tier memberships</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Advanced analytics</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">White label email</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">A/B testing</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Custom SMTP</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        What are overage/usage charges?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Pro and Max plans include usage-based billing for orders beyond your monthly limit. Pro: $10 per 100 orders over 500 (capped at $50/month). Max: $5 per 100 orders over 2,000 (capped at $100/month). These charges appear as usage line items on your Shopify invoice. Ultra plan has unlimited orders with no overage charges.
+                      </Text>
+                    </BlockStack>
 
-                  {/* Processing & Operations section */}
-                  <tr>
-                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
-                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Processing & Operations</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Batch cashback processing</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Customer bulk sync</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Limited</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Incremental order sync</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Store credit ledger</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
+                    <Divider />
 
-                  {/* Customer Experience section */}
-                  <tr>
-                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
-                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Customer Experience</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Customer portal widget</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Multi-currency support</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">5 currencies</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">15 currencies</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">33 currencies</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">All currencies</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Widget localization</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">English only</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Subscription management</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        Can I upgrade or downgrade my plan at any time?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Yes! Plan changes take effect immediately. Upgrades remove any "plan locked" state instantly and increase your order limit right away. Downgrades or returns to the free plan also apply instantly, though you may be locked again if your current usage exceeds the new limit.
+                      </Text>
+                    </BlockStack>
 
-                  {/* Support section */}
-                  <tr>
-                    <td colSpan={5} style={{ padding: '12px 16px', backgroundColor: '#f6f6f7' }}>
-                      <Text as="p" variant="bodyMd" fontWeight="semibold" tone="subdued">Support</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Email support</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Standard</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Priority</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Priority</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Dedicated</Text>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Phone support</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd" tone="subdued">—</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Icon source={CheckCircleIcon} tone="success" />
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '16px', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">Response time</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">48 hours</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">24 hours</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">12 hours</Text>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5' }}>
-                      <Text as="p" variant="bodyMd">1 hour</Text>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </Modal.Section>
-        </Modal>
+                    <Divider />
 
-        {/* Enterprise Contact Modal */}
-        <Modal
-          open={showEnterpriseModal}
-          onClose={() => setShowEnterpriseModal(false)}
-          title="Contact Enterprise Sales"
-          primaryAction={{
-            content: "Submit Inquiry",
-            onAction: handleEnterpriseSubmit,
-            disabled: !enterpriseForm.email || !enterpriseForm.companyName,
-            loading: isSubmitting
-          }}
-          secondaryActions={[
-            {
-              content: "Cancel",
-              onAction: () => setShowEnterpriseModal(false),
-            },
-          ]}
-        >
-          <Modal.Section>
-            <FormLayout>
-              <TextField
-                label="Company Name"
-                value={enterpriseForm.companyName}
-                onChange={(value) => setEnterpriseForm({...enterpriseForm, companyName: value})}
-                autoComplete="organization"
-                requiredIndicator
-              />
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        What happens when I reach my order limit?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        When you hit your order limit, your store is automatically locked and the dashboard will prompt you to upgrade. Premium features will be locked or greyed out. Upgrading instantly unlocks your store and raises the limit. Pro and Max plans with usage billing will continue processing orders and charge the overage rate (up to the monthly cap).
+                      </Text>
+                    </BlockStack>
 
-              <TextField
-                label="Business Email"
-                type="email"
-                value={enterpriseForm.email}
-                onChange={(value) => setEnterpriseForm({...enterpriseForm, email: value})}
-                autoComplete="email"
-                requiredIndicator
-                helpText="We'll use this to contact you about your inquiry"
-              />
+                    <Divider />
 
-              <TextField
-                label="Phone Number"
-                type="tel"
-                value={enterpriseForm.phone}
-                onChange={(value) => setEnterpriseForm({...enterpriseForm, phone: value})}
-                autoComplete="tel"
-                helpText="Optional - for faster response"
-              />
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        What happens after I cancel my subscription?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Cancellation instantly reverts your account to the Free plan with a 100 order/month limit. Your existing configuration (tiers, rewards, etc.) stays intact, but premium features lock or grey out once the free plan limit is reached. No data is lost—you can re-upgrade anytime.
+                      </Text>
+                    </BlockStack>
 
-              <TextField
-                label="Tell us about your requirements"
-                value={enterpriseForm.requirements}
-                onChange={(value) => setEnterpriseForm({...enterpriseForm, requirements: value})}
-                multiline={4}
-                helpText="Describe your custom module needs, expected volume, special requirements, etc."
-              />
+                    <Divider />
 
-              <Banner tone="info" icon={EmailIcon}>
-                <p>
-                  Our enterprise team typically responds within 24 hours with a custom solution tailored to your needs.
-                </p>
-              </Banner>
-            </FormLayout>
-          </Modal.Section>
-        </Modal>
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        What if I cancel my annual plan mid-term?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Shopify handles annual subscription cancellations automatically. Any prorated refunds or final charges are processed through Shopify Billing. Once cancelled, we receive a webhook and immediately downgrade your account to Free. To ensure billing stops, complete the full cancellation flow in Shopify.
+                      </Text>
+                    </BlockStack>
 
-        {/* Success Toast */}
-        {toastActive && (
-          <Toast
-            content={actionData?.message || "Your inquiry has been submitted successfully!"}
-            onDismiss={() => setToastActive(false)}
-            duration={5000}
-          />
-        )}
-      </Page>
-    </Frame>
+                    <Divider />
+
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        What is your refund policy?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Since all billing is handled through Shopify, any refunds must go through Shopify's billing channels. Contact Shopify Support or reach out to our support team, who can initiate the refund process via Shopify on your behalf.
+                      </Text>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        How do I cancel my subscription?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Visit the Billing page, click "Manage plan," and follow the confirmation flow in Shopify. Make sure to complete all steps in the Shopify confirmation page to ensure billing stops. If you encounter any issues, contact our support team for assistance.
+                      </Text>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        I see "shop cannot accept the provided charge" — what does this mean?
+                      </Text>
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        This message appears when the app is still in development mode and billing hasn't been approved yet. If you're seeing this on a live store, please contact our support team to enable billing for your shop.
+                      </Text>
+                    </BlockStack>
+                  </BlockStack>
+                </BlockStack>
+              </Box>
+            </Card>
+          </BlockStack>
+        </Layout.Section>
+      </Layout>
+    </Page>
   );
 }

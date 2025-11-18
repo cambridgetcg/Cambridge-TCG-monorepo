@@ -12,7 +12,9 @@ import {
   getPlanConfig,
   isDevelopmentStore
 } from "../../utils/billing-config";
+import { getTestMode } from "../../utils/billing-test-mode.server";
 import crypto from "crypto";
+import { v4 as uuidv4 } from "uuid";
 
 // GraphQL Mutations
 const CREATE_SUBSCRIPTION_MUTATION = `#graphql
@@ -103,8 +105,8 @@ const GET_SUBSCRIPTION_QUERY = `#graphql
 `;
 
 const CANCEL_SUBSCRIPTION_MUTATION = `#graphql
-  mutation CancelSubscription($id: ID!) {
-    appSubscriptionCancel(id: $id) {
+  mutation CancelSubscription($id: ID!, $prorate: Boolean) {
+    appSubscriptionCancel(id: $id, prorate: $prorate) {
       appSubscription {
         id
         status
@@ -165,7 +167,7 @@ const GET_ACTIVE_SUBSCRIPTIONS_QUERY = `#graphql
 
 export interface CreateSubscriptionOptions {
   shop: string;
-  planType: 'starter' | 'growth' | 'enterprise';
+  planType: 'free' | 'pro' | 'proAnnual' | 'max' | 'maxAnnual' | 'ultra' | 'ultraAnnual' | 'starter' | 'growth' | 'enterprise';
   isUpgrade: boolean;
   returnUrl?: string;
 }
@@ -203,16 +205,29 @@ export class GraphQLBillingService {
     }
 
     try {
+      // Determine test mode using centralized utility
+      const testModeResult = await getTestMode(shop, this.admin);
+
+      console.log(`[GraphQLBilling] Creating subscription for ${shop}:`, {
+        planType,
+        isTestMode: testModeResult.isTest,
+        testModeSource: testModeResult.source
+      });
+
       // Build return URL with shop parameter
       const returnUrl = options.returnUrl ||
-        `${process.env.SHOPIFY_APP_URL}/app/billing/callback?shop=${shop}`;
+        `${process.env.SHOPIFY_APP_URL}/app/billing/callback?shop=${shop}&plan=${planType}`;
+
+      // Determine billing interval - annual plans use ANNUAL, others use EVERY_30_DAYS
+      const isAnnualPlan = planType.toLowerCase().includes('annual');
+      const billingInterval = isAnnualPlan ? "ANNUAL" : "EVERY_30_DAYS";
 
       // Build line items array
       const lineItems: any[] = [
         {
           plan: {
             appRecurringPricingDetails: {
-              interval: "EVERY_30_DAYS",
+              interval: billingInterval,
               price: {
                 amount: formatMoneyInput(planConfig.price),
                 currencyCode: getCurrencyCode(shop)
@@ -224,16 +239,24 @@ export class GraphQLBillingService {
 
       // Add usage pricing if configured
       if (planConfig.usageRate && planConfig.usageCap) {
+        const usageTerms = planConfig.usageTerms ||
+          `$${(planConfig.usageRate * 100).toFixed(2)} per 100 orders over ${planConfig.orderLimit} orders/month (max $${planConfig.usageCap}/month)`;
+
         lineItems.push({
           plan: {
             appUsagePricingDetails: {
-              terms: `$${planConfig.usageRate} per order over ${planConfig.orderLimit} orders`,
+              terms: usageTerms,
               cappedAmount: {
                 amount: formatMoneyInput(planConfig.usageCap),
                 currencyCode: getCurrencyCode(shop)
               }
             }
           }
+        });
+
+        console.log(`[GraphQLBilling] Added usage line item:`, {
+          terms: usageTerms,
+          cappedAmount: planConfig.usageCap
         });
       }
 
@@ -245,7 +268,7 @@ export class GraphQLBillingService {
         replacementBehavior: isUpgrade
           ? BillingConfig.replacementBehavior.upgrade
           : BillingConfig.replacementBehavior.downgrade,
-        test: isDevelopmentStore(shop)
+        test: testModeResult.isTest  // Auto-detect test mode
       };
 
       const response = await this.admin.graphql(CREATE_SUBSCRIPTION_MUTATION, {
@@ -254,7 +277,11 @@ export class GraphQLBillingService {
 
       const result = await response.json();
 
+      // LOG THE FULL RESPONSE FOR DEBUGGING
+      console.log('[GraphQLBilling] Full GraphQL Response:', JSON.stringify(result, null, 2));
+
       if (result.data?.appSubscriptionCreate?.userErrors?.length > 0) {
+        console.error('[GraphQLBilling] User errors:', result.data.appSubscriptionCreate.userErrors);
         return {
           success: false,
           error: result.data.appSubscriptionCreate.userErrors[0].message,
@@ -265,10 +292,21 @@ export class GraphQLBillingService {
       const subscription = result.data?.appSubscriptionCreate?.appSubscription;
       const confirmationUrl = result.data?.appSubscriptionCreate?.confirmationUrl;
 
+      console.log('[GraphQLBilling] Extracted values:', {
+        hasSubscription: !!subscription,
+        subscriptionId: subscription?.id,
+        hasConfirmationUrl: !!confirmationUrl,
+        confirmationUrl: confirmationUrl
+      });
+
       if (!confirmationUrl || !subscription) {
+        console.error('[GraphQLBilling] Missing confirmationUrl or subscription:', {
+          confirmationUrl,
+          subscription: subscription?.id
+        });
         return {
           success: false,
-          error: "Failed to create subscription"
+          error: "Failed to create subscription - missing confirmationUrl or subscription"
         };
       }
 
@@ -324,6 +362,7 @@ export class GraphQLBillingService {
         await db.billingSubscription.upsert({
           where: { shop },
           create: {
+            id: uuidv4(), // Data API doesn't auto-generate UUIDs
             shop,
             subscriptionId: subscription.id,
             subscriptionStatus: subscription.status,
@@ -465,6 +504,7 @@ export class GraphQLBillingService {
 
   /**
    * Cancel subscription
+   * Note: Always uses prorate: false (no refunds for unused time)
    */
   async cancelSubscription(shop: string): Promise<SubscriptionResult> {
     try {
@@ -480,7 +520,10 @@ export class GraphQLBillingService {
       }
 
       const response = await this.admin.graphql(CANCEL_SUBSCRIPTION_MUTATION, {
-        variables: { id: billingSubscription.subscriptionId }
+        variables: {
+          id: billingSubscription.subscriptionId,
+          prorate: false  // Never prorate - no refunds for unused time
+        }
       });
 
       const result = await response.json();
@@ -571,6 +614,7 @@ export class GraphQLBillingService {
     await db.billingSubscription.upsert({
       where: { shop },
       create: {
+        id: uuidv4(),
         shop,
         pendingChargeId: chargeId,
         pendingChargeCreatedAt: new Date(),
@@ -643,4 +687,7 @@ export class GraphQLBillingService {
 
     return { expired: false };
   }
+
+  // NOTE: checkIfDevStore() method removed - now using centralized utility
+  // from app/utils/billing-test-mode.server.ts
 }

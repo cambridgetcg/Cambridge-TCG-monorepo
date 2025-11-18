@@ -15,7 +15,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
   // Free plan - Hidden from billing pages but still functional for existing users
   "RewardsPro Free": {
     name: "RewardsPro Free",
-    displayName: "Free",
+    displayName: "Rewards Free",
     price: 0,
     interval: "month",
     ordersIncluded: 100,
@@ -30,124 +30,131 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ],
     isFree: true
   },
-  // Monthly Plans
   "RewardsPro Pro": {
     name: "RewardsPro Pro",
-    displayName: "Pro",
+    displayName: "Rewards Pro",
     price: 39,
     interval: "month",
     ordersIncluded: 500,
     overageRate: 0.10, // $10 per 100 orders = $0.10 per order
     features: [
-      "Up to 2,000 customers",
-      "500 orders/month",
+      "Up to 2,000 total customers",
+      "Up to 500 orders/month",
+      "$10 per 100 additional orders",
+      "Batch processing cashback",
+      "1,000 emails/month",
+      "Priority support"
+    ],
+    isFree: false
+  },
+  "RewardsPro Pro Annual": {
+    name: "RewardsPro Pro Annual",
+    displayName: "Rewards Pro Annual",
+    price: 336,
+    interval: "year",
+    ordersIncluded: 500,
+    overageRate: 0.10,
+    features: [
+      "Up to 2,000 total customers",
+      "Up to 500 orders/month",
+      "$10 per 100 additional orders",
       "Batch processing cashback",
       "1,000 emails/month",
       "Priority support",
-      "Advanced analytics",
-      "$10 per 100 extra orders"
+      "💰 Save $132/year (28% discount)",
+      "🗓️ $28/month when billed annually"
     ],
     isFree: false
   },
   "RewardsPro Max": {
     name: "RewardsPro Max",
-    displayName: "Max",
+    displayName: "Rewards Max",
     price: 149,
     interval: "month",
     ordersIncluded: 2000,
     overageRate: 0.05, // $5 per 100 orders = $0.05 per order
     features: [
       "Unlimited customers",
-      "2,000 orders/month",
+      "Up to 2,000 orders/month",
+      "$5 per 100 additional orders",
       "Sell tier memberships",
       "White label email",
       "5,000 emails/month",
-      "Advanced analytics",
-      "Phone support",
-      "$5 per 100 extra orders"
-    ],
-    isFree: false
-  },
-  "RewardsPro Ultra": {
-    name: "RewardsPro Ultra",
-    displayName: "Ultra",
-    price: 499,
-    interval: "month",
-    ordersIncluded: 999999, // Effectively unlimited
-    overageRate: 0,
-    features: [
-      "Unlimited customers",
-      "Unlimited orders",
-      "Unlimited emails",
-      "Full white label solution",
-      "Custom SMTP integration",
-      "A/B testing",
-      "Dedicated support",
-      "No overage charges"
-    ],
-    isFree: false
-  },
-  // Annual Plans (Save 28%)
-  "RewardsPro Pro Annual": {
-    name: "RewardsPro Pro Annual",
-    displayName: "Pro Annual",
-    price: 28,
-    interval: "month",
-    ordersIncluded: 500,
-    overageRate: 0.10, // $10 per 100 orders = $0.10 per order
-    features: [
-      "Up to 2,000 customers",
-      "500 orders/month",
-      "Batch processing cashback",
-      "1,000 emails/month",
-      "Priority support",
-      "Advanced analytics",
-      "$10 per 100 extra orders",
-      "Save 28% with annual billing"
+      "Advanced analytics"
     ],
     isFree: false
   },
   "RewardsPro Max Annual": {
     name: "RewardsPro Max Annual",
-    displayName: "Max Annual",
-    price: 108,
-    interval: "month",
+    displayName: "Rewards Max Annual",
+    price: 1296,
+    interval: "year",
     ordersIncluded: 2000,
-    overageRate: 0.05, // $5 per 100 orders = $0.05 per order
+    overageRate: 0.05,
     features: [
       "Unlimited customers",
-      "2,000 orders/month",
+      "Up to 2,000 orders/month",
+      "$5 per 100 additional orders",
       "Sell tier memberships",
       "White label email",
       "5,000 emails/month",
       "Advanced analytics",
-      "Phone support",
-      "$5 per 100 extra orders",
-      "Save 28% with annual billing"
+      "💰 Save $492/year (27% discount)",
+      "🗓️ $108/month when billed annually"
     ],
     isFree: false
   },
-  "RewardsPro Ultra Annual": {
-    name: "RewardsPro Ultra Annual",
-    displayName: "Ultra Annual",
-    price: 358,
+  "RewardsPro Ultra": {
+    name: "RewardsPro Ultra",
+    displayName: "Rewards Ultra",
+    price: 499,
     interval: "month",
     ordersIncluded: 999999, // Effectively unlimited
     overageRate: 0,
     features: [
+      "Unlimited everything",
       "Unlimited customers",
       "Unlimited orders",
       "Unlimited emails",
       "Full white label solution",
       "Custom SMTP integration",
-      "A/B testing",
+      "Dedicated support"
+    ],
+    isFree: false
+  },
+  "RewardsPro Ultra Annual": {
+    name: "RewardsPro Ultra Annual",
+    displayName: "Rewards Ultra Annual",
+    price: 4296,
+    interval: "year",
+    ordersIncluded: 999999,
+    overageRate: 0,
+    features: [
+      "Unlimited everything",
+      "Unlimited customers",
+      "Unlimited orders",
+      "Unlimited emails",
+      "Full white label solution",
+      "Custom SMTP integration",
       "Dedicated support",
-      "No overage charges",
-      "Save 28% with annual billing"
+      "💰 Save $1,692/year (28% discount)",
+      "🗓️ $358/month when billed annually"
     ],
     isFree: false
   }
 };
+
+/**
+ * Get the order limit for a given plan name
+ * @param planName - Plan name (e.g., "RewardsPro Pro", "RewardsPro Free")
+ * @returns Order limit for the plan, defaults to 100 (Free plan)
+ */
+export function getPlanOrderLimit(planName: string | null | undefined): number {
+  if (!planName) return 100; // Default to Free plan limit
+
+  const plan = MANAGED_PLANS[planName];
+  return plan?.ordersIncluded ?? 100; // Default to Free plan if not found
+}
 
 export const PLAN_COMPARISON = [
   {
@@ -213,37 +220,7 @@ export function getPlanDetails(
   activeSubscription?: { name: string; status: string } | null,
   currentPlan?: { planName: string; status: string } | null
 ): ManagedPlan {
-  // Determine which data source is being used
-  let dataSource: string;
-  let activePlanName: string;
-
-  if (activeSubscription?.name) {
-    dataSource = "Shopify Billing API (activeSubscription)";
-    activePlanName = activeSubscription.name;
-  } else if (currentPlan?.planName) {
-    dataSource = "Local Database (BillingPlan table)";
-    activePlanName = currentPlan.planName;
-  } else {
-    dataSource = "Default Fallback";
-    activePlanName = "RewardsPro Free";
-  }
-
-  // Log the data source and plan details
-  console.log('========================================');
-  console.log('[getPlanDetails] Plan Detection');
-  console.log('========================================');
-  console.log(`[getPlanDetails] Data Source: ${dataSource}`);
-  console.log('[getPlanDetails] Input Values:');
-  console.log(`  - activeSubscription?.name: ${activeSubscription?.name || 'null'}`);
-  console.log(`  - activeSubscription?.status: ${activeSubscription?.status || 'null'}`);
-  console.log(`  - currentPlan?.planName: ${currentPlan?.planName || 'null'}`);
-  console.log(`  - currentPlan?.status: ${currentPlan?.status || 'null'}`);
-  console.log('[getPlanDetails] Result:');
-  console.log(`  - Selected Plan Name: ${activePlanName}`);
-  console.log(`  - Orders Included: ${MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS]?.ordersIncluded || MANAGED_PLANS["RewardsPro Free"].ordersIncluded}`);
-  console.log(`  - Price: $${MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS]?.price || MANAGED_PLANS["RewardsPro Free"].price}`);
-  console.log('========================================');
-
+  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
   return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
 }
 

@@ -29,15 +29,6 @@ interface CreditAdjustmentFormProps {
   defaultReason?: string;
 }
 
-const PRESET_AMOUNTS = [
-  { label: '$5', value: '5' },
-  { label: '$10', value: '10' },
-  { label: '$25', value: '25' },
-  { label: '$50', value: '50' },
-  { label: '$100', value: '100' },
-  { label: 'Custom', value: 'custom' },
-];
-
 const PRESET_REASONS = {
   add: [
     { label: 'Customer service gesture', value: 'Customer service gesture' },
@@ -66,9 +57,8 @@ export function CreditAdjustmentForm({
   initialAmount,
   defaultReason
 }: CreditAdjustmentFormProps) {
-  // If initialAmount is provided, set to custom with that value
+  // Initialize amount from props if provided
   const hasInitialAmount = initialAmount !== undefined && initialAmount > 0;
-  const [presetAmount, setPresetAmount] = useState(hasInitialAmount ? 'custom' : '10');
   const [customAmount, setCustomAmount] = useState(hasInitialAmount ? initialAmount.toString() : '');
 
   // If defaultReason is provided, use it
@@ -94,11 +84,8 @@ export function CreditAdjustmentForm({
   }, [customer.storeCredit]);
 
   const getAmount = useCallback(() => {
-    if (presetAmount === 'custom') {
-      return parseFloat(customAmount) || 0;
-    }
-    return parseFloat(presetAmount);
-  }, [presetAmount, customAmount]);
+    return parseFloat(customAmount) || 0;
+  }, [customAmount]);
 
   const getReason = useCallback(() => {
     if (presetReason === 'other') {
@@ -152,26 +139,16 @@ export function CreditAdjustmentForm({
       </Banner>
 
       <FormLayout>
-        <Select
+        <TextField
           label="Amount"
-          options={PRESET_AMOUNTS}
-          value={presetAmount}
-          onChange={setPresetAmount}
+          type="number"
+          value={customAmount}
+          onChange={setCustomAmount}
+          prefix={shopSettings?.storeCurrency || '$'}
+          error={errors.amount}
           disabled={loading}
+          autoComplete="off"
         />
-
-        {presetAmount === 'custom' && (
-          <TextField
-            label="Custom amount"
-            type="number"
-            value={customAmount}
-            onChange={setCustomAmount}
-            prefix={shopSettings?.storeCurrency || '$'}
-            error={errors.amount}
-            disabled={loading}
-            autoComplete="off"
-          />
-        )}
 
         <Select
           label="Reason"

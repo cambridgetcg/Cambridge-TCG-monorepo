@@ -2,7 +2,6 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "../db.server";
 import { UsageRecordService } from "../services/billing/usage-record.service";
-import { BillingGraphQLService } from "../services/billing/billing-graphql.service";
 import { shopifyApi, ApiVersion } from "@shopify/shopify-api";
 import * as crypto from "crypto";
 

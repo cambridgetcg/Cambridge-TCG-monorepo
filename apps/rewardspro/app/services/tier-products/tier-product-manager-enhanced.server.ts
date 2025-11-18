@@ -337,6 +337,26 @@ export class TierProductManagerEnhanced {
     context: TransactionContext
   ): Promise<{ success: boolean; tierProduct?: TierProduct; error?: string }> {
     try {
+      // CRITICAL: Validate that the tier exists before creating tier product
+      console.log(`${this.SERVICE_PREFIX} Validating tier exists: ${config.tier.id}`);
+      const tier = await db.tier.findUnique({
+        where: {
+          id: config.tier.id,
+          shop: config.shop
+        }
+      });
+
+      if (!tier) {
+        const errorMsg = `Tier ${config.tier.id} not found for shop ${config.shop}. Cannot create tier product.`;
+        console.error(`${this.SERVICE_PREFIX} ${errorMsg}`);
+        return {
+          success: false,
+          error: errorMsg
+        };
+      }
+
+      console.log(`${this.SERVICE_PREFIX} ✅ Tier validated: ${tier.name} (${tier.id})`);
+
       const tierProductId = uuidv4();
 
       const tierProduct = await db.tierProduct.create({

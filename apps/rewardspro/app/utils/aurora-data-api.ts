@@ -343,14 +343,16 @@ export class AuroraDataAPI {
     } else if (Buffer.isBuffer(value)) {
       param.value = { blobValue: value };
     } else if (Array.isArray(value)) {
-      // Handle arrays (for PostgreSQL array types)
-      if (value.every(v => typeof v === "string")) {
-        param.value = { arrayValue: { stringValues: value } };
-      } else if (value.every(v => typeof v === "number")) {
-        param.value = { arrayValue: { longValues: value } };
-      } else if (value.every(v => typeof v === "boolean")) {
-        param.value = { arrayValue: { booleanValues: value } };
-      }
+      // CRITICAL FIX: AWS RDS Data API does not support array parameters directly
+      // Arrays must be expanded into individual parameters in the SQL query
+      // Example: WHERE id IN (:id0, :id1, :id2) instead of WHERE id IN (:ids)
+      // If you see this error, you need to expand the array in your query builder
+      throw new Error(
+        `Cannot bind array directly as parameter "${name}". ` +
+        `AWS RDS Data API requires arrays to be expanded into individual parameters. ` +
+        `For IN clauses, use: WHERE ${name} IN (:${name}0, :${name}1, ...) ` +
+        `and bind each value separately.`
+      );
     } else {
       // Default to JSON string for complex objects
       param.value = { stringValue: JSON.stringify(value) };

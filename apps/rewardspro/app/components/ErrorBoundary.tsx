@@ -1,14 +1,15 @@
 import { useRouteError, isRouteErrorResponse } from "@remix-run/react";
-import { 
-  Banner, 
-  Page, 
-  Layout, 
-  Card, 
-  Text, 
+import {
+  Banner,
+  Page,
+  Layout,
+  Card,
+  Text,
   BlockStack,
   Button,
-  InlineStack 
+  InlineStack
 } from "@shopify/polaris";
+import { navigateToApp } from "~/utils/shopify-navigation";
 
 export function ErrorBoundary() {
   const error = useRouteError();
@@ -102,7 +103,7 @@ export function ErrorBoundary() {
                     Please refresh the page to re-authenticate.
                   </Text>
                   <InlineStack gap="300">
-                    <Button onClick={() => window.location.href = '/app'} variant="primary">
+                    <Button onClick={() => navigateToApp('/app')} variant="primary">
                       Return to App
                     </Button>
                     <Button onClick={() => window.location.reload()}>

@@ -1,0 +1,8 @@
+{
+  "banner": {
+    "title": "Hello World!",
+    "message": "This is a test block on the Profile page."
+  },
+  "extensionLocation": "This extension is rendering on the customer account profile page.",
+  "currentLocale": "Current locale: {{locale}} | Date: {{date}}"
+}

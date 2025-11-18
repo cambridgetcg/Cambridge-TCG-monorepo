@@ -265,10 +265,7 @@ export function CustomerDetailModal({
                     <Card>
                       <BlockStack gap="300">
                         <InlineStack align="space-between">
-                          <InlineStack gap="200" blockAlign="center">
-                            <Icon source={PersonIcon} tone="base" />
-                            <Text variant="headingMd" as="h3">Customer Information</Text>
-                          </InlineStack>
+                          <Text variant="headingMd" as="h3">Customer Information</Text>
                           {details.tier && (
                             <Badge tone="success">
                               {`${details.tier.name} (${details.tier.cashbackPercent.toString()}% cashback)`}
@@ -313,10 +310,7 @@ export function CustomerDetailModal({
                     {details.tier && (
                       <Card>
                         <BlockStack gap="300">
-                          <InlineStack gap="200" align="start" blockAlign="center">
-                            <Icon source={StarIcon} tone="base" />
-                            <Text variant="headingMd" as="h3">Tier Details</Text>
-                          </InlineStack>
+                          <Text variant="headingMd" as="h3">Tier Details</Text>
                           
                           <Divider />
                           

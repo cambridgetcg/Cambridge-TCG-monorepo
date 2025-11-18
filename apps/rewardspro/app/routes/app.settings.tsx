@@ -23,6 +23,7 @@ import {
   Checkbox,
   Icon,
   Tabs,
+  ButtonGroup,
 } from "@shopify/polaris";
 import {
   RefreshIcon,
@@ -36,7 +37,7 @@ import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
 import { CurrentPlanCard } from "~/components/Billing";
-import { MANAGED_PLANS, PLAN_COMPARISON, getPlanDetails } from "~/constants/billing.constants";
+import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { v4 as uuidv4 } from "uuid";
 
@@ -49,6 +50,8 @@ type Currency =
 
 type CurrencyDisplayType = "SYMBOL" | "CODE";
 
+type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+
 type ShopSettings = {
   id: string;
   shop: string;
@@ -57,6 +60,9 @@ type ShopSettings = {
   storeCurrency: Currency;
   currencyDisplayType: CurrencyDisplayType;
   timezone: string;
+  tierRecalculationFrequency: RecalculationFrequency;
+  tierRecalculationEnabled: boolean;
+  tierRecalculationLastRun: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -140,133 +146,6 @@ const CURRENCY_OPTIONS = [
   { label: "🇷🇴 Romanian Leu (RON)", value: "RON", symbol: "lei" },
   { label: "🇲🇾 Malaysian Ringgit (MYR)", value: "MYR", symbol: "RM" },
 ];
-
-// Note: MANAGED_PLANS and PLAN_COMPARISON are now imported from ~/constants/billing.constants
-// Removing duplicated constants that have been moved to shared location
-
-// Temporarily keeping old constants for reference (will be removed after testing)
-const OLD_MANAGED_PLANS = {
-  "RewardsPro Free": {
-    name: "RewardsPro Free",
-    displayName: "Free",
-    price: 0,
-    interval: "month",
-    ordersIncluded: 200,
-    overageRate: 0,
-    features: [
-      "200 orders per month",
-      "All core features included",
-      "Unlimited loyalty tiers",
-      "Customer management",
-      "Store credit tracking",
-      "Basic analytics",
-      "No credit card required",
-      "Community support",
-    ],
-    recommended: false,
-    isFree: true,
-  },
-  "RewardsPro Monthly": {
-    name: "RewardsPro Monthly",
-    displayName: "Pro",
-    price: 49,
-    interval: "month",
-    ordersIncluded: 1000,
-    overageRate: 0.01,
-    features: [
-      "1,000 orders included",
-      "$0.01 per additional order",
-      "Unlimited loyalty tiers",
-      "Advanced analytics",
-      "Custom email templates",
-      "Priority support",
-      "API access",
-      "Webhook integrations",
-    ],
-    recommended: true,
-    isFree: false,
-  },
-  "RewardsPro Annual": {
-    name: "RewardsPro Annual",
-    displayName: "Enterprise",
-    price: 490,
-    interval: "year",
-    ordersIncluded: 12000,
-    overageRate: 0.01,
-    features: [
-      "12,000 orders included (1,000/month)",
-      "$0.01 per additional order",
-      "Save ~17% compared to monthly",
-      "All monthly features included",
-      "Annual billing cycle",
-      "Dedicated onboarding",
-      "Quarterly business reviews",
-      "Custom integrations support",
-    ],
-    recommended: false,
-    isFree: false,
-  },
-};
-
-// Plan comparison data for the comparison cards (old version - now using imported)
-const OLD_PLAN_COMPARISON = {
-  free: {
-    name: "Starter plan",
-    displayName: "Free",
-    description: "Everything you need to create an on-brand program your customers will love.",
-    price: 0,
-    interval: "month",
-    ordersIncluded: "Up to 200 monthly orders",
-    overageInfo: "",
-    recommended: true,
-    popularFeatures: [
-      "Points program",
-      "Referral program",
-      "Customizable emails",
-      "Store credit tracking",
-      "Basic reports",
-      "Community support",
-    ],
-  },
-  pro: {
-    name: "Growth plan",
-    displayName: "Pro",
-    description: "Level up your loyalty program with extras like advanced analytics and priority support.",
-    price: 49,
-    interval: "month",
-    ordersIncluded: "Includes 1,000 monthly orders",
-    overageInfo: "$0.01 per additional order",
-    recommended: false,
-    popularFeatures: [
-      "Full-feature loyalty hub",
-      "Advanced analytics & reporting",
-      "Custom email templates",
-      "Priority support",
-      "API access",
-      "Unlimited integrations",
-    ],
-  },
-  enterprise: {
-    name: "Plus plan",
-    displayName: "Enterprise",
-    description: "Get the best of RewardsPro with more customization and reporting.",
-    price: 490,
-    interval: "year",
-    ordersIncluded: "Includes 12,000 annual orders",
-    overageInfo: "$0.01 per additional order",
-    recommended: false,
-    popularFeatures: [
-      "Migration and launch plan",
-      "30+ specialized reports",
-      "API access & developer tools",
-      "Priority support",
-      "Quarterly program monitoring",
-      "Security review support",
-    ],
-  },
-};
-
-// Timezone options removed - now automatically synced from Shopify
 
 // ============= HELPERS =============
 const getCurrencySymbol = (currency: Currency): string => {
@@ -451,7 +330,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: {
           shop,
           orderId: { not: null },
-          entryType: 'CASHBACK_EARNED'
+          type: 'CASHBACK_EARNED'
         }
       });
 
@@ -490,10 +369,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
-    // Fetch billing plan from database
-    const billingPlan = await db.billingPlan.findUnique({
+    // Fetch billing subscription from database (new GraphQL billing)
+    const billingSubscription = await db.billingSubscription.findUnique({
       where: { shop },
-    });
+    }).catch(() => null); // Gracefully handle if table doesn't exist yet
 
     // Get monthly order usage
     const now = new Date();
@@ -538,10 +417,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderCountStrategy = "TotalFallback";
     }
 
-    // Determine plan based on active subscription using constants
-    const planDetails = getPlanDetails(activeSubscription, billingPlan);
-    const planLimit = planDetails.ordersIncluded;
-    const planName = planDetails.name;
+    // Determine plan based on active subscription using shared plan constants
+    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded; // 100
+    let planName = 'RewardsPro Free';
+
+    // Map subscription names to plan constants
+    if (activeSubscription?.name) {
+      const planConfig = MANAGED_PLANS[activeSubscription.name];
+      if (planConfig) {
+        planLimit = planConfig.ordersIncluded;
+        planName = activeSubscription.name;
+      }
+    }
 
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
 
@@ -566,23 +453,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         : settings.updatedAt,
     };
 
-    // Serialize billing plan
-    const serializedPlan = billingPlan ? {
-      ...billingPlan,
-      monthlyPrice: Number(billingPlan.monthlyPrice || 0),
-      usageCap: billingPlan.usageCap ? Number(billingPlan.usageCap) : null,
-      currentPeriodEnd: billingPlan.currentPeriodEnd instanceof Date
-        ? billingPlan.currentPeriodEnd.toISOString()
-        : billingPlan.currentPeriodEnd,
-      lastCapAlert: billingPlan.lastCapAlert instanceof Date
-        ? billingPlan.lastCapAlert.toISOString()
-        : billingPlan.lastCapAlert,
-      createdAt: billingPlan.createdAt instanceof Date
-        ? billingPlan.createdAt.toISOString()
-        : String(billingPlan.createdAt),
-      updatedAt: billingPlan.updatedAt instanceof Date
-        ? billingPlan.updatedAt.toISOString()
-        : String(billingPlan.updatedAt),
+    // Serialize billing subscription (new GraphQL billing)
+    const serializedPlan = billingSubscription ? {
+      ...billingSubscription,
+      planName: billingSubscription.planName || planName,
+      cappedAmount: billingSubscription.cappedAmount ? Number(billingSubscription.cappedAmount) : null,
+      balanceUsed: billingSubscription.balanceUsed ? Number(billingSubscription.balanceUsed) : 0,
+      balanceRemaining: billingSubscription.balanceRemaining ? Number(billingSubscription.balanceRemaining) : null,
+      currentPeriodEnd: billingSubscription.currentPeriodEnd instanceof Date
+        ? billingSubscription.currentPeriodEnd.toISOString()
+        : billingSubscription.currentPeriodEnd,
+      createdAt: billingSubscription.createdAt instanceof Date
+        ? billingSubscription.createdAt.toISOString()
+        : String(billingSubscription.createdAt),
+      updatedAt: billingSubscription.updatedAt instanceof Date
+        ? billingSubscription.updatedAt.toISOString()
+        : String(billingSubscription.updatedAt),
     } : null;
 
     return json<LoaderData>({
@@ -735,6 +621,54 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    // Handle subscription cancellation
+    if (intent === "cancel-subscription") {
+      if (!admin) {
+        return json({ error: "Admin context not available" }, { status: 500 });
+      }
+
+      try {
+        console.log(`[Settings Action] ${shop} cancelling subscription`);
+
+        // Import and use GraphQL billing service
+        const { GraphQLBillingService } = await import("~/services/billing/graphql-billing.service");
+        const billingService = new GraphQLBillingService(admin);
+
+        // Cancel subscription via GraphQL
+        const result = await billingService.cancelSubscription(shop);
+
+        if (!result.success) {
+          return json({
+            error: result.error || "Failed to cancel subscription"
+          }, { status: 500 });
+        }
+
+        // Log the cancellation
+        await db.billingAuditLog.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            action: "cancel-subscription",
+            planName: "Cancelled",
+            success: true,
+            ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+            userAgent: request.headers.get("user-agent") || "unknown",
+            attemptedAt: new Date()
+          }
+        });
+
+        return json({
+          success: true,
+          message: "Subscription cancelled successfully. You will be downgraded to the Free plan at the end of your billing period."
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error cancelling subscription:", error);
+        return json({
+          error: "Failed to cancel subscription. Please try again."
+        }, { status: 500 });
+      }
+    }
+
     // Handle downgrade to free plan
     if (intent === "downgrade-to-free") {
       if (!billing) {
@@ -780,6 +714,41 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    // Handle manual tier recalculation
+    if (intent === "recalculate-tiers") {
+      try {
+        console.log(`[Settings Action] ${shop} triggering manual tier recalculation`);
+
+        // Import the tier management service
+        const { recalculateTiersForAllCustomers } = await import("~/services/tier-management.server");
+
+        // Trigger recalculation (runs in background)
+        const result = await recalculateTiersForAllCustomers(shop);
+
+        // Update last run timestamp
+        await db.shopSettings.update({
+          where: { shop },
+          data: {
+            tierRecalculationLastRun: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+        console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed`);
+
+        return json({
+          success: true,
+          message: `Tier recalculation completed: ${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`,
+          result
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error recalculating tiers:", error);
+        return json({
+          error: "Failed to recalculate tiers. Please try again."
+        }, { status: 500 });
+      }
+    }
+
     if (intent !== "update") {
       return json({ error: "Invalid action" }, { status: 400 });
     }
@@ -789,6 +758,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const storeUrl = formData.get("storeUrl") as string;
     const storeCurrency = formData.get("storeCurrency") as Currency;
     const currencyDisplayType = formData.get("currencyDisplayType") as CurrencyDisplayType;
+    const tierRecalculationEnabled = formData.get("tierRecalculationEnabled") === "true";
+    const tierRecalculationFrequency = formData.get("tierRecalculationFrequency") as "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
     // Timezone is now synced from Shopify and not editable
 
     // Validation
@@ -824,6 +795,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         storeUrl: storeUrl.trim(),
         storeCurrency,
         currencyDisplayType,
+        tierRecalculationEnabled,
+        tierRecalculationFrequency,
         // timezone is synced from Shopify, not updated here
         updatedAt: new Date(),
       },
@@ -876,6 +849,11 @@ export default function SettingsPage() {
   // Timezone is now read-only from Shopify
   const timezone = shopifyTimezone || settings.timezone;
 
+  // Tier recalculation state
+  const [tierRecalculationEnabled, setTierRecalculationEnabled] = useState(settings.tierRecalculationEnabled);
+  const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
   // Order sync state
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncRange, setSyncRange] = useState("365");
@@ -889,16 +867,21 @@ export default function SettingsPage() {
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Billing state
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
+
   // Check for unsaved changes
   useEffect(() => {
-    const hasChanges = 
+    const hasChanges =
       storeName !== settings.storeName ||
       storeUrl !== settings.storeUrl ||
       storeCurrency !== settings.storeCurrency ||
-      currencyDisplayType !== settings.currencyDisplayType;
-    
+      currencyDisplayType !== settings.currencyDisplayType ||
+      tierRecalculationEnabled !== settings.tierRecalculationEnabled ||
+      tierRecalculationFrequency !== settings.tierRecalculationFrequency;
+
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, settings]);
 
   // Removed time display - timezone is now just shown as text
 
@@ -910,10 +893,12 @@ export default function SettingsPage() {
     formData.append("storeUrl", storeUrl);
     formData.append("storeCurrency", storeCurrency);
     formData.append("currencyDisplayType", currencyDisplayType);
+    formData.append("tierRecalculationEnabled", String(tierRecalculationEnabled));
+    formData.append("tierRecalculationFrequency", tierRecalculationFrequency);
     // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -921,6 +906,8 @@ export default function SettingsPage() {
     setStoreUrl(settings.storeUrl);
     setStoreCurrency(settings.storeCurrency);
     setCurrencyDisplayType(settings.currencyDisplayType);
+    setTierRecalculationEnabled(settings.tierRecalculationEnabled);
+    setTierRecalculationFrequency(settings.tierRecalculationFrequency);
     // Timezone is read-only, no need to reset
   }, [settings]);
 
@@ -960,6 +947,52 @@ export default function SettingsPage() {
     );
   }, [fetcher]);
 
+  // Handle subscription cancellation
+  const handleCancelSubscription = useCallback(() => {
+    if (confirm("Are you sure you want to cancel your subscription? You will be downgraded to the Free plan at the end of your billing period.")) {
+      fetcher.submit(
+        { intent: "cancel-subscription" },
+        { method: "post" }
+      );
+    }
+  }, [fetcher]);
+
+  // Handle manual tier recalculation
+  const handleManualRecalculation = useCallback(() => {
+    if (confirm("This will recalculate tiers for all customers in your store. This may take several minutes depending on the number of customers. Continue?")) {
+      setIsRecalculating(true);
+      fetcher.submit(
+        { intent: "recalculate-tiers" },
+        { method: "post" }
+      );
+    }
+  }, [fetcher]);
+
+  // Calculate next scheduled run based on frequency and last run
+  const calculateNextRun = useCallback((lastRun: string | null, frequency: RecalculationFrequency): string => {
+    if (!lastRun) return "Next daily cron run";
+
+    const lastRunDate = new Date(lastRun);
+    const nextRun = new Date(lastRunDate);
+
+    switch (frequency) {
+      case 'DAILY':
+        nextRun.setDate(nextRun.getDate() + 1);
+        break;
+      case 'WEEKLY':
+        nextRun.setDate(nextRun.getDate() + 7);
+        break;
+      case 'MONTHLY':
+        nextRun.setDate(nextRun.getDate() + 30);
+        break;
+      case 'QUARTERLY':
+        nextRun.setDate(nextRun.getDate() + 90);
+        break;
+    }
+
+    return nextRun.toLocaleDateString();
+  }, []);
+
   // Handle sync completion
   useEffect(() => {
     if (fetcher.data?.syncStarted && isSyncing) {
@@ -989,7 +1022,7 @@ export default function SettingsPage() {
   };
 
   // Show success/error messages
-  const actionData = fetcher.data as { error?: string; success?: boolean } | undefined;
+  const actionData = fetcher.data as { error?: string; success?: boolean; message?: string } | undefined;
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
   // Reset unsaved changes flag on successful save
@@ -1022,9 +1055,75 @@ export default function SettingsPage() {
       panelID: 'data-sync-panel',
     },
     {
+      id: 'tier-automation',
+      content: 'Tier Automation',
+      panelID: 'tier-automation-panel',
+    },
+    {
       id: 'billing',
       content: 'Billing',
       panelID: 'billing-panel',
+    },
+  ];
+
+  // Plan cards configuration for billing tab
+  const planCards = [
+    {
+      id: "pro",
+      idAnnual: "pro-annual",
+      name: "Pro",
+      monthlyPrice: "$39",
+      annualPrice: "$336",
+      annualMonthlyEquivalent: "$28",
+      annualSavings: "Save $132/year",
+      description: "Everything you need to grow your loyalty program",
+      features: [
+        "500 orders/month",
+        "Batch processing cashback",
+        "Priority support",
+        "Advanced analytics",
+        "$10 per 100 extra orders"
+      ],
+      recommended: false,
+    },
+    {
+      id: "max",
+      idAnnual: "max-annual",
+      name: "Max",
+      monthlyPrice: "$149",
+      annualPrice: "$1,296",
+      annualMonthlyEquivalent: "$108",
+      annualSavings: "Save $492/year",
+      description: "For established businesses with advanced needs",
+      features: [
+        "2,000 orders/month",
+        "Sell tier memberships",
+        "White label email",
+        "Advanced analytics",
+        "Phone support",
+        "$5 per 100 extra orders"
+      ],
+      recommended: true,
+    },
+    {
+      id: "ultra",
+      idAnnual: "ultra-annual",
+      name: "Ultra",
+      monthlyPrice: "$499",
+      annualPrice: "$4,296",
+      annualMonthlyEquivalent: "$358",
+      annualSavings: "Save $1,692/year",
+      description: "Unlimited everything for growing enterprises",
+      features: [
+        "Unlimited orders",
+        "Unlimited emails",
+        "Full white label solution",
+        "Custom SMTP integration",
+        "A/B testing",
+        "Dedicated support",
+        "No overage charges"
+      ],
+      recommended: false,
     },
   ];
 
@@ -1035,13 +1134,13 @@ export default function SettingsPage() {
   return (
     <Page
       title="Store Settings"
-      primaryAction={selectedTab !== 4 ? {
+      primaryAction={selectedTab !== 5 ? {
         content: "Save Settings",
         onAction: handleSubmit,
         loading: isLoading,
         disabled: !hasUnsavedChanges,
       } : undefined}
-      secondaryActions={selectedTab !== 4 ? [
+      secondaryActions={selectedTab !== 5 ? [
         {
           content: "Reset",
           onAction: handleReset,
@@ -1060,7 +1159,7 @@ export default function SettingsPage() {
             )}
             {actionData?.success && (
               <Banner tone="success">
-                <p>Settings saved successfully!</p>
+                <p>{actionData.message || "Settings saved successfully!"}</p>
               </Banner>
             )}
             {hasUnsavedChanges && (
@@ -1068,6 +1167,25 @@ export default function SettingsPage() {
                 <p>You have unsaved changes</p>
               </Banner>
             )}
+
+            {/* Store Metrics Card */}
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <BlockStack gap="200">
+                    <Text as="h2" variant="headingMd">
+                      Store Business Metrics
+                    </Text>
+                    <Text as="p" tone="subdued">
+                      Configure profit margins, COGS, and other business metrics for enhanced analytics
+                    </Text>
+                  </BlockStack>
+                  <Button onClick={() => navigate("/app/settings/store-metrics")}>
+                    Configure Metrics
+                  </Button>
+                </InlineStack>
+              </BlockStack>
+            </Card>
 
             {/* Tabbed Interface */}
             <Card>
@@ -1322,26 +1440,119 @@ export default function SettingsPage() {
                           </Banner>
                         )}
                       </BlockStack>
+
+                    </BlockStack>
+                  )}
+
+                  {/* Tier Automation Tab */}
+                  {selectedTab === 4 && (
+                    <BlockStack gap="400">
+                      <Text as="h2" variant="headingMd">
+                        Automatic Tier Recalculation
+                      </Text>
+
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Configure how often customer tiers are automatically recalculated.
+                        This helps ensure inactive customers are downgraded and active customers
+                        maintain their appropriate tier levels.
+                      </Text>
+
+                      <Divider />
+
+                      <FormLayout>
+                        <Checkbox
+                          label="Enable automatic tier recalculation"
+                          checked={tierRecalculationEnabled}
+                          onChange={setTierRecalculationEnabled}
+                          helpText="When enabled, tiers will be recalculated automatically based on your selected frequency"
+                        />
+
+                        {tierRecalculationEnabled && (
+                          <Select
+                            label="Recalculation Frequency"
+                            options={[
+                              { label: 'Daily', value: 'DAILY' },
+                              { label: 'Weekly (Recommended)', value: 'WEEKLY' },
+                              { label: 'Monthly', value: 'MONTHLY' },
+                              { label: 'Quarterly', value: 'QUARTERLY' },
+                            ]}
+                            value={tierRecalculationFrequency}
+                            onChange={(value) => setTierRecalculationFrequency(value as RecalculationFrequency)}
+                            helpText="How often to recalculate customer tiers based on their spending"
+                          />
+                        )}
+                      </FormLayout>
+
+                      <Divider />
+
+                      {/* Last Run Info */}
+                      {settings.tierRecalculationLastRun && (
+                        <BlockStack gap="200">
+                          <Text variant="bodySm" tone="subdued">
+                            Last automatic recalculation: {formatDate(settings.tierRecalculationLastRun)}
+                          </Text>
+                          <Text variant="bodySm" tone="subdued">
+                            Next scheduled run: {calculateNextRun(settings.tierRecalculationLastRun, tierRecalculationFrequency)}
+                          </Text>
+                        </BlockStack>
+                      )}
+
+                      {/* Manual Trigger */}
+                      <Card>
+                        <BlockStack gap="300">
+                          <Text variant="headingSm" as="h3">
+                            Manual Recalculation
+                          </Text>
+                          <Text variant="bodyMd">
+                            You can manually trigger a tier recalculation for all customers at any time.
+                          </Text>
+                          <Button
+                            onClick={handleManualRecalculation}
+                            loading={isRecalculating}
+                            icon={RefreshIcon}
+                          >
+                            Recalculate All Tiers Now
+                          </Button>
+                        </BlockStack>
+                      </Card>
+
+                      {/* Information Banner */}
+                      <Banner tone="info">
+                        <BlockStack gap="200">
+                          <Text variant="bodyMd" fontWeight="semibold">
+                            How automatic recalculation works:
+                          </Text>
+                          <Box>
+                            <ul style={{ marginLeft: '20px' }}>
+                              <li>Recalculation respects manual tier overrides (customers with manual assignments are skipped)</li>
+                              <li>Only evaluates customers based on their tier's evaluation period (ANNUAL or LIFETIME)</li>
+                              <li>Includes a grace period before downgrading inactive customers</li>
+                              <li>All tier changes are logged in the customer's tier history</li>
+                            </ul>
+                          </Box>
+                        </BlockStack>
+                      </Banner>
                     </BlockStack>
                   )}
 
                   {/* Billing Tab */}
-                  {selectedTab === 4 && (
+                  {selectedTab === 5 && (
                     <BlockStack gap="600">
                       <CurrentPlanCard
                         activeSubscription={activeSubscription}
                         currentPlan={currentPlan}
                         monthlyOrderUsage={{
                           orderCount: monthlyOrderUsage?.orderCount || 0,
-                          planLimit: monthlyOrderUsage?.planLimit || 200,
+                          planLimit: monthlyOrderUsage?.planLimit || MANAGED_PLANS["RewardsPro Free"].ordersIncluded,
                           projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
                           currentMonth: currentMonth
                         }}
                         showUpgradeButton={true}
-                        showOverageBanner={true}
+                        showOverageBanner={false}
                         showCountStrategy={false}
                         showProjectedUsage={true}
-                        onUpgrade={() => navigate("/app/billing/plans")}
+                        compact={false}
+                        onUpgrade={() => navigate("/app/billing")}
                       />
 
                       <Divider />
@@ -1355,37 +1566,30 @@ export default function SettingsPage() {
                         {activeSubscription && activeSubscription.name !== "RewardsPro Free" ? (
                           <BlockStack gap="300">
                             <Text variant="bodyMd" tone="subdued">
-                              Need to reduce costs? You can downgrade your subscription or switch to our free plan.
+                              Need to reduce costs? You can downgrade your subscription or cancel it completely.
                             </Text>
 
                             <InlineStack gap="200">
                               <Button
                                 variant="secondary"
-                                onClick={() => navigate("/app/billing/plans")}
+                                onClick={() => navigate("/app/billing")}
                               >
                                 Change Plan
                               </Button>
 
-                              {/* Show free plan option only for downgrades */}
                               <Button
                                 variant="plain"
                                 tone="critical"
-                                onClick={() => {
-                                  if (confirm("Are you sure you want to switch to the free plan? You will lose access to premium features.")) {
-                                    fetcher.submit(
-                                      { intent: "downgrade-to-free" },
-                                      { method: "post" }
-                                    );
-                                  }
-                                }}
+                                onClick={handleCancelSubscription}
+                                loading={isLoading}
                               >
-                                Switch to Free Plan (100 orders/month)
+                                Cancel Subscription
                               </Button>
                             </InlineStack>
 
                             <Banner tone="info">
                               <Text variant="bodySm">
-                                <strong>Free Plan includes:</strong> Up to 100 orders/month, 500 customers max, basic tier management, store credit system, and email support.
+                                <strong>Cancellation Policy:</strong> Your subscription will remain active until the end of your current billing period, then automatically downgrade to the Free plan (100 orders/month).
                               </Text>
                             </Banner>
                           </BlockStack>
@@ -1396,12 +1600,138 @@ export default function SettingsPage() {
                             </Text>
                             <Button
                               variant="primary"
-                              onClick={() => navigate("/app/billing/plans")}
+                              onClick={() => navigate("/app/billing")}
                             >
                               View Upgrade Options
                             </Button>
                           </BlockStack>
                         )}
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Plan Selection */}
+                      <BlockStack gap="400">
+                        <Text variant="headingMd" as="h3">
+                          Available Plans
+                        </Text>
+
+                        {/* Billing Interval Toggle */}
+                        <InlineStack align="end" blockAlign="center">
+                          <ButtonGroup variant="segmented">
+                            <Button
+                              pressed={billingInterval === 'monthly'}
+                              onClick={() => setBillingInterval('monthly')}
+                              size="slim"
+                            >
+                              Monthly
+                            </Button>
+                            <Button
+                              pressed={billingInterval === 'annual'}
+                              onClick={() => setBillingInterval('annual')}
+                              size="slim"
+                            >
+                              Annual
+                            </Button>
+                          </ButtonGroup>
+                        </InlineStack>
+
+                        {/* Plan Cards */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                          gap: '16px',
+                        }}>
+                          {planCards.map((plan) => {
+                            const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
+                            const isCurrentPlan = currentPlan === `RewardsPro ${plan.name}` ||
+                                                 currentPlan === `RewardsPro ${plan.name} Annual`;
+
+                            return (
+                              <Card key={plan.id}>
+                                <Box padding="600">
+                                  <BlockStack gap="400">
+                                    {/* Plan Header */}
+                                    <InlineStack align="space-between">
+                                      <Text as="h3" variant="headingLg">
+                                        {plan.name}
+                                      </Text>
+                                      {plan.recommended && (
+                                        <Badge tone="info">Recommended</Badge>
+                                      )}
+                                      {isCurrentPlan && (
+                                        <Badge tone="success">Current</Badge>
+                                      )}
+                                    </InlineStack>
+
+                                    {/* Price */}
+                                    <BlockStack gap="200">
+                                      {billingInterval === 'monthly' ? (
+                                        <InlineStack align="start" gap="100">
+                                          <Text as="p" variant="heading2xl">
+                                            {plan.monthlyPrice}
+                                          </Text>
+                                          <Text as="span" variant="bodyLg" tone="subdued">
+                                            /month
+                                          </Text>
+                                        </InlineStack>
+                                      ) : (
+                                        <BlockStack gap="100">
+                                          <InlineStack align="start" gap="100">
+                                            <Text as="p" variant="heading2xl">
+                                              {plan.annualMonthlyEquivalent}
+                                            </Text>
+                                            <Text as="span" variant="bodyLg" tone="subdued">
+                                              /month
+                                            </Text>
+                                          </InlineStack>
+                                          <Text as="p" variant="bodyMd" tone="subdued">
+                                            {plan.annualPrice}/year • {plan.annualSavings}
+                                          </Text>
+                                        </BlockStack>
+                                      )}
+                                    </BlockStack>
+
+                                    {/* Description */}
+                                    <Text as="p" variant="bodyMd" tone="subdued">
+                                      {plan.description}
+                                    </Text>
+
+                                    {/* Action Button */}
+                                    <Button
+                                      fullWidth
+                                      size="large"
+                                      variant={isCurrentPlan ? "secondary" : (plan.recommended ? "primary" : "primary")}
+                                      disabled={isCurrentPlan}
+                                      onClick={() => navigate(`/app/billing?plan=${planIdToUse}`)}
+                                    >
+                                      {isCurrentPlan ? "Current Plan" : `Upgrade to ${plan.name}`}
+                                    </Button>
+
+                                    <Divider />
+
+                                    {/* Features List */}
+                                    <BlockStack gap="300" align="start">
+                                      <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
+                                        What's included:
+                                      </Text>
+                                      <BlockStack gap="200" align="start">
+                                        {plan.features.map((feature, index) => (
+                                          <InlineStack key={index} gap="200" align="start" blockAlign="start">
+                                            <div style={{ flexShrink: 0 }}>
+                                              <Icon source={CheckCircleIcon} tone="success" />
+                                            </div>
+                                            <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
+                                          </InlineStack>
+                                        ))}
+                                      </BlockStack>
+                                    </BlockStack>
+                                  </BlockStack>
+                                </Box>
+                              </Card>
+                            );
+                          })}
+                        </div>
                       </BlockStack>
                     </BlockStack>
                   )}

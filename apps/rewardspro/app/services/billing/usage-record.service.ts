@@ -295,7 +295,7 @@ export class UsageRecordService {
       const cashbackData = await db.storeCreditLedger.aggregate({
         where: {
           shop: this.shop,
-          entryType: "CASHBACK_EARNED",
+          type: "CASHBACK_EARNED",
           createdAt: {
             gte: targetDate,
             lt: nextDay,

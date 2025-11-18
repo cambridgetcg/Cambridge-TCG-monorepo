@@ -51,6 +51,8 @@ import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
+import { getCurrentPlan, hasFeature } from "../utils/plan-limits";
+import { FeatureGate, LockedFeature } from "../components/FeatureGate";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -90,6 +92,8 @@ interface LoaderData {
   } | null;
   shop: string;
   tierDistribution: Record<string, number>;
+  canCreateProducts: boolean;
+  currentPlan: string;
 }
 
 // ============================================
@@ -148,6 +152,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
   
   try {
+    // Fetch billing subscription to check plan access
+    const billingSubscription = await db.billingSubscription.findUnique({
+      where: { shop }
+    });
+
+    const currentPlan = getCurrentPlan(null, billingSubscription);
+    // TEMPORARILY ENABLED: Allow tier product creation on free plan for testing
+    const canCreateProducts = true; // hasFeature(currentPlan, 'purchasableTiers');
+
     // Fetch tiers, shop settings, and tier distribution
     const [tiers, shopSettings, customers] = await Promise.all([
       db.tier.findMany({
@@ -291,6 +304,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       } : null,
       shop,
       tierDistribution,
+      canCreateProducts,
+      currentPlan,
     });
   } catch (error) {
     console.error("[TierProducts] Loader error:", error);
@@ -437,6 +452,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (intent === "create-product") {
+      // Check plan access (server-side validation)
+      const billingSubscription = await db.billingSubscription.findUnique({
+        where: { shop }
+      });
+      const currentPlan = getCurrentPlan(null, billingSubscription);
+      // TEMPORARILY ENABLED: Allow tier product creation on free plan for testing
+      const canCreateProducts = true; // hasFeature(currentPlan, 'purchasableTiers');
+
+      if (!canCreateProducts) {
+        return json({
+          success: false,
+          error: "Upgrade to Pro plan or higher to create purchasable tier products"
+        }, { status: 403 });
+      }
+
       const tierId = formData.get("tierId") as string;
       const tierName = formData.get("tierName") as string;
       const price = parseFloat(formData.get("price") as string);
@@ -692,7 +722,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               data: {
                 id: uuidv4(),
                 shop,
-                tierId,
+                tierId: tier.id,  // Use tier.id from database, not form data
                 shopifyProductId: product.id.replace('gid://shopify/Product/', ''),
                 shopifyVariantId: variant.id.replace('gid://shopify/ProductVariant/', ''),
                 productHandle: product.handle || sku,
@@ -851,7 +881,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               data: {
                 id: uuidv4(),
                 shop,
-                tierId,
+                tierId: tier.id,  // Use tier.id from database, not form data
                 shopifyProductId: result.productId.replace('gid://shopify/Product/', ''),
                 shopifyVariantId: result.variantId.replace('gid://shopify/ProductVariant/', ''),
                 productHandle: result.handle || sku,
@@ -1198,35 +1228,79 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
 
-        const publishResponse = await admin.graphql(publishMutation, {
-          variables: {
-            input: {
-              id: productId,
-              productPublications: [
-                {
-                  publicationId: onlineStore.node.id,
-                  publishDate: new Date().toISOString()
-                }
-              ]
+        try {
+          const publishResponse = await admin.graphql(publishMutation, {
+            variables: {
+              input: {
+                id: productId,
+                productPublications: [
+                  {
+                    publicationId: onlineStore.node.id,
+                    publishDate: new Date().toISOString()
+                  }
+                ]
+              }
             }
+          });
+
+          const publishResult = await publishResponse.json() as any;
+
+          // Check for userErrors (these are actual validation/business logic errors)
+          if (publishResult.data?.productPublish?.userErrors?.length > 0) {
+            const errors = publishResult.data.productPublish.userErrors.map((e: any) => e.message).join(", ");
+            return json({
+              success: false,
+              error: `Failed to publish product: ${errors}`
+            }, { status: 400 });
           }
-        });
 
-        const publishResult = await publishResponse.json() as any;
+          return json({
+            success: true,
+            message: "Product published successfully to Online Store",
+            published: true
+          });
+        } catch (error: any) {
+          // GraphQL client throws when response has errors array, even if operation succeeded
+          // Check if we got a successful result despite the error
+          console.warn('[TierProducts] GraphQL error during publish, checking if operation succeeded:', error.message);
 
-        if (publishResult.data?.productPublish?.userErrors?.length > 0) {
-          const errors = publishResult.data.productPublish.userErrors.map((e: any) => e.message).join(", ");
+          // Try to extract the response from the error
+          let publishResult: any = null;
+          try {
+            // The error might have the response attached
+            if (error.response) {
+              publishResult = await error.response.json();
+            }
+          } catch (e) {
+            // Couldn't extract response, treat as real error
+          }
+
+          // Check if operation succeeded despite GraphQL errors
+          if (publishResult?.data?.productPublish?.product?.id) {
+            // Operation succeeded! Check for userErrors
+            if (publishResult.data.productPublish.userErrors?.length > 0) {
+              const errors = publishResult.data.productPublish.userErrors.map((e: any) => e.message).join(", ");
+              return json({
+                success: false,
+                error: `Failed to publish product: ${errors}`
+              }, { status: 400 });
+            }
+
+            // Success with non-fatal GraphQL errors
+            console.log('[TierProducts] Product published successfully despite GraphQL errors');
+            return json({
+              success: true,
+              message: "Product published successfully to Online Store",
+              published: true
+            });
+          }
+
+          // Real failure - operation did not succeed
           return json({
             success: false,
-            error: `Failed to publish product: ${errors}`
-          }, { status: 400 });
+            error: `Failed to publish product: ${error.message}`
+          }, { status: 500 });
         }
-
-        return json({
-          success: true,
-          message: "Product published successfully to Online Store",
-          published: true
-        });
       } else {
         // Unpublish the product
         const unpublishMutation = `#graphql
@@ -1245,34 +1319,78 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
 
-        const unpublishResponse = await admin.graphql(unpublishMutation, {
-          variables: {
-            input: {
-              id: productId,
-              productPublications: [
-                {
-                  publicationId: onlineStore.node.id
-                }
-              ]
+        try {
+          const unpublishResponse = await admin.graphql(unpublishMutation, {
+            variables: {
+              input: {
+                id: productId,
+                productPublications: [
+                  {
+                    publicationId: onlineStore.node.id
+                  }
+                ]
+              }
             }
+          });
+
+          const unpublishResult = await unpublishResponse.json() as any;
+
+          // Check for userErrors (these are actual validation/business logic errors)
+          if (unpublishResult.data?.productUnpublish?.userErrors?.length > 0) {
+            const errors = unpublishResult.data.productUnpublish.userErrors.map((e: any) => e.message).join(", ");
+            return json({
+              success: false,
+              error: `Failed to unpublish product: ${errors}`
+            }, { status: 400 });
           }
-        });
 
-        const unpublishResult = await unpublishResponse.json() as any;
+          return json({
+            success: true,
+            message: "Product unpublished from Online Store",
+            published: false
+          });
+        } catch (error: any) {
+          // GraphQL client throws when response has errors array, even if operation succeeded
+          // Check if we got a successful result despite the error
+          console.warn('[TierProducts] GraphQL error during unpublish, checking if operation succeeded:', error.message);
 
-        if (unpublishResult.data?.productUnpublish?.userErrors?.length > 0) {
-          const errors = unpublishResult.data.productUnpublish.userErrors.map((e: any) => e.message).join(", ");
+          // Try to extract the response from the error
+          let unpublishResult: any = null;
+          try {
+            // The error might have the response attached
+            if (error.response) {
+              unpublishResult = await error.response.json();
+            }
+          } catch (e) {
+            // Couldn't extract response, treat as real error
+          }
+
+          // Check if operation succeeded despite GraphQL errors
+          if (unpublishResult?.data?.productUnpublish?.product?.id) {
+            // Operation succeeded! Check for userErrors
+            if (unpublishResult.data.productUnpublish.userErrors?.length > 0) {
+              const errors = unpublishResult.data.productUnpublish.userErrors.map((e: any) => e.message).join(", ");
+              return json({
+                success: false,
+                error: `Failed to unpublish product: ${errors}`
+              }, { status: 400 });
+            }
+
+            // Success with non-fatal GraphQL errors
+            console.log('[TierProducts] Product unpublished successfully despite GraphQL errors');
+            return json({
+              success: true,
+              message: "Product unpublished from Online Store",
+              published: false
+            });
+          }
+
+          // Real failure - operation did not succeed
           return json({
             success: false,
-            error: `Failed to unpublish product: ${errors}`
-          }, { status: 400 });
+            error: `Failed to unpublish product: ${error.message}`
+          }, { status: 500 });
         }
-
-        return json({
-          success: true,
-          message: "Product unpublished from Online Store",
-          published: false
-        });
       }
 
     } else if (intent === "delete-product") {
@@ -1322,70 +1440,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({
         success: true,
         message: "Product deleted successfully",
-      });
-      
-    } else if (intent === "reset-selling-plans") {
-      // Reset all selling plans to use new descriptions
-      console.log("[TierProducts] Resetting selling plans with new descriptions");
-      
-      // First, remove existing selling plan group
-      await SellingPlanManagerEnhanced.removeSellingPlanGroup({ shop, admin });
-      
-      // Get all tier products from Shopify
-      const productsQuery = `#graphql
-        query getProducts {
-          products(first: 100, query: "tag:tier-product") {
-            edges {
-              node {
-                id
-                variants(first: 1) {
-                  edges {
-                    node {
-                      id
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      `;
-      
-      const productsResponse = await admin.graphql(productsQuery);
-      const productsResult = await productsResponse.json();
-      
-      if (productsResult.data?.products?.edges?.length > 0) {
-        // Collect variant IDs
-        const variantIds: string[] = [];
-        const tierIds: string[] = [];
-        
-        for (const edge of productsResult.data.products.edges) {
-          const variant = edge.node.variants.edges[0]?.node;
-          if (variant) {
-            variantIds.push(variant.id);
-            tierIds.push("dummy-tier-id"); // We don't need real tier IDs for this
-          }
-        }
-        
-        // Create new selling plan group with updated descriptions
-        if (variantIds.length > 0) {
-          const productVariantMap = new Map();
-          variantIds.forEach((variantId, index) => {
-            productVariantMap.set(tierIds[index], variantId);
-          });
-          
-          await SellingPlanManagerEnhanced.createSellingPlanGroup({
-            shop,
-            admin,
-            tierIds,
-            productVariantMap,
-          });
-        }
-      }
-      
-      return json({
-        success: true,
-        message: "Selling plans have been reset with new descriptions"
       });
     }
 
@@ -1698,23 +1752,11 @@ export default function TierProducts() {
       <Page
         title="Tier Products"
         subtitle="Create and manage membership products for your loyalty tiers"
-        primaryAction={{
+        primaryAction={data.canCreateProducts ? {
           content: "Create Product",
           icon: PlusIcon,
           onAction: handleModalOpen,
-        }}
-        secondaryActions={[
-          {
-            content: "Reset Subscription Descriptions",
-            onAction: () => {
-              if (confirm("This will update all selling plan descriptions. Continue?")) {
-                const form = new FormData();
-                form.append("intent", "reset-selling-plans");
-                submit(form, { method: "post" });
-              }
-            },
-          }
-        ]}
+        } : undefined}
       >
         <Layout>
           {/* Loading State Banner */}
@@ -1732,6 +1774,30 @@ export default function TierProducts() {
               </Banner>
             </Layout.Section>
           )}
+
+          {/* Plan Upgrade Banner */}
+          {!data.canCreateProducts && (
+            <Layout.Section>
+              <LockedFeature
+                feature="Purchasable Tier Products"
+                upgradeMessage="Upgrade to Pro plan or higher to create products that customers can purchase to unlock tier benefits. This feature allows you to sell tier memberships as one-time purchases or recurring subscriptions."
+              />
+            </Layout.Section>
+          )}
+
+          {/* Information Banner */}
+          <Layout.Section>
+            <Banner
+              title="Sell tier memberships as products"
+              tone="info"
+              icon={PackageIcon}
+            >
+              <p>
+                Create Shopify products that customers can purchase to gain access to specific loyalty tiers.
+                These products can be one-time purchases or recurring subscriptions.
+              </p>
+            </Banner>
+          </Layout.Section>
 
           {/* Loyalty Tiers Management */}
           <Layout.Section>
@@ -1895,22 +1961,377 @@ export default function TierProducts() {
             </Card>
           </Layout.Section>
 
-          {/* Information Banner */}
+          {/* Tier-Duration Matrix View */}
           <Layout.Section>
-            <Banner
-              title="Sell tier memberships as products"
-              tone="info"
-              icon={PackageIcon}
-            >
-              <p>
-                Create Shopify products that customers can purchase to gain access to specific loyalty tiers.
-                These products can be one-time purchases or recurring subscriptions.
-              </p>
-            </Banner>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="headingLg" as="h2">
+                      Tier Product Coverage
+                    </Text>
+                    <Badge tone="info">
+                      {data.tierProducts.length} / {data.tiers.length * 3} products created
+                    </Badge>
+                  </InlineStack>
+
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    See which tier + duration combinations have products. Click + Create to add missing products.
+                  </Text>
+
+                  {data.tiers.length === 0 ? (
+                    <Banner tone="warning">
+                      <p>Create loyalty tiers first before adding tier products.</p>
+                    </Banner>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '150px repeat(3, 1fr)',
+                      gap: '12px',
+                      marginTop: '8px'
+                    }}>
+                      {/* Header Row */}
+                      <div style={{ padding: '12px', fontWeight: 600 }}></div>
+                      <div style={{ padding: '12px', fontWeight: 600, textAlign: 'center' }}>
+                        <Text variant="headingSm" as="h3" fontWeight="semibold">Monthly</Text>
+                      </div>
+                      <div style={{ padding: '12px', fontWeight: 600, textAlign: 'center' }}>
+                        <Text variant="headingSm" as="h3" fontWeight="semibold">Annual</Text>
+                      </div>
+                      <div style={{ padding: '12px', fontWeight: 600, textAlign: 'center' }}>
+                        <Text variant="headingSm" as="h3" fontWeight="semibold">Lifetime</Text>
+                      </div>
+
+                      {/* Tier Rows */}
+                      {data.tiers
+                        .sort((a, b) => a.minSpend - b.minSpend)
+                        .map((tier) => {
+                          const monthlyProduct = data.tierProducts.find(
+                            p => p.tierId === tier.id && p.duration === 'MONTHLY'
+                          );
+                          const annualProduct = data.tierProducts.find(
+                            p => p.tierId === tier.id && p.duration === 'ANNUAL'
+                          );
+                          const lifetimeProduct = data.tierProducts.find(
+                            p => p.tierId === tier.id && p.duration === 'LIFETIME'
+                          );
+
+                          return (
+                            <div key={tier.id} style={{ display: 'contents' }}>
+                              {/* Tier Name Cell */}
+                              <div style={{
+                                padding: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                borderRadius: '8px',
+                                background: 'var(--p-color-bg-surface-secondary)'
+                              }}>
+                                <div style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '6px',
+                                  background: getTierStyle(tier.name).backgroundColor,
+                                  border: `1px solid ${getTierStyle(tier.name).borderColor}`,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <Icon source={getTierStyle(tier.name).icon} tone="base" />
+                                </div>
+                                <Text variant="bodyMd" as="span" fontWeight="semibold">
+                                  {tier.name}
+                                </Text>
+                              </div>
+
+                              {/* Monthly Cell */}
+                              <div style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--p-color-border)',
+                                background: monthlyProduct ? 'var(--p-color-bg-surface)' : 'var(--p-color-bg-surface-secondary)',
+                                minHeight: '80px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                              }}>
+                                {monthlyProduct ? (
+                                  <>
+                                    <InlineStack align="space-between" blockAlign="start">
+                                      <Text variant="headingMd" as="span" fontWeight="bold">
+                                        {formatAmount(monthlyProduct.price)}
+                                      </Text>
+                                      <InlineStack gap="100">
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: monthlyProduct.isActive ? '#22c55e' : '#eab308'
+                                        }} />
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: monthlyProduct.publishedAt ? '#22c55e' : '#9ca3af'
+                                        }} />
+                                        {monthlyProduct.hasSubscription && (
+                                          <div style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#3b82f6'
+                                          }} />
+                                        )}
+                                      </InlineStack>
+                                    </InlineStack>
+                                    <Text variant="bodySm" tone="subdued" as="code" truncate>
+                                      {monthlyProduct.sku}
+                                    </Text>
+                                    <Button
+                                      size="micro"
+                                      onClick={() => handleEditModalOpen(monthlyProduct)}
+                                      disabled={!data.canCreateProducts}
+                                    >
+                                      Edit
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '100%',
+                                    gap: '8px'
+                                  }}>
+                                    <Button
+                                      size="slim"
+                                      icon={PlusIcon}
+                                      onClick={() => {
+                                        setSelectedTier(tier.id);
+                                        setDuration('MONTHLY');
+                                        setPrice('');
+                                        handleModalOpen();
+                                      }}
+                                      disabled={!data.canCreateProducts}
+                                    >
+                                      Create
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Annual Cell */}
+                              <div style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--p-color-border)',
+                                background: annualProduct ? 'var(--p-color-bg-surface)' : 'var(--p-color-bg-surface-secondary)',
+                                minHeight: '80px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                              }}>
+                                {annualProduct ? (
+                                  <>
+                                    <InlineStack align="space-between" blockAlign="start">
+                                      <Text variant="headingMd" as="span" fontWeight="bold">
+                                        {formatAmount(annualProduct.price)}
+                                      </Text>
+                                      <InlineStack gap="100">
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: annualProduct.isActive ? '#22c55e' : '#eab308'
+                                        }} />
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: annualProduct.publishedAt ? '#22c55e' : '#9ca3af'
+                                        }} />
+                                        {annualProduct.hasSubscription && (
+                                          <div style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#3b82f6'
+                                          }} />
+                                        )}
+                                      </InlineStack>
+                                    </InlineStack>
+                                    <Text variant="bodySm" tone="subdued" as="code" truncate>
+                                      {annualProduct.sku}
+                                    </Text>
+                                    <Button
+                                      size="micro"
+                                      onClick={() => handleEditModalOpen(annualProduct)}
+                                      disabled={!data.canCreateProducts}
+                                    >
+                                      Edit
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '100%',
+                                    gap: '8px'
+                                  }}>
+                                    <Button
+                                      size="slim"
+                                      icon={PlusIcon}
+                                      onClick={() => {
+                                        setSelectedTier(tier.id);
+                                        setDuration('ANNUAL');
+                                        setPrice('');
+                                        handleModalOpen();
+                                      }}
+                                      disabled={!data.canCreateProducts}
+                                    >
+                                      Create
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Lifetime Cell */}
+                              <div style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--p-color-border)',
+                                background: lifetimeProduct ? 'var(--p-color-bg-surface)' : 'var(--p-color-bg-surface-secondary)',
+                                minHeight: '80px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                              }}>
+                                {lifetimeProduct ? (
+                                  <>
+                                    <InlineStack align="space-between" blockAlign="start">
+                                      <Text variant="headingMd" as="span" fontWeight="bold">
+                                        {formatAmount(lifetimeProduct.price)}
+                                      </Text>
+                                      <InlineStack gap="100">
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: lifetimeProduct.isActive ? '#22c55e' : '#eab308'
+                                        }} />
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: lifetimeProduct.publishedAt ? '#22c55e' : '#9ca3af'
+                                        }} />
+                                        {lifetimeProduct.hasSubscription && (
+                                          <div style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#3b82f6'
+                                          }} />
+                                        )}
+                                      </InlineStack>
+                                    </InlineStack>
+                                    <Text variant="bodySm" tone="subdued" as="code" truncate>
+                                      {lifetimeProduct.sku}
+                                    </Text>
+                                    <Button
+                                      size="micro"
+                                      onClick={() => handleEditModalOpen(lifetimeProduct)}
+                                      disabled={!data.canCreateProducts}
+                                    >
+                                      Edit
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '100%',
+                                    gap: '8px'
+                                  }}>
+                                    <Button
+                                      size="slim"
+                                      icon={PlusIcon}
+                                      onClick={() => {
+                                        setSelectedTier(tier.id);
+                                        setDuration('LIFETIME');
+                                        setPrice('');
+                                        handleModalOpen();
+                                      }}
+                                      disabled={!data.canCreateProducts}
+                                    >
+                                      Create
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+
+                  {/* Legend */}
+                  <Box paddingBlockStart="400">
+                    <BlockStack gap="200">
+                      <Text variant="bodySm" as="span" fontWeight="semibold">Status Indicators:</Text>
+                      <InlineStack gap="400">
+                        <InlineStack gap="100" blockAlign="center">
+                          <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: '#22c55e'
+                          }} />
+                          <Text variant="bodySm" tone="subdued" as="span">Active/Published</Text>
+                        </InlineStack>
+                        <InlineStack gap="100" blockAlign="center">
+                          <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: '#eab308'
+                          }} />
+                          <Text variant="bodySm" tone="subdued" as="span">Draft</Text>
+                        </InlineStack>
+                        <InlineStack gap="100" blockAlign="center">
+                          <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: '#9ca3af'
+                          }} />
+                          <Text variant="bodySm" tone="subdued" as="span">Unpublished</Text>
+                        </InlineStack>
+                        <InlineStack gap="100" blockAlign="center">
+                          <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: '#3b82f6'
+                          }} />
+                          <Text variant="bodySm" tone="subdued" as="span">Subscription</Text>
+                        </InlineStack>
+                      </InlineStack>
+                    </BlockStack>
+                  </Box>
+                </BlockStack>
+              </Box>
+            </Card>
           </Layout.Section>
-          
-          {/* Products Grid - Symmetric Card Layout */}
-          <Layout.Section>
+
+          {/* Products Grid - Symmetric Card Layout - HIDDEN (Legacy Display) */}
+          {false && <Layout.Section>
             {isRefreshing && data.tierProducts.length === 0 ? (
               <Card>
                 <Box padding="400">
@@ -1925,15 +2346,22 @@ export default function TierProducts() {
               <Card>
                 <EmptyState
                   heading="No tier products yet"
-                  action={{
+                  action={data.canCreateProducts ? {
                     content: "Create your first product",
                     onAction: handleModalOpen,
-                  }}
+                  } : undefined}
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
                   <p>
                     Start creating membership products that customers can purchase to unlock tier benefits.
                   </p>
+                  {!data.canCreateProducts && (
+                    <Box paddingBlockStart="400">
+                      <Text as="p" tone="subdued">
+                        This feature requires Pro plan or higher. <Button variant="plain" url="/app/billing">Upgrade now</Button>
+                      </Text>
+                    </Box>
+                  )}
                 </EmptyState>
               </Card>
             ) : (
@@ -2085,7 +2513,7 @@ export default function TierProducts() {
                 </div>
               </>
             )}
-          </Layout.Section>
+          </Layout.Section>}
         </Layout>
         
         {/* Create Product Modal */}
@@ -2339,12 +2767,23 @@ export default function TierProducts() {
 
               <Select
                 label="Evaluation Period"
-                options={[
-                  { label: "Annual (resets yearly)", value: "ANNUAL" },
-                  { label: "Lifetime (cumulative)", value: "LIFETIME" },
-                ]}
+                options={
+                  hasFeature(data.currentPlan, 'annualEvaluationPeriod')
+                    ? [
+                        { label: "Annual (resets yearly)", value: "ANNUAL" },
+                        { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                      ]
+                    : [
+                        { label: "Lifetime (cumulative)", value: "LIFETIME" },
+                      ]
+                }
                 value={tierFormData.evaluationPeriod}
                 onChange={(value) => setTierFormData({ ...tierFormData, evaluationPeriod: value as "ANNUAL" | "LIFETIME" })}
+                helpText={
+                  !hasFeature(data.currentPlan, 'annualEvaluationPeriod')
+                    ? "Annual evaluation period is only available on Ultra plan and above. Upgrade to unlock this feature."
+                    : "Choose how tier status is calculated: annually reset or lifetime cumulative"
+                }
               />
             </FormLayout>
           </Modal.Section>

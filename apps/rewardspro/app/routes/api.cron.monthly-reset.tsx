@@ -81,13 +81,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   for (const usage of lastMonthUsage) {
     try {
       // Check if record already exists for current month
-      const existing = await db.monthlyOrderUsage.findUnique({
+      // Note: Using findFirst instead of findUnique for Aurora Data API compatibility
+      const existing = await db.monthlyOrderUsage.findFirst({
         where: {
-          shop_year_month: {
-            shop: usage.shop,
-            year,
-            month
-          }
+          shop: usage.shop,
+          year: year,
+          month: month
         }
       });
 
