@@ -67,19 +67,20 @@ export async function assignDefaultTierToCustomer(
 
     console.log(`[Tier Management] Assigning base tier ${baseTier.name} to customer ${customer.email}`);
 
-    await db.$transaction([
+    // Update customer with base tier (using callback syntax for Aurora Data API)
+    await db.$transaction(async (tx) => {
       // Update customer with base tier
-      db.customer.update({
+      await tx.customer.update({
         where: { id: customerId },
         data: {
           currentTierId: baseTier.id,
           updatedAt: new Date()
         }
-      }),
+      });
 
       // Create tier change log entry unless skipped (for bulk operations)
-      ...(skipLog ? [] : [
-        db.tierChangeLog.create({
+      if (!skipLog) {
+        await tx.tierChangeLog.create({
           data: {
             id: uuidv4(),
             customerId,
@@ -96,9 +97,9 @@ export async function assignDefaultTierToCustomer(
             },
             createdAt: new Date()
           }
-        })
-      ])
-    ]);
+        });
+      }
+    });
 
     console.log(`[Tier Management] Successfully assigned base tier to ${customer.email}`);
   }
@@ -183,19 +184,19 @@ export async function calculateAndAssignTier(
       triggerType = 'PERIODIC_REVIEW';
     }
 
-    // Update customer tier in a transaction
-    await db.$transaction([
+    // Update customer tier in a transaction (using callback syntax for Aurora Data API)
+    await db.$transaction(async (tx) => {
       // Update customer tier
-      db.customer.update({
+      await tx.customer.update({
         where: { id: customerId },
         data: {
           currentTierId: qualifyingTier.id,
           updatedAt: new Date()
         }
-      }),
+      });
 
       // Log the tier change
-      db.tierChangeLog.create({
+      await tx.tierChangeLog.create({
         data: {
           id: uuidv4(),
           customerId,
@@ -216,8 +217,8 @@ export async function calculateAndAssignTier(
           },
           createdAt: new Date()
         }
-      })
-    ]);
+      });
+    });
 
     return {
       changed: true,

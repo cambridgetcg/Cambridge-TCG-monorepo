@@ -741,16 +741,13 @@ async function processCashback(tx: any, params: {
 }) {
   const { shop, order, admin } = params;
 
-  // Check if automatic cashback processing is enabled
+  // Check automatic cashback processing setting (we'll use this later)
   const shopSettings = await tx.shopSettings.findUnique({
     where: { shop },
-    select: { autoCashbackProcessingEnabled: true }
+    select: { autoCashbackProcessingEnabled: true, storeCurrency: true }
   });
 
-  if (!shopSettings?.autoCashbackProcessingEnabled) {
-    console.log('[OrderPaid] Automatic cashback processing is disabled for this shop - skipping cashback');
-    return;
-  }
+  const autoProcessingEnabled = shopSettings?.autoCashbackProcessingEnabled !== false; // Default to true if not set
 
   if (!order.customer?.id) {
     console.log('[OrderPaid] No customer ID, skipping cashback');
@@ -831,21 +828,70 @@ async function processCashback(tx: any, params: {
   if (!existingEntry) {
     const now = new Date();
     const ledgerId = uuidv4();
+    const currency = shopSettings?.storeCurrency || order.currency || 'USD';
+
+    let actualBalance = customer.storeCredit;
+    let isProcessed = false;
+    let syncStatus = 'PENDING';
+
+    // If auto-processing is enabled, issue store credit to Shopify immediately
+    if (autoProcessingEnabled) {
+      try {
+        console.log(`[OrderPaid] Auto-processing enabled - issuing store credit to Shopify`);
+
+        const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+        const storeCreditService = createStoreCreditService(admin, shop);
+
+        const result = await storeCreditService.issueStoreCredit(
+          customer.shopifyCustomerId,
+          cashbackAmount,
+          currency,
+          `${currentTier.cashbackPercent}% cashback on order ${order.name}`
+        );
+
+        if (result.success) {
+          actualBalance = result.balance || (customer.storeCredit + cashbackAmount);
+          isProcessed = true;
+          syncStatus = 'SYNCED';
+          console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
+
+          // Update customer balance in database
+          await tx.customer.update({
+            where: { id: customer.id },
+            data: {
+              storeCredit: actualBalance,
+              updatedAt: now
+            }
+          });
+        } else {
+          console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
+          // Fall back to pending
+          actualBalance = customer.storeCredit; // Don't update balance
+          syncStatus = 'PENDING';
+        }
+      } catch (error) {
+        console.error(`[OrderPaid] Error issuing store credit:`, error);
+        // Fall back to pending
+        actualBalance = customer.storeCredit; // Don't update balance
+        syncStatus = 'PENDING';
+      }
+    } else {
+      console.log(`[OrderPaid] Auto-processing disabled - creating pending cashback entry`);
+      // Don't update customer balance - will be done manually
+      actualBalance = customer.storeCredit;
+    }
 
     // Create ledger entry in local database
-    const newBalance = customer.storeCredit + cashbackAmount;
-
     await tx.storeCreditLedger.create({
       data: {
         id: ledgerId,
         customerId: customer.id,
         shop,
         amount: cashbackAmount,
-        balance: newBalance,
+        balance: isProcessed ? actualBalance : (customer.storeCredit + cashbackAmount), // Future balance if not processed yet
         type: 'CASHBACK_EARNED',
         shopifyOrderId: order.id.toString(),
         orderId: orderRecord.id,
-        // Removed syncStatus field - doesn't exist in production schema
         metadata: {
           orderId: order.id,
           orderName: order.name,
@@ -854,24 +900,22 @@ async function processCashback(tx: any, params: {
           tierName: currentTier.name,
           description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
           paymentBreakdown: breakdown,
-          syncStatus: 'PENDING' // Store in metadata instead
+          syncStatus: syncStatus,
+          autoProcessed: isProcessed
         },
         createdAt: now,
       }
     });
 
-    // Note: We're NOT updating the customer balance automatically anymore
-    // The balance will be updated when the merchant manually processes the cashback
+    console.log(`[OrderPaid] Created ${isProcessed ? 'processed' : 'pending'} cashback for ${cashbackAmount} ${currency}`);
 
-    console.log(`[OrderPaid] Created pending cashback for ${cashbackAmount} ${order.currency}`);
-
-    // Update Order record with pending cashback amount (but NOT marked as processed)
+    // Update Order record with cashback status
     await tx.order.update({
       where: { id: orderRecord.id },
       data: {
-        cashbackProcessed: false, // Keep as false - will be true when manually processed
-        cashbackAmount: cashbackAmount, // Store the calculated cashback amount
-        updatedAt: new Date()
+        cashbackProcessed: isProcessed,
+        cashbackAmount: cashbackAmount,
+        updatedAt: now
       }
     });
   } else {
