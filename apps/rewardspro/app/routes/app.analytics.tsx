@@ -2557,9 +2557,10 @@ export default function AnalyticsPage() {
                             Data-driven marketing opportunities from customer analytics
                           </Text>
                         </BlockStack>
-                        <Button onClick={() => navigate('/app/marketing/recommendations')}>
+                        {/* Hidden until marketing page is ready */}
+                        {/* <Button onClick={() => navigate('/app/marketing/recommendations')}>
                           View All
-                        </Button>
+                        </Button> */}
                       </InlineStack>
 
                       {/* Summary Metrics - Dynamic from actual recommendations */}
@@ -2619,9 +2620,10 @@ export default function AnalyticsPage() {
                             image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                           >
                             <p>We'll generate marketing recommendations as your customer base grows and patterns emerge.</p>
-                            <Button onClick={() => navigate('/app/marketing')}>
+                            {/* Hidden until marketing page is ready */}
+                            {/* <Button onClick={() => navigate('/app/marketing')}>
                               Go to Marketing Hub
-                            </Button>
+                            </Button> */}
                           </EmptyState>
                         </Box>
                       </Card>
@@ -2684,8 +2686,8 @@ export default function AnalyticsPage() {
                                   </BlockStack>
                                 </div>
 
-                                {/* Action Buttons */}
-                                <InlineStack gap="200" align="end">
+                                {/* Action Buttons - Hidden until marketing page is ready */}
+                                {/* <InlineStack gap="200" align="end">
                                   <Button onClick={() => navigate(`/app/marketing/campaigns/smart-create?recommendationId=${recommendation.id}`)}>
                                     View Details
                                   </Button>
@@ -2695,7 +2697,7 @@ export default function AnalyticsPage() {
                                   >
                                     Create Campaign
                                   </Button>
-                                </InlineStack>
+                                </InlineStack> */}
                               </BlockStack>
                             </Box>
                           </Card>
