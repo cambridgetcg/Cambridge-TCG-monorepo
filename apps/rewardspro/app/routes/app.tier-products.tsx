@@ -1752,11 +1752,20 @@ export default function TierProducts() {
       <Page
         title="Membership Tiers"
         subtitle="Create and manage membership products for your loyalty tiers"
-        primaryAction={data.canCreateProducts ? {
-          content: "Create Product",
+        primaryAction={{
+          content: "Add Tier",
           icon: PlusIcon,
-          onAction: handleModalOpen,
-        } : undefined}
+          onAction: () => {
+            setEditingTier(null);
+            setTierFormData({
+              name: "",
+              minSpend: "0",
+              cashbackPercent: "0",
+              evaluationPeriod: "ANNUAL",
+            });
+            setTierModalActive(true);
+          },
+        }}
       >
         <Layout>
           {/* Loading State Banner */}
