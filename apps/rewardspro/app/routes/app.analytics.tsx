@@ -1494,7 +1494,7 @@ export default function AnalyticsPage() {
 
   const tabs = [
     { id: 'overview', content: 'Overview' },
-    { id: 'charts', content: 'Charts' },
+    // { id: 'charts', content: 'Charts' }, // Hidden
     { id: 'financial', content: 'Financial' },
     { id: 'actions', content: 'Recommended Actions', badge: data.recommendations?.length.toString() || '0' },
     { id: 'behaviour', content: 'Customer Behaviour' },
@@ -2044,8 +2044,8 @@ export default function AnalyticsPage() {
                 </Box>
               )}
 
-              {/* Charts Tab */}
-              {selectedTab === 1 && (
+              {/* Charts Tab - HIDDEN */}
+              {false && selectedTab === 1 && (
                 <Box padding="400">
                   <BlockStack gap="600">
                     <BlockStack gap="200">
@@ -2463,7 +2463,7 @@ export default function AnalyticsPage() {
               )}
 
               {/* Financial Tab */}
-              {selectedTab === 2 && (
+              {selectedTab === 1 && (
                 <Box padding="400">
                   <BlockStack gap="500">
                     {/* Margin Recalibration Module */}
@@ -2543,7 +2543,7 @@ export default function AnalyticsPage() {
               )}
 
               {/* Recommended Actions Tab */}
-              {selectedTab === 3 && (
+              {selectedTab === 2 && (
                 <Box padding="400">
                   <BlockStack gap="500">
                     {/* Header Section */}
@@ -2708,7 +2708,7 @@ export default function AnalyticsPage() {
 
 
               {/* Customer Behaviour Tab */}
-              {selectedTab === 4 && (
+              {selectedTab === 3 && (
                 <Box padding="400">
                   <BlockStack gap="600">
                     {/* Header */}

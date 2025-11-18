@@ -565,7 +565,7 @@ export default function Dashboard() {
           'advancedAnalyticsEnabled': 'Advanced Analytics',
           'autoCashbackProcessingEnabled': 'Automatic Cashback Processing',
           'emailMarketingEnabled': 'Email Marketing Campaigns',
-          'tierProductsEnabled': 'Tier Products Module',
+          'tierProductsEnabled': 'Membership Tiers Module',
         };
 
         const featureName = featureNames[result.feature] || result.feature;
@@ -966,7 +966,7 @@ export default function Dashboard() {
                   helpText="Enable email marketing and promotional campaigns"
                 />
                 <Checkbox
-                  label="Tier Products Module"
+                  label="Membership Tiers Module"
                   checked={data.shopSettings?.tierProductsEnabled ?? true}
                   onChange={(checked) => handleToggleFeature('tierProductsEnabled', checked)}
                   helpText="Enable tiered loyalty program with product benefits"

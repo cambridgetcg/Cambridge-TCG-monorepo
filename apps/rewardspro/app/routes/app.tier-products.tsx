@@ -1750,7 +1750,7 @@ export default function TierProducts() {
   return (
     <Frame>
       <Page
-        title="Tier Products"
+        title="Membership Tiers"
         subtitle="Create and manage membership products for your loyalty tiers"
         primaryAction={data.canCreateProducts ? {
           content: "Create Product",
