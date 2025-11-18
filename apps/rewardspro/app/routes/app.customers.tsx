@@ -64,10 +64,10 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
-import { 
-  calculateCustomerTier, 
+import {
+  calculateCustomerTier,
   calculateTiersForCustomers,
-  calculateAllCustomerTiers 
+  calculateAllCustomerTiers
 } from "../services/tier-calculation.server";
 import {
   assignCustomerToTier,
@@ -76,6 +76,7 @@ import {
 } from "../services/manual-tier-assignment.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { checkTierMembershipExpiry } from "../services/tier-product-purchase.server";
+import { syncCustomersInBackground } from "../services/background-customer-sync.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { TierBadge } from "../components/TierBadge";
 import { StoreCreditDisplay } from "../components/StoreCredit";
@@ -864,150 +865,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (action === "sync-customers") {
-      // Sync customers from Shopify using minimal query
+      // Sync customers from Shopify using background sync service
       console.log("[Customers] Starting customer sync from Shopify");
-      
+
       try {
-        // Minimal GraphQL query - only essential fields for Prisma schema
-        const customersQuery = `
-          query getCustomers($first: Int!, $after: String) {
-            customers(first: $first, after: $after) {
-              edges {
-                cursor
-                node {
-                  id
-                  email
-                  displayName
-                  createdAt
-                  updatedAt
-                }
-              }
-              pageInfo {
-                hasNextPage
-                endCursor
-              }
-            }
-          }
-        `;
-        
-        let hasNextPage = true;
-        let cursor = null;
-        let totalImported = 0;
-        let totalUpdated = 0;
-        let totalErrors = 0;
-        const processedCustomers = [];
-        
-        while (hasNextPage) {
-          const response = await admin.graphql(customersQuery, {
-            variables: {
-              first: 250, // Max allowed per request
-              after: cursor,
-            },
-          });
-          
-          const result = await response.json() as any;
-          
-          if (result.errors) {
-            console.error("[Customers] GraphQL errors:", result.errors);
-            throw new Error("GraphQL query failed");
-          }
-          
-          const customers = result.data.customers;
-          
-          // Process each customer
-          for (const edge of customers.edges) {
-            const shopifyCustomer = edge.node;
-            const shopifyId = shopifyCustomer.id.split('/').pop(); // Extract ID from gid://shopify/Customer/9224704098643
-            
-            try {
-              // Check if customer already exists
-              const existingCustomer = await db.customer.findFirst({
-                where: {
-                  shop,
-                  shopifyCustomerId: shopifyId,
-                },
-              });
-              
-              if (!existingCustomer) {
-                // Create new customer with minimal required fields
-                const newCustomer = await db.customer.create({
-                  data: {
-                    id: crypto.randomUUID(),
-                    shop,
-                    shopifyCustomerId: shopifyId,
-                    email: shopifyCustomer.email || `customer${shopifyId}@placeholder.com`, // Fallback email if null
-                    storeCredit: 0, // Default to 0
-                    createdAt: new Date(shopifyCustomer.createdAt),
-                    updatedAt: new Date(shopifyCustomer.updatedAt),
-                  },
-                });
-                
-                totalImported++;
-                processedCustomers.push({
-                  shopifyId,
-                  email: newCustomer.email,
-                  displayName: shopifyCustomer.displayName || "No name",
-                  status: "imported",
-                });
-                
-                console.log(`[Customers] Imported customer ${shopifyId} (${shopifyCustomer.email})`);
-              } else {
-                // Update existing customer only if email has changed
-                if (shopifyCustomer.email && shopifyCustomer.email !== existingCustomer.email) {
-                  await db.customer.update({
-                    where: { id: existingCustomer.id },
-                    data: {
-                      email: shopifyCustomer.email,
-                      updatedAt: new Date(shopifyCustomer.updatedAt),
-                    },
-                  });
-                  
-                  totalUpdated++;
-                  processedCustomers.push({
-                    shopifyId,
-                    email: shopifyCustomer.email,
-                    displayName: shopifyCustomer.displayName || "No name",
-                    status: "updated",
-                  });
-                  
-                  console.log(`[Customers] Updated customer ${shopifyId} email`);
-                } else {
-                  processedCustomers.push({
-                    shopifyId,
-                    email: existingCustomer.email,
-                    displayName: shopifyCustomer.displayName || "No name",
-                    status: "skipped (no changes)",
-                  });
-                }
-              }
-            } catch (customerError) {
-              console.error(`[Customers] Error processing customer ${shopifyId}:`, customerError);
-              totalErrors++;
-              processedCustomers.push({
-                shopifyId,
-                email: shopifyCustomer.email || "Unknown",
-                displayName: shopifyCustomer.displayName || "No name",
-                status: "error",
-              });
-            }
-          }
-          
-          hasNextPage = customers.pageInfo.hasNextPage;
-          cursor = customers.pageInfo.endCursor;
-          
-          // Log progress
-          console.log(`[Customers] Processed batch. Total so far - Imported: ${totalImported}, Updated: ${totalUpdated}, Errors: ${totalErrors}`);
-        }
-        
+        // Use the background sync service function
+        await syncCustomersInBackground(shop, admin);
+
+        // Get updated customer count
+        const totalCustomers = await db.customer.count({
+          where: { shop }
+        });
+
+        // Check sync status from shop settings
+        const shopSettings = await db.shopSettings.findUnique({
+          where: { shop }
+        });
+
         return json({
           success: true,
-          message: `Sync complete! Imported ${totalImported} new customers, updated ${totalUpdated} existing customers${totalErrors > 0 ? `, ${totalErrors} errors` : ''}.`,
+          message: `Sync complete! Total customers in database: ${totalCustomers}`,
           results: {
-            imported: totalImported,
-            updated: totalUpdated,
-            errors: totalErrors,
-            total: totalImported + totalUpdated,
-            details: processedCustomers.slice(0, 50), // Return first 50 for display
+            total: totalCustomers,
+            syncCompleted: shopSettings?.customersInitialSynced || false,
           },
         });
       } catch (error) {
@@ -1962,9 +1842,6 @@ export default function Customers() {
   const [manualTierReason, setManualTierReason] = useState("");
   const [permanentOverride, setPermanentOverride] = useState(false);
 
-  // Recalculate all tiers state
-  const [isRecalculatingAll, setIsRecalculatingAll] = useState(false);
-
   // Animation refs
   const tableRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -2041,10 +1918,10 @@ export default function Customers() {
     setIsCalculating(true);
     setToast({
       active: true,
-      content: "Syncing customers from Shopify...",
+      content: "Syncing all customers from Shopify... This may take a few moments.",
       duration: 60000, // Long duration for sync
     });
-    
+
     const formData = new FormData();
     formData.append("action", "sync-customers");
     submit(formData, { method: "post" });
@@ -2097,53 +1974,6 @@ export default function Customers() {
     submit(formData, { method: "post" });
     setManualTierModalActive(false);
   }, [manualTierCustomer, manualTierSelection, manualTierReason, permanentOverride, submit]);
-
-  // Recalculate all tiers handler
-  const handleRecalculateAllTiers = useCallback(async () => {
-    if (isRecalculatingAll) return;
-
-    const confirmed = window.confirm(
-      "This will recalculate tiers for all customers. This may take some time. Continue?"
-    );
-
-    if (!confirmed) return;
-
-    setIsRecalculatingAll(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("action", "recalculate-all");
-
-      const response = await fetch("/app/customers", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setToast({
-          active: true,
-          content: result.message,
-        });
-        // Refresh the page to show updated tiers
-        window.location.reload();
-      } else {
-        setToast({
-          active: true,
-          content: result.message || "Failed to recalculate tiers",
-        });
-      }
-    } catch (error) {
-      console.error("Error recalculating all tiers:", error);
-      setToast({
-        active: true,
-        content: "Failed to recalculate tiers",
-      });
-    } finally {
-      setIsRecalculatingAll(false);
-    }
-  }, [isRecalculatingAll]);
 
   // Tier management handlers
   const handleSaveTier = useCallback(() => {
@@ -2203,27 +2033,37 @@ export default function Customers() {
   useEffect(() => {
     if (navigation.state === "idle" && isCalculating) {
       setIsCalculating(false);
-      
+
       // Check if we have sync results
-      if (actionData && 'results' in actionData && actionData.results && 
-          typeof actionData.results === 'object' && 
-          'imported' in actionData.results && 
-          'updated' in actionData.results && 
-          'errors' in actionData.results) {
-        // Sync customers completed
-        const results = actionData.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
+      if (actionData && 'results' in actionData && actionData.results &&
+          typeof actionData.results === 'object') {
+
+        // Check for sync completion (new format)
+        if ('total' in actionData.results && 'syncCompleted' in actionData.results) {
+          const results = actionData.results as { total: number; syncCompleted: boolean };
+          setToast({
+            active: true,
+            content: actionData.message || `Sync complete! Total customers: ${results.total}`,
+            error: false,
+            duration: 8000,
+          });
+        }
+        // Legacy format support (old sync results)
+        else if ('imported' in actionData.results && 'updated' in actionData.results && 'errors' in actionData.results) {
+          const results = actionData.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
+          setToast({
+            active: true,
+            content: `Sync complete! Imported: ${results.imported}, Updated: ${results.updated}${results.errors ? `, Errors: ${results.errors}` : ''}`,
+            error: results.errors > 0,
+            duration: 8000,
+          });
+        }
+      } else if (navigation.formData && actionData?.message) {
+        // Other operations with message
         setToast({
           active: true,
-          content: `Sync complete! Imported: ${results.imported}, Updated: ${results.updated}${results.errors ? `, Errors: ${results.errors}` : ''}`,
-          error: results.errors > 0,
-          duration: 8000,
-        });
-      } else if (navigation.formData) {
-        // Other operations
-        setToast({
-          active: true,
-          content: "Tier calculation complete!",
-          error: false,
+          content: actionData.message as string,
+          error: !actionData.success,
           duration: 5000,
         });
       }
@@ -2265,25 +2105,13 @@ export default function Customers() {
               </InlineStack>
 
               <InlineStack gap="200" blockAlign="center">
-                {/* Sync from Shopify button - temporarily hidden */}
-                {false && (
-                  <Button
-                    icon={RefreshIcon}
-                    onClick={handleSyncCustomers}
-                    loading={isCalculating}
-                    disabled={isCalculating}
-                  >
-                    Sync from Shopify
-                  </Button>
-                )}
-
                 <Button
-                  icon={RefreshIcon}
-                  onClick={handleRecalculateAllTiers}
-                  loading={isRecalculatingAll}
-                  disabled={isRecalculatingAll}
+                  icon={ImportIcon}
+                  onClick={handleSyncCustomers}
+                  loading={isCalculating}
+                  disabled={isCalculating}
                 >
-                  Recalculate All Tiers
+                  Sync from Shopify
                 </Button>
 
                 <Select
