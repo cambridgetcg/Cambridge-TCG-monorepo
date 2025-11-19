@@ -420,204 +420,73 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
 
-    // Fetch customer data
-    let customers: any[];
-    let totalCount: number;
+    // ============================================
+    // SIMPLIFIED SEARCH: Fetch all, filter in-memory
+    // ============================================
+    // This approach avoids Data API OR clause issues and raw SQL complexity
+    // Similar to orders page strategy - simple and reliable
 
-    // Use raw SQL for search queries to avoid Aurora Data API OR clause issues
-    if (searchQuery) {
-      console.log('[Customers Loader] Using raw SQL for search query');
-      console.log('[Customers Loader] Search query value:', searchQuery);
-      console.log('[Customers Loader] Tier filter value:', tierFilter);
+    console.log('[Customers Loader] Building where clause for tier filter:', tierFilter);
 
-      const searchPattern = `%${searchQuery}%`;
-      const offset = (page - 1) * pageSize;
+    // Build base where clause for tier filter
+    const whereClause: any = { shop };
 
-      console.log('[Customers Loader] Search pattern:', searchPattern);
-      console.log('[Customers Loader] Offset:', offset);
-      console.log('[Customers Loader] Page size:', pageSize);
-
-      // Build SQL queries based on tier filter
-      let customersResult: any[];
-      let countResult: any[];
-
+    if (tierFilter !== "all") {
       if (tierFilter === "none") {
-        // Search with tier filter = none (no tier assigned)
-        console.log('[Customers Loader] Executing query for tier filter = "none"');
-        console.log('[Customers Loader] Query parameters:', { shop, searchPattern, pageSize, offset });
-
-        customersResult = await db.$queryRaw`
-          SELECT
-            c.id, c.email, c."shopifyCustomerId", c."firstName", c."lastName",
-            c."totalSpent", c."ordersCount", c."cashbackEarned", c."cashbackUsed",
-            c."cashbackBalance", c."currentTierId", c."lifetimeSpent", c."pointsBalance",
-            c."pointsEarned", c."pointsRedeemed", c."tierProgress", c."customFields",
-            c."emailMarketingConsent", c."createdAt", c."updatedAt", c.shop
-          FROM "Customer" c
-          WHERE c.shop = ${shop}
-            AND (c.email ILIKE ${searchPattern} OR c."shopifyCustomerId" ILIKE ${searchPattern})
-            AND c."currentTierId" IS NULL
-          ORDER BY c."createdAt" DESC
-          LIMIT ${pageSize}
-          OFFSET ${offset}
-        ` as any[];
-
-        console.log('[Customers Loader] Query returned customers:', customersResult?.length ?? 0);
-
-        countResult = await db.$queryRaw`
-          SELECT COUNT(*)::int as count
-          FROM "Customer"
-          WHERE shop = ${shop}
-            AND (email ILIKE ${searchPattern} OR "shopifyCustomerId" ILIKE ${searchPattern})
-            AND "currentTierId" IS NULL
-        ` as any[];
-
-        console.log('[Customers Loader] Count query result:', countResult);
-
-      } else if (tierFilter !== "all") {
-        // Search with specific tier filter
-        console.log('[Customers Loader] Executing query for specific tier filter:', tierFilter);
-        console.log('[Customers Loader] Query parameters:', { shop, searchPattern, tierFilter, pageSize, offset });
-
-        customersResult = await db.$queryRaw`
-          SELECT
-            c.id, c.email, c."shopifyCustomerId", c."firstName", c."lastName",
-            c."totalSpent", c."ordersCount", c."cashbackEarned", c."cashbackUsed",
-            c."cashbackBalance", c."currentTierId", c."lifetimeSpent", c."pointsBalance",
-            c."pointsEarned", c."pointsRedeemed", c."tierProgress", c."customFields",
-            c."emailMarketingConsent", c."createdAt", c."updatedAt", c.shop,
-            t.id as "tier_id", t.name as "tier_name", t."minSpend" as "tier_minSpend",
-            t."cashbackPercent" as "tier_cashbackPercent", t.shop as "tier_shop"
-          FROM "Customer" c
-          LEFT JOIN "Tier" t ON c."currentTierId" = t.id
-          WHERE c.shop = ${shop}
-            AND (c.email ILIKE ${searchPattern} OR c."shopifyCustomerId" ILIKE ${searchPattern})
-            AND c."currentTierId" = ${tierFilter}
-          ORDER BY c."createdAt" DESC
-          LIMIT ${pageSize}
-          OFFSET ${offset}
-        ` as any[];
-
-        console.log('[Customers Loader] Query returned customers:', customersResult?.length ?? 0);
-
-        countResult = await db.$queryRaw`
-          SELECT COUNT(*)::int as count
-          FROM "Customer"
-          WHERE shop = ${shop}
-            AND (email ILIKE ${searchPattern} OR "shopifyCustomerId" ILIKE ${searchPattern})
-            AND "currentTierId" = ${tierFilter}
-        ` as any[];
-
-        console.log('[Customers Loader] Count query result:', countResult);
-
+        whereClause.currentTierId = null;
       } else {
-        // Search without tier filter (all tiers)
-        console.log('[Customers Loader] Executing query for all tiers');
-        console.log('[Customers Loader] Query parameters:', { shop, searchPattern, pageSize, offset });
-
-        customersResult = await db.$queryRaw`
-          SELECT
-            c.id, c.email, c."shopifyCustomerId", c."firstName", c."lastName",
-            c."totalSpent", c."ordersCount", c."cashbackEarned", c."cashbackUsed",
-            c."cashbackBalance", c."currentTierId", c."lifetimeSpent", c."pointsBalance",
-            c."pointsEarned", c."pointsRedeemed", c."tierProgress", c."customFields",
-            c."emailMarketingConsent", c."createdAt", c."updatedAt", c.shop,
-            t.id as "tier_id", t.name as "tier_name", t."minSpend" as "tier_minSpend",
-            t."cashbackPercent" as "tier_cashbackPercent", t.shop as "tier_shop"
-          FROM "Customer" c
-          LEFT JOIN "Tier" t ON c."currentTierId" = t.id
-          WHERE c.shop = ${shop}
-            AND (c.email ILIKE ${searchPattern} OR c."shopifyCustomerId" ILIKE ${searchPattern})
-          ORDER BY c."createdAt" DESC
-          LIMIT ${pageSize}
-          OFFSET ${offset}
-        ` as any[];
-
-        console.log('[Customers Loader] Query returned customers:', customersResult?.length ?? 0);
-
-        countResult = await db.$queryRaw`
-          SELECT COUNT(*)::int as count
-          FROM "Customer"
-          WHERE shop = ${shop}
-            AND (email ILIKE ${searchPattern} OR "shopifyCustomerId" ILIKE ${searchPattern})
-        ` as any[];
-
-        console.log('[Customers Loader] Count query result:', countResult);
+        whereClause.currentTierId = tierFilter;
       }
-
-      // Transform the flat result into nested structure
-      customers = customersResult.map((row: any) => ({
-        id: row.id,
-        email: row.email,
-        shopifyCustomerId: row.shopifyCustomerId,
-        firstName: row.firstName,
-        lastName: row.lastName,
-        totalSpent: row.totalSpent,
-        ordersCount: row.ordersCount,
-        cashbackEarned: row.cashbackEarned,
-        cashbackUsed: row.cashbackUsed,
-        cashbackBalance: row.cashbackBalance,
-        currentTierId: row.currentTierId,
-        lifetimeSpent: row.lifetimeSpent,
-        pointsBalance: row.pointsBalance,
-        pointsEarned: row.pointsEarned,
-        pointsRedeemed: row.pointsRedeemed,
-        tierProgress: row.tierProgress,
-        customFields: row.customFields,
-        emailMarketingConsent: row.emailMarketingConsent,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        shop: row.shop,
-        currentTier: row.tier_id ? {
-          id: row.tier_id,
-          name: row.tier_name,
-          minSpend: row.tier_minSpend,
-          cashbackPercent: row.tier_cashbackPercent,
-          shop: row.tier_shop,
-        } : null,
-      }));
-
-      totalCount = countResult[0]?.count || 0;
-
-    } else {
-      // No search query - use standard Prisma queries (they work fine without OR clause)
-      console.log('[Customers Loader] Using standard Prisma query (no search)');
-
-      const whereClause: any = { shop };
-
-      if (tierFilter !== "all") {
-        if (tierFilter === "none") {
-          whereClause.currentTierId = null;
-        } else {
-          whereClause.currentTierId = tierFilter;
-        }
-      }
-
-      [customers, totalCount] = await Promise.all([
-        db.customer.findMany({
-          where: whereClause,
-          include: {
-            currentTier: true,
-          },
-          orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-        db.customer.count({
-          where: whereClause,
-        }),
-      ]);
     }
 
-    console.log('[Customers Loader] Found customers:', customers.length);
-    console.log('[Customers Loader] Total count:', totalCount);
-    if (customers.length > 0) {
-      console.log('[Customers Loader] First customer:', {
-        id: customers[0].id,
-        email: customers[0].email,
-        shop: customers[0].shop
+    console.log('[Customers Loader] Where clause:', whereClause);
+    console.log('[Customers Loader] Fetching all customers for shop...');
+
+    // Fetch all customers matching tier filter (with currentTier relation)
+    const allCustomers = await db.customer.findMany({
+      where: whereClause,
+      include: {
+        currentTier: true,
+      },
+      orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
+    });
+
+    console.log('[Customers Loader] Fetched customers from DB:', allCustomers.length);
+
+    // Apply search filter in-memory (if search query provided)
+    let filteredCustomers = allCustomers;
+
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase().trim();
+      console.log('[Customers Loader] Applying in-memory search filter:', searchLower);
+
+      filteredCustomers = allCustomers.filter(customer => {
+        // Search by email or Shopify customer ID
+        const emailMatch = customer.email?.toLowerCase().includes(searchLower);
+        const idMatch = customer.shopifyCustomerId?.toLowerCase().includes(searchLower);
+
+        return emailMatch || idMatch;
       });
+
+      console.log('[Customers Loader] After search filter:', filteredCustomers.length, 'customers');
     }
+
+    // Calculate pagination
+    const totalCount = filteredCustomers.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const offset = (page - 1) * pageSize;
+
+    // Apply pagination (slice the filtered results)
+    const customers = filteredCustomers.slice(offset, offset + pageSize);
+
+    console.log('[Customers Loader] Pagination:', {
+      totalCount,
+      totalPages,
+      currentPage: page,
+      pageSize,
+      offset,
+      customersOnPage: customers.length
+    });
 
     const currentPlan = getCurrentPlan(null, billingSubscription);
 
