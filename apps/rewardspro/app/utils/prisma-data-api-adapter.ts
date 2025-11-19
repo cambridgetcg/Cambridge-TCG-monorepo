@@ -1210,8 +1210,15 @@ export function createDataAPIPrismaClient() {
               console.log('[Data API Adapter] Constructed query:', query);
               console.log('[Data API Adapter] Values count:', values.length);
 
+              // Convert plain values to SqlParameter format
+              const sqlParameters = values.map((value: any, index: number) =>
+                AuroraDataAPI.buildParameter(`param${index}`, value)
+              );
+
+              console.log('[Data API Adapter] Formatted SQL parameters:', sqlParameters);
+
               try {
-                const result = await execute(query, values);
+                const result = await execute(query, sqlParameters);
 
                 console.log('[Data API Adapter] Query executed successfully');
                 console.log('[Data API Adapter] Records returned:', result.records?.length ?? 0);
@@ -1223,6 +1230,7 @@ export function createDataAPIPrismaClient() {
                 console.error('[Data API Adapter] Error message:', error.message);
                 console.error('[Data API Adapter] Query that failed:', query);
                 console.error('[Data API Adapter] Values that failed:', values);
+                console.error('[Data API Adapter] Formatted parameters:', sqlParameters);
                 console.error('[Data API Adapter] Full error:', error);
                 throw error;
               }
@@ -1279,8 +1287,15 @@ export function createDataAPIPrismaClient() {
         console.log('[Data API Adapter] Constructed query:', query);
         console.log('[Data API Adapter] Values count:', values.length);
 
+        // Convert plain values to SqlParameter format
+        const sqlParameters = values.map((value: any, index: number) =>
+          AuroraDataAPI.buildParameter(`param${index}`, value)
+        );
+
+        console.log('[Data API Adapter] Formatted SQL parameters:', sqlParameters);
+
         try {
-          const result = await client.executeStatement(query, values);
+          const result = await client.executeStatement(query, sqlParameters);
 
           console.log('[Data API Adapter] Query executed successfully');
           console.log('[Data API Adapter] Records returned:', result.records?.length ?? 0);
@@ -1292,6 +1307,7 @@ export function createDataAPIPrismaClient() {
           console.error('[Data API Adapter] Error message:', error.message);
           console.error('[Data API Adapter] Query that failed:', query);
           console.error('[Data API Adapter] Values that failed:', values);
+          console.error('[Data API Adapter] Formatted parameters:', sqlParameters);
           console.error('[Data API Adapter] Full error:', error);
           throw error;
         }
