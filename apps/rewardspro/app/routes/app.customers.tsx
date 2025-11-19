@@ -1784,6 +1784,14 @@ export default function Customers() {
     setSearchParams(newParams);
   }, [searchParams, setSearchParams]);
 
+  // Handle clear all filters
+  const handleClearAll = useCallback(() => {
+    setQueryValue("");
+    const newParams = new URLSearchParams();
+    newParams.set("pageSize", String(pageSize));
+    setSearchParams(newParams);
+  }, [pageSize, setSearchParams]);
+
   // Handle page size change
   const handlePageSizeChange = useCallback((value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -2028,17 +2036,39 @@ export default function Customers() {
                 />
               </InlineStack>
 
-              {/* Search bar */}
-              <TextField
-                label=""
-                placeholder="Search by customer email or ID"
-                value={queryValue}
-                onChange={handleSearch}
-                clearButton
-                onClearButtonClick={handleQueryValueRemove}
-                prefix={<Icon source={SearchIcon} />}
-                autoComplete="off"
-              />
+              {/* Search and Filters */}
+              <InlineStack gap="300" align="start" blockAlign="center">
+                <Box width="100%">
+                  <TextField
+                    label=""
+                    placeholder="Search by customer email or ID"
+                    value={queryValue}
+                    onChange={handleSearch}
+                    clearButton
+                    onClearButtonClick={handleQueryValueRemove}
+                    prefix={<Icon source={SearchIcon} />}
+                    autoComplete="off"
+                  />
+                </Box>
+                <Select
+                  label=""
+                  options={[
+                    { label: "All Tiers", value: "all" },
+                    { label: "No Tier", value: "none" },
+                    ...data.tiers.map(tier => ({
+                      label: `${tier.name} (${tier.cashbackPercent}%)`,
+                      value: tier.id,
+                    })),
+                  ]}
+                  value={tierFilter}
+                  onChange={(value) => handleFiltersChange([value])}
+                />
+                {(queryValue || tierFilter !== "all") && (
+                  <Button onClick={handleClearAll} variant="plain">
+                    Clear all
+                  </Button>
+                )}
+              </InlineStack>
             </BlockStack>
           </Box>
 
