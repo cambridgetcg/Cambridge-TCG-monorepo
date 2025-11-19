@@ -1201,7 +1201,7 @@ export function createDataAPIPrismaClient() {
             // Handle Prisma template literal syntax
             if (typeof sql === 'object' && sql.strings) {
               const query = sql.strings.join('?');
-              const result = await execute(query, []);
+              const result = await execute(query, sql.values || []);
               return result.records;
             }
             const result = await execute(sql, params);
@@ -1247,7 +1247,7 @@ export function createDataAPIPrismaClient() {
       // Handle Prisma template literal syntax
       if (typeof sql === 'object' && sql.strings) {
         const query = sql.strings.join('?');
-        const result = await client.executeStatement(query, []);
+        const result = await client.executeStatement(query, sql.values || []);
         return result.records;
       }
       const result = await client.executeStatement(sql, params);

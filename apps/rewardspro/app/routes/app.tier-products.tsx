@@ -1799,27 +1799,9 @@ export default function TierProducts() {
             <Card>
               <Box padding="400">
                 <BlockStack gap="400">
-                  <InlineStack align="space-between">
-                    <Text variant="headingLg" as="h2">
-                      Loyalty Tiers
-                    </Text>
-                    <Button
-                      primary
-                      icon={PlusIcon}
-                      onClick={() => {
-                        setEditingTier(null);
-                        setTierFormData({
-                          name: "",
-                          minSpend: "0",
-                          cashbackPercent: "0",
-                          evaluationPeriod: "ANNUAL",
-                        });
-                        setTierModalActive(true);
-                      }}
-                    >
-                      Add Tier
-                    </Button>
-                  </InlineStack>
+                  <Text variant="headingLg" as="h2">
+                    Loyalty Tiers
+                  </Text>
 
                   {data.tiers.length === 0 ? (
                     <EmptyState
