@@ -1987,31 +1987,35 @@ export default function Customers() {
 
   return (
     <Frame>
-      <Page>
-        <Card>
+      <Page
+        title="Customers"
+        subtitle="Manage customer tiers and store credit"
+        secondaryActions={[
+          {
+            content: "Sync from Shopify",
+            icon: ImportIcon,
+            onAction: handleSyncCustomers,
+            loading: isCalculating,
+            disabled: isCalculating,
+          }
+        ]}
+      >
+        <Card padding="0">
           <Box padding="400">
             <BlockStack gap="400">
-              {/* Header with count and page size selector - Orders style */}
+              {/* Header with count and page size selector */}
               <InlineStack align="space-between" blockAlign="center">
-                <InlineStack gap="300" blockAlign="center">
-                  <Text variant="headingLg" as="h2">Customers</Text>
-                  <Text variant="bodySm" tone="subdued" as="span">
-                    {getCustomerCountText(data.customersData)}
+                <InlineStack gap="200" align="start" blockAlign="center">
+                  <Text variant="headingMd" as="h3">
+                    Customers
                   </Text>
-              </InlineStack>
-
-              <InlineStack gap="200" blockAlign="center">
-                <Button
-                  icon={ImportIcon}
-                  onClick={handleSyncCustomers}
-                  loading={isCalculating}
-                  disabled={isCalculating}
-                >
-                  Sync from Shopify
-                </Button>
+                  <Badge>
+                    {getCustomerCountText(data.customersData)}
+                  </Badge>
+                </InlineStack>
 
                 <Select
-                  label=""
+                  label="Items per page"
                   labelHidden
                   options={[
                     { label: '25 per page', value: '25' },
@@ -2023,20 +2027,20 @@ export default function Customers() {
                   onChange={handlePageSizeChange}
                 />
               </InlineStack>
-            </InlineStack>
 
-            {/* Search bar - simplified like orders */}
-            <TextField
-              placeholder="Search by customer email or ID"
-              value={queryValue}
-              onChange={handleSearch}
-              clearButton
-              onClearButtonClick={handleQueryValueRemove}
-              prefix={<Icon source={SearchIcon} />}
-              autoComplete="off"
-            />
-          </BlockStack>
-        </Box>
+              {/* Search bar */}
+              <TextField
+                label=""
+                placeholder="Search by customer email or ID"
+                value={queryValue}
+                onChange={handleSearch}
+                clearButton
+                onClearButtonClick={handleQueryValueRemove}
+                prefix={<Icon source={SearchIcon} />}
+                autoComplete="off"
+              />
+            </BlockStack>
+          </Box>
 
         {/* Customer Table - Now loads immediately! */}
         <CustomersTableContent
