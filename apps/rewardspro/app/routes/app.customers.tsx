@@ -1774,9 +1774,11 @@ export default function Customers() {
 
   // Handle tier filter with URL update
   const handleFiltersChange = useCallback((value: string[]) => {
+    const newTier = value[0] || "all";
+    setTierFilter(newTier); // Update local state
     const newParams = new URLSearchParams(searchParams);
-    if (value.length > 0 && value[0] !== "all") {
-      newParams.set("tier", value[0]);
+    if (newTier !== "all") {
+      newParams.set("tier", newTier);
     } else {
       newParams.delete("tier");
     }
@@ -1787,6 +1789,7 @@ export default function Customers() {
   // Handle clear all filters
   const handleClearAll = useCallback(() => {
     setQueryValue("");
+    setTierFilter("all"); // Reset tier filter state
     const newParams = new URLSearchParams();
     newParams.set("pageSize", String(pageSize));
     setSearchParams(newParams);
@@ -1794,6 +1797,7 @@ export default function Customers() {
 
   // Handle page size change
   const handlePageSizeChange = useCallback((value: string) => {
+    setPageSize(parseInt(value)); // Update local state
     const newParams = new URLSearchParams(searchParams);
     newParams.set("pageSize", value);
     newParams.set("page", "1"); // Reset to page 1
