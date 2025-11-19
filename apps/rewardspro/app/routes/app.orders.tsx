@@ -283,6 +283,7 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
+    console.log('[Orders Loader] ========== START ==========');
     const { session, admin } = await authenticate.admin(request);
 
     if (!session?.shop) {
@@ -291,6 +292,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const shop = session.shop;
     const url = new URL(request.url);
+    console.log('[Orders Loader] Shop:', shop);
+    console.log('[Orders Loader] URL:', url.toString());
 
     // Parse query parameters
     const searchQuery = url.searchParams.get("search") || "";
@@ -299,28 +302,44 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const page = parseInt(url.searchParams.get("page") || "1");
     const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
 
+    console.log('[Orders Loader] Query Parameters:', {
+      searchQuery,
+      statusFilter,
+      cashbackFilter,
+      page,
+      pageSize
+    });
+
     // Build where clause - handle search separately to avoid OR issues with Data API
     let whereClause: any = { shop };
+    console.log('[Orders Loader] Initial where clause:', whereClause);
 
     // Add status filter
     if (statusFilter !== "all") {
       whereClause.financialStatus = statusFilter;
+      console.log('[Orders Loader] Applied status filter:', statusFilter);
     }
 
     // Add cashback filter
     if (cashbackFilter === "processed") {
       whereClause.cashbackProcessed = true;
+      console.log('[Orders Loader] Applied cashback filter: processed');
     } else if (cashbackFilter === "pending") {
       whereClause.cashbackProcessed = false;
       whereClause.cashbackAmount = { not: null };
+      console.log('[Orders Loader] Applied cashback filter: pending');
     } else if (cashbackFilter === "excluded") {
       whereClause.cashbackEligible = false;
+      console.log('[Orders Loader] Applied cashback filter: excluded');
     }
+
+    console.log('[Orders Loader] Final where clause:', JSON.stringify(whereClause, null, 2));
 
     // If there's a search query, fetch all orders and filter in memory
     // This is a workaround for Data API limitations with OR queries
     let ordersQuery;
     if (searchQuery) {
+      console.log('[Orders Loader] Using search query, fetching all orders first...');
       // Fetch all orders for the shop first, then filter
       const allOrders = await db.order.findMany({
         where: whereClause,
@@ -341,6 +360,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         orderBy: { shopifyCreatedAt: 'desc' },
       });
 
+      console.log('[Orders Loader] Fetched all orders for filtering:', allOrders.length);
+
       // Filter in memory (order number and email only)
       const searchLower = searchQuery.toLowerCase();
       const filteredOrders = allOrders.filter(order =>
@@ -348,10 +369,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         order.email?.toLowerCase().includes(searchLower)
       );
 
+      console.log('[Orders Loader] Filtered orders by search:', filteredOrders.length);
+
       // Apply pagination
       ordersQuery = filteredOrders.slice((page - 1) * pageSize, page * pageSize);
       var filteredTotalCount = filteredOrders.length;
+      console.log('[Orders Loader] Paginated orders:', ordersQuery.length);
     } else {
+      console.log('[Orders Loader] No search query, using direct pagination...');
       // No search, use normal pagination
       ordersQuery = await db.order.findMany({
         where: whereClause,
@@ -373,9 +398,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         skip: (page - 1) * pageSize,
         take: pageSize,
       });
+      console.log('[Orders Loader] Direct query returned orders:', ordersQuery.length);
+
       var filteredTotalCount = await db.order.count({ where: whereClause });
+      console.log('[Orders Loader] Total count from database:', filteredTotalCount);
     }
 
+    console.log('[Orders Loader] Fetching shop settings...');
     // Fetch shop settings
     const [orders, totalCount, shopSettings] = await Promise.all([
       Promise.resolve(ordersQuery),
@@ -383,7 +412,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.shopSettings.findUnique({ where: { shop } }),
     ]);
 
+    console.log('[Orders Loader] Promise.all resolved:');
+    console.log('[Orders Loader] - orders.length:', orders.length);
+    console.log('[Orders Loader] - totalCount:', totalCount);
+    console.log('[Orders Loader] - shopSettings:', shopSettings ? 'found' : 'null');
+
     // Calculate stats
+    console.log('[Orders Loader] Calculating stats for all orders...');
     const allOrders = await db.order.findMany({
       where: { shop },
       select: {
@@ -392,6 +427,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         totalRefunded: true,
       },
     });
+
+    console.log('[Orders Loader] Stats calculation - total orders in DB:', allOrders.length);
 
     const stats = {
       totalOrders: allOrders.length,
@@ -409,14 +446,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ),
     };
 
+    console.log('[Orders Loader] Stats calculated:', stats);
+
     // Calculate pagination
     const totalPages = Math.ceil(totalCount / pageSize);
 
-    console.log('[Orders Loader] Orders fetched:', orders.length);
-    console.log('[Orders Loader] Total count:', totalCount);
-    console.log('[Orders Loader] Search query:', searchQuery);
-    console.log('[Orders Loader] Status filter:', statusFilter);
-    console.log('[Orders Loader] Cashback filter:', cashbackFilter);
+    console.log('[Orders Loader] FINAL RESULTS:');
+    console.log('[Orders Loader] - Orders to display:', orders.length);
+    console.log('[Orders Loader] - Total count:', totalCount);
+    console.log('[Orders Loader] - Total pages:', totalPages);
+    console.log('[Orders Loader] - Current page:', page);
+    console.log('[Orders Loader] - Page size:', pageSize);
+    console.log('[Orders Loader] - Search query:', searchQuery);
+    console.log('[Orders Loader] - Status filter:', statusFilter);
+    console.log('[Orders Loader] - Cashback filter:', cashbackFilter);
 
     // Serialize orders to ensure Decimal values are converted to numbers
     const serializedOrders = orders.map(order => {
@@ -455,9 +498,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
 
     console.log('[Orders Loader] Serialized orders count:', serializedOrders.length);
-    console.log('[Orders Loader] Returning data...');
 
-    return json({
+    // Log first order as sample if available
+    if (serializedOrders.length > 0) {
+      console.log('[Orders Loader] Sample order (first):', {
+        id: serializedOrders[0].id,
+        shopifyOrderName: serializedOrders[0].shopifyOrderName,
+        email: serializedOrders[0].email,
+        totalPrice: serializedOrders[0].totalPrice,
+        cashbackAmount: serializedOrders[0].cashbackAmount,
+        cashbackProcessed: serializedOrders[0].cashbackProcessed,
+        hasCustomer: !!serializedOrders[0].customer,
+        customerEmail: serializedOrders[0].customer?.email
+      });
+    }
+
+    const responseData = {
       orders: serializedOrders,
       stats,
       shopSettings,
@@ -467,9 +523,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         totalPages,
         totalCount,
       },
-    });
+    };
+
+    console.log('[Orders Loader] Returning response with:');
+    console.log('[Orders Loader] - orders array length:', responseData.orders.length);
+    console.log('[Orders Loader] - pagination:', responseData.pagination);
+    console.log('[Orders Loader] ========== END ==========');
+
+    return json(responseData);
   } catch (error) {
-    console.error("Error loading orders:", error);
+    console.error('[Orders Loader] ========== ERROR ==========');
+    console.error('[Orders Loader] Error loading orders:', error);
+    console.error('[Orders Loader] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[Orders Loader] ========== ERROR END ==========');
     throw new Response("Error loading orders", { status: 500 });
   }
 };
@@ -1422,7 +1488,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function OrdersPage() {
-  const { orders, stats, shopSettings, pagination } = useLoaderData<LoaderData>();
+  const loaderData = useLoaderData<LoaderData>();
+  const { orders, stats, shopSettings, pagination } = loaderData;
+
+  // Client-side logging
+  console.log('[Orders Page Client] ========== RENDER ==========');
+  console.log('[Orders Page Client] Loader data received:', {
+    ordersLength: orders?.length ?? 0,
+    stats,
+    pagination,
+    shopSettings: shopSettings ? 'present' : 'null'
+  });
+
+  if (orders && orders.length > 0) {
+    console.log('[Orders Page Client] First order sample:', {
+      id: orders[0].id,
+      shopifyOrderName: orders[0].shopifyOrderName,
+      email: orders[0].email
+    });
+  } else {
+    console.log('[Orders Page Client] ⚠️ Orders array is empty or undefined');
+  }
+
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
