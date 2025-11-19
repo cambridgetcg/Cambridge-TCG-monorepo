@@ -1201,8 +1201,31 @@ export function createDataAPIPrismaClient() {
             // Handle Prisma template literal syntax
             if (typeof sql === 'object' && sql.strings) {
               const query = sql.strings.join('?');
-              const result = await execute(query, sql.values || []);
-              return result.records;
+              const values = sql.values || [];
+
+              // Debug logging for search queries
+              console.log('[Data API Adapter] $queryRaw (transaction) - Template literal detected');
+              console.log('[Data API Adapter] SQL template strings:', sql.strings);
+              console.log('[Data API Adapter] SQL values:', values);
+              console.log('[Data API Adapter] Constructed query:', query);
+              console.log('[Data API Adapter] Values count:', values.length);
+
+              try {
+                const result = await execute(query, values);
+
+                console.log('[Data API Adapter] Query executed successfully');
+                console.log('[Data API Adapter] Records returned:', result.records?.length ?? 0);
+
+                return result.records;
+              } catch (error: any) {
+                console.error('[Data API Adapter] Transaction query execution FAILED');
+                console.error('[Data API Adapter] Error name:', error.name);
+                console.error('[Data API Adapter] Error message:', error.message);
+                console.error('[Data API Adapter] Query that failed:', query);
+                console.error('[Data API Adapter] Values that failed:', values);
+                console.error('[Data API Adapter] Full error:', error);
+                throw error;
+              }
             }
             const result = await execute(sql, params);
             return result.records;
@@ -1247,8 +1270,31 @@ export function createDataAPIPrismaClient() {
       // Handle Prisma template literal syntax
       if (typeof sql === 'object' && sql.strings) {
         const query = sql.strings.join('?');
-        const result = await client.executeStatement(query, sql.values || []);
-        return result.records;
+        const values = sql.values || [];
+
+        // Debug logging for search queries
+        console.log('[Data API Adapter] $queryRaw (main) - Template literal detected');
+        console.log('[Data API Adapter] SQL template strings:', sql.strings);
+        console.log('[Data API Adapter] SQL values:', values);
+        console.log('[Data API Adapter] Constructed query:', query);
+        console.log('[Data API Adapter] Values count:', values.length);
+
+        try {
+          const result = await client.executeStatement(query, values);
+
+          console.log('[Data API Adapter] Query executed successfully');
+          console.log('[Data API Adapter] Records returned:', result.records?.length ?? 0);
+
+          return result.records;
+        } catch (error: any) {
+          console.error('[Data API Adapter] Query execution FAILED');
+          console.error('[Data API Adapter] Error name:', error.name);
+          console.error('[Data API Adapter] Error message:', error.message);
+          console.error('[Data API Adapter] Query that failed:', query);
+          console.error('[Data API Adapter] Values that failed:', values);
+          console.error('[Data API Adapter] Full error:', error);
+          throw error;
+        }
       }
       const result = await client.executeStatement(sql, params);
       return result.records;

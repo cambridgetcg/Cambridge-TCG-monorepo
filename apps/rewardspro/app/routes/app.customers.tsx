@@ -427,9 +427,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Use raw SQL for search queries to avoid Aurora Data API OR clause issues
     if (searchQuery) {
       console.log('[Customers Loader] Using raw SQL for search query');
+      console.log('[Customers Loader] Search query value:', searchQuery);
+      console.log('[Customers Loader] Tier filter value:', tierFilter);
 
       const searchPattern = `%${searchQuery}%`;
       const offset = (page - 1) * pageSize;
+
+      console.log('[Customers Loader] Search pattern:', searchPattern);
+      console.log('[Customers Loader] Offset:', offset);
+      console.log('[Customers Loader] Page size:', pageSize);
 
       // Build SQL queries based on tier filter
       let customersResult: any[];
@@ -437,6 +443,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       if (tierFilter === "none") {
         // Search with tier filter = none (no tier assigned)
+        console.log('[Customers Loader] Executing query for tier filter = "none"');
+        console.log('[Customers Loader] Query parameters:', { shop, searchPattern, pageSize, offset });
+
         customersResult = await db.$queryRaw`
           SELECT
             c.id, c.email, c."shopifyCustomerId", c."firstName", c."lastName",
@@ -453,6 +462,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           OFFSET ${offset}
         ` as any[];
 
+        console.log('[Customers Loader] Query returned customers:', customersResult?.length ?? 0);
+
         countResult = await db.$queryRaw`
           SELECT COUNT(*)::int as count
           FROM "Customer"
@@ -461,8 +472,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             AND "currentTierId" IS NULL
         ` as any[];
 
+        console.log('[Customers Loader] Count query result:', countResult);
+
       } else if (tierFilter !== "all") {
         // Search with specific tier filter
+        console.log('[Customers Loader] Executing query for specific tier filter:', tierFilter);
+        console.log('[Customers Loader] Query parameters:', { shop, searchPattern, tierFilter, pageSize, offset });
+
         customersResult = await db.$queryRaw`
           SELECT
             c.id, c.email, c."shopifyCustomerId", c."firstName", c."lastName",
@@ -482,6 +498,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           OFFSET ${offset}
         ` as any[];
 
+        console.log('[Customers Loader] Query returned customers:', customersResult?.length ?? 0);
+
         countResult = await db.$queryRaw`
           SELECT COUNT(*)::int as count
           FROM "Customer"
@@ -490,8 +508,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             AND "currentTierId" = ${tierFilter}
         ` as any[];
 
+        console.log('[Customers Loader] Count query result:', countResult);
+
       } else {
         // Search without tier filter (all tiers)
+        console.log('[Customers Loader] Executing query for all tiers');
+        console.log('[Customers Loader] Query parameters:', { shop, searchPattern, pageSize, offset });
+
         customersResult = await db.$queryRaw`
           SELECT
             c.id, c.email, c."shopifyCustomerId", c."firstName", c."lastName",
@@ -510,12 +533,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           OFFSET ${offset}
         ` as any[];
 
+        console.log('[Customers Loader] Query returned customers:', customersResult?.length ?? 0);
+
         countResult = await db.$queryRaw`
           SELECT COUNT(*)::int as count
           FROM "Customer"
           WHERE shop = ${shop}
             AND (email ILIKE ${searchPattern} OR "shopifyCustomerId" ILIKE ${searchPattern})
         ` as any[];
+
+        console.log('[Customers Loader] Count query result:', countResult);
       }
 
       // Transform the flat result into nested structure
