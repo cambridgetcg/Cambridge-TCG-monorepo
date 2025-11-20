@@ -2984,42 +2984,12 @@ export default function AnalyticsPage() {
                       </Card>
                     </div>
 
-                    {/* Industry Selector */}
-                    <Card>
-                      <Box padding="400">
-                        <InlineStack align="space-between" blockAlign="center">
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h3">
-                              Industry Benchmark
-                            </Text>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              Compare your performance against industry averages
-                            </Text>
-                          </BlockStack>
-                          <div style={{ minWidth: '200px' }}>
-                            <Select
-                              label=""
-                              options={[
-                                { label: 'General Retail', value: 'general' },
-                                { label: 'Fashion & Apparel', value: 'fashion' },
-                                { label: 'Beauty & Cosmetics', value: 'beauty' },
-                                { label: 'Food & Beverage', value: 'food' },
-                                { label: 'Electronics', value: 'electronics' },
-                              ]}
-                              value="general"
-                              onChange={() => {}}
-                            />
-                          </div>
-                        </InlineStack>
-                      </Box>
-                    </Card>
-
-                    {/* Comparison Table */}
+                    {/* Comparison Table - Members vs Non-Members */}
                     <Card>
                       <Box padding="400">
                         <BlockStack gap="400">
                           <Text variant="headingSm" as="h3">
-                            Three-Way Performance Comparison
+                            Member vs Non-Member Performance
                           </Text>
 
                           <div style={{ overflowX: 'auto' }}>
@@ -3037,56 +3007,65 @@ export default function AnalyticsPage() {
                                   <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>
                                     <Badge>Non-Members</Badge>
                                   </th>
-                                  <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>
-                                    <Badge tone="info">Industry Avg</Badge>
-                                  </th>
-                                  <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>Performance</th>
+                                  <th style={{ padding: '12px', textAlign: 'center', fontWeight: 600 }}>Lift</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                  <td style={{ padding: '12px' }}>Avg Orders/Month</td>
-                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>2.8</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>0.8</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>1.2</td>
+                                  <td style={{ padding: '12px' }}>Avg Orders</td>
+                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>
+                                    {data.customerBehaviourData.members.avgOrders.toFixed(1)}
+                                  </td>
                                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <Badge tone="success">233% of industry</Badge>
+                                    {data.customerBehaviourData.nonMembers.avgOrders.toFixed(1)}
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <Badge tone={data.customerBehaviourData.orderFrequencyLift >= 1 ? "success" : "critical"}>
+                                      {data.customerBehaviourData.orderFrequencyLift.toFixed(1)}x
+                                    </Badge>
                                   </td>
                                 </tr>
                                 <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                                   <td style={{ padding: '12px' }}>Average Order Value</td>
-                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>$158</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>$112</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>$135</td>
+                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>
+                                    {formatAmount(data.customerBehaviourData.members.avgOrderValue)}
+                                  </td>
                                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <Badge tone="success">117% of industry</Badge>
+                                    {formatAmount(data.customerBehaviourData.nonMembers.avgOrderValue)}
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <Badge tone={data.customerBehaviourData.aovIncrease >= 0 ? "success" : "critical"}>
+                                      {data.customerBehaviourData.aovIncrease >= 0 ? '+' : ''}{Math.round(data.customerBehaviourData.aovIncrease)}%
+                                    </Badge>
                                   </td>
                                 </tr>
                                 <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
                                   <td style={{ padding: '12px' }}>Lifetime Value (12mo)</td>
-                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>$4,224</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>$1,344</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>$1,890</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <Badge tone="success">223% of industry</Badge>
+                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>
+                                    {formatAmount(data.customerBehaviourData.members.lifetimeValue)}
                                   </td>
-                                </tr>
-                                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                  <td style={{ padding: '12px' }}>Retention Rate (90 days)</td>
-                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>84%</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>43%</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>58%</td>
                                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <Badge tone="success">145% of industry</Badge>
+                                    {formatAmount(data.customerBehaviourData.nonMembers.lifetimeValue)}
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <Badge tone={data.customerBehaviourData.revenueLift >= 0 ? "success" : "critical"}>
+                                      {data.customerBehaviourData.revenueLift >= 0 ? '+' : ''}{Math.round(data.customerBehaviourData.revenueLift)}%
+                                    </Badge>
                                   </td>
                                 </tr>
                                 <tr>
                                   <td style={{ padding: '12px' }}>Repeat Purchase Rate</td>
-                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>91%</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>38%</td>
-                                  <td style={{ padding: '12px', textAlign: 'center' }}>52%</td>
+                                  <td style={{ padding: '12px', textAlign: 'center', fontWeight: 600, color: '#22c55e' }}>
+                                    {data.customerBehaviourData.members.repeatPurchaseRate.toFixed(1)}%
+                                  </td>
                                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <Badge tone="success">175% of industry</Badge>
+                                    {data.customerBehaviourData.nonMembers.repeatPurchaseRate.toFixed(1)}%
+                                  </td>
+                                  <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <Badge tone={data.customerBehaviourData.members.repeatPurchaseRate >= data.customerBehaviourData.nonMembers.repeatPurchaseRate ? "success" : "critical"}>
+                                      {data.customerBehaviourData.members.repeatPurchaseRate >= data.customerBehaviourData.nonMembers.repeatPurchaseRate ? '+' : ''}
+                                      {(data.customerBehaviourData.members.repeatPurchaseRate - data.customerBehaviourData.nonMembers.repeatPurchaseRate).toFixed(1)}%
+                                    </Badge>
                                   </td>
                                 </tr>
                               </tbody>
