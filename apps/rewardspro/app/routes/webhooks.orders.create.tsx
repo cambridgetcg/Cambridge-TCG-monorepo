@@ -249,32 +249,42 @@ export async function action({ request }: ActionFunctionArgs) {
     } else {
       // Update existing customer if credit changed
       const previousBalance = parseFloat(dbCustomer.storeCredit.toString());
-      
-      console.log(`[OrdersCreateWebhook] Existing customer found. Previous: ${previousBalance}, New: ${totalStoreCredit}`);
-      
-      if (Math.abs(previousBalance - totalStoreCredit) > 0.01) { // Check if difference > 1 cent
-        // Create ledger entry for the sync
-        await db.storeCreditLedger.create({
-          data: {
-            id: uuidv4(),
-            customerId: dbCustomer.id,
-            shop: shop,
-            amount: totalStoreCredit - previousBalance,
-            balance: totalStoreCredit,
-            type: "ORDER_PAYMENT",
-            metadata: {
-              source: 'orders/create webhook',
-              orderId: order.id,
-              previousBalance,
-              syncedBalance: totalStoreCredit,
-              shopifyAccounts: storeCreditAccounts.length,
-              syncedAt: new Date().toISOString()
-            },
-            createdAt: new Date()
-          }
-        });
-        
-        // Update customer balance
+      const balanceChange = totalStoreCredit - previousBalance;
+
+      console.log(`[OrdersCreateWebhook] Existing customer found. Previous: ${previousBalance}, New: ${totalStoreCredit}, Change: ${balanceChange}`);
+
+      if (Math.abs(balanceChange) > 0.01) { // Check if difference > 1 cent
+        // Only create ORDER_PAYMENT ledger entry if balance DECREASED (customer used store credit)
+        // Positive balance changes (cashback earned) are handled by orders/paid webhook
+        if (balanceChange < 0) {
+          console.log(`[OrdersCreateWebhook] Balance decreased by ${Math.abs(balanceChange)} - customer used store credit`);
+
+          // Create ledger entry for store credit payment
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId: dbCustomer.id,
+              shop: shop,
+              amount: balanceChange, // Negative value
+              balance: totalStoreCredit,
+              type: "ORDER_PAYMENT",
+              metadata: {
+                source: 'orders/create webhook',
+                orderId: order.id,
+                previousBalance,
+                syncedBalance: totalStoreCredit,
+                shopifyAccounts: storeCreditAccounts.length,
+                syncedAt: new Date().toISOString(),
+                description: 'Store credit used for order payment'
+              },
+              createdAt: new Date()
+            }
+          });
+        } else {
+          console.log(`[OrdersCreateWebhook] Balance increased by ${balanceChange} - skipping ledger entry (handled by orders/paid webhook)`);
+        }
+
+        // Always update customer balance (regardless of direction)
         await db.customer.update({
           where: { id: dbCustomer.id },
           data: {
@@ -284,8 +294,8 @@ export async function action({ request }: ActionFunctionArgs) {
             updatedAt: new Date()
           }
         });
-        
-        console.log(`[OrdersCreateWebhook] Updated customer credit from ${previousBalance} to ${totalStoreCredit}`);
+
+        console.log(`[OrdersCreateWebhook] Synced customer credit from ${previousBalance} to ${totalStoreCredit}`);
       } else {
         // Just update order count and total spent
         await db.customer.update({
@@ -296,7 +306,7 @@ export async function action({ request }: ActionFunctionArgs) {
             updatedAt: new Date()
           }
         });
-        
+
         console.log(`[OrdersCreateWebhook] Credit unchanged, updated customer stats only`);
       }
     }
