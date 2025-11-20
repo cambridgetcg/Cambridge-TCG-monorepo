@@ -199,6 +199,28 @@ interface AnalyticsData {
     actualRetentionRate: number;
   };
 
+  // Customer Behaviour Analysis - REAL DATA
+  customerBehaviourData: {
+    totalMembers: number;
+    totalNonMembers: number;
+    memberPercentage: number;
+    orderFrequencyLift: number;
+    aovIncrease: number;
+    revenueLift: number;
+    members: {
+      avgOrders: number;
+      avgOrderValue: number;
+      lifetimeValue: number;
+      repeatPurchaseRate: number;
+    };
+    nonMembers: {
+      avgOrders: number;
+      avgOrderValue: number;
+      lifetimeValue: number;
+      repeatPurchaseRate: number;
+    };
+  };
+
   // Marketing recommendations from analytics insights
   recommendations?: Array<{
     id: string;
@@ -348,6 +370,140 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       : 0;
     const actualRetentionRate = retention;
 
+    // ========================================
+    // CUSTOMER BEHAVIOUR ANALYSIS - REAL DATA
+    // ========================================
+
+    // Fetch member vs non-member statistics
+    const [memberStats, nonMemberStats] = await Promise.all([
+      // Members (customers with tiers)
+      db.customer.aggregate({
+        where: { shop, currentTierId: { not: null } },
+        _count: true,
+        _avg: {
+          orderCount: true,
+          totalSpent: true,
+          annualSpent: true,
+        },
+      }),
+      // Non-members (customers without tiers)
+      db.customer.aggregate({
+        where: { shop, currentTierId: null },
+        _count: true,
+        _avg: {
+          orderCount: true,
+          totalSpent: true,
+          annualSpent: true,
+        },
+      }),
+    ]);
+
+    // Calculate repeat purchase rates for members vs non-members
+    const memberRepeatRate = (() => {
+      const memberOrders = ordersByCustomer;
+      let membersWithRepeat = 0;
+      let totalMembersWithOrders = 0;
+
+      // Count members vs non-members with repeat purchases
+      allOrders.forEach(order => {
+        const count = memberOrders.get(order.customerId) || 0;
+        // We'll need to check if this customer is a member, but we don't have that data in allOrders
+        // So we'll do a separate aggregation
+      });
+
+      // Simpler approach: aggregate directly from Customer table
+      return 0; // Will calculate below with separate query
+    })();
+
+    // Get repeat purchase rates using raw query for accuracy
+    const [memberRepeatPurchaseData, nonMemberRepeatPurchaseData] = await Promise.all([
+      db.$queryRaw<[{ rate: number }]>`
+        SELECT
+          COALESCE(
+            COUNT(CASE WHEN "orderCount" > 1 THEN 1 END)::float /
+            NULLIF(COUNT(*)::float, 0) * 100,
+            0
+          ) as rate
+        FROM "Customer"
+        WHERE shop = ${shop} AND "currentTierId" IS NOT NULL
+      `,
+      db.$queryRaw<[{ rate: number }]>`
+        SELECT
+          COALESCE(
+            COUNT(CASE WHEN "orderCount" > 1 THEN 1 END)::float /
+            NULLIF(COUNT(*)::float, 0) * 100,
+            0
+          ) as rate
+        FROM "Customer"
+        WHERE shop = ${shop} AND "currentTierId" IS NULL
+      `,
+    ]);
+
+    // Extract metrics
+    const totalMembers = memberStats._count;
+    const totalNonMembers = nonMemberStats._count;
+    const totalCustomersForBehaviour = totalMembers + totalNonMembers;
+
+    const memberPercentage = totalCustomersForBehaviour > 0
+      ? (totalMembers / totalCustomersForBehaviour) * 100
+      : 0;
+
+    const memberAvgOrders = Number(memberStats._avg.orderCount || 0);
+    const nonMemberAvgOrders = Number(nonMemberStats._avg.orderCount || 0);
+
+    const memberAvgTotalSpent = Number(memberStats._avg.totalSpent || 0);
+    const nonMemberAvgTotalSpent = Number(nonMemberStats._avg.totalSpent || 0);
+
+    // Calculate AOV (Average Order Value)
+    const memberAOV = memberAvgOrders > 0
+      ? memberAvgTotalSpent / memberAvgOrders
+      : 0;
+    const nonMemberAOV = nonMemberAvgOrders > 0
+      ? nonMemberAvgTotalSpent / nonMemberAvgOrders
+      : 0;
+
+    // Calculate 12-month LTV
+    const memberLTV = Number(memberStats._avg.annualSpent || 0);
+    const nonMemberLTV = Number(nonMemberStats._avg.annualSpent || 0);
+
+    // Calculate comparison metrics
+    const orderFrequencyLift = nonMemberAvgOrders > 0
+      ? memberAvgOrders / nonMemberAvgOrders
+      : 0;
+
+    const aovIncrease = nonMemberAOV > 0
+      ? ((memberAOV - nonMemberAOV) / nonMemberAOV) * 100
+      : 0;
+
+    const revenueLift = nonMemberLTV > 0
+      ? ((memberLTV - nonMemberLTV) / nonMemberLTV) * 100
+      : 0;
+
+    const memberRepeatPurchaseRate = memberRepeatPurchaseData[0]?.rate || 0;
+    const nonMemberRepeatPurchaseRate = nonMemberRepeatPurchaseData[0]?.rate || 0;
+
+    // Build customer behaviour data object
+    const customerBehaviourData = {
+      totalMembers,
+      totalNonMembers,
+      memberPercentage,
+      orderFrequencyLift,
+      aovIncrease,
+      revenueLift,
+      members: {
+        avgOrders: memberAvgOrders,
+        avgOrderValue: memberAOV,
+        lifetimeValue: memberLTV,
+        repeatPurchaseRate: memberRepeatPurchaseRate,
+      },
+      nonMembers: {
+        avgOrders: nonMemberAvgOrders,
+        avgOrderValue: nonMemberAOV,
+        lifetimeValue: nonMemberLTV,
+        repeatPurchaseRate: nonMemberRepeatPurchaseRate,
+      },
+    };
+
     // Calculate weighted averages from tier performance data
     const totalCustomers = tierPerformance.reduce((sum, tier) => sum + tier.members, 0);
     const weightedOrderFreq = totalCustomers > 0
@@ -481,6 +637,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         repeatPurchaseRate,
         actualRetentionRate,
       },
+
+      // REAL Customer Behaviour Analysis data
+      customerBehaviourData,
 
       // Add marketing recommendations from analytics insights
       recommendations: recommendations.map(rec => ({
@@ -2733,11 +2892,11 @@ export default function AnalyticsPage() {
                         Customer Behaviour Analysis
                       </Text>
                       <Text variant="bodyMd" tone="subdued" as="p">
-                        Compare loyalty program member behavior against non-members and industry benchmarks
+                        Compare loyalty program member behavior against non-members
                       </Text>
                     </BlockStack>
 
-                    {/* Performance Summary Cards */}
+                    {/* Performance Summary Cards - REAL DATA */}
                     <div style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -2750,13 +2909,12 @@ export default function AnalyticsPage() {
                               Program Members
                             </Text>
                             <Text variant="headingLg" as="h3">
-                              856
+                              {data.customerBehaviourData.totalMembers.toLocaleString()}
                             </Text>
                             <InlineStack gap="200" blockAlign="center">
-                              <Badge tone="success">68% of total</Badge>
-                              <Text variant="bodySm" tone="subdued" as="span">
-                                vs 54% industry avg
-                              </Text>
+                              <Badge tone={data.customerBehaviourData.memberPercentage >= 50 ? "success" : "info"}>
+                                {Math.round(data.customerBehaviourData.memberPercentage)}% of total
+                              </Badge>
                             </InlineStack>
                           </BlockStack>
                         </Box>
@@ -2768,11 +2926,13 @@ export default function AnalyticsPage() {
                             <Text variant="bodySm" tone="subdued" as="p">
                               Order Frequency Lift
                             </Text>
-                            <Text variant="headingLg" as="h3" tone="success">
-                              3.4x
+                            <Text variant="headingLg" as="h3" tone={data.customerBehaviourData.orderFrequencyLift >= 1 ? "success" : undefined}>
+                              {data.customerBehaviourData.orderFrequencyLift.toFixed(1)}x
                             </Text>
                             <InlineStack gap="200" blockAlign="center">
-                              <Badge tone="success">+240%</Badge>
+                              <Badge tone={data.customerBehaviourData.orderFrequencyLift >= 1 ? "success" : "critical"}>
+                                {data.customerBehaviourData.orderFrequencyLift >= 1 ? '+' : ''}{Math.round((data.customerBehaviourData.orderFrequencyLift - 1) * 100)}%
+                              </Badge>
                               <Text variant="bodySm" tone="subdued" as="span">
                                 vs non-members
                               </Text>
@@ -2787,11 +2947,13 @@ export default function AnalyticsPage() {
                             <Text variant="bodySm" tone="subdued" as="p">
                               AOV Increase
                             </Text>
-                            <Text variant="headingLg" as="h3" tone="success">
-                              +42%
+                            <Text variant="headingLg" as="h3" tone={data.customerBehaviourData.aovIncrease >= 0 ? "success" : undefined}>
+                              {data.customerBehaviourData.aovIncrease >= 0 ? '+' : ''}{Math.round(data.customerBehaviourData.aovIncrease)}%
                             </Text>
                             <InlineStack gap="200" blockAlign="center">
-                              <Badge tone="success">$158 vs $112</Badge>
+                              <Badge tone={data.customerBehaviourData.aovIncrease >= 0 ? "success" : "critical"}>
+                                {formatAmount(data.customerBehaviourData.members.avgOrderValue)} vs {formatAmount(data.customerBehaviourData.nonMembers.avgOrderValue)}
+                              </Badge>
                               <Text variant="bodySm" tone="subdued" as="span">
                                 member vs non-member
                               </Text>
@@ -2804,15 +2966,17 @@ export default function AnalyticsPage() {
                         <Box padding="400">
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="p">
-                              Revenue Lift
+                              Revenue Lift (12mo LTV)
                             </Text>
-                            <Text variant="headingLg" as="h3" tone="success">
-                              +156%
+                            <Text variant="headingLg" as="h3" tone={data.customerBehaviourData.revenueLift >= 0 ? "success" : undefined}>
+                              {data.customerBehaviourData.revenueLift >= 0 ? '+' : ''}{Math.round(data.customerBehaviourData.revenueLift)}%
                             </Text>
                             <InlineStack gap="200" blockAlign="center">
-                              <Badge tone="success">$4.2K vs $1.3K</Badge>
+                              <Badge tone={data.customerBehaviourData.revenueLift >= 0 ? "success" : "critical"}>
+                                {formatAmount(data.customerBehaviourData.members.lifetimeValue)} vs {formatAmount(data.customerBehaviourData.nonMembers.lifetimeValue)}
+                              </Badge>
                               <Text variant="bodySm" tone="subdued" as="span">
-                                12-month LTV
+                                member vs non-member
                               </Text>
                             </InlineStack>
                           </BlockStack>
