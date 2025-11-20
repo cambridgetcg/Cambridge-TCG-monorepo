@@ -2004,8 +2004,8 @@ export default function Customers() {
         subtitle="Manage customer tiers and store credit"
         secondaryActions={[
           {
-            content: "Sync from Shopify",
-            icon: ImportIcon,
+            content: "Sync Customers",
+            icon: RefreshIcon,
             onAction: handleSyncCustomers,
             loading: isCalculating,
             disabled: isCalculating,
