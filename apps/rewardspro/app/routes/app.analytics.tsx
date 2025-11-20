@@ -2508,32 +2508,46 @@ export default function AnalyticsPage() {
                           <Text variant="headingSm" as="h3">
                             How to Use These Metrics
                           </Text>
-                          <BlockStack gap="200">
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Average Profit Margin:</strong> Your typical profit margin as a percentage (e.g., 45 for 45%)
-                            </Text>
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Average Shipping Cost:</strong> Typical shipping cost per order in your store currency
-                            </Text>
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Average Transaction Fee:</strong> Payment processing fees as a percentage (e.g., 2.9 for Shopify Payments standard rate)
-                            </Text>
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Average Return/Refund Rate:</strong> Percentage of orders that get returned or refunded - helps calculate true profitability
-                            </Text>
+                          <Text variant="bodySm" as="p" tone="subdued">
+                            Configure these metrics to enable accurate ROI calculations and profit analysis for your loyalty program.
+                          </Text>
+
+                          <Divider />
+
+                          <BlockStack gap="300">
+                            <Text variant="headingSm" as="h4">Revenue & Costs (Manual Input)</Text>
+                            <BlockStack gap="200">
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Average Profit Margin (%):</strong> Your typical profit margin as a percentage (e.g., 45 for 45% profit margin). This helps calculate the actual profit generated from loyalty program sales.
+                              </Text>
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Average Shipping Cost:</strong> Average cost per order in your currency. Used to calculate true net profit after accounting for fulfillment costs.
+                              </Text>
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Average Transaction Fee (%):</strong> Payment processing fees (e.g., 2.9 for 2.9%). Shopify Payments standard rate is 2.9% + 30¢ per transaction.
+                              </Text>
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Average Return/Refund Rate (%):</strong> Percentage of orders that get returned or refunded. Helps calculate true profitability by accounting for lost revenue.
+                              </Text>
+                            </BlockStack>
+
                             <Divider />
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Average Order Value:</strong> Automatically calculated from your actual order data
-                            </Text>
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Customer Lifetime Value:</strong> Average total amount spent per customer - tracks long-term value
-                            </Text>
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Repeat Purchase Rate:</strong> Percentage of customers who made more than one purchase - measures loyalty
-                            </Text>
-                            <Text variant="bodySm" as="p" tone="subdued">
-                              <strong>Actual Retention Rate:</strong> Month-over-month customer retention - shows if customers keep coming back
-                            </Text>
+
+                            <Text variant="headingSm" as="h4">Auto-Calculated Metrics (From Your Data)</Text>
+                            <BlockStack gap="200">
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Average Order Value:</strong> Automatically calculated from your actual order data. Updates in real-time as new orders come in.
+                              </Text>
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Customer Lifetime Value:</strong> Average total spending per customer across all their orders. Tracks long-term customer value.
+                              </Text>
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Repeat Purchase Rate (%):</strong> Percentage of customers who made more than one purchase. Key indicator of customer loyalty and program effectiveness.
+                              </Text>
+                              <Text variant="bodySm" as="p" tone="subdued">
+                                <strong>Actual Retention Rate (%):</strong> Month-over-month customer retention rate. Shows if customers keep coming back to your store.
+                              </Text>
+                            </BlockStack>
                           </BlockStack>
                         </BlockStack>
                       </Box>
