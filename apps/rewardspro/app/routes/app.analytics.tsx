@@ -3075,192 +3075,6 @@ export default function AnalyticsPage() {
                       </Box>
                     </Card>
 
-                    {/* Benchmark Performance Bars */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <Text variant="headingSm" as="h3">
-                            Performance vs Industry Benchmark
-                          </Text>
-                          <Text variant="bodySm" tone="subdued" as="p">
-                            Green indicates outperforming industry average (&gt;110%), yellow is on par (90-110%)
-                          </Text>
-
-                          <BlockStack gap="300">
-                            {/* Order Frequency */}
-                            <BlockStack gap="200">
-                              <InlineStack align="space-between" blockAlign="center">
-                                <Text variant="bodyMd" as="span" fontWeight="medium">
-                                  Order Frequency
-                                </Text>
-                                <InlineStack gap="200" blockAlign="center">
-                                  <Text variant="bodyMd" as="span" fontWeight="semibold" tone="success">
-                                    233%
-                                  </Text>
-                                  <Badge tone="success">Excellent</Badge>
-                                </InlineStack>
-                              </InlineStack>
-                              <div style={{
-                                width: '100%',
-                                height: '8px',
-                                backgroundColor: '#e5e7eb',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                position: 'relative'
-                              }}>
-                                <div style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  backgroundColor: '#22c55e',
-                                  borderRadius: '4px'
-                                }} />
-                                <div style={{
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: '100%',
-                                  width: '2px',
-                                  height: '100%',
-                                  backgroundColor: '#666',
-                                  marginLeft: '-1px'
-                                }} />
-                              </div>
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                2.8 orders/month vs 1.2 industry average
-                              </Text>
-                            </BlockStack>
-
-                            {/* Average Order Value */}
-                            <BlockStack gap="200">
-                              <InlineStack align="space-between" blockAlign="center">
-                                <Text variant="bodyMd" as="span" fontWeight="medium">
-                                  Average Order Value
-                                </Text>
-                                <InlineStack gap="200" blockAlign="center">
-                                  <Text variant="bodyMd" as="span" fontWeight="semibold" tone="success">
-                                    117%
-                                  </Text>
-                                  <Badge tone="success">Above Average</Badge>
-                                </InlineStack>
-                              </InlineStack>
-                              <div style={{
-                                width: '100%',
-                                height: '8px',
-                                backgroundColor: '#e5e7eb',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                position: 'relative'
-                              }}>
-                                <div style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  backgroundColor: '#22c55e',
-                                  borderRadius: '4px',
-                                  maxWidth: '85%'
-                                }} />
-                                <div style={{
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: '85.5%',
-                                  width: '2px',
-                                  height: '100%',
-                                  backgroundColor: '#666',
-                                  marginLeft: '-1px'
-                                }} />
-                              </div>
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                $158 vs $135 industry average
-                              </Text>
-                            </BlockStack>
-
-                            {/* Retention Rate */}
-                            <BlockStack gap="200">
-                              <InlineStack align="space-between" blockAlign="center">
-                                <Text variant="bodyMd" as="span" fontWeight="medium">
-                                  Retention Rate (90-day)
-                                </Text>
-                                <InlineStack gap="200" blockAlign="center">
-                                  <Text variant="bodyMd" as="span" fontWeight="semibold" tone="success">
-                                    145%
-                                  </Text>
-                                  <Badge tone="success">Excellent</Badge>
-                                </InlineStack>
-                              </InlineStack>
-                              <div style={{
-                                width: '100%',
-                                height: '8px',
-                                backgroundColor: '#e5e7eb',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                position: 'relative'
-                              }}>
-                                <div style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  backgroundColor: '#22c55e',
-                                  borderRadius: '4px',
-                                  maxWidth: '95%'
-                                }} />
-                                <div style={{
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: '69%',
-                                  width: '2px',
-                                  height: '100%',
-                                  backgroundColor: '#666',
-                                  marginLeft: '-1px'
-                                }} />
-                              </div>
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                84% vs 58% industry average
-                              </Text>
-                            </BlockStack>
-
-                            {/* Engagement Score */}
-                            <BlockStack gap="200">
-                              <InlineStack align="space-between" blockAlign="center">
-                                <Text variant="bodyMd" as="span" fontWeight="medium">
-                                  Program Engagement Score
-                                </Text>
-                                <InlineStack gap="200" blockAlign="center">
-                                  <Text variant="bodyMd" as="span" fontWeight="semibold" tone="attention">
-                                    92%
-                                  </Text>
-                                  <Badge tone="attention">Room for Growth</Badge>
-                                </InlineStack>
-                              </InlineStack>
-                              <div style={{
-                                width: '100%',
-                                height: '8px',
-                                backgroundColor: '#e5e7eb',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                position: 'relative'
-                              }}>
-                                <div style={{
-                                  width: '91%',
-                                  height: '100%',
-                                  backgroundColor: '#eab308',
-                                  borderRadius: '4px'
-                                }} />
-                                <div style={{
-                                  position: 'absolute',
-                                  top: 0,
-                                  left: '100%',
-                                  width: '2px',
-                                  height: '100%',
-                                  backgroundColor: '#666',
-                                  marginLeft: '-1px'
-                                }} />
-                              </div>
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                73/100 vs 80/100 industry average
-                              </Text>
-                            </BlockStack>
-                          </BlockStack>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
                     {/* Behavior Comparison Charts */}
                     <div style={{
                       display: 'grid',
@@ -3286,10 +3100,12 @@ export default function AnalyticsPage() {
                                 <BlockStack gap="100">
                                   <InlineStack align="space-between" blockAlign="center">
                                     <Text variant="bodyMd" as="span">Members</Text>
-                                    <Text variant="bodyMd" as="span" fontWeight="semibold">2.8 orders/mo</Text>
+                                    <Text variant="bodyMd" as="span" fontWeight="semibold">
+                                      {data.customerBehaviourData.members.avgOrders.toFixed(1)} orders
+                                    </Text>
                                   </InlineStack>
                                   <div style={{
-                                    width: '100%',
+                                    width: `${data.customerBehaviourData.nonMembers.avgOrders > 0 ? Math.min(100, (data.customerBehaviourData.members.avgOrders / data.customerBehaviourData.nonMembers.avgOrders) * 100) : 100}%`,
                                     height: '32px',
                                     backgroundColor: '#22c55e',
                                     borderRadius: '4px',
@@ -3298,28 +3114,7 @@ export default function AnalyticsPage() {
                                     paddingLeft: '12px'
                                   }}>
                                     <Text variant="bodySm" as="span" tone="text-inverse" fontWeight="semibold">
-                                      350%
-                                    </Text>
-                                  </div>
-                                </BlockStack>
-
-                                {/* Industry */}
-                                <BlockStack gap="100">
-                                  <InlineStack align="space-between" blockAlign="center">
-                                    <Text variant="bodyMd" as="span">Industry Average</Text>
-                                    <Text variant="bodyMd" as="span" fontWeight="semibold">1.2 orders/mo</Text>
-                                  </InlineStack>
-                                  <div style={{
-                                    width: '43%',
-                                    height: '32px',
-                                    backgroundColor: '#3b82f6',
-                                    borderRadius: '4px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    paddingLeft: '12px'
-                                  }}>
-                                    <Text variant="bodySm" as="span" tone="text-inverse" fontWeight="semibold">
-                                      150%
+                                      {data.customerBehaviourData.orderFrequencyLift.toFixed(1)}x
                                     </Text>
                                   </div>
                                 </BlockStack>
@@ -3328,10 +3123,12 @@ export default function AnalyticsPage() {
                                 <BlockStack gap="100">
                                   <InlineStack align="space-between" blockAlign="center">
                                     <Text variant="bodyMd" as="span">Non-Members</Text>
-                                    <Text variant="bodyMd" as="span" fontWeight="semibold">0.8 orders/mo</Text>
+                                    <Text variant="bodyMd" as="span" fontWeight="semibold">
+                                      {data.customerBehaviourData.nonMembers.avgOrders.toFixed(1)} orders
+                                    </Text>
                                   </InlineStack>
                                   <div style={{
-                                    width: '29%',
+                                    width: '100%',
                                     height: '32px',
                                     backgroundColor: '#9ca3af',
                                     borderRadius: '4px',
@@ -3340,7 +3137,7 @@ export default function AnalyticsPage() {
                                     paddingLeft: '12px'
                                   }}>
                                     <Text variant="bodySm" as="span" tone="text-inverse" fontWeight="semibold">
-                                      100%
+                                      1.0x (baseline)
                                     </Text>
                                   </div>
                                 </BlockStack>
@@ -3369,10 +3166,12 @@ export default function AnalyticsPage() {
                                 <BlockStack gap="100">
                                   <InlineStack align="space-between" blockAlign="center">
                                     <Text variant="bodyMd" as="span">Members</Text>
-                                    <Text variant="bodyMd" as="span" fontWeight="semibold">$158</Text>
+                                    <Text variant="bodyMd" as="span" fontWeight="semibold">
+                                      {formatAmount(data.customerBehaviourData.members.avgOrderValue)}
+                                    </Text>
                                   </InlineStack>
                                   <div style={{
-                                    width: '100%',
+                                    width: `${data.customerBehaviourData.nonMembers.avgOrderValue > 0 ? Math.min(100, (data.customerBehaviourData.members.avgOrderValue / data.customerBehaviourData.nonMembers.avgOrderValue) * 100) : 100}%`,
                                     height: '32px',
                                     backgroundColor: '#22c55e',
                                     borderRadius: '4px',
@@ -3381,28 +3180,7 @@ export default function AnalyticsPage() {
                                     paddingLeft: '12px'
                                   }}>
                                     <Text variant="bodySm" as="span" tone="text-inverse" fontWeight="semibold">
-                                      141%
-                                    </Text>
-                                  </div>
-                                </BlockStack>
-
-                                {/* Industry */}
-                                <BlockStack gap="100">
-                                  <InlineStack align="space-between" blockAlign="center">
-                                    <Text variant="bodyMd" as="span">Industry Average</Text>
-                                    <Text variant="bodyMd" as="span" fontWeight="semibold">$135</Text>
-                                  </InlineStack>
-                                  <div style={{
-                                    width: '85%',
-                                    height: '32px',
-                                    backgroundColor: '#3b82f6',
-                                    borderRadius: '4px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    paddingLeft: '12px'
-                                  }}>
-                                    <Text variant="bodySm" as="span" tone="text-inverse" fontWeight="semibold">
-                                      120%
+                                      {data.customerBehaviourData.aovIncrease >= 0 ? '+' : ''}{Math.round(data.customerBehaviourData.aovIncrease)}%
                                     </Text>
                                   </div>
                                 </BlockStack>
@@ -3411,10 +3189,12 @@ export default function AnalyticsPage() {
                                 <BlockStack gap="100">
                                   <InlineStack align="space-between" blockAlign="center">
                                     <Text variant="bodyMd" as="span">Non-Members</Text>
-                                    <Text variant="bodyMd" as="span" fontWeight="semibold">$112</Text>
+                                    <Text variant="bodyMd" as="span" fontWeight="semibold">
+                                      {formatAmount(data.customerBehaviourData.nonMembers.avgOrderValue)}
+                                    </Text>
                                   </InlineStack>
                                   <div style={{
-                                    width: '71%',
+                                    width: '100%',
                                     height: '32px',
                                     backgroundColor: '#9ca3af',
                                     borderRadius: '4px',
@@ -3423,7 +3203,7 @@ export default function AnalyticsPage() {
                                     paddingLeft: '12px'
                                   }}>
                                     <Text variant="bodySm" as="span" tone="text-inverse" fontWeight="semibold">
-                                      100%
+                                      0% (baseline)
                                     </Text>
                                   </div>
                                 </BlockStack>
@@ -3434,113 +3214,28 @@ export default function AnalyticsPage() {
                       </Card>
                     </div>
 
-                    {/* Utilization Patterns */}
-                    <Card>
-                      <Box padding="400">
-                        <BlockStack gap="400">
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h3">
-                              Program Engagement Patterns
-                            </Text>
-                            <Text variant="bodySm" tone="subdued" as="p">
-                              When customers interact with your loyalty program
-                            </Text>
-                          </BlockStack>
-
-                          <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                            gap: '24px'
-                          }}>
-                            {/* Day of Week */}
-                            <BlockStack gap="300">
-                              <Text variant="bodyMd" as="span" fontWeight="semibold">
-                                Day of Week Activity
-                              </Text>
-                              <BlockStack gap="200">
-                                {[
-                                  { day: 'Monday', percent: 67 },
-                                  { day: 'Tuesday', percent: 78 },
-                                  { day: 'Wednesday', percent: 92 },
-                                  { day: 'Thursday', percent: 81 },
-                                  { day: 'Friday', percent: 73 },
-                                  { day: 'Saturday', percent: 58 },
-                                  { day: 'Sunday', percent: 44 },
-                                ].map(({ day, percent }) => (
-                                  <BlockStack key={day} gap="50">
-                                    <InlineStack align="space-between" blockAlign="center">
-                                      <Text variant="bodySm" as="span">{day}</Text>
-                                      <Text variant="bodySm" as="span" fontWeight="medium">{percent}%</Text>
-                                    </InlineStack>
-                                    <div style={{
-                                      width: '100%',
-                                      height: '6px',
-                                      backgroundColor: '#e5e7eb',
-                                      borderRadius: '3px',
-                                      overflow: 'hidden'
-                                    }}>
-                                      <div style={{
-                                        width: `${percent}%`,
-                                        height: '100%',
-                                        backgroundColor: percent >= 80 ? '#22c55e' : percent >= 60 ? '#3b82f6' : '#9ca3af',
-                                        borderRadius: '3px'
-                                      }} />
-                                    </div>
-                                  </BlockStack>
-                                ))}
-                              </BlockStack>
-                            </BlockStack>
-
-                            {/* Reward Redemption Patterns */}
-                            <BlockStack gap="300">
-                              <Text variant="bodyMd" as="span" fontWeight="semibold">
-                                Reward Utilization
-                              </Text>
-                              <BlockStack gap="200">
-                                {[
-                                  { label: 'Points Earned', percent: 94 },
-                                  { label: 'Points Redeemed', percent: 73 },
-                                  { label: 'Credit Utilized', percent: 68 },
-                                  { label: 'Tier Benefits Used', percent: 82 },
-                                  { label: 'Referrals Made', percent: 31 },
-                                ].map(({ label, percent }) => (
-                                  <BlockStack key={label} gap="50">
-                                    <InlineStack align="space-between" blockAlign="center">
-                                      <Text variant="bodySm" as="span">{label}</Text>
-                                      <Text variant="bodySm" as="span" fontWeight="medium">{percent}%</Text>
-                                    </InlineStack>
-                                    <div style={{
-                                      width: '100%',
-                                      height: '6px',
-                                      backgroundColor: '#e5e7eb',
-                                      borderRadius: '3px',
-                                      overflow: 'hidden'
-                                    }}>
-                                      <div style={{
-                                        width: `${percent}%`,
-                                        height: '100%',
-                                        backgroundColor: percent >= 80 ? '#22c55e' : percent >= 60 ? '#3b82f6' : '#9ca3af',
-                                        borderRadius: '3px'
-                                      }} />
-                                    </div>
-                                  </BlockStack>
-                                ))}
-                              </BlockStack>
-                            </BlockStack>
-                          </div>
-                        </BlockStack>
-                      </Box>
-                    </Card>
-
                     {/* Key Insights Banner */}
-                    <Banner tone="success">
+                    <Banner tone={data.customerBehaviourData.orderFrequencyLift >= 1.5 ? "success" : data.customerBehaviourData.orderFrequencyLift >= 1.2 ? "info" : "warning"}>
                       <BlockStack gap="200">
                         <Text variant="bodyMd" as="p" fontWeight="semibold">
-                          🎉 Your loyalty program is performing exceptionally well
+                          {data.customerBehaviourData.orderFrequencyLift >= 1.5
+                            ? "🎉 Your loyalty program is driving strong results"
+                            : data.customerBehaviourData.orderFrequencyLift >= 1.2
+                            ? "📊 Your loyalty program is showing positive impact"
+                            : "💡 Opportunity to optimize your loyalty program"}
                         </Text>
                         <Text variant="bodySm" as="p">
-                          Members show 3.4x higher order frequency, 42% higher AOV, and 145% better retention compared to industry benchmarks.
-                          Focus on improving engagement score (currently 92% of industry average) to maximize program impact.
+                          {data.customerBehaviourData.totalMembers > 0 ? (
+                            <>
+                              Program members ({data.customerBehaviourData.totalMembers.toLocaleString()}) show {data.customerBehaviourData.orderFrequencyLift.toFixed(1)}x order frequency
+                              {data.customerBehaviourData.aovIncrease > 0 && `, ${Math.round(data.customerBehaviourData.aovIncrease)}% higher average order value`}
+                              {data.customerBehaviourData.members.repeatPurchaseRate > data.customerBehaviourData.nonMembers.repeatPurchaseRate &&
+                                `, and ${(data.customerBehaviourData.members.repeatPurchaseRate - data.customerBehaviourData.nonMembers.repeatPurchaseRate).toFixed(0)}% better repeat purchase rate`} compared to non-members.
+                              {data.customerBehaviourData.memberPercentage < 50 && ` Consider strategies to increase member enrollment (currently ${Math.round(data.customerBehaviourData.memberPercentage)}% of customers).`}
+                            </>
+                          ) : (
+                            "Start enrolling customers into your loyalty program to unlock valuable insights and drive repeat purchases."
+                          )}
                         </Text>
                       </BlockStack>
                     </Banner>
