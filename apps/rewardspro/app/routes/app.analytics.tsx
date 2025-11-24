@@ -415,28 +415,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       return 0; // Will calculate below with separate query
     })();
 
-    // Get repeat purchase rates using raw query for accuracy
-    const [memberRepeatPurchaseData, nonMemberRepeatPurchaseData] = await Promise.all([
-      db.$queryRaw<[{ rate: number }]>`
-        SELECT
-          COALESCE(
-            COUNT(CASE WHEN "orderCount" > 1 THEN 1 END)::float /
-            NULLIF(COUNT(*)::float, 0) * 100,
-            0
-          ) as rate
-        FROM "Customer"
-        WHERE shop = ${shop} AND "currentTierId" IS NOT NULL
-      `,
-      db.$queryRaw<[{ rate: number }]>`
-        SELECT
-          COALESCE(
-            COUNT(CASE WHEN "orderCount" > 1 THEN 1 END)::float /
-            NULLIF(COUNT(*)::float, 0) * 100,
-            0
-          ) as rate
-        FROM "Customer"
-        WHERE shop = ${shop} AND "currentTierId" IS NULL
-      `,
+    // Get repeat purchase counts (customers with >1 order) using aggregate
+    const [memberRepeatCustomers, nonMemberRepeatCustomers] = await Promise.all([
+      db.customer.count({
+        where: {
+          shop,
+          currentTierId: { not: null },
+          orderCount: { gt: 1 },
+        },
+      }),
+      db.customer.count({
+        where: {
+          shop,
+          currentTierId: null,
+          orderCount: { gt: 1 },
+        },
+      }),
     ]);
 
     // Extract metrics
@@ -479,8 +473,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ? ((memberLTV - nonMemberLTV) / nonMemberLTV) * 100
       : 0;
 
-    const memberRepeatPurchaseRate = memberRepeatPurchaseData[0]?.rate || 0;
-    const nonMemberRepeatPurchaseRate = nonMemberRepeatPurchaseData[0]?.rate || 0;
+    // Calculate repeat purchase rates as percentages
+    const memberRepeatPurchaseRate = totalMembers > 0
+      ? (memberRepeatCustomers / totalMembers) * 100
+      : 0;
+    const nonMemberRepeatPurchaseRate = totalNonMembers > 0
+      ? (nonMemberRepeatCustomers / totalNonMembers) * 100
+      : 0;
 
     // Build customer behaviour data object
     const customerBehaviourData = {
