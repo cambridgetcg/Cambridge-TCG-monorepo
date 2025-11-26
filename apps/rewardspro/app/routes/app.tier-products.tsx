@@ -1761,7 +1761,8 @@ export default function TierProducts() {
               name: "",
               minSpend: "0",
               cashbackPercent: "0",
-              evaluationPeriod: "ANNUAL",
+              // Default to LIFETIME for plans without annualEvaluationPeriod feature
+              evaluationPeriod: hasFeature(data.currentPlan, 'annualEvaluationPeriod') ? "ANNUAL" : "LIFETIME",
             });
             setTierModalActive(true);
           },
@@ -1814,7 +1815,8 @@ export default function TierProducts() {
                             name: "",
                             minSpend: "0",
                             cashbackPercent: "0",
-                            evaluationPeriod: "ANNUAL",
+                            // Default to LIFETIME for plans without annualEvaluationPeriod feature
+                            evaluationPeriod: hasFeature(data.currentPlan, 'annualEvaluationPeriod') ? "ANNUAL" : "LIFETIME",
                           });
                           setTierModalActive(true);
                         },
