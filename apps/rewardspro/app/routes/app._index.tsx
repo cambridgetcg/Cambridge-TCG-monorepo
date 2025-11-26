@@ -646,18 +646,15 @@ export default function Dashboard() {
     fetcher.submit(formData, { method: "post" });
   }, [fetcher]);
 
-  // Handle fetcher completion - clear optimistic state and show toast
+  // Handle fetcher completion - show toast (keep optimistic state since loader won't revalidate)
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data) {
       const result = fetcher.data as { success?: boolean; feature?: string; enabled?: boolean; error?: string };
 
       if (result.success && result.feature && typeof result.enabled === 'boolean') {
-        // Clear optimistic state for this feature (server state now matches)
-        setOptimisticToggles(prev => {
-          const next = { ...prev };
-          delete next[result.feature!];
-          return next;
-        });
+        // NOTE: We keep the optimistic state because shouldRevalidate returns false
+        // The optimistic value will persist until full page navigation/refresh
+        // This is intentional to prevent the toggle from reverting
 
         const featureNames: Record<string, string> = {
           'advancedAnalyticsEnabled': 'Advanced Analytics',
@@ -672,7 +669,7 @@ export default function Dashboard() {
         setToastContent(`${featureName} ${action}`);
         setToastActive(true);
       } else if (result.error) {
-        // On error, revert optimistic state
+        // On error, revert optimistic state to server values
         setOptimisticToggles({});
         setToastContent('Failed to update feature');
         setToastActive(true);
