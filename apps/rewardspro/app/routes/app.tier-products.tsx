@@ -2321,6 +2321,413 @@ export default function TierProducts() {
             </Card>
           </Layout.Section>
 
+          {/* ============================================ */}
+          {/* VARIATION A: Compact Card Grid */}
+          {/* ============================================ */}
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <BlockStack gap="100">
+                      <Badge tone="attention">VARIATION A</Badge>
+                      <Text variant="headingLg" as="h2">
+                        Compact Card Grid
+                      </Text>
+                    </BlockStack>
+                    <Badge tone="info">
+                      {data.tierProducts.length} / {data.tiers.length * 3} products
+                    </Badge>
+                  </InlineStack>
+
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Each tier as a card with duration options inside. More visual hierarchy.
+                  </Text>
+
+                  {data.tiers.length > 0 && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                      gap: '16px',
+                    }}>
+                      {data.tiers
+                        .sort((a, b) => a.minSpend - b.minSpend)
+                        .map((tier) => {
+                          const monthlyProduct = data.tierProducts.find(p => p.tierId === tier.id && p.duration === 'MONTHLY');
+                          const annualProduct = data.tierProducts.find(p => p.tierId === tier.id && p.duration === 'ANNUAL');
+                          const lifetimeProduct = data.tierProducts.find(p => p.tierId === tier.id && p.duration === 'LIFETIME');
+                          const productCount = [monthlyProduct, annualProduct, lifetimeProduct].filter(Boolean).length;
+
+                          return (
+                            <div
+                              key={tier.id}
+                              style={{
+                                background: 'var(--p-color-bg-surface)',
+                                borderRadius: '12px',
+                                border: '1px solid var(--p-color-border)',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {/* Tier Header with gradient */}
+                              <div style={{
+                                padding: '16px',
+                                background: `linear-gradient(135deg, ${getTierStyle(tier.name).backgroundColor}, ${getTierStyle(tier.name).borderColor}20)`,
+                                borderBottom: '1px solid var(--p-color-border)',
+                              }}>
+                                <InlineStack align="space-between" blockAlign="center">
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <div style={{
+                                      width: '36px',
+                                      height: '36px',
+                                      borderRadius: '8px',
+                                      background: 'var(--p-color-bg-surface)',
+                                      border: `2px solid ${getTierStyle(tier.name).borderColor}`,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}>
+                                      <Icon source={getTierStyle(tier.name).icon} tone="base" />
+                                    </div>
+                                    <BlockStack gap="050">
+                                      <Text variant="headingMd" as="h3" fontWeight="bold">{tier.name}</Text>
+                                      <Text variant="bodySm" tone="subdued" as="span">{tier.cashbackPercent}% cashback</Text>
+                                    </BlockStack>
+                                  </InlineStack>
+                                  <Badge tone={productCount === 3 ? 'success' : productCount > 0 ? 'warning' : 'critical'}>
+                                    {productCount}/3
+                                  </Badge>
+                                </InlineStack>
+                              </div>
+
+                              {/* Duration Options */}
+                              <div style={{ padding: '12px' }}>
+                                <BlockStack gap="200">
+                                  {[
+                                    { key: 'MONTHLY', label: 'Monthly', product: monthlyProduct },
+                                    { key: 'ANNUAL', label: 'Annual', product: annualProduct },
+                                    { key: 'LIFETIME', label: 'Lifetime', product: lifetimeProduct },
+                                  ].map(({ key, label, product }) => (
+                                    <div
+                                      key={key}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '10px 12px',
+                                        background: product ? 'var(--p-color-bg-surface-secondary)' : 'transparent',
+                                        borderRadius: '8px',
+                                        border: product ? '1px solid var(--p-color-border)' : '1px dashed var(--p-color-border-secondary)',
+                                      }}
+                                    >
+                                      <InlineStack gap="200" blockAlign="center">
+                                        <div style={{
+                                          width: '8px',
+                                          height: '8px',
+                                          borderRadius: '50%',
+                                          backgroundColor: product ? (product.isActive ? '#22c55e' : '#eab308') : '#e5e7eb',
+                                        }} />
+                                        <Text variant="bodyMd" as="span" fontWeight={product ? 'semibold' : 'regular'}>
+                                          {label}
+                                        </Text>
+                                      </InlineStack>
+                                      {product ? (
+                                        <InlineStack gap="200" blockAlign="center">
+                                          <Text variant="bodyMd" as="span" fontWeight="bold">
+                                            {formatAmount(product.price)}
+                                          </Text>
+                                          <Button size="micro" onClick={() => handleEditModalOpen(product)}>Edit</Button>
+                                        </InlineStack>
+                                      ) : (
+                                        <Button
+                                          size="slim"
+                                          icon={PlusIcon}
+                                          onClick={() => {
+                                            setSelectedTier(tier.id);
+                                            setDuration(key as 'MONTHLY' | 'ANNUAL' | 'LIFETIME');
+                                            setPrice('');
+                                            handleModalOpen();
+                                          }}
+                                          disabled={!data.canCreateProducts}
+                                        >
+                                          Add
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </BlockStack>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+
+          {/* ============================================ */}
+          {/* VARIATION B: Horizontal Scrolling Timeline */}
+          {/* ============================================ */}
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <BlockStack gap="100">
+                      <Badge tone="attention">VARIATION B</Badge>
+                      <Text variant="headingLg" as="h2">
+                        Duration Timeline View
+                      </Text>
+                    </BlockStack>
+                    <Badge tone="info">
+                      {data.tierProducts.length} / {data.tiers.length * 3} products
+                    </Badge>
+                  </InlineStack>
+
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Duration-first layout with tiers stacked vertically under each duration.
+                  </Text>
+
+                  {data.tiers.length > 0 && (
+                    <div style={{ display: 'flex', gap: '24px', overflowX: 'auto', paddingBottom: '8px' }}>
+                      {['MONTHLY', 'ANNUAL', 'LIFETIME'].map((duration) => {
+                        const durationLabel = duration === 'MONTHLY' ? 'Monthly' : duration === 'ANNUAL' ? 'Annual' : 'Lifetime';
+                        const durationIcon = duration === 'MONTHLY' ? '30' : duration === 'ANNUAL' ? '365' : '∞';
+                        const productsInDuration = data.tierProducts.filter(p => p.duration === duration);
+
+                        return (
+                          <div
+                            key={duration}
+                            style={{
+                              flex: '1 0 300px',
+                              minWidth: '280px',
+                              background: 'var(--p-color-bg-surface-secondary)',
+                              borderRadius: '12px',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {/* Duration Header */}
+                            <div style={{
+                              padding: '16px',
+                              background: duration === 'MONTHLY' ? '#dbeafe' : duration === 'ANNUAL' ? '#dcfce7' : '#fef3c7',
+                              borderBottom: '1px solid var(--p-color-border)',
+                              textAlign: 'center',
+                            }}>
+                              <BlockStack gap="100">
+                                <Text variant="headingXl" as="span" fontWeight="bold">
+                                  {durationIcon}
+                                </Text>
+                                <Text variant="headingMd" as="h3">{durationLabel}</Text>
+                                <Text variant="bodySm" tone="subdued" as="span">
+                                  {productsInDuration.length}/{data.tiers.length} tiers covered
+                                </Text>
+                              </BlockStack>
+                            </div>
+
+                            {/* Tier List */}
+                            <div style={{ padding: '12px' }}>
+                              <BlockStack gap="100">
+                                {data.tiers
+                                  .sort((a, b) => a.minSpend - b.minSpend)
+                                  .map((tier) => {
+                                    const product = data.tierProducts.find(
+                                      p => p.tierId === tier.id && p.duration === duration
+                                    );
+
+                                    return (
+                                      <div
+                                        key={tier.id}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          padding: '12px',
+                                          background: 'var(--p-color-bg-surface)',
+                                          borderRadius: '8px',
+                                          border: product ? `2px solid ${getTierStyle(tier.name).borderColor}` : '1px dashed var(--p-color-border)',
+                                        }}
+                                      >
+                                        <InlineStack gap="200" blockAlign="center">
+                                          <div style={{
+                                            width: '28px',
+                                            height: '28px',
+                                            borderRadius: '6px',
+                                            background: getTierStyle(tier.name).backgroundColor,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                          }}>
+                                            <Icon source={getTierStyle(tier.name).icon} tone="base" />
+                                          </div>
+                                          <Text variant="bodyMd" as="span" fontWeight="semibold">{tier.name}</Text>
+                                        </InlineStack>
+
+                                        {product ? (
+                                          <InlineStack gap="100" blockAlign="center">
+                                            <Text variant="headingSm" as="span" fontWeight="bold">
+                                              {formatAmount(product.price)}
+                                            </Text>
+                                            {product.isActive && (
+                                              <Icon source={CheckCircleIcon} tone="success" />
+                                            )}
+                                          </InlineStack>
+                                        ) : (
+                                          <Button
+                                            size="micro"
+                                            variant="primary"
+                                            icon={PlusIcon}
+                                            onClick={() => {
+                                              setSelectedTier(tier.id);
+                                              setDuration(duration as 'MONTHLY' | 'ANNUAL' | 'LIFETIME');
+                                              setPrice('');
+                                              handleModalOpen();
+                                            }}
+                                            disabled={!data.canCreateProducts}
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                              </BlockStack>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+
+          {/* ============================================ */}
+          {/* VARIATION C: Minimal List View */}
+          {/* ============================================ */}
+          <Layout.Section>
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="400">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <BlockStack gap="100">
+                      <Badge tone="attention">VARIATION C</Badge>
+                      <Text variant="headingLg" as="h2">
+                        Minimal List View
+                      </Text>
+                    </BlockStack>
+                    <Badge tone="info">
+                      {data.tierProducts.length} / {data.tiers.length * 3} products
+                    </Badge>
+                  </InlineStack>
+
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Clean, scannable list with inline actions. Great for quick overview.
+                  </Text>
+
+                  {data.tiers.length > 0 && (
+                    <BlockStack gap="300">
+                      {data.tiers
+                        .sort((a, b) => a.minSpend - b.minSpend)
+                        .map((tier, tierIndex) => {
+                          const monthlyProduct = data.tierProducts.find(p => p.tierId === tier.id && p.duration === 'MONTHLY');
+                          const annualProduct = data.tierProducts.find(p => p.tierId === tier.id && p.duration === 'ANNUAL');
+                          const lifetimeProduct = data.tierProducts.find(p => p.tierId === tier.id && p.duration === 'LIFETIME');
+
+                          return (
+                            <div key={tier.id}>
+                              {tierIndex > 0 && <Divider />}
+                              <Box paddingBlockStart={tierIndex > 0 ? '300' : '0'}>
+                                <BlockStack gap="200">
+                                  {/* Tier Header Row */}
+                                  <InlineStack align="space-between" blockAlign="center">
+                                    <InlineStack gap="300" blockAlign="center">
+                                      <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '10px',
+                                        background: `linear-gradient(135deg, ${getTierStyle(tier.name).backgroundColor}, ${getTierStyle(tier.name).borderColor})`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                      }}>
+                                        <Icon source={getTierStyle(tier.name).icon} tone="base" />
+                                      </div>
+                                      <BlockStack gap="050">
+                                        <Text variant="headingMd" as="h3" fontWeight="bold">{tier.name}</Text>
+                                        <Text variant="bodySm" tone="subdued" as="span">
+                                          Min. spend: {formatAmount(tier.minSpend)} · {tier.cashbackPercent}% cashback
+                                        </Text>
+                                      </BlockStack>
+                                    </InlineStack>
+                                  </InlineStack>
+
+                                  {/* Products Row - Inline Pills */}
+                                  <div style={{
+                                    display: 'flex',
+                                    gap: '8px',
+                                    flexWrap: 'wrap',
+                                    paddingLeft: '52px',
+                                  }}>
+                                    {[
+                                      { key: 'MONTHLY', label: 'Mo', fullLabel: 'Monthly', product: monthlyProduct, color: '#3b82f6' },
+                                      { key: 'ANNUAL', label: 'Yr', fullLabel: 'Annual', product: annualProduct, color: '#22c55e' },
+                                      { key: 'LIFETIME', label: '∞', fullLabel: 'Lifetime', product: lifetimeProduct, color: '#f59e0b' },
+                                    ].map(({ key, label, fullLabel, product, color }) => (
+                                      <div
+                                        key={key}
+                                        onClick={() => {
+                                          if (product) {
+                                            handleEditModalOpen(product);
+                                          } else if (data.canCreateProducts) {
+                                            setSelectedTier(tier.id);
+                                            setDuration(key as 'MONTHLY' | 'ANNUAL' | 'LIFETIME');
+                                            setPrice('');
+                                            handleModalOpen();
+                                          }
+                                        }}
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          padding: product ? '6px 12px' : '6px 10px',
+                                          borderRadius: '20px',
+                                          background: product ? color : 'transparent',
+                                          border: product ? 'none' : `2px dashed ${color}`,
+                                          cursor: data.canCreateProducts ? 'pointer' : 'default',
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                      >
+                                        {product ? (
+                                          <>
+                                            <Text variant="bodySm" as="span" fontWeight="semibold" tone="text-inverse">
+                                              {fullLabel}
+                                            </Text>
+                                            <Text variant="bodySm" as="span" tone="text-inverse">
+                                              {formatAmount(product.price)}
+                                            </Text>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span style={{ color, fontWeight: 600, fontSize: '12px' }}>+</span>
+                                            <span style={{ color, fontSize: '12px' }}>{fullLabel}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </BlockStack>
+                              </Box>
+                            </div>
+                          );
+                        })}
+                    </BlockStack>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          </Layout.Section>
+
           {/* Products Grid - Symmetric Card Layout - HIDDEN (Legacy Display) */}
           {false && <Layout.Section>
             {isRefreshing && data.tierProducts.length === 0 ? (
