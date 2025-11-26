@@ -93,6 +93,12 @@ interface DashboardData {
     emailMarketingEnabled?: boolean;
     tierProductsEnabled?: boolean;
   } | null;
+  widgetStatus: {
+    isActive: boolean;
+    setupDismissed: boolean;
+    status: 'active' | 'inactive' | 'not_configured';
+    lastActivity: string | null;
+  };
   shopifyMetrics: {
     source: 'shopifyql' | 'cache' | 'unavailable';
   } | null;
@@ -211,6 +217,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             tierProductsEnabled: true,
             customersInitialSynced: true,
             customersSyncInProgress: true,
+            widgetIsActive: true,
+            widgetSetupDismissed: true,
           }
         })
       ),
@@ -405,6 +413,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       dataSyncStatus = 'degraded';
     }
 
+    // Determine widget status
+    const widgetIsActive = shopSettings?.widgetIsActive ?? false;
+    const widgetSetupDismissed = shopSettings?.widgetSetupDismissed ?? false;
+    let widgetStatusValue: 'active' | 'inactive' | 'not_configured' = 'not_configured';
+    if (widgetIsActive) {
+      widgetStatusValue = 'active';
+    } else if (widgetSetupDismissed) {
+      widgetStatusValue = 'inactive';
+    }
+
     // Simplified dashboard data
     const dashboardData: DashboardData = {
       shop,
@@ -416,6 +434,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         emailMarketingEnabled: shopSettings.emailMarketingEnabled,
         tierProductsEnabled: shopSettings.tierProductsEnabled,
       } : null,
+      widgetStatus: {
+        isActive: widgetIsActive,
+        setupDismissed: widgetSetupDismissed,
+        status: widgetStatusValue,
+        lastActivity: null, // Could add tracking later
+      },
       shopifyMetrics: { source: 'unavailable' },
       webhookStats: {
         processedLast24h: webhookProcessedCount,
@@ -914,6 +938,60 @@ export default function Dashboard() {
 
                     <Text variant="bodySm" tone="subdued">
                       Real-time synchronization with Shopify store
+                    </Text>
+                  </BlockStack>
+                </Card>
+
+                {/* Widget Embed Component */}
+                <Card>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="start">
+                      <Box
+                        padding="200"
+                        background="bg-surface-secondary"
+                        borderRadius="200"
+                      >
+                        <Icon source={StatusActiveIcon} tone="base" />
+                      </Box>
+                      <Badge tone={
+                        data.widgetStatus.status === 'active' ? 'success' :
+                        data.widgetStatus.status === 'inactive' ? 'warning' : 'attention'
+                      }>
+                        {data.widgetStatus.status === 'active' ? 'Active' :
+                         data.widgetStatus.status === 'inactive' ? 'Inactive' : 'Not Setup'}
+                      </Badge>
+                    </InlineStack>
+
+                    <Text variant="headingSm" as="h3" fontWeight="semibold">
+                      Widget Embed
+                    </Text>
+
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Theme:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.widgetStatus.isActive ? 'Embedded' : 'Not Embedded'}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Setup:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.widgetStatus.setupDismissed ? 'Configured' : 'Pending'}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text variant="bodySm" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" fontWeight="medium">
+                          {data.widgetStatus.status === 'active' ? 'Showing to customers' :
+                           data.widgetStatus.status === 'inactive' ? 'Hidden' : 'Needs configuration'}
+                        </Text>
+                      </InlineStack>
+                    </BlockStack>
+
+                    <Divider />
+
+                    <Text variant="bodySm" tone="subdued">
+                      Customer-facing loyalty widget on storefront
                     </Text>
                   </BlockStack>
                 </Card>
