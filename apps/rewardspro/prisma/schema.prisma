@@ -272,6 +272,7 @@ model Customer {
   @@index([shop])                      // Speed up queries by shop
   @@index([email])                     // Speed up queries by email
   @@index([shop, shopifyCustomerMetafieldId])  // Speed up storefront widget queries
+  @@index([shop, currentTierId, createdAt(sort: Desc)])  // Optimize paginated tier-filtered queries
 }
 
 model StoreCreditLedger {
