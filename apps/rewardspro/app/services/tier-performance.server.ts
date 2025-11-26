@@ -160,53 +160,47 @@ async function fetchTierPerformanceMetrics(
 
   const tierIds = tiers.map(t => t.id);
 
-  // BATCH QUERY 2: Get all customer counts and LTV grouped by tier in parallel
-  const [customerCountsByTier, ltvByTier, allCustomersWithTier] = await Promise.all([
-    // Customer counts per tier
-    db.customer.groupBy({
-      by: ['currentTierId'],
-      where: {
-        shop,
-        currentTierId: { in: tierIds },
-      },
-      _count: { id: true },
-    }),
-    // LTV (average totalSpent) per tier
-    db.customer.groupBy({
-      by: ['currentTierId'],
-      where: {
-        shop,
-        currentTierId: { in: tierIds },
-      },
-      _avg: { totalSpent: true },
-    }),
-    // Get all customers with their tier IDs for order lookups
-    db.customer.findMany({
-      where: {
-        shop,
-        currentTierId: { in: tierIds },
-      },
-      select: {
-        id: true,
-        currentTierId: true,
-      },
-    }),
-  ]);
+  // BATCH QUERY 2: Get all customers with their tier IDs and totalSpent for aggregation
+  // NOTE: Aurora Data API doesn't support groupBy, so we fetch all and aggregate in memory
+  const allCustomersWithTier = await db.customer.findMany({
+    where: {
+      shop,
+      currentTierId: { in: tierIds },
+    },
+    select: {
+      id: true,
+      currentTierId: true,
+      totalSpent: true,
+    },
+  });
 
-  // Create lookup maps
-  const customerCountMap = new Map(
-    customerCountsByTier.map(c => [c.currentTierId, c._count.id])
-  );
-  const ltvMap = new Map(
-    ltvByTier.map(c => [c.currentTierId, Number(c._avg.totalSpent || 0)])
-  );
+  // Aggregate customer counts and LTV by tier in memory
+  const customerCountMap = new Map<string, number>();
+  const ltvTotals = new Map<string, { total: number; count: number }>();
   const customersByTier = new Map<string, string[]>();
+
   allCustomersWithTier.forEach(c => {
     if (c.currentTierId) {
-      const existing = customersByTier.get(c.currentTierId) || [];
-      existing.push(c.id);
-      customersByTier.set(c.currentTierId, existing);
+      // Count customers per tier
+      customerCountMap.set(c.currentTierId, (customerCountMap.get(c.currentTierId) || 0) + 1);
+
+      // Track total spent for LTV calculation
+      const existing = ltvTotals.get(c.currentTierId) || { total: 0, count: 0 };
+      existing.total += Number(c.totalSpent || 0);
+      existing.count += 1;
+      ltvTotals.set(c.currentTierId, existing);
+
+      // Group customer IDs by tier
+      const customerIds = customersByTier.get(c.currentTierId) || [];
+      customerIds.push(c.id);
+      customersByTier.set(c.currentTierId, customerIds);
     }
+  });
+
+  // Calculate average LTV per tier
+  const ltvMap = new Map<string, number>();
+  ltvTotals.forEach((data, tierId) => {
+    ltvMap.set(tierId, data.count > 0 ? data.total / data.count : 0);
   });
 
   // Get all customer IDs for order queries
