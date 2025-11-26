@@ -21,23 +21,15 @@ import {
   Modal,
   ProgressBar,
   Checkbox,
-  Icon,
   Tabs,
-  ButtonGroup,
 } from "@shopify/polaris";
-import {
-  RefreshIcon,
-  CheckCircleIcon,
-  AlertCircleIcon,
-  InfoIcon,
-} from "~/utils/polaris-icons";
+import { RefreshIcon } from "~/utils/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
-import { CurrentPlanCard } from "~/components/Billing";
-import { MANAGED_PLANS, PLAN_COMPARISON } from "~/constants/billing.constants";
+import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { v4 as uuidv4 } from "uuid";
 
@@ -867,8 +859,6 @@ export default function SettingsPage() {
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Billing state
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
 
   // Check for unsaved changes
   useEffect(() => {
@@ -936,26 +926,6 @@ export default function SettingsPage() {
     }, 2000);
   }, [syncRange, reconcileLedger, updateMetrics, fetcher]);
 
-  // Handle billing upgrade
-  const handleUpgrade = useCallback((planName?: string) => {
-    fetcher.submit(
-      {
-        intent: "upgrade",
-        plan: planName || "RewardsPro Monthly" // Default to monthly plan
-      },
-      { method: "post" }
-    );
-  }, [fetcher]);
-
-  // Handle subscription cancellation
-  const handleCancelSubscription = useCallback(() => {
-    if (confirm("Are you sure you want to cancel your subscription? You will be downgraded to the Free plan at the end of your billing period.")) {
-      fetcher.submit(
-        { intent: "cancel-subscription" },
-        { method: "post" }
-      );
-    }
-  }, [fetcher]);
 
   // Handle manual tier recalculation
   const handleManualRecalculation = useCallback(() => {
@@ -1059,72 +1029,6 @@ export default function SettingsPage() {
       content: 'Tier Automation',
       panelID: 'tier-automation-panel',
     },
-    {
-      id: 'billing',
-      content: 'Billing',
-      panelID: 'billing-panel',
-    },
-  ];
-
-  // Plan cards configuration for billing tab
-  const planCards = [
-    {
-      id: "pro",
-      idAnnual: "pro-annual",
-      name: "Pro",
-      monthlyPrice: "$39",
-      annualPrice: "$336",
-      annualMonthlyEquivalent: "$28",
-      annualSavings: "Save $132/year",
-      description: "Everything you need to grow your loyalty program",
-      features: [
-        "500 orders/month",
-        "Batch processing cashback",
-        "Priority support",
-        "Advanced analytics",
-        "$10 per 100 extra orders"
-      ],
-      recommended: false,
-    },
-    {
-      id: "max",
-      idAnnual: "max-annual",
-      name: "Max",
-      monthlyPrice: "$149",
-      annualPrice: "$1,296",
-      annualMonthlyEquivalent: "$108",
-      annualSavings: "Save $492/year",
-      description: "For established businesses with advanced needs",
-      features: [
-        "2,000 orders/month",
-        "Sell tier memberships",
-        "White label email",
-        "Advanced analytics",
-        "Phone support",
-        "$5 per 100 extra orders"
-      ],
-      recommended: true,
-    },
-    {
-      id: "ultra",
-      idAnnual: "ultra-annual",
-      name: "Ultra",
-      monthlyPrice: "$499",
-      annualPrice: "$4,296",
-      annualMonthlyEquivalent: "$358",
-      annualSavings: "Save $1,692/year",
-      description: "Unlimited everything for growing enterprises",
-      features: [
-        "Unlimited orders",
-        "Unlimited emails",
-        "Full white label solution",
-        "Custom SMTP integration",
-        "A/B testing",
-        "Dedicated support",
-        "No overage charges"
-      ],
-      recommended: false,
-    },
   ];
 
   const handleTabChange = useCallback((selectedTabIndex: number) => {
@@ -1134,19 +1038,19 @@ export default function SettingsPage() {
   return (
     <Page
       title="Store Settings"
-      primaryAction={selectedTab !== 5 ? {
+      primaryAction={{
         content: "Save Settings",
         onAction: handleSubmit,
         loading: isLoading,
         disabled: !hasUnsavedChanges,
-      } : undefined}
-      secondaryActions={selectedTab !== 5 ? [
+      }}
+      secondaryActions={[
         {
           content: "Reset",
           onAction: handleReset,
           disabled: !hasUnsavedChanges,
         },
-      ] : undefined}
+      ]}
     >
       <Layout>
         <Layout.Section>
@@ -1532,207 +1436,6 @@ export default function SettingsPage() {
                           </Box>
                         </BlockStack>
                       </Banner>
-                    </BlockStack>
-                  )}
-
-                  {/* Billing Tab */}
-                  {selectedTab === 5 && (
-                    <BlockStack gap="600">
-                      <CurrentPlanCard
-                        activeSubscription={activeSubscription}
-                        currentPlan={currentPlan}
-                        monthlyOrderUsage={{
-                          orderCount: monthlyOrderUsage?.orderCount || 0,
-                          planLimit: monthlyOrderUsage?.planLimit || MANAGED_PLANS["RewardsPro Free"].ordersIncluded,
-                          projectedOrders: monthlyOrderUsage?.projectedOrders || 0,
-                          currentMonth: currentMonth
-                        }}
-                        showUpgradeButton={true}
-                        showOverageBanner={false}
-                        showCountStrategy={false}
-                        showProjectedUsage={true}
-                        compact={false}
-                        onUpgrade={() => navigate("/app/billing")}
-                      />
-
-                      <Divider />
-
-                      {/* Downgrade Section */}
-                      <BlockStack gap="400">
-                        <Text variant="headingMd" as="h3">
-                          Subscription Management
-                        </Text>
-
-                        {activeSubscription && activeSubscription.name !== "RewardsPro Free" ? (
-                          <BlockStack gap="300">
-                            <Text variant="bodyMd" tone="subdued">
-                              Need to reduce costs? You can downgrade your subscription or cancel it completely.
-                            </Text>
-
-                            <InlineStack gap="200">
-                              <Button
-                                variant="secondary"
-                                onClick={() => navigate("/app/billing")}
-                              >
-                                Change Plan
-                              </Button>
-
-                              <Button
-                                variant="plain"
-                                tone="critical"
-                                onClick={handleCancelSubscription}
-                                loading={isLoading}
-                              >
-                                Cancel Subscription
-                              </Button>
-                            </InlineStack>
-
-                            <Banner tone="info">
-                              <Text variant="bodySm">
-                                <strong>Cancellation Policy:</strong> Your subscription will remain active until the end of your current billing period, then automatically downgrade to the Free plan (100 orders/month).
-                              </Text>
-                            </Banner>
-                          </BlockStack>
-                        ) : (
-                          <BlockStack gap="300">
-                            <Text variant="bodyMd">
-                              You're currently on the free plan. Ready to grow?
-                            </Text>
-                            <Button
-                              variant="primary"
-                              onClick={() => navigate("/app/billing")}
-                            >
-                              View Upgrade Options
-                            </Button>
-                          </BlockStack>
-                        )}
-                      </BlockStack>
-
-                      <Divider />
-
-                      {/* Plan Selection */}
-                      <BlockStack gap="400">
-                        <Text variant="headingMd" as="h3">
-                          Available Plans
-                        </Text>
-
-                        {/* Billing Interval Toggle */}
-                        <InlineStack align="end" blockAlign="center">
-                          <ButtonGroup variant="segmented">
-                            <Button
-                              pressed={billingInterval === 'monthly'}
-                              onClick={() => setBillingInterval('monthly')}
-                              size="slim"
-                            >
-                              Monthly
-                            </Button>
-                            <Button
-                              pressed={billingInterval === 'annual'}
-                              onClick={() => setBillingInterval('annual')}
-                              size="slim"
-                            >
-                              Annual
-                            </Button>
-                          </ButtonGroup>
-                        </InlineStack>
-
-                        {/* Plan Cards */}
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                          gap: '16px',
-                        }}>
-                          {planCards.map((plan) => {
-                            const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
-                            const isCurrentPlan = currentPlan === `RewardsPro ${plan.name}` ||
-                                                 currentPlan === `RewardsPro ${plan.name} Annual`;
-
-                            return (
-                              <Card key={plan.id}>
-                                <Box padding="600">
-                                  <BlockStack gap="400">
-                                    {/* Plan Header */}
-                                    <InlineStack align="space-between">
-                                      <Text as="h3" variant="headingLg">
-                                        {plan.name}
-                                      </Text>
-                                      {plan.recommended && (
-                                        <Badge tone="info">Recommended</Badge>
-                                      )}
-                                      {isCurrentPlan && (
-                                        <Badge tone="success">Current</Badge>
-                                      )}
-                                    </InlineStack>
-
-                                    {/* Price */}
-                                    <BlockStack gap="200">
-                                      {billingInterval === 'monthly' ? (
-                                        <InlineStack align="start" gap="100">
-                                          <Text as="p" variant="heading2xl">
-                                            {plan.monthlyPrice}
-                                          </Text>
-                                          <Text as="span" variant="bodyLg" tone="subdued">
-                                            /month
-                                          </Text>
-                                        </InlineStack>
-                                      ) : (
-                                        <BlockStack gap="100">
-                                          <InlineStack align="start" gap="100">
-                                            <Text as="p" variant="heading2xl">
-                                              {plan.annualMonthlyEquivalent}
-                                            </Text>
-                                            <Text as="span" variant="bodyLg" tone="subdued">
-                                              /month
-                                            </Text>
-                                          </InlineStack>
-                                          <Text as="p" variant="bodyMd" tone="subdued">
-                                            {plan.annualPrice}/year • {plan.annualSavings}
-                                          </Text>
-                                        </BlockStack>
-                                      )}
-                                    </BlockStack>
-
-                                    {/* Description */}
-                                    <Text as="p" variant="bodyMd" tone="subdued">
-                                      {plan.description}
-                                    </Text>
-
-                                    {/* Action Button */}
-                                    <Button
-                                      fullWidth
-                                      size="large"
-                                      variant={isCurrentPlan ? "secondary" : (plan.recommended ? "primary" : "primary")}
-                                      disabled={isCurrentPlan}
-                                      onClick={() => navigate(`/app/billing?plan=${planIdToUse}`)}
-                                    >
-                                      {isCurrentPlan ? "Current Plan" : `Upgrade to ${plan.name}`}
-                                    </Button>
-
-                                    <Divider />
-
-                                    {/* Features List */}
-                                    <BlockStack gap="300" align="start">
-                                      <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">
-                                        What's included:
-                                      </Text>
-                                      <BlockStack gap="200" align="start">
-                                        {plan.features.map((feature, index) => (
-                                          <InlineStack key={index} gap="200" align="start" blockAlign="start">
-                                            <div style={{ flexShrink: 0 }}>
-                                              <Icon source={CheckCircleIcon} tone="success" />
-                                            </div>
-                                            <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
-                                          </InlineStack>
-                                        ))}
-                                      </BlockStack>
-                                    </BlockStack>
-                                  </BlockStack>
-                                </Box>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      </BlockStack>
                     </BlockStack>
                   )}
                 </Box>
