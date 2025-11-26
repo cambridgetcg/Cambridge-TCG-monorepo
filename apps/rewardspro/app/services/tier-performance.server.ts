@@ -117,6 +117,8 @@ async function calculateRetentionRate(
 
 /**
  * Fetch tier performance metrics for a specific period
+ * OPTIMIZED: Batched queries instead of per-tier queries
+ * Reduced from ~5N queries (N = number of tiers) to ~8 total queries
  */
 async function fetchTierPerformanceMetrics(
   shop: string,
@@ -127,189 +129,241 @@ async function fetchTierPerformanceMetrics(
   const previousPeriod = getPreviousPeriod();
   const previousMonthRange = getMonthRange(previousPeriod.year, previousPeriod.month);
 
-  console.log(`[Tier Performance] Fetching metrics for ${shop}`);
+  console.log(`[Tier Performance] Fetching metrics for ${shop} (OPTIMIZED)`);
   console.log(`[Tier Performance] Current period: ${year}-${month}`);
 
-  // Get all tiers for this shop
-  const tiers = await db.tier.findMany({
-    where: { shop },
-    orderBy: { minSpend: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      cashbackPercent: true,
-    },
-  });
+  // BATCH QUERY 1: Get all tiers and shop settings in parallel
+  const [tiers, shopSettings] = await Promise.all([
+    db.tier.findMany({
+      where: { shop },
+      orderBy: { minSpend: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        cashbackPercent: true,
+      },
+    }),
+    db.shopSettings.findUnique({
+      where: { shop },
+      select: { averageProfitMargin: true },
+    }),
+  ]);
 
   if (tiers.length === 0) {
     console.log('[Tier Performance] No tiers found for shop');
     return [];
   }
 
-  // Get shop profit margin setting
-  const shopSettings = await db.shopSettings.findUnique({
-    where: { shop },
-    select: { averageProfitMargin: true },
-  });
   const profitMargin = shopSettings?.averageProfitMargin
     ? Number(shopSettings.averageProfitMargin)
-    : 40; // Default 40% if not set
+    : 40;
 
-  console.log(`[Tier Performance] Using profit margin: ${profitMargin}%`);
+  const tierIds = tiers.map(t => t.id);
 
-  // Build metrics for each tier
-  const tierMetrics = await Promise.all(
-    tiers.map(async (tier) => {
-      // 1. Get all customers in this tier
-      const tierCustomers = await db.customer.findMany({
-        where: {
-          shop,
-          currentTierId: tier.id,
+  // BATCH QUERY 2: Get all customer counts and LTV grouped by tier in parallel
+  const [customerCountsByTier, ltvByTier, allCustomersWithTier] = await Promise.all([
+    // Customer counts per tier
+    db.customer.groupBy({
+      by: ['currentTierId'],
+      where: {
+        shop,
+        currentTierId: { in: tierIds },
+      },
+      _count: { id: true },
+    }),
+    // LTV (average totalSpent) per tier
+    db.customer.groupBy({
+      by: ['currentTierId'],
+      where: {
+        shop,
+        currentTierId: { in: tierIds },
+      },
+      _avg: { totalSpent: true },
+    }),
+    // Get all customers with their tier IDs for order lookups
+    db.customer.findMany({
+      where: {
+        shop,
+        currentTierId: { in: tierIds },
+      },
+      select: {
+        id: true,
+        currentTierId: true,
+      },
+    }),
+  ]);
+
+  // Create lookup maps
+  const customerCountMap = new Map(
+    customerCountsByTier.map(c => [c.currentTierId, c._count.id])
+  );
+  const ltvMap = new Map(
+    ltvByTier.map(c => [c.currentTierId, Number(c._avg.totalSpent || 0)])
+  );
+  const customersByTier = new Map<string, string[]>();
+  allCustomersWithTier.forEach(c => {
+    if (c.currentTierId) {
+      const existing = customersByTier.get(c.currentTierId) || [];
+      existing.push(c.id);
+      customersByTier.set(c.currentTierId, existing);
+    }
+  });
+
+  // Get all customer IDs for order queries
+  const allCustomerIds = allCustomersWithTier.map(c => c.id);
+
+  // BATCH QUERY 3: Get all order data for current month in one query
+  const [allOrders, allActiveCustomerOrders] = await Promise.all([
+    // All orders in current month for all tier customers
+    db.order.findMany({
+      where: {
+        shop,
+        customerId: { in: allCustomerIds },
+        shopifyCreatedAt: {
+          gte: currentMonthRange.start,
+          lte: currentMonthRange.end,
         },
-        select: {
-          id: true,
+        financialStatus: {
+          in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'],
         },
-      });
-
-      const customerCount = tierCustomers.length;
-      const tierCustomerIds = tierCustomers.map(c => c.id);
-
-      // If no customers in this tier, return empty metrics
-      if (tierCustomerIds.length === 0) {
-        console.log(`[Tier Performance] ${tier.name}: No customers`);
-        return {
-          id: tier.id,
-          name: tier.name,
-          members: 0,
-          customerCount: 0,
-          cashbackPercent: tier.cashbackPercent,
-          monthlyOrderFrequency: 0,
-          revenuePerOrder: 0,
-          grossProfitPerCustomerPerMonth: 0,
-          averageOrderValue: 0,
-          lifetimeValue: 0,
-          retentionRate: 0,
-          totalCashbackEarned: 0,
-        };
-      }
-
-      // 2-6, 8. Order metrics for current month
-      const orderAggregation = await db.order.aggregate({
-        where: {
-          shop,
-          customerId: { in: tierCustomerIds },
-          shopifyCreatedAt: {
-            gte: currentMonthRange.start,
-            lte: currentMonthRange.end,
-          },
-          financialStatus: {
-            in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'],
-          },
+      },
+      select: {
+        customerId: true,
+        netAmount: true,
+        cashbackAmount: true,
+      },
+    }),
+    // Distinct customers who ordered this month (for active count)
+    db.order.findMany({
+      where: {
+        shop,
+        customerId: { in: allCustomerIds },
+        shopifyCreatedAt: {
+          gte: currentMonthRange.start,
+          lte: currentMonthRange.end,
         },
-        _sum: {
-          netAmount: true,
-          cashbackAmount: true,
+        financialStatus: {
+          in: ['PAID', 'PARTIALLY_PAID'],
         },
-        _count: {
-          id: true,
-        },
-      });
+      },
+      distinct: ['customerId'],
+      select: { customerId: true },
+    }),
+  ]);
 
-      // Get distinct customers who ordered this month (for active customer count)
-      const activeCustomers = await db.order.findMany({
-        where: {
-          shop,
-          customerId: { in: tierCustomerIds },
-          shopifyCreatedAt: {
-            gte: currentMonthRange.start,
-            lte: currentMonthRange.end,
-          },
-          financialStatus: {
-            in: ['PAID', 'PARTIALLY_PAID'],
-          },
-        },
-        distinct: ['customerId'],
-        select: {
-          customerId: true,
-        },
-      });
-
-      const activeCustomerCount = activeCustomers.length;
-      const orderCount = orderAggregation._count.id;
-      const totalRevenue = Number(orderAggregation._sum.netAmount || 0);
-      const totalCashback = Number(orderAggregation._sum.cashbackAmount || 0);
-
-      // 2. Monthly Order Frequency (orders per customer)
-      const monthlyOrderFrequency =
-        activeCustomerCount > 0 ? orderCount / activeCustomerCount : 0;
-
-      // 3 & 5. Revenue Per Order / Average Order Value
-      const revenuePerOrder = orderCount > 0 ? totalRevenue / orderCount : 0;
-
-      // 4. Monthly Gross Profit Per Customer
-      const totalGrossProfit = totalRevenue * (profitMargin / 100);
-      const grossProfitPerCustomerPerMonth =
-        customerCount > 0 ? totalGrossProfit / customerCount : 0;
-
-      // 6. Customer Lifetime Value (all-time average)
-      const lifetimeValueAgg = await db.customer.aggregate({
-        where: {
-          shop,
-          id: { in: tierCustomerIds },
-        },
-        _avg: {
-          totalSpent: true,
-        },
-      });
-      const lifetimeValue = Number(lifetimeValueAgg._avg.totalSpent || 0);
-
-      // 7. Retention Rate
-      let retentionRate = 0;
-      try {
-        retentionRate = await calculateRetentionRate(
-          shop,
-          tierCustomerIds,
-          currentMonthRange,
-          previousMonthRange
-        );
-      } catch (error) {
-        console.error(`[Tier Performance] Error calculating retention for ${tier.name}:`, error);
-        retentionRate = 0;
-      }
-
-      // 8. Total Cashback Earned (per customer average)
-      const cashbackPerCustomer =
-        customerCount > 0 ? totalCashback / customerCount : 0;
-
-      console.log(`[Tier Performance] ${tier.name}:`);
-      console.log(`  - Members: ${customerCount}`);
-      console.log(`  - Active Customers (ordered this month): ${activeCustomerCount}`);
-      console.log(`  - Orders: ${orderCount}`);
-      console.log(`  - Monthly Order Frequency: ${monthlyOrderFrequency.toFixed(2)}`);
-      console.log(`  - Revenue Per Order: $${revenuePerOrder.toFixed(2)}`);
-      console.log(`  - Gross Profit/Customer/Month: $${grossProfitPerCustomerPerMonth.toFixed(2)}`);
-      console.log(`  - Lifetime Value: $${lifetimeValue.toFixed(2)}`);
-      console.log(`  - Retention Rate: ${retentionRate.toFixed(1)}%`);
-      console.log(`  - Cashback/Customer: $${cashbackPerCustomer.toFixed(2)}`);
-
-      return {
-        id: tier.id,
-        name: tier.name,
-        members: customerCount,
-        customerCount: customerCount,
-        cashbackPercent: tier.cashbackPercent,
-        monthlyOrderFrequency: Math.round(monthlyOrderFrequency * 100) / 100,
-        revenuePerOrder: Math.round(revenuePerOrder * 100) / 100,
-        grossProfitPerCustomerPerMonth: Math.round(grossProfitPerCustomerPerMonth * 100) / 100,
-        averageOrderValue: Math.round(revenuePerOrder * 100) / 100, // Same as revenuePerOrder
-        lifetimeValue: Math.round(lifetimeValue * 100) / 100,
-        retentionRate: Math.round(retentionRate * 10) / 10,
-        totalCashbackEarned: Math.round(cashbackPerCustomer * 100) / 100,
-      };
-    })
+  // Create customer to tier lookup
+  const customerToTier = new Map(
+    allCustomersWithTier.map(c => [c.id, c.currentTierId])
   );
 
-  console.log('[Tier Performance] Metrics fetched successfully');
+  // Aggregate order data by tier in memory (much faster than N queries)
+  const orderDataByTier = new Map<string, { revenue: number; cashback: number; orderCount: number }>();
+  allOrders.forEach(order => {
+    const tierId = customerToTier.get(order.customerId);
+    if (tierId) {
+      const existing = orderDataByTier.get(tierId) || { revenue: 0, cashback: 0, orderCount: 0 };
+      existing.revenue += Number(order.netAmount || 0);
+      existing.cashback += Number(order.cashbackAmount || 0);
+      existing.orderCount += 1;
+      orderDataByTier.set(tierId, existing);
+    }
+  });
+
+  // Count active customers by tier
+  const activeCustomersByTier = new Map<string, Set<string>>();
+  allActiveCustomerOrders.forEach(order => {
+    const tierId = customerToTier.get(order.customerId);
+    if (tierId) {
+      const existing = activeCustomersByTier.get(tierId) || new Set();
+      existing.add(order.customerId);
+      activeCustomersByTier.set(tierId, existing);
+    }
+  });
+
+  // BATCH QUERY 4: Get retention data (previous month orders)
+  const [lastMonthOrders, thisMonthOrders] = await Promise.all([
+    db.order.findMany({
+      where: {
+        shop,
+        customerId: { in: allCustomerIds },
+        shopifyCreatedAt: {
+          gte: previousMonthRange.start,
+          lte: previousMonthRange.end,
+        },
+        financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+      },
+      distinct: ['customerId'],
+      select: { customerId: true },
+    }),
+    db.order.findMany({
+      where: {
+        shop,
+        customerId: { in: allCustomerIds },
+        shopifyCreatedAt: { gte: currentMonthRange.start },
+        financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+      },
+      distinct: ['customerId'],
+      select: { customerId: true },
+    }),
+  ]);
+
+  // Calculate retention by tier
+  const lastMonthCustomerIds = new Set(lastMonthOrders.map(o => o.customerId));
+  const thisMonthCustomerIds = new Set(thisMonthOrders.map(o => o.customerId));
+
+  const retentionByTier = new Map<string, number>();
+  tierIds.forEach(tierId => {
+    const tierCustomerIds = customersByTier.get(tierId) || [];
+    const lastMonthTierCustomers = tierCustomerIds.filter(id => lastMonthCustomerIds.has(id));
+    if (lastMonthTierCustomers.length === 0) {
+      retentionByTier.set(tierId, 0);
+    } else {
+      const retained = lastMonthTierCustomers.filter(id => thisMonthCustomerIds.has(id));
+      retentionByTier.set(tierId, (retained.length / lastMonthTierCustomers.length) * 100);
+    }
+  });
+
+  // Build final metrics from aggregated data
+  const tierMetrics = tiers.map(tier => {
+    const customerCount = customerCountMap.get(tier.id) || 0;
+    const lifetimeValue = ltvMap.get(tier.id) || 0;
+    const orderData = orderDataByTier.get(tier.id) || { revenue: 0, cashback: 0, orderCount: 0 };
+    const activeCustomerCount = activeCustomersByTier.get(tier.id)?.size || 0;
+    const retentionRate = retentionByTier.get(tier.id) || 0;
+
+    const monthlyOrderFrequency = activeCustomerCount > 0
+      ? orderData.orderCount / activeCustomerCount
+      : 0;
+    const revenuePerOrder = orderData.orderCount > 0
+      ? orderData.revenue / orderData.orderCount
+      : 0;
+    const totalGrossProfit = orderData.revenue * (profitMargin / 100);
+    const grossProfitPerCustomerPerMonth = customerCount > 0
+      ? totalGrossProfit / customerCount
+      : 0;
+    const cashbackPerCustomer = customerCount > 0
+      ? orderData.cashback / customerCount
+      : 0;
+
+    console.log(`[Tier Performance] ${tier.name}: ${customerCount} members, ${orderData.orderCount} orders`);
+
+    return {
+      id: tier.id,
+      name: tier.name,
+      members: customerCount,
+      customerCount: customerCount,
+      cashbackPercent: tier.cashbackPercent,
+      monthlyOrderFrequency: Math.round(monthlyOrderFrequency * 100) / 100,
+      revenuePerOrder: Math.round(revenuePerOrder * 100) / 100,
+      grossProfitPerCustomerPerMonth: Math.round(grossProfitPerCustomerPerMonth * 100) / 100,
+      averageOrderValue: Math.round(revenuePerOrder * 100) / 100,
+      lifetimeValue: Math.round(lifetimeValue * 100) / 100,
+      retentionRate: Math.round(retentionRate * 10) / 10,
+      totalCashbackEarned: Math.round(cashbackPerCustomer * 100) / 100,
+    };
+  });
+
+  console.log(`[Tier Performance] Metrics fetched successfully (${tiers.length} tiers)`);
   return tierMetrics;
 }
 

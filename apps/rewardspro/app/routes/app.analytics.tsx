@@ -296,23 +296,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ]);
 
     // Calculate auto-metrics for business metrics configuration
-    const [ltv, totalCustomersCount, allOrders, retention] = await Promise.all([
+    // OPTIMIZED: Reuse totalCustomers from metricsComparison instead of duplicate query
+    const totalCustomersCount = metricsComparison.current.totalCustomers;
+
+    // OPTIMIZED: Use SQL COUNT instead of fetching all orders into memory
+    const [ltv, repeatCustomersCount, retention] = await Promise.all([
       // Customer Lifetime Value - average total spent
       db.customer.aggregate({
         where: { shop },
         _avg: { totalSpent: true },
       }),
-      // Total customers count
+      // OPTIMIZED: Count customers with >1 order directly in database
+      // Instead of fetching all orders and counting in memory
       db.customer.count({
-        where: { shop },
-      }),
-      // All orders with customer IDs for repeat purchase calculation
-      db.order.findMany({
         where: {
           shop,
-          financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+          orderCount: { gt: 1 },
         },
-        select: { customerId: true },
       }),
       // Retention rate - customers who ordered last month and this month
       (async () => {
@@ -357,16 +357,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     const customerLifetimeValue = Number(ltv._avg.totalSpent || 0);
 
-    // Calculate repeat purchase rate from orders
-    const ordersByCustomer = new Map<string, number>();
-    allOrders.forEach(order => {
-      const count = ordersByCustomer.get(order.customerId) || 0;
-      ordersByCustomer.set(order.customerId, count + 1);
-    });
-
-    const customersWithRepeatOrders = Array.from(ordersByCustomer.values()).filter(count => count > 1).length;
+    // OPTIMIZED: Calculate repeat purchase rate from database count
     const repeatPurchaseRate = totalCustomersCount > 0
-      ? (customersWithRepeatOrders / totalCustomersCount) * 100
+      ? (repeatCustomersCount / totalCustomersCount) * 100
       : 0;
     const actualRetentionRate = retention;
 
@@ -397,23 +390,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         },
       }),
     ]);
-
-    // Calculate repeat purchase rates for members vs non-members
-    const memberRepeatRate = (() => {
-      const memberOrders = ordersByCustomer;
-      let membersWithRepeat = 0;
-      let totalMembersWithOrders = 0;
-
-      // Count members vs non-members with repeat purchases
-      allOrders.forEach(order => {
-        const count = memberOrders.get(order.customerId) || 0;
-        // We'll need to check if this customer is a member, but we don't have that data in allOrders
-        // So we'll do a separate aggregation
-      });
-
-      // Simpler approach: aggregate directly from Customer table
-      return 0; // Will calculate below with separate query
-    })();
 
     // Get repeat purchase counts (customers with >1 order) using aggregate
     const [memberRepeatCustomers, nonMemberRepeatCustomers] = await Promise.all([

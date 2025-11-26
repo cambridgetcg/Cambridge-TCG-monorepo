@@ -169,16 +169,17 @@ export async function getOverviewMetricsWithComparison(
   console.log(`[Analytics] Previous: ${previousPeriod.year}-${previousPeriod.month}`);
 
   // Fetch both periods in parallel with caching
+  // OPTIMIZED: Increased cache TTL for better performance
   const [current, previous] = await Promise.all([
     getCachedOrCompute(
       getMetricsCacheKey(shop, 'current'),
       () => fetchPeriodMetrics(shop, currentPeriod.year, currentPeriod.month),
-      60000 // 60 second cache
+      300000 // 5 minute cache (increased from 60s - current month metrics don't change rapidly)
     ),
     getCachedOrCompute(
       getMetricsCacheKey(shop, 'previous'),
       () => fetchPeriodMetrics(shop, previousPeriod.year, previousPeriod.month),
-      300000 // 5 minute cache (previous month changes less frequently)
+      600000 // 10 minute cache (previous month rarely changes)
     ),
   ]);
 
