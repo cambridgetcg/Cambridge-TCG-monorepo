@@ -3,6 +3,8 @@
  *
  * Detects whether the theme app extension (widget) is enabled
  * by querying the theme's settings_data.json file via GraphQL.
+ *
+ * Includes in-memory caching to prevent excessive API calls.
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
@@ -10,6 +12,56 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 // App extension identifiers
 const APP_EXTENSION_HANDLE = "rewardspro-theme-extension";
 const MEMBERSHIP_WIDGET_BLOCK = "membership_widget";
+
+// ============================================
+// IN-MEMORY CACHE
+// ============================================
+
+interface CachedWidgetStatus {
+  result: WidgetDetectionResult;
+  cachedAt: number;
+}
+
+// Cache TTL: 5 minutes (widget status changes infrequently)
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+// In-memory cache keyed by shop domain
+const widgetStatusCache = new Map<string, CachedWidgetStatus>();
+
+/**
+ * Get cached widget status if available and not expired
+ */
+function getCachedStatus(shop: string): WidgetDetectionResult | null {
+  const cached = widgetStatusCache.get(shop);
+  if (!cached) return null;
+
+  const age = Date.now() - cached.cachedAt;
+  if (age > CACHE_TTL_MS) {
+    widgetStatusCache.delete(shop);
+    return null;
+  }
+
+  console.log(`[Widget Detection] Using cached status for ${shop} (age: ${Math.round(age / 1000)}s)`);
+  return cached.result;
+}
+
+/**
+ * Set cached widget status
+ */
+function setCachedStatus(shop: string, result: WidgetDetectionResult): void {
+  widgetStatusCache.set(shop, {
+    result,
+    cachedAt: Date.now(),
+  });
+}
+
+/**
+ * Clear cached status for a shop (useful after theme changes)
+ */
+export function clearWidgetStatusCache(shop: string): void {
+  widgetStatusCache.delete(shop);
+  console.log(`[Widget Detection] Cleared cache for ${shop}`);
+}
 
 export interface WidgetDetectionResult {
   isEnabled: boolean;
@@ -196,8 +248,25 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
 
 /**
  * Detect if the widget is enabled in the merchant's theme
+ * Uses in-memory caching (5 min TTL) to prevent excessive API calls
+ *
+ * @param admin - Shopify Admin API context
+ * @param shop - Shop domain (for caching)
+ * @param forceRefresh - Skip cache and fetch fresh data
  */
-export async function detectWidgetStatus(admin: AdminApiContext): Promise<WidgetDetectionResult> {
+export async function detectWidgetStatus(
+  admin: AdminApiContext,
+  shop?: string,
+  forceRefresh: boolean = false
+): Promise<WidgetDetectionResult> {
+  // Check cache first (if shop provided and not forcing refresh)
+  if (shop && !forceRefresh) {
+    const cached = getCachedStatus(shop);
+    if (cached) {
+      return cached;
+    }
+  }
+
   console.log("[Widget Detection] Starting widget detection...");
 
   try {
@@ -205,7 +274,7 @@ export async function detectWidgetStatus(admin: AdminApiContext): Promise<Widget
     const mainTheme = await getMainThemeId(admin);
 
     if (!mainTheme) {
-      return {
+      const result: WidgetDetectionResult = {
         isEnabled: false,
         blockType: 'none',
         themeName: null,
@@ -213,6 +282,8 @@ export async function detectWidgetStatus(admin: AdminApiContext): Promise<Widget
         lastChecked: new Date(),
         error: "Could not find main theme",
       };
+      // Don't cache errors
+      return result;
     }
 
     console.log(`[Widget Detection] Main theme: ${mainTheme.name} (${mainTheme.id})`);
@@ -221,7 +292,7 @@ export async function detectWidgetStatus(admin: AdminApiContext): Promise<Widget
     const settingsData = await getThemeSettings(admin, mainTheme.id);
 
     if (!settingsData) {
-      return {
+      const result: WidgetDetectionResult = {
         isEnabled: false,
         blockType: 'none',
         themeName: mainTheme.name,
@@ -229,6 +300,8 @@ export async function detectWidgetStatus(admin: AdminApiContext): Promise<Widget
         lastChecked: new Date(),
         error: "Could not read theme settings",
       };
+      // Don't cache errors
+      return result;
     }
 
     // Step 3: Check if app embed is enabled
@@ -236,7 +309,7 @@ export async function detectWidgetStatus(admin: AdminApiContext): Promise<Widget
 
     console.log(`[Widget Detection] Result: isEnabled=${isEnabled}, blockType=${blockType}`);
 
-    return {
+    const result: WidgetDetectionResult = {
       isEnabled,
       blockType,
       themeName: mainTheme.name,
@@ -244,6 +317,13 @@ export async function detectWidgetStatus(admin: AdminApiContext): Promise<Widget
       lastChecked: new Date(),
       error: null,
     };
+
+    // Cache successful result
+    if (shop) {
+      setCachedStatus(shop, result);
+    }
+
+    return result;
   } catch (error) {
     console.error("[Widget Detection] Error detecting widget status:", error);
     return {

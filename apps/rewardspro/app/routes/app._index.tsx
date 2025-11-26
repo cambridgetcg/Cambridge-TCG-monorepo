@@ -416,6 +416,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Detect widget status from theme settings via GraphQL
+    // Uses in-memory caching (5 min TTL) to prevent excessive API calls
     let widgetDetectionResult = {
       isEnabled: false,
       blockType: 'none' as 'app_embed' | 'section' | 'none',
@@ -425,7 +426,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     try {
       const { detectWidgetStatus, updateWidgetStatusCache } = await import("~/services/widget-detection.server");
-      const detection = await detectWidgetStatus(authResult.admin);
+      // Pass shop for caching - subsequent calls within 5 min will use cache
+      const detection = await detectWidgetStatus(authResult.admin, shop);
       widgetDetectionResult = {
         isEnabled: detection.isEnabled,
         blockType: detection.blockType,
@@ -532,7 +534,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 
 // ============================================
-// ACTION - Handle feature manager
+// ACTION - Handle feature manager (OPTIMIZED)
 // ============================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -546,15 +548,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const feature = formData.get("feature") as string;
     const enabled = formData.get("enabled") === "true";
 
-    // Fetch current value before update
-    const currentSettings = await db.shopSettings.findUnique({
-      where: { shop },
-      select: { [feature]: true }
-    });
+    // Validate feature name to prevent injection
+    const validFeatures = [
+      'advancedAnalyticsEnabled',
+      'autoCashbackProcessingEnabled',
+      'emailMarketingEnabled',
+      'tierProductsEnabled'
+    ];
 
-    const previousValue = currentSettings?.[feature];
+    if (!validFeatures.includes(feature)) {
+      return json({ success: false, error: 'Invalid feature' }, { status: 400 });
+    }
 
-    const updateData: any = {};
+    const updateData: Record<string, boolean> = {};
     updateData[feature] = enabled;
 
     // Log the feature toggle change
@@ -563,28 +569,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Special logging for Automatic Cashback Processing
     if (feature === 'autoCashbackProcessingEnabled') {
       console.log(`[Feature Manager] ⚠️  Automatic Cashback Processing is now ${enabled ? 'ENABLED' : 'DISABLED'} for ${shop}`);
-      console.log(`[Feature Manager] Database change: autoCashbackProcessingEnabled ${previousValue} → ${enabled}`);
       console.log(`[Feature Manager] Future orders will ${enabled ? 'automatically earn' : 'NOT automatically earn'} cashback rewards`);
     }
 
+    // Single DB operation - no need for pre-fetch or post-verify
     await db.shopSettings.update({
       where: { shop },
       data: updateData,
     });
 
-    // Verify the update
-    const updatedSettings = await db.shopSettings.findUnique({
-      where: { shop },
-      select: { [feature]: true }
-    });
-
-    console.log(`[Feature Manager] ✓ Database updated successfully: ${feature} = ${updatedSettings?.[feature]}`);
+    console.log(`[Feature Manager] ✓ Database updated: ${feature} = ${enabled}`);
 
     return json({ success: true, feature, enabled });
   }
 
   return json({ success: false });
 };
+
+// ============================================
+// SHOULD REVALIDATE - Prevent full loader reload on feature toggle
+// ============================================
+
+export function shouldRevalidate({
+  formAction,
+  formData,
+  defaultShouldRevalidate,
+}: {
+  formAction?: string;
+  formData?: FormData;
+  defaultShouldRevalidate: boolean;
+}) {
+  // Skip loader revalidation for feature toggle actions
+  // The optimistic UI handles the immediate visual update
+  if (formData?.get("action") === "toggle-feature") {
+    return false;
+  }
+
+  return defaultShouldRevalidate;
+}
 
 // ============================================
 // DASHBOARD COMPONENT
@@ -599,8 +621,23 @@ export default function Dashboard() {
   const [toastActive, setToastActive] = useState(false);
   const [toastContent, setToastContent] = useState('');
 
-  // Handle feature toggle submission
+  // OPTIMISTIC UI: Track pending toggle states for instant feedback
+  const [optimisticToggles, setOptimisticToggles] = useState<Record<string, boolean>>({});
+
+  // Get effective feature state (optimistic value takes precedence during submission)
+  const getFeatureState = useCallback((feature: string, serverValue: boolean | undefined): boolean => {
+    // If we have a pending optimistic value for this feature, use it
+    if (feature in optimisticToggles) {
+      return optimisticToggles[feature];
+    }
+    return serverValue ?? false;
+  }, [optimisticToggles]);
+
+  // Handle feature toggle submission with optimistic update
   const handleToggleFeature = useCallback((feature: string, enabled: boolean) => {
+    // OPTIMISTIC: Update UI immediately
+    setOptimisticToggles(prev => ({ ...prev, [feature]: enabled }));
+
     const formData = new FormData();
     formData.append("action", "toggle-feature");
     formData.append("feature", feature);
@@ -609,12 +646,19 @@ export default function Dashboard() {
     fetcher.submit(formData, { method: "post" });
   }, [fetcher]);
 
-  // Show toast message when feature toggle completes
+  // Handle fetcher completion - clear optimistic state and show toast
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data) {
-      const result = fetcher.data as { success?: boolean; feature?: string; enabled?: boolean };
+      const result = fetcher.data as { success?: boolean; feature?: string; enabled?: boolean; error?: string };
 
       if (result.success && result.feature && typeof result.enabled === 'boolean') {
+        // Clear optimistic state for this feature (server state now matches)
+        setOptimisticToggles(prev => {
+          const next = { ...prev };
+          delete next[result.feature!];
+          return next;
+        });
+
         const featureNames: Record<string, string> = {
           'advancedAnalyticsEnabled': 'Advanced Analytics',
           'autoCashbackProcessingEnabled': 'Automatic Cashback Processing',
@@ -626,6 +670,11 @@ export default function Dashboard() {
         const action = result.enabled ? 'enabled' : 'disabled';
 
         setToastContent(`${featureName} ${action}`);
+        setToastActive(true);
+      } else if (result.error) {
+        // On error, revert optimistic state
+        setOptimisticToggles({});
+        setToastContent('Failed to update feature');
         setToastActive(true);
       }
     }
@@ -640,12 +689,12 @@ export default function Dashboard() {
     />
   ) : null;
 
-  // Calculate active features count
+  // Calculate active features count using optimistic values
   const activeFeaturesCount = [
-    data.shopSettings?.advancedAnalyticsEnabled,
-    data.shopSettings?.autoCashbackProcessingEnabled,
-    data.shopSettings?.emailMarketingEnabled,
-    data.shopSettings?.tierProductsEnabled,
+    getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled),
+    getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled),
+    getFeatureState('emailMarketingEnabled', data.shopSettings?.emailMarketingEnabled),
+    getFeatureState('tierProductsEnabled', data.shopSettings?.tierProductsEnabled),
   ].filter(Boolean).length;
 
   return (
@@ -1058,233 +1107,257 @@ export default function Dashboard() {
               <Divider />
 
               <BlockStack gap="200">
-                {/* Analytics Row */}
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: '#fafafa',
-                  borderRadius: '8px',
-                  border: '1px solid #e1e3e5'
-                }}>
-                  <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="300" blockAlign="center">
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '8px',
-                        backgroundColor: data.shopSettings?.advancedAnalyticsEnabled ? '#e3f1df' : '#f1f1f1',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <Icon source={ChartVerticalIcon} tone={data.shopSettings?.advancedAnalyticsEnabled ? 'success' : 'subdued'} />
-                      </div>
-                      <BlockStack gap="050">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">Advanced Analytics</Text>
-                        <Text variant="bodySm" tone="subdued" as="span">Analytics and reporting features</Text>
-                      </BlockStack>
-                    </InlineStack>
-                    <InlineStack gap="300" blockAlign="center">
-                      <Badge tone={data.shopSettings?.advancedAnalyticsEnabled ? 'success' : 'enabled'}>
-                        {data.shopSettings?.advancedAnalyticsEnabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                      <div
-                        style={{
-                          width: '52px',
-                          height: '28px',
-                          borderRadius: '14px',
-                          backgroundColor: data.shopSettings?.advancedAnalyticsEnabled ? '#008060' : '#8c9196',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onClick={() => handleToggleFeature('advancedAnalyticsEnabled', !data.shopSettings?.advancedAnalyticsEnabled)}
-                      >
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'white',
-                          position: 'absolute',
-                          top: '2px',
-                          left: data.shopSettings?.advancedAnalyticsEnabled ? '26px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                        }} />
-                      </div>
-                    </InlineStack>
-                  </InlineStack>
-                </div>
+                {/* Analytics Row - OPTIMISTIC UI */}
+                {(() => {
+                  const isEnabled = getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled);
+                  return (
+                    <div style={{
+                      padding: '12px 16px',
+                      backgroundColor: '#fafafa',
+                      borderRadius: '8px',
+                      border: '1px solid #e1e3e5'
+                    }}>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="300" blockAlign="center">
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '8px',
+                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background-color 0.15s ease'
+                          }}>
+                            <Icon source={ChartVerticalIcon} tone={isEnabled ? 'success' : 'subdued'} />
+                          </div>
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="semibold" as="span">Advanced Analytics</Text>
+                            <Text variant="bodySm" tone="subdued" as="span">Analytics and reporting features</Text>
+                          </BlockStack>
+                        </InlineStack>
+                        <InlineStack gap="300" blockAlign="center">
+                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
+                            {isEnabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                          <div
+                            style={{
+                              width: '52px',
+                              height: '28px',
+                              borderRadius: '14px',
+                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
+                              position: 'relative',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                            onClick={() => handleToggleFeature('advancedAnalyticsEnabled', !isEnabled)}
+                          >
+                            <div style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: 'white',
+                              position: 'absolute',
+                              top: '2px',
+                              left: isEnabled ? '26px' : '2px',
+                              transition: 'left 0.15s ease',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+                        </InlineStack>
+                      </InlineStack>
+                    </div>
+                  );
+                })()}
 
-                {/* Cashback Row */}
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: '#fafafa',
-                  borderRadius: '8px',
-                  border: '1px solid #e1e3e5'
-                }}>
-                  <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="300" blockAlign="center">
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '8px',
-                        backgroundColor: data.shopSettings?.autoCashbackProcessingEnabled ? '#e3f1df' : '#f1f1f1',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <Icon source={CashDollarIcon} tone={data.shopSettings?.autoCashbackProcessingEnabled ? 'success' : 'subdued'} />
-                      </div>
-                      <BlockStack gap="050">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
-                        <Text variant="bodySm" tone="subdued" as="span">Process rewards automatically for orders</Text>
-                      </BlockStack>
-                    </InlineStack>
-                    <InlineStack gap="300" blockAlign="center">
-                      <Badge tone={data.shopSettings?.autoCashbackProcessingEnabled ? 'success' : 'enabled'}>
-                        {data.shopSettings?.autoCashbackProcessingEnabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                      <div
-                        style={{
-                          width: '52px',
-                          height: '28px',
-                          borderRadius: '14px',
-                          backgroundColor: data.shopSettings?.autoCashbackProcessingEnabled ? '#008060' : '#8c9196',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onClick={() => handleToggleFeature('autoCashbackProcessingEnabled', !data.shopSettings?.autoCashbackProcessingEnabled)}
-                      >
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'white',
-                          position: 'absolute',
-                          top: '2px',
-                          left: data.shopSettings?.autoCashbackProcessingEnabled ? '26px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                        }} />
-                      </div>
-                    </InlineStack>
-                  </InlineStack>
-                </div>
+                {/* Cashback Row - OPTIMISTIC UI */}
+                {(() => {
+                  const isEnabled = getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled);
+                  return (
+                    <div style={{
+                      padding: '12px 16px',
+                      backgroundColor: '#fafafa',
+                      borderRadius: '8px',
+                      border: '1px solid #e1e3e5'
+                    }}>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="300" blockAlign="center">
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '8px',
+                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background-color 0.15s ease'
+                          }}>
+                            <Icon source={CashDollarIcon} tone={isEnabled ? 'success' : 'subdued'} />
+                          </div>
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
+                            <Text variant="bodySm" tone="subdued" as="span">Process rewards automatically for orders</Text>
+                          </BlockStack>
+                        </InlineStack>
+                        <InlineStack gap="300" blockAlign="center">
+                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
+                            {isEnabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                          <div
+                            style={{
+                              width: '52px',
+                              height: '28px',
+                              borderRadius: '14px',
+                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
+                              position: 'relative',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                            onClick={() => handleToggleFeature('autoCashbackProcessingEnabled', !isEnabled)}
+                          >
+                            <div style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: 'white',
+                              position: 'absolute',
+                              top: '2px',
+                              left: isEnabled ? '26px' : '2px',
+                              transition: 'left 0.15s ease',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+                        </InlineStack>
+                      </InlineStack>
+                    </div>
+                  );
+                })()}
 
-                {/* Email Marketing Row */}
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: '#fafafa',
-                  borderRadius: '8px',
-                  border: '1px solid #e1e3e5'
-                }}>
-                  <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="300" blockAlign="center">
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '8px',
-                        backgroundColor: data.shopSettings?.emailMarketingEnabled ? '#e3f1df' : '#f1f1f1',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <Icon source={CreditCardIcon} tone={data.shopSettings?.emailMarketingEnabled ? 'success' : 'subdued'} />
-                      </div>
-                      <BlockStack gap="050">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">Email Marketing Campaigns</Text>
-                        <Text variant="bodySm" tone="subdued" as="span">Promotional email campaigns</Text>
-                      </BlockStack>
-                    </InlineStack>
-                    <InlineStack gap="300" blockAlign="center">
-                      <Badge tone={data.shopSettings?.emailMarketingEnabled ? 'success' : 'enabled'}>
-                        {data.shopSettings?.emailMarketingEnabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                      <div
-                        style={{
-                          width: '52px',
-                          height: '28px',
-                          borderRadius: '14px',
-                          backgroundColor: data.shopSettings?.emailMarketingEnabled ? '#008060' : '#8c9196',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onClick={() => handleToggleFeature('emailMarketingEnabled', !data.shopSettings?.emailMarketingEnabled)}
-                      >
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'white',
-                          position: 'absolute',
-                          top: '2px',
-                          left: data.shopSettings?.emailMarketingEnabled ? '26px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                        }} />
-                      </div>
-                    </InlineStack>
-                  </InlineStack>
-                </div>
+                {/* Email Marketing Row - OPTIMISTIC UI */}
+                {(() => {
+                  const isEnabled = getFeatureState('emailMarketingEnabled', data.shopSettings?.emailMarketingEnabled);
+                  return (
+                    <div style={{
+                      padding: '12px 16px',
+                      backgroundColor: '#fafafa',
+                      borderRadius: '8px',
+                      border: '1px solid #e1e3e5'
+                    }}>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="300" blockAlign="center">
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '8px',
+                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background-color 0.15s ease'
+                          }}>
+                            <Icon source={CreditCardIcon} tone={isEnabled ? 'success' : 'subdued'} />
+                          </div>
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="semibold" as="span">Email Marketing Campaigns</Text>
+                            <Text variant="bodySm" tone="subdued" as="span">Promotional email campaigns</Text>
+                          </BlockStack>
+                        </InlineStack>
+                        <InlineStack gap="300" blockAlign="center">
+                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
+                            {isEnabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                          <div
+                            style={{
+                              width: '52px',
+                              height: '28px',
+                              borderRadius: '14px',
+                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
+                              position: 'relative',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                            onClick={() => handleToggleFeature('emailMarketingEnabled', !isEnabled)}
+                          >
+                            <div style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: 'white',
+                              position: 'absolute',
+                              top: '2px',
+                              left: isEnabled ? '26px' : '2px',
+                              transition: 'left 0.15s ease',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+                        </InlineStack>
+                      </InlineStack>
+                    </div>
+                  );
+                })()}
 
-                {/* Membership Tiers Row */}
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: '#fafafa',
-                  borderRadius: '8px',
-                  border: '1px solid #e1e3e5'
-                }}>
-                  <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="300" blockAlign="center">
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '8px',
-                        backgroundColor: data.shopSettings?.tierProductsEnabled ? '#e3f1df' : '#f1f1f1',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <Icon source={DatabaseIcon} tone={data.shopSettings?.tierProductsEnabled ? 'success' : 'subdued'} />
-                      </div>
-                      <BlockStack gap="050">
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">Membership Tiers Module</Text>
-                        <Text variant="bodySm" tone="subdued" as="span">Tiered loyalty program with benefits</Text>
-                      </BlockStack>
-                    </InlineStack>
-                    <InlineStack gap="300" blockAlign="center">
-                      <Badge tone={data.shopSettings?.tierProductsEnabled ? 'success' : 'enabled'}>
-                        {data.shopSettings?.tierProductsEnabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                      <div
-                        style={{
-                          width: '52px',
-                          height: '28px',
-                          borderRadius: '14px',
-                          backgroundColor: data.shopSettings?.tierProductsEnabled ? '#008060' : '#8c9196',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onClick={() => handleToggleFeature('tierProductsEnabled', !data.shopSettings?.tierProductsEnabled)}
-                      >
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'white',
-                          position: 'absolute',
-                          top: '2px',
-                          left: data.shopSettings?.tierProductsEnabled ? '26px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                        }} />
-                      </div>
-                    </InlineStack>
-                  </InlineStack>
-                </div>
+                {/* Membership Tiers Row - OPTIMISTIC UI */}
+                {(() => {
+                  const isEnabled = getFeatureState('tierProductsEnabled', data.shopSettings?.tierProductsEnabled);
+                  return (
+                    <div style={{
+                      padding: '12px 16px',
+                      backgroundColor: '#fafafa',
+                      borderRadius: '8px',
+                      border: '1px solid #e1e3e5'
+                    }}>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="300" blockAlign="center">
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '8px',
+                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background-color 0.15s ease'
+                          }}>
+                            <Icon source={DatabaseIcon} tone={isEnabled ? 'success' : 'subdued'} />
+                          </div>
+                          <BlockStack gap="050">
+                            <Text variant="bodyMd" fontWeight="semibold" as="span">Membership Tiers Module</Text>
+                            <Text variant="bodySm" tone="subdued" as="span">Tiered loyalty program with benefits</Text>
+                          </BlockStack>
+                        </InlineStack>
+                        <InlineStack gap="300" blockAlign="center">
+                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
+                            {isEnabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                          <div
+                            style={{
+                              width: '52px',
+                              height: '28px',
+                              borderRadius: '14px',
+                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
+                              position: 'relative',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s ease'
+                            }}
+                            onClick={() => handleToggleFeature('tierProductsEnabled', !isEnabled)}
+                          >
+                            <div style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: 'white',
+                              position: 'absolute',
+                              top: '2px',
+                              left: isEnabled ? '26px' : '2px',
+                              transition: 'left 0.15s ease',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+                        </InlineStack>
+                      </InlineStack>
+                    </div>
+                  );
+                })()}
               </BlockStack>
             </BlockStack>
           </Card>
