@@ -349,18 +349,91 @@
      * Render methods for different states
      */
     renderGuest() {
-      const { message, ctaText, ctaUrl } = this.config.guest;
+      const { ctaText, ctaUrl } = this.config.guest;
+      const escapedCtaUrl = this.escapeHtml(ctaUrl);
+      const escapedCtaText = this.escapeHtml(ctaText);
+      const expandedClass = this.state.isExpanded ? 'rp-guest-b--expanded' : 'rp-guest-b--collapsed';
 
       this.root.innerHTML = `
-        <div class="rp-widget rp-widget--guest">
-          <div class="rp-widget__content">
-            ${message ? `<p class="rp-widget__message">${this.escapeHtml(message)}</p>` : ''}
-            <a href="${this.escapeHtml(ctaUrl)}" class="rp-widget__cta">
-              ${this.escapeHtml(ctaText)}
+        <div class="rp-guest-b ${expandedClass}">
+          <div class="rp-guest-b__header" role="button" tabindex="0" aria-expanded="${this.state.isExpanded}">
+            <div class="rp-guest-b__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="8" r="5"/>
+                <path d="M20 21a8 8 0 0 0-16 0"/>
+              </svg>
+            </div>
+            <div class="rp-guest-b__text">
+              <h3 class="rp-guest-b__title">Member Benefits</h3>
+              <p class="rp-guest-b__subtitle">Sign in to view your rewards</p>
+            </div>
+            <button class="rp-guest-b__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+          </div>
+          <div class="rp-guest-b__body">
+            <div class="rp-guest-b__perks">
+              <span class="rp-guest-b__perk">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Store Credit
+              </span>
+              <span class="rp-guest-b__perk">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Tier Status
+              </span>
+              <span class="rp-guest-b__perk">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Progress
+              </span>
+            </div>
+            <a href="${escapedCtaUrl}" class="rp-guest-b__cta">
+              ${escapedCtaText}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
             </a>
           </div>
         </div>
       `;
+
+      this.attachGuestEventListeners();
+    }
+
+    /**
+     * Attach event listeners for guest widget
+     */
+    attachGuestEventListeners() {
+      const header = this.root.querySelector('.rp-guest-b__header');
+      const toggle = this.root.querySelector('.rp-guest-b__toggle');
+
+      const handleToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.state.isExpanded = !this.state.isExpanded;
+        this.saveExpandedState();
+        this.renderGuest();
+      };
+
+      if (header) {
+        header.addEventListener('click', handleToggle);
+        header.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            handleToggle(e);
+          }
+        });
+      }
+
+      if (toggle) {
+        toggle.addEventListener('click', handleToggle);
+      }
     }
 
     renderLoading() {
@@ -493,67 +566,109 @@
         console.error('[RewardsWidget] ❌ Error calculating tier progress:', e);
       }
 
+      const authExpandedClass = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
+
       this.root.innerHTML = `
-        <div class="rp-widget rp-widget--authenticated ${expandedClass}">
-          <div class="rp-widget__header" role="button" tabindex="0" aria-expanded="${this.state.isExpanded}">
-            <div class="rp-widget__header-content">
-              <span class="rp-widget__tier">VIP Status</span>
+        <div class="rp-auth ${authExpandedClass}">
+          <div class="rp-auth__header" role="button" tabindex="0" aria-expanded="${this.state.isExpanded}">
+            <div class="rp-auth__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
             </div>
-            ${this.state.isExpanded ? `
-              <button class="rp-widget__toggle" aria-label="Collapse widget">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            ` : ''}
+            <div class="rp-auth__text">
+              <h3 class="rp-auth__title">${tierName}</h3>
+              <p class="rp-auth__subtitle">${storeCreditFormatted} Store Credit</p>
+            </div>
+            <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
           </div>
-          ${this.state.isExpanded ? `
-            <div class="rp-widget__body">
-              <div class="rp-layout-c">
-                <div class="rp-layout-c__top-row">
-                  <div class="rp-layout-c__tier-card">
-                    <div class="rp-layout-c__card-content">
-                      <div class="rp-layout-c__card-label">Tier</div>
-                      <div class="rp-layout-c__card-value">${this.escapeHtml(membership.tier.name)}</div>
-                    </div>
-                  </div>
-                  <div class="rp-layout-c__cashback-card">
-                    <div class="rp-layout-c__card-content">
-                      <div class="rp-layout-c__card-label">Rewards</div>
-                      <div class="rp-layout-c__card-value">${membership.tier.cashbackPercent}%</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="rp-layout-c__balance-card">
-                  <div class="rp-layout-c__balance-label">Store Credit</div>
-                  <div class="rp-layout-c__balance-amount">${storeCreditFormatted}</div>
-                </div>
-
-                <div class="rp-layout-c__progress-card">
-                  <div class="rp-layout-c__progress-label">${isMaxTier ? 'Tier Status' : 'Next Tier Progress'}</div>
-                  <div class="rp-layout-c__progress-wrapper">
-                    <div class="rp-layout-c__progress-track">
-                      <div class="rp-layout-c__progress-fill" style="width: ${progressPercent}%"></div>
-                    </div>
-                    <div class="rp-layout-c__progress-percent">${progressPercent}%</div>
-                  </div>
-                  <div class="rp-layout-c__progress-info">
-                    <span>${this.escapeHtml(progressStatsCompact)}</span>
-                    <span class="rp-layout-c__progress-remaining">${isMaxTier ? 'Highest tier achieved!' : this.formatCurrency(amountRemaining) + ' remaining'}</span>
-                  </div>
-                </div>
-              </div>
-
-              ${isStale ? '<div class="rp-widget__indicator rp-widget__indicator--stale">Data may be outdated</div>' : ''}
-              ${isOffline ? '<div class="rp-widget__indicator rp-widget__indicator--offline">Offline mode</div>' : ''}
-              ${this.state.needsSync ? '<div class="rp-widget__indicator rp-widget__indicator--sync"><strong>⚠️ Data Not Synced:</strong> Your account is showing default data. The merchant needs to run customer sync from the admin panel to display your real tier and rewards.</div>' : ''}
+          <div class="rp-auth__body">
+            <!-- Variation C: Card Stack Layout -->
+            <div class="rp-auth-c__balance-hero">
+              <div class="rp-auth-c__balance-label">Store Credit Balance</div>
+              <div class="rp-auth-c__balance-amount">${storeCreditFormatted}</div>
             </div>
-          ` : ''}
+            <div class="rp-auth-c__cards">
+              <div class="rp-auth-c__card">
+                <div class="rp-auth-c__card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                </div>
+                <div class="rp-auth-c__card-value">${tierName}</div>
+                <div class="rp-auth-c__card-label">Tier</div>
+              </div>
+              <div class="rp-auth-c__card">
+                <div class="rp-auth-c__card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                  </svg>
+                </div>
+                <div class="rp-auth-c__card-value">${cashbackPercent}%</div>
+                <div class="rp-auth-c__card-label">Cashback</div>
+              </div>
+              <div class="rp-auth-c__card">
+                <div class="rp-auth-c__card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20V10M18 20V4M6 20v-4"/>
+                  </svg>
+                </div>
+                <div class="rp-auth-c__card-value">${progressPercent}%</div>
+                <div class="rp-auth-c__card-label">Progress</div>
+              </div>
+            </div>
+            <div class="rp-auth-c__progress">
+              <div class="rp-auth-c__progress-header">
+                <span class="rp-auth-c__progress-label">${isMaxTier ? 'Max Tier Achieved' : 'Next Tier Progress'}</span>
+                <span class="rp-auth-c__progress-value">${isMaxTier ? '100%' : this.formatCurrency(amountRemaining) + ' to go'}</span>
+              </div>
+              <div class="rp-auth-c__progress-bar">
+                <div class="rp-auth-c__progress-fill" style="width: ${progressPercent}%"></div>
+              </div>
+            </div>
+
+            ${isStale ? '<div class="rp-widget__indicator rp-widget__indicator--stale">Data may be outdated</div>' : ''}
+            ${isOffline ? '<div class="rp-widget__indicator rp-widget__indicator--offline">Offline mode</div>' : ''}
+            ${this.state.needsSync ? '<div class="rp-widget__indicator rp-widget__indicator--sync"><strong>⚠️ Data Not Synced:</strong> Your account is showing default data. The merchant needs to run customer sync from the admin panel to display your real tier and rewards.</div>' : ''}
+          </div>
         </div>
       `;
 
-      this.attachEventListeners();
+      this.attachAuthEventListeners();
+    }
+
+    /**
+     * Attach event listeners for authenticated widget
+     */
+    attachAuthEventListeners() {
+      const header = this.root.querySelector('.rp-auth__header');
+      const toggle = this.root.querySelector('.rp-auth__toggle');
+
+      const handleToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.state.isExpanded = !this.state.isExpanded;
+        this.saveExpandedState();
+        this.renderAuthenticated();
+      };
+
+      if (header) {
+        header.addEventListener('click', handleToggle);
+        header.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            handleToggle(e);
+          }
+        });
+      }
+
+      if (toggle) {
+        toggle.addEventListener('click', handleToggle);
+      }
     }
 
     /**

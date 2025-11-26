@@ -18,6 +18,8 @@ import {
   Collapsible,
   List,
   Select,
+  IndexTable,
+  useIndexResourceState,
 } from '@shopify/polaris';
 import {
   PersonIcon,
@@ -27,9 +29,16 @@ import {
   ClockIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  EmailIcon,
+  HashtagIcon,
+  StarIcon,
 } from '@shopify/polaris-icons';
 import { formatCurrency } from '../utils/currency';
 import { StoreCreditTab } from './StoreCredit';
+import { CustomerHeroStats } from './CustomerDetails/CustomerHeroStats';
+import { TierProgressBar } from './CustomerDetails/TierProgressBar';
+import { StatusDot } from './CustomerDetails/StatusDot';
+import { TierTimeline } from './CustomerDetails/TierTimeline';
 
 interface CustomerDetails {
   customer: {
@@ -182,6 +191,55 @@ export function CustomerDetailModal({
     return `$${parseFloat(amount.toString()).toFixed(2)}`;
   };
 
+  const formatDateShort = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return formatDateShort(dateString);
+  };
+
+  // Helper functions for tier progress
+  const calculateTotalSpending = (data: CustomerDetails): number => {
+    return data.orders.reduce((sum, order) => sum + parseFloat(order.total.amount), 0);
+  };
+
+  const getNextTierName = (data: CustomerDetails): string | null => {
+    // This would ideally come from the API with all tiers
+    // For now, return null to show max tier behavior
+    return null;
+  };
+
+  const getNextTierThreshold = (data: CustomerDetails): number => {
+    // This would ideally come from the API with next tier threshold
+    // For now, use the current tier's min spend + a reasonable increment
+    if (data.tier) {
+      return data.tier.minSpend + 500;
+    }
+    return 0;
+  };
+
+  const isMaxTier = (data: CustomerDetails): boolean => {
+    // This would ideally come from the API
+    // For now, assume not max tier to show progress
+    return false;
+  };
+
   const getLedgerTypeBadge = (type: string) => {
     const toneMap: Record<string, 'success' | 'info' | 'warning' | 'critical'> = {
       CASHBACK_EARNED: 'success',
@@ -243,8 +301,31 @@ export function CustomerDetailModal({
       <Modal.Section>
         {loading && (
           <BlockStack gap="400">
-            <SkeletonDisplayText size="medium" />
-            <SkeletonBodyText lines={5} />
+            {/* Hero Stats Skeleton */}
+            <Box
+              background="bg-surface-secondary"
+              padding="400"
+              borderRadius="300"
+            >
+              <InlineStack gap="400">
+                {[1, 2, 3, 4].map((i) => (
+                  <Box key={i} background="bg-surface" padding="400" borderRadius="200" minWidth="120px">
+                    <BlockStack gap="200" align="center">
+                      <SkeletonDisplayText size="small" />
+                      <SkeletonBodyText lines={1} />
+                    </BlockStack>
+                  </Box>
+                ))}
+              </InlineStack>
+            </Box>
+            {/* Details Card Skeleton */}
+            <Card>
+              <BlockStack gap="300">
+                <SkeletonDisplayText size="small" />
+                <Divider />
+                <SkeletonBodyText lines={4} />
+              </BlockStack>
+            </Card>
           </BlockStack>
         )}
         
@@ -261,83 +342,71 @@ export function CustomerDetailModal({
               {selectedTab === 0 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
-                    {/* Customer Info Card */}
+                    {/* Hero Stats Section */}
+                    <CustomerHeroStats
+                      storeCredit={details.customer.storeCredit}
+                      tierName={details.tier?.name || null}
+                      cashbackPercent={details.tier?.cashbackPercent || null}
+                      ordersCount={details.orders.length}
+                      formatAmount={formatAmount}
+                      onStatClick={setSelectedTab}
+                    />
+
+                    {/* Tier Progress */}
+                    {details.tier && (
+                      <TierProgressBar
+                        currentTierName={details.tier.name}
+                        nextTierName={getNextTierName(details)}
+                        currentSpending={calculateTotalSpending(details)}
+                        nextTierThreshold={getNextTierThreshold(details)}
+                        isMaxTier={isMaxTier(details)}
+                        formatAmount={formatAmount}
+                      />
+                    )}
+
+                    {/* Customer Details Card */}
                     <Card>
                       <BlockStack gap="300">
-                        <InlineStack align="space-between">
-                          <Text variant="headingMd" as="h3">Customer Information</Text>
-                          {details.tier && (
-                            <Badge tone="success">
-                              {`${details.tier.name} (${details.tier.cashbackPercent.toString()}% cashback)`}
-                            </Badge>
-                          )}
-                        </InlineStack>
-                        
+                        <Text variant="headingMd" as="h3">Customer Details</Text>
                         <Divider />
-                        
+
                         <BlockStack gap="200">
-                          <InlineStack align="space-between">
-                            <Text as="span" tone="subdued">Email</Text>
+                          <InlineStack align="space-between" blockAlign="center">
+                            <InlineStack gap="200" blockAlign="center">
+                              <Icon source={EmailIcon} tone="subdued" />
+                              <Text as="span" tone="subdued">Email</Text>
+                            </InlineStack>
                             <Text as="span" fontWeight="semibold">{details.customer.email}</Text>
                           </InlineStack>
-                          
-                          <InlineStack align="space-between">
-                            <Text as="span" tone="subdued">Shopify ID</Text>
-                            <Text as="span" fontWeight="semibold">{details.customer.shopifyCustomerId}</Text>
-                          </InlineStack>
-                          
-                          <InlineStack align="space-between">
-                            <Text as="span" tone="subdued">Store Credit Balance</Text>
-                            <Text as="span" fontWeight="semibold" tone="success">
-                              {formatAmount(details.customer.storeCredit)}
+
+                          <InlineStack align="space-between" blockAlign="center">
+                            <InlineStack gap="200" blockAlign="center">
+                              <Icon source={HashtagIcon} tone="subdued" />
+                              <Text as="span" tone="subdued">Shopify ID</Text>
+                            </InlineStack>
+                            <Text as="span" fontWeight="semibold">
+                              {details.customer.shopifyCustomerId.replace('gid://shopify/Customer/', '')}
                             </Text>
                           </InlineStack>
-                          
-                          <InlineStack align="space-between">
-                            <Text as="span" tone="subdued">Customer Since</Text>
-                            <Text as="span">{formatDate(details.customer.createdAt)}</Text>
+
+                          <InlineStack align="space-between" blockAlign="center">
+                            <InlineStack gap="200" blockAlign="center">
+                              <Icon source={CalendarIcon} tone="subdued" />
+                              <Text as="span" tone="subdued">Member Since</Text>
+                            </InlineStack>
+                            <Text as="span">{formatDateShort(details.customer.createdAt)}</Text>
                           </InlineStack>
-                          
-                          <InlineStack align="space-between">
-                            <Text as="span" tone="subdued">Last Updated</Text>
-                            <Text as="span">{formatDate(details.customer.updatedAt)}</Text>
+
+                          <InlineStack align="space-between" blockAlign="center">
+                            <InlineStack gap="200" blockAlign="center">
+                              <Icon source={ClockIcon} tone="subdued" />
+                              <Text as="span" tone="subdued">Last Active</Text>
+                            </InlineStack>
+                            <Text as="span">{formatRelativeTime(details.customer.updatedAt)}</Text>
                           </InlineStack>
                         </BlockStack>
                       </BlockStack>
                     </Card>
-                    
-                    {/* Tier Info Card */}
-                    {details.tier && (
-                      <Card>
-                        <BlockStack gap="300">
-                          <Text variant="headingMd" as="h3">Tier Details</Text>
-                          
-                          <Divider />
-                          
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between">
-                              <Text as="span" tone="subdued">Tier Name</Text>
-                              <Badge tone="success">{details.tier.name}</Badge>
-                            </InlineStack>
-                            
-                            <InlineStack align="space-between">
-                              <Text as="span" tone="subdued">Cashback Rate</Text>
-                              <Text as="span" fontWeight="semibold">{details.tier.cashbackPercent}%</Text>
-                            </InlineStack>
-                            
-                            <InlineStack align="space-between">
-                              <Text as="span" tone="subdued">Minimum Spend</Text>
-                              <Text as="span">{formatAmount(details.tier.minSpend)}</Text>
-                            </InlineStack>
-                            
-                            <InlineStack align="space-between">
-                              <Text as="span" tone="subdued">Evaluation Period</Text>
-                              <Text as="span">{details.tier.evaluationPeriod}</Text>
-                            </InlineStack>
-                          </BlockStack>
-                        </BlockStack>
-                      </Card>
-                    )}
                   </BlockStack>
                 </Box>
               )}
@@ -390,72 +459,109 @@ export function CustomerDetailModal({
                     )}
 
                     {details.orders.length > 0 ? (
-                      details.orders
-                        .slice((ordersPage - 1) * ordersPageSize, ordersPage * ordersPageSize)
-                        .map((order) => (
-                        <Card key={order.id}>
-                          <BlockStack gap="300">
-                            <InlineStack align="space-between" blockAlign="center">
-                              <BlockStack gap="100">
-                                <InlineStack gap="200">
-                                  <Icon source={PackageIcon} tone="base" />
-                                  <Text as="span" variant="headingSm" fontWeight="semibold">
+                      <Card padding="0">
+                        <IndexTable
+                          resourceName={{ singular: 'order', plural: 'orders' }}
+                          itemCount={details.orders.length}
+                          headings={[
+                            { title: 'Order' },
+                            { title: 'Date' },
+                            { title: 'Payment' },
+                            { title: 'Fulfillment' },
+                            { title: 'Total', alignment: 'end' },
+                            { title: '' },
+                          ]}
+                          selectable={false}
+                        >
+                          {details.orders
+                            .slice((ordersPage - 1) * ordersPageSize, ordersPage * ordersPageSize)
+                            .map((order, index) => (
+                            <>
+                              <IndexTable.Row
+                                id={order.id}
+                                key={order.id}
+                                position={index}
+                              >
+                                <IndexTable.Cell>
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">
                                     {order.name}
                                   </Text>
-                                </InlineStack>
-                                <Text as="span" variant="bodySm" tone="subdued">
-                                  {formatDate(order.createdAt)}
-                                </Text>
-                              </BlockStack>
-                              
-                              <InlineStack gap="200">
-                                <Badge tone="info">{order.financialStatus}</Badge>
-                                <Badge>{order.fulfillmentStatus}</Badge>
-                                <Text as="span" fontWeight="semibold">
-                                  {formatAmount(order.total.amount)}
-                                </Text>
-                                <Button
-                                  variant="plain"
-                                  icon={expandedOrders.has(order.id) ? ChevronUpIcon : ChevronDownIcon}
-                                  onClick={() => toggleOrderExpansion(order.id)}
-                                />
-                              </InlineStack>
-                            </InlineStack>
-                            
-                            <Collapsible
-                              open={expandedOrders.has(order.id)}
-                              id={`order-${order.id}`}
-                            >
-                              <Box paddingBlockStart="300">
-                                <BlockStack gap="200">
-                                  <Divider />
-                                  <Text as="span" variant="headingSm" tone="subdued">Line Items</Text>
-                                  <List>
-                                    {order.lineItems.map((item, index) => (
-                                      <List.Item key={index}>
-                                        <InlineStack align="space-between">
-                                          <Text as="span">
-                                            {item.title} × {item.quantity}
-                                          </Text>
-                                          <Text as="span" fontWeight="semibold">
-                                            {formatAmount(item.total.amount)}
-                                          </Text>
-                                        </InlineStack>
-                                      </List.Item>
-                                    ))}
-                                  </List>
-                                </BlockStack>
-                              </Box>
-                            </Collapsible>
-                          </BlockStack>
-                        </Card>
-                      ))
+                                </IndexTable.Cell>
+                                <IndexTable.Cell>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    {formatDateShort(order.createdAt)}
+                                  </Text>
+                                </IndexTable.Cell>
+                                <IndexTable.Cell>
+                                  <StatusDot status={order.financialStatus} type="financial" />
+                                </IndexTable.Cell>
+                                <IndexTable.Cell>
+                                  <StatusDot status={order.fulfillmentStatus} type="fulfillment" />
+                                </IndexTable.Cell>
+                                <IndexTable.Cell>
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold" alignment="end">
+                                    {formatAmount(order.total.amount)}
+                                  </Text>
+                                </IndexTable.Cell>
+                                <IndexTable.Cell>
+                                  <Button
+                                    variant="plain"
+                                    size="slim"
+                                    icon={expandedOrders.has(order.id) ? ChevronUpIcon : ChevronDownIcon}
+                                    onClick={() => toggleOrderExpansion(order.id)}
+                                    accessibilityLabel={expandedOrders.has(order.id) ? 'Collapse' : 'Expand'}
+                                  />
+                                </IndexTable.Cell>
+                              </IndexTable.Row>
+                              {expandedOrders.has(order.id) && (
+                                <tr>
+                                  <td colSpan={6}>
+                                    <Box
+                                      padding="400"
+                                      background="bg-surface-secondary"
+                                      borderColor="border-secondary"
+                                      borderWidth="025"
+                                    >
+                                      <BlockStack gap="200">
+                                        <Text as="span" variant="headingSm">Line Items</Text>
+                                        {order.lineItems.map((item, idx) => (
+                                          <InlineStack key={idx} align="space-between">
+                                            <Text as="span" variant="bodySm">
+                                              {item.title} × {item.quantity}
+                                            </Text>
+                                            <Text as="span" variant="bodySm" fontWeight="semibold">
+                                              {formatAmount(item.total.amount)}
+                                            </Text>
+                                          </InlineStack>
+                                        ))}
+                                      </BlockStack>
+                                    </Box>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          ))}
+                        </IndexTable>
+                      </Card>
                     ) : (
                       <Card>
-                        <BlockStack gap="200" align="center">
-                          <Icon source={PackageIcon} tone="subdued" />
-                          <Text as="span" tone="subdued">No orders found</Text>
-                        </BlockStack>
+                        <Box padding="400">
+                          <InlineStack gap="300" blockAlign="center">
+                            <Box
+                              background="bg-surface-secondary"
+                              padding="300"
+                              borderRadius="200"
+                            >
+                              <Icon source={PackageIcon} tone="subdued" />
+                            </Box>
+                            <BlockStack gap="100">
+                              <Text as="span" variant="headingSm">No orders yet</Text>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Orders will appear here once the customer makes a purchase
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                        </Box>
                       </Card>
                     )}
 
@@ -488,61 +594,17 @@ export function CustomerDetailModal({
               {/* Tier Changes Tab */}
               {selectedTab === 3 && (
                 <Box paddingBlockStart="400">
-                  <BlockStack gap="400">
-                    {details.tierChangeLogs.length > 0 ? (
-                      details.tierChangeLogs.map((log) => (
-                        <Card key={log.id}>
-                          <BlockStack gap="200">
-                            <InlineStack align="space-between">
-                              <InlineStack gap="200">
-                                <Icon source={ClockIcon} tone="base" />
-                                <Text as="span" variant="headingSm">
-                                  {log.changeType.replace(/_/g, ' ')}
-                                </Text>
-                              </InlineStack>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                {formatDate(log.createdAt)}
-                              </Text>
-                            </InlineStack>
-                            
-                            <InlineStack gap="200">
-                              {log.fromTierName && (
-                                <Badge>{log.fromTierName}</Badge>
-                              )}
-                              {log.fromTierName && log.toTierName && (
-                                <Text as="span">→</Text>
-                              )}
-                              {log.toTierName && (
-                                <Badge tone="success">{log.toTierName}</Badge>
-                              )}
-                            </InlineStack>
-                            
-                            {log.note && (
-                              <Text as="span" variant="bodySm" tone="subdued">{log.note}</Text>
-                            )}
-                            
-                            <InlineStack gap="400">
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                Trigger: {log.triggerType.replace(/_/g, ' ').toLowerCase()}
-                              </Text>
-                              {log.totalSpending && (
-                                <Text as="span" variant="bodySm" tone="subdued">
-                                  Total spent: {formatAmount(log.totalSpending)}
-                                </Text>
-                              )}
-                            </InlineStack>
-                          </BlockStack>
-                        </Card>
-                      ))
-                    ) : (
-                      <Card>
-                        <BlockStack gap="200" align="center">
-                          <Icon source={ClockIcon} tone="subdued" />
-                          <Text as="span" tone="subdued">No tier changes recorded</Text>
-                        </BlockStack>
-                      </Card>
-                    )}
-                  </BlockStack>
+                  <Card>
+                    <BlockStack gap="300">
+                      <Text variant="headingMd" as="h3">Tier History</Text>
+                      <Divider />
+                      <TierTimeline
+                        logs={details.tierChangeLogs}
+                        formatAmount={formatAmount}
+                        formatDate={formatDateShort}
+                      />
+                    </BlockStack>
+                  </Card>
                 </Box>
               )}
             </Tabs>
@@ -552,6 +614,3 @@ export function CustomerDetailModal({
     </Modal>
   );
 }
-
-// Import missing StarIcon
-import { StarIcon } from '@shopify/polaris-icons';

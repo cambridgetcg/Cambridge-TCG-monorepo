@@ -1947,12 +1947,928 @@
    END LAYOUT PREVIEW STYLES
    ============================================ */
 
+/* ============================================
+   AUTHENTICATED STATE - FRAME & HEADER
+   (Matches guest widget style)
+   ============================================ */
+
+.rp-auth {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-auth::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -30%;
+  width: 160%;
+  height: 160%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.rp-auth__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rp-auth--expanded .rp-auth__header {
+  margin-bottom: 16px;
+}
+
+.rp-auth--collapsed .rp-auth__header {
+  margin-bottom: 0;
+}
+
+.rp-auth__toggle {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth__toggle:hover {
+  color: #60a5fa;
+}
+
+.rp-auth__toggle svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+
+.rp-auth--collapsed .rp-auth__toggle svg {
+  transform: rotate(-90deg);
+}
+
+.rp-auth__body {
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.rp-auth--collapsed .rp-auth__body {
+  display: none;
+}
+
+.rp-auth__icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth__icon svg {
+  width: 20px;
+  height: 20px;
+  color: #60a5fa;
+}
+
+.rp-auth__text {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 2px 0;
+}
+
+.rp-auth__subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+/* Remove margin/padding from inner layout since frame provides it */
+.rp-auth .rp-layout-c {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.rp-auth .rp-layout-c::before {
+  display: none;
+}
+
+/* ============================================
+   AUTHENTICATED STATE VARIATIONS
+   ============================================ */
+
+/* Variations Container */
+.rp-auth-variations {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 0 16px 16px;
+}
+
+.rp-auth-variation-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+/* ----------------------------------------
+   Variation A: Horizontal Stats Bar
+   ---------------------------------------- */
+.rp-auth-a {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 12px;
+  padding: 16px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-auth-a::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.rp-auth-a__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-a__tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rp-auth-a__tier-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rp-auth-a__cashback {
+  font-size: 13px;
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.rp-auth-a__stats {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-a__stat {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+
+.rp-auth-a__stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.rp-auth-a__stat-value--highlight {
+  color: #60a5fa;
+}
+
+.rp-auth-a__stat-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ----------------------------------------
+   Variation B: Compact Single Row
+   ---------------------------------------- */
+.rp-auth-b {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 12px;
+  padding: 16px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-auth-b::before {
+  content: '';
+  position: absolute;
+  bottom: -50%;
+  left: -20%;
+  width: 140%;
+  height: 140%;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.rp-auth-b__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-b__avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rp-auth-b__avatar svg {
+  width: 24px;
+  height: 24px;
+  color: #ffffff;
+}
+
+.rp-auth-b__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rp-auth-b__tier {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.rp-auth-b__progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-auth-b__progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rp-auth-b__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.rp-auth-b__progress-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+.rp-auth-b__balance {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.rp-auth-b__balance-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.rp-auth-b__balance-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ----------------------------------------
+   Variation C: Card Stack Layout
+   (Now used as the main authenticated layout)
+   ---------------------------------------- */
+.rp-auth-c {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 12px;
+  padding: 16px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-auth-c::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -20%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* When inside .rp-auth__body, remove wrapper styles (frame provides them) */
+.rp-auth__body .rp-auth-c__balance-hero,
+.rp-auth__body .rp-auth-c__cards,
+.rp-auth__body .rp-auth-c__progress {
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__balance-hero {
+  text-align: center;
+  padding: 20px 0;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__balance-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.rp-auth-c__balance-amount {
+  font-size: 42px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 0%, #60a5fa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+.rp-auth-c__cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 8px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.rp-auth-c__card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.rp-auth-c__card-icon {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 8px;
+  color: #60a5fa;
+}
+
+.rp-auth-c__card-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.rp-auth-c__card-value {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.rp-auth-c__card-label {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-auth-c__progress {
+  margin-top: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-auth-c__progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rp-auth-c__progress-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.rp-auth-c__progress-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b5cf6;
+}
+
+.rp-auth-c__progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rp-auth-c__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* ============================================
+   GUEST/SIGN-IN VARIATIONS
+   ============================================ */
+
+/* Variation A: Gradient Card with Icon */
+.rp-guest-a {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 24px;
+  color: #ffffff;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+}
+
+.rp-guest-a::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.rp-guest-a__icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-a__icon svg {
+  width: 28px;
+  height: 28px;
+  color: #ffffff;
+}
+
+.rp-guest-a__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-a__subtitle {
+  font-size: 13px;
+  opacity: 0.9;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-a__benefits {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-a__benefit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.rp-guest-a__benefit svg {
+  width: 14px;
+  height: 14px;
+  color: #4ade80;
+}
+
+.rp-guest-a__cta {
+  display: inline-block;
+  background: #ffffff;
+  color: #667eea;
+  padding: 14px 32px;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.rp-guest-a__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Variation B: Minimal Modern Card - Dark Theme (matches logged-in state) */
+.rp-guest-b {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-guest-b::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -30%;
+  width: 160%;
+  height: 160%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.rp-guest-b__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rp-guest-b--expanded .rp-guest-b__header {
+  margin-bottom: 16px;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__header {
+  margin-bottom: 0;
+}
+
+.rp-guest-b__toggle {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__toggle:hover {
+  color: #60a5fa;
+}
+
+.rp-guest-b__toggle svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__toggle svg {
+  transform: rotate(-90deg);
+}
+
+.rp-guest-b__body {
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__body {
+  display: none;
+}
+
+.rp-guest-b__icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__icon svg {
+  width: 20px;
+  height: 20px;
+  color: #60a5fa;
+}
+
+.rp-guest-b__text {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 2px 0;
+}
+
+.rp-guest-b__subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.rp-guest-b__perks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-b__perk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.rp-guest-b__perk svg {
+  width: 12px;
+  height: 12px;
+  color: #4ade80;
+}
+
+.rp-guest-b__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.rp-guest-b__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.rp-guest-b__cta svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+}
+
+.rp-guest-b__cta:hover svg {
+  transform: translateX(4px);
+}
+
+/* Variation C: Dark Premium Card */
+.rp-guest-c {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 16px;
+  padding: 24px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-guest-c::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.rp-guest-c__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-c__badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rp-guest-c__title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-c__subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-c__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-guest-c__stat {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+
+.rp-guest-c__stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.rp-guest-c__stat-label {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-guest-c__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  padding: 14px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.rp-guest-c__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.rp-guest-c__cta svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Guest Variations Container */
+.rp-guest-variations {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.rp-guest-variation-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
 /* Accessibility: Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .rp-widget,
   .rp-widget__toggle svg,
   .rp-widget__body,
-  .rp-widget__spinner {
+  .rp-widget__spinner,
+  .rp-guest-a__cta,
+  .rp-guest-b__cta,
+  .rp-guest-c__cta {
     transition: none !important;
     animation: none !important;
   }
