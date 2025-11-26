@@ -160,19 +160,17 @@ async function getThemeSettings(admin: AdminApiContext, themeId: string): Promis
       return null;
     }
 
-    // Parse JSON, removing any comments first (Shopify themes sometimes have comments)
-    // 1. Remove multi-line comments /* ... */
-    // 2. Remove single-line comments // ...
-    // 3. Find the actual JSON start (first '{')
+    // Parse JSON - Shopify themes sometimes have leading comments
+    // Simply find the first '{' and parse from there
     let cleanedContent = fileContent;
-    cleanedContent = cleanedContent.replace(/\/\*[\s\S]*?\*\//g, '');
-    cleanedContent = cleanedContent.replace(/\/\/.*$/gm, '');
-    cleanedContent = cleanedContent.trim();
 
     const jsonStart = cleanedContent.indexOf('{');
-    if (jsonStart > 0) {
-      cleanedContent = cleanedContent.substring(jsonStart);
+    if (jsonStart === -1) {
+      console.warn("[Widget Detection] No JSON object found in settings_data.json");
+      return null;
     }
+
+    cleanedContent = cleanedContent.substring(jsonStart);
 
     return JSON.parse(cleanedContent);
   } catch (error) {

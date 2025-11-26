@@ -193,28 +193,20 @@ export async function action({ request }: ActionFunctionArgs) {
     // Parse the settings JSON
     try {
       // Shopify themes often have leading comments in settings_data.json
-      // We need to:
-      // 1. Remove multi-line comments /* ... */
-      // 2. Remove single-line comments // ...
-      // 3. Handle any control characters that might be in the content
+      // The content comes as a string with actual newlines, not escaped \n
 
       let cleanedContent = fileContent;
 
-      // Remove multi-line comments (non-greedy)
-      cleanedContent = cleanedContent.replace(/\/\*[\s\S]*?\*\//g, '');
-
-      // Remove single-line comments
-      cleanedContent = cleanedContent.replace(/\/\/.*$/gm, '');
-
-      // Trim whitespace
-      cleanedContent = cleanedContent.trim();
-
-      // Try to find the actual JSON object start (first '{')
+      // Find the actual JSON start - look for the first '{'
+      // This skips any leading comments like /* ... */
       const jsonStart = cleanedContent.indexOf('{');
-      if (jsonStart > 0) {
-        cleanedContent = cleanedContent.substring(jsonStart);
+      if (jsonStart === -1) {
+        throw new Error('No JSON object found in settings_data.json');
       }
 
+      cleanedContent = cleanedContent.substring(jsonStart);
+
+      // Try to parse
       result.settingsQuery.settingsData = JSON.parse(cleanedContent);
     } catch (parseError: any) {
       result.settingsQuery.error = `Failed to parse settings_data.json: ${parseError.message}`;
