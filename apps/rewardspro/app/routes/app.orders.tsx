@@ -2534,11 +2534,10 @@ export default function OrdersPage() {
                   )}
                 </BlockStack>
 
-                <Divider />
-
                 {/* Line Items */}
                 {selectedOrder?.lineItems?.length > 0 && (
                   <BlockStack gap="400">
+                    <Divider />
                     <Text variant="headingMd" as="h3">Line Items</Text>
                     <BlockStack gap="200">
                       {selectedOrder.lineItems?.map((item) => (
@@ -2558,11 +2557,10 @@ export default function OrdersPage() {
                   </BlockStack>
                 )}
 
-                <Divider />
-
                 {/* Refunds */}
                 {selectedOrder?.refunds?.length > 0 && (
                   <BlockStack gap="400">
+                    <Divider />
                     <Text variant="headingMd" as="h3">Refunds</Text>
                     <BlockStack gap="300">
                       {selectedOrder.refunds?.map((refund) => (
@@ -2602,11 +2600,10 @@ export default function OrdersPage() {
                   </BlockStack>
                 )}
 
-                <Divider />
-
                 {/* Credit Ledger Entries */}
                 {selectedOrder?.creditLedgerEntries?.length > 0 && (
                   <BlockStack gap="400">
+                    <Divider />
                     <Text variant="headingMd" as="h3">Credit Ledger Entries</Text>
                     <BlockStack gap="200">
                       {selectedOrder.creditLedgerEntries?.map((entry) => (
