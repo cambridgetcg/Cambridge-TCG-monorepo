@@ -1072,25 +1072,6 @@ export default function SettingsPage() {
               </Banner>
             )}
 
-            {/* Store Metrics Card */}
-            <Card>
-              <BlockStack gap="400">
-                <InlineStack align="space-between" blockAlign="center">
-                  <BlockStack gap="200">
-                    <Text as="h2" variant="headingMd">
-                      Store Business Metrics
-                    </Text>
-                    <Text as="p" tone="subdued">
-                      Configure profit margins, COGS, and other business metrics for enhanced analytics
-                    </Text>
-                  </BlockStack>
-                  <Button onClick={() => navigate("/app/settings/store-metrics")}>
-                    Configure Metrics
-                  </Button>
-                </InlineStack>
-              </BlockStack>
-            </Card>
-
             {/* Tabbed Interface */}
             <Card>
               <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange}>
