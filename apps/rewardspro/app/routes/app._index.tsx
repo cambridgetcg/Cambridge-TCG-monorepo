@@ -97,7 +97,9 @@ interface DashboardData {
     isActive: boolean;
     setupDismissed: boolean;
     status: 'active' | 'inactive' | 'not_configured';
-    lastActivity: string | null;
+    blockType: 'app_embed' | 'section' | 'none';
+    themeName: string | null;
+    lastChecked: string | null;
   };
   shopifyMetrics: {
     source: 'shopifyql' | 'cache' | 'unavailable';
@@ -413,11 +415,38 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       dataSyncStatus = 'degraded';
     }
 
-    // Determine widget status
-    const widgetIsActive = shopSettings?.widgetIsActive ?? false;
+    // Detect widget status from theme settings via GraphQL
+    let widgetDetectionResult = {
+      isEnabled: false,
+      blockType: 'none' as 'app_embed' | 'section' | 'none',
+      themeName: null as string | null,
+      lastChecked: new Date(),
+    };
+
+    try {
+      const { detectWidgetStatus, updateWidgetStatusCache } = await import("~/services/widget-detection.server");
+      const detection = await detectWidgetStatus(authResult.admin);
+      widgetDetectionResult = {
+        isEnabled: detection.isEnabled,
+        blockType: detection.blockType,
+        themeName: detection.themeName,
+        lastChecked: detection.lastChecked,
+      };
+
+      // Update the cached status in database if it changed
+      const currentCachedStatus = shopSettings?.widgetIsActive ?? false;
+      if (detection.isEnabled !== currentCachedStatus) {
+        await updateWidgetStatusCache(db, shop, detection.isEnabled);
+      }
+    } catch (error) {
+      console.error("[Dashboard] Error detecting widget status:", error);
+      // Fall back to cached value
+      widgetDetectionResult.isEnabled = shopSettings?.widgetIsActive ?? false;
+    }
+
     const widgetSetupDismissed = shopSettings?.widgetSetupDismissed ?? false;
     let widgetStatusValue: 'active' | 'inactive' | 'not_configured' = 'not_configured';
-    if (widgetIsActive) {
+    if (widgetDetectionResult.isEnabled) {
       widgetStatusValue = 'active';
     } else if (widgetSetupDismissed) {
       widgetStatusValue = 'inactive';
@@ -435,10 +464,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         tierProductsEnabled: shopSettings.tierProductsEnabled,
       } : null,
       widgetStatus: {
-        isActive: widgetIsActive,
+        isActive: widgetDetectionResult.isEnabled,
         setupDismissed: widgetSetupDismissed,
         status: widgetStatusValue,
-        lastActivity: null, // Could add tracking later
+        blockType: widgetDetectionResult.blockType,
+        themeName: widgetDetectionResult.themeName,
+        lastChecked: widgetDetectionResult.lastChecked.toISOString(),
       },
       shopifyMetrics: { source: 'unavailable' },
       webhookStats: {
@@ -970,20 +1001,21 @@ export default function Dashboard() {
                       <InlineStack gap="200" blockAlign="center">
                         <Text variant="bodySm" tone="subdued">Theme:</Text>
                         <Text variant="bodySm" fontWeight="medium">
-                          {data.widgetStatus.isActive ? 'Embedded' : 'Not Embedded'}
+                          {data.widgetStatus.themeName || 'Unknown'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Setup:</Text>
+                        <Text variant="bodySm" tone="subdued">Block:</Text>
                         <Text variant="bodySm" fontWeight="medium">
-                          {data.widgetStatus.setupDismissed ? 'Configured' : 'Pending'}
+                          {data.widgetStatus.blockType === 'app_embed' ? 'App Embed' :
+                           data.widgetStatus.blockType === 'section' ? 'Section' : 'Not Found'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
                         <Text variant="bodySm" tone="subdued">Status:</Text>
                         <Text variant="bodySm" fontWeight="medium">
-                          {data.widgetStatus.status === 'active' ? 'Showing to customers' :
-                           data.widgetStatus.status === 'inactive' ? 'Hidden' : 'Needs configuration'}
+                          {data.widgetStatus.status === 'active' ? 'Visible' :
+                           data.widgetStatus.status === 'inactive' ? 'Disabled' : 'Not Enabled'}
                         </Text>
                       </InlineStack>
                     </BlockStack>
@@ -991,7 +1023,9 @@ export default function Dashboard() {
                     <Divider />
 
                     <Text variant="bodySm" tone="subdued">
-                      Customer-facing loyalty widget on storefront
+                      {data.widgetStatus.isActive
+                        ? 'Widget is showing on your storefront'
+                        : 'Enable in Theme Editor → App embeds'}
                     </Text>
                   </BlockStack>
                 </Card>
