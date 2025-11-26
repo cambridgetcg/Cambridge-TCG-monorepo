@@ -175,7 +175,17 @@ export async function action({ request }: ActionFunctionArgs) {
 
     const fileContent = settingsResponseData.data?.theme?.files?.nodes?.[0]?.body?.content;
     if (!fileContent) {
-      result.settingsQuery.error = "No settings_data.json found in theme";
+      // Provide more detailed error message
+      const filesNodes = settingsResponseData.data?.theme?.files?.nodes;
+      if (!filesNodes || filesNodes.length === 0) {
+        result.settingsQuery.error = "Theme files query returned no files. The theme may not have a settings_data.json file, or the theme structure may be non-standard.";
+      } else if (!filesNodes[0]?.body) {
+        result.settingsQuery.error = "File found but body is empty. The settings_data.json may be corrupted or inaccessible.";
+      } else if (!filesNodes[0]?.body?.content) {
+        result.settingsQuery.error = "File body exists but content is null. This may indicate a permission issue or the file is binary.";
+      } else {
+        result.settingsQuery.error = "No settings_data.json content found in theme (unknown reason)";
+      }
       result.executionTime = Date.now() - startTime;
       return json(result);
     }
@@ -513,6 +523,24 @@ export default function WidgetTestPage() {
                               }
                             }
                           }, null, 2)}
+                        </pre>
+                      </Box>
+                    </BlockStack>
+
+                    {/* Always show full response for debugging */}
+                    <BlockStack gap="300">
+                      <Text as="h3" variant="headingSm">Full Response (for debugging)</Text>
+                      <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                        <pre style={{
+                          fontSize: '10px',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          fontFamily: 'Monaco, Menlo, monospace',
+                          margin: 0,
+                          maxHeight: '300px',
+                          overflow: 'auto',
+                        }}>
+                          {JSON.stringify(actionData.settingsQuery.response, null, 2)}
                         </pre>
                       </Box>
                     </BlockStack>
