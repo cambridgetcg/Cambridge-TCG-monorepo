@@ -9,9 +9,16 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 
-// App extension identifiers
-const APP_EXTENSION_HANDLE = "rewardspro-theme-extension";
-const MEMBERSHIP_WIDGET_BLOCK = "membership_widget";
+// App extension identifiers - check for various naming patterns
+// The app handle in Shopify can be "rewards-pro" or "rewardspro-theme-extension"
+const APP_HANDLES = [
+  "rewards-pro",
+  "rewardspro-theme-extension",
+  "rewardspro",
+];
+const WIDGET_BLOCKS = [
+  "membership_widget",
+];
 
 // ============================================
 // IN-MEMORY CACHE
@@ -154,12 +161,35 @@ async function getThemeSettings(admin: AdminApiContext, themeId: string): Promis
     }
 
     // Parse JSON, removing any comments first (Shopify themes sometimes have comments)
-    const cleanedContent = fileContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+    // 1. Remove multi-line comments /* ... */
+    // 2. Remove single-line comments // ...
+    // 3. Find the actual JSON start (first '{')
+    let cleanedContent = fileContent;
+    cleanedContent = cleanedContent.replace(/\/\*[\s\S]*?\*\//g, '');
+    cleanedContent = cleanedContent.replace(/\/\/.*$/gm, '');
+    cleanedContent = cleanedContent.trim();
+
+    const jsonStart = cleanedContent.indexOf('{');
+    if (jsonStart > 0) {
+      cleanedContent = cleanedContent.substring(jsonStart);
+    }
+
     return JSON.parse(cleanedContent);
   } catch (error) {
     console.error("[Widget Detection] Error fetching theme settings:", error);
     return null;
   }
+}
+
+/**
+ * Check if a block type belongs to our app
+ */
+function isOurAppBlock(blockType: string): boolean {
+  // Check if the block type contains any of our app handles or widget block names
+  const lowerType = blockType.toLowerCase();
+  const matchesHandle = APP_HANDLES.some(handle => lowerType.includes(handle.toLowerCase()));
+  const matchesWidget = WIDGET_BLOCKS.some(widget => lowerType.includes(widget.toLowerCase()));
+  return matchesHandle || matchesWidget;
 }
 
 /**
@@ -182,8 +212,7 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
       // Check if this is our app's block
       // App embed blocks typically have type like "shopify://apps/<app-handle>/blocks/<block-name>/<uuid>"
       if (block.type && typeof block.type === 'string') {
-        const isOurApp = block.type.includes(APP_EXTENSION_HANDLE) ||
-                         block.type.includes(MEMBERSHIP_WIDGET_BLOCK);
+        const isOurApp = isOurAppBlock(block.type);
 
         if (isOurApp) {
           // Check if disabled flag is false or not present (enabled by default)
@@ -207,8 +236,7 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
       const section = sectionData as any;
 
       if (section.type && typeof section.type === 'string') {
-        const isOurApp = section.type.includes(APP_EXTENSION_HANDLE) ||
-                         section.type.includes(MEMBERSHIP_WIDGET_BLOCK);
+        const isOurApp = isOurAppBlock(section.type);
 
         if (isOurApp) {
           const isDisabled = section.disabled === true;
@@ -225,8 +253,7 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
         const block = blockData as any;
 
         if (block.type && typeof block.type === 'string') {
-          const isOurApp = block.type.includes(APP_EXTENSION_HANDLE) ||
-                           block.type.includes(MEMBERSHIP_WIDGET_BLOCK);
+          const isOurApp = isOurAppBlock(block.type);
 
           if (isOurApp) {
             const isDisabled = block.disabled === true;

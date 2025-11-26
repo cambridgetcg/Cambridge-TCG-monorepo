@@ -192,8 +192,29 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // Parse the settings JSON
     try {
-      // Remove comments (Shopify themes sometimes have comments in JSON)
-      const cleanedContent = fileContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+      // Shopify themes often have leading comments in settings_data.json
+      // We need to:
+      // 1. Remove multi-line comments /* ... */
+      // 2. Remove single-line comments // ...
+      // 3. Handle any control characters that might be in the content
+
+      let cleanedContent = fileContent;
+
+      // Remove multi-line comments (non-greedy)
+      cleanedContent = cleanedContent.replace(/\/\*[\s\S]*?\*\//g, '');
+
+      // Remove single-line comments
+      cleanedContent = cleanedContent.replace(/\/\/.*$/gm, '');
+
+      // Trim whitespace
+      cleanedContent = cleanedContent.trim();
+
+      // Try to find the actual JSON object start (first '{')
+      const jsonStart = cleanedContent.indexOf('{');
+      if (jsonStart > 0) {
+        cleanedContent = cleanedContent.substring(jsonStart);
+      }
+
       result.settingsQuery.settingsData = JSON.parse(cleanedContent);
     } catch (parseError: any) {
       result.settingsQuery.error = `Failed to parse settings_data.json: ${parseError.message}`;
@@ -204,8 +225,16 @@ export async function action({ request }: ActionFunctionArgs) {
     // ============================================
     // STEP 3: Detect Widget Blocks
     // ============================================
-    const APP_EXTENSION_HANDLE = "rewardspro-theme-extension";
-    const MEMBERSHIP_WIDGET_BLOCK = "membership_widget";
+    // App extension identifiers - check for various naming patterns
+    const APP_HANDLES = ["rewards-pro", "rewardspro-theme-extension", "rewardspro"];
+    const WIDGET_BLOCKS = ["membership_widget"];
+
+    const isOurAppBlock = (blockType: string): boolean => {
+      const lowerType = blockType.toLowerCase();
+      const matchesHandle = APP_HANDLES.some(handle => lowerType.includes(handle.toLowerCase()));
+      const matchesWidget = WIDGET_BLOCKS.some(widget => lowerType.includes(widget.toLowerCase()));
+      return matchesHandle || matchesWidget;
+    };
 
     const settingsData = result.settingsQuery.settingsData;
     const current = settingsData?.current;
@@ -222,8 +251,7 @@ export async function action({ request }: ActionFunctionArgs) {
       for (const [blockId, blockData] of Object.entries(blocks)) {
         const block = blockData as any;
         if (block.type && typeof block.type === 'string') {
-          const isOurApp = block.type.includes(APP_EXTENSION_HANDLE) ||
-                           block.type.includes(MEMBERSHIP_WIDGET_BLOCK);
+          const isOurApp = isOurAppBlock(block.type);
 
           result.detection.blocksFound.push({
             blockId,
@@ -246,8 +274,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
         // Check section type
         if (section.type && typeof section.type === 'string') {
-          const isOurApp = section.type.includes(APP_EXTENSION_HANDLE) ||
-                           section.type.includes(MEMBERSHIP_WIDGET_BLOCK);
+          const isOurApp = isOurAppBlock(section.type);
 
           if (isOurApp) {
             result.detection.blocksFound.push({
@@ -269,8 +296,7 @@ export async function action({ request }: ActionFunctionArgs) {
         for (const [blockId, blockData] of Object.entries(sectionBlocks)) {
           const block = blockData as any;
           if (block.type && typeof block.type === 'string') {
-            const isOurApp = block.type.includes(APP_EXTENSION_HANDLE) ||
-                             block.type.includes(MEMBERSHIP_WIDGET_BLOCK);
+            const isOurApp = isOurAppBlock(block.type);
 
             if (isOurApp) {
               result.detection.blocksFound.push({
