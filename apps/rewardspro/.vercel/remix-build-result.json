@@ -60,6 +60,7 @@
       "routes/app.marketing.automation.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.campaigns.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.recommendations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.test-store-credit-refund": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.templates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -547,6 +548,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.marketing.recommendations.tsx",
         "path": "marketing/recommendations",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.test-store-credit-refund": {
+        "id": "routes/app.test-store-credit-refund",
+        "parentId": "routes/app",
+        "file": "app/routes/app.test-store-credit-refund.tsx",
+        "path": "test-store-credit-refund",
         "config": {
           "runtime": "nodejs"
         }
@@ -1098,6 +1108,12 @@
         "parentId": "routes/app",
         "file": "routes/app.marketing.recommendations.tsx",
         "path": "marketing/recommendations"
+      },
+      "routes/app.test-store-credit-refund": {
+        "id": "routes/app.test-store-credit-refund",
+        "parentId": "routes/app",
+        "file": "routes/app.test-store-credit-refund.tsx",
+        "path": "test-store-credit-refund"
       },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",

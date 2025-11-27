@@ -123,35 +123,18 @@ const DEBIT_STORE_CREDIT_MUTATION = `#graphql
   }
 `;
 
-const REFUND_TO_STORE_CREDIT_MUTATION = `#graphql
-  mutation RefundToStoreCredit($input: RefundInput!) {
-    refundCreate(input: $input) {
-      refund {
-        id
-        totalRefundedSet {
-          presentmentMoney {
-            amount
-            currencyCode
-          }
-        }
-        transactions(first: 5) {
-          edges {
-            node {
-              gateway
-              kind
-              amountSet {
-                presentmentMoney {
-                  amount
-                  currencyCode
-                }
-              }
-            }
-          }
-        }
-      }
+// Note: Shopify does NOT support refundCreate with refundMethods.storeCreditRefund
+// The refundMethods field doesn't exist in RefundInput
+// Instead, we use storeCreditAccountCredit to add credit to customer's account
+// and optionally add a timeline comment to the order for tracking
+
+const ADD_ORDER_TIMELINE_COMMENT = `#graphql
+  mutation AddOrderTimelineComment($orderId: ID!, $message: String!) {
+    orderUpdate(input: { id: $orderId, note: $message }) {
       order {
         id
         name
+        note
       }
       userErrors {
         field
@@ -548,8 +531,18 @@ export class ShopifyStoreCreditService {
   }
 
   /**
-   * Create a refund to store credit for an order
-   * This creates an official Shopify refund that issues store credit to the customer
+   * Issue store credit to a customer as a "refund" for an order
+   *
+   * IMPORTANT: Shopify does NOT support refundCreate with store credit refund methods.
+   * The `refundMethods.storeCreditRefund` field does not exist in the API.
+   *
+   * This method:
+   * 1. Gets the order details and customer ID
+   * 2. Issues store credit to the customer using storeCreditAccountCredit
+   * 3. Adds a note to the order for tracking
+   *
+   * Note: This does NOT create an official Shopify refund on the order.
+   * It simply adds store credit to the customer's account.
    */
   async refundToStoreCredit(
     orderId: string,
@@ -559,50 +552,90 @@ export class ShopifyStoreCreditService {
   ): Promise<RefundToStoreCreditResult> {
     const formattedAmount = formatForShopify(amount);
 
-    console.log(`[StoreCreditService] Creating refund to store credit for order ${orderId}`);
+    console.log(`[StoreCreditService] Issuing store credit for order ${orderId}`);
     console.log(`[StoreCreditService]    Amount: ${formattedAmount} ${currency}`);
 
     try {
-      // Ensure orderId is in GID format
+      // Step 1: Get order details including customer ID
+      const orderResult = await this.getOrderForRefund(orderId);
+
+      if (!orderResult.success || !orderResult.order) {
+        return {
+          success: false,
+          error: orderResult.error || 'Failed to get order details'
+        };
+      }
+
+      const order = orderResult.order;
+
+      // We need to get the customer ID from the order
       const orderGid = orderId.startsWith('gid://')
         ? orderId
         : `gid://shopify/Order/${orderId}`;
 
-      const response = await this.admin.graphql(REFUND_TO_STORE_CREDIT_MUTATION, {
+      // Query order to get customer ID
+      const orderQuery = `#graphql
+        query GetOrderCustomer($orderId: ID!) {
+          order(id: $orderId) {
+            id
+            name
+            customer {
+              id
+            }
+          }
+        }
+      `;
+
+      const orderResponse = await this.admin.graphql(orderQuery, {
+        variables: { orderId: orderGid }
+      });
+      const orderData = await orderResponse.json();
+
+      if (orderData.errors) {
+        console.error("[StoreCreditService] Failed to get order customer:", orderData.errors);
+        return {
+          success: false,
+          error: 'Failed to get customer from order'
+        };
+      }
+
+      const customerId = orderData.data?.order?.customer?.id;
+      const orderName = orderData.data?.order?.name;
+
+      if (!customerId) {
+        return {
+          success: false,
+          error: 'Order does not have an associated customer'
+        };
+      }
+
+      console.log(`[StoreCreditService] Found customer ${customerId} for order ${orderName}`);
+
+      // Step 2: Issue store credit to the customer
+      const creditResponse = await this.admin.graphql(ISSUE_STORE_CREDIT_MUTATION, {
         variables: {
-          input: {
-            orderId: orderGid,
-            note: note || `Refund to store credit via RewardsPro`,
-            // Empty transactions array - we're using refundMethods instead
-            transactions: [],
-            // Use refundMethods to specify store credit refund
-            refundMethods: [
-              {
-                storeCreditRefund: {
-                  amount: {
-                    amount: formattedAmount,
-                    currencyCode: currency
-                  }
-                }
-              }
-            ]
+          id: customerId,
+          creditInput: {
+            creditAmount: {
+              amount: formattedAmount,
+              currencyCode: currency
+            }
           }
         }
       });
 
-      const result = await response.json();
+      const creditResult = await creditResponse.json();
 
-      // Check for GraphQL errors
-      if (result.errors) {
-        console.error("[StoreCreditService] GraphQL errors:", result.errors);
+      // Check for errors
+      if (creditResult.errors) {
+        console.error("[StoreCreditService] Store credit error:", creditResult.errors);
         return {
           success: false,
-          error: result.errors[0]?.message || 'GraphQL error creating refund'
+          error: creditResult.errors[0]?.message || 'Failed to issue store credit'
         };
       }
 
-      // Check for user errors
-      const userErrors = result.data?.refundCreate?.userErrors;
+      const userErrors = creditResult.data?.storeCreditAccountCredit?.userErrors;
       if (userErrors && userErrors.length > 0) {
         const errorMessages = userErrors.map((e: any) => e.message).join(', ');
         console.error("[StoreCreditService] User errors:", userErrors);
@@ -612,35 +645,47 @@ export class ShopifyStoreCreditService {
         };
       }
 
-      // Check for successful refund
-      const refund = result.data?.refundCreate?.refund;
-      const order = result.data?.refundCreate?.order;
-
-      if (refund) {
-        const refundedAmount = parseFloat(refund.totalRefundedSet?.presentmentMoney?.amount || "0");
-        const refundCurrency = refund.totalRefundedSet?.presentmentMoney?.currencyCode || currency;
-
-        console.log(`[StoreCreditService] ✅ Refund to store credit created successfully`);
-        console.log(`[StoreCreditService]    Refund ID: ${refund.id}`);
-        console.log(`[StoreCreditService]    Amount: ${refundedAmount} ${refundCurrency}`);
-        console.log(`[StoreCreditService]    Order: ${order?.name}`);
-
+      const transaction = creditResult.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
+      if (!transaction) {
         return {
-          success: true,
-          refundId: refund.id,
-          orderName: order?.name,
-          refundedAmount,
-          currency: refundCurrency
+          success: false,
+          error: 'No transaction returned from store credit operation'
         };
       }
 
+      console.log(`[StoreCreditService] ✅ Store credit issued successfully`);
+      console.log(`[StoreCreditService]    Transaction ID: ${transaction.id}`);
+      console.log(`[StoreCreditService]    Amount: ${formattedAmount} ${currency}`);
+      console.log(`[StoreCreditService]    Order: ${orderName}`);
+
+      // Step 3: Try to add a note to the order (optional - don't fail if this errors)
+      try {
+        const noteMessage = note
+          ? `${note}\n\nStore credit issued: ${formattedAmount} ${currency} via RewardsPro`
+          : `Store credit issued: ${formattedAmount} ${currency} via RewardsPro`;
+
+        await this.admin.graphql(ADD_ORDER_TIMELINE_COMMENT, {
+          variables: {
+            orderId: orderGid,
+            message: noteMessage
+          }
+        });
+        console.log(`[StoreCreditService] Order note added`);
+      } catch (noteError) {
+        // Don't fail the whole operation if note fails
+        console.warn("[StoreCreditService] Failed to add order note:", noteError);
+      }
+
       return {
-        success: false,
-        error: "No refund returned from Shopify"
+        success: true,
+        refundId: transaction.id,
+        orderName: orderName,
+        refundedAmount: parseFloat(formattedAmount),
+        currency: currency
       };
 
     } catch (error) {
-      console.error("[StoreCreditService] Refund error:", error);
+      console.error("[StoreCreditService] Refund to store credit error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
