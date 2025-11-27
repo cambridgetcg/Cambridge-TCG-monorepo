@@ -19,7 +19,6 @@ import {
 import {
   PlusCircleIcon,
   MinusCircleIcon,
-  RefreshIcon,
   ClockIcon,
   SearchIcon,
   ReturnIcon
@@ -30,7 +29,7 @@ import { CreditAdjustmentForm } from "./CreditAdjustmentForm";
 import { RefundToStoreCreditForm } from "./RefundToStoreCreditForm";
 
 // Track which action is currently in progress for granular button states
-type ActionType = 'none' | 'add' | 'remove' | 'sync' | 'refund';
+type ActionType = 'none' | 'add' | 'remove' | 'refund';
 
 interface Order {
   id: string;
@@ -135,7 +134,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
         // Reset active action
         setActiveAction('none');
         // Reload transactions after any credit change
-        if (data.message?.includes('Credit') || data.message?.includes('Sync') || data.message?.includes('refund')) {
+        if (data.message?.includes('Credit') || data.message?.includes('refund') || data.message?.includes('Refund')) {
           loadTransactions();
         }
       } else if (data.error || data.message) {
@@ -185,14 +184,6 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
     formData.append("actionType", "remove");
     formData.append("amount", amount.toString());
     formData.append("reason", reason);
-    actionFetcher.submit(formData, { method: "post" });
-  }, [customer.id, actionFetcher]);
-
-  const handleSyncCredit = useCallback(() => {
-    setActiveAction('sync');
-    const formData = new FormData();
-    formData.append("intent", "syncCredit");
-    formData.append("customerId", customer.id);
     actionFetcher.submit(formData, { method: "post" });
   }, [customer.id, actionFetcher]);
 
@@ -281,22 +272,12 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
               >
                 Remove Credit
               </Button>
-              {refundableOrders.length > 0 && (
-                <Button
-                  icon={ReturnIcon}
-                  onClick={() => setShowRefundModal(true)}
-                  disabled={isActionInProgress}
-                >
-                  Refund to Credit
-                </Button>
-              )}
               <Button
-                icon={RefreshIcon}
-                onClick={handleSyncCredit}
-                loading={activeAction === 'sync' && isActionInProgress}
-                disabled={isActionInProgress}
+                icon={ReturnIcon}
+                onClick={() => setShowRefundModal(true)}
+                disabled={isActionInProgress || orders.length === 0}
               >
-                Sync from Shopify
+                Refund to Credit
               </Button>
             </InlineStack>
           </InlineStack>
