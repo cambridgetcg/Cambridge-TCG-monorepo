@@ -190,6 +190,7 @@ export default function App() {
           <Link to="/app/tier-products">Membership Tiers</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
+          <Link to="/app/test-store-credit-refund">Test Refund API</Link>
         </NavMenu>
         <Outlet />
         

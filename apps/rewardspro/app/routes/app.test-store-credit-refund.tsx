@@ -303,7 +303,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       case "testRefundWithStoreCredit": {
-        // Test refundCreate with refundMethods (this will fail - for debugging)
+        // Test refundCreate with store-credit gateway (the correct approach)
         const orderId = formData.get("orderId") as string;
         const amount = formData.get("amount") as string;
         const currency = formData.get("currency") as string || "GBP";
@@ -314,9 +314,39 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         const orderGid = orderId.startsWith("gid://") ? orderId : `gid://shopify/Order/${orderId}`;
 
-        // This mutation uses refundMethods which doesn't exist - for testing the error
-        const mutation = `#graphql
-          mutation TestRefundWithStoreCredit($input: RefundInput!) {
+        // First get customer ID from order
+        const orderQuery = `#graphql
+          query GetOrderCustomer($orderId: ID!) {
+            order(id: $orderId) {
+              id
+              name
+              displayFinancialStatus
+              customer {
+                id
+                email
+              }
+            }
+          }
+        `;
+
+        const orderResponse = await admin.graphql(orderQuery, {
+          variables: { orderId: orderGid }
+        });
+        const orderData = await orderResponse.json();
+        results.orderData = orderData;
+
+        const customerId = orderData.data?.order?.customer?.id;
+        const orderName = orderData.data?.order?.name;
+
+        if (!customerId) {
+          results.error = "Order does not have a customer";
+          results.success = false;
+          break;
+        }
+
+        // Create refund using store-credit gateway
+        const refundMutation = `#graphql
+          mutation CreateStoreCreditRefund($input: RefundInput!) {
             refundCreate(input: $input) {
               refund {
                 id
@@ -330,6 +360,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               order {
                 id
                 name
+                displayFinancialStatus
               }
               userErrors {
                 field
@@ -339,33 +370,69 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
 
-        const variables = {
+        const refundVariables = {
           input: {
             orderId: orderGid,
-            note: "Test refund to store credit",
-            transactions: [],
-            refundMethods: [
+            note: "Test refund to store credit via RewardsPro",
+            notify: false,
+            transactions: [
               {
-                storeCreditRefund: {
-                  amount: {
-                    amount: amount,
-                    currencyCode: currency,
-                  },
-                },
-              },
-            ],
+                amount: amount,
+                gateway: "store-credit",
+                kind: "REFUND",
+                orderId: orderGid
+              }
+            ]
           },
         };
 
-        results.attemptedMutation = "refundCreate with refundMethods";
-        results.variables = variables;
+        results.refundMutation = "refundCreate with store-credit gateway";
+        results.refundVariables = refundVariables;
 
         try {
-          const response = await admin.graphql(mutation, { variables });
-          const data = await response.json();
-          results.response = data;
-          results.success = false;
-          results.expectedError = "refundMethods field does not exist in RefundInput";
+          const refundResponse = await admin.graphql(refundMutation, { variables: refundVariables });
+          const refundData = await refundResponse.json();
+          results.refundResponse = refundData;
+
+          if (refundData.errors || refundData.data?.refundCreate?.userErrors?.length > 0) {
+            results.success = false;
+            results.error = refundData.errors?.[0]?.message ||
+                           refundData.data?.refundCreate?.userErrors?.[0]?.message;
+          } else {
+            // Refund created successfully, now issue store credit
+            const creditMutation = `#graphql
+              mutation IssueStoreCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
+                storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
+                  storeCreditAccountTransaction {
+                    id
+                    amount { amount, currencyCode }
+                    balanceAfterTransaction { amount, currencyCode }
+                  }
+                  userErrors { field, message }
+                }
+              }
+            `;
+
+            const creditResponse = await admin.graphql(creditMutation, {
+              variables: {
+                id: customerId,
+                creditInput: {
+                  creditAmount: {
+                    amount: amount,
+                    currencyCode: currency
+                  }
+                }
+              }
+            });
+            const creditData = await creditResponse.json();
+            results.creditResponse = creditData;
+
+            results.success = !creditData.errors &&
+                             !creditData.data?.storeCreditAccountCredit?.userErrors?.length;
+            results.message = results.success
+              ? `Refund created on order ${orderName} and store credit issued to customer`
+              : "Refund created but store credit failed";
+          }
         } catch (error: any) {
           results.error = error.message;
           results.errorDetails = error.toString();
@@ -472,12 +539,11 @@ export default function TestStoreCreditRefund() {
     >
       <Layout>
         <Layout.Section>
-          <Banner tone="warning">
+          <Banner tone="info">
             <Text as="p" variant="bodyMd">
-              <strong>API Finding:</strong> Shopify's <code>refundCreate</code> mutation does NOT support
-              <code>refundMethods.storeCreditRefund</code>. This field doesn't exist in <code>RefundInput</code>.
-              The correct approach is to use <code>storeCreditAccountCredit</code> mutation to add store credit
-              to the customer's account.
+              <strong>Correct Implementation:</strong> To refund an order to store credit, we perform TWO operations:
+              1) Create a refund using <code>refundCreate</code> with <code>gateway: "store-credit"</code> (marks order as refunded),
+              2) Issue store credit using <code>storeCreditAccountCredit</code> (adds credit to customer's account).
             </Text>
           </Banner>
         </Layout.Section>
@@ -570,7 +636,7 @@ export default function TestStoreCreditRefund() {
               <Divider />
 
               <BlockStack gap="200">
-                <Text as="h3" variant="headingSm">Refund Operations (Debug)</Text>
+                <Text as="h3" variant="headingSm">Refund Operations</Text>
                 <InlineStack gap="200">
                   <Button
                     onClick={() => runTest("testRefundCreate")}
@@ -583,11 +649,14 @@ export default function TestStoreCreditRefund() {
                     onClick={() => runTest("testRefundWithStoreCredit")}
                     loading={isLoading}
                     disabled={!selectedOrder}
-                    tone="critical"
+                    variant="primary"
                   >
-                    Test refundMethods (Will Fail)
+                    Create Refund + Issue Credit
                   </Button>
                 </InlineStack>
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Creates a refund on the order (marks as refunded) AND issues store credit to customer
+                </Text>
               </BlockStack>
             </BlockStack>
           </Card>
@@ -631,25 +700,23 @@ export default function TestStoreCreditRefund() {
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
-              <Text as="h2" variant="headingMd">Correct Implementation</Text>
+              <Text as="h2" variant="headingMd">Implementation Details</Text>
 
-              <Banner tone="info">
+              <Banner tone="success">
                 <BlockStack gap="200">
                   <Text as="p" variant="bodyMd">
-                    <strong>Since Shopify doesn't support refunding orders directly to store credit</strong>,
-                    the correct implementation for "Refund to Store Credit" should:
+                    <strong>The correct implementation performs TWO operations:</strong>
                   </Text>
                   <Text as="p" variant="bodyMd">
-                    1. Use <code>storeCreditAccountCredit</code> to add credit to customer's account
+                    1. <strong>Create Refund:</strong> Use <code>refundCreate</code> with <code>gateway: "store-credit"</code>
+                    - This marks the order as "Refunded" or "Partially Refunded" in Shopify admin
                   </Text>
                   <Text as="p" variant="bodyMd">
-                    2. Record the transaction locally with order reference
+                    2. <strong>Issue Store Credit:</strong> Use <code>storeCreditAccountCredit</code>
+                    - This adds the credit to the customer's Shopify store credit account
                   </Text>
                   <Text as="p" variant="bodyMd">
-                    3. Optionally add a note/tag to the order for tracking
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    <strong>Note:</strong> This does NOT create an official Shopify refund on the order.
+                    <strong>Result:</strong> Order shows as refunded AND customer receives store credit they can use at checkout.
                   </Text>
                 </BlockStack>
               </Banner>
