@@ -71,16 +71,23 @@ interface StoreCreditTabProps {
 }
 
 export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCreditTabProps) {
-  const fetcher = useFetcher();
+  // Use separate fetchers for transactions (background) vs actions (user-initiated)
+  const transactionFetcher = useFetcher();
+  const actionFetcher = useFetcher();
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [transactionSearch, setTransactionSearch] = useState("");
-  const [loadingTransactions, setLoadingTransactions] = useState(false);
-  const [syncLoading, setSyncLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPageSize, setSelectedPageSize] = useState(25);
+
+  // Track which specific action is in progress for granular button feedback
+  const [activeAction, setActiveAction] = useState<ActionType>('none');
+
+  // Prevent duplicate transaction loads
+  const isLoadingTransactionsRef = useRef(false);
 
   // Track balance locally to update immediately after credit changes
   const initialBalance = typeof customer.storeCredit === 'string'
@@ -98,14 +105,24 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
     setCurrentBalance(newBalance);
   }, [customer.id, customer.storeCredit]);
 
-  // Watch for fetcher responses
+  // Watch for transaction fetcher responses (background loading)
   useEffect(() => {
-    if (fetcher.data) {
-      const data = fetcher.data as any;
+    if (transactionFetcher.data) {
+      const data = transactionFetcher.data as any;
       if (data.transactions) {
         setTransactions(data.transactions);
-        setLoadingTransactions(false);
+        isLoadingTransactionsRef.current = false;
       }
+    }
+    if (transactionFetcher.state === 'idle') {
+      isLoadingTransactionsRef.current = false;
+    }
+  }, [transactionFetcher.data, transactionFetcher.state]);
+
+  // Watch for action fetcher responses (user-initiated actions)
+  useEffect(() => {
+    if (actionFetcher.data) {
+      const data = actionFetcher.data as any;
       if (data.success) {
         // Update balance if new balance is returned
         if (data.newBalance !== undefined) {
@@ -115,60 +132,80 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
         setShowAddModal(false);
         setShowRemoveModal(false);
         setShowRefundModal(false);
-        setSyncLoading(false);
+        // Reset active action
+        setActiveAction('none');
         // Reload transactions after any credit change
         if (data.message?.includes('Credit') || data.message?.includes('Sync') || data.message?.includes('refund')) {
           loadTransactions();
         }
+      } else if (data.error || data.message) {
+        // Reset active action on error as well
+        setActiveAction('none');
       }
     }
-  }, [fetcher.data]);
+  }, [actionFetcher.data]);
+
+  // Reset active action when actionFetcher becomes idle
+  useEffect(() => {
+    if (actionFetcher.state === 'idle' && activeAction !== 'none') {
+      // Only reset if we have data (action completed)
+      if (actionFetcher.data) {
+        setActiveAction('none');
+      }
+    }
+  }, [actionFetcher.state, activeAction, actionFetcher.data]);
 
   const loadTransactions = useCallback(() => {
-    setLoadingTransactions(true);
+    // Prevent duplicate loads
+    if (isLoadingTransactionsRef.current) return;
+    isLoadingTransactionsRef.current = true;
+
     const formData = new FormData();
     formData.append("intent", "loadTransactions");
     formData.append("customerId", customer.id);
-    fetcher.submit(formData, { method: "post" });
-  }, [customer.id, fetcher]);
+    transactionFetcher.submit(formData, { method: "post" });
+  }, [customer.id, transactionFetcher]);
 
   const handleAddCredit = useCallback((amount: number, reason: string) => {
+    setActiveAction('add');
     const formData = new FormData();
     formData.append("intent", "adjustCredit");
     formData.append("customerId", customer.id);
     formData.append("actionType", "add");
     formData.append("amount", amount.toString());
     formData.append("reason", reason);
-    fetcher.submit(formData, { method: "post" });
-  }, [customer.id, fetcher]);
+    actionFetcher.submit(formData, { method: "post" });
+  }, [customer.id, actionFetcher]);
 
   const handleRemoveCredit = useCallback((amount: number, reason: string) => {
+    setActiveAction('remove');
     const formData = new FormData();
     formData.append("intent", "adjustCredit");
     formData.append("customerId", customer.id);
     formData.append("actionType", "remove");
     formData.append("amount", amount.toString());
     formData.append("reason", reason);
-    fetcher.submit(formData, { method: "post" });
-  }, [customer.id, fetcher]);
+    actionFetcher.submit(formData, { method: "post" });
+  }, [customer.id, actionFetcher]);
 
   const handleSyncCredit = useCallback(() => {
-    setSyncLoading(true);
+    setActiveAction('sync');
     const formData = new FormData();
     formData.append("intent", "syncCredit");
     formData.append("customerId", customer.id);
-    fetcher.submit(formData, { method: "post" });
-  }, [customer.id, fetcher]);
+    actionFetcher.submit(formData, { method: "post" });
+  }, [customer.id, actionFetcher]);
 
   const handleRefundToStoreCredit = useCallback((orderId: string, amount: number, reason: string) => {
+    setActiveAction('refund');
     const formData = new FormData();
     formData.append("intent", "refundToStoreCredit");
     formData.append("customerId", customer.id);
     formData.append("orderId", orderId);
     formData.append("amount", amount.toString());
     formData.append("reason", reason);
-    fetcher.submit(formData, { method: "post" });
-  }, [customer.id, fetcher]);
+    actionFetcher.submit(formData, { method: "post" });
+  }, [customer.id, actionFetcher]);
 
   // Filter orders that can be refunded (PAID or PARTIALLY_PAID)
   const refundableOrders = orders.filter(order =>
@@ -203,7 +240,9 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
     setCurrentPage(1); // Reset to first page when searching
   }, []);
 
-  const isLoading = fetcher.state === "submitting" || fetcher.state === "loading";
+  // Derived state for loading indicators
+  const isTransactionsLoading = transactionFetcher.state === "submitting" || transactionFetcher.state === "loading";
+  const isActionInProgress = actionFetcher.state === "submitting" || actionFetcher.state === "loading";
 
   return (
     <BlockStack gap="400">
@@ -228,14 +267,14 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
                 variant="primary"
                 tone="success"
                 onClick={() => setShowAddModal(true)}
-                disabled={isLoading}
+                disabled={isActionInProgress}
               >
                 Add Credit
               </Button>
               <Button
                 icon={MinusCircleIcon}
                 onClick={() => setShowRemoveModal(true)}
-                disabled={isLoading || currentBalance <= 0}
+                disabled={isActionInProgress || currentBalance <= 0}
               >
                 Remove Credit
               </Button>
@@ -243,7 +282,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
                 <Button
                   icon={ReturnIcon}
                   onClick={() => setShowRefundModal(true)}
-                  disabled={isLoading}
+                  disabled={isActionInProgress}
                 >
                   Refund to Credit
                 </Button>
@@ -251,8 +290,8 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
               <Button
                 icon={RefreshIcon}
                 onClick={handleSyncCredit}
-                loading={syncLoading}
-                disabled={isLoading}
+                loading={activeAction === 'sync' && isActionInProgress}
+                disabled={isActionInProgress}
               >
                 Sync from Shopify
               </Button>
@@ -320,10 +359,10 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
           </InlineStack>
 
           <Box paddingBlockStart="200">
-            {loadingTransactions ? (
-              <InlineStack align="center">
+            {isTransactionsLoading && transactions.length === 0 ? (
+              <InlineStack align="center" gap="200">
                 <Spinner size="small" />
-                <Text as="span" variant="bodySm">Loading transactions...</Text>
+                <Text as="span" variant="bodySm" tone="subdued">Loading transactions...</Text>
               </InlineStack>
             ) : (
               <BlockStack gap="400">
@@ -402,7 +441,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
       {/* Add Credit Modal */}
       <Modal
         open={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => !isActionInProgress && setShowAddModal(false)}
         title="Add Store Credit"
         size="small"
       >
@@ -412,7 +451,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
             type="add"
             onSubmit={handleAddCredit}
             onCancel={() => setShowAddModal(false)}
-            loading={isLoading}
+            loading={activeAction === 'add' && isActionInProgress}
             shopSettings={shopSettings}
           />
         </Modal.Section>
@@ -421,7 +460,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
       {/* Remove Credit Modal */}
       <Modal
         open={showRemoveModal}
-        onClose={() => setShowRemoveModal(false)}
+        onClose={() => !isActionInProgress && setShowRemoveModal(false)}
         title="Remove Store Credit"
         size="small"
       >
@@ -431,7 +470,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
             type="remove"
             onSubmit={handleRemoveCredit}
             onCancel={() => setShowRemoveModal(false)}
-            loading={isLoading}
+            loading={activeAction === 'remove' && isActionInProgress}
             shopSettings={shopSettings}
           />
         </Modal.Section>
@@ -440,7 +479,7 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
       {/* Refund to Store Credit Modal */}
       <Modal
         open={showRefundModal}
-        onClose={() => setShowRefundModal(false)}
+        onClose={() => !isActionInProgress && setShowRefundModal(false)}
         title="Refund Order to Store Credit"
         size="large"
       >
@@ -450,19 +489,19 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
             orders={refundableOrders}
             onSubmit={handleRefundToStoreCredit}
             onCancel={() => setShowRefundModal(false)}
-            loading={isLoading}
+            loading={activeAction === 'refund' && isActionInProgress}
             shopSettings={shopSettings}
           />
         </Modal.Section>
       </Modal>
 
       {/* Success/Error Messages */}
-      {fetcher.data && (fetcher.data as any).message && (
+      {actionFetcher.data && (actionFetcher.data as any).message && (
         <Banner
-          tone={(fetcher.data as any).success ? "success" : "critical"}
+          tone={(actionFetcher.data as any).success ? "success" : "critical"}
           onDismiss={() => {}}
         >
-          <p>{(fetcher.data as any).message}</p>
+          <p>{(actionFetcher.data as any).message}</p>
         </Banner>
       )}
     </BlockStack>
