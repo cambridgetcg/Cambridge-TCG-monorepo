@@ -118,9 +118,11 @@ export function RefundToStoreCreditForm({
   }, [validate, selectedOrderId, getAmount, reason, onSubmit]);
 
   // Filter to only show paid orders that haven't been fully refunded
-  const refundableOrders = orders.filter(order =>
-    ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(order.financialStatus?.toUpperCase() || '')
-  );
+  // Shopify displayFinancialStatus returns human-readable values like "Paid", "Partially paid"
+  const refundableOrders = orders.filter(order => {
+    const status = (order.financialStatus || '').toUpperCase().replace(/\s+/g, '_');
+    return ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(status);
+  });
 
   if (orders.length === 0) {
     return (

@@ -208,9 +208,12 @@ export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCre
   }, [customer.id, actionFetcher]);
 
   // Filter orders that can be refunded (PAID or PARTIALLY_PAID)
-  const refundableOrders = orders.filter(order =>
-    ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(order.financialStatus?.toUpperCase() || '')
-  );
+  // Shopify displayFinancialStatus returns human-readable values like "Paid", "Partially paid"
+  // We normalize to uppercase and remove spaces for comparison
+  const refundableOrders = orders.filter(order => {
+    const status = (order.financialStatus || '').toUpperCase().replace(/\s+/g, '_');
+    return ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(status);
+  });
 
   const filteredTransactions = transactions.filter(transaction => {
     if (!transactionSearch) return true;
