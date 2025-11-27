@@ -1175,6 +1175,126 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    // Intent: Refund to Store Credit - Creates an official Shopify refund
+    if (intent === "refundToStoreCredit") {
+      const customerId = formData.get("customerId") as string;
+      const orderId = formData.get("orderId") as string;
+      const amount = parseFloat(formData.get("amount") as string || "0");
+      const reason = formData.get("reason") as string || "Refund to store credit";
+
+      // Validate inputs
+      if (!customerId || !orderId || isNaN(amount) || amount <= 0) {
+        return json({ success: false, message: "Invalid input data: customer, order, and amount are required" });
+      }
+
+      try {
+        // Fetch customer from database
+        const customer = await db.customer.findFirst({
+          where: {
+            id: customerId,
+            shop: session.shop
+          }
+        });
+
+        if (!customer || !customer.shopifyCustomerId) {
+          return json({ success: false, message: "Customer not found or missing Shopify ID" });
+        }
+
+        // Get shop settings for currency
+        const shopSettings = await db.shopSettings.findUnique({
+          where: { shop: session.shop }
+        });
+
+        const currency = shopSettings?.storeCurrency || "USD";
+
+        // Import the store credit service
+        const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+        const storeCreditService = createStoreCreditService(admin, session.shop);
+
+        // Create the refund to store credit via Shopify
+        const result = await storeCreditService.refundToStoreCredit(
+          orderId,
+          amount,
+          currency,
+          reason
+        );
+
+        if (!result.success) {
+          return json({
+            success: false,
+            message: result.error || "Failed to create refund to store credit"
+          });
+        }
+
+        // Update local database - the refund adds to store credit balance
+        const currentBalance = parseFloat(customer.storeCredit.toString());
+        const newBalance = currentBalance + amount;
+
+        // Create ledger entry for the refund
+        await db.storeCreditLedger.create({
+          data: {
+            id: uuidv4(),
+            customerId,
+            shop: session.shop,
+            amount: amount,
+            balance: newBalance,
+            type: "REFUND_CREDIT",
+            shopifyOrderId: orderId,
+            metadata: {
+              reason,
+              refundId: result.refundId,
+              orderName: result.orderName,
+              refundType: "STORE_CREDIT",
+              adjustedBy: "admin",
+              syncStatus: 'SYNCED',
+              syncedAt: new Date().toISOString()
+            },
+            createdAt: new Date()
+          }
+        });
+
+        // Update customer balance
+        await db.customer.update({
+          where: { id: customerId },
+          data: {
+            storeCredit: newBalance,
+            updatedAt: new Date()
+          }
+        });
+
+        // Fetch updated transactions to return with response
+        const updatedTransactions = await db.storeCreditLedger.findMany({
+          where: {
+            customerId,
+            shop: session.shop
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        });
+
+        return json({
+          success: true,
+          message: `Successfully created refund of ${formatCurrency(amount, shopSettings)} to store credit for order ${result.orderName}`,
+          newBalance: newBalance.toString(),
+          refundId: result.refundId,
+          orderName: result.orderName,
+          transactions: updatedTransactions.map(t => ({
+            ...t,
+            amount: t.amount.toString(),
+            balance: t.balance.toString(),
+            createdAt: t.createdAt.toISOString()
+          }))
+        });
+
+      } catch (error) {
+        console.error("[Credit] Error creating refund to store credit:", error);
+        return json({
+          success: false,
+          message: "Failed to create refund: " + (error instanceof Error ? error.message : "Unknown error")
+        });
+      }
+    }
+
     if (action === "calculate-all") {
       // Calculate tiers for all customers
       console.log("[Customers] Starting tier calculation for all customers");

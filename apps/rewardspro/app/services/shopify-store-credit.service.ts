@@ -26,6 +26,32 @@ export interface StoreCreditAccount {
   };
 }
 
+export interface RefundToStoreCreditResult {
+  success: boolean;
+  refundId?: string;
+  orderName?: string;
+  refundedAmount?: number;
+  currency?: string;
+  error?: string;
+}
+
+export interface OrderForRefund {
+  id: string;
+  name: string;
+  displayFinancialStatus: string;
+  totalPrice: number;
+  totalRefunded: number;
+  currency: string;
+  refundableAmount: number;
+  lineItems: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    refundableQuantity: number;
+    unitPrice: number;
+  }>;
+}
+
 // ============================================================================
 // GRAPHQL MUTATIONS & QUERIES
 // ============================================================================
@@ -92,6 +118,85 @@ const DEBIT_STORE_CREDIT_MUTATION = `#graphql
         field
         message
         code
+      }
+    }
+  }
+`;
+
+const REFUND_TO_STORE_CREDIT_MUTATION = `#graphql
+  mutation RefundToStoreCredit($input: RefundInput!) {
+    refundCreate(input: $input) {
+      refund {
+        id
+        totalRefundedSet {
+          presentmentMoney {
+            amount
+            currencyCode
+          }
+        }
+        transactions(first: 5) {
+          edges {
+            node {
+              gateway
+              kind
+              amountSet {
+                presentmentMoney {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+      }
+      order {
+        id
+        name
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const QUERY_ORDER_FOR_REFUND = `#graphql
+  query GetOrderForRefund($orderId: ID!) {
+    order(id: $orderId) {
+      id
+      name
+      displayFinancialStatus
+      totalPriceSet {
+        presentmentMoney {
+          amount
+          currencyCode
+        }
+      }
+      totalRefundedSet {
+        presentmentMoney {
+          amount
+          currencyCode
+        }
+      }
+      lineItems(first: 50) {
+        edges {
+          node {
+            id
+            name
+            quantity
+            refundableQuantity
+            originalUnitPriceSet {
+              presentmentMoney {
+                amount
+                currencyCode
+              }
+            }
+          }
+        }
+      }
+      customer {
+        id
       }
     }
   }
@@ -367,6 +472,180 @@ export class ShopifyStoreCreditService {
       difference,
       needsSync
     };
+  }
+
+  /**
+   * Get order details for refund
+   */
+  async getOrderForRefund(orderId: string): Promise<{
+    success: boolean;
+    order?: OrderForRefund;
+    error?: string;
+  }> {
+    try {
+      // Ensure orderId is in GID format
+      const orderGid = orderId.startsWith('gid://')
+        ? orderId
+        : `gid://shopify/Order/${orderId}`;
+
+      const response = await this.admin.graphql(QUERY_ORDER_FOR_REFUND, {
+        variables: {
+          orderId: orderGid
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.errors) {
+        console.error("[StoreCreditService] Failed to query order:", result.errors);
+        return {
+          success: false,
+          error: result.errors[0]?.message || 'Failed to query order'
+        };
+      }
+
+      const order = result.data?.order;
+      if (!order) {
+        return {
+          success: false,
+          error: 'Order not found'
+        };
+      }
+
+      const totalPrice = parseFloat(order.totalPriceSet?.presentmentMoney?.amount || "0");
+      const totalRefunded = parseFloat(order.totalRefundedSet?.presentmentMoney?.amount || "0");
+      const currency = order.totalPriceSet?.presentmentMoney?.currencyCode || "USD";
+
+      const lineItems = (order.lineItems?.edges || []).map((edge: any) => ({
+        id: edge.node.id,
+        name: edge.node.name,
+        quantity: edge.node.quantity,
+        refundableQuantity: edge.node.refundableQuantity,
+        unitPrice: parseFloat(edge.node.originalUnitPriceSet?.presentmentMoney?.amount || "0")
+      }));
+
+      return {
+        success: true,
+        order: {
+          id: order.id,
+          name: order.name,
+          displayFinancialStatus: order.displayFinancialStatus,
+          totalPrice,
+          totalRefunded,
+          currency,
+          refundableAmount: Math.max(0, totalPrice - totalRefunded),
+          lineItems
+        }
+      };
+
+    } catch (error) {
+      console.error("[StoreCreditService] Query order error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
+    }
+  }
+
+  /**
+   * Create a refund to store credit for an order
+   * This creates an official Shopify refund that issues store credit to the customer
+   */
+  async refundToStoreCredit(
+    orderId: string,
+    amount: number,
+    currency: string = 'USD',
+    note?: string
+  ): Promise<RefundToStoreCreditResult> {
+    const formattedAmount = formatForShopify(amount);
+
+    console.log(`[StoreCreditService] Creating refund to store credit for order ${orderId}`);
+    console.log(`[StoreCreditService]    Amount: ${formattedAmount} ${currency}`);
+
+    try {
+      // Ensure orderId is in GID format
+      const orderGid = orderId.startsWith('gid://')
+        ? orderId
+        : `gid://shopify/Order/${orderId}`;
+
+      const response = await this.admin.graphql(REFUND_TO_STORE_CREDIT_MUTATION, {
+        variables: {
+          input: {
+            orderId: orderGid,
+            note: note || `Refund to store credit via RewardsPro`,
+            // Empty transactions array - we're using refundMethods instead
+            transactions: [],
+            // Use refundMethods to specify store credit refund
+            refundMethods: [
+              {
+                storeCreditRefund: {
+                  amount: {
+                    amount: formattedAmount,
+                    currencyCode: currency
+                  }
+                }
+              }
+            ]
+          }
+        }
+      });
+
+      const result = await response.json();
+
+      // Check for GraphQL errors
+      if (result.errors) {
+        console.error("[StoreCreditService] GraphQL errors:", result.errors);
+        return {
+          success: false,
+          error: result.errors[0]?.message || 'GraphQL error creating refund'
+        };
+      }
+
+      // Check for user errors
+      const userErrors = result.data?.refundCreate?.userErrors;
+      if (userErrors && userErrors.length > 0) {
+        const errorMessages = userErrors.map((e: any) => e.message).join(', ');
+        console.error("[StoreCreditService] User errors:", userErrors);
+        return {
+          success: false,
+          error: errorMessages
+        };
+      }
+
+      // Check for successful refund
+      const refund = result.data?.refundCreate?.refund;
+      const order = result.data?.refundCreate?.order;
+
+      if (refund) {
+        const refundedAmount = parseFloat(refund.totalRefundedSet?.presentmentMoney?.amount || "0");
+        const refundCurrency = refund.totalRefundedSet?.presentmentMoney?.currencyCode || currency;
+
+        console.log(`[StoreCreditService] ✅ Refund to store credit created successfully`);
+        console.log(`[StoreCreditService]    Refund ID: ${refund.id}`);
+        console.log(`[StoreCreditService]    Amount: ${refundedAmount} ${refundCurrency}`);
+        console.log(`[StoreCreditService]    Order: ${order?.name}`);
+
+        return {
+          success: true,
+          refundId: refund.id,
+          orderName: order?.name,
+          refundedAmount,
+          currency: refundCurrency
+        };
+      }
+
+      return {
+        success: false,
+        error: "No refund returned from Shopify"
+      };
+
+    } catch (error) {
+      console.error("[StoreCreditService] Refund error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
+    }
   }
 }
 

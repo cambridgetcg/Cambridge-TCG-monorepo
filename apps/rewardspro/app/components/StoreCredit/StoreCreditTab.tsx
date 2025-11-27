@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useFetcher } from "@remix-run/react";
 import {
   BlockStack,
@@ -21,11 +21,36 @@ import {
   MinusCircleIcon,
   RefreshIcon,
   ClockIcon,
-  SearchIcon
+  SearchIcon,
+  ReturnIcon
 } from "@shopify/polaris-icons";
 import { StoreCreditDisplay } from "./StoreCreditDisplay";
 import { TransactionTable } from "./TransactionTable";
 import { CreditAdjustmentForm } from "./CreditAdjustmentForm";
+import { RefundToStoreCreditForm } from "./RefundToStoreCreditForm";
+
+// Track which action is currently in progress for granular button states
+type ActionType = 'none' | 'add' | 'remove' | 'sync' | 'refund';
+
+interface Order {
+  id: string;
+  name: string;
+  createdAt: string;
+  financialStatus: string;
+  fulfillmentStatus: string;
+  total: {
+    amount: string;
+    currencyCode: string;
+  };
+  lineItems: Array<{
+    title: string;
+    quantity: number;
+    total: {
+      amount: string;
+      currencyCode: string;
+    };
+  }>;
+}
 
 interface StoreCreditTabProps {
   customer: {
@@ -42,12 +67,14 @@ interface StoreCreditTabProps {
     storeCurrency: string;
     currencyDisplayType: string;
   } | null;
+  orders?: Order[];
 }
 
-export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) {
+export function StoreCreditTab({ customer, shopSettings, orders = [] }: StoreCreditTabProps) {
   const fetcher = useFetcher();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [transactionSearch, setTransactionSearch] = useState("");
   const [loadingTransactions, setLoadingTransactions] = useState(false);
@@ -87,9 +114,10 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
         // Close modals on successful action
         setShowAddModal(false);
         setShowRemoveModal(false);
+        setShowRefundModal(false);
         setSyncLoading(false);
         // Reload transactions after any credit change
-        if (data.message?.includes('Credit') || data.message?.includes('Sync')) {
+        if (data.message?.includes('Credit') || data.message?.includes('Sync') || data.message?.includes('refund')) {
           loadTransactions();
         }
       }
@@ -131,6 +159,21 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
     formData.append("customerId", customer.id);
     fetcher.submit(formData, { method: "post" });
   }, [customer.id, fetcher]);
+
+  const handleRefundToStoreCredit = useCallback((orderId: string, amount: number, reason: string) => {
+    const formData = new FormData();
+    formData.append("intent", "refundToStoreCredit");
+    formData.append("customerId", customer.id);
+    formData.append("orderId", orderId);
+    formData.append("amount", amount.toString());
+    formData.append("reason", reason);
+    fetcher.submit(formData, { method: "post" });
+  }, [customer.id, fetcher]);
+
+  // Filter orders that can be refunded (PAID or PARTIALLY_PAID)
+  const refundableOrders = orders.filter(order =>
+    ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(order.financialStatus?.toUpperCase() || '')
+  );
 
   const filteredTransactions = transactions.filter(transaction => {
     if (!transactionSearch) return true;
@@ -196,6 +239,15 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
               >
                 Remove Credit
               </Button>
+              {refundableOrders.length > 0 && (
+                <Button
+                  icon={ReturnIcon}
+                  onClick={() => setShowRefundModal(true)}
+                  disabled={isLoading}
+                >
+                  Refund to Credit
+                </Button>
+              )}
               <Button
                 icon={RefreshIcon}
                 onClick={handleSyncCredit}
@@ -379,6 +431,25 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
             type="remove"
             onSubmit={handleRemoveCredit}
             onCancel={() => setShowRemoveModal(false)}
+            loading={isLoading}
+            shopSettings={shopSettings}
+          />
+        </Modal.Section>
+      </Modal>
+
+      {/* Refund to Store Credit Modal */}
+      <Modal
+        open={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        title="Refund Order to Store Credit"
+        size="large"
+      >
+        <Modal.Section>
+          <RefundToStoreCreditForm
+            customer={customer}
+            orders={refundableOrders}
+            onSubmit={handleRefundToStoreCredit}
+            onCancel={() => setShowRefundModal(false)}
             loading={isLoading}
             shopSettings={shopSettings}
           />
