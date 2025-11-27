@@ -35,7 +35,6 @@ const PRESET_REASONS = {
     { label: 'Loyalty reward', value: 'Loyalty reward' },
     { label: 'Referral bonus', value: 'Referral bonus' },
     { label: 'Promotion', value: 'Promotion' },
-    { label: 'Refund to store credit', value: 'Refund to store credit' },
     { label: 'Other', value: 'other' },
   ],
   remove: [
