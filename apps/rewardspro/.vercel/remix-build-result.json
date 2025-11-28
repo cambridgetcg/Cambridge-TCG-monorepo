@@ -39,6 +39,7 @@
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.storefront.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.gitbook-assistant": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-billing-mode": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -60,7 +61,6 @@
       "routes/app.marketing.automation.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.campaigns.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.recommendations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.test-store-credit-refund": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.templates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -356,6 +356,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.gitbook-assistant": {
+        "id": "routes/api.gitbook-assistant",
+        "parentId": "root",
+        "file": "app/routes/api.gitbook-assistant.tsx",
+        "path": "api/gitbook-assistant",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.test-billing-mode": {
         "id": "routes/api.test-billing-mode",
         "parentId": "root",
@@ -548,15 +557,6 @@
         "parentId": "routes/app",
         "file": "app/routes/app.marketing.recommendations.tsx",
         "path": "marketing/recommendations",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.test-store-credit-refund": {
-        "id": "routes/app.test-store-credit-refund",
-        "parentId": "routes/app",
-        "file": "app/routes/app.test-store-credit-refund.tsx",
-        "path": "test-store-credit-refund",
         "config": {
           "runtime": "nodejs"
         }
@@ -977,6 +977,12 @@
         "file": "routes/webhooks.orders.create.tsx",
         "path": "webhooks/orders/create"
       },
+      "routes/api.gitbook-assistant": {
+        "id": "routes/api.gitbook-assistant",
+        "parentId": "root",
+        "file": "routes/api.gitbook-assistant.tsx",
+        "path": "api/gitbook-assistant"
+      },
       "routes/api.test-billing-mode": {
         "id": "routes/api.test-billing-mode",
         "parentId": "root",
@@ -1108,12 +1114,6 @@
         "parentId": "routes/app",
         "file": "routes/app.marketing.recommendations.tsx",
         "path": "marketing/recommendations"
-      },
-      "routes/app.test-store-credit-refund": {
-        "id": "routes/app.test-store-credit-refund",
-        "parentId": "routes/app",
-        "file": "routes/app.test-store-credit-refund.tsx",
-        "path": "test-store-credit-refund"
       },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
