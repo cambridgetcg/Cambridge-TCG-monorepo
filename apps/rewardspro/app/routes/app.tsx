@@ -9,6 +9,7 @@ import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate, FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
+import { HelpAssistant } from "../components/HelpAssistant";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
 
@@ -192,8 +193,11 @@ export default function App() {
           <Link to="/app/billing">Billing</Link>
         </NavMenu>
         <Outlet />
-        
-        {/* 
+
+        {/* GitBook-powered Help Assistant */}
+        <HelpAssistant docsUrl="https://docs.rewardspro.io" />
+
+        {/*
           Global styles for iframe bottom spacing in Shopify Admin
           
           CRITICAL: Use padding, NOT margin!
