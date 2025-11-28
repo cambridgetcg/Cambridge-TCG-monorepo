@@ -173,12 +173,14 @@ export function HelpAssistant({
         }}
       >
         <Button
-          icon={isOpen ? XIcon : QuestionCircleIcon}
+          icon={isOpen ? XIcon : undefined}
           onClick={toggleOpen}
           variant={isOpen ? "secondary" : "primary"}
           size="large"
           accessibilityLabel={isOpen ? "Close help assistant" : "Open help assistant"}
-        />
+        >
+          {isOpen ? null : "Ask me anything"}
+        </Button>
       </div>
 
       {/* Chat Panel */}
