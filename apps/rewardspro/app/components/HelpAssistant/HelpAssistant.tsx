@@ -18,15 +18,19 @@ import {
   ExternalIcon,
 } from "@shopify/polaris-icons";
 
+interface Source {
+  type: string;
+  pageId?: string;
+  spaceId?: string;
+  reason?: string;
+  sections?: string[];
+}
+
 interface Message {
   id: string;
   type: "user" | "assistant";
   content: string;
-  sources?: Array<{
-    type: string;
-    page: string;
-    reason?: string;
-  }>;
+  sources?: Source[];
   followupQuestions?: string[];
   timestamp: Date;
 }
@@ -334,11 +338,11 @@ export function HelpAssistant({
                           {message.sources.slice(0, 3).map((source, idx) => (
                             <Link
                               key={idx}
-                              url={`${docsUrl}/${source.page || ""}`}
+                              url={docsUrl}
                               target="_blank"
                             >
                               <Text as="span" variant="bodySm">
-                                {source.reason || source.page || "Documentation"}
+                                {source.reason || "View documentation"}
                               </Text>
                             </Link>
                           ))}

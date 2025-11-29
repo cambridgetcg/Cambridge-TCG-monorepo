@@ -189,10 +189,18 @@ export async function action({ request }: ActionFunctionArgs) {
               followupQuestions = data.answer.followupQuestions;
             }
             if (data.answer.sources && data.answer.sources.length > 0) {
+              // Log source structure for debugging
+              console.log(`[GitBook Assistant] Source structure:`, JSON.stringify(data.answer.sources[0], null, 2));
+
+              // GitBook returns: { type: "page", reason: "...", page: "pageId", space: "spaceId", sections: [...] }
+              // We can't get the page URL without additional API calls, so use reason as display text
               sources = data.answer.sources.map((source: any) => ({
-                type: source.type,
-                page: source.page,
+                type: source.type || "page",
+                pageId: source.page,
+                spaceId: source.space,
+                // Use reason as display text since we don't have page title
                 reason: source.reason,
+                sections: source.sections,
               }));
             }
           }
