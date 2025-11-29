@@ -73,7 +73,10 @@ export async function action({ request }: ActionFunctionArgs) {
     // See: https://gitbook.com/docs/developers/gitbook-api/api-reference/docs-sites/site-ai-ask
     const requestBody = {
       question,
-      scope: "all",
+      scope: {
+        mode: "default",
+        currentSiteSpace: GITBOOK_SITE_ID,
+      },
     };
 
     if (DEBUG) {
