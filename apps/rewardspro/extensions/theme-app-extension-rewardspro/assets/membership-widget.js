@@ -17,8 +17,7 @@
         data: null,
         error: null,
         lastFetch: null,
-        dataSource: null, // 'fresh', 'cache', 'fallback'
-        needsSync: false // Flag indicating customer needs database sync
+        dataSource: null // 'fresh', 'cache', 'fallback'
       };
 
       // Prevent double initialization
@@ -185,7 +184,6 @@
           totalEarnedType: typeof data.balance?.totalEarned,
           cashbackPercent: data.membership?.tier?.cashbackPercent,
           cashbackPercentType: typeof data.membership?.tier?.cashbackPercent,
-          needsSync: data.needsSync || false,
           query: data.query
         });
 
@@ -198,7 +196,6 @@
           this.state.error = null;
           this.state.lastFetch = Date.now();
           this.state.dataSource = 'not_found';
-          this.state.needsSync = true;
 
           // Render "no data" state
           this.renderNotFound();
@@ -214,7 +211,6 @@
         this.state.error = null;
         this.state.lastFetch = Date.now();
         this.state.dataSource = 'fresh';
-        this.state.needsSync = data.needsSync || false;
 
         // Cache the data
         this.cacheData(data);
@@ -237,7 +233,7 @@
           console.log('[RewardsWidget] Using cached data after error');
           this.state.data = cachedData;
           this.state.dataSource = 'cache-stale';
-          this.renderAuthenticated(true); // Show stale indicator
+          this.renderAuthenticated();
         } else {
           // Use fallback data as last resort
           this.useFallbackData();
@@ -334,7 +330,7 @@
       };
       this.state.dataSource = 'fallback';
 
-      this.renderAuthenticated(false, true); // Show offline indicator
+      this.renderAuthenticated();
     }
 
     /**
@@ -469,7 +465,7 @@
       }
     }
 
-    renderAuthenticated(isStale = false, isOffline = false) {
+    renderAuthenticated() {
       if (!this.state.data) {
         console.warn('[RewardsWidget] Cannot render - no data available');
         return;
@@ -632,9 +628,6 @@
               </div>
             </div>
 
-            ${isStale ? '<div class="rp-widget__indicator rp-widget__indicator--stale">Data may be outdated</div>' : ''}
-            ${isOffline ? '<div class="rp-widget__indicator rp-widget__indicator--offline">Offline mode</div>' : ''}
-            ${this.state.needsSync ? '<div class="rp-widget__indicator rp-widget__indicator--sync"><strong>⚠️ Data Not Synced:</strong> Your account is showing default data. The merchant needs to run customer sync from the admin panel to display your real tier and rewards.</div>' : ''}
           </div>
         </div>
       `;

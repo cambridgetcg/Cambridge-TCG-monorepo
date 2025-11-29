@@ -847,38 +847,6 @@
   border: 1px solid #6c757d;
 }
 
-/* Status indicators */
-.rp-widget__indicator {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.rp-widget__indicator--stale {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffc107;
-}
-
-.rp-widget__indicator--offline {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.rp-widget__indicator--sync {
-  background: #e7f3ff;
-  color: #004085;
-  border: 1px solid #b8daff;
-  padding: 10px 12px;
-  line-height: 1.4;
-}
-
 /* Not Found State */
 .rp-widget--not-found {
   background: #ffffff;
