@@ -9,6 +9,7 @@ import {
   Spinner,
   Link,
   Icon,
+  Tooltip,
 } from "@shopify/polaris";
 import {
   QuestionCircleIcon,
@@ -16,6 +17,7 @@ import {
   SendIcon,
   ChatIcon,
   ExternalIcon,
+  DeleteIcon,
 } from "@shopify/polaris-icons";
 
 interface Source {
@@ -240,22 +242,27 @@ export function HelpAssistant({
                   Help Assistant
                 </Text>
               </InlineStack>
-              <InlineStack gap="100">
+              <InlineStack gap="200">
                 {messages.length > 0 && (
-                  <Button
-                    variant="plain"
-                    size="slim"
-                    onClick={clearChat}
-                  >
-                    Clear
-                  </Button>
+                  <Tooltip content="Clear chat">
+                    <Button
+                      variant="tertiary"
+                      size="slim"
+                      icon={DeleteIcon}
+                      onClick={clearChat}
+                      accessibilityLabel="Clear chat"
+                    />
+                  </Tooltip>
                 )}
-                <Link url={docsUrl} target="_blank">
-                  <InlineStack gap="100" blockAlign="center">
-                    <Text as="span" variant="bodySm">Docs</Text>
-                    <Icon source={ExternalIcon} tone="base" />
-                  </InlineStack>
-                </Link>
+                <Tooltip content="View documentation">
+                  <Button
+                    variant="tertiary"
+                    size="slim"
+                    icon={ExternalIcon}
+                    onClick={() => window.open(docsUrl, "_blank")}
+                    accessibilityLabel="View documentation"
+                  />
+                </Tooltip>
               </InlineStack>
             </InlineStack>
           </div>
