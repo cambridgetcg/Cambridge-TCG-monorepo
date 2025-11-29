@@ -65,6 +65,13 @@ type ShopSettings = {
   widgetAccentColor: string | null;
   widgetBorderRadius: number | null;
   widgetFontFamily: string | null;
+  // Store Business Metrics
+  averageProfitMargin: number | null;
+  averageCogsPercent: number | null;
+  averageShippingCost: number | null;
+  averageOrderValue: number | null;
+  targetRoiPercent: number | null;
+  metricsLastUpdated: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -770,6 +777,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const widgetAccentColor = formData.get("widgetAccentColor") as string;
     const widgetBorderRadius = parseInt(formData.get("widgetBorderRadius") as string) || 12;
     const widgetFontFamily = formData.get("widgetFontFamily") as string;
+    // Store business metrics
+    const averageProfitMarginStr = formData.get("averageProfitMargin") as string;
+    const averageCogsPercentStr = formData.get("averageCogsPercent") as string;
+    const averageShippingCostStr = formData.get("averageShippingCost") as string;
+    const averageOrderValueStr = formData.get("averageOrderValue") as string;
+    const targetRoiPercentStr = formData.get("targetRoiPercent") as string;
+
+    const averageProfitMargin = averageProfitMarginStr ? parseFloat(averageProfitMarginStr) : null;
+    const averageCogsPercent = averageCogsPercentStr ? parseFloat(averageCogsPercentStr) : null;
+    const averageShippingCost = averageShippingCostStr ? parseFloat(averageShippingCostStr) : null;
+    const averageOrderValue = averageOrderValueStr ? parseFloat(averageOrderValueStr) : null;
+    const targetRoiPercent = targetRoiPercentStr ? parseFloat(targetRoiPercentStr) : null;
     // Timezone is now synced from Shopify and not editable
 
     // Validation
@@ -798,6 +817,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Update settings (timezone stays as-is, synced from Shopify)
+    const now = new Date();
     const updatedSettings = await db.shopSettings.update({
       where: { shop },
       data: {
@@ -815,8 +835,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         widgetAccentColor,
         widgetBorderRadius,
         widgetFontFamily,
+        // Store business metrics
+        averageProfitMargin,
+        averageCogsPercent,
+        averageShippingCost,
+        averageOrderValue,
+        targetRoiPercent,
+        metricsLastUpdated: (averageProfitMargin !== null || averageCogsPercent !== null ||
+                            averageShippingCost !== null || averageOrderValue !== null ||
+                            targetRoiPercent !== null) ? now : undefined,
         // timezone is synced from Shopify, not updated here
-        updatedAt: new Date(),
+        updatedAt: now,
       },
     });
 
@@ -881,6 +910,23 @@ export default function SettingsPage() {
   const [widgetBorderRadius, setWidgetBorderRadius] = useState(settings.widgetBorderRadius || 12);
   const [widgetFontFamily, setWidgetFontFamily] = useState(settings.widgetFontFamily || "inherit");
 
+  // Store business metrics state
+  const [averageProfitMargin, setAverageProfitMargin] = useState<string>(
+    settings.averageProfitMargin?.toString() || ""
+  );
+  const [averageCogsPercent, setAverageCogsPercent] = useState<string>(
+    settings.averageCogsPercent?.toString() || ""
+  );
+  const [averageShippingCost, setAverageShippingCost] = useState<string>(
+    settings.averageShippingCost?.toString() || ""
+  );
+  const [averageOrderValue, setAverageOrderValue] = useState<string>(
+    settings.averageOrderValue?.toString() || ""
+  );
+  const [targetRoiPercent, setTargetRoiPercent] = useState<string>(
+    settings.targetRoiPercent?.toString() || ""
+  );
+
   // Order sync state
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncRange, setSyncRange] = useState("365");
@@ -908,10 +954,15 @@ export default function SettingsPage() {
       widgetTextColor !== (settings.widgetTextColor || "#212B36") ||
       widgetAccentColor !== (settings.widgetAccentColor || "#008060") ||
       widgetBorderRadius !== (settings.widgetBorderRadius || 12) ||
-      widgetFontFamily !== (settings.widgetFontFamily || "inherit");
+      widgetFontFamily !== (settings.widgetFontFamily || "inherit") ||
+      averageProfitMargin !== (settings.averageProfitMargin?.toString() || "") ||
+      averageCogsPercent !== (settings.averageCogsPercent?.toString() || "") ||
+      averageShippingCost !== (settings.averageShippingCost?.toString() || "") ||
+      averageOrderValue !== (settings.averageOrderValue?.toString() || "") ||
+      targetRoiPercent !== (settings.targetRoiPercent?.toString() || "");
 
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
 
   // Removed time display - timezone is now just shown as text
 
@@ -933,10 +984,16 @@ export default function SettingsPage() {
     formData.append("widgetAccentColor", widgetAccentColor);
     formData.append("widgetBorderRadius", String(widgetBorderRadius));
     formData.append("widgetFontFamily", widgetFontFamily);
+    // Store business metrics
+    formData.append("averageProfitMargin", averageProfitMargin);
+    formData.append("averageCogsPercent", averageCogsPercent);
+    formData.append("averageShippingCost", averageShippingCost);
+    formData.append("averageOrderValue", averageOrderValue);
+    formData.append("targetRoiPercent", targetRoiPercent);
     // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -954,6 +1011,12 @@ export default function SettingsPage() {
     setWidgetAccentColor(settings.widgetAccentColor || "#008060");
     setWidgetBorderRadius(settings.widgetBorderRadius || 12);
     setWidgetFontFamily(settings.widgetFontFamily || "inherit");
+    // Store metrics reset
+    setAverageProfitMargin(settings.averageProfitMargin?.toString() || "");
+    setAverageCogsPercent(settings.averageCogsPercent?.toString() || "");
+    setAverageShippingCost(settings.averageShippingCost?.toString() || "");
+    setAverageOrderValue(settings.averageOrderValue?.toString() || "");
+    setTargetRoiPercent(settings.targetRoiPercent?.toString() || "");
     // Timezone is read-only, no need to reset
   }, [settings]);
 
@@ -1074,6 +1137,11 @@ export default function SettingsPage() {
       id: 'tier-automation',
       content: 'Tier Automation',
       panelID: 'tier-automation-panel',
+    },
+    {
+      id: 'store-metrics',
+      content: 'Store Metrics',
+      panelID: 'store-metrics-panel',
     },
     {
       id: 'widget-theme',
@@ -1391,8 +1459,128 @@ export default function SettingsPage() {
                     </BlockStack>
                   )}
 
-                  {/* Widget Theme Tab */}
+                  {/* Store Metrics Tab */}
                   {selectedTab === 3 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <Text as="h2" variant="headingMd">Store Business Metrics</Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Configure your store's financial metrics to enable accurate ROI and profitability calculations in analytics.
+                        </Text>
+                      </BlockStack>
+
+                      <FormLayout>
+                        <FormLayout.Group>
+                          <TextField
+                            label="Average Profit Margin"
+                            type="number"
+                            value={averageProfitMargin}
+                            onChange={setAverageProfitMargin}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            autoComplete="off"
+                            helpText="Your average profit margin after COGS (e.g., 45 for 45%)"
+                          />
+                          <TextField
+                            label="Average COGS"
+                            type="number"
+                            value={averageCogsPercent}
+                            onChange={setAverageCogsPercent}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            autoComplete="off"
+                            helpText="Cost of goods sold as % of revenue (e.g., 55 for 55%)"
+                          />
+                        </FormLayout.Group>
+
+                        <FormLayout.Group>
+                          <TextField
+                            label="Average Shipping Cost"
+                            type="number"
+                            value={averageShippingCost}
+                            onChange={setAverageShippingCost}
+                            prefix={getCurrencySymbol(storeCurrency)}
+                            min={0}
+                            autoComplete="off"
+                            helpText="Average shipping cost per order"
+                          />
+                          <TextField
+                            label="Average Order Value"
+                            type="number"
+                            value={averageOrderValue}
+                            onChange={setAverageOrderValue}
+                            prefix={getCurrencySymbol(storeCurrency)}
+                            min={0}
+                            autoComplete="off"
+                            helpText="Your historical average order value"
+                          />
+                        </FormLayout.Group>
+
+                        <TextField
+                          label="Target ROI"
+                          type="number"
+                          value={targetRoiPercent}
+                          onChange={setTargetRoiPercent}
+                          suffix="%"
+                          min={0}
+                          autoComplete="off"
+                          helpText="Your target return on investment for the loyalty program (e.g., 200 for 200% ROI)"
+                        />
+                      </FormLayout>
+
+                      {/* Metrics Summary */}
+                      {(averageProfitMargin || averageCogsPercent || averageOrderValue) && (
+                        <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="300">
+                            <Text as="p" variant="bodySm" tone="subdued">Metrics Summary</Text>
+                            <InlineStack gap="600">
+                              {averageProfitMargin && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">Profit Margin</Text>
+                                  <Text as="span" variant="headingSm">{averageProfitMargin}%</Text>
+                                </BlockStack>
+                              )}
+                              {averageCogsPercent && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">COGS</Text>
+                                  <Text as="span" variant="headingSm">{averageCogsPercent}%</Text>
+                                </BlockStack>
+                              )}
+                              {averageOrderValue && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">Avg Order</Text>
+                                  <Text as="span" variant="headingSm">{getCurrencySymbol(storeCurrency)}{averageOrderValue}</Text>
+                                </BlockStack>
+                              )}
+                              {targetRoiPercent && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">Target ROI</Text>
+                                  <Text as="span" variant="headingSm">{targetRoiPercent}%</Text>
+                                </BlockStack>
+                              )}
+                            </InlineStack>
+                            {settings.metricsLastUpdated && (
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Last updated: {new Date(settings.metricsLastUpdated).toLocaleDateString()}
+                              </Text>
+                            )}
+                          </BlockStack>
+                        </Box>
+                      )}
+
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          These metrics are used to calculate loyalty program ROI, cashback profitability, and tier effectiveness in analytics.
+                          Leave fields empty if you don't have the data yet.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  )}
+
+                  {/* Widget Theme Tab */}
+                  {selectedTab === 4 && (
                     <BlockStack gap="500">
                       <BlockStack gap="200">
                         <Text as="h2" variant="headingMd">Widget Theme</Text>

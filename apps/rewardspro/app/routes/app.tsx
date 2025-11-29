@@ -21,13 +21,16 @@ export const links = () => [
   },
 ];
 
+// Plans that include email marketing feature
+const EMAIL_MARKETING_PLANS = ['RewardsPro Max', 'RewardsPro Max Annual', 'RewardsPro Ultra', 'RewardsPro Ultra Annual', 'RewardsPro Enterprise'];
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { startTime, requestId } = await logRequest(request, 'App Route Loader');
   checkAuthenticationIssues(request);
-  
+
   try {
     console.log("[App Loader] Authenticating request...");
-    
+
     let authResult;
     try {
       authResult = await authenticate.admin(request);
@@ -39,9 +42,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
       throw authError;
     }
-    
+
     const { session, admin, billing, redirect } = authResult;
-    
+
     // Log Shopify context
     logShopifyContext({
       shop: session?.shop,
@@ -50,12 +53,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       apiKey: process.env.SHOPIFY_API_KEY,
       host: new URL(request.url).searchParams.get("host") || "",
     });
-    
+
     if (!session) {
       console.error("[App Loader] No session found!");
       throw new Response("No session found", { status: 401 });
     }
-    
+
     console.log(`[App Loader] Authenticated for shop: ${session.shop}`);
     
     // Check if billing is configured (only check on main app route, not all sub-routes)
@@ -127,20 +130,58 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         // Continue loading the app even if billing check fails
       }
     }
-    
+
+    // Fetch shop settings to check feature flags
+    let emailMarketingEnabled = false;
+    let currentPlanName = '';
+    try {
+      const shopSettings = await db.shopSettings.findUnique({
+        where: { shop: session.shop },
+      });
+
+      if (shopSettings) {
+        emailMarketingEnabled = (shopSettings as any).emailMarketingEnabled || false;
+        currentPlanName = (shopSettings as any).currentPlanName || '';
+      }
+
+      // Also check if plan supports email marketing (Max, Ultra, Enterprise)
+      if (billing) {
+        try {
+          const { appSubscriptions } = await billing.check({
+            plans: [STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
+            isTest: process.env.NODE_ENV === 'development',
+          });
+          if (appSubscriptions && appSubscriptions.length > 0) {
+            currentPlanName = appSubscriptions[0].name;
+          }
+        } catch (e) {
+          // Ignore billing check errors for feature flags
+        }
+      }
+    } catch (settingsError) {
+      console.error("[App Loader] Error fetching shop settings:", settingsError);
+    }
+
+    // Check if email marketing should be shown (feature enabled OR plan supports it)
+    const hasEmailMarketingAccess = emailMarketingEnabled || EMAIL_MARKETING_PLANS.includes(currentPlanName);
+
     const response = json(
-      { 
+      {
         apiKey: process.env.SHOPIFY_API_KEY || "",
         shop: session.shop,
         host: new URL(request.url).searchParams.get("host") || "",
+        features: {
+          emailMarketing: hasEmailMarketingAccess,
+        },
+        currentPlan: currentPlanName,
       },
-      { 
+      {
         headers: {
           'X-Shop-Domain': session.shop,
         }
       }
     );
-    
+
     logResponse(response, 'App Route Loader', startTime, requestId);
     return response;
   } catch (error: any) {
@@ -160,10 +201,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-  const { apiKey, shop, host } = useLoaderData<typeof loader>();
+  const { apiKey, shop, host, features } = useLoaderData<typeof loader>();
 
   // Log for debugging
-  console.log("[App Component] Rendering with:", { apiKey: apiKey ? "present" : "missing", shop, host });
+  console.log("[App Component] Rendering with:", { apiKey: apiKey ? "present" : "missing", shop, host, features });
 
   if (!apiKey) {
     console.error("[App Component] No API key available!");
@@ -185,7 +226,9 @@ export default function App() {
             Home
           </Link>
           <Link to="/app/analytics">Analytics</Link>
-          {/* <Link to="/app/marketing">Marketing</Link> */}
+          {features?.emailMarketing && (
+            <Link to="/app/marketing">Marketing</Link>
+          )}
           <Link to="/app/customers">Customers</Link>
           <Link to="/app/orders">Orders</Link>
           <Link to="/app/tier-products">Membership Tiers</Link>
