@@ -73,6 +73,8 @@ export function HelpAssistant({
     setError(null);
 
     try {
+      console.log("[HelpAssistant] Sending question:", q.trim());
+
       const response = await fetch("/api/gitbook-assistant", {
         method: "POST",
         headers: {
@@ -83,14 +85,31 @@ export function HelpAssistant({
 
       const data = await response.json();
 
+      console.log("[HelpAssistant] Response status:", response.status);
+      console.log("[HelpAssistant] Response data:", {
+        hasAnswer: !!data.answer,
+        answerLength: data.answer?.length || 0,
+        answerPreview: data.answer?.substring(0, 100),
+        sourcesCount: data.sources?.length || 0,
+        followupCount: data.followupQuestions?.length || 0,
+        error: data.error,
+      });
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to get response");
+      }
+
+      // Provide more helpful fallback message
+      let content = data.answer;
+      if (!content || content.trim() === "") {
+        content = "I couldn't find a specific answer to that question. Try rephrasing or check out the documentation at docs.rewardspro.io";
+        console.warn("[HelpAssistant] Empty answer received from API");
       }
 
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         type: "assistant",
-        content: data.answer || "I couldn't find an answer to that question.",
+        content,
         sources: data.sources,
         followupQuestions: data.followupQuestions,
         timestamp: new Date(),
