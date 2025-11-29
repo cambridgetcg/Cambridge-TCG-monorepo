@@ -70,12 +70,10 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Make request to GitBook API
-    // GitBook requires both 'question' and 'scope' to be defined
+    // See: https://gitbook.com/docs/developers/gitbook-api/api-reference/docs-sites/site-ai-ask
     const requestBody = {
       question,
-      scope: {
-        siteId: GITBOOK_SITE_ID,
-      },
+      scope: "all",
     };
 
     if (DEBUG) {
