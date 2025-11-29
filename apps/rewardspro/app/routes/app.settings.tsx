@@ -888,8 +888,6 @@ export default function SettingsPage() {
   const [updateMetrics, setUpdateMetrics] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [totalBatches, setTotalBatches] = useState(0);
 
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1060,26 +1058,16 @@ export default function SettingsPage() {
     }
   }, [actionData]);
 
-  // Tab definitions
+  // Tab definitions - consolidated for better UX
   const tabs = [
     {
-      id: 'store-info',
-      content: 'Store Information',
-      panelID: 'store-info-panel',
-    },
-    {
-      id: 'currency',
-      content: 'Currency',
-      panelID: 'currency-panel',
-    },
-    {
-      id: 'timezone',
-      content: 'Timezone',
-      panelID: 'timezone-panel',
+      id: 'general',
+      content: 'General',
+      panelID: 'general-panel',
     },
     {
       id: 'data-sync',
-      content: 'Data Sync',
+      content: 'Data & Sync',
       panelID: 'data-sync-panel',
     },
     {
@@ -1139,175 +1127,121 @@ export default function SettingsPage() {
             <Card>
               <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange}>
                 <Box padding="400">
-                  {/* Store Information Tab */}
+                  {/* General Tab - Store Info, Currency, Timezone combined */}
                   {selectedTab === 0 && (
-                    <BlockStack gap="400">
-                      <Text as="h2" variant="headingMd">
-                        Store Information
-                      </Text>
-                      <FormLayout>
-                        <TextField
-                          label="Store Name"
-                          value={storeName}
-                          onChange={setStoreName}
-                          autoComplete="off"
-                          helpText="The display name for your store"
-                        />
-                        <TextField
-                          label="Store URL"
-                          value={storeUrl}
-                          onChange={setStoreUrl}
-                          type="url"
-                          autoComplete="off"
-                          helpText="Your store's public URL"
-                          error={storeUrl && !validateUrl(storeUrl) ? "Please enter a valid URL" : undefined}
-                        />
-                        <TextField
-                          label="Shop Domain"
-                          value={shop}
-                          disabled
-                          autoComplete="off"
-                          helpText="This is your Shopify domain and cannot be changed"
-                        />
-                      </FormLayout>
+                    <BlockStack gap="500">
+                      {/* Store Information Section */}
+                      <BlockStack gap="300">
+                        <Text as="h2" variant="headingMd">Store Information</Text>
+                        <FormLayout>
+                          <FormLayout.Group>
+                            <TextField
+                              label="Store Name"
+                              value={storeName}
+                              onChange={setStoreName}
+                              autoComplete="off"
+                              helpText="Display name for your store"
+                            />
+                            <TextField
+                              label="Store URL"
+                              value={storeUrl}
+                              onChange={setStoreUrl}
+                              type="url"
+                              autoComplete="off"
+                              error={storeUrl && !validateUrl(storeUrl) ? "Please enter a valid URL" : undefined}
+                            />
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <TextField
+                              label="Shop Domain"
+                              value={shop}
+                              disabled
+                              autoComplete="off"
+                              helpText="Your Shopify domain (read-only)"
+                            />
+                            <TextField
+                              label="Timezone"
+                              value={shopifyTimezone || timezone}
+                              disabled
+                              autoComplete="off"
+                              helpText="Synced from Shopify settings"
+                            />
+                          </FormLayout.Group>
+                        </FormLayout>
+                      </BlockStack>
 
                       <Divider />
 
+                      {/* Currency Section */}
                       <BlockStack gap="300">
-                        <Text as="h3" variant="headingSm">
-                          Settings Information
-                        </Text>
-                        <InlineStack gap="400">
-                          <BlockStack gap="100">
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Created
-                            </Text>
-                            <Text as="p" variant="bodyMd">
-                              {new Date(settings.createdAt).toLocaleDateString()}
-                            </Text>
-                          </BlockStack>
-                          <BlockStack gap="100">
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Last Updated
-                            </Text>
-                            <Text as="p" variant="bodyMd">
-                              {new Date(settings.updatedAt).toLocaleDateString()}
-                            </Text>
-                          </BlockStack>
-                          <BlockStack gap="100">
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Settings ID
-                            </Text>
-                            <Badge tone="info">{`${settings.id.slice(0, 8)}...`}</Badge>
-                          </BlockStack>
-                        </InlineStack>
-                      </BlockStack>
-                    </BlockStack>
-                  )}
-
-                  {/* Currency Tab */}
-                  {selectedTab === 1 && (
-                    <BlockStack gap="400">
-                      <Text as="h2" variant="headingMd">
-                        Currency Settings
-                      </Text>
-                      <FormLayout>
-                        <Select
-                          label="Store Currency"
-                          options={CURRENCY_OPTIONS}
-                          value={storeCurrency}
-                          onChange={(value) => setStoreCurrency(value as Currency)}
-                          helpText="The primary currency for your store"
-                        />
-
-                        <BlockStack gap="200">
-                          <Text as="p" variant="bodyMd">
-                            Currency Display Format
-                          </Text>
-                          <RadioButton
-                            label={`Symbol Format (${getCurrencySymbol(storeCurrency)}100.00)`}
-                            checked={currencyDisplayType === "SYMBOL"}
-                            id="symbol"
-                            name="displayType"
-                            onChange={() => setCurrencyDisplayType("SYMBOL")}
-                          />
-                          <RadioButton
-                            label={`Code Format (${storeCurrency} 100.00)`}
-                            checked={currencyDisplayType === "CODE"}
-                            id="code"
-                            name="displayType"
-                            onChange={() => setCurrencyDisplayType("CODE")}
-                          />
-                        </BlockStack>
-
-                        <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                          <BlockStack gap="200">
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Preview
-                            </Text>
-                            <Text as="p" variant="headingLg">
+                        <Text as="h2" variant="headingMd">Currency</Text>
+                        <FormLayout>
+                          <FormLayout.Group>
+                            <Select
+                              label="Store Currency"
+                              options={CURRENCY_OPTIONS}
+                              value={storeCurrency}
+                              onChange={(value) => setStoreCurrency(value as Currency)}
+                            />
+                            <BlockStack gap="200">
+                              <Text as="p" variant="bodyMd">Display Format</Text>
+                              <InlineStack gap="400">
+                                <RadioButton
+                                  label={`${getCurrencySymbol(storeCurrency)}100.00`}
+                                  checked={currencyDisplayType === "SYMBOL"}
+                                  id="symbol"
+                                  name="displayType"
+                                  onChange={() => setCurrencyDisplayType("SYMBOL")}
+                                />
+                                <RadioButton
+                                  label={`${storeCurrency} 100.00`}
+                                  checked={currencyDisplayType === "CODE"}
+                                  id="code"
+                                  name="displayType"
+                                  onChange={() => setCurrencyDisplayType("CODE")}
+                                />
+                              </InlineStack>
+                            </BlockStack>
+                          </FormLayout.Group>
+                        </FormLayout>
+                        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text as="span" variant="bodySm" tone="subdued">Preview:</Text>
+                            <Text as="span" variant="headingMd">
                               {formatCurrencyExample(storeCurrency, currencyDisplayType)}
                             </Text>
-                          </BlockStack>
+                          </InlineStack>
                         </Box>
-                      </FormLayout>
-
-                      <Divider />
-
-                      <Text as="p" variant="bodyMd">
-                        <strong>Note:</strong> Currency settings determine how prices and store credit are displayed to customers throughout your loyalty program.
-                      </Text>
-                    </BlockStack>
-                  )}
-
-                  {/* Timezone Tab */}
-                  {selectedTab === 2 && (
-                    <BlockStack gap="400">
-                      <Text as="h2" variant="headingMd">
-                        Timezone Settings
-                      </Text>
-                      <FormLayout>
-                        <TextField
-                          label="Store Timezone"
-                          value={shopifyTimezone || timezone}
-                          disabled
-                          autoComplete="off"
-                          helpText="Automatically synced from your Shopify store settings"
-                        />
-                      </FormLayout>
-
-                      <Divider />
-
-                      <BlockStack gap="200">
-                        <Text as="p" variant="bodyMd">
-                          <strong>About Timezone Settings:</strong>
-                        </Text>
-                        <Text as="p" variant="bodyMd">
-                          Your timezone is automatically synchronized with your Shopify store settings and is used for:
-                        </Text>
-                        <Box paddingInlineStart="400">
-                          <ul style={{ marginLeft: '20px' }}>
-                            <li>Scheduling tier evaluations</li>
-                            <li>Calculating time-based metrics</li>
-                            <li>Displaying timestamps in reports</li>
-                            <li>Processing daily analytics</li>
-                          </ul>
-                        </Box>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          To change your timezone, please update it in your Shopify admin settings.
-                        </Text>
                       </BlockStack>
+
+                      <Divider />
+
+                      {/* Settings Metadata */}
+                      <InlineStack gap="600" align="start">
+                        <BlockStack gap="100">
+                          <Text as="p" variant="bodySm" tone="subdued">Created</Text>
+                          <Text as="p" variant="bodyMd">{new Date(settings.createdAt).toLocaleDateString()}</Text>
+                        </BlockStack>
+                        <BlockStack gap="100">
+                          <Text as="p" variant="bodySm" tone="subdued">Last Updated</Text>
+                          <Text as="p" variant="bodyMd">{new Date(settings.updatedAt).toLocaleDateString()}</Text>
+                        </BlockStack>
+                        <BlockStack gap="100">
+                          <Text as="p" variant="bodySm" tone="subdued">Settings ID</Text>
+                          <Badge tone="info">{settings.id.slice(0, 8)}</Badge>
+                        </BlockStack>
+                      </InlineStack>
                     </BlockStack>
                   )}
 
                   {/* Data Sync Tab */}
-                  {selectedTab === 3 && (
+                  {selectedTab === 1 && (
                     <BlockStack gap="400">
                       <BlockStack gap="200">
                         <Text variant="headingMd" as="h2">
                           Data Management
                         </Text>
-                        <Text variant="bodyMd" tone="subdued">
+                        <Text as="p" variant="bodyMd" tone="subdued">
                           Sync and manage your store's order data
                         </Text>
                       </BlockStack>
@@ -1318,16 +1252,16 @@ export default function SettingsPage() {
                       <BlockStack gap="300">
                         <InlineStack align="space-between">
                           <BlockStack gap="200">
-                            <Text variant="bodyMd" fontWeight="semibold">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
                               Order History Sync
                             </Text>
                             {orderStats && (
                               <InlineStack gap="200">
                                 <Badge tone={orderStats.orderCount > 0 ? "success" : "warning"}>
-                                  {orderStats.orderCount} orders synced
+                                  {`${orderStats.orderCount} orders synced`}
                                 </Badge>
                                 {orderStats.lastSync && (
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text as="span" variant="bodySm" tone="subdued">
                                     Last sync: {formatDate(orderStats.lastSync)}
                                   </Text>
                                 )}
@@ -1356,13 +1290,13 @@ export default function SettingsPage() {
                         {/* Quick Stats */}
                         {orderStats && (
                           <InlineStack gap="400">
-                            <Text variant="bodySm">
+                            <Text as="span" variant="bodySm">
                               <Text as="span" fontWeight="semibold">Customers:</Text> {orderStats.customerCount}
                             </Text>
-                            <Text variant="bodySm">
+                            <Text as="span" variant="bodySm">
                               <Text as="span" fontWeight="semibold">Date Range:</Text> {formatDateRange(orderStats.oldestOrder, orderStats.newestOrder)}
                             </Text>
-                            <Text variant="bodySm">
+                            <Text as="span" variant="bodySm">
                               <Text as="span" fontWeight="semibold">Total Cashback:</Text> ${orderStats.totalCashback.toFixed(2)}
                             </Text>
                           </InlineStack>
@@ -1393,26 +1327,21 @@ export default function SettingsPage() {
                   )}
 
                   {/* Tier Automation Tab */}
-                  {selectedTab === 4 && (
-                    <BlockStack gap="400">
-                      <Text as="h2" variant="headingMd">
-                        Automatic Tier Recalculation
-                      </Text>
-
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Configure how often customer tiers are automatically recalculated.
-                        This helps ensure inactive customers are downgraded and active customers
-                        maintain their appropriate tier levels.
-                      </Text>
-
-                      <Divider />
+                  {selectedTab === 2 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <Text as="h2" variant="headingMd">Automatic Tier Recalculation</Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Automatically recalculate customer tiers based on their spending to ensure accurate tier assignments.
+                        </Text>
+                      </BlockStack>
 
                       <FormLayout>
                         <Checkbox
                           label="Enable automatic tier recalculation"
                           checked={tierRecalculationEnabled}
                           onChange={setTierRecalculationEnabled}
-                          helpText="When enabled, tiers will be recalculated automatically based on your selected frequency"
+                          helpText="Tiers will be recalculated automatically based on your selected frequency"
                         />
 
                         {tierRecalculationEnabled && (
@@ -1426,371 +1355,199 @@ export default function SettingsPage() {
                             ]}
                             value={tierRecalculationFrequency}
                             onChange={(value) => setTierRecalculationFrequency(value as RecalculationFrequency)}
-                            helpText="How often to recalculate customer tiers based on their spending"
                           />
                         )}
                       </FormLayout>
 
-                      <Divider />
-
-                      {/* Last Run Info */}
-                      {settings.tierRecalculationLastRun && (
-                        <BlockStack gap="200">
-                          <Text variant="bodySm" tone="subdued">
-                            Last automatic recalculation: {formatDate(settings.tierRecalculationLastRun)}
-                          </Text>
-                          <Text variant="bodySm" tone="subdued">
-                            Next scheduled run: {calculateNextRun(settings.tierRecalculationLastRun, tierRecalculationFrequency)}
-                          </Text>
-                        </BlockStack>
-                      )}
-
-                      {/* Manual Trigger */}
-                      <Card>
-                        <BlockStack gap="300">
-                          <Text variant="headingSm" as="h3">
-                            Manual Recalculation
-                          </Text>
-                          <Text variant="bodyMd">
-                            You can manually trigger a tier recalculation for all customers at any time.
-                          </Text>
+                      {/* Last Run Info & Manual Trigger */}
+                      <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <BlockStack gap="100">
+                            <Text as="span" variant="bodyMd" fontWeight="semibold">Manual Recalculation</Text>
+                            {settings.tierRecalculationLastRun ? (
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Last run: {formatDate(settings.tierRecalculationLastRun)} • Next: {calculateNextRun(settings.tierRecalculationLastRun, tierRecalculationFrequency)}
+                              </Text>
+                            ) : (
+                              <Text as="span" variant="bodySm" tone="subdued">Never run</Text>
+                            )}
+                          </BlockStack>
                           <Button
                             onClick={handleManualRecalculation}
                             loading={isRecalculating}
                             icon={RefreshIcon}
                           >
-                            Recalculate All Tiers Now
+                            Recalculate Now
                           </Button>
-                        </BlockStack>
-                      </Card>
+                        </InlineStack>
+                      </Box>
 
-                      {/* Information Banner */}
                       <Banner tone="info">
-                        <BlockStack gap="200">
-                          <Text variant="bodyMd" fontWeight="semibold">
-                            How automatic recalculation works:
-                          </Text>
-                          <Box>
-                            <ul style={{ marginLeft: '20px' }}>
-                              <li>Recalculation respects manual tier overrides (customers with manual assignments are skipped)</li>
-                              <li>Only evaluates customers based on their tier's evaluation period (ANNUAL or LIFETIME)</li>
-                              <li>Includes a grace period before downgrading inactive customers</li>
-                              <li>All tier changes are logged in the customer's tier history</li>
-                            </ul>
-                          </Box>
-                        </BlockStack>
+                        <Text as="p" variant="bodyMd">
+                          Recalculation respects manual tier overrides, uses your tier's evaluation period (Annual/Lifetime),
+                          includes a grace period before downgrades, and logs all changes.
+                        </Text>
                       </Banner>
                     </BlockStack>
                   )}
 
                   {/* Widget Theme Tab */}
-                  {selectedTab === 5 && (
-                    <BlockStack gap="400">
-                      <Text as="h2" variant="headingMd">
-                        Widget Theme
-                      </Text>
-
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Customize the appearance of the customer loyalty widget on your storefront.
-                      </Text>
-
-                      <Divider />
+                  {selectedTab === 3 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <Text as="h2" variant="headingMd">Widget Theme</Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Customize the appearance of the customer loyalty widget on your storefront.
+                        </Text>
+                      </BlockStack>
 
                       {/* Theme Mode Selection */}
-                      <FormLayout>
-                        <BlockStack gap="300">
-                          <Text as="h3" variant="headingSm">
-                            Color Scheme
-                          </Text>
-                          <InlineStack gap="300">
-                            <div
-                              onClick={() => {
-                                setWidgetThemeMode("LIGHT");
+                      <InlineStack gap="300">
+                        {[
+                          { mode: "LIGHT" as const, icon: "☀️", label: "Light", bg: "#FFFFFF", textColor: "#212B36" },
+                          { mode: "DARK" as const, icon: "🌙", label: "Dark", bg: "#1A1A2E", textColor: "#F4F4F5" },
+                          { mode: "CUSTOM" as const, icon: "🎨", label: "Custom", bg: "linear-gradient(135deg, #5C6AC4 0%, #008060 100%)", textColor: "#FFFFFF" },
+                        ].map(({ mode, icon, label, bg, textColor }) => (
+                          <div
+                            key={mode}
+                            onClick={() => {
+                              setWidgetThemeMode(mode);
+                              if (mode === "LIGHT") {
                                 setWidgetPrimaryColor("#5C6AC4");
                                 setWidgetBackgroundColor("#FFFFFF");
                                 setWidgetTextColor("#212B36");
                                 setWidgetAccentColor("#008060");
-                              }}
-                              style={{
-                                cursor: "pointer",
-                                padding: "16px",
-                                border: widgetThemeMode === "LIGHT" ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
-                                borderRadius: "8px",
-                                textAlign: "center",
-                                minWidth: "100px",
-                                backgroundColor: "#FFFFFF"
-                              }}
-                            >
-                              <BlockStack gap="200" inlineAlign="center">
-                                <div style={{ fontSize: "24px" }}>☀️</div>
-                                <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === "LIGHT" ? "semibold" : "regular"}>
-                                  Light
-                                </Text>
-                              </BlockStack>
-                            </div>
-
-                            <div
-                              onClick={() => {
-                                setWidgetThemeMode("DARK");
+                              } else if (mode === "DARK") {
                                 setWidgetPrimaryColor("#9CA3FF");
                                 setWidgetBackgroundColor("#1A1A2E");
                                 setWidgetTextColor("#F4F4F5");
                                 setWidgetAccentColor("#34D399");
-                              }}
-                              style={{
-                                cursor: "pointer",
-                                padding: "16px",
-                                border: widgetThemeMode === "DARK" ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
-                                borderRadius: "8px",
-                                textAlign: "center",
-                                minWidth: "100px",
-                                backgroundColor: "#1A1A2E"
-                              }}
-                            >
-                              <BlockStack gap="200" inlineAlign="center">
-                                <div style={{ fontSize: "24px" }}>🌙</div>
-                                <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === "DARK" ? "semibold" : "regular"}>
-                                  <span style={{ color: "#F4F4F5" }}>Dark</span>
-                                </Text>
-                              </BlockStack>
-                            </div>
-
-                            <div
-                              onClick={() => setWidgetThemeMode("CUSTOM")}
-                              style={{
-                                cursor: "pointer",
-                                padding: "16px",
-                                border: widgetThemeMode === "CUSTOM" ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
-                                borderRadius: "8px",
-                                textAlign: "center",
-                                minWidth: "100px",
-                                background: "linear-gradient(135deg, #5C6AC4 0%, #008060 100%)"
-                              }}
-                            >
-                              <BlockStack gap="200" inlineAlign="center">
-                                <div style={{ fontSize: "24px" }}>🎨</div>
-                                <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === "CUSTOM" ? "semibold" : "regular"}>
-                                  <span style={{ color: "#FFFFFF" }}>Custom</span>
-                                </Text>
-                              </BlockStack>
-                            </div>
-                          </InlineStack>
-                        </BlockStack>
-                      </FormLayout>
+                              }
+                            }}
+                            style={{
+                              cursor: "pointer",
+                              padding: "16px 24px",
+                              border: widgetThemeMode === mode ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
+                              borderRadius: "8px",
+                              textAlign: "center",
+                              background: bg,
+                              flex: 1,
+                            }}
+                          >
+                            <BlockStack gap="100" inlineAlign="center">
+                              <span style={{ fontSize: "20px" }}>{icon}</span>
+                              <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === mode ? "semibold" : "regular"}>
+                                <span style={{ color: textColor }}>{label}</span>
+                              </Text>
+                            </BlockStack>
+                          </div>
+                        ))}
+                      </InlineStack>
 
                       {/* Custom Color Options */}
                       {widgetThemeMode === "CUSTOM" && (
-                        <>
-                          <Divider />
-                          <FormLayout>
-                            <Text as="h3" variant="headingSm">
-                              Custom Colors
-                            </Text>
-
-                            <FormLayout.Group>
-                              <TextField
-                                label="Primary Color"
-                                value={widgetPrimaryColor}
-                                onChange={setWidgetPrimaryColor}
-                                helpText="Main brand color for buttons and highlights"
-                                prefix={
-                                  <div
-                                    style={{
-                                      width: "20px",
-                                      height: "20px",
-                                      borderRadius: "4px",
-                                      backgroundColor: widgetPrimaryColor,
-                                      border: "1px solid #DFE3E8"
-                                    }}
-                                  />
-                                }
-                                autoComplete="off"
-                              />
-                              <TextField
-                                label="Background Color"
-                                value={widgetBackgroundColor}
-                                onChange={setWidgetBackgroundColor}
-                                helpText="Widget panel background"
-                                prefix={
-                                  <div
-                                    style={{
-                                      width: "20px",
-                                      height: "20px",
-                                      borderRadius: "4px",
-                                      backgroundColor: widgetBackgroundColor,
-                                      border: "1px solid #DFE3E8"
-                                    }}
-                                  />
-                                }
-                                autoComplete="off"
-                              />
-                            </FormLayout.Group>
-
-                            <FormLayout.Group>
-                              <TextField
-                                label="Text Color"
-                                value={widgetTextColor}
-                                onChange={setWidgetTextColor}
-                                helpText="Main text and headings"
-                                prefix={
-                                  <div
-                                    style={{
-                                      width: "20px",
-                                      height: "20px",
-                                      borderRadius: "4px",
-                                      backgroundColor: widgetTextColor,
-                                      border: "1px solid #DFE3E8"
-                                    }}
-                                  />
-                                }
-                                autoComplete="off"
-                              />
-                              <TextField
-                                label="Accent Color"
-                                value={widgetAccentColor}
-                                onChange={setWidgetAccentColor}
-                                helpText="Success states and highlights"
-                                prefix={
-                                  <div
-                                    style={{
-                                      width: "20px",
-                                      height: "20px",
-                                      borderRadius: "4px",
-                                      backgroundColor: widgetAccentColor,
-                                      border: "1px solid #DFE3E8"
-                                    }}
-                                  />
-                                }
-                                autoComplete="off"
-                              />
-                            </FormLayout.Group>
-
-                            <FormLayout.Group>
-                              <Select
-                                label="Border Radius"
-                                options={[
-                                  { label: "None (0px)", value: "0" },
-                                  { label: "Small (4px)", value: "4" },
-                                  { label: "Medium (8px)", value: "8" },
-                                  { label: "Large (12px)", value: "12" },
-                                  { label: "Extra Large (16px)", value: "16" },
-                                  { label: "Rounded (24px)", value: "24" },
-                                ]}
-                                value={String(widgetBorderRadius)}
-                                onChange={(value) => setWidgetBorderRadius(parseInt(value))}
-                                helpText="Corner roundness of widget elements"
-                              />
-                              <Select
-                                label="Font Family"
-                                options={[
-                                  { label: "Inherit from Theme", value: "inherit" },
-                                  { label: "System Default", value: "system-ui" },
-                                  { label: "Inter", value: "Inter, sans-serif" },
-                                  { label: "Roboto", value: "Roboto, sans-serif" },
-                                  { label: "Open Sans", value: "Open Sans, sans-serif" },
-                                ]}
-                                value={widgetFontFamily}
-                                onChange={setWidgetFontFamily}
-                                helpText="Font used in the widget"
-                              />
-                            </FormLayout.Group>
-                          </FormLayout>
-                        </>
+                        <FormLayout>
+                          <FormLayout.Group>
+                            <TextField
+                              label="Primary"
+                              value={widgetPrimaryColor}
+                              onChange={setWidgetPrimaryColor}
+                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetPrimaryColor, border: "1px solid #DFE3E8" }} />}
+                              autoComplete="off"
+                            />
+                            <TextField
+                              label="Background"
+                              value={widgetBackgroundColor}
+                              onChange={setWidgetBackgroundColor}
+                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetBackgroundColor, border: "1px solid #DFE3E8" }} />}
+                              autoComplete="off"
+                            />
+                            <TextField
+                              label="Text"
+                              value={widgetTextColor}
+                              onChange={setWidgetTextColor}
+                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetTextColor, border: "1px solid #DFE3E8" }} />}
+                              autoComplete="off"
+                            />
+                            <TextField
+                              label="Accent"
+                              value={widgetAccentColor}
+                              onChange={setWidgetAccentColor}
+                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetAccentColor, border: "1px solid #DFE3E8" }} />}
+                              autoComplete="off"
+                            />
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <Select
+                              label="Border Radius"
+                              options={[
+                                { label: "None", value: "0" },
+                                { label: "Small", value: "4" },
+                                { label: "Medium", value: "8" },
+                                { label: "Large", value: "12" },
+                                { label: "Rounded", value: "24" },
+                              ]}
+                              value={String(widgetBorderRadius)}
+                              onChange={(value) => setWidgetBorderRadius(parseInt(value))}
+                            />
+                            <Select
+                              label="Font"
+                              options={[
+                                { label: "Inherit from Theme", value: "inherit" },
+                                { label: "System Default", value: "system-ui" },
+                                { label: "Inter", value: "Inter, sans-serif" },
+                              ]}
+                              value={widgetFontFamily}
+                              onChange={setWidgetFontFamily}
+                            />
+                          </FormLayout.Group>
+                        </FormLayout>
                       )}
 
-                      <Divider />
-
-                      {/* Live Preview */}
-                      <BlockStack gap="300">
-                        <Text as="h3" variant="headingSm">
-                          Preview
-                        </Text>
-                        <Card>
+                      {/* Compact Preview */}
+                      <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                        <BlockStack gap="300">
+                          <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
                           <div
                             style={{
                               backgroundColor: widgetBackgroundColor,
                               borderRadius: `${widgetBorderRadius}px`,
-                              padding: "20px",
+                              padding: "16px",
                               fontFamily: widgetFontFamily,
                               color: widgetTextColor,
-                              border: "1px solid #E1E3E5"
+                              border: "1px solid #E1E3E5",
+                              maxWidth: "320px"
                             }}
                           >
-                            <BlockStack gap="300">
-                              <InlineStack align="space-between" blockAlign="center">
-                                <Text as="span" variant="headingSm" fontWeight="semibold">
-                                  <span style={{ color: widgetTextColor }}>Gold Member</span>
-                                </Text>
-                                <div
-                                  style={{
-                                    backgroundColor: widgetPrimaryColor,
-                                    color: "#FFFFFF",
-                                    padding: "4px 12px",
-                                    borderRadius: `${Math.min(widgetBorderRadius, 12)}px`,
-                                    fontSize: "12px",
-                                    fontWeight: "600"
-                                  }}
-                                >
-                                  5% Cashback
-                                </div>
-                              </InlineStack>
-
-                              <div style={{ color: widgetTextColor, opacity: 0.7, fontSize: "14px" }}>
-                                Store Credit Balance
+                            <InlineStack align="space-between" blockAlign="center">
+                              <BlockStack gap="100">
+                                <span style={{ color: widgetTextColor, fontWeight: 600, fontSize: "14px" }}>Gold Member</span>
+                                <span style={{ color: widgetAccentColor, fontWeight: 700, fontSize: "20px" }}>$125.50</span>
+                              </BlockStack>
+                              <div style={{
+                                backgroundColor: widgetPrimaryColor,
+                                color: "#FFF",
+                                padding: "4px 10px",
+                                borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                fontSize: "11px",
+                                fontWeight: 600
+                              }}>
+                                5% Cashback
                               </div>
-                              <div style={{ color: widgetAccentColor, fontSize: "24px", fontWeight: "bold" }}>
-                                $125.50
+                            </InlineStack>
+                            <div style={{ marginTop: "12px" }}>
+                              <div style={{
+                                backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.1)" : "#E1E3E5",
+                                borderRadius: "4px",
+                                height: "6px",
+                                overflow: "hidden"
+                              }}>
+                                <div style={{ backgroundColor: widgetPrimaryColor, width: "63%", height: "100%" }} />
                               </div>
-
-                              <div style={{ marginTop: "8px" }}>
-                                <div style={{ color: widgetTextColor, opacity: 0.7, fontSize: "12px", marginBottom: "4px" }}>
-                                  Progress to Platinum ($374.50 to go)
-                                </div>
-                                <div
-                                  style={{
-                                    backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.1)" : "#E1E3E5",
-                                    borderRadius: "4px",
-                                    height: "8px",
-                                    overflow: "hidden"
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      backgroundColor: widgetPrimaryColor,
-                                      width: "63%",
-                                      height: "100%",
-                                      borderRadius: "4px"
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </BlockStack>
+                            </div>
                           </div>
-                        </Card>
-                      </BlockStack>
-
-                      {/* CSS Variables Reference */}
-                      <Banner tone="info">
-                        <BlockStack gap="200">
-                          <Text variant="bodyMd" fontWeight="semibold">
-                            Advanced: CSS Variables
-                          </Text>
-                          <Text variant="bodySm">
-                            You can also customize the widget using CSS variables in your theme:
-                          </Text>
-                          <Box padding="200" background="bg-surface-secondary">
-                            <code style={{ fontSize: "12px", whiteSpace: "pre-wrap" }}>
-{`:root {
-  --rp-primary-color: ${widgetPrimaryColor};
-  --rp-background-color: ${widgetBackgroundColor};
-  --rp-text-color: ${widgetTextColor};
-  --rp-accent-color: ${widgetAccentColor};
-  --rp-border-radius: ${widgetBorderRadius}px;
-}`}
-                            </code>
-                          </Box>
                         </BlockStack>
-                      </Banner>
+                      </Box>
                     </BlockStack>
                   )}
                 </Box>
@@ -1862,7 +1619,7 @@ export default function SettingsPage() {
             {isSyncing && (
               <>
                 <ProgressBar progress={syncProgress} tone="primary" />
-                <Text variant="bodySm" tone="subdued">
+                <Text as="p" variant="bodySm" tone="subdued">
                   Processing orders... This may take several minutes.
                 </Text>
               </>
