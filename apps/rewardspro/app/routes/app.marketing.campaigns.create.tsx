@@ -55,60 +55,83 @@ interface LoaderData {
 // ============================================
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
-
-  // Fetch email templates
-  let templates: Template[] = [];
-  try {
-    const dbTemplates = await db.emailTemplate.findMany({
-      where: { shop },
-      orderBy: { createdAt: 'desc' },
-    });
-    templates = dbTemplates.map(t => ({
-      id: t.id,
-      name: t.name,
-      subject: t.subject || '',
-    }));
-  } catch (e) {
-    console.error("[Create Campaign] Error fetching templates:", e);
-  }
-
-  // Get tiers as segments
-  let segments: Segment[] = [
-    { id: "all", name: "All Customers", customerCount: 0 },
-  ];
+  console.log("[Create Campaign] ========== LOADER STARTED ==========");
 
   try {
-    const tiers = await db.tier.findMany({
-      where: { shop },
-      orderBy: { minSpend: 'asc' },
-    });
+    console.log("[Create Campaign] Authenticating...");
+    const { session } = await authenticate.admin(request);
+    const shop = session.shop;
+    console.log("[Create Campaign] Authenticated for shop:", shop);
 
-    // Get total customer count
-    const allCustomers = await db.customer.findMany({
-      where: { shop },
-    });
-    segments[0].customerCount = allCustomers.length;
-
-    // Add tier segments
-    for (const tier of tiers) {
-      const tierCustomers = allCustomers.filter(c => c.tierId === tier.id);
-      segments.push({
-        id: tier.id,
-        name: tier.name,
-        customerCount: tierCustomers.length,
+    // Fetch email templates
+    let templates: Template[] = [];
+    try {
+      console.log("[Create Campaign] Fetching email templates...");
+      const dbTemplates = await db.emailTemplate.findMany({
+        where: { shop },
+        orderBy: { createdAt: 'desc' },
       });
+      console.log("[Create Campaign] Found", dbTemplates.length, "templates");
+      templates = dbTemplates.map(t => ({
+        id: t.id,
+        name: t.name,
+        subject: t.subject || '',
+      }));
+    } catch (e: any) {
+      console.error("[Create Campaign] Error fetching templates:", e.message);
     }
-  } catch (e) {
-    console.error("[Create Campaign] Error fetching segments:", e);
-  }
 
-  return json<LoaderData>({
-    shop,
-    templates,
-    segments,
-  });
+    // Get tiers as segments
+    let segments: Segment[] = [
+      { id: "all", name: "All Customers", customerCount: 0 },
+    ];
+
+    try {
+      console.log("[Create Campaign] Fetching tiers...");
+      const tiers = await db.tier.findMany({
+        where: { shop },
+        orderBy: { minSpend: 'asc' },
+      });
+      console.log("[Create Campaign] Found", tiers.length, "tiers");
+
+      // Get total customer count
+      console.log("[Create Campaign] Fetching customers...");
+      const allCustomers = await db.customer.findMany({
+        where: { shop },
+      });
+      console.log("[Create Campaign] Found", allCustomers.length, "customers");
+      segments[0].customerCount = allCustomers.length;
+
+      // Add tier segments
+      for (const tier of tiers) {
+        const tierCustomers = allCustomers.filter(c => c.tierId === tier.id);
+        segments.push({
+          id: tier.id,
+          name: tier.name,
+          customerCount: tierCustomers.length,
+        });
+      }
+    } catch (e: any) {
+      console.error("[Create Campaign] Error fetching segments:", e.message);
+    }
+
+    console.log("[Create Campaign] Returning data:", {
+      shop,
+      templatesCount: templates.length,
+      segmentsCount: segments.length
+    });
+
+    return json<LoaderData>({
+      shop,
+      templates,
+      segments,
+    });
+  } catch (error: any) {
+    console.error("[Create Campaign] ========== LOADER ERROR ==========");
+    console.error("[Create Campaign] Error:", error.message);
+    console.error("[Create Campaign] Stack:", error.stack);
+    throw error;
+  }
 };
 
 // ============================================
