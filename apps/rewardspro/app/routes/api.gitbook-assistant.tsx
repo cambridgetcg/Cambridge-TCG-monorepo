@@ -70,9 +70,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Make request to GitBook API
-    // GitBook requires 'query' not 'question', and 'scope' must be defined
+    // GitBook requires both 'question' and 'scope' to be defined
     const requestBody = {
-      query: question,
+      question,
       scope: {
         siteId: GITBOOK_SITE_ID,
       },
