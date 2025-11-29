@@ -122,6 +122,15 @@ model ShopSettings {
   emailMarketingEnabled         Boolean       @default(false)  // Email marketing campaigns
   tierProductsEnabled           Boolean       @default(true)   // Tier products module
 
+  // Widget Theme Settings
+  widgetThemeMode         WidgetThemeMode     @default(LIGHT)  // Light, Dark, or Custom
+  widgetPrimaryColor      String?             @default("#5C6AC4")  // Primary brand color
+  widgetBackgroundColor   String?             @default("#FFFFFF")  // Widget background
+  widgetTextColor         String?             @default("#212B36")  // Main text color
+  widgetAccentColor       String?             @default("#008060")  // Success/highlight color
+  widgetBorderRadius      Int?                @default(12)         // Border radius in pixels
+  widgetFontFamily        String?             @default("inherit")  // Font family
+
   // Metadata
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
@@ -1305,6 +1314,12 @@ enum RecalculationFrequency {
   WEEKLY     // Recalculate every week
   MONTHLY    // Recalculate every month
   QUARTERLY  // Recalculate every quarter (90 days)
+}
+
+enum WidgetThemeMode {
+  LIGHT      // Light theme with white background
+  DARK       // Dark theme with dark background
+  CUSTOM     // Custom colors defined by merchant
 }
 
 enum EvaluationPeriod {

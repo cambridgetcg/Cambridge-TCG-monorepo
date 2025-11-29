@@ -567,6 +567,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       console.log('[Proxy API] ⏱️ Tiers query execution time:', tiersExecutionTime + 'ms');
       console.log('[Proxy API] 📊 Tiers found:', tiersResult.records?.length || 0);
 
+      // Fetch shop settings for widget theme
+      console.log('[Proxy API] 🎨 Fetching shop settings for widget theme...');
+      const shopSettings = await prisma.shopSettings.findUnique({
+        where: { shop }
+      });
+
+      console.log('[Proxy API] 🎨 Widget theme settings:', shopSettings ? 'Found' : 'Not found');
+
       // Transform tiers result
       const allTiers = tiersResult.records?.map(row => ({
         id: row.id,
@@ -651,6 +659,26 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           progressPercent: tierProgress.progressPercent,
           isMaxTier: tierProgress.isMaxTier,
           allTiers: tierProgress.allTiers
+        },
+        theme: shopSettings ? {
+          mode: shopSettings.widgetThemeMode || 'LIGHT',
+          primaryColor: shopSettings.widgetPrimaryColor || '#5C6AC4',
+          backgroundColor: shopSettings.widgetBackgroundColor || '#FFFFFF',
+          textColor: shopSettings.widgetTextColor || '#212B36',
+          accentColor: shopSettings.widgetAccentColor || '#008060',
+          borderRadius: shopSettings.widgetBorderRadius || 12,
+          fontFamily: shopSettings.widgetFontFamily || 'inherit',
+        } : {
+          mode: 'LIGHT',
+          primaryColor: '#5C6AC4',
+          backgroundColor: '#FFFFFF',
+          textColor: '#212B36',
+          accentColor: '#008060',
+          borderRadius: 12,
+          fontFamily: 'inherit',
+        },
+        settings: {
+          currency: shopSettings?.storeCurrency || 'USD',
         },
         query: {
           shopDomain: shop,

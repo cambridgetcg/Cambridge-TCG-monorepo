@@ -44,6 +44,8 @@ type CurrencyDisplayType = "SYMBOL" | "CODE";
 
 type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
 
+type WidgetThemeMode = "LIGHT" | "DARK" | "CUSTOM";
+
 type ShopSettings = {
   id: string;
   shop: string;
@@ -55,6 +57,14 @@ type ShopSettings = {
   tierRecalculationFrequency: RecalculationFrequency;
   tierRecalculationEnabled: boolean;
   tierRecalculationLastRun: string | null;
+  // Widget Theme Settings
+  widgetThemeMode: WidgetThemeMode;
+  widgetPrimaryColor: string | null;
+  widgetBackgroundColor: string | null;
+  widgetTextColor: string | null;
+  widgetAccentColor: string | null;
+  widgetBorderRadius: number | null;
+  widgetFontFamily: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -752,6 +762,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const currencyDisplayType = formData.get("currencyDisplayType") as CurrencyDisplayType;
     const tierRecalculationEnabled = formData.get("tierRecalculationEnabled") === "true";
     const tierRecalculationFrequency = formData.get("tierRecalculationFrequency") as "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+    // Widget theme settings
+    const widgetThemeMode = formData.get("widgetThemeMode") as "LIGHT" | "DARK" | "CUSTOM";
+    const widgetPrimaryColor = formData.get("widgetPrimaryColor") as string;
+    const widgetBackgroundColor = formData.get("widgetBackgroundColor") as string;
+    const widgetTextColor = formData.get("widgetTextColor") as string;
+    const widgetAccentColor = formData.get("widgetAccentColor") as string;
+    const widgetBorderRadius = parseInt(formData.get("widgetBorderRadius") as string) || 12;
+    const widgetFontFamily = formData.get("widgetFontFamily") as string;
     // Timezone is now synced from Shopify and not editable
 
     // Validation
@@ -789,6 +807,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         currencyDisplayType,
         tierRecalculationEnabled,
         tierRecalculationFrequency,
+        // Widget theme settings
+        widgetThemeMode,
+        widgetPrimaryColor,
+        widgetBackgroundColor,
+        widgetTextColor,
+        widgetAccentColor,
+        widgetBorderRadius,
+        widgetFontFamily,
         // timezone is synced from Shopify, not updated here
         updatedAt: new Date(),
       },
@@ -846,6 +872,15 @@ export default function SettingsPage() {
   const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
   const [isRecalculating, setIsRecalculating] = useState(false);
 
+  // Widget theme state
+  const [widgetThemeMode, setWidgetThemeMode] = useState<WidgetThemeMode>(settings.widgetThemeMode || "LIGHT");
+  const [widgetPrimaryColor, setWidgetPrimaryColor] = useState(settings.widgetPrimaryColor || "#5C6AC4");
+  const [widgetBackgroundColor, setWidgetBackgroundColor] = useState(settings.widgetBackgroundColor || "#FFFFFF");
+  const [widgetTextColor, setWidgetTextColor] = useState(settings.widgetTextColor || "#212B36");
+  const [widgetAccentColor, setWidgetAccentColor] = useState(settings.widgetAccentColor || "#008060");
+  const [widgetBorderRadius, setWidgetBorderRadius] = useState(settings.widgetBorderRadius || 12);
+  const [widgetFontFamily, setWidgetFontFamily] = useState(settings.widgetFontFamily || "inherit");
+
   // Order sync state
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncRange, setSyncRange] = useState("365");
@@ -868,10 +903,17 @@ export default function SettingsPage() {
       storeCurrency !== settings.storeCurrency ||
       currencyDisplayType !== settings.currencyDisplayType ||
       tierRecalculationEnabled !== settings.tierRecalculationEnabled ||
-      tierRecalculationFrequency !== settings.tierRecalculationFrequency;
+      tierRecalculationFrequency !== settings.tierRecalculationFrequency ||
+      widgetThemeMode !== (settings.widgetThemeMode || "LIGHT") ||
+      widgetPrimaryColor !== (settings.widgetPrimaryColor || "#5C6AC4") ||
+      widgetBackgroundColor !== (settings.widgetBackgroundColor || "#FFFFFF") ||
+      widgetTextColor !== (settings.widgetTextColor || "#212B36") ||
+      widgetAccentColor !== (settings.widgetAccentColor || "#008060") ||
+      widgetBorderRadius !== (settings.widgetBorderRadius || 12) ||
+      widgetFontFamily !== (settings.widgetFontFamily || "inherit");
 
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, settings]);
 
   // Removed time display - timezone is now just shown as text
 
@@ -885,10 +927,18 @@ export default function SettingsPage() {
     formData.append("currencyDisplayType", currencyDisplayType);
     formData.append("tierRecalculationEnabled", String(tierRecalculationEnabled));
     formData.append("tierRecalculationFrequency", tierRecalculationFrequency);
+    // Widget theme settings
+    formData.append("widgetThemeMode", widgetThemeMode);
+    formData.append("widgetPrimaryColor", widgetPrimaryColor);
+    formData.append("widgetBackgroundColor", widgetBackgroundColor);
+    formData.append("widgetTextColor", widgetTextColor);
+    formData.append("widgetAccentColor", widgetAccentColor);
+    formData.append("widgetBorderRadius", String(widgetBorderRadius));
+    formData.append("widgetFontFamily", widgetFontFamily);
     // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -898,6 +948,14 @@ export default function SettingsPage() {
     setCurrencyDisplayType(settings.currencyDisplayType);
     setTierRecalculationEnabled(settings.tierRecalculationEnabled);
     setTierRecalculationFrequency(settings.tierRecalculationFrequency);
+    // Widget theme reset
+    setWidgetThemeMode(settings.widgetThemeMode || "LIGHT");
+    setWidgetPrimaryColor(settings.widgetPrimaryColor || "#5C6AC4");
+    setWidgetBackgroundColor(settings.widgetBackgroundColor || "#FFFFFF");
+    setWidgetTextColor(settings.widgetTextColor || "#212B36");
+    setWidgetAccentColor(settings.widgetAccentColor || "#008060");
+    setWidgetBorderRadius(settings.widgetBorderRadius || 12);
+    setWidgetFontFamily(settings.widgetFontFamily || "inherit");
     // Timezone is read-only, no need to reset
   }, [settings]);
 
@@ -1028,6 +1086,11 @@ export default function SettingsPage() {
       id: 'tier-automation',
       content: 'Tier Automation',
       panelID: 'tier-automation-panel',
+    },
+    {
+      id: 'widget-theme',
+      content: 'Widget Theme',
+      panelID: 'widget-theme-panel',
     },
   ];
 
@@ -1414,6 +1477,317 @@ export default function SettingsPage() {
                               <li>Includes a grace period before downgrading inactive customers</li>
                               <li>All tier changes are logged in the customer's tier history</li>
                             </ul>
+                          </Box>
+                        </BlockStack>
+                      </Banner>
+                    </BlockStack>
+                  )}
+
+                  {/* Widget Theme Tab */}
+                  {selectedTab === 5 && (
+                    <BlockStack gap="400">
+                      <Text as="h2" variant="headingMd">
+                        Widget Theme
+                      </Text>
+
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        Customize the appearance of the customer loyalty widget on your storefront.
+                      </Text>
+
+                      <Divider />
+
+                      {/* Theme Mode Selection */}
+                      <FormLayout>
+                        <BlockStack gap="300">
+                          <Text as="h3" variant="headingSm">
+                            Color Scheme
+                          </Text>
+                          <InlineStack gap="300">
+                            <div
+                              onClick={() => {
+                                setWidgetThemeMode("LIGHT");
+                                setWidgetPrimaryColor("#5C6AC4");
+                                setWidgetBackgroundColor("#FFFFFF");
+                                setWidgetTextColor("#212B36");
+                                setWidgetAccentColor("#008060");
+                              }}
+                              style={{
+                                cursor: "pointer",
+                                padding: "16px",
+                                border: widgetThemeMode === "LIGHT" ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
+                                borderRadius: "8px",
+                                textAlign: "center",
+                                minWidth: "100px",
+                                backgroundColor: "#FFFFFF"
+                              }}
+                            >
+                              <BlockStack gap="200" inlineAlign="center">
+                                <div style={{ fontSize: "24px" }}>☀️</div>
+                                <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === "LIGHT" ? "semibold" : "regular"}>
+                                  Light
+                                </Text>
+                              </BlockStack>
+                            </div>
+
+                            <div
+                              onClick={() => {
+                                setWidgetThemeMode("DARK");
+                                setWidgetPrimaryColor("#9CA3FF");
+                                setWidgetBackgroundColor("#1A1A2E");
+                                setWidgetTextColor("#F4F4F5");
+                                setWidgetAccentColor("#34D399");
+                              }}
+                              style={{
+                                cursor: "pointer",
+                                padding: "16px",
+                                border: widgetThemeMode === "DARK" ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
+                                borderRadius: "8px",
+                                textAlign: "center",
+                                minWidth: "100px",
+                                backgroundColor: "#1A1A2E"
+                              }}
+                            >
+                              <BlockStack gap="200" inlineAlign="center">
+                                <div style={{ fontSize: "24px" }}>🌙</div>
+                                <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === "DARK" ? "semibold" : "regular"}>
+                                  <span style={{ color: "#F4F4F5" }}>Dark</span>
+                                </Text>
+                              </BlockStack>
+                            </div>
+
+                            <div
+                              onClick={() => setWidgetThemeMode("CUSTOM")}
+                              style={{
+                                cursor: "pointer",
+                                padding: "16px",
+                                border: widgetThemeMode === "CUSTOM" ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
+                                borderRadius: "8px",
+                                textAlign: "center",
+                                minWidth: "100px",
+                                background: "linear-gradient(135deg, #5C6AC4 0%, #008060 100%)"
+                              }}
+                            >
+                              <BlockStack gap="200" inlineAlign="center">
+                                <div style={{ fontSize: "24px" }}>🎨</div>
+                                <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === "CUSTOM" ? "semibold" : "regular"}>
+                                  <span style={{ color: "#FFFFFF" }}>Custom</span>
+                                </Text>
+                              </BlockStack>
+                            </div>
+                          </InlineStack>
+                        </BlockStack>
+                      </FormLayout>
+
+                      {/* Custom Color Options */}
+                      {widgetThemeMode === "CUSTOM" && (
+                        <>
+                          <Divider />
+                          <FormLayout>
+                            <Text as="h3" variant="headingSm">
+                              Custom Colors
+                            </Text>
+
+                            <FormLayout.Group>
+                              <TextField
+                                label="Primary Color"
+                                value={widgetPrimaryColor}
+                                onChange={setWidgetPrimaryColor}
+                                helpText="Main brand color for buttons and highlights"
+                                prefix={
+                                  <div
+                                    style={{
+                                      width: "20px",
+                                      height: "20px",
+                                      borderRadius: "4px",
+                                      backgroundColor: widgetPrimaryColor,
+                                      border: "1px solid #DFE3E8"
+                                    }}
+                                  />
+                                }
+                                autoComplete="off"
+                              />
+                              <TextField
+                                label="Background Color"
+                                value={widgetBackgroundColor}
+                                onChange={setWidgetBackgroundColor}
+                                helpText="Widget panel background"
+                                prefix={
+                                  <div
+                                    style={{
+                                      width: "20px",
+                                      height: "20px",
+                                      borderRadius: "4px",
+                                      backgroundColor: widgetBackgroundColor,
+                                      border: "1px solid #DFE3E8"
+                                    }}
+                                  />
+                                }
+                                autoComplete="off"
+                              />
+                            </FormLayout.Group>
+
+                            <FormLayout.Group>
+                              <TextField
+                                label="Text Color"
+                                value={widgetTextColor}
+                                onChange={setWidgetTextColor}
+                                helpText="Main text and headings"
+                                prefix={
+                                  <div
+                                    style={{
+                                      width: "20px",
+                                      height: "20px",
+                                      borderRadius: "4px",
+                                      backgroundColor: widgetTextColor,
+                                      border: "1px solid #DFE3E8"
+                                    }}
+                                  />
+                                }
+                                autoComplete="off"
+                              />
+                              <TextField
+                                label="Accent Color"
+                                value={widgetAccentColor}
+                                onChange={setWidgetAccentColor}
+                                helpText="Success states and highlights"
+                                prefix={
+                                  <div
+                                    style={{
+                                      width: "20px",
+                                      height: "20px",
+                                      borderRadius: "4px",
+                                      backgroundColor: widgetAccentColor,
+                                      border: "1px solid #DFE3E8"
+                                    }}
+                                  />
+                                }
+                                autoComplete="off"
+                              />
+                            </FormLayout.Group>
+
+                            <FormLayout.Group>
+                              <Select
+                                label="Border Radius"
+                                options={[
+                                  { label: "None (0px)", value: "0" },
+                                  { label: "Small (4px)", value: "4" },
+                                  { label: "Medium (8px)", value: "8" },
+                                  { label: "Large (12px)", value: "12" },
+                                  { label: "Extra Large (16px)", value: "16" },
+                                  { label: "Rounded (24px)", value: "24" },
+                                ]}
+                                value={String(widgetBorderRadius)}
+                                onChange={(value) => setWidgetBorderRadius(parseInt(value))}
+                                helpText="Corner roundness of widget elements"
+                              />
+                              <Select
+                                label="Font Family"
+                                options={[
+                                  { label: "Inherit from Theme", value: "inherit" },
+                                  { label: "System Default", value: "system-ui" },
+                                  { label: "Inter", value: "Inter, sans-serif" },
+                                  { label: "Roboto", value: "Roboto, sans-serif" },
+                                  { label: "Open Sans", value: "Open Sans, sans-serif" },
+                                ]}
+                                value={widgetFontFamily}
+                                onChange={setWidgetFontFamily}
+                                helpText="Font used in the widget"
+                              />
+                            </FormLayout.Group>
+                          </FormLayout>
+                        </>
+                      )}
+
+                      <Divider />
+
+                      {/* Live Preview */}
+                      <BlockStack gap="300">
+                        <Text as="h3" variant="headingSm">
+                          Preview
+                        </Text>
+                        <Card>
+                          <div
+                            style={{
+                              backgroundColor: widgetBackgroundColor,
+                              borderRadius: `${widgetBorderRadius}px`,
+                              padding: "20px",
+                              fontFamily: widgetFontFamily,
+                              color: widgetTextColor,
+                              border: "1px solid #E1E3E5"
+                            }}
+                          >
+                            <BlockStack gap="300">
+                              <InlineStack align="space-between" blockAlign="center">
+                                <Text as="span" variant="headingSm" fontWeight="semibold">
+                                  <span style={{ color: widgetTextColor }}>Gold Member</span>
+                                </Text>
+                                <div
+                                  style={{
+                                    backgroundColor: widgetPrimaryColor,
+                                    color: "#FFFFFF",
+                                    padding: "4px 12px",
+                                    borderRadius: `${Math.min(widgetBorderRadius, 12)}px`,
+                                    fontSize: "12px",
+                                    fontWeight: "600"
+                                  }}
+                                >
+                                  5% Cashback
+                                </div>
+                              </InlineStack>
+
+                              <div style={{ color: widgetTextColor, opacity: 0.7, fontSize: "14px" }}>
+                                Store Credit Balance
+                              </div>
+                              <div style={{ color: widgetAccentColor, fontSize: "24px", fontWeight: "bold" }}>
+                                $125.50
+                              </div>
+
+                              <div style={{ marginTop: "8px" }}>
+                                <div style={{ color: widgetTextColor, opacity: 0.7, fontSize: "12px", marginBottom: "4px" }}>
+                                  Progress to Platinum ($374.50 to go)
+                                </div>
+                                <div
+                                  style={{
+                                    backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.1)" : "#E1E3E5",
+                                    borderRadius: "4px",
+                                    height: "8px",
+                                    overflow: "hidden"
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      backgroundColor: widgetPrimaryColor,
+                                      width: "63%",
+                                      height: "100%",
+                                      borderRadius: "4px"
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </BlockStack>
+                          </div>
+                        </Card>
+                      </BlockStack>
+
+                      {/* CSS Variables Reference */}
+                      <Banner tone="info">
+                        <BlockStack gap="200">
+                          <Text variant="bodyMd" fontWeight="semibold">
+                            Advanced: CSS Variables
+                          </Text>
+                          <Text variant="bodySm">
+                            You can also customize the widget using CSS variables in your theme:
+                          </Text>
+                          <Box padding="200" background="bg-surface-secondary">
+                            <code style={{ fontSize: "12px", whiteSpace: "pre-wrap" }}>
+{`:root {
+  --rp-primary-color: ${widgetPrimaryColor};
+  --rp-background-color: ${widgetBackgroundColor};
+  --rp-text-color: ${widgetTextColor};
+  --rp-accent-color: ${widgetAccentColor};
+  --rp-border-radius: ${widgetBorderRadius}px;
+}`}
+                            </code>
                           </Box>
                         </BlockStack>
                       </Banner>

@@ -212,6 +212,11 @@
         this.state.lastFetch = Date.now();
         this.state.dataSource = 'fresh';
 
+        // Apply theme settings from API response
+        if (data.theme) {
+          this.applyTheme(data.theme);
+        }
+
         // Cache the data
         this.cacheData(data);
 
@@ -692,6 +697,39 @@
       `;
     }
 
+
+    /**
+     * Apply theme settings from API response
+     * Sets CSS custom properties on the widget root element
+     */
+    applyTheme(theme) {
+      console.log('[RewardsWidget] 🎨 Applying theme:', theme);
+
+      if (!theme) return;
+
+      // Set CSS custom properties on the widget root
+      const root = this.root;
+
+      // Apply theme colors
+      root.style.setProperty('--rp-primary-color', theme.primaryColor || '#5C6AC4');
+      root.style.setProperty('--rp-background-color', theme.backgroundColor || '#FFFFFF');
+      root.style.setProperty('--rp-text-color', theme.textColor || '#212B36');
+      root.style.setProperty('--rp-accent-color', theme.accentColor || '#008060');
+      root.style.setProperty('--rp-border-radius', (theme.borderRadius || 12) + 'px');
+      root.style.setProperty('--rp-font-family', theme.fontFamily || 'inherit');
+
+      // Calculate derived colors
+      const isDark = theme.mode === 'DARK';
+      root.style.setProperty('--rp-text-secondary', isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)');
+      root.style.setProperty('--rp-border-color', isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)');
+      root.style.setProperty('--rp-progress-bg', isDark ? 'rgba(255, 255, 255, 0.1)' : '#E1E3E5');
+
+      // Add theme mode class
+      root.classList.remove('rp-theme-light', 'rp-theme-dark', 'rp-theme-custom');
+      root.classList.add(`rp-theme-${theme.mode?.toLowerCase() || 'light'}`);
+
+      console.log('[RewardsWidget] ✅ Theme applied successfully');
+    }
 
     /**
      * Format currency
