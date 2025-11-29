@@ -1110,9 +1110,22 @@ export class DataAPIModelProxy<T = any> {
         }
       }
 
-      // Update the existing record using the ID
+      // Update the existing record using the correct primary key
+      // Some models use 'shop' as the primary key instead of 'id'
+      const modelsWithShopAsPrimaryKey = ['EmailSettings', 'ShopSettings'];
+      let updateWhere: Record<string, any>;
+
+      if (modelsWithShopAsPrimaryKey.includes(this.tableName)) {
+        updateWhere = { shop: (existing as any).shop };
+      } else if ((existing as any).id) {
+        updateWhere = { id: (existing as any).id };
+      } else {
+        // Fall back to using the original where clause
+        updateWhere = whereClause;
+      }
+
       return await this.update({
-        where: { id: (existing as any).id },
+        where: updateWhere,
         data: args.update
       });
     } else {
