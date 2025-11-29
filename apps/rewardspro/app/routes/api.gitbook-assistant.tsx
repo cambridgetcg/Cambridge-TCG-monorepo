@@ -168,13 +168,14 @@ export async function action({ request }: ActionFunctionArgs) {
 
           // Handle different event types from GitBook
           if ((data.type === "answer" || currentEvent === "answer") && data.answer) {
-            console.log(`[GitBook Assistant] Answer object keys: [${Object.keys(data.answer).join(", ")}]`);
-            if (data.answer.answer) {
-              console.log(`[GitBook Assistant] Inner answer keys: [${Object.keys(data.answer.answer).join(", ")}]`);
-            }
+            // GitBook streams incremental document updates
+            // Each SSE event contains the full document up to that point
+            // We only need to keep the latest one (which has the complete answer)
 
-            // Try multiple paths to find the answer
-            if (data.answer.answer?.markdown) {
+            // Extract text from GitBook's document format
+            if (data.answer.answer?.document?.nodes) {
+              answer = extractTextFromDocument(data.answer.answer.document);
+            } else if (data.answer.answer?.markdown) {
               answer = data.answer.answer.markdown;
             } else if (data.answer.markdown) {
               answer = data.answer.markdown;
@@ -184,10 +185,10 @@ export async function action({ request }: ActionFunctionArgs) {
               answer = data.answer;
             }
 
-            if (data.answer.followupQuestions) {
+            if (data.answer.followupQuestions && data.answer.followupQuestions.length > 0) {
               followupQuestions = data.answer.followupQuestions;
             }
-            if (data.answer.sources) {
+            if (data.answer.sources && data.answer.sources.length > 0) {
               sources = data.answer.sources.map((source: any) => ({
                 type: source.type,
                 page: source.page,
@@ -303,4 +304,140 @@ export async function action({ request }: ActionFunctionArgs) {
 // Only allow POST requests
 export async function loader() {
   return new Response("Method not allowed", { status: 405 });
+}
+
+/**
+ * Extract text content from GitBook's document node format
+ * The document structure is:
+ * {
+ *   object: "document",
+ *   nodes: [
+ *     {
+ *       object: "block",
+ *       type: "paragraph" | "heading-1" | "list-unordered" | etc,
+ *       nodes: [
+ *         {
+ *           object: "text",
+ *           leaves: [
+ *             { object: "leaf", text: "actual text", marks: [] }
+ *           ]
+ *         }
+ *       ]
+ *     }
+ *   ]
+ * }
+ */
+function extractTextFromDocument(document: any): string {
+  if (!document || !document.nodes) {
+    return "";
+  }
+
+  const parts: string[] = [];
+
+  for (const block of document.nodes) {
+    const blockText = extractTextFromBlock(block);
+    if (blockText) {
+      parts.push(blockText);
+    }
+  }
+
+  return parts.join("\n\n");
+}
+
+function extractTextFromBlock(block: any): string {
+  if (!block) return "";
+
+  // Handle different block types
+  const blockType = block.type || "";
+  let prefix = "";
+  let suffix = "";
+
+  // Add markdown-style formatting based on block type
+  if (blockType === "heading-1") {
+    prefix = "# ";
+  } else if (blockType === "heading-2") {
+    prefix = "## ";
+  } else if (blockType === "heading-3") {
+    prefix = "### ";
+  } else if (blockType === "list-unordered") {
+    // Handle list items
+    if (block.nodes) {
+      const items = block.nodes.map((item: any) => {
+        const itemText = extractTextFromNodes(item.nodes || []);
+        return `• ${itemText}`;
+      });
+      return items.join("\n");
+    }
+  } else if (blockType === "list-ordered") {
+    if (block.nodes) {
+      const items = block.nodes.map((item: any, index: number) => {
+        const itemText = extractTextFromNodes(item.nodes || []);
+        return `${index + 1}. ${itemText}`;
+      });
+      return items.join("\n");
+    }
+  } else if (blockType === "code") {
+    prefix = "```\n";
+    suffix = "\n```";
+  } else if (blockType === "blockquote") {
+    prefix = "> ";
+  }
+
+  // Extract text from child nodes
+  const text = extractTextFromNodes(block.nodes || []);
+
+  if (!text) return "";
+
+  return prefix + text + suffix;
+}
+
+function extractTextFromNodes(nodes: any[]): string {
+  if (!nodes || !Array.isArray(nodes)) return "";
+
+  const parts: string[] = [];
+
+  for (const node of nodes) {
+    if (node.object === "text" && node.leaves) {
+      // Text node with leaves
+      for (const leaf of node.leaves) {
+        if (leaf.text) {
+          let text = leaf.text;
+          // Apply marks (bold, italic, code, etc.)
+          if (leaf.marks && leaf.marks.length > 0) {
+            for (const mark of leaf.marks) {
+              if (mark.type === "bold") {
+                text = `**${text}**`;
+              } else if (mark.type === "italic") {
+                text = `*${text}*`;
+              } else if (mark.type === "code") {
+                text = `\`${text}\``;
+              }
+            }
+          }
+          parts.push(text);
+        }
+      }
+    } else if (node.object === "inline") {
+      // Handle inline elements like links
+      if (node.type === "link" && node.data?.url) {
+        const linkText = extractTextFromNodes(node.nodes || []);
+        parts.push(`[${linkText}](${node.data.url})`);
+      } else {
+        // Other inline elements
+        parts.push(extractTextFromNodes(node.nodes || []));
+      }
+    } else if (node.nodes) {
+      // Nested block - recurse
+      parts.push(extractTextFromNodes(node.nodes));
+    } else if (node.leaves) {
+      // Direct leaves without text object wrapper
+      for (const leaf of node.leaves) {
+        if (leaf.text) {
+          parts.push(leaf.text);
+        }
+      }
+    }
+  }
+
+  return parts.join("");
 }
