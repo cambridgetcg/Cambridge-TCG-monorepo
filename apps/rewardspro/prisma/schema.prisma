@@ -1575,6 +1575,10 @@ model EmailTemplate {
   type              String              // welcome, tier_change, points_reminder, etc.
   subject           String              // Email subject line
   content           Json                // Block-based content structure
+  previewText       String?             // Preview text for email clients
+  bodyHtml          String?             // HTML content of email
+  bodyText          String?             // Plain text content of email
+  htmlContent       String?             // Full HTML content (compiled)
 
   // Status
   isActive          Boolean             @default(true)
