@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '~/db.server';
 import { calculateCustomerTier } from './tier-calculation.server';
 import { hasManualOverride } from './manual-tier-assignment.server';
+import { sendWelcomeEmailNotification } from './email-notifications.server';
 import type { Customer, Tier } from '@prisma/client';
 
 /**
@@ -89,14 +90,36 @@ export async function handleCustomerCreate(
   });
   
   console.log(`[CustomerSync] Created customer: ${customerId}`);
-  
+
   // Calculate and assign tier
   const tier = await calculateAndAssignTier(customerId, shopDomain, customerData.totalSpent);
-  
+
   if (tier) {
     console.log(`[CustomerSync] Assigned tier ${tier.name} to customer ${customerId}`);
   }
-  
+
+  // Send welcome email (non-blocking - errors won't fail the webhook)
+  try {
+    await sendWelcomeEmailNotification(
+      shopDomain,
+      {
+        id: customerId,
+        email: customerData.email,
+        firstName: customerData.firstName,
+        lastName: customerData.lastName,
+        shop: shopDomain,
+      },
+      tier ? {
+        id: tier.id,
+        name: tier.name,
+        cashbackPercent: tier.cashbackPercent,
+      } : null
+    );
+  } catch (emailError) {
+    // Log but don't fail the webhook
+    console.error(`[CustomerSync] Failed to send welcome email (non-fatal):`, emailError);
+  }
+
   return {
     action: 'created',
     customerId: customerId,

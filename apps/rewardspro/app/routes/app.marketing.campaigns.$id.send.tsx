@@ -19,6 +19,7 @@ import {
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { sendCampaignEmails } from "~/services/email-notifications.server";
 
 interface Campaign {
   id: string;
@@ -126,6 +127,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   if (intent === "send_now") {
     try {
+      // Get audience filter from form
+      const sendToAll = formData.get("sendToAll") === "true";
+      const selectedTiers = formData.getAll("selectedTiers") as string[];
+
       // Update campaign status to sending
       await db.emailCampaign.updateMany({
         where: { id, shop },
@@ -136,18 +141,55 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         },
       });
 
-      // In production, this would trigger the actual email sending process
-      // For now, we'll just mark it as sent after a simulated delay
+      // Get recipients based on filter
+      let recipients: Array<{ email: string; name?: string; customerId?: string }> = [];
+
+      if (sendToAll) {
+        // Get all customers with email
+        const customers = await db.customer.findMany({
+          where: { shop, email: { not: null } },
+          select: { id: true, email: true, firstName: true, lastName: true },
+        });
+        recipients = customers
+          .filter((c) => c.email)
+          .map((c) => ({
+            email: c.email!,
+            name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
+            customerId: c.id,
+          }));
+      } else if (selectedTiers.length > 0) {
+        // Get customers in selected tiers
+        const customers = await db.customer.findMany({
+          where: {
+            shop,
+            email: { not: null },
+            tierId: { in: selectedTiers },
+          },
+          select: { id: true, email: true, firstName: true, lastName: true },
+        });
+        recipients = customers
+          .filter((c) => c.email)
+          .map((c) => ({
+            email: c.email!,
+            name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
+            customerId: c.id,
+          }));
+      }
+
+      // Send emails
+      const sendResult = await sendCampaignEmails(shop, id, recipients);
+
+      // Update campaign with results
       await db.emailCampaign.updateMany({
         where: { id, shop },
         data: {
           status: "sent",
           metrics: {
-            sent: 0,
-            delivered: 0,
+            sent: sendResult.sent,
+            delivered: sendResult.sent, // Assume delivered = sent initially
             opened: 0,
             clicked: 0,
-            bounced: 0,
+            bounced: sendResult.failed,
             unsubscribed: 0,
             revenue: 0,
             orders: 0,
@@ -156,8 +198,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         },
       });
 
+      console.log(`[Campaign] Sent campaign ${id}: ${sendResult.sent} sent, ${sendResult.failed} failed`);
+
       return redirect(`/app/marketing/campaigns/${id}`);
     } catch (e: any) {
+      console.error(`[Campaign] Error sending campaign:`, e);
       return json({ error: e.message }, { status: 500 });
     }
   }
@@ -360,6 +405,12 @@ export default function SendCampaign() {
               Cancel
             </Button>
             <Form method="post">
+              {/* Audience filter data */}
+              <input type="hidden" name="sendToAll" value={sendToAll.toString()} />
+              {selectedTiers.map((tierId) => (
+                <input key={tierId} type="hidden" name="selectedTiers" value={tierId} />
+              ))}
+
               {sendOption === "now" ? (
                 <>
                   <input type="hidden" name="intent" value="send_now" />

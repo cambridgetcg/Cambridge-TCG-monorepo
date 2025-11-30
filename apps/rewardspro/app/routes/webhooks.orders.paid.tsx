@@ -9,6 +9,7 @@ import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
+import { sendTierUpgradeEmailNotification } from "../services/email-notifications.server";
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
@@ -1154,6 +1155,58 @@ async function checkTierProgression(_dbOrTx: any, params: {
 
     if (result.changed) {
       console.log(`[OrderPaid] ✅ Tier changed for customer ${customerId} via ${result.source}`);
+
+      // Send tier upgrade email (non-blocking)
+      try {
+        // Get customer details
+        const customer = await db.customer.findUnique({
+          where: { id: customerId },
+        });
+
+        // Get new tier details
+        const newTier = result.newTierId
+          ? await db.tier.findUnique({ where: { id: result.newTierId } })
+          : null;
+
+        // Get previous tier details (if any)
+        const previousTier = result.previousTierId
+          ? await db.tier.findUnique({ where: { id: result.previousTierId } })
+          : null;
+
+        if (customer && newTier) {
+          // Only send if it's an upgrade (new tier has higher minSpend or first tier)
+          const isUpgrade = !previousTier || (newTier.minSpend > previousTier.minSpend);
+
+          if (isUpgrade) {
+            console.log(`[OrderPaid] Sending tier upgrade email to ${customer.email}`);
+            await sendTierUpgradeEmailNotification(
+              shop,
+              {
+                id: customer.id,
+                email: customer.email,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                shop: shop,
+              },
+              previousTier ? {
+                id: previousTier.id,
+                name: previousTier.name,
+                cashbackPercent: previousTier.cashbackPercent,
+              } : null,
+              {
+                id: newTier.id,
+                name: newTier.name,
+                cashbackPercent: newTier.cashbackPercent,
+              }
+            );
+          } else {
+            console.log(`[OrderPaid] Tier change is not an upgrade, skipping email`);
+          }
+        }
+      } catch (emailError) {
+        // Log but don't fail the webhook
+        console.error(`[OrderPaid] Failed to send tier upgrade email (non-fatal):`, emailError);
+      }
     } else {
       console.log(`[OrderPaid] No tier change for customer ${customerId}, effective tier source: ${result.source}`);
     }
