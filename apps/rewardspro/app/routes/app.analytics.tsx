@@ -517,14 +517,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.customer.count({
         where: {
           shop,
-          lastOrderAt: { gte: thirtyDaysAgo },
+          lastOrderDate: { gte: thirtyDaysAgo },
         },
       }),
       // Dormant (60-90 days)
       db.customer.count({
         where: {
           shop,
-          lastOrderAt: { gte: ninetyDaysAgo, lt: sixtyDaysAgo },
+          lastOrderDate: { gte: ninetyDaysAgo, lt: sixtyDaysAgo },
         },
       }),
       // At risk (high value but slipping)
@@ -532,7 +532,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: {
           shop,
           totalSpent: { gte: memberLTV * 0.5 }, // Above average lifetime value
-          lastOrderAt: { gte: oneEightyDaysAgo, lt: sixtyDaysAgo },
+          lastOrderDate: { gte: oneEightyDaysAgo, lt: sixtyDaysAgo },
         },
       }),
       // New customers (first order in last 30 days)
@@ -547,7 +547,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.customer.count({
         where: {
           shop,
-          lastOrderAt: { gte: thirtyDaysAgo },
+          lastOrderDate: { gte: thirtyDaysAgo },
           orderCount: { gte: 5 },
           totalSpent: { gte: memberLTV },
         },
@@ -564,7 +564,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.customer.count({
         where: {
           shop,
-          lastOrderAt: { lt: ninetyDaysAgo },
+          lastOrderDate: { lt: ninetyDaysAgo },
           totalSpent: { lt: memberLTV * 0.3 },
         },
       }),
