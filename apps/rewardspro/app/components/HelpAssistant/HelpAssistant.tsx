@@ -10,6 +10,7 @@ import {
   Link,
   Icon,
   Tooltip,
+  Badge,
 } from "@shopify/polaris";
 import {
   QuestionCircleIcon,
@@ -18,6 +19,10 @@ import {
   ChatIcon,
   ExternalIcon,
   DeleteIcon,
+  SettingsIcon,
+  AppsIcon,
+  AlertCircleIcon,
+  StarIcon,
 } from "@shopify/polaris-icons";
 
 interface Source {
@@ -44,8 +49,44 @@ interface HelpAssistantProps {
   docsUrl?: string;
 }
 
+// Quick action categories for better UX
+const QUICK_ACTIONS = [
+  {
+    category: "Getting Started",
+    icon: StarIcon,
+    questions: [
+      "How do I set up my first loyalty tier?",
+      "What's the quickest way to launch my rewards program?",
+    ],
+  },
+  {
+    category: "Features",
+    icon: AppsIcon,
+    questions: [
+      "How does cashback work for my customers?",
+      "Can I offer different rewards for VIP customers?",
+    ],
+  },
+  {
+    category: "Setup & Config",
+    icon: SettingsIcon,
+    questions: [
+      "How do I customize the customer widget?",
+      "How do I configure email notifications?",
+    ],
+  },
+  {
+    category: "Troubleshooting",
+    icon: AlertCircleIcon,
+    questions: [
+      "Why isn't my widget showing on my store?",
+      "How do I sync customer data from Shopify?",
+    ],
+  },
+];
+
 export function HelpAssistant({
-  placeholder = "Ask a question about RewardsPro...",
+  placeholder = "Type your question...",
   docsUrl = "https://docs.rewardspro.io",
 }: HelpAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -141,7 +182,10 @@ export function HelpAssistant({
   const clearChat = useCallback(() => {
     setMessages([]);
     setError(null);
+    setSelectedCategory(null);
   }, []);
+
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Render markdown-like content (basic)
   const renderContent = (content: string) => {
@@ -198,13 +242,13 @@ export function HelpAssistant({
         }}
       >
         <Button
-          icon={isOpen ? XIcon : undefined}
+          icon={isOpen ? XIcon : ChatIcon}
           onClick={toggleOpen}
           variant={isOpen ? "secondary" : "primary"}
           size="large"
-          accessibilityLabel={isOpen ? "Close help assistant" : "Open help assistant"}
+          accessibilityLabel={isOpen ? "Close assistant" : "Open Rewards Pro Assistant"}
         >
-          {isOpen ? null : "Ask me anything"}
+          {isOpen ? undefined : "Need help?"}
         </Button>
       </div>
 
@@ -232,21 +276,39 @@ export function HelpAssistant({
             style={{
               padding: "12px 16px",
               borderBottom: "1px solid var(--p-color-border)",
-              backgroundColor: "var(--p-color-bg-surface-secondary)",
+              background: "linear-gradient(135deg, var(--p-color-bg-fill-brand) 0%, var(--p-color-bg-fill-brand-hover) 100%)",
             }}
           >
             <InlineStack align="space-between" blockAlign="center">
               <InlineStack gap="200" blockAlign="center">
-                <Icon source={ChatIcon} tone="base" />
-                <Text as="h3" variant="headingSm">
-                  Help Assistant
-                </Text>
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                  }}
+                >
+                  <Icon source={ChatIcon} />
+                </div>
+                <BlockStack gap="0">
+                  <span style={{ color: "white", fontWeight: 600, fontSize: "14px" }}>
+                    Rewards Pro Assistant
+                  </span>
+                  <span style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: "12px" }}>
+                    Powered by AI
+                  </span>
+                </BlockStack>
               </InlineStack>
-              <InlineStack gap="200">
+              <InlineStack gap="100">
                 {messages.length > 0 && (
-                  <Tooltip content="Clear chat">
+                  <Tooltip content="Start new conversation">
                     <Button
-                      variant="tertiary"
+                      variant="monochromePlain"
                       size="slim"
                       icon={DeleteIcon}
                       onClick={clearChat}
@@ -254,9 +316,9 @@ export function HelpAssistant({
                     />
                   </Tooltip>
                 )}
-                <Tooltip content="View documentation">
+                <Tooltip content="Browse documentation">
                   <Button
-                    variant="tertiary"
+                    variant="monochromePlain"
                     size="slim"
                     icon={ExternalIcon}
                     onClick={() => window.open(docsUrl, "_blank")}
@@ -279,30 +341,132 @@ export function HelpAssistant({
             }}
           >
             {messages.length === 0 && !isLoading && (
-              <Box padding="400">
-                <BlockStack gap="300" inlineAlign="center">
-                  <Icon source={QuestionCircleIcon} tone="subdued" />
-                  <Text as="p" variant="bodySm" tone="subdued" alignment="center">
-                    Ask me anything about RewardsPro! I can help with setup, features, troubleshooting, and more.
-                  </Text>
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">Try asking:</Text>
-                    {[
-                      "How do I set up loyalty tiers?",
-                      "What is cashback and how does it work?",
-                      "How do customers earn store credit?",
-                    ].map((suggestion) => (
-                      <Button
-                        key={suggestion}
-                        variant="plain"
-                        size="slim"
-                        onClick={() => handleSubmit(suggestion)}
-                        textAlign="left"
+              <Box padding="300">
+                <BlockStack gap="400">
+                  {/* Welcome Message */}
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "12px",
+                      backgroundColor: "var(--p-color-bg-surface-secondary)",
+                    }}
+                  >
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        Hi there! I'm your Rewards Pro Assistant.
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        I can help you set up your loyalty program, configure rewards, troubleshoot issues, and answer questions about any feature.
+                      </Text>
+                    </BlockStack>
+                  </div>
+
+                  {/* Quick Action Categories */}
+                  {!selectedCategory ? (
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodySm" fontWeight="medium">
+                        What can I help you with?
+                      </Text>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "8px",
+                        }}
                       >
-                        "{suggestion}"
-                      </Button>
-                    ))}
-                  </BlockStack>
+                        {QUICK_ACTIONS.map((action) => (
+                          <button
+                            key={action.category}
+                            onClick={() => setSelectedCategory(action.category)}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: "6px",
+                              padding: "12px 8px",
+                              borderRadius: "8px",
+                              border: "1px solid var(--p-color-border)",
+                              backgroundColor: "var(--p-color-bg-surface)",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = "var(--p-color-bg-surface-hover)";
+                              e.currentTarget.style.borderColor = "var(--p-color-border-hover)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = "var(--p-color-bg-surface)";
+                              e.currentTarget.style.borderColor = "var(--p-color-border)";
+                            }}
+                          >
+                            <Icon source={action.icon} tone="base" />
+                            <Text as="span" variant="bodySm" alignment="center">
+                              {action.category}
+                            </Text>
+                          </button>
+                        ))}
+                      </div>
+                    </BlockStack>
+                  ) : (
+                    /* Questions for Selected Category */
+                    <BlockStack gap="200">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Button
+                          variant="plain"
+                          size="slim"
+                          onClick={() => setSelectedCategory(null)}
+                        >
+                          ← Back
+                        </Button>
+                        <Badge>{selectedCategory}</Badge>
+                      </InlineStack>
+                      <BlockStack gap="100">
+                        {QUICK_ACTIONS.find((a) => a.category === selectedCategory)?.questions.map(
+                          (q) => (
+                            <button
+                              key={q}
+                              onClick={() => {
+                                setSelectedCategory(null);
+                                handleSubmit(q);
+                              }}
+                              style={{
+                                textAlign: "left",
+                                padding: "10px 12px",
+                                borderRadius: "8px",
+                                border: "1px solid var(--p-color-border)",
+                                backgroundColor: "var(--p-color-bg-surface)",
+                                cursor: "pointer",
+                                transition: "all 0.15s ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = "var(--p-color-bg-surface-hover)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = "var(--p-color-bg-surface)";
+                              }}
+                            >
+                              <Text as="span" variant="bodySm">
+                                {q}
+                              </Text>
+                            </button>
+                          )
+                        )}
+                      </BlockStack>
+                    </BlockStack>
+                  )}
+
+                  {/* Quick tip */}
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--p-color-bg-surface-info)",
+                    }}
+                  >
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Tip: You can ask follow-up questions for more details
+                    </Text>
+                  </div>
                 </BlockStack>
               </Box>
             )}
@@ -395,7 +559,7 @@ export function HelpAssistant({
                     <InlineStack gap="200" blockAlign="center">
                       <Spinner size="small" />
                       <Text as="span" variant="bodySm" tone="subdued">
-                        Thinking...
+                        Searching docs and thinking...
                       </Text>
                     </InlineStack>
                   </div>
