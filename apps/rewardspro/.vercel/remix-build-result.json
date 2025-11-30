@@ -49,25 +49,16 @@
       "routes/api.billing.usage": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-data-api": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.email.domain": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.set-currency": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.email.test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.proxy.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.campaigns.smart-create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.automation.workflows": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.automation.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.campaigns.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.recommendations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.templates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.templates.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.templates.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -80,6 +71,21 @@
       "routes/app.analytics.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers.sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.automation.workflows": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.automation.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.recommendations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.automation.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.campaigns.smart-create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.campaigns._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.campaigns.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.campaigns.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.campaigns.$id.send": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.templates._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.templates.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.templates.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.store-metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.automation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -446,6 +452,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.email.domain": {
+        "id": "routes/api.email.domain",
+        "parentId": "root",
+        "file": "app/routes/api.email.domain.tsx",
+        "path": "api/email/domain",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.set-currency": {
         "id": "routes/api.set-currency",
         "parentId": "root",
@@ -460,6 +475,15 @@
         "parentId": "root",
         "file": "app/routes/api.order-count.tsx",
         "path": "api/order-count",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.email.test": {
+        "id": "routes/api.email.test",
+        "parentId": "root",
+        "file": "app/routes/api.email.test.tsx",
+        "path": "api/email/test",
         "config": {
           "runtime": "nodejs"
         }
@@ -516,107 +540,11 @@
         "path": "app",
         "config": {}
       },
-      "routes/app.marketing.campaigns.smart-create": {
-        "id": "routes/app.marketing.campaigns.smart-create",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.campaigns.smart-create.tsx",
-        "path": "marketing/campaigns/smart-create",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.automation.workflows": {
-        "id": "routes/app.marketing.automation.workflows",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.automation.workflows.tsx",
-        "path": "marketing/automation/workflows",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.automation.create": {
-        "id": "routes/app.marketing.automation.create",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.automation.create.tsx",
-        "path": "marketing/automation/create",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.campaigns.create": {
-        "id": "routes/app.marketing.campaigns.create",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.campaigns.create.tsx",
-        "path": "marketing/campaigns/create",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.recommendations": {
-        "id": "routes/app.marketing.recommendations",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.recommendations.tsx",
-        "path": "marketing/recommendations",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
         "parentId": "routes/app",
         "file": "app/routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.analytics": {
-        "id": "routes/app.marketing.analytics",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.analytics.tsx",
-        "path": "marketing/analytics",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.templates": {
-        "id": "routes/app.marketing.templates",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.templates.tsx",
-        "path": "marketing/templates",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing.templates.$id": {
-        "id": "routes/app.marketing.templates.$id",
-        "parentId": "routes/app.marketing.templates",
-        "file": "app/routes/app.marketing.templates.$id.tsx",
-        "path": ":id",
-        "config": {}
-      },
-      "routes/app.marketing.templates.new": {
-        "id": "routes/app.marketing.templates.new",
-        "parentId": "routes/app.marketing.templates",
-        "file": "app/routes/app.marketing.templates.new.tsx",
-        "path": "new",
-        "config": {}
-      },
-      "routes/app.marketing.settings": {
-        "id": "routes/app.marketing.settings",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing.settings.tsx",
-        "path": "marketing/settings",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.marketing._index": {
-        "id": "routes/app.marketing._index",
-        "parentId": "routes/app",
-        "file": "app/routes/app.marketing._index.tsx",
-        "path": "marketing",
-        "index": true,
         "config": {
           "runtime": "nodejs"
         }
@@ -720,6 +648,160 @@
         "file": "app/routes/app.customers.sync.tsx",
         "path": "sync",
         "config": {}
+      },
+      "routes/app.marketing": {
+        "id": "routes/app.marketing",
+        "parentId": "routes/app",
+        "file": "app/routes/app.marketing.tsx",
+        "path": "marketing",
+        "config": {}
+      },
+      "routes/app.marketing.automation.workflows": {
+        "id": "routes/app.marketing.automation.workflows",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.automation.workflows.tsx",
+        "path": "automation/workflows",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.automation.create": {
+        "id": "routes/app.marketing.automation.create",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.automation.create.tsx",
+        "path": "automation/create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.recommendations": {
+        "id": "routes/app.marketing.recommendations",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.recommendations.tsx",
+        "path": "recommendations",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.automation.$id": {
+        "id": "routes/app.marketing.automation.$id",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.automation.$id.tsx",
+        "path": "automation/:id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.analytics": {
+        "id": "routes/app.marketing.analytics",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.analytics.tsx",
+        "path": "analytics",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.campaigns": {
+        "id": "routes/app.marketing.campaigns",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.campaigns.tsx",
+        "path": "campaigns",
+        "config": {}
+      },
+      "routes/app.marketing.campaigns.smart-create": {
+        "id": "routes/app.marketing.campaigns.smart-create",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "app/routes/app.marketing.campaigns.smart-create.tsx",
+        "path": "smart-create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.campaigns._index": {
+        "id": "routes/app.marketing.campaigns._index",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "app/routes/app.marketing.campaigns._index.tsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.campaigns.create": {
+        "id": "routes/app.marketing.campaigns.create",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "app/routes/app.marketing.campaigns.create.tsx",
+        "path": "create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.campaigns.$id": {
+        "id": "routes/app.marketing.campaigns.$id",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "app/routes/app.marketing.campaigns.$id.tsx",
+        "path": ":id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.campaigns.$id.send": {
+        "id": "routes/app.marketing.campaigns.$id.send",
+        "parentId": "routes/app.marketing.campaigns.$id",
+        "file": "app/routes/app.marketing.campaigns.$id.send.tsx",
+        "path": "send",
+        "config": {}
+      },
+      "routes/app.marketing.templates": {
+        "id": "routes/app.marketing.templates",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.templates.tsx",
+        "path": "templates",
+        "config": {}
+      },
+      "routes/app.marketing.templates._index": {
+        "id": "routes/app.marketing.templates._index",
+        "parentId": "routes/app.marketing.templates",
+        "file": "app/routes/app.marketing.templates._index.tsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.templates.$id": {
+        "id": "routes/app.marketing.templates.$id",
+        "parentId": "routes/app.marketing.templates",
+        "file": "app/routes/app.marketing.templates.$id.tsx",
+        "path": ":id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.templates.new": {
+        "id": "routes/app.marketing.templates.new",
+        "parentId": "routes/app.marketing.templates",
+        "file": "app/routes/app.marketing.templates.new.tsx",
+        "path": "new",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.settings": {
+        "id": "routes/app.marketing.settings",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.settings.tsx",
+        "path": "settings",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing._index": {
+        "id": "routes/app.marketing._index",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing._index.tsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.settings": {
         "id": "routes/app.settings",
@@ -1037,6 +1119,12 @@
         "file": "routes/api.cron.metrics.tsx",
         "path": "api/cron/metrics"
       },
+      "routes/api.email.domain": {
+        "id": "routes/api.email.domain",
+        "parentId": "root",
+        "file": "routes/api.email.domain.tsx",
+        "path": "api/email/domain"
+      },
       "routes/api.set-currency": {
         "id": "routes/api.set-currency",
         "parentId": "root",
@@ -1048,6 +1136,12 @@
         "parentId": "root",
         "file": "routes/api.order-count.tsx",
         "path": "api/order-count"
+      },
+      "routes/api.email.test": {
+        "id": "routes/api.email.test",
+        "parentId": "root",
+        "file": "routes/api.email.test.tsx",
+        "path": "api/email/test"
       },
       "routes/api.proxy.$": {
         "id": "routes/api.proxy.$",
@@ -1085,78 +1179,11 @@
         "file": "routes/app.tsx",
         "path": "app"
       },
-      "routes/app.marketing.campaigns.smart-create": {
-        "id": "routes/app.marketing.campaigns.smart-create",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.campaigns.smart-create.tsx",
-        "path": "marketing/campaigns/smart-create"
-      },
-      "routes/app.marketing.automation.workflows": {
-        "id": "routes/app.marketing.automation.workflows",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.automation.workflows.tsx",
-        "path": "marketing/automation/workflows"
-      },
-      "routes/app.marketing.automation.create": {
-        "id": "routes/app.marketing.automation.create",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.automation.create.tsx",
-        "path": "marketing/automation/create"
-      },
-      "routes/app.marketing.campaigns.create": {
-        "id": "routes/app.marketing.campaigns.create",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.campaigns.create.tsx",
-        "path": "marketing/campaigns/create"
-      },
-      "routes/app.marketing.recommendations": {
-        "id": "routes/app.marketing.recommendations",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.recommendations.tsx",
-        "path": "marketing/recommendations"
-      },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
         "parentId": "routes/app",
         "file": "routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback"
-      },
-      "routes/app.marketing.analytics": {
-        "id": "routes/app.marketing.analytics",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.analytics.tsx",
-        "path": "marketing/analytics"
-      },
-      "routes/app.marketing.templates": {
-        "id": "routes/app.marketing.templates",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.templates.tsx",
-        "path": "marketing/templates"
-      },
-      "routes/app.marketing.templates.$id": {
-        "id": "routes/app.marketing.templates.$id",
-        "parentId": "routes/app.marketing.templates",
-        "file": "routes/app.marketing.templates.$id.tsx",
-        "path": ":id"
-      },
-      "routes/app.marketing.templates.new": {
-        "id": "routes/app.marketing.templates.new",
-        "parentId": "routes/app.marketing.templates",
-        "file": "routes/app.marketing.templates.new.tsx",
-        "path": "new"
-      },
-      "routes/app.marketing.settings": {
-        "id": "routes/app.marketing.settings",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing.settings.tsx",
-        "path": "marketing/settings"
-      },
-      "routes/app.marketing._index": {
-        "id": "routes/app.marketing._index",
-        "parentId": "routes/app",
-        "file": "routes/app.marketing._index.tsx",
-        "path": "marketing",
-        "index": true
       },
       "routes/app.tier-products": {
         "id": "routes/app.tier-products",
@@ -1229,6 +1256,114 @@
         "parentId": "routes/app.customers",
         "file": "routes/app.customers.sync.tsx",
         "path": "sync"
+      },
+      "routes/app.marketing": {
+        "id": "routes/app.marketing",
+        "parentId": "routes/app",
+        "file": "routes/app.marketing.tsx",
+        "path": "marketing"
+      },
+      "routes/app.marketing.automation.workflows": {
+        "id": "routes/app.marketing.automation.workflows",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.automation.workflows.tsx",
+        "path": "automation/workflows"
+      },
+      "routes/app.marketing.automation.create": {
+        "id": "routes/app.marketing.automation.create",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.automation.create.tsx",
+        "path": "automation/create"
+      },
+      "routes/app.marketing.recommendations": {
+        "id": "routes/app.marketing.recommendations",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.recommendations.tsx",
+        "path": "recommendations"
+      },
+      "routes/app.marketing.automation.$id": {
+        "id": "routes/app.marketing.automation.$id",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.automation.$id.tsx",
+        "path": "automation/:id"
+      },
+      "routes/app.marketing.analytics": {
+        "id": "routes/app.marketing.analytics",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.analytics.tsx",
+        "path": "analytics"
+      },
+      "routes/app.marketing.campaigns": {
+        "id": "routes/app.marketing.campaigns",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.campaigns.tsx",
+        "path": "campaigns"
+      },
+      "routes/app.marketing.campaigns.smart-create": {
+        "id": "routes/app.marketing.campaigns.smart-create",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "routes/app.marketing.campaigns.smart-create.tsx",
+        "path": "smart-create"
+      },
+      "routes/app.marketing.campaigns._index": {
+        "id": "routes/app.marketing.campaigns._index",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "routes/app.marketing.campaigns._index.tsx",
+        "index": true
+      },
+      "routes/app.marketing.campaigns.create": {
+        "id": "routes/app.marketing.campaigns.create",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "routes/app.marketing.campaigns.create.tsx",
+        "path": "create"
+      },
+      "routes/app.marketing.campaigns.$id": {
+        "id": "routes/app.marketing.campaigns.$id",
+        "parentId": "routes/app.marketing.campaigns",
+        "file": "routes/app.marketing.campaigns.$id.tsx",
+        "path": ":id"
+      },
+      "routes/app.marketing.campaigns.$id.send": {
+        "id": "routes/app.marketing.campaigns.$id.send",
+        "parentId": "routes/app.marketing.campaigns.$id",
+        "file": "routes/app.marketing.campaigns.$id.send.tsx",
+        "path": "send"
+      },
+      "routes/app.marketing.templates": {
+        "id": "routes/app.marketing.templates",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.templates.tsx",
+        "path": "templates"
+      },
+      "routes/app.marketing.templates._index": {
+        "id": "routes/app.marketing.templates._index",
+        "parentId": "routes/app.marketing.templates",
+        "file": "routes/app.marketing.templates._index.tsx",
+        "index": true
+      },
+      "routes/app.marketing.templates.$id": {
+        "id": "routes/app.marketing.templates.$id",
+        "parentId": "routes/app.marketing.templates",
+        "file": "routes/app.marketing.templates.$id.tsx",
+        "path": ":id"
+      },
+      "routes/app.marketing.templates.new": {
+        "id": "routes/app.marketing.templates.new",
+        "parentId": "routes/app.marketing.templates",
+        "file": "routes/app.marketing.templates.new.tsx",
+        "path": "new"
+      },
+      "routes/app.marketing.settings": {
+        "id": "routes/app.marketing.settings",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.settings.tsx",
+        "path": "settings"
+      },
+      "routes/app.marketing._index": {
+        "id": "routes/app.marketing._index",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing._index.tsx",
+        "index": true
       },
       "routes/app.settings": {
         "id": "routes/app.settings",

@@ -1197,6 +1197,7 @@ export function createDataAPIPrismaClient() {
           emailAutomation: new DataAPIModelProxy("EmailAutomation", txAuroraClient),
           emailSettings: new DataAPIModelProxy("EmailSettings", txAuroraClient),
           emailEvent: new DataAPIModelProxy("EmailEvent", txAuroraClient),
+          sendGridDomain: new DataAPIModelProxy("SendGridDomain", txAuroraClient),
           analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", txAuroraClient),
 
           // Raw query support for the transaction
@@ -1373,6 +1374,7 @@ export function createDataAPIPrismaClient() {
     emailAutomation: new DataAPIModelProxy("EmailAutomation", client),
     emailSettings: new DataAPIModelProxy("EmailSettings", client),
     emailEvent: new DataAPIModelProxy("EmailEvent", client),
+    sendGridDomain: new DataAPIModelProxy("SendGridDomain", client),
     analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", client),
 
     // Disconnect (no-op for Data API)

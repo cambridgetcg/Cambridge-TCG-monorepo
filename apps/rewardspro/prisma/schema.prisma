@@ -1675,9 +1675,67 @@ model EmailSettings {
   // Send controls
   sendTimePrefs     Json                @default("{\"preferredTime\":\"10:00\",\"timezone\":\"America/New_York\",\"dailyLimit\":1000,\"hourlyLimit\":100}")
 
+  // SendGrid Integration
+  sendingMode       SendingMode         @default(SHARED)  // SHARED or CUSTOM_DOMAIN
+  customDomainId    String?             // Reference to SendGridDomain if using custom domain
+
   // Timestamps
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
+
+  // Relations
+  customDomain      SendGridDomain?     @relation(fields: [customDomainId], references: [id])
+}
+
+// SendGrid Domain Authentication for branded sending
+model SendGridDomain {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Domain details
+  domain            String              // e.g., "mail.merchantstore.com"
+  subdomain         String?             // e.g., "mail" (optional prefix)
+
+  // SendGrid IDs
+  sendgridDomainId  String?             // SendGrid's domain authentication ID
+  sendgridDnsRecords Json?              // DNS records from SendGrid API
+
+  // Verification status
+  status            DomainStatus        @default(PENDING)
+  verifiedAt        DateTime?
+  lastCheckedAt     DateTime?
+
+  // DNS record verification status
+  dkimVerified      Boolean             @default(false)
+  spfVerified       Boolean             @default(false)
+  dmarcConfigured   Boolean             @default(false)
+
+  // Error tracking
+  lastError         String?
+  errorCount        Int                 @default(0)
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Relations
+  emailSettings     EmailSettings[]
+
+  @@unique([shop, domain])
+  @@index([shop, status])
+}
+
+enum SendingMode {
+  SHARED          // Send from rewardspro.io domain
+  CUSTOM_DOMAIN   // Send from merchant's authenticated domain
+}
+
+enum DomainStatus {
+  PENDING         // Domain created, waiting for DNS setup
+  DNS_PENDING     // DNS records provided, waiting for verification
+  VERIFYING       // Currently checking DNS records
+  VERIFIED        // Domain fully verified and ready
+  FAILED          // Verification failed
 }
 
 model EmailEvent {
