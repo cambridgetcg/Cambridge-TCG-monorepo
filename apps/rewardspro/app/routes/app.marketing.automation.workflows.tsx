@@ -125,6 +125,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           name: `${template.name} - Email`,
           type: template.trigger,
           subject: `${template.name}`,
+          content: { blocks: [] }, // Required JSON field - empty block structure
           previewText: template.description,
           bodyHtml: `<p>This is an automated email for ${template.name}.</p>`,
           bodyText: `This is an automated email for ${template.name}.`,
