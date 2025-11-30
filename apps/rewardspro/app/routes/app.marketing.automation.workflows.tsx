@@ -144,7 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           templateId: emailTemplate.id,
           isEnabled: false, // Start as disabled so user can customize
           delayMinutes: template.delayDays * 24 * 60,
-          conditions: JSON.stringify({ source: templateKey }),
+          conditions: { source: templateKey }, // Pass as object, not string - JSONB column
           totalSent: 0,
           totalOpened: 0,
           totalClicked: 0,
