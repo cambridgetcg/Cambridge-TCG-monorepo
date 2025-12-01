@@ -263,6 +263,64 @@ interface AnalyticsData {
     priority: number;
     status: string;
   }>;
+
+  // Cohort Analysis Data
+  cohortAnalysis: {
+    // Retention cohorts - grouped by first order month
+    retentionCohorts: {
+      cohortMonth: string; // e.g., "2024-07"
+      cohortLabel: string; // e.g., "Jul 2024"
+      initialCustomers: number;
+      // Retention by month since first purchase (0 = first month, 1 = second month, etc.)
+      retention: {
+        monthIndex: number;
+        activeCustomers: number;
+        retentionRate: number; // percentage
+        revenue: number;
+      }[];
+    }[];
+    // Revenue cohorts - LTV progression
+    revenueCohorts: {
+      cohortMonth: string;
+      cohortLabel: string;
+      initialCustomers: number;
+      // Cumulative revenue by month
+      cumulativeRevenue: {
+        monthIndex: number;
+        totalRevenue: number;
+        avgRevenuePerCustomer: number;
+      }[];
+    }[];
+    // Tier progression cohorts
+    tierProgressionCohorts: {
+      cohortMonth: string;
+      cohortLabel: string;
+      initialCustomers: number;
+      // Tier distribution over time
+      tierDistribution: {
+        monthIndex: number;
+        tiers: {
+          tierName: string;
+          tierId: string | null;
+          customerCount: number;
+          percentage: number;
+        }[];
+      }[];
+    }[];
+    // Summary metrics
+    summaryMetrics: {
+      avgRetentionMonth1: number;
+      avgRetentionMonth3: number;
+      avgRetentionMonth6: number;
+      avgRetentionMonth12: number;
+      avgLTV30Days: number;
+      avgLTV90Days: number;
+      avgLTV180Days: number;
+      avgLTV365Days: number;
+      avgTimeToTierUpgrade: number; // days
+      tierUpgradeRate: number; // percentage who upgraded at least once
+    };
+  };
 }
 
 interface TrendData {
@@ -685,6 +743,314 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
     };
 
+    // ============================================
+    // COHORT ANALYSIS CALCULATION
+    // ============================================
+
+    // Get all customers with their first order date for cohort grouping
+    const customersWithOrders = await db.customer.findMany({
+      where: {
+        shop,
+        firstOrderDate: { not: null },
+      },
+      select: {
+        id: true,
+        shopifyCustomerId: true,
+        firstOrderDate: true,
+        lastOrderDate: true,
+        totalSpent: true,
+        orderCount: true,
+        currentTierId: true,
+        createdAt: true,
+      },
+    });
+
+    // Get all orders for cohort revenue tracking
+    const allOrders = await db.order.findMany({
+      where: {
+        shop,
+        financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+      },
+      select: {
+        customerId: true,
+        totalPrice: true,
+        shopifyCreatedAt: true,
+      },
+      orderBy: { shopifyCreatedAt: 'asc' },
+    });
+
+    // Get tier change logs for tier progression analysis
+    const tierChangeLogs = await db.tierChangeLog.findMany({
+      where: { shop },
+      select: {
+        customerId: true,
+        newTierId: true,
+        previousTierId: true,
+        changedAt: true,
+        changeType: true,
+      },
+      orderBy: { changedAt: 'asc' },
+    });
+
+    // Helper to get month key from date
+    const getMonthKey = (date: Date) => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    // Helper to get month label
+    const getMonthLabel = (monthKey: string) => {
+      const [year, month] = monthKey.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    };
+
+    // Helper to calculate months between two dates
+    const monthsBetween = (date1: Date, date2: Date) => {
+      return (date2.getFullYear() - date1.getFullYear()) * 12 + (date2.getMonth() - date1.getMonth());
+    };
+
+    // Group customers by their first order month (cohort)
+    const cohortMap = new Map<string, typeof customersWithOrders>();
+    customersWithOrders.forEach(customer => {
+      if (customer.firstOrderDate) {
+        const cohortKey = getMonthKey(customer.firstOrderDate);
+        if (!cohortMap.has(cohortKey)) {
+          cohortMap.set(cohortKey, []);
+        }
+        cohortMap.get(cohortKey)!.push(customer);
+      }
+    });
+
+    // Create order lookup by customer
+    const ordersByCustomer = new Map<string, typeof allOrders>();
+    allOrders.forEach(order => {
+      if (order.customerId) {
+        if (!ordersByCustomer.has(order.customerId)) {
+          ordersByCustomer.set(order.customerId, []);
+        }
+        ordersByCustomer.get(order.customerId)!.push(order);
+      }
+    });
+
+    // Get the last 12 months for cohort analysis
+    const cohortNow = new Date();
+    const cohortMonths: string[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(cohortNow.getFullYear(), cohortNow.getMonth() - i, 1);
+      cohortMonths.push(getMonthKey(date));
+    }
+
+    // Calculate retention cohorts
+    const retentionCohorts = cohortMonths
+      .filter(month => cohortMap.has(month))
+      .map(cohortMonth => {
+        const cohortCustomers = cohortMap.get(cohortMonth) || [];
+        const cohortStartDate = new Date(cohortMonth + '-01');
+        const monthsToAnalyze = monthsBetween(cohortStartDate, cohortNow);
+
+        const retention = [];
+        for (let monthIndex = 0; monthIndex <= Math.min(monthsToAnalyze, 11); monthIndex++) {
+          const targetMonth = new Date(cohortStartDate.getFullYear(), cohortStartDate.getMonth() + monthIndex, 1);
+          const targetMonthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
+
+          let activeCustomers = 0;
+          let monthRevenue = 0;
+
+          cohortCustomers.forEach(customer => {
+            const customerOrders = ordersByCustomer.get(customer.id) || [];
+            const ordersInMonth = customerOrders.filter(order => {
+              const orderDate = new Date(order.shopifyCreatedAt);
+              return orderDate >= targetMonth && orderDate <= targetMonthEnd;
+            });
+
+            if (ordersInMonth.length > 0) {
+              activeCustomers++;
+              monthRevenue += ordersInMonth.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+            }
+          });
+
+          retention.push({
+            monthIndex,
+            activeCustomers,
+            retentionRate: cohortCustomers.length > 0 ? (activeCustomers / cohortCustomers.length) * 100 : 0,
+            revenue: Math.round(monthRevenue * 100) / 100,
+          });
+        }
+
+        return {
+          cohortMonth,
+          cohortLabel: getMonthLabel(cohortMonth),
+          initialCustomers: cohortCustomers.length,
+          retention,
+        };
+      });
+
+    // Calculate revenue cohorts (cumulative LTV)
+    const revenueCohorts = cohortMonths
+      .filter(month => cohortMap.has(month))
+      .map(cohortMonth => {
+        const cohortCustomers = cohortMap.get(cohortMonth) || [];
+        const cohortStartDate = new Date(cohortMonth + '-01');
+        const monthsToAnalyze = monthsBetween(cohortStartDate, cohortNow);
+
+        const cumulativeRevenue = [];
+        let runningTotal = 0;
+
+        for (let monthIndex = 0; monthIndex <= Math.min(monthsToAnalyze, 11); monthIndex++) {
+          const targetMonth = new Date(cohortStartDate.getFullYear(), cohortStartDate.getMonth() + monthIndex, 1);
+          const targetMonthEnd = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
+
+          let monthRevenue = 0;
+          cohortCustomers.forEach(customer => {
+            const customerOrders = ordersByCustomer.get(customer.id) || [];
+            const ordersInMonth = customerOrders.filter(order => {
+              const orderDate = new Date(order.shopifyCreatedAt);
+              return orderDate >= targetMonth && orderDate <= targetMonthEnd;
+            });
+            monthRevenue += ordersInMonth.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+          });
+
+          runningTotal += monthRevenue;
+
+          cumulativeRevenue.push({
+            monthIndex,
+            totalRevenue: Math.round(runningTotal * 100) / 100,
+            avgRevenuePerCustomer: cohortCustomers.length > 0
+              ? Math.round((runningTotal / cohortCustomers.length) * 100) / 100
+              : 0,
+          });
+        }
+
+        return {
+          cohortMonth,
+          cohortLabel: getMonthLabel(cohortMonth),
+          initialCustomers: cohortCustomers.length,
+          cumulativeRevenue,
+        };
+      });
+
+    // Calculate tier progression cohorts
+    const tierProgressionCohorts = cohortMonths
+      .filter(month => cohortMap.has(month))
+      .slice(0, 6) // Only show last 6 months for tier progression (needs time to progress)
+      .map(cohortMonth => {
+        const cohortCustomers = cohortMap.get(cohortMonth) || [];
+        const cohortStartDate = new Date(cohortMonth + '-01');
+        const monthsToAnalyze = monthsBetween(cohortStartDate, cohortNow);
+
+        const tierDistribution = [];
+
+        for (let monthIndex = 0; monthIndex <= Math.min(monthsToAnalyze, 11); monthIndex++) {
+          const targetMonthEnd = new Date(cohortStartDate.getFullYear(), cohortStartDate.getMonth() + monthIndex + 1, 0, 23, 59, 59);
+
+          // Count customers in each tier at end of this month
+          const tierCounts = new Map<string | null, number>();
+          tierCounts.set(null, 0); // No tier
+          tiers.forEach(tier => tierCounts.set(tier.id, 0));
+
+          cohortCustomers.forEach(customer => {
+            // Find the tier the customer was in at the end of this month
+            const relevantChanges = tierChangeLogs.filter(log =>
+              log.customerId === customer.id && new Date(log.changedAt) <= targetMonthEnd
+            );
+
+            if (relevantChanges.length > 0) {
+              const lastChange = relevantChanges[relevantChanges.length - 1];
+              tierCounts.set(lastChange.newTierId, (tierCounts.get(lastChange.newTierId) || 0) + 1);
+            } else {
+              // Customer was created but no tier change yet - check current tier
+              if (customer.currentTierId && new Date(customer.createdAt) <= targetMonthEnd) {
+                tierCounts.set(customer.currentTierId, (tierCounts.get(customer.currentTierId) || 0) + 1);
+              } else {
+                tierCounts.set(null, (tierCounts.get(null) || 0) + 1);
+              }
+            }
+          });
+
+          const tierDist = [
+            {
+              tierName: 'No Tier',
+              tierId: null,
+              customerCount: tierCounts.get(null) || 0,
+              percentage: cohortCustomers.length > 0 ? ((tierCounts.get(null) || 0) / cohortCustomers.length) * 100 : 0,
+            },
+            ...tiers.map(tier => ({
+              tierName: tier.name,
+              tierId: tier.id,
+              customerCount: tierCounts.get(tier.id) || 0,
+              percentage: cohortCustomers.length > 0 ? ((tierCounts.get(tier.id) || 0) / cohortCustomers.length) * 100 : 0,
+            })),
+          ];
+
+          tierDistribution.push({
+            monthIndex,
+            tiers: tierDist,
+          });
+        }
+
+        return {
+          cohortMonth,
+          cohortLabel: getMonthLabel(cohortMonth),
+          initialCustomers: cohortCustomers.length,
+          tierDistribution,
+        };
+      });
+
+    // Calculate summary metrics
+    const allRetentionRates = retentionCohorts.flatMap(c => c.retention);
+    const month1Retentions = allRetentionRates.filter(r => r.monthIndex === 1).map(r => r.retentionRate);
+    const month3Retentions = allRetentionRates.filter(r => r.monthIndex === 3).map(r => r.retentionRate);
+    const month6Retentions = allRetentionRates.filter(r => r.monthIndex === 6).map(r => r.retentionRate);
+    const month12Retentions = allRetentionRates.filter(r => r.monthIndex === 11).map(r => r.retentionRate);
+
+    const avgArr = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+    // Calculate LTV at different points
+    const allLTVs = revenueCohorts.flatMap(c => c.cumulativeRevenue);
+    const ltv30 = allLTVs.filter(r => r.monthIndex === 0).map(r => r.avgRevenuePerCustomer);
+    const ltv90 = allLTVs.filter(r => r.monthIndex === 2).map(r => r.avgRevenuePerCustomer);
+    const ltv180 = allLTVs.filter(r => r.monthIndex === 5).map(r => r.avgRevenuePerCustomer);
+    const ltv365 = allLTVs.filter(r => r.monthIndex === 11).map(r => r.avgRevenuePerCustomer);
+
+    // Calculate tier upgrade metrics
+    const customersWithUpgrades = tierChangeLogs.filter(log => log.changeType === 'UPGRADE');
+    const uniqueUpgradedCustomers = new Set(customersWithUpgrades.map(log => log.customerId));
+    const tierUpgradeRate = customersWithOrders.length > 0
+      ? (uniqueUpgradedCustomers.size / customersWithOrders.length) * 100
+      : 0;
+
+    // Calculate average time to first tier upgrade
+    const upgradeDelays: number[] = [];
+    uniqueUpgradedCustomers.forEach(customerId => {
+      const customer = customersWithOrders.find(c => c.id === customerId);
+      const firstUpgrade = customersWithUpgrades.find(log => log.customerId === customerId);
+      if (customer?.firstOrderDate && firstUpgrade) {
+        const days = Math.floor((new Date(firstUpgrade.changedAt).getTime() - new Date(customer.firstOrderDate).getTime()) / (1000 * 60 * 60 * 24));
+        if (days >= 0) upgradeDelays.push(days);
+      }
+    });
+    const avgTimeToTierUpgrade = upgradeDelays.length > 0
+      ? upgradeDelays.reduce((a, b) => a + b, 0) / upgradeDelays.length
+      : 0;
+
+    const cohortAnalysis = {
+      retentionCohorts,
+      revenueCohorts,
+      tierProgressionCohorts,
+      summaryMetrics: {
+        avgRetentionMonth1: Math.round(avgArr(month1Retentions) * 10) / 10,
+        avgRetentionMonth3: Math.round(avgArr(month3Retentions) * 10) / 10,
+        avgRetentionMonth6: Math.round(avgArr(month6Retentions) * 10) / 10,
+        avgRetentionMonth12: Math.round(avgArr(month12Retentions) * 10) / 10,
+        avgLTV30Days: Math.round(avgArr(ltv30) * 100) / 100,
+        avgLTV90Days: Math.round(avgArr(ltv90) * 100) / 100,
+        avgLTV180Days: Math.round(avgArr(ltv180) * 100) / 100,
+        avgLTV365Days: Math.round(avgArr(ltv365) * 100) / 100,
+        avgTimeToTierUpgrade: Math.round(avgTimeToTierUpgrade),
+        tierUpgradeRate: Math.round(tierUpgradeRate * 10) / 10,
+      },
+    };
+
     // Calculate weighted averages from tier performance data
     const totalCustomers = tierPerformance.reduce((sum, tier) => sum + tier.members, 0);
     const weightedOrderFreq = totalCustomers > 0
@@ -832,7 +1198,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         predictedRevenue: rec.predictedRevenue,
         priority: rec.priority,
         status: rec.status
-      }))
+      })),
+
+      // Cohort Analysis data
+      cohortAnalysis,
     };
 
     return json(analyticsData);
@@ -1838,6 +2207,7 @@ export default function AnalyticsPage() {
     { id: 'financial', content: 'Financial' },
     { id: 'actions', content: 'Recommended Actions', badge: data.recommendations?.length.toString() || '0' },
     { id: 'behaviour', content: 'Customer Behaviour' },
+    { id: 'cohorts', content: 'Cohort Analysis' },
   ];
 
   return (
@@ -3567,6 +3937,431 @@ export default function AnalyticsPage() {
                                 <Text variant="bodyMd" as="p" fontWeight="semibold">🧪 Variable Rewards</Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
                                   Unexpected rewards trigger dopamine. Add surprise bonuses to keep engagement high.
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                          </div>
+                        </BlockStack>
+                      </Box>
+                    </Card>
+                  </BlockStack>
+                </Box>
+              )}
+
+              {/* ============================================ */}
+              {/* TAB 5: COHORT ANALYSIS */}
+              {/* ============================================ */}
+              {selectedTab === 4 && (
+                <Box padding="400">
+                  <BlockStack gap="500">
+                    {/* Summary Metrics Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                      {/* Retention Summary */}
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Avg Retention (Month 1)</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">
+                              {data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(1)}%
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              Month 3: {data.cohortAnalysis.summaryMetrics.avgRetentionMonth3.toFixed(1)}% |
+                              Month 6: {data.cohortAnalysis.summaryMetrics.avgRetentionMonth6.toFixed(1)}%
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+
+                      {/* LTV Progression */}
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Avg LTV (90 Days)</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">
+                              {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV90Days, data.shopSettings)}
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              30d: {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV30Days, data.shopSettings)} |
+                              180d: {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV180Days, data.shopSettings)}
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+
+                      {/* Tier Upgrade Rate */}
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Tier Upgrade Rate</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">
+                              {data.cohortAnalysis.summaryMetrics.tierUpgradeRate.toFixed(1)}%
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              Avg time: {data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade} days
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+
+                      {/* 12-Month LTV */}
+                      <Card>
+                        <Box padding="400">
+                          <BlockStack gap="200">
+                            <Text variant="bodySm" tone="subdued" as="span">Avg LTV (12 Months)</Text>
+                            <Text variant="headingLg" as="p" fontWeight="bold">
+                              {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV365Days, data.shopSettings)}
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="span">
+                              12-month retention: {data.cohortAnalysis.summaryMetrics.avgRetentionMonth12.toFixed(1)}%
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      </Card>
+                    </div>
+
+                    {/* Retention Cohort Heatmap */}
+                    <Card>
+                      <Box padding="400">
+                        <BlockStack gap="400">
+                          <BlockStack gap="200">
+                            <Text variant="headingMd" as="h3">Customer Retention by Cohort</Text>
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              Track how customers from each signup month return over time. Higher percentages (darker green) indicate stronger retention.
+                            </Text>
+                          </BlockStack>
+
+                          {data.cohortAnalysis.retentionCohorts.length === 0 ? (
+                            <Banner tone="info">
+                              <Text as="p" variant="bodyMd">
+                                No cohort data available yet. Cohorts are created when customers make their first purchase.
+                              </Text>
+                            </Banner>
+                          ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                <thead>
+                                  <tr>
+                                    <th style={{
+                                      padding: '8px 12px',
+                                      textAlign: 'left',
+                                      borderBottom: '2px solid var(--p-color-border)',
+                                      fontWeight: 600,
+                                      backgroundColor: 'var(--p-color-bg-surface-secondary)',
+                                      position: 'sticky',
+                                      left: 0,
+                                      zIndex: 1
+                                    }}>
+                                      Cohort
+                                    </th>
+                                    <th style={{
+                                      padding: '8px 12px',
+                                      textAlign: 'center',
+                                      borderBottom: '2px solid var(--p-color-border)',
+                                      fontWeight: 600,
+                                      backgroundColor: 'var(--p-color-bg-surface-secondary)'
+                                    }}>
+                                      Users
+                                    </th>
+                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(month => (
+                                      <th key={month} style={{
+                                        padding: '8px 12px',
+                                        textAlign: 'center',
+                                        borderBottom: '2px solid var(--p-color-border)',
+                                        fontWeight: 600,
+                                        backgroundColor: 'var(--p-color-bg-surface-secondary)',
+                                        minWidth: '60px'
+                                      }}>
+                                        M{month}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {data.cohortAnalysis.retentionCohorts.map((cohort, cohortIndex) => (
+                                    <tr key={cohort.cohortMonth}>
+                                      <td style={{
+                                        padding: '8px 12px',
+                                        fontWeight: 500,
+                                        borderBottom: '1px solid var(--p-color-border)',
+                                        backgroundColor: 'var(--p-color-bg-surface-secondary)',
+                                        position: 'sticky',
+                                        left: 0,
+                                        zIndex: 1
+                                      }}>
+                                        {cohort.cohortLabel}
+                                      </td>
+                                      <td style={{
+                                        padding: '8px 12px',
+                                        textAlign: 'center',
+                                        borderBottom: '1px solid var(--p-color-border)',
+                                        fontWeight: 500
+                                      }}>
+                                        {cohort.initialCustomers}
+                                      </td>
+                                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(monthIndex => {
+                                        const monthData = cohort.retention.find(r => r.monthIndex === monthIndex);
+                                        if (!monthData) {
+                                          return (
+                                            <td key={monthIndex} style={{
+                                              padding: '8px 12px',
+                                              textAlign: 'center',
+                                              borderBottom: '1px solid var(--p-color-border)',
+                                              backgroundColor: 'var(--p-color-bg-surface-secondary)'
+                                            }}>
+                                              -
+                                            </td>
+                                          );
+                                        }
+                                        // Color scale: 0% = light gray, 100% = dark green
+                                        const rate = monthData.retentionRate;
+                                        const hue = 142; // Green hue
+                                        const saturation = rate > 0 ? 40 + (rate * 0.3) : 0;
+                                        const lightness = rate > 0 ? 95 - (rate * 0.5) : 95;
+                                        const bgColor = rate > 0
+                                          ? `hsl(${hue}, ${saturation}%, ${lightness}%)`
+                                          : 'var(--p-color-bg-surface-secondary)';
+                                        const textColor = rate > 60 ? '#fff' : 'inherit';
+
+                                        return (
+                                          <td key={monthIndex} style={{
+                                            padding: '8px 12px',
+                                            textAlign: 'center',
+                                            borderBottom: '1px solid var(--p-color-border)',
+                                            backgroundColor: bgColor,
+                                            color: textColor,
+                                            fontWeight: rate > 50 ? 600 : 400
+                                          }}>
+                                            {rate.toFixed(0)}%
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </BlockStack>
+                      </Box>
+                    </Card>
+
+                    {/* Revenue Cohort Chart */}
+                    <Card>
+                      <Box padding="400">
+                        <BlockStack gap="400">
+                          <BlockStack gap="200">
+                            <Text variant="headingMd" as="h3">Cumulative LTV by Cohort</Text>
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              Track how customer lifetime value grows over time for each cohort.
+                            </Text>
+                          </BlockStack>
+
+                          {data.cohortAnalysis.revenueCohorts.length === 0 ? (
+                            <Banner tone="info">
+                              <Text as="p" variant="bodyMd">
+                                No revenue cohort data available yet.
+                              </Text>
+                            </Banner>
+                          ) : (
+                            <div style={{ height: '300px' }}>
+                              <Line
+                                data={{
+                                  labels: ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11'],
+                                  datasets: data.cohortAnalysis.revenueCohorts.slice(0, 6).map((cohort, index) => {
+                                    const colors = [
+                                      'rgb(75, 192, 192)',
+                                      'rgb(54, 162, 235)',
+                                      'rgb(153, 102, 255)',
+                                      'rgb(255, 159, 64)',
+                                      'rgb(255, 99, 132)',
+                                      'rgb(201, 203, 207)'
+                                    ];
+                                    return {
+                                      label: cohort.cohortLabel,
+                                      data: cohort.cumulativeRevenue.map(r => r.avgRevenuePerCustomer),
+                                      borderColor: colors[index % colors.length],
+                                      backgroundColor: colors[index % colors.length],
+                                      tension: 0.3,
+                                      fill: false,
+                                    };
+                                  }),
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: {
+                                      position: 'bottom',
+                                    },
+                                    tooltip: {
+                                      callbacks: {
+                                        label: function(context) {
+                                          return `${context.dataset.label}: ${formatCurrency(context.parsed.y, data.shopSettings)}`;
+                                        }
+                                      }
+                                    }
+                                  },
+                                  scales: {
+                                    y: {
+                                      beginAtZero: true,
+                                      title: {
+                                        display: true,
+                                        text: 'Avg LTV per Customer'
+                                      }
+                                    },
+                                    x: {
+                                      title: {
+                                        display: true,
+                                        text: 'Months Since First Purchase'
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
+                        </BlockStack>
+                      </Box>
+                    </Card>
+
+                    {/* Tier Progression Cohorts */}
+                    <Card>
+                      <Box padding="400">
+                        <BlockStack gap="400">
+                          <BlockStack gap="200">
+                            <Text variant="headingMd" as="h3">Tier Progression by Cohort</Text>
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              See how customers progress through membership tiers over time.
+                            </Text>
+                          </BlockStack>
+
+                          {data.cohortAnalysis.tierProgressionCohorts.length === 0 ? (
+                            <Banner tone="info">
+                              <Text as="p" variant="bodyMd">
+                                No tier progression data available yet. Tier changes will be tracked here.
+                              </Text>
+                            </Banner>
+                          ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                              {data.cohortAnalysis.tierProgressionCohorts.slice(0, 4).map(cohort => (
+                                <div key={cohort.cohortMonth} style={{ marginBottom: '24px' }}>
+                                  <Text variant="bodyMd" as="p" fontWeight="semibold">
+                                    {cohort.cohortLabel} ({cohort.initialCustomers} customers)
+                                  </Text>
+                                  <div style={{ height: '120px', marginTop: '8px' }}>
+                                    <Bar
+                                      data={{
+                                        labels: cohort.tierDistribution.map(d => `M${d.monthIndex}`),
+                                        datasets: cohort.tierDistribution[0]?.tiers.map((tier, tierIndex) => {
+                                          const tierColors = [
+                                            'rgb(200, 200, 200)', // No Tier - gray
+                                            'rgb(205, 127, 50)',  // Bronze
+                                            'rgb(192, 192, 192)', // Silver
+                                            'rgb(255, 215, 0)',   // Gold
+                                            'rgb(229, 228, 226)', // Platinum
+                                            'rgb(75, 0, 130)',    // Diamond
+                                          ];
+                                          return {
+                                            label: tier.tierName,
+                                            data: cohort.tierDistribution.map(d => {
+                                              const tierData = d.tiers.find(t => t.tierId === tier.tierId);
+                                              return tierData?.percentage || 0;
+                                            }),
+                                            backgroundColor: tierColors[tierIndex % tierColors.length],
+                                          };
+                                        }) || [],
+                                      }}
+                                      options={{
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                          legend: {
+                                            display: false,
+                                          },
+                                          tooltip: {
+                                            callbacks: {
+                                              label: function(context) {
+                                                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                              }
+                                            }
+                                          }
+                                        },
+                                        scales: {
+                                          x: {
+                                            stacked: true,
+                                          },
+                                          y: {
+                                            stacked: true,
+                                            max: 100,
+                                            ticks: {
+                                              callback: (value) => `${value}%`
+                                            }
+                                          }
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </BlockStack>
+                      </Box>
+                    </Card>
+
+                    {/* Cohort Insights */}
+                    <Card>
+                      <Box padding="400">
+                        <BlockStack gap="300">
+                          <Text variant="headingMd" as="h3">
+                            📊 Cohort Analysis Insights
+                          </Text>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="200">
+                                <Text variant="bodyMd" as="p" fontWeight="semibold">🔄 Retention Benchmark</Text>
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  {data.cohortAnalysis.summaryMetrics.avgRetentionMonth1 >= 40
+                                    ? `Great! Your Month 1 retention of ${data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(0)}% is above the 30-40% industry average.`
+                                    : `Your Month 1 retention of ${data.cohortAnalysis.summaryMetrics.avgRetentionMonth1.toFixed(0)}% has room to grow. Industry average is 30-40%.`
+                                  }
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="200">
+                                <Text variant="bodyMd" as="p" fontWeight="semibold">💰 LTV Growth Pattern</Text>
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  {data.cohortAnalysis.summaryMetrics.avgLTV90Days > data.cohortAnalysis.summaryMetrics.avgLTV30Days * 2
+                                    ? "Strong LTV growth! Customers are returning and spending more over time."
+                                    : "Focus on re-engagement campaigns to boost repeat purchases and LTV growth."
+                                  }
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="200">
+                                <Text variant="bodyMd" as="p" fontWeight="semibold">🏆 Tier Progression</Text>
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  {data.cohortAnalysis.summaryMetrics.tierUpgradeRate >= 20
+                                    ? `${data.cohortAnalysis.summaryMetrics.tierUpgradeRate.toFixed(0)}% of customers upgraded tiers - your program is driving engagement!`
+                                    : `Only ${data.cohortAnalysis.summaryMetrics.tierUpgradeRate.toFixed(0)}% upgraded tiers. Consider adjusting tier thresholds or rewards.`
+                                  }
+                                </Text>
+                              </BlockStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                              <BlockStack gap="200">
+                                <Text variant="bodyMd" as="p" fontWeight="semibold">⏱️ Time to Upgrade</Text>
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  {data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade > 0
+                                    ? `Average time to first tier upgrade: ${data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade} days. ${
+                                        data.cohortAnalysis.summaryMetrics.avgTimeToTierUpgrade <= 60
+                                          ? "Quick progression keeps customers engaged!"
+                                          : "Consider adding intermediate rewards to maintain momentum."
+                                      }`
+                                    : "Track tier upgrades to understand customer progression velocity."
+                                  }
                                 </Text>
                               </BlockStack>
                             </Box>
