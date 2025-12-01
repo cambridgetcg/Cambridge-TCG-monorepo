@@ -300,7 +300,7 @@ export function HelpAssistant({
                     Rewards Pro Assistant
                   </span>
                   <span style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: "12px" }}>
-                    Powered by AI
+                    Powered by GitBook
                   </span>
                 </BlockStack>
               </InlineStack>
