@@ -783,12 +783,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where: { shop },
       select: {
         customerId: true,
-        newTierId: true,
-        previousTierId: true,
-        changedAt: true,
+        toTierId: true,
+        fromTierId: true,
+        createdAt: true,
         changeType: true,
       },
-      orderBy: { changedAt: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
 
     // Helper to get month key from date
@@ -950,12 +950,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           cohortCustomers.forEach(customer => {
             // Find the tier the customer was in at the end of this month
             const relevantChanges = tierChangeLogs.filter(log =>
-              log.customerId === customer.id && new Date(log.changedAt) <= targetMonthEnd
+              log.customerId === customer.id && new Date(log.createdAt) <= targetMonthEnd
             );
 
             if (relevantChanges.length > 0) {
               const lastChange = relevantChanges[relevantChanges.length - 1];
-              tierCounts.set(lastChange.newTierId, (tierCounts.get(lastChange.newTierId) || 0) + 1);
+              tierCounts.set(lastChange.toTierId, (tierCounts.get(lastChange.toTierId) || 0) + 1);
             } else {
               // Customer was created but no tier change yet - check current tier
               if (customer.currentTierId && new Date(customer.createdAt) <= targetMonthEnd) {
@@ -1024,7 +1024,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const customer = customersWithOrders.find(c => c.id === customerId);
       const firstUpgrade = customersWithUpgrades.find(log => log.customerId === customerId);
       if (customer?.createdAt && firstUpgrade) {
-        const days = Math.floor((new Date(firstUpgrade.changedAt).getTime() - new Date(customer.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        const days = Math.floor((new Date(firstUpgrade.createdAt).getTime() - new Date(customer.createdAt).getTime()) / (1000 * 60 * 60 * 24));
         if (days >= 0) upgradeDelays.push(days);
       }
     });
