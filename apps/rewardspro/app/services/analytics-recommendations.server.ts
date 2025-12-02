@@ -172,29 +172,50 @@ export class AnalyticsRecommendationsService {
       });
     }
 
-    // 2. Tier Upgrade Opportunities
-    const nearTierBoundary = await db.customer.findMany({
+    // 2. Tier Upgrade Opportunities - Get tiers and find customers near boundaries
+    const tiers = await db.tier.findMany({
+      where: { shop: this.shop },
+      orderBy: { minSpend: 'asc' }
+    });
+
+    // Get customers with significant spending
+    const customersWithSpending = await db.customer.findMany({
       where: {
         shop: this.shop,
-        OR: [
-          {
-            currentTier: 'BRONZE',
-            totalSpent: { gte: 400 } // Close to Silver ($500)
-          },
-          {
-            currentTier: 'SILVER',
-            totalSpent: { gte: 900 } // Close to Gold ($1000)
-          }
-        ]
+        totalSpent: { gte: 0 }
       },
       select: {
         id: true,
-        currentTier: true,
+        currentTierId: true,
         totalSpent: true
       }
     });
 
+    // Find customers within 20% of next tier threshold
+    const nearTierBoundary = customersWithSpending.filter(customer => {
+      const currentTier = tiers.find(t => t.id === customer.currentTierId);
+      if (!currentTier) return false;
+
+      const nextTier = tiers.find(t => t.minSpend > currentTier.minSpend);
+      if (!nextTier) return false;
+
+      const customerSpent = Number(customer.totalSpent || 0);
+      const gap = nextTier.minSpend - customerSpent;
+      const gapPercentage = nextTier.minSpend > 0 ? gap / nextTier.minSpend : 0;
+
+      return gapPercentage <= 0.2 && gapPercentage > 0;
+    });
+
     if (nearTierBoundary.length > 5) {
+      // Calculate total gap for all candidates
+      const totalGap = nearTierBoundary.reduce((sum, customer) => {
+        const currentTier = tiers.find(t => t.id === customer.currentTierId);
+        if (!currentTier) return sum;
+        const nextTier = tiers.find(t => t.minSpend > currentTier.minSpend);
+        if (!nextTier) return sum;
+        return sum + (nextTier.minSpend - Number(customer.totalSpent || 0));
+      }, 0);
+
       insights.push({
         type: 'tier_upgrade_opportunity',
         title: 'Tier Upgrade Campaign',
@@ -215,49 +236,53 @@ export class AnalyticsRecommendationsService {
             bodyHtml: "<p>You're only {{amount_needed}} away from {{next_tier}} tier! Make a purchase today and enjoy enhanced rewards.</p>"
           }
         },
-        predictedRevenue: nearTierBoundary.reduce((sum, c) => {
-          const needed = c.currentTier === 'BRONZE' ? 500 - c.totalSpent : 1000 - c.totalSpent;
-          return sum + needed;
-        }, 0) * 0.3, // 30% conversion estimate
+        predictedRevenue: totalGap * 0.3, // 30% conversion estimate
         affectedCount: nearTierBoundary.length,
         priority: 9
       });
     }
 
-    // 3. Expiring Rewards
-    const expiringRewards = await db.storeCredit.findMany({
+    // 3. Expiring Rewards - Find ledger entries with expiring credits
+    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiringRewards = await db.storeCreditLedger.findMany({
       where: {
         shop: this.shop,
         expiresAt: {
           gte: new Date(),
-          lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
+          lte: sevenDaysFromNow
         },
-        balance: { gt: 0 }
+        amount: { gt: 0 } // Only credit entries
       },
       include: {
         customer: {
           select: {
             id: true,
-            email: true
+            email: true,
+            storeCredit: true
           }
         }
       }
     });
 
-    if (expiringRewards.length > 0) {
-      const totalExpiringValue = expiringRewards.reduce((sum, r) => sum + r.balance, 0);
+    // Filter to customers with positive balances
+    const customersWithExpiringRewards = expiringRewards.filter(r => Number(r.customer.storeCredit || 0) > 0);
+
+    if (customersWithExpiringRewards.length > 0) {
+      const uniqueCustomers = [...new Set(customersWithExpiringRewards.map(r => r.customer.id))];
+      const totalExpiringValue = customersWithExpiringRewards.reduce((sum, r) => sum + Number(r.customer.storeCredit || 0), 0);
+
       insights.push({
         type: 'expiring_rewards',
         title: 'Expiring Rewards Alert',
-        description: `${expiringRewards.length} customers have rewards expiring soon`,
+        description: `${uniqueCustomers.length} customers have rewards expiring soon`,
         segmentPayload: {
           criteria: [{
             field: 'hasExpiringRewards',
             operator: 'equals' as const,
             value: true
           }],
-          customerIds: [...new Set(expiringRewards.map(r => r.customer.id))],
-          estimatedSize: expiringRewards.length
+          customerIds: uniqueCustomers,
+          estimatedSize: uniqueCustomers.length
         },
         metadata: {
           suggestedContent: {
@@ -267,29 +292,35 @@ export class AnalyticsRecommendationsService {
           }
         },
         predictedRevenue: totalExpiringValue * 1.5, // Assume 1.5x spend when using credits
-        affectedCount: expiringRewards.length,
+        affectedCount: uniqueCustomers.length,
         priority: 10 // Highest priority - time sensitive
       });
     }
 
-    // 4. VIP at Risk
-    const vipAtRisk = await db.customer.findMany({
+    // 4. VIP at Risk - Find high-tier customers with no recent orders
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+    // Get top 2 tiers (highest minSpend values) - skip if no tiers
+    const topTiers = tiers.length > 0 ? tiers.slice(-2).map(t => t.id) : [];
+
+    // Only query if we have tiers to search for
+    const vipAtRisk = topTiers.length > 0 ? await db.customer.findMany({
       where: {
         shop: this.shop,
-        currentTier: { in: ['GOLD', 'PLATINUM'] },
+        currentTierId: { in: topTiers },
         lastOrderDate: {
-          lt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) // 60 days
+          lt: sixtyDaysAgo
         }
       },
       select: {
         id: true,
         totalSpent: true,
-        currentTier: true
+        currentTierId: true
       }
-    });
+    }) : [];
 
     if (vipAtRisk.length > 0) {
-      const avgVipSpent = vipAtRisk.reduce((sum, c) => sum + c.totalSpent, 0) / vipAtRisk.length;
+      const avgVipSpent = vipAtRisk.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / vipAtRisk.length;
       insights.push({
         type: 'vip_at_risk',
         title: 'VIP Retention Campaign',
@@ -297,14 +328,14 @@ export class AnalyticsRecommendationsService {
         segmentPayload: {
           criteria: [
             {
-              field: 'currentTier',
+              field: 'currentTierId',
               operator: 'contains' as const,
-              value: ['GOLD', 'PLATINUM']
+              value: topTiers
             },
             {
               field: 'lastOrderDate',
               operator: 'lessThan' as const,
-              value: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
+              value: sixtyDaysAgo
             }
           ],
           customerIds: vipAtRisk.map(c => c.id),

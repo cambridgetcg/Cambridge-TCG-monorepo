@@ -865,9 +865,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/Users/alex/rewardspro-production/app",
+    "appDirectory": "/Users/alex/rewards-pro/app",
     "basename": "/",
-    "buildDirectory": "/Users/alex/rewardspro-production/build",
+    "buildDirectory": "/Users/alex/rewards-pro/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,

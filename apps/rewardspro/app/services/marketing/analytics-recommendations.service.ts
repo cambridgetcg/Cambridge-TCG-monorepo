@@ -68,14 +68,14 @@ export class AnalyticsRecommendationsService {
         lastOrderDate: {
           lt: sixtyDaysAgo
         },
-        totalLifetimeValue: {
+        totalSpent: {
           gt: 100 // Has made purchases before
         }
       },
       select: {
         id: true,
         shopifyCustomerId: true,
-        totalLifetimeValue: true,
+        totalSpent: true,
       }
     });
 
@@ -100,7 +100,7 @@ export class AnalyticsRecommendationsService {
       },
       customerIds: inactiveCustomers.map(c => c.shopifyCustomerId).filter(Boolean) as string[],
       metadata: {
-        averageLifetimeValue: inactiveCustomers.reduce((sum, c) => sum + (c.totalLifetimeValue || 0), 0) / inactiveCustomers.length
+        averageLifetimeValue: inactiveCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / inactiveCustomers.length
       }
     };
   }
@@ -109,10 +109,10 @@ export class AnalyticsRecommendationsService {
    * Get customers close to tier upgrade
    */
   private static async getTierUpgradeRecommendation(shop: string): Promise<MarketingRecommendation | null> {
-    // Get all tiers sorted by threshold
+    // Get all tiers sorted by minSpend threshold
     const tiers = await db.tier.findMany({
       where: { shop },
-      orderBy: { thresholdAmount: 'asc' }
+      orderBy: { minSpend: 'asc' }
     });
 
     if (tiers.length < 2) return null;
@@ -120,12 +120,12 @@ export class AnalyticsRecommendationsService {
     const customers = await db.customer.findMany({
       where: {
         shop,
-        totalLifetimeValue: { gt: 0 }
+        totalSpent: { gt: 0 }
       },
       select: {
         id: true,
         shopifyCustomerId: true,
-        totalLifetimeValue: true,
+        totalSpent: true,
         currentTierId: true,
       }
     });
@@ -135,11 +135,12 @@ export class AnalyticsRecommendationsService {
       const currentTier = tiers.find(t => t.id === customer.currentTierId);
       if (!currentTier) return false;
 
-      const nextTier = tiers.find(t => t.thresholdAmount > currentTier.thresholdAmount);
+      const nextTier = tiers.find(t => t.minSpend > currentTier.minSpend);
       if (!nextTier) return false;
 
-      const gap = nextTier.thresholdAmount - (customer.totalLifetimeValue || 0);
-      const gapPercentage = gap / nextTier.thresholdAmount;
+      const customerSpent = Number(customer.totalSpent || 0);
+      const gap = nextTier.minSpend - customerSpent;
+      const gapPercentage = gap / nextTier.minSpend;
 
       return gapPercentage <= 0.2 && gapPercentage > 0;
     });
@@ -150,9 +151,9 @@ export class AnalyticsRecommendationsService {
     const totalGap = upgradeCandidates.reduce((sum, customer) => {
       const currentTier = tiers.find(t => t.id === customer.currentTierId);
       if (!currentTier) return sum;
-      const nextTier = tiers.find(t => t.thresholdAmount > currentTier.thresholdAmount);
+      const nextTier = tiers.find(t => t.minSpend > currentTier.minSpend);
       if (!nextTier) return sum;
-      return sum + (nextTier.thresholdAmount - (customer.totalLifetimeValue || 0));
+      return sum + (nextTier.minSpend - Number(customer.totalSpent || 0));
     }, 0);
 
     const avgGap = totalGap / upgradeCandidates.length;
@@ -184,6 +185,7 @@ export class AnalyticsRecommendationsService {
     const fourteenDaysFromNow = new Date();
     fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
 
+    // Find customers with store credit that has expiring ledger entries
     const expiringRewards = await db.storeCreditLedger.findMany({
       where: {
         shop,
@@ -191,14 +193,16 @@ export class AnalyticsRecommendationsService {
           lte: fourteenDaysFromNow,
           gt: new Date()
         },
-        remainingBalance: {
-          gt: 0
+        amount: {
+          gt: 0 // Only credit entries (positive amounts)
         }
       },
       include: {
         customer: {
           select: {
-            shopifyCustomerId: true
+            id: true,
+            shopifyCustomerId: true,
+            storeCredit: true
           }
         }
       }
@@ -206,8 +210,12 @@ export class AnalyticsRecommendationsService {
 
     if (expiringRewards.length === 0) return null;
 
-    const totalAtRisk = expiringRewards.reduce((sum, r) => sum + (r.remainingBalance || 0), 0);
-    const uniqueCustomers = new Set(expiringRewards.map(r => r.shopifyCustomerId));
+    // Filter to only include customers with positive store credit balance
+    const customersWithBalance = expiringRewards.filter(r => Number(r.customer.storeCredit || 0) > 0);
+    if (customersWithBalance.length === 0) return null;
+
+    const totalAtRisk = customersWithBalance.reduce((sum, r) => sum + Number(r.customer.storeCredit || 0), 0);
+    const uniqueCustomers = new Set(customersWithBalance.map(r => r.customer.shopifyCustomerId));
 
     return {
       id: 'reward_expiry',
@@ -237,10 +245,10 @@ export class AnalyticsRecommendationsService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Get top tier
+    // Get top tier by minSpend
     const topTier = await db.tier.findFirst({
       where: { shop },
-      orderBy: { thresholdAmount: 'desc' }
+      orderBy: { minSpend: 'desc' }
     });
 
     if (!topTier) return null;
@@ -252,21 +260,21 @@ export class AnalyticsRecommendationsService {
         lastOrderDate: {
           lt: thirtyDaysAgo
         },
-        totalLifetimeValue: {
+        totalSpent: {
           gt: 1000
         }
       },
       select: {
         id: true,
         shopifyCustomerId: true,
-        totalLifetimeValue: true,
+        totalSpent: true,
       }
     });
 
     if (vipCustomers.length === 0) return null;
 
     // Calculate annual value at risk
-    const avgMonthlyValue = vipCustomers.reduce((sum, c) => sum + (c.totalLifetimeValue || 0), 0) / vipCustomers.length / 12;
+    const avgMonthlyValue = vipCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / vipCustomers.length / 12;
     const annualValueAtRisk = avgMonthlyValue * 12 * vipCustomers.length;
 
     return {
@@ -328,7 +336,7 @@ export class AnalyticsRecommendationsService {
     const customers = await db.customer.findMany({
       where: {
         shop,
-        unusedStoreCreditBalance: {
+        storeCredit: {
           gt: 0,
           lt: 50 // Low balance threshold
         }
@@ -336,13 +344,13 @@ export class AnalyticsRecommendationsService {
       select: {
         id: true,
         shopifyCustomerId: true,
-        unusedStoreCreditBalance: true,
+        storeCredit: true,
       }
     });
 
     if (customers.length === 0) return null;
 
-    const totalDormant = customers.reduce((sum, c) => sum + (c.unusedStoreCreditBalance || 0), 0);
+    const totalDormant = customers.reduce((sum, c) => sum + Number(c.storeCredit || 0), 0);
 
     return {
       id: 'low_balance',
