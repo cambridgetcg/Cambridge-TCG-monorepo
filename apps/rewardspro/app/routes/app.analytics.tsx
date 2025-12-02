@@ -747,16 +747,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // COHORT ANALYSIS CALCULATION
     // ============================================
 
-    // Get all customers with their first order date for cohort grouping
+    // Get all customers with orders for cohort grouping (use createdAt as cohort date)
     const customersWithOrders = await db.customer.findMany({
       where: {
         shop,
-        firstOrderDate: { not: null },
+        orderCount: { gt: 0 },
       },
       select: {
         id: true,
         shopifyCustomerId: true,
-        firstOrderDate: true,
         lastOrderDate: true,
         totalSpent: true,
         orderCount: true,
@@ -809,11 +808,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       return (date2.getFullYear() - date1.getFullYear()) * 12 + (date2.getMonth() - date1.getMonth());
     };
 
-    // Group customers by their first order month (cohort)
+    // Group customers by their creation month (cohort)
     const cohortMap = new Map<string, typeof customersWithOrders>();
     customersWithOrders.forEach(customer => {
-      if (customer.firstOrderDate) {
-        const cohortKey = getMonthKey(customer.firstOrderDate);
+      if (customer.createdAt) {
+        const cohortKey = getMonthKey(customer.createdAt);
         if (!cohortMap.has(cohortKey)) {
           cohortMap.set(cohortKey, []);
         }
@@ -1024,8 +1023,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     uniqueUpgradedCustomers.forEach(customerId => {
       const customer = customersWithOrders.find(c => c.id === customerId);
       const firstUpgrade = customersWithUpgrades.find(log => log.customerId === customerId);
-      if (customer?.firstOrderDate && firstUpgrade) {
-        const days = Math.floor((new Date(firstUpgrade.changedAt).getTime() - new Date(customer.firstOrderDate).getTime()) / (1000 * 60 * 60 * 24));
+      if (customer?.createdAt && firstUpgrade) {
+        const days = Math.floor((new Date(firstUpgrade.changedAt).getTime() - new Date(customer.createdAt).getTime()) / (1000 * 60 * 60 * 24));
         if (days >= 0) upgradeDelays.push(days);
       }
     });
