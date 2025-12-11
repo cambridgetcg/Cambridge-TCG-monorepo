@@ -858,7 +858,10 @@ export default function BillingPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '200px repeat(4, 1fr)', gap: '0', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e1e3e5' }}>
                     {/* Header Row */}
                     <div style={{ padding: '20px', backgroundColor: '#f6f6f7', borderBottom: '2px solid #e1e3e5' }}>
-                      <Text as="span" variant="headingMd">Compare Plans</Text>
+                      <BlockStack gap="100">
+                        <Text as="span" variant="headingMd">Compare Plans</Text>
+                        <Text as="span" variant="bodySm" tone="subdued">All paid plans include a 7-day free trial</Text>
+                      </BlockStack>
                     </div>
                     {planCards.map((plan) => {
                       const planConstantMonthly = getPlanConstant(plan.id);
