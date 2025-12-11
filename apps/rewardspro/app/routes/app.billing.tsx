@@ -580,6 +580,7 @@ export default function BillingPage() {
       annualSavings: "Save $132/year",
       description: "Everything you need to grow your loyalty program",
       features: [
+        "7-day free trial",
         "500 orders/month",
         "Batch processing cashback",
         "Priority support",
@@ -598,6 +599,7 @@ export default function BillingPage() {
       annualSavings: "Save $492/year",
       description: "For established businesses with advanced needs",
       features: [
+        "7-day free trial",
         "2,000 orders/month",
         "Sell tier memberships",
         "Advanced analytics",
@@ -616,6 +618,7 @@ export default function BillingPage() {
       annualSavings: "Save $1,692/year",
       description: "Unlimited everything for growing enterprises",
       features: [
+        "7-day free trial",
         "Unlimited orders",
         "Full white label solution",
         "A/B testing",
