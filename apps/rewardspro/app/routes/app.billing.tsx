@@ -849,9 +849,9 @@ export default function BillingPage() {
                 const planConstantAnnual = getPlanConstant(plan.idAnnual);
                 const isCurrentPlan = currentPlan === planConstantMonthly ||
                                      currentPlan === planConstantAnnual;
-                // Free plan is current if no active subscription
+                // Free plan is current ONLY if no active subscription AND no current paid plan detected
                 const isFree = 'isFree' in plan && plan.isFree;
-                const isFreePlanCurrent = isFree && !data.hasActivePayment;
+                const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
 
                 return (
                   <Card key={plan.id}>
