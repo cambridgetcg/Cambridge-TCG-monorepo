@@ -426,7 +426,6 @@ export function CustomerDetailModal({
                       } : null
                     }}
                     shopSettings={details.shopSettings}
-                    orders={details.orders}
                   />
                 </Box>
               )}
