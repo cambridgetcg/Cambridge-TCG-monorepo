@@ -989,7 +989,7 @@ export default function BillingPage() {
                             isFreePlanCurrent ? (
                               <Button variant="secondary" disabled>Current Plan</Button>
                             ) : (
-                              <Button variant="secondary" onClick={handleCancelSubscription} loading={isSubmitting}>Downgrade</Button>
+                              <Button variant="primary" onClick={handleCancelSubscription} loading={isSubmitting}>Downgrade</Button>
                             )
                           ) : (
                             <Button variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
