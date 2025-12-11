@@ -914,14 +914,26 @@ export default function BillingPage() {
 
                         {/* Action Button */}
                         {isFree ? (
-                          <Button
-                            fullWidth
-                            size="large"
-                            variant="secondary"
-                            disabled={true}
-                          >
-                            {isFreePlanCurrent ? "Current Plan" : "Default Plan"}
-                          </Button>
+                          isFreePlanCurrent ? (
+                            <Button
+                              fullWidth
+                              size="large"
+                              variant="secondary"
+                              disabled={true}
+                            >
+                              Current Plan
+                            </Button>
+                          ) : (
+                            <Button
+                              fullWidth
+                              size="large"
+                              variant="secondary"
+                              url={`https://${data.shop}/admin/settings/billing/subscriptions`}
+                              target="_blank"
+                            >
+                              Downgrade
+                            </Button>
+                          )
                         ) : (
                           <Button
                             fullWidth
