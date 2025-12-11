@@ -687,10 +687,10 @@ export default function Dashboard() {
   ) : null;
 
   // Calculate active features count using optimistic values
+  // Note: emailMarketingEnabled is hidden until feature is ready
   const activeFeaturesCount = [
     getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled),
     getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled),
-    getFeatureState('emailMarketingEnabled', data.shopSettings?.emailMarketingEnabled),
     getFeatureState('tierProductsEnabled', data.shopSettings?.tierProductsEnabled),
   ].filter(Boolean).length;
 
@@ -1092,8 +1092,8 @@ export default function Dashboard() {
                   <Icon source={SettingsIcon} tone="base" />
                   <Text variant="headingMd" as="h2">Feature Manager</Text>
                 </InlineStack>
-                <Badge tone={activeFeaturesCount === 4 ? 'success' : activeFeaturesCount >= 2 ? 'info' : 'warning'}>
-                  {activeFeaturesCount}/4 Active
+                <Badge tone={activeFeaturesCount === 3 ? 'success' : activeFeaturesCount >= 2 ? 'info' : 'warning'}>
+                  {activeFeaturesCount}/3 Active
                 </Badge>
               </InlineStack>
 
@@ -1230,68 +1230,7 @@ export default function Dashboard() {
                   );
                 })()}
 
-                {/* Email Marketing Row - OPTIMISTIC UI */}
-                {(() => {
-                  const isEnabled = getFeatureState('emailMarketingEnabled', data.shopSettings?.emailMarketingEnabled);
-                  return (
-                    <div style={{
-                      padding: '12px 16px',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '8px',
-                      border: '1px solid #e1e3e5'
-                    }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '8px',
-                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'background-color 0.15s ease'
-                          }}>
-                            <Icon source={CreditCardIcon} tone={isEnabled ? 'success' : 'subdued'} />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text variant="bodyMd" fontWeight="semibold" as="span">Email Marketing Campaigns</Text>
-                            <Text variant="bodySm" tone="subdued" as="span">Promotional email campaigns</Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <InlineStack gap="300" blockAlign="center">
-                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
-                            {isEnabled ? 'Enabled' : 'Disabled'}
-                          </Badge>
-                          <div
-                            style={{
-                              width: '52px',
-                              height: '28px',
-                              borderRadius: '14px',
-                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
-                              position: 'relative',
-                              cursor: 'pointer',
-                              transition: 'background-color 0.15s ease'
-                            }}
-                            onClick={() => handleToggleFeature('emailMarketingEnabled', !isEnabled)}
-                          >
-                            <div style={{
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              backgroundColor: 'white',
-                              position: 'absolute',
-                              top: '2px',
-                              left: isEnabled ? '26px' : '2px',
-                              transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                            }} />
-                          </div>
-                        </InlineStack>
-                      </InlineStack>
-                    </div>
-                  );
-                })()}
+                {/* Email Marketing Row - Hidden until feature is ready */}
 
                 {/* Membership Tiers Row - OPTIMISTIC UI */}
                 {(() => {
