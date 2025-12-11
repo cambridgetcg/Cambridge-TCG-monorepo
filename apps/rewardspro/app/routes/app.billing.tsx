@@ -600,7 +600,6 @@ export default function BillingPage() {
       features: [
         "2,000 orders/month",
         "Sell tier memberships",
-        "White label email",
         "Advanced analytics",
         "Phone support",
         "$5 per 100 extra orders"
@@ -618,9 +617,7 @@ export default function BillingPage() {
       description: "Unlimited everything for growing enterprises",
       features: [
         "Unlimited orders",
-        "Unlimited emails",
         "Full white label solution",
-        "Custom SMTP integration",
         "A/B testing",
         "Dedicated support",
         "No overage charges"
