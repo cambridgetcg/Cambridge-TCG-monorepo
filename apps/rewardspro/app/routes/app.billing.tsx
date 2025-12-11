@@ -559,7 +559,7 @@ export default function BillingPage() {
       annualPrice: "$0",
       annualMonthlyEquivalent: "$0",
       annualSavings: "",
-      description: "Get started with the essentials",
+      description: "Get started with the essentials and familiarise with the function",
       features: [
         "100 orders/month",
         "Up to 500 customers",
