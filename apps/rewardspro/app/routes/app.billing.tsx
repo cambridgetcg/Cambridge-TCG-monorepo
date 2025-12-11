@@ -395,7 +395,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session, billing } = await authenticate.admin(request);
+  const { session, billing, admin } = await authenticate.admin(request);
 
   if (!session?.shop) {
     throw new Response("Unauthorized", { status: 401 });
@@ -403,6 +403,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const formData = await request.formData();
   const action = formData.get("action") as string;
+
+  // Handle cancel/downgrade to free plan
+  if (action === "cancel-subscription") {
+    console.log(`[Billing Action] Shop ${session.shop} requesting subscription cancellation (downgrade to Free)`);
+
+    try {
+      const { GraphQLBillingService } = await import("~/services/billing/graphql-billing.service");
+      const billingService = new GraphQLBillingService(admin);
+      const result = await billingService.cancelSubscription(session.shop);
+
+      if (result.success) {
+        console.log(`[Billing Action] Successfully cancelled subscription for ${session.shop}`);
+        return json({ success: true, cancelled: true });
+      } else {
+        console.error(`[Billing Action] Failed to cancel subscription:`, result.error);
+        return json({ success: false, error: result.error }, { status: 400 });
+      }
+    } catch (error) {
+      console.error(`[Billing Action] Cancel subscription error:`, error);
+      return json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to cancel subscription"
+      }, { status: 500 });
+    }
+  }
 
   // Extract plan ID from action (e.g., "subscribe-pro" -> "pro")
   const planId = action?.replace("subscribe-", "");
@@ -540,6 +565,14 @@ export default function BillingPage() {
     submit(formData, { method: "post" });
   };
 
+  const handleCancelSubscription = () => {
+    if (confirm("Are you sure you want to downgrade to the Free plan? Your current subscription will be cancelled.")) {
+      const formData = new FormData();
+      formData.set("action", "cancel-subscription");
+      submit(formData, { method: "post" });
+    }
+  };
+
   // Get current plan - prefer subscriptionInfo (GraphQL) over billing.check()
   // billing.check() can be slow to update after subscription approval
   const currentSubscription = data.appSubscriptions[0];
@@ -669,11 +702,20 @@ export default function BillingPage() {
               </Banner>
             )}
 
-            {/* Show cancellation message */}
+            {/* Show cancellation message from loader (billing callback) */}
             {data.cancelled && (
               <Banner tone="info">
                 <Text as="p">
                   Subscription was not completed. Your current plan remains active.
+                </Text>
+              </Banner>
+            )}
+
+            {/* Show success message when subscription is cancelled (downgrade to Free) */}
+            {actionData?.success && actionData?.cancelled && (
+              <Banner tone="success">
+                <Text as="p">
+                  Your subscription has been cancelled. You are now on the Free plan.
                 </Text>
               </Banner>
             )}
@@ -947,7 +989,7 @@ export default function BillingPage() {
                             isFreePlanCurrent ? (
                               <Button variant="secondary" disabled>Current Plan</Button>
                             ) : (
-                              <Button variant="secondary" url={`https://${data.shop}/admin/settings/billing/subscriptions`} target="_blank">Downgrade</Button>
+                              <Button variant="secondary" onClick={handleCancelSubscription} loading={isSubmitting}>Downgrade</Button>
                             )
                           ) : (
                             <Button variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
