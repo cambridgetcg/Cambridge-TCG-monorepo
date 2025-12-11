@@ -854,7 +854,7 @@ export default function BillingPage() {
             {/* Plan Cards */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '16px',
             }}>
               {planCards.map((plan) => {
