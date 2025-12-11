@@ -550,11 +550,13 @@ export default function BillingPage() {
   const subscriptionInfo = data.subscriptionInfo;
 
   // Define plan UI configurations with both monthly and annual pricing
+  // tierLevel: 0 = Free, 1 = Pro, 2 = Max, 3 = Ultra (used for upgrade/downgrade logic)
   const planCards = [
     {
       id: "free",
       idAnnual: "free",
       name: "Free",
+      tierLevel: 0,
       monthlyPrice: "$0",
       annualPrice: "$0",
       annualMonthlyEquivalent: "$0",
@@ -574,6 +576,7 @@ export default function BillingPage() {
       id: "pro",
       idAnnual: "pro-annual",
       name: "Pro",
+      tierLevel: 1,
       monthlyPrice: "$39",
       annualPrice: "$336",
       annualMonthlyEquivalent: "$28",
@@ -593,6 +596,7 @@ export default function BillingPage() {
       id: "max",
       idAnnual: "max-annual",
       name: "Max",
+      tierLevel: 2,
       monthlyPrice: "$149",
       annualPrice: "$1,296",
       annualMonthlyEquivalent: "$108",
@@ -612,6 +616,7 @@ export default function BillingPage() {
       id: "ultra",
       idAnnual: "ultra-annual",
       name: "Ultra",
+      tierLevel: 3,
       monthlyPrice: "$499",
       annualPrice: "$4,296",
       annualMonthlyEquivalent: "$358",
@@ -628,6 +633,16 @@ export default function BillingPage() {
       recommended: false,
     },
   ];
+
+  // Determine current plan's tier level
+  const getCurrentTierLevel = (): number => {
+    if (!currentPlan) return 0; // Free plan
+    if (currentPlan.includes('Ultra')) return 3;
+    if (currentPlan.includes('Max')) return 2;
+    if (currentPlan.includes('Pro')) return 1;
+    return 0; // Free plan
+  };
+  const currentTierLevel = getCurrentTierLevel();
 
   return (
     <Page
@@ -943,7 +958,7 @@ export default function BillingPage() {
                             loading={isSubmitting}
                             onClick={() => handleSubscribe(planIdToUse)}
                           >
-                            {isCurrentPlan ? "Current Plan" : "Subscribe"}
+                            {isCurrentPlan ? "Current Plan" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
                           </Button>
                         )}
 
