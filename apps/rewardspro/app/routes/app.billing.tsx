@@ -568,12 +568,27 @@ export default function BillingPage() {
 
   // Modal state for downgrade confirmation
   const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [pendingDowngrade, setPendingDowngrade] = useState<{ planId: string; planName: string; isFree: boolean } | null>(null);
 
-  const handleCancelSubscription = () => {
+  const openDowngradeModal = (planId: string, planName: string, isFree: boolean) => {
+    setPendingDowngrade({ planId, planName, isFree });
+    setShowDowngradeModal(true);
+  };
+
+  const handleConfirmDowngrade = () => {
+    if (!pendingDowngrade) return;
+
     setShowDowngradeModal(false);
     const formData = new FormData();
-    formData.set("action", "cancel-subscription");
+
+    if (pendingDowngrade.isFree) {
+      formData.set("action", "cancel-subscription");
+    } else {
+      formData.set("action", `subscribe-${pendingDowngrade.planId}`);
+    }
+
     submit(formData, { method: "post" });
+    setPendingDowngrade(null);
   };
 
   // Get current plan - prefer subscriptionInfo (GraphQL) over billing.check()
@@ -992,10 +1007,22 @@ export default function BillingPage() {
                             isFreePlanCurrent ? (
                               <Button variant="secondary" disabled>Current Plan</Button>
                             ) : (
-                              <Button variant="primary" onClick={() => setShowDowngradeModal(true)} loading={isSubmitting}>Downgrade</Button>
+                              <Button variant="primary" onClick={() => openDowngradeModal('free', 'Free', true)} loading={isSubmitting}>Downgrade</Button>
                             )
                           ) : (
-                            <Button variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
+                            <Button
+                              variant={isCurrentPlan ? "secondary" : "primary"}
+                              disabled={isCurrentPlan || isSubmitting}
+                              loading={isSubmitting}
+                              onClick={() => {
+                                const isDowngrade = plan.tierLevel < currentTierLevel;
+                                if (isDowngrade) {
+                                  openDowngradeModal(planIdToUse, plan.name, false);
+                                } else {
+                                  handleSubscribe(planIdToUse);
+                                }
+                              }}
+                            >
                               {isCurrentPlan ? "Current Plan" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
                             </Button>
                           )}
@@ -1134,28 +1161,36 @@ export default function BillingPage() {
       {/* Downgrade Confirmation Modal */}
       <Modal
         open={showDowngradeModal}
-        onClose={() => setShowDowngradeModal(false)}
-        title="Downgrade to Free Plan"
+        onClose={() => {
+          setShowDowngradeModal(false);
+          setPendingDowngrade(null);
+        }}
+        title={`Downgrade to ${pendingDowngrade?.planName || ''} Plan`}
         primaryAction={{
           content: "Downgrade",
           destructive: true,
-          onAction: handleCancelSubscription,
+          onAction: handleConfirmDowngrade,
           loading: isSubmitting,
         }}
         secondaryActions={[
           {
             content: "Cancel",
-            onAction: () => setShowDowngradeModal(false),
+            onAction: () => {
+              setShowDowngradeModal(false);
+              setPendingDowngrade(null);
+            },
           },
         ]}
       >
         <Modal.Section>
           <BlockStack gap="300">
             <Text as="p">
-              Are you sure you want to downgrade to the Free plan?
+              Are you sure you want to downgrade to the {pendingDowngrade?.planName} plan?
             </Text>
             <Text as="p" tone="subdued">
-              Your current subscription will be cancelled immediately. You will lose access to premium features and be limited to 100 orders per month.
+              {pendingDowngrade?.isFree
+                ? "Your current subscription will be cancelled immediately. You will lose access to premium features and be limited to 100 orders per month."
+                : "Your current subscription will be changed. You may lose access to some features available in your current plan."}
             </Text>
           </BlockStack>
         </Modal.Section>
