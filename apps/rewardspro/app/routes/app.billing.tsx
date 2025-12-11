@@ -33,6 +33,7 @@ import {
 import { detectNewSubscription } from "~/utils/billing-success-detection.server";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
 import {
+  FREE_PLAN,
   PRO_PLAN,
   PRO_ANNUAL_PLAN,
   MAX_PLAN,
@@ -44,6 +45,7 @@ import {
 // Map plan IDs to Shopify plan constants
 function getPlanConstant(planId: string): string {
   const planMap: Record<string, string> = {
+    'free': FREE_PLAN,
     'pro': PRO_PLAN,
     'pro-annual': PRO_ANNUAL_PLAN,
     'max': MAX_PLAN,
@@ -550,6 +552,25 @@ export default function BillingPage() {
   // Define plan UI configurations with both monthly and annual pricing
   const planCards = [
     {
+      id: "free",
+      idAnnual: "free",
+      name: "Free",
+      monthlyPrice: "$0",
+      annualPrice: "$0",
+      annualMonthlyEquivalent: "$0",
+      annualSavings: "",
+      description: "Get started with the essentials",
+      features: [
+        "100 orders/month",
+        "Up to 500 customers",
+        "Basic tier management",
+        "Store credit system",
+        "Email support"
+      ],
+      recommended: false,
+      isFree: true,
+    },
+    {
       id: "pro",
       idAnnual: "pro-annual",
       name: "Pro",
@@ -828,6 +849,9 @@ export default function BillingPage() {
                 const planConstantAnnual = getPlanConstant(plan.idAnnual);
                 const isCurrentPlan = currentPlan === planConstantMonthly ||
                                      currentPlan === planConstantAnnual;
+                // Free plan is current if no active subscription
+                const isFree = 'isFree' in plan && plan.isFree;
+                const isFreePlanCurrent = isFree && !data.hasActivePayment;
 
                 return (
                   <Card key={plan.id}>
@@ -841,14 +865,23 @@ export default function BillingPage() {
                           {plan.recommended && (
                             <Badge tone="info">Recommended</Badge>
                           )}
-                          {isCurrentPlan && (
+                          {(isCurrentPlan || isFreePlanCurrent) && (
                             <Badge tone="success">Current</Badge>
                           )}
                         </InlineStack>
 
                         {/* Price */}
                         <BlockStack gap="200">
-                          {billingInterval === 'monthly' ? (
+                          {isFree ? (
+                            <InlineStack align="start" gap="100">
+                              <Text as="p" variant="heading2xl">
+                                $0
+                              </Text>
+                              <Text as="span" variant="bodyLg" tone="subdued">
+                                forever
+                              </Text>
+                            </InlineStack>
+                          ) : billingInterval === 'monthly' ? (
                             <InlineStack align="start" gap="100">
                               <Text as="p" variant="heading2xl">
                                 {plan.monthlyPrice}
@@ -880,16 +913,27 @@ export default function BillingPage() {
                         </Text>
 
                         {/* Action Button */}
-                        <Button
-                          fullWidth
-                          size="large"
-                          variant={isCurrentPlan ? "secondary" : (plan.recommended ? "primary" : "primary")}
-                          disabled={isCurrentPlan || isSubmitting}
-                          loading={isSubmitting}
-                          onClick={() => handleSubscribe(planIdToUse)}
-                        >
-                          {isCurrentPlan ? "Current Plan" : "Subscribe"}
-                        </Button>
+                        {isFree ? (
+                          <Button
+                            fullWidth
+                            size="large"
+                            variant="secondary"
+                            disabled={true}
+                          >
+                            {isFreePlanCurrent ? "Current Plan" : "Default Plan"}
+                          </Button>
+                        ) : (
+                          <Button
+                            fullWidth
+                            size="large"
+                            variant={isCurrentPlan ? "secondary" : (plan.recommended ? "primary" : "primary")}
+                            disabled={isCurrentPlan || isSubmitting}
+                            loading={isSubmitting}
+                            onClick={() => handleSubscribe(planIdToUse)}
+                          >
+                            {isCurrentPlan ? "Current Plan" : "Subscribe"}
+                          </Button>
+                        )}
 
                         <Divider />
 
