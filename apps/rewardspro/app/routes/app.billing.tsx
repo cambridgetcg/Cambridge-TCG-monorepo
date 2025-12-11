@@ -851,147 +851,264 @@ export default function BillingPage() {
               </ButtonGroup>
             </InlineStack>
 
-            {/* ========== VARIATION A: Grid Cards (Current) ========== */}
+            {/* ========== VARIATION C1: Clean Minimal Table ========== */}
             <Card>
               <Box padding="400" background="bg-surface-secondary">
-                <Text as="h2" variant="headingMd">VARIATION A: Grid Cards</Text>
+                <Text as="h2" variant="headingMd">VARIATION C1: Clean Minimal Table</Text>
               </Box>
             </Card>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: '16px',
-            }}>
-              {planCards.map((plan) => {
-                const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
-                const planConstantMonthly = getPlanConstant(plan.id);
-                const planConstantAnnual = getPlanConstant(plan.idAnnual);
-                const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
-                const isFree = 'isFree' in plan && plan.isFree;
-                const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
+            <Card>
+              <Box padding="400">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '20px 16px', textAlign: 'left', borderBottom: '1px solid #e1e3e5' }}></th>
+                      {planCards.map((plan) => {
+                        const planConstantMonthly = getPlanConstant(plan.id);
+                        const planConstantAnnual = getPlanConstant(plan.idAnnual);
+                        const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
+                        const isFree = 'isFree' in plan && plan.isFree;
+                        const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
+                        const showCurrent = isCurrentPlan || isFreePlanCurrent;
+                        const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
 
-                return (
-                  <Card key={plan.id}>
-                    <Box padding="600">
-                      <BlockStack gap="400">
-                        <InlineStack align="space-between">
-                          <Text as="h3" variant="headingLg">{plan.name}</Text>
-                          {plan.recommended && <Badge tone="info">Recommended</Badge>}
-                          {(isCurrentPlan || isFreePlanCurrent) && <Badge tone="success">Current</Badge>}
-                        </InlineStack>
-                        <BlockStack gap="200">
-                          {isFree ? (
-                            <InlineStack align="start" gap="100">
-                              <Text as="p" variant="heading2xl">$0</Text>
-                              <Text as="span" variant="bodyLg" tone="subdued">forever</Text>
-                            </InlineStack>
-                          ) : billingInterval === 'monthly' ? (
-                            <InlineStack align="start" gap="100">
-                              <Text as="p" variant="heading2xl">{plan.monthlyPrice}</Text>
-                              <Text as="span" variant="bodyLg" tone="subdued">/month</Text>
-                            </InlineStack>
-                          ) : (
-                            <BlockStack gap="100">
-                              <InlineStack align="start" gap="100">
-                                <Text as="p" variant="heading2xl">{plan.annualMonthlyEquivalent}</Text>
-                                <Text as="span" variant="bodyLg" tone="subdued">/month</Text>
-                              </InlineStack>
-                              <Text as="p" variant="bodyMd" tone="subdued">{plan.annualPrice}/year • {plan.annualSavings}</Text>
+                        return (
+                          <th key={`c1-head-${plan.id}`} style={{ padding: '20px 16px', textAlign: 'center', borderBottom: '1px solid #e1e3e5', minWidth: '160px' }}>
+                            <BlockStack gap="300" inlineAlign="center">
+                              <BlockStack gap="100" inlineAlign="center">
+                                <Text as="span" variant="headingLg">{plan.name}</Text>
+                                {showCurrent && <Badge tone="success">Current</Badge>}
+                                {plan.recommended && !showCurrent && <Badge tone="info">Popular</Badge>}
+                              </BlockStack>
+                              <BlockStack gap="050" inlineAlign="center">
+                                <Text as="p" variant="heading2xl">
+                                  {isFree ? '$0' : billingInterval === 'monthly' ? plan.monthlyPrice : plan.annualMonthlyEquivalent}
+                                </Text>
+                                <Text as="p" variant="bodySm" tone="subdued">
+                                  {isFree ? 'forever' : billingInterval === 'monthly' ? '/month' : '/month billed annually'}
+                                </Text>
+                              </BlockStack>
+                              <div style={{ marginTop: '8px' }}>
+                                {isFree ? (
+                                  isFreePlanCurrent ? (
+                                    <Button size="slim" variant="secondary" disabled>Current</Button>
+                                  ) : (
+                                    <Button size="slim" variant="secondary" url={`https://${data.shop}/admin/settings/billing/subscriptions`} target="_blank">Downgrade</Button>
+                                  )
+                                ) : (
+                                  <Button size="slim" variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
+                                    {isCurrentPlan ? "Current" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
+                                  </Button>
+                                )}
+                              </div>
                             </BlockStack>
-                          )}
-                        </BlockStack>
-                        <Text as="p" variant="bodyMd" tone="subdued">{plan.description}</Text>
-                        {isFree ? (
-                          isFreePlanCurrent ? (
-                            <Button fullWidth size="large" variant="secondary" disabled={true}>Current Plan</Button>
-                          ) : (
-                            <Button fullWidth size="large" variant="secondary" url={`https://${data.shop}/admin/settings/billing/subscriptions`} target="_blank">Downgrade</Button>
-                          )
-                        ) : (
-                          <Button fullWidth size="large" variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
-                            {isCurrentPlan ? "Current Plan" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
-                          </Button>
-                        )}
-                        <Divider />
-                        <BlockStack gap="300" align="start">
-                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="start">What's included:</Text>
-                          <BlockStack gap="200" align="start">
-                            {plan.features.map((feature, index) => (
-                              <InlineStack key={index} gap="200" align="start" blockAlign="start">
-                                <div style={{ flexShrink: 0 }}><Icon source={CheckCircleIcon} tone="success" /></div>
-                                <Text as="p" variant="bodyMd" alignment="start">{feature}</Text>
-                              </InlineStack>
-                            ))}
-                          </BlockStack>
-                        </BlockStack>
-                      </BlockStack>
-                    </Box>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {/* ========== VARIATION B: Compact Horizontal Cards ========== */}
-            <Card>
-              <Box padding="400" background="bg-surface-secondary">
-                <Text as="h2" variant="headingMd">VARIATION B: Compact Horizontal Cards</Text>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Orders per month', values: ['100', '500', '2,000', 'Unlimited'] },
+                      { label: 'Customers', values: ['500', '2,000', 'Unlimited', 'Unlimited'] },
+                      { label: 'Store credit', values: ['✓', '✓', '✓', '✓'] },
+                      { label: 'Tier management', values: ['Basic', 'Advanced', 'Advanced', 'Advanced'] },
+                      { label: 'Analytics', values: ['Basic', 'Advanced', 'Advanced', 'Advanced'] },
+                      { label: 'Support', values: ['Email', 'Priority', 'Phone', 'Dedicated'] },
+                      { label: 'Free trial', values: ['—', '7 days', '7 days', '7 days'] },
+                    ].map((row, idx) => (
+                      <tr key={row.label}>
+                        <td style={{ padding: '14px 16px', borderBottom: '1px solid #f1f1f1' }}>
+                          <Text as="span" variant="bodyMd">{row.label}</Text>
+                        </td>
+                        {row.values.map((val, i) => (
+                          <td key={`c1-${idx}-${i}`} style={{ padding: '14px 16px', textAlign: 'center', borderBottom: '1px solid #f1f1f1' }}>
+                            <Text as="span" variant="bodyMd">{val}</Text>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </Box>
             </Card>
-            <BlockStack gap="300">
+
+            {/* ========== VARIATION C2: Card Headers with Table ========== */}
+            <Card>
+              <Box padding="400" background="bg-surface-secondary">
+                <Text as="h2" variant="headingMd">VARIATION C2: Card Headers with Table</Text>
+              </Box>
+            </Card>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(4, 1fr)', gap: '12px', marginBottom: '0' }}>
+              <div></div>
               {planCards.map((plan) => {
-                const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
                 const planConstantMonthly = getPlanConstant(plan.id);
                 const planConstantAnnual = getPlanConstant(plan.idAnnual);
                 const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
                 const isFree = 'isFree' in plan && plan.isFree;
                 const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
                 const showCurrent = isCurrentPlan || isFreePlanCurrent;
+                const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
 
                 return (
-                  <Card key={`b-${plan.id}`}>
-                    <Box padding="400" background={showCurrent ? "bg-surface-success" : plan.recommended ? "bg-surface-info" : "bg-surface"}>
-                      <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                        <InlineStack gap="600" blockAlign="center">
-                          <div style={{ minWidth: '80px' }}>
-                            <BlockStack gap="100">
-                              <InlineStack gap="200" blockAlign="center">
-                                <Text as="h3" variant="headingLg">{plan.name}</Text>
-                                {plan.recommended && <Badge tone="info">Best Value</Badge>}
-                                {showCurrent && <Badge tone="success">Current</Badge>}
-                              </InlineStack>
-                              <Text as="p" variant="bodySm" tone="subdued">{plan.description}</Text>
-                            </BlockStack>
-                          </div>
-                          <div style={{ minWidth: '100px' }}>
-                            {isFree ? (
-                              <Text as="p" variant="headingXl">$0</Text>
-                            ) : billingInterval === 'monthly' ? (
-                              <BlockStack gap="050">
-                                <Text as="p" variant="headingXl">{plan.monthlyPrice}</Text>
-                                <Text as="p" variant="bodySm" tone="subdued">/month</Text>
-                              </BlockStack>
-                            ) : (
-                              <BlockStack gap="050">
-                                <Text as="p" variant="headingXl">{plan.annualMonthlyEquivalent}</Text>
-                                <Text as="p" variant="bodySm" tone="subdued">/month (billed annually)</Text>
-                              </BlockStack>
+                  <Card key={`c2-card-${plan.id}`}>
+                    <Box padding="400" background={plan.recommended ? "bg-surface-info" : showCurrent ? "bg-surface-success" : "bg-surface"}>
+                      <BlockStack gap="300" inlineAlign="center">
+                        <InlineStack gap="200" align="center">
+                          <Text as="span" variant="headingMd">{plan.name}</Text>
+                          {showCurrent && <Badge tone="success">Current</Badge>}
+                        </InlineStack>
+                        <Text as="p" variant="heading2xl">
+                          {isFree ? '$0' : billingInterval === 'monthly' ? plan.monthlyPrice : plan.annualMonthlyEquivalent}
+                        </Text>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {isFree ? 'forever' : billingInterval === 'monthly' ? 'per month' : 'per month, billed annually'}
+                        </Text>
+                        {!isFree && billingInterval === 'annual' && plan.annualSavings && (
+                          <Badge tone="success">{plan.annualSavings}</Badge>
+                        )}
+                        {isFree ? (
+                          isFreePlanCurrent ? (
+                            <Button fullWidth variant="secondary" disabled>Current Plan</Button>
+                          ) : (
+                            <Button fullWidth variant="secondary" url={`https://${data.shop}/admin/settings/billing/subscriptions`} target="_blank">Downgrade</Button>
+                          )
+                        ) : (
+                          <Button fullWidth variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
+                            {isCurrentPlan ? "Current Plan" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
+                          </Button>
+                        )}
+                      </BlockStack>
+                    </Box>
+                  </Card>
+                );
+              })}
+            </div>
+            <Card>
+              <Box padding="0">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {[
+                      { label: 'Orders/month', values: ['100', '500', '2,000', 'Unlimited'] },
+                      { label: 'Customers', values: ['500', '2,000', 'Unlimited', 'Unlimited'] },
+                      { label: 'Store credit', values: ['✓', '✓', '✓', '✓'] },
+                      { label: 'Analytics', values: ['Basic', 'Advanced', 'Advanced', 'Advanced'] },
+                      { label: 'Support level', values: ['Email', 'Priority', 'Phone', 'Dedicated'] },
+                      { label: 'Free trial', values: ['—', '7 days', '7 days', '7 days'] },
+                    ].map((row, idx) => (
+                      <tr key={row.label} style={{ backgroundColor: idx % 2 === 0 ? '#fafafa' : 'white' }}>
+                        <td style={{ padding: '12px 16px', width: '20%', fontWeight: 500 }}>
+                          <Text as="span" variant="bodyMd" fontWeight="semibold">{row.label}</Text>
+                        </td>
+                        {row.values.map((val, i) => (
+                          <td key={`c2-${idx}-${i}`} style={{ padding: '12px 16px', textAlign: 'center', width: '20%' }}>
+                            <Text as="span" variant="bodyMd">{val}</Text>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Card>
+
+            {/* ========== VARIATION C3: Striped Table with Icons ========== */}
+            <Card>
+              <Box padding="400" background="bg-surface-secondary">
+                <Text as="h2" variant="headingMd">VARIATION C3: Striped Table with Icons</Text>
+              </Box>
+            </Card>
+            <Card>
+              <Box padding="600">
+                <BlockStack gap="400">
+                  <div style={{ display: 'grid', gridTemplateColumns: '200px repeat(4, 1fr)', gap: '0', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e1e3e5' }}>
+                    {/* Header Row */}
+                    <div style={{ padding: '20px', backgroundColor: '#f6f6f7', borderBottom: '2px solid #e1e3e5' }}>
+                      <Text as="span" variant="headingMd">Compare Plans</Text>
+                    </div>
+                    {planCards.map((plan) => {
+                      const planConstantMonthly = getPlanConstant(plan.id);
+                      const planConstantAnnual = getPlanConstant(plan.idAnnual);
+                      const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
+                      const isFree = 'isFree' in plan && plan.isFree;
+                      const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
+                      const showCurrent = isCurrentPlan || isFreePlanCurrent;
+
+                      return (
+                        <div key={`c3-head-${plan.id}`} style={{
+                          padding: '20px',
+                          backgroundColor: plan.recommended ? '#eef6ff' : showCurrent ? '#e8f7ed' : '#f6f6f7',
+                          borderBottom: '2px solid #e1e3e5',
+                          textAlign: 'center'
+                        }}>
+                          <BlockStack gap="200" inlineAlign="center">
+                            <InlineStack gap="100" align="center">
+                              <Text as="span" variant="headingMd">{plan.name}</Text>
+                              {showCurrent && <Badge tone="success" size="small">Current</Badge>}
+                            </InlineStack>
+                            <Text as="p" variant="headingXl">
+                              {isFree ? '$0' : billingInterval === 'monthly' ? plan.monthlyPrice : plan.annualMonthlyEquivalent}
+                            </Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {isFree ? 'Free forever' : billingInterval === 'monthly' ? 'per month' : 'per month (annual)'}
+                            </Text>
+                          </BlockStack>
+                        </div>
+                      );
+                    })}
+
+                    {/* Feature Rows */}
+                    {[
+                      { label: 'Monthly orders', values: ['100', '500', '2,000', '∞ Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Customer limit', values: ['500', '2,000', 'Unlimited', 'Unlimited'], icons: ['limit', 'limit', 'unlimited', 'unlimited'] },
+                      { label: 'Store credit system', values: ['✓', '✓', '✓', '✓'], icons: ['check', 'check', 'check', 'check'] },
+                      { label: 'Batch cashback', values: ['—', '✓', '✓', '✓'], icons: ['x', 'check', 'check', 'check'] },
+                      { label: 'Sell tier memberships', values: ['—', '—', '✓', '✓'], icons: ['x', 'x', 'check', 'check'] },
+                      { label: 'Advanced analytics', values: ['—', '✓', '✓', '✓'], icons: ['x', 'check', 'check', 'check'] },
+                      { label: 'Support', values: ['Email', 'Priority', 'Phone', 'Dedicated'], icons: ['text', 'text', 'text', 'text'] },
+                      { label: 'Free trial', values: ['—', '7 days', '7 days', '7 days'], icons: ['x', 'check', 'check', 'check'] },
+                    ].map((row, idx) => (
+                      <>
+                        <div key={`c3-label-${idx}`} style={{ padding: '14px 20px', backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa', display: 'flex', alignItems: 'center' }}>
+                          <Text as="span" variant="bodyMd">{row.label}</Text>
+                        </div>
+                        {row.values.map((val, i) => (
+                          <div key={`c3-val-${idx}-${i}`} style={{
+                            padding: '14px 20px',
+                            backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
+                            textAlign: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px'
+                          }}>
+                            {row.icons[i] === 'check' && <span style={{ color: '#008060' }}>✓</span>}
+                            {row.icons[i] === 'x' && <span style={{ color: '#8c9196' }}>—</span>}
+                            {(row.icons[i] === 'text' || row.icons[i] === 'limit' || row.icons[i] === 'unlimited') && (
+                              <Text as="span" variant="bodyMd" tone={row.icons[i] === 'unlimited' ? 'success' : undefined}>
+                                {val}
+                              </Text>
                             )}
                           </div>
-                          <div style={{ minWidth: '300px' }}>
-                            <InlineStack gap="300" wrap={true}>
-                              {plan.features.slice(0, 4).map((feature, index) => (
-                                <InlineStack key={index} gap="100" blockAlign="center">
-                                  <Icon source={CheckCircleIcon} tone="success" />
-                                  <Text as="span" variant="bodySm">{feature}</Text>
-                                </InlineStack>
-                              ))}
-                            </InlineStack>
-                          </div>
-                        </InlineStack>
-                        <div style={{ minWidth: '140px' }}>
+                        ))}
+                      </>
+                    ))}
+
+                    {/* Button Row */}
+                    <div style={{ padding: '20px', backgroundColor: '#f6f6f7' }}></div>
+                    {planCards.map((plan) => {
+                      const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
+                      const planConstantMonthly = getPlanConstant(plan.id);
+                      const planConstantAnnual = getPlanConstant(plan.idAnnual);
+                      const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
+                      const isFree = 'isFree' in plan && plan.isFree;
+                      const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
+
+                      return (
+                        <div key={`c3-btn-${plan.id}`} style={{ padding: '20px', backgroundColor: '#f6f6f7', textAlign: 'center' }}>
                           {isFree ? (
                             isFreePlanCurrent ? (
-                              <Button variant="secondary" disabled={true}>Current Plan</Button>
+                              <Button variant="secondary" disabled>Current Plan</Button>
                             ) : (
                               <Button variant="secondary" url={`https://${data.shop}/admin/settings/billing/subscriptions`} target="_blank">Downgrade</Button>
                             )
@@ -1001,125 +1118,11 @@ export default function BillingPage() {
                             </Button>
                           )}
                         </div>
-                      </InlineStack>
-                    </Box>
-                  </Card>
-                );
-              })}
-            </BlockStack>
-
-            {/* ========== VARIATION C: Comparison Table ========== */}
-            <Card>
-              <Box padding="400" background="bg-surface-secondary">
-                <Text as="h2" variant="headingMd">VARIATION C: Comparison Table</Text>
+                      );
+                    })}
+                  </div>
+                </BlockStack>
               </Box>
-            </Card>
-            <Card>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #e1e3e5' }}>
-                      <th style={{ padding: '16px', textAlign: 'left', width: '20%' }}>
-                        <Text as="span" variant="headingMd">Features</Text>
-                      </th>
-                      {planCards.map((plan) => {
-                        const planConstantMonthly = getPlanConstant(plan.id);
-                        const planConstantAnnual = getPlanConstant(plan.idAnnual);
-                        const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
-                        const isFree = 'isFree' in plan && plan.isFree;
-                        const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
-                        const showCurrent = isCurrentPlan || isFreePlanCurrent;
-
-                        return (
-                          <th key={`c-head-${plan.id}`} style={{
-                            padding: '16px',
-                            textAlign: 'center',
-                            width: '20%',
-                            backgroundColor: plan.recommended ? '#f0f7ff' : showCurrent ? '#f0fdf4' : 'transparent',
-                            borderRadius: '8px 8px 0 0'
-                          }}>
-                            <BlockStack gap="200" inlineAlign="center">
-                              <InlineStack gap="200" align="center">
-                                <Text as="span" variant="headingMd">{plan.name}</Text>
-                                {plan.recommended && <Badge tone="info">Best</Badge>}
-                                {showCurrent && <Badge tone="success">Current</Badge>}
-                              </InlineStack>
-                              {isFree ? (
-                                <Text as="p" variant="heading2xl">$0</Text>
-                              ) : (
-                                <BlockStack gap="050" inlineAlign="center">
-                                  <Text as="p" variant="heading2xl">
-                                    {billingInterval === 'monthly' ? plan.monthlyPrice : plan.annualMonthlyEquivalent}
-                                  </Text>
-                                  <Text as="p" variant="bodySm" tone="subdued">
-                                    {billingInterval === 'monthly' ? '/month' : '/month (annual)'}
-                                  </Text>
-                                </BlockStack>
-                              )}
-                            </BlockStack>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {['Orders/month', 'Customers', 'Store Credit', 'Analytics', 'Support', 'Free Trial'].map((feature, rowIndex) => (
-                      <tr key={feature} style={{ borderBottom: '1px solid #e1e3e5' }}>
-                        <td style={{ padding: '12px 16px' }}>
-                          <Text as="span" variant="bodyMd" fontWeight="semibold">{feature}</Text>
-                        </td>
-                        {planCards.map((plan) => {
-                          const values: Record<string, string[]> = {
-                            'Orders/month': ['100', '500', '2,000', 'Unlimited'],
-                            'Customers': ['500', '2,000', 'Unlimited', 'Unlimited'],
-                            'Store Credit': ['✓', '✓', '✓', '✓'],
-                            'Analytics': ['Basic', 'Advanced', 'Advanced', 'Advanced'],
-                            'Support': ['Email', 'Priority', 'Phone', 'Dedicated'],
-                            'Free Trial': ['—', '7 days', '7 days', '7 days'],
-                          };
-                          const planIndex = planCards.findIndex(p => p.id === plan.id);
-                          return (
-                            <td key={`c-${plan.id}-${feature}`} style={{
-                              padding: '12px 16px',
-                              textAlign: 'center',
-                              backgroundColor: plan.recommended ? '#f0f7ff' : 'transparent'
-                            }}>
-                              <Text as="span" variant="bodyMd">{values[feature][planIndex]}</Text>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                    <tr>
-                      <td style={{ padding: '16px' }}></td>
-                      {planCards.map((plan) => {
-                        const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
-                        const planConstantMonthly = getPlanConstant(plan.id);
-                        const planConstantAnnual = getPlanConstant(plan.idAnnual);
-                        const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
-                        const isFree = 'isFree' in plan && plan.isFree;
-                        const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
-
-                        return (
-                          <td key={`c-btn-${plan.id}`} style={{ padding: '16px', textAlign: 'center' }}>
-                            {isFree ? (
-                              isFreePlanCurrent ? (
-                                <Button variant="secondary" disabled={true}>Current Plan</Button>
-                              ) : (
-                                <Button variant="secondary" url={`https://${data.shop}/admin/settings/billing/subscriptions`} target="_blank">Downgrade</Button>
-                              )
-                            ) : (
-                              <Button variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
-                                {isCurrentPlan ? "Current Plan" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
-                              </Button>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
             </Card>
 
             {/* FAQ Section */}
