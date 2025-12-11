@@ -22,6 +22,7 @@ import {
   Icon,
   ButtonGroup,
   ProgressBar,
+  Modal,
 } from "@shopify/polaris";
 import { CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
@@ -565,12 +566,14 @@ export default function BillingPage() {
     submit(formData, { method: "post" });
   };
 
+  // Modal state for downgrade confirmation
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+
   const handleCancelSubscription = () => {
-    if (confirm("Are you sure you want to downgrade to the Free plan? Your current subscription will be cancelled.")) {
-      const formData = new FormData();
-      formData.set("action", "cancel-subscription");
-      submit(formData, { method: "post" });
-    }
+    setShowDowngradeModal(false);
+    const formData = new FormData();
+    formData.set("action", "cancel-subscription");
+    submit(formData, { method: "post" });
   };
 
   // Get current plan - prefer subscriptionInfo (GraphQL) over billing.check()
@@ -989,7 +992,7 @@ export default function BillingPage() {
                             isFreePlanCurrent ? (
                               <Button variant="secondary" disabled>Current Plan</Button>
                             ) : (
-                              <Button variant="primary" onClick={handleCancelSubscription} loading={isSubmitting}>Downgrade</Button>
+                              <Button variant="primary" onClick={() => setShowDowngradeModal(true)} loading={isSubmitting}>Downgrade</Button>
                             )
                           ) : (
                             <Button variant={isCurrentPlan ? "secondary" : "primary"} disabled={isCurrentPlan || isSubmitting} loading={isSubmitting} onClick={() => handleSubscribe(planIdToUse)}>
@@ -1127,6 +1130,36 @@ export default function BillingPage() {
           </BlockStack>
         </Layout.Section>
       </Layout>
+
+      {/* Downgrade Confirmation Modal */}
+      <Modal
+        open={showDowngradeModal}
+        onClose={() => setShowDowngradeModal(false)}
+        title="Downgrade to Free Plan"
+        primaryAction={{
+          content: "Downgrade",
+          destructive: true,
+          onAction: handleCancelSubscription,
+          loading: isSubmitting,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setShowDowngradeModal(false),
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="300">
+            <Text as="p">
+              Are you sure you want to downgrade to the Free plan?
+            </Text>
+            <Text as="p" tone="subdued">
+              Your current subscription will be cancelled immediately. You will lose access to premium features and be limited to 100 orders per month.
+            </Text>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
