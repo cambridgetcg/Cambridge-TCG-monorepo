@@ -7,6 +7,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop, payload } = await authenticate.webhook(request);
@@ -127,38 +128,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    // Update customer with current tier if subscription is active
+    // Use tier resolution system to determine effective tier
+    // This respects priority: MANUAL_OVERRIDE > TIER_SUBSCRIPTION > TIER_PURCHASE > SPENDING_BASED
     if (subscription.status === "ACTIVE") {
-      await db.customer.update({
-        where: { id: customer.id },
-        data: {
-          currentTierId: tierProduct.tierId,
-          updatedAt: new Date(),
-        },
+      const tierUpdateResult = await updateCustomerToEffectiveTier(shop, customer.id, {
+        triggeredBy: "subscription_created",
+        subscriptionId: newSubscription.id,
       });
 
-      // Log tier change
-      await db.tierChangeLog.create({
-        data: {
-          id: uuidv4(),
-          customerId: customer.id,
-          shop,
-          fromTierId: customer.currentTierId,
-          toTierId: tierProduct.tierId,
-          fromTierName: null,
-          toTierName: tier.name,
-          changeType: customer.currentTierId ? "UPGRADE" : "INITIAL_ASSIGNMENT",
-          triggerType: "SUBSCRIPTION_CREATED",
-          subscriptionId: newSubscription.id,
-          metadata: {
-            contractId,
-            sellingPlanId,
-            sellingPlanName,
-            billingInterval,
-          },
-          createdAt: new Date(),
-        },
-      });
+      if (tierUpdateResult.success) {
+        console.log(`[TierSubscriptionWebhook] Tier resolution result:`, {
+          changed: tierUpdateResult.changed,
+          previousTierId: tierUpdateResult.previousTierId,
+          newTierId: tierUpdateResult.newTierId,
+          source: tierUpdateResult.source,
+        });
+      } else {
+        console.error(`[TierSubscriptionWebhook] Tier resolution failed:`, tierUpdateResult.error);
+      }
     }
 
     console.log(`[TierSubscriptionWebhook] Successfully created subscription ${newSubscription.id}`);

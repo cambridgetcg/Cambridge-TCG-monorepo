@@ -5,8 +5,8 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
-import type { 
-  TierSubscription, 
+import type {
+  TierSubscription,
   BillingInterval,
   SubscriptionStatus,
   TierChangeType,
@@ -16,6 +16,7 @@ import type {
 import { randomUUID } from 'crypto';
 import { withRetry } from "~/utils/retry";
 import { validatePrice } from "~/utils/price-validation";
+import { updateCustomerToEffectiveTier } from "../tier-resolution.server";
 
 const uuidv4 = () => randomUUID();
 
@@ -59,68 +60,82 @@ const STATUS_TRANSITIONS: Record<SubscriptionStatus, SubscriptionStatus[]> = {
 };
 
 // Status handlers with specific business logic
+// These now use the tier resolution system to respect priority order:
+// MANUAL_OVERRIDE > TIER_SUBSCRIPTION > TIER_PURCHASE > SPENDING_BASED
 const STATUS_HANDLERS: Record<SubscriptionStatus, (subscription: any) => Promise<void>> = {
   PENDING: async (subscription) => {
     console.log(`[Subscription] Pending activation for ${subscription.id}`);
   },
-  
+
   ACTIVE: async (subscription) => {
-    // Grant tier access
-    await db.customer.update({
-      where: { id: subscription.customerId },
-      data: { 
-        currentTierId: subscription.tierId,
-        updatedAt: new Date()
-      }
+    // Use tier resolution to determine effective tier (respects manual overrides)
+    console.log(`[Subscription] Subscription ${subscription.id} became ACTIVE, resolving tier`);
+    const result = await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+      triggeredBy: "subscription_activated",
+      subscriptionId: subscription.id,
+    });
+    console.log(`[Subscription] Tier resolution result:`, {
+      changed: result.changed,
+      newTierId: result.newTierId,
+      source: result.source,
     });
   },
-  
+
   PAUSED: async (subscription) => {
     if (REVOKE_ON_PAUSE) {
-      // Optionally revoke tier access during pause
-      await db.customer.update({
-        where: { id: subscription.customerId },
-        data: { 
-          currentTierId: null,
-          updatedAt: new Date()
-        }
+      // Re-resolve tier - customer might have other tier sources
+      console.log(`[Subscription] Subscription ${subscription.id} PAUSED, re-resolving tier`);
+      const result = await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+        triggeredBy: "subscription_paused",
+        subscriptionId: subscription.id,
+      });
+      console.log(`[Subscription] Tier resolution after pause:`, {
+        changed: result.changed,
+        newTierId: result.newTierId,
+        source: result.source,
       });
     }
   },
-  
+
   CANCELLED: async (subscription) => {
-    // Revoke tier access
-    await db.customer.update({
-      where: { id: subscription.customerId },
-      data: { 
-        currentTierId: null,
-        updatedAt: new Date()
-      }
+    // Re-resolve tier - customer might have other tier sources (purchases, spending, etc.)
+    console.log(`[Subscription] Subscription ${subscription.id} CANCELLED, re-resolving tier`);
+    const result = await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+      triggeredBy: "subscription_cancelled",
+      subscriptionId: subscription.id,
+    });
+    console.log(`[Subscription] Tier resolution after cancellation:`, {
+      changed: result.changed,
+      newTierId: result.newTierId,
+      source: result.source,
     });
   },
-  
+
   EXPIRED: async (subscription) => {
-    // Revoke tier access
-    await db.customer.update({
-      where: { id: subscription.customerId },
-      data: { 
-        currentTierId: null,
-        updatedAt: new Date()
-      }
+    // Re-resolve tier - customer might have other tier sources
+    console.log(`[Subscription] Subscription ${subscription.id} EXPIRED, re-resolving tier`);
+    const result = await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+      triggeredBy: "subscription_expired",
+      subscriptionId: subscription.id,
+    });
+    console.log(`[Subscription] Tier resolution after expiry:`, {
+      changed: result.changed,
+      newTierId: result.newTierId,
+      source: result.source,
     });
   },
-  
+
   FAILED: async (subscription) => {
     // Start grace period
     const gracePeriodEnd = new Date();
     gracePeriodEnd.setDate(gracePeriodEnd.getDate() + GRACE_PERIOD_DAYS);
-    
+
     // Check if model exists before using
     if (!db.tierSubscription) {
       console.warn('[TierSubscriptionBridgeV2] tierSubscription model not available');
       return;
     }
-    
+
     await db.tierSubscription.update({
       where: { id: subscription.id },
       data: {
@@ -202,6 +217,12 @@ export class TierSubscriptionBridgeV2 {
               throw new Error(`Tier product not found for SKU: ${lineItem.sku}`);
             }
 
+            // Validate tier exists (prevent orphaned TierSubscription)
+            if (!tierProduct.tier) {
+              console.error(`[TierSubscriptionBridge] CRITICAL: TierProduct ${tierProduct.id} references non-existent tier ${tierProduct.tierId}`);
+              throw new Error(`Tier ${tierProduct.tierId} not found - TierProduct ${tierProduct.id} is orphaned`);
+            }
+
             // 3. Get or create customer
             let customer = await tx.customer.upsert({
               where: {
@@ -258,48 +279,16 @@ export class TierSubscriptionBridgeV2 {
               }
             });
 
-            // 6. Update customer tier
-            await tx.customer.update({
-              where: { id: customer.id },
-              data: {
-                currentTierId: tierProduct.tierId,
-                updatedAt: now,
-              }
-            });
-
-            // 7. Log tier change
-            await tx.tierChangeLog.create({
-              data: {
-                id: uuidv4(),
-                customerId: customer.id,
-                shop,
-                fromTierId: customer.currentTierId,
-                fromTierName: null,
-                toTierId: tierProduct.tierId,
-                toTierName: tierProduct.tier.name,
-                changeType: customer.currentTierId ? "UPGRADE" : "INITIAL_ASSIGNMENT",
-                triggerType: "SUBSCRIPTION_STARTED",
-                subscriptionId: subscription.id,
-                metadata: {
-                  orderId,
-                  contractId,
-                  sellingPlanId,
-                  productName: lineItem.name,
-                } as Prisma.JsonObject,
-                createdAt: now,
-                updatedAt: now,
-              }
-            });
-
+            // 6. Return subscription and customer info for tier resolution after transaction
             console.log(`[TierSubscriptionBridge] Transaction completed for subscription ${subscription.id}`);
-            return subscription;
+            return { subscription, customerId: customer.id };
           });
         },
         {
           maxAttempts: 3,
           shouldRetry: (error) => {
             // Don't retry on business logic errors
-            if (error.message?.includes('not found') || 
+            if (error.message?.includes('not found') ||
                 error.message?.includes('Invalid price')) {
               return false;
             }
@@ -308,9 +297,24 @@ export class TierSubscriptionBridgeV2 {
         }
       );
 
+      // 7. Use tier resolution system AFTER transaction completes
+      // This respects priority: MANUAL_OVERRIDE > TIER_SUBSCRIPTION > TIER_PURCHASE > SPENDING_BASED
+      console.log(`[TierSubscriptionBridge] Resolving tier for customer ${result.customerId}`);
+      const tierResult = await updateCustomerToEffectiveTier(shop, result.customerId, {
+        triggeredBy: "subscription_started",
+        subscriptionId: result.subscription.id,
+      });
+
+      console.log(`[TierSubscriptionBridge] Tier resolution result:`, {
+        changed: tierResult.changed,
+        previousTierId: tierResult.previousTierId,
+        newTierId: tierResult.newTierId,
+        source: tierResult.source,
+      });
+
       return {
         success: true,
-        subscription: result,
+        subscription: result.subscription,
       };
     } catch (error) {
       console.error("[TierSubscriptionBridge] Error handling subscription purchase:", error);

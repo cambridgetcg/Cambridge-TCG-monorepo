@@ -640,12 +640,30 @@ async function processOneTimeTierPurchase(tx: any, params: {
 
   console.log(`[TIER PURCHASE CREATION] ✅ Customer: ${customer.id} (${customer.email})`);
 
+  // Validate that the tier exists before creating TierPurchase
+  console.log('[TIER PURCHASE CREATION] Step 3: Validate Tier Exists');
+  console.log(`  - Tier ID: ${tierProduct.tierId}`);
+
+  const tier = await tx.tier.findUnique({
+    where: { id: tierProduct.tierId },
+  });
+
+  if (!tier) {
+    console.error(`[TIER PURCHASE CREATION] ❌ CRITICAL: Tier not found for TierProduct`);
+    console.error(`  - TierProduct ID: ${tierProduct.id}`);
+    console.error(`  - TierProduct.tierId: ${tierProduct.tierId}`);
+    console.error(`  - This is an orphaned TierProduct record`);
+    throw new Error(`Tier ${tierProduct.tierId} not found - TierProduct ${tierProduct.id} is orphaned`);
+  }
+
+  console.log(`[TIER PURCHASE CREATION] ✅ Tier validated: ${tier.name}`);
+
   // Calculate tier duration
-  console.log('[TIER PURCHASE CREATION] Step 3: Calculate Tier Duration');
+  console.log('[TIER PURCHASE CREATION] Step 4: Calculate Tier Duration');
   const now = new Date();
   let tierEndDate: Date | null = null;
 
-  console.log(`  - Duration Type: ${tierProduct.duration}`);
+  console.log(`  - Duration Type: ${tierProduct.duration || 'not specified'}`);
   console.log(`  - Start Date: ${now.toISOString()}`);
 
   if (tierProduct.duration) {
@@ -667,7 +685,7 @@ async function processOneTimeTierPurchase(tx: any, params: {
   }
 
   // Create tier purchase record
-  console.log('[TIER PURCHASE CREATION] Step 4: Creating TierPurchase Record');
+  console.log('[TIER PURCHASE CREATION] Step 5: Creating TierPurchase Record');
   const tierPurchaseId = uuidv4();
 
   console.log('[TIER PURCHASE CREATION] TierPurchase Data:');
