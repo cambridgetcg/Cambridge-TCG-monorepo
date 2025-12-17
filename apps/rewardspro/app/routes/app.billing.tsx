@@ -240,6 +240,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             subscriptionVerified = true;
 
             console.log('[Billing Loader] ✅ Subscription saved successfully!');
+
+            // Refresh entitlements to unlock features immediately
+            const { refreshEntitlements } = await import("~/services/entitlements.server");
+            await refreshEntitlements(session.shop);
+            console.log('[Billing Loader] ✅ Entitlements refreshed!');
           } catch (saveError) {
             console.error('[Billing Loader] ❌ Error saving subscription:', saveError);
           }
@@ -275,11 +280,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           await saveSubscription(session.shop, detailedSubscription);
           subscriptionVerified = true;
           console.log('[Billing Loader] ✅ Subscription saved via fallback method');
+
+          // Refresh entitlements to unlock features immediately
+          const { refreshEntitlements } = await import("~/services/entitlements.server");
+          await refreshEntitlements(session.shop);
+          console.log('[Billing Loader] ✅ Entitlements refreshed (fallback)!');
         } catch (saveError) {
           console.error('[Billing Loader] ❌ Error saving subscription (fallback):', saveError);
         }
       } else {
         console.log('[Billing Loader] Subscription already in database, skipping save');
+
+        // Still refresh entitlements in case they're out of sync
+        try {
+          const { refreshEntitlements } = await import("~/services/entitlements.server");
+          await refreshEntitlements(session.shop);
+          console.log('[Billing Loader] ✅ Entitlements refreshed (existing subscription)!');
+        } catch (refreshError) {
+          console.error('[Billing Loader] ❌ Error refreshing entitlements:', refreshError);
+        }
       }
 
       console.log('[Billing Loader] ========================================');

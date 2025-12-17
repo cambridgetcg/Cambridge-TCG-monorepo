@@ -323,7 +323,7 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   // Get current subscription state
   const [billingSubscription, shopSettings] = await Promise.all([
     db.billingSubscription.findFirst({
-      where: { shop, status: 'ACTIVE' },
+      where: { shop, subscriptionStatus: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
     }),
     db.shopSettings.findUnique({
