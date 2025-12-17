@@ -2167,9 +2167,6 @@ export default function AnalyticsPage() {
   // Check if advanced analytics is enabled via Feature Manager toggle
   const hasAdvancedAnalytics = data.shopSettings?.advancedAnalyticsEnabled ?? false;
 
-  // Debug: Log to verify the feature flag is being received
-  console.log('[Analytics Component] advancedAnalyticsEnabled:', data.shopSettings?.advancedAnalyticsEnabled, 'hasAdvancedAnalytics:', hasAdvancedAnalytics);
-
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedDateRange, setSelectedDateRange] = useState(
     searchParams.get('range') || '30days'

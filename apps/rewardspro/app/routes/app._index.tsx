@@ -30,10 +30,13 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
   CreditCardIcon,
+  LockIcon,
 } from "~/utils/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN } from "../shopify.server";
 import db from "../db.server";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { useEntitlements } from "~/hooks/useEntitlements";
+import { getEntitlements } from "~/services/entitlements.server";
 import { measureQuery, getDatabaseHealth, formatResponseTime } from "~/utils/database-health.server";
 
 // ============================================
@@ -560,6 +563,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ success: false, error: 'Invalid feature' }, { status: 400 });
     }
 
+    // Server-side entitlement check: Only check when ENABLING a gated feature
+    // Disabling is always allowed (even after plan downgrade)
+    if (enabled) {
+      const entitlements = await getEntitlements(shop);
+
+      // Advanced Analytics requires Pro plan or higher (featureAdvancedReport)
+      if (feature === 'advancedAnalyticsEnabled' && !entitlements.featureAdvancedReport) {
+        console.log(`[Feature Manager] Blocked: Shop "${shop}" tried to enable Advanced Analytics without Pro plan`);
+        return json({
+          success: false,
+          error: 'Upgrade to Pro plan to enable Advanced Analytics',
+          requiresUpgrade: true,
+          requiredPlan: 'Pro'
+        }, { status: 403 });
+      }
+
+      // Automatic Cashback Processing requires Pro plan or higher (featureBulkOps)
+      if (feature === 'autoCashbackProcessingEnabled' && !entitlements.featureBulkOps) {
+        console.log(`[Feature Manager] Blocked: Shop "${shop}" tried to enable Auto Cashback without Pro plan`);
+        return json({
+          success: false,
+          error: 'Upgrade to Pro plan to enable Automatic Cashback Processing',
+          requiresUpgrade: true,
+          requiredPlan: 'Pro'
+        }, { status: 403 });
+      }
+    }
+
     const updateData: Record<string, boolean> = {};
     updateData[feature] = enabled;
 
@@ -616,6 +647,9 @@ export default function Dashboard() {
   const data = useLoaderData<typeof loader>() as DashboardData;
   const navigate = useNavigate();
   const fetcher = useFetcher();
+
+  // Get entitlements for feature gating in Feature Manager
+  const { hasAdvancedReport, hasBulkOps, plan } = useEntitlements();
 
   // Toast state for feature toggle feedback
   const [toastActive, setToastActive] = useState(false);
@@ -687,12 +721,21 @@ export default function Dashboard() {
   ) : null;
 
   // Calculate active features count using optimistic values
-  // Note: emailMarketingEnabled is hidden until feature is ready
-  const activeFeaturesCount = [
-    getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled),
-    getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled),
-    getFeatureState('tierProductsEnabled', data.shopSettings?.tierProductsEnabled),
-  ].filter(Boolean).length;
+  // Only count gated features if user has entitlement OR feature is currently enabled (downgraded user)
+  // Membership Tiers is always accessible (not gated)
+  const analyticsEnabled = getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled);
+  const cashbackEnabled = getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled);
+  const tiersEnabled = getFeatureState('tierProductsEnabled', data.shopSettings?.tierProductsEnabled);
+
+  // Count features that are accessible (either entitled or currently enabled)
+  const accessibleFeatures = [
+    (hasAdvancedReport || analyticsEnabled) ? analyticsEnabled : null,
+    (hasBulkOps || cashbackEnabled) ? cashbackEnabled : null,
+    tiersEnabled, // Always accessible
+  ].filter(v => v !== null);
+
+  const activeFeaturesCount = accessibleFeatures.filter(Boolean).length;
+  const totalAccessibleFeatures = accessibleFeatures.length;
 
   return (
     <Frame>
@@ -1092,8 +1135,8 @@ export default function Dashboard() {
                   <Icon source={SettingsIcon} tone="base" />
                   <Text variant="headingMd" as="h2">Feature Manager</Text>
                 </InlineStack>
-                <Badge tone={activeFeaturesCount === 3 ? 'success' : activeFeaturesCount >= 2 ? 'info' : 'warning'}>
-                  {activeFeaturesCount}/3 Active
+                <Badge tone={activeFeaturesCount === totalAccessibleFeatures ? 'success' : activeFeaturesCount >= Math.ceil(totalAccessibleFeatures / 2) ? 'info' : 'warning'}>
+                  {activeFeaturesCount}/{totalAccessibleFeatures} Active
                 </Badge>
               </InlineStack>
 
@@ -1104,9 +1147,114 @@ export default function Dashboard() {
               <Divider />
 
               <BlockStack gap="200">
-                {/* Analytics Row - OPTIMISTIC UI */}
+                {/* Analytics Row - GATED: Requires Pro plan */}
                 {(() => {
                   const isEnabled = getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled);
+                  const canEnable = hasAdvancedReport;
+
+                  // LOCKED STATE: User doesn't have entitlement and feature is not enabled
+                  if (!canEnable && !isEnabled) {
+                    return (
+                      <div style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#f6f6f7',
+                        borderRadius: '8px',
+                        border: '1px solid #e1e3e5'
+                      }}>
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="300" blockAlign="center">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              backgroundColor: '#f1f1f1',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Icon source={LockIcon} tone="subdued" />
+                            </div>
+                            <BlockStack gap="050">
+                              <InlineStack gap="100" blockAlign="center">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">Advanced Analytics</Text>
+                                <Badge tone="info">Pro</Badge>
+                              </InlineStack>
+                              <Text variant="bodySm" tone="subdued" as="span">Upgrade to Pro to unlock analytics and reporting</Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <div
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => navigate('/app/billing')}
+                          >
+                            <Badge tone="attention">Upgrade</Badge>
+                          </div>
+                        </InlineStack>
+                      </div>
+                    );
+                  }
+
+                  // WARNING STATE: User has feature enabled but no longer has entitlement (downgraded)
+                  if (!canEnable && isEnabled) {
+                    return (
+                      <div style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#fef3cd',
+                        borderRadius: '8px',
+                        border: '1px solid #ffc107'
+                      }}>
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="300" blockAlign="center">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              backgroundColor: '#fff3cd',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Icon source={ChartVerticalIcon} tone="warning" />
+                            </div>
+                            <BlockStack gap="050">
+                              <InlineStack gap="100" blockAlign="center">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">Advanced Analytics</Text>
+                                <Badge tone="warning">Plan Required</Badge>
+                              </InlineStack>
+                              <Text variant="bodySm" tone="subdued" as="span">Active but your plan doesn't include this. Upgrade or disable.</Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <InlineStack gap="300" blockAlign="center">
+                            <div
+                              style={{
+                                width: '52px',
+                                height: '28px',
+                                borderRadius: '14px',
+                                backgroundColor: '#008060',
+                                position: 'relative',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s ease'
+                              }}
+                              onClick={() => handleToggleFeature('advancedAnalyticsEnabled', false)}
+                            >
+                              <div style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                backgroundColor: 'white',
+                                position: 'absolute',
+                                top: '2px',
+                                left: '26px',
+                                transition: 'left 0.15s ease',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              }} />
+                            </div>
+                          </InlineStack>
+                        </InlineStack>
+                      </div>
+                    );
+                  }
+
+                  // NORMAL STATE: User has entitlement - full toggle capability
                   return (
                     <div style={{
                       padding: '12px 16px',
@@ -1167,9 +1315,114 @@ export default function Dashboard() {
                   );
                 })()}
 
-                {/* Cashback Row - OPTIMISTIC UI */}
+                {/* Cashback Row - GATED: Requires Pro plan */}
                 {(() => {
                   const isEnabled = getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled);
+                  const canEnable = hasBulkOps;
+
+                  // LOCKED STATE: User doesn't have entitlement and feature is not enabled
+                  if (!canEnable && !isEnabled) {
+                    return (
+                      <div style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#f6f6f7',
+                        borderRadius: '8px',
+                        border: '1px solid #e1e3e5'
+                      }}>
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="300" blockAlign="center">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              backgroundColor: '#f1f1f1',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Icon source={LockIcon} tone="subdued" />
+                            </div>
+                            <BlockStack gap="050">
+                              <InlineStack gap="100" blockAlign="center">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
+                                <Badge tone="info">Pro</Badge>
+                              </InlineStack>
+                              <Text variant="bodySm" tone="subdued" as="span">Upgrade to Pro to unlock automatic rewards processing</Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <div
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => navigate('/app/billing')}
+                          >
+                            <Badge tone="attention">Upgrade</Badge>
+                          </div>
+                        </InlineStack>
+                      </div>
+                    );
+                  }
+
+                  // WARNING STATE: User has feature enabled but no longer has entitlement (downgraded)
+                  if (!canEnable && isEnabled) {
+                    return (
+                      <div style={{
+                        padding: '12px 16px',
+                        backgroundColor: '#fef3cd',
+                        borderRadius: '8px',
+                        border: '1px solid #ffc107'
+                      }}>
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="300" blockAlign="center">
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              backgroundColor: '#fff3cd',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              <Icon source={CashDollarIcon} tone="warning" />
+                            </div>
+                            <BlockStack gap="050">
+                              <InlineStack gap="100" blockAlign="center">
+                                <Text variant="bodyMd" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
+                                <Badge tone="warning">Plan Required</Badge>
+                              </InlineStack>
+                              <Text variant="bodySm" tone="subdued" as="span">Active but your plan doesn't include this. Upgrade or disable.</Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <InlineStack gap="300" blockAlign="center">
+                            <div
+                              style={{
+                                width: '52px',
+                                height: '28px',
+                                borderRadius: '14px',
+                                backgroundColor: '#008060',
+                                position: 'relative',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s ease'
+                              }}
+                              onClick={() => handleToggleFeature('autoCashbackProcessingEnabled', false)}
+                            >
+                              <div style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                backgroundColor: 'white',
+                                position: 'absolute',
+                                top: '2px',
+                                left: '26px',
+                                transition: 'left 0.15s ease',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              }} />
+                            </div>
+                          </InlineStack>
+                        </InlineStack>
+                      </div>
+                    );
+                  }
+
+                  // NORMAL STATE: User has entitlement - full toggle capability
                   return (
                     <div style={{
                       padding: '12px 16px',
