@@ -34,11 +34,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return new Response("OK", { status: 200 });
     }
 
-    // Fetch related data separately
+    // Fetch related data separately (use dbSubscription, not subscriptionWithRelations)
     const [customer, tier, tierProduct] = await Promise.all([
-      db.customer.findUnique({ where: { id: subscriptionWithRelations.customerId } }),
-      db.tier.findUnique({ where: { id: subscriptionWithRelations.tierId } }),
-      subscriptionWithRelations.tierProductId ? db.tierProduct.findUnique({ where: { id: subscriptionWithRelations.tierProductId } }) : null
+      db.customer.findUnique({ where: { id: dbSubscription.customerId } }),
+      db.tier.findUnique({ where: { id: dbSubscription.tierId } }),
+      dbSubscription.tierProductId ? db.tierProduct.findUnique({ where: { id: dbSubscription.tierProductId } }) : null
     ]);
 
     // Add related data to subscription object for compatibility

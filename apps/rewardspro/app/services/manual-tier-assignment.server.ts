@@ -182,6 +182,12 @@ export async function assignCustomerToTier(
 
 /**
  * Check if a customer has a manual override active
+ *
+ * NEW IMPLEMENTATION: Uses CustomerTierState for O(1) lookup instead of
+ * scanning TierChangeLog. This is much faster and more reliable.
+ *
+ * Falls back to legacy TierChangeLog scanning if CustomerTierState doesn't exist
+ * (for backward compatibility during migration).
  */
 export async function hasManualOverride(
   customerId: string
@@ -189,8 +195,36 @@ export async function hasManualOverride(
   try {
     console.log(`[hasManualOverride] Checking override status for customer: ${customerId}`);
 
-    // Look for the most recent MANUAL_ADMIN change with permanentOverride
-    // This ensures we find permanent overrides even if there were automatic calculations after
+    // NEW: Check CustomerTierState first (O(1) lookup)
+    const tierState = await db.customerTierState.findUnique({
+      where: { customerId },
+      select: {
+        hasManualOverride: true,
+        manualOverrideExpiry: true,
+      },
+    });
+
+    if (tierState) {
+      // If CustomerTierState exists, use the explicit boolean field
+      if (!tierState.hasManualOverride) {
+        console.log(`[hasManualOverride] CustomerTierState.hasManualOverride is false`);
+        return false;
+      }
+
+      // Check if temporary override has expired
+      if (tierState.manualOverrideExpiry && tierState.manualOverrideExpiry < new Date()) {
+        console.log(`[hasManualOverride] Manual override has expired at ${tierState.manualOverrideExpiry}`);
+        return false;
+      }
+
+      console.log(`[hasManualOverride] Active manual override found in CustomerTierState`);
+      return true;
+    }
+
+    // LEGACY FALLBACK: If CustomerTierState doesn't exist, fall back to TierChangeLog scanning
+    // This ensures backward compatibility during migration
+    console.log(`[hasManualOverride] CustomerTierState not found, falling back to legacy TierChangeLog scan`);
+
     const permanentOverride = await db.tierChangeLog.findFirst({
       where: {
         customerId,
@@ -199,119 +233,57 @@ export async function hasManualOverride(
       orderBy: { createdAt: 'desc' }
     });
 
-    console.log(`[hasManualOverride] Latest MANUAL_ADMIN entry:`, permanentOverride ? {
-      id: permanentOverride.id,
-      toTierName: permanentOverride.toTierName,
-      metadata: permanentOverride.metadata,
-      createdAt: permanentOverride.createdAt,
-      note: permanentOverride.note
-    } : 'None found');
-
     if (!permanentOverride) {
       console.log(`[hasManualOverride] No MANUAL_ADMIN entries found - returning false`);
       return false;
     }
 
-    // Check if it has a permanent override flag
-    // Aurora Data API may return metadata as a string, so we need to parse it
+    // Parse metadata (Aurora Data API may return as string)
     let metadata = permanentOverride.metadata as any;
     if (typeof metadata === 'string') {
       try {
         metadata = JSON.parse(metadata);
-        console.log(`[hasManualOverride] Parsed metadata from string:`, metadata);
       } catch (error) {
         console.error(`[hasManualOverride] Failed to parse metadata string:`, error);
         metadata = null;
       }
     }
-    console.log(`[hasManualOverride] Metadata permanentOverride flag:`, metadata?.permanentOverride);
 
+    // Check permanent override
     if (metadata?.permanentOverride === true) {
-      console.log(`[hasManualOverride] Permanent override flag is TRUE - checking for removals...`);
-
-      // Check if there's been any manual removal of the override after this
-      // Note: We can't use JSON path queries with Aurora Data API, so we fetch all
-      // MANUAL_ADMIN entries after the override and check them manually
-      const laterManualChanges = await db.tierChangeLog.findMany({
+      // Check for removal after this override
+      const removalAfterOverride = await db.tierChangeLog.findFirst({
         where: {
           customerId,
           createdAt: { gt: permanentOverride.createdAt },
-          triggerType: 'MANUAL_ADMIN'
-        },
-        orderBy: { createdAt: 'desc' }
+          triggerType: 'MANUAL_ADMIN',
+          note: { contains: 'override removed' }
+        }
       });
 
-      // Check each entry to see if it's a removal or a new assignment without permanent flag
-      let removalAfterOverride = null;
-      for (const entry of laterManualChanges) {
-        // Check for explicit removal note
-        if (entry.note && entry.note.includes('override removed')) {
-          removalAfterOverride = entry;
-          break;
-        }
-
-        // Parse metadata and check for permanentOverride: false
-        let entryMetadata = entry.metadata as any;
-        if (typeof entryMetadata === 'string') {
-          try {
-            entryMetadata = JSON.parse(entryMetadata);
-          } catch (error) {
-            continue; // Skip unparseable metadata
-          }
-        }
-
-        // If there's a newer manual change with permanentOverride explicitly set to false, that counts as removal
-        if (entryMetadata && entryMetadata.permanentOverride === false) {
-          removalAfterOverride = entry;
-          break;
-        }
-      }
-
-      console.log(`[hasManualOverride] Removal after override:`, removalAfterOverride ? {
-        id: removalAfterOverride.id,
-        note: removalAfterOverride.note,
-        metadata: removalAfterOverride.metadata,
-        createdAt: removalAfterOverride.createdAt
-      } : 'None found');
-
-      // If no removal found, the permanent override is still active
       const hasActiveOverride = !removalAfterOverride;
-      console.log(`[hasManualOverride] Final result: ${hasActiveOverride} (permanent override active: ${hasActiveOverride})`);
+      console.log(`[hasManualOverride] Legacy check - permanent override active: ${hasActiveOverride}`);
       return hasActiveOverride;
     }
 
-    // Check if temporary override is still active
+    // Check temporary override
     if (metadata?.overrideDuration) {
-      console.log(`[hasManualOverride] Checking temporary override with duration: ${metadata.overrideDuration} days`);
-
       const overrideDate = new Date(permanentOverride.createdAt);
       overrideDate.setDate(overrideDate.getDate() + metadata.overrideDuration);
 
-      console.log(`[hasManualOverride] Override expires at:`, overrideDate);
-      console.log(`[hasManualOverride] Current time:`, new Date());
-
-      // Check if the temporary override is still within the duration
       if (overrideDate > new Date()) {
-        console.log(`[hasManualOverride] Temporary override still valid - checking for manual removals...`);
-
-        // Also check if it hasn't been manually removed
         const removalAfterOverride = await db.tierChangeLog.findFirst({
           where: {
             customerId,
-            createdAt: {
-              gt: permanentOverride.createdAt,
-              lt: overrideDate // Within the override period
-            },
+            createdAt: { gt: permanentOverride.createdAt, lt: overrideDate },
             triggerType: 'MANUAL_ADMIN',
             note: { contains: 'override removed' }
           }
         });
 
         const isActive = !removalAfterOverride;
-        console.log(`[hasManualOverride] Temporary override active: ${isActive}`);
+        console.log(`[hasManualOverride] Legacy check - temporary override active: ${isActive}`);
         return isActive;
-      } else {
-        console.log(`[hasManualOverride] Temporary override has expired`);
       }
     }
 

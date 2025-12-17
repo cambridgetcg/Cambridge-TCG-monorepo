@@ -33,6 +33,8 @@
     "migrate:apply-schema-fixes": "node scripts/apply-schema-fixes.mjs",
     "migrate:sendgrid-domain": "node scripts/apply-sendgrid-domain-migration.mjs",
     "migrate:email-template-columns": "node scripts/apply-email-template-columns-migration.mjs",
+    "migrate:customer-tier-state": "node scripts/apply-customer-tier-state-migration.mjs",
+    "migrate:tier-state-data": "npx tsx scripts/migrate-tier-state.ts",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",

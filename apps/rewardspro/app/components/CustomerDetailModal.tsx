@@ -40,6 +40,9 @@ import { TierProgressBar } from './CustomerDetails/TierProgressBar';
 import { StatusDot } from './CustomerDetails/StatusDot';
 import { TierTimeline } from './CustomerDetails/TierTimeline';
 
+// TierSource enum matches CustomerTierState.tierSource
+type TierSource = 'MANUAL_OVERRIDE' | 'TIER_SUBSCRIPTION' | 'TIER_PURCHASE' | 'SPENDING_BASED' | 'NONE';
+
 interface CustomerDetails {
   customer: {
     id: string;
@@ -80,6 +83,22 @@ interface CustomerDetails {
     note: string | null;
     createdAt: string;
   }>;
+  // CustomerTierState - single source of truth for tier status
+  tierState: {
+    tierSource: TierSource;
+    hasManualOverride: boolean;
+    manualOverrideAt: string | null;
+    manualOverrideBy: string | null;
+    manualOverrideExpiry: string | null;
+    manualOverrideNote: string | null;
+    activePurchaseId: string | null;
+    purchaseExpiresAt: string | null;
+    activeSubscriptionId: string | null;
+    subscriptionExpiresAt: string | null;
+    spendingBasedTierId: string | null;
+    lastResolvedAt: string | null;
+    resolutionReason: string | null;
+  } | null;
   orders: Array<{
     id: string;
     name: string;
@@ -350,6 +369,13 @@ export function CustomerDetailModal({
                       ordersCount={details.orders.length}
                       formatAmount={formatAmount}
                       onStatClick={setSelectedTab}
+                      tierSource={details.tierState?.tierSource || null}
+                      tierExpiry={
+                        details.tierState?.purchaseExpiresAt ||
+                        details.tierState?.subscriptionExpiresAt ||
+                        details.tierState?.manualOverrideExpiry ||
+                        null
+                      }
                     />
 
                     {/* Tier Progress */}

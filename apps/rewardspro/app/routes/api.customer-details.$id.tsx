@@ -63,6 +63,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       },
       take: 10
     });
+
+    // Fetch CustomerTierState for single source of truth on tier status
+    const tierState = await db.customerTierState.findUnique({
+      where: {
+        customerId: customer.id
+      }
+    });
     
     // Fetch recent orders from Shopify using GraphQL
     let orders = [];
@@ -174,6 +181,22 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         note: log.note,
         createdAt: log.createdAt.toISOString()
       })),
+      // CustomerTierState - single source of truth for tier status
+      tierState: tierState ? {
+        tierSource: tierState.tierSource,
+        hasManualOverride: tierState.hasManualOverride,
+        manualOverrideAt: tierState.manualOverrideAt?.toISOString() || null,
+        manualOverrideBy: tierState.manualOverrideBy,
+        manualOverrideExpiry: tierState.manualOverrideExpiry?.toISOString() || null,
+        manualOverrideNote: tierState.manualOverrideNote,
+        activePurchaseId: tierState.activePurchaseId,
+        purchaseExpiresAt: tierState.purchaseExpiresAt?.toISOString() || null,
+        activeSubscriptionId: tierState.activeSubscriptionId,
+        subscriptionExpiresAt: tierState.subscriptionExpiresAt?.toISOString() || null,
+        spendingBasedTierId: tierState.spendingBasedTierId,
+        lastResolvedAt: tierState.lastResolvedAt?.toISOString() || null,
+        resolutionReason: tierState.resolutionReason,
+      } : null,
       orders,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,

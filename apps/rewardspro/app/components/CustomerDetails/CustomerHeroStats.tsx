@@ -4,6 +4,7 @@ import {
   BlockStack,
   Text,
   Icon,
+  Badge,
 } from '@shopify/polaris';
 import {
   CashDollarIcon,
@@ -12,6 +13,26 @@ import {
   PackageIcon,
 } from '@shopify/polaris-icons';
 
+// TierSource type for display
+type TierSource = 'MANUAL_OVERRIDE' | 'TIER_SUBSCRIPTION' | 'TIER_PURCHASE' | 'SPENDING_BASED' | 'NONE';
+
+// Helper to convert tier source to user-friendly label
+function getTierSourceLabel(source: TierSource | null): { label: string; tone: 'info' | 'success' | 'warning' | 'attention' } {
+  switch (source) {
+    case 'MANUAL_OVERRIDE':
+      return { label: 'Manual', tone: 'attention' };
+    case 'TIER_SUBSCRIPTION':
+      return { label: 'Subscription', tone: 'success' };
+    case 'TIER_PURCHASE':
+      return { label: 'Purchased', tone: 'info' };
+    case 'SPENDING_BASED':
+      return { label: 'Earned', tone: 'success' };
+    case 'NONE':
+    default:
+      return { label: '', tone: 'info' };
+  }
+}
+
 interface CustomerHeroStatsProps {
   storeCredit: string | number;
   tierName: string | null;
@@ -19,6 +40,8 @@ interface CustomerHeroStatsProps {
   ordersCount: number;
   formatAmount: (amount: string | number) => string;
   onStatClick?: (tab: number) => void;
+  tierSource?: TierSource | null;
+  tierExpiry?: string | null;
 }
 
 export function CustomerHeroStats({
@@ -28,7 +51,24 @@ export function CustomerHeroStats({
   ordersCount,
   formatAmount,
   onStatClick,
+  tierSource,
+  tierExpiry,
 }: CustomerHeroStatsProps) {
+  const tierSourceInfo = getTierSourceLabel(tierSource || null);
+
+  // Calculate days remaining if there's an expiry
+  let expiryText: string | null = null;
+  if (tierExpiry) {
+    const expiryDate = new Date(tierExpiry);
+    const now = new Date();
+    const daysRemaining = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysRemaining > 0) {
+      expiryText = `${daysRemaining}d left`;
+    } else if (daysRemaining === 0) {
+      expiryText = 'Expires today';
+    }
+  }
+
   const stats = [
     {
       label: 'Store Credit',
@@ -36,6 +76,7 @@ export function CustomerHeroStats({
       icon: CashDollarIcon,
       tone: 'success' as const,
       tab: 1,
+      badge: null as { label: string; tone: 'info' | 'success' | 'warning' | 'attention' } | null,
     },
     {
       label: 'Current Tier',
@@ -43,6 +84,7 @@ export function CustomerHeroStats({
       icon: StarIcon,
       tone: tierName ? 'highlight' as const : 'subdued' as const,
       tab: 0,
+      badge: tierSourceInfo.label ? tierSourceInfo : null,
     },
     {
       label: 'Cashback Rate',
@@ -50,6 +92,7 @@ export function CustomerHeroStats({
       icon: DiscountIcon,
       tone: 'info' as const,
       tab: 0,
+      badge: expiryText ? { label: expiryText, tone: 'warning' as const } : null,
     },
     {
       label: 'Total Orders',
@@ -57,6 +100,7 @@ export function CustomerHeroStats({
       icon: PackageIcon,
       tone: 'default' as const,
       tab: 2,
+      badge: null,
     },
   ];
 
@@ -108,6 +152,11 @@ export function CustomerHeroStats({
               >
                 {stat.value}
               </Text>
+              {stat.badge && (
+                <Badge tone={stat.badge.tone} size="small">
+                  {stat.badge.label}
+                </Badge>
+              )}
               <Text
                 as="span"
                 variant="bodySm"

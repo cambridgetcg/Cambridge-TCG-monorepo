@@ -93,6 +93,9 @@ import { getCurrentPlan, hasFeature } from "../utils/plan-limits";
 // TYPE DEFINITIONS
 // ============================================
 
+// TierSource enum matches CustomerTierState.tierSource
+type TierSource = 'MANUAL_OVERRIDE' | 'TIER_SUBSCRIPTION' | 'TIER_PURCHASE' | 'SPENDING_BASED' | 'NONE';
+
 interface Customer {
   id: string;
   shopifyCustomerId: string;
@@ -107,6 +110,7 @@ interface Customer {
   createdAt: string;
   updatedAt: string;
   hasManualOverride?: boolean;
+  tierSource?: TierSource;
   lastTierChange?: {
     triggerType: string;
     createdAt: string;
@@ -151,6 +155,7 @@ interface LoaderData {
   enhancedMetadata: Promise<{
     enhancedData: Record<string, {
       hasManualOverride: boolean;
+      tierSource: TierSource;
       lastTierChange: any;
       membershipStatus: any;
     }>;
@@ -210,6 +215,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         daysRemaining: null as number | null,
       },
       hasManualOverride: false,
+      tierSource: 'NONE' as TierSource,
       lastTierChange: null,
     }));
 
@@ -286,16 +292,37 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   /**
-   * PHASE 2: Fetch enhanced metadata (tier changes, overrides) - streams in after render
+   * PHASE 2: Fetch enhanced metadata (tier state, last tier change) - streams in after render
+   *
+   * UPDATED: Now uses CustomerTierState as single source of truth for:
+   * - hasManualOverride (O(1) boolean lookup instead of TierChangeLog scan)
+   * - tierSource (MANUAL_OVERRIDE, TIER_SUBSCRIPTION, TIER_PURCHASE, SPENDING_BASED, NONE)
+   * - membershipStatus (from purchaseExpiresAt, subscriptionExpiresAt)
+   *
+   * Still uses TierChangeLog for lastTierChange (audit trail)
    */
   async function fetchEnhancedCustomerMetadata(
     customerIds: string[]
   ) {
     if (customerIds.length === 0) {
-      return { tierChanges: [], enhancedData: {} };
+      return { enhancedData: {} };
     }
 
-    // Batch fetch all tier change logs for all customers in ONE query
+    // Batch fetch CustomerTierState for all customers in ONE query (O(1) per customer)
+    const allTierStates = await db.customerTierState.findMany({
+      where: {
+        customerId: { in: customerIds }
+      }
+    });
+
+    // Create lookup map for O(1) access
+    const tierStateByCustomer = new Map<string, typeof allTierStates[0]>();
+    allTierStates.forEach(state => {
+      tierStateByCustomer.set(state.customerId, state);
+    });
+
+    // Batch fetch most recent tier change log for each customer (for lastTierChange display)
+    // We still need TierChangeLog for the audit trail / history display
     const allTierChanges = await db.tierChangeLog.findMany({
       where: {
         customerId: { in: customerIds }
@@ -303,73 +330,46 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    // Group tier changes by customer ID for O(1) lookup
-    const tierChangesByCustomer = new Map<string, typeof allTierChanges>();
+    // Group tier changes by customer ID, keeping only the most recent one
+    const lastTierChangeByCustomer = new Map<string, typeof allTierChanges[0]>();
     allTierChanges.forEach(change => {
-      if (!tierChangesByCustomer.has(change.customerId)) {
-        tierChangesByCustomer.set(change.customerId, []);
+      if (!lastTierChangeByCustomer.has(change.customerId)) {
+        lastTierChangeByCustomer.set(change.customerId, change);
       }
-      tierChangesByCustomer.get(change.customerId)!.push(change);
     });
 
     // Process enhanced data for each customer
     const enhancedData: Record<string, any> = {};
 
     customerIds.forEach(customerId => {
-      const customerTierChanges = tierChangesByCustomer.get(customerId) || [];
+      const tierState = tierStateByCustomer.get(customerId);
+      const lastChange = lastTierChangeByCustomer.get(customerId);
 
-      // Get last tier change
-      const lastTierChange = customerTierChanges.length > 0 ? {
-        triggerType: customerTierChanges[0].triggerType,
-        createdAt: customerTierChanges[0].createdAt.toISOString(),
-        note: customerTierChanges[0].note || undefined,
+      // Get last tier change from TierChangeLog (audit trail)
+      const lastTierChange = lastChange ? {
+        triggerType: lastChange.triggerType,
+        createdAt: lastChange.createdAt instanceof Date
+          ? lastChange.createdAt.toISOString()
+          : lastChange.createdAt,
+        note: lastChange.note || undefined,
       } : null;
 
-      // Check for manual override
-      const manualAdminChanges = customerTierChanges.filter(c => c.triggerType === 'MANUAL_ADMIN');
+      // Get override status directly from CustomerTierState (O(1) lookup!)
       let hasManualOverrideStatus = false;
+      let tierSource: TierSource = 'NONE';
 
-      if (manualAdminChanges.length > 0) {
-        const latestManualChange = manualAdminChanges[0];
-        let metadata = latestManualChange.metadata as any;
-
-        if (typeof metadata === 'string') {
-          try {
-            metadata = JSON.parse(metadata);
-          } catch (error) {
-            metadata = null;
+      if (tierState) {
+        // Check if manual override is active and not expired
+        if (tierState.hasManualOverride) {
+          const expiry = tierState.manualOverrideExpiry;
+          if (!expiry || new Date(expiry) > new Date()) {
+            hasManualOverrideStatus = true;
           }
         }
-
-        if (metadata?.permanentOverride === true) {
-          const laterManualChanges = manualAdminChanges.filter(
-            c => c.createdAt > latestManualChange.createdAt
-          );
-
-          const hasRemoval = laterManualChanges.some(entry => {
-            if (entry.note && entry.note.includes('override removed')) return true;
-
-            let entryMetadata = entry.metadata as any;
-            if (typeof entryMetadata === 'string') {
-              try {
-                entryMetadata = JSON.parse(entryMetadata);
-              } catch (error) {
-                return false;
-              }
-            }
-
-            return entryMetadata?.permanentOverride === false;
-          });
-
-          hasManualOverrideStatus = !hasRemoval;
-        }
+        tierSource = (tierState.tierSource as TierSource) || 'NONE';
       }
 
-      // Check membership status
-      const purchaseOrManualChanges = customerTierChanges.filter(
-        c => c.triggerType === 'PRODUCT_PURCHASE' || c.triggerType === 'MANUAL_ADMIN'
-      );
-
+      // Calculate membership status from CustomerTierState
       let membershipStatus = {
         isPurchased: false,
         needsRenewal: false,
@@ -377,42 +377,44 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         daysRemaining: null as number | null,
       };
 
-      if (purchaseOrManualChanges.length > 0) {
-        const lastChange = purchaseOrManualChanges[0];
-        const isPurchased = lastChange.triggerType === 'PRODUCT_PURCHASE';
+      if (tierState) {
+        const isPurchased = tierState.tierSource === 'TIER_PURCHASE' ||
+                           tierState.tierSource === 'TIER_SUBSCRIPTION';
 
-        let metadata = lastChange.metadata as any;
-        if (typeof metadata === 'string') {
-          try {
-            metadata = JSON.parse(metadata);
-          } catch (error) {
-            metadata = null;
-          }
+        // Determine expiry date based on tier source
+        let expiryDate: Date | null = null;
+        if (tierState.tierSource === 'TIER_PURCHASE' && tierState.purchaseExpiresAt) {
+          expiryDate = new Date(tierState.purchaseExpiresAt);
+        } else if (tierState.tierSource === 'TIER_SUBSCRIPTION' && tierState.subscriptionExpiresAt) {
+          expiryDate = new Date(tierState.subscriptionExpiresAt);
+        } else if (tierState.tierSource === 'MANUAL_OVERRIDE' && tierState.manualOverrideExpiry) {
+          expiryDate = new Date(tierState.manualOverrideExpiry);
         }
 
-        if (metadata?.permanentOverride === true) {
+        if (expiryDate) {
+          const now = new Date();
+          const daysRemaining = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+          membershipStatus = {
+            isPurchased,
+            needsRenewal: daysRemaining <= 30 && daysRemaining > 0,
+            expiresAt: expiryDate.toISOString(),
+            daysRemaining: daysRemaining > 0 ? daysRemaining : null,
+          };
+        } else if (isPurchased || tierState.tierSource === 'MANUAL_OVERRIDE') {
+          // Active membership with no expiry (permanent)
           membershipStatus = {
             isPurchased,
             needsRenewal: false,
             expiresAt: null,
             daysRemaining: null,
           };
-        } else if (metadata?.expiresAt) {
-          const expiresAt = new Date(metadata.expiresAt);
-          const now = new Date();
-          const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-          membershipStatus = {
-            isPurchased,
-            needsRenewal: daysRemaining <= 30 && daysRemaining > 0,
-            expiresAt: expiresAt.toISOString(),
-            daysRemaining: daysRemaining > 0 ? daysRemaining : null,
-          };
         }
       }
 
       enhancedData[customerId] = {
         hasManualOverride: hasManualOverrideStatus,
+        tierSource,
         lastTierChange,
         membershipStatus,
       };
@@ -1892,6 +1894,10 @@ export default function Customers() {
   const [manualTierReason, setManualTierReason] = useState("");
   const [permanentOverride, setPermanentOverride] = useState(false);
 
+  // Enhanced customer data state (from deferred promise)
+  const [enhancedCustomers, setEnhancedCustomers] = useState<Customer[]>([]);
+  const [enhancedDataLoaded, setEnhancedDataLoaded] = useState(false);
+
   // Animation refs
   const tableRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -2132,6 +2138,53 @@ export default function Customers() {
     }
   }, [navigation.state, isCalculating, navigation.formData, actionData]);
 
+  // Resolve deferred enhanced metadata and merge with customers
+  useEffect(() => {
+    const baseCustomers = data.customersData?.customers || [];
+
+    // If we have a deferred enhancedMetadata promise, resolve it
+    if (data.enhancedMetadata && typeof data.enhancedMetadata.then === 'function') {
+      setEnhancedDataLoaded(false);
+
+      data.enhancedMetadata
+        .then((result: { enhancedData: Record<string, any> }) => {
+          const { enhancedData } = result;
+
+          // Merge enhanced data with base customers
+          const merged = baseCustomers.map(customer => ({
+            ...customer,
+            hasManualOverride: enhancedData[customer.id]?.hasManualOverride ?? false,
+            tierSource: enhancedData[customer.id]?.tierSource ?? 'NONE',
+            lastTierChange: enhancedData[customer.id]?.lastTierChange ?? null,
+            membershipStatus: enhancedData[customer.id]?.membershipStatus ?? {
+              isPurchased: false,
+              needsRenewal: false,
+              expiresAt: null,
+              daysRemaining: null,
+            },
+          }));
+
+          setEnhancedCustomers(merged);
+          setEnhancedDataLoaded(true);
+        })
+        .catch((error: Error) => {
+          console.error('Failed to load enhanced metadata:', error);
+          // Fall back to base customers with placeholders
+          setEnhancedCustomers(baseCustomers);
+          setEnhancedDataLoaded(true);
+        });
+    } else {
+      // No deferred data, use base customers
+      setEnhancedCustomers(baseCustomers);
+      setEnhancedDataLoaded(true);
+    }
+  }, [data.customersData?.customers, data.enhancedMetadata]);
+
+  // Use enhanced customers if loaded, otherwise fall back to base customers
+  const displayCustomers = enhancedDataLoaded
+    ? enhancedCustomers
+    : (data.customersData?.customers || []);
+
   // Customer count display helper (using deferred data pattern)
   const getCustomerCountText = (customersData: any) => {
     if (!customersData?.pagination) return '0';
@@ -2230,9 +2283,9 @@ export default function Customers() {
             </BlockStack>
           </Box>
 
-        {/* Customer Table - Now loads immediately! */}
+        {/* Customer Table - Now loads immediately with enhanced data streaming in! */}
         <CustomersTableContent
-          customers={data.customersData?.customers || []}
+          customers={displayCustomers}
           pagination={data.customersData?.pagination}
           shopSettings={data.shopSettings}
           tiers={data.tiers}

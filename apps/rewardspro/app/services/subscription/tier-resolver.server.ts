@@ -2,6 +2,13 @@
  * Tier Resolver Service
  * Manages tier conflicts when customers have multiple tier sources
  * (spending-based vs subscription-based)
+ *
+ * @deprecated This service is being replaced by tier-state.server.ts which uses
+ * the CustomerTierState model as a single source of truth. New code should use
+ * the consolidated tier-state.server.ts service instead.
+ *
+ * This file is kept for backward compatibility during migration.
+ * TODO: Migrate remaining usages to tier-state.server.ts and delete this file.
  */
 
 import { db } from "~/db.server";

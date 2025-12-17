@@ -54,7 +54,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Fetch the related tier separately
     const tier = await db.tier.findUnique({
-      where: { id: tierId }
+      where: { id: tierProduct.tierId }
     });
 
     if (!tier) {
@@ -105,7 +105,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         id: uuidv4(),
         shop,
         customerId: customer.id,
-        tierId: tierId,
+        tierId: tierProduct.tierId,
         shopifyContractId: contractId,
         sellingPlanId: sellingPlanId || "",
         status: subscription.status || "ACTIVE",
@@ -132,7 +132,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await db.customer.update({
         where: { id: customer.id },
         data: {
-          currentTierId: tierId,
+          currentTierId: tierProduct.tierId,
           updatedAt: new Date(),
         },
       });
@@ -144,7 +144,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           customerId: customer.id,
           shop,
           fromTierId: customer.currentTierId,
-          toTierId: tierId,
+          toTierId: tierProduct.tierId,
           fromTierName: null,
           toTierName: tier.name,
           changeType: customer.currentTierId ? "UPGRADE" : "INITIAL_ASSIGNMENT",

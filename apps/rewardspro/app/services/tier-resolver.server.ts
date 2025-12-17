@@ -2,6 +2,14 @@
  * TierResolver Service
  * Manages the hybrid tier model - determines effective tier based on both earned and purchased tiers
  * Implements best practices from tier products guide
+ *
+ * @deprecated This service is being replaced by tier-state.server.ts which uses
+ * the CustomerTierState model as a single source of truth. New code should use:
+ * - tier-state.server.ts for tier state management
+ * - tier-resolution.server.ts for resolution logic
+ *
+ * This file is kept for backward compatibility during migration.
+ * TODO: Migrate remaining usages to tier-state.server.ts and delete this file.
  */
 
 import db from '../db.server';

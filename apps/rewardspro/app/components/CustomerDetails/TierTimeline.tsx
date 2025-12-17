@@ -36,11 +36,23 @@ const changeTypeConfig: Record<string, {
 };
 
 const triggerTypeLabels: Record<string, string> = {
+  // Legacy trigger types
   ORDER_COMPLETED: 'Order completed',
   MANUAL_ADJUSTMENT: 'Manual adjustment',
   SCHEDULED_EVALUATION: 'Scheduled evaluation',
   CUSTOMER_SYNC: 'Customer sync',
   INITIAL: 'Initial assignment',
+  // New trigger types aligned with CustomerTierState
+  MANUAL_ADMIN: 'Admin override',
+  PRODUCT_PURCHASE: 'Tier purchase',
+  SUBSCRIPTION_STARTED: 'Subscription started',
+  SUBSCRIPTION_CANCELLED: 'Subscription cancelled',
+  SUBSCRIPTION_RENEWED: 'Subscription renewed',
+  SUBSCRIPTION_EXPIRED: 'Subscription expired',
+  PURCHASE_EXPIRED: 'Purchase expired',
+  SPENDING_MILESTONE: 'Spending milestone',
+  PERIODIC_REVIEW: 'Periodic review',
+  TIER_RECALCULATION: 'Tier recalculation',
 };
 
 export function TierTimeline({ logs, formatAmount, formatDate }: TierTimelineProps) {

@@ -167,6 +167,10 @@ model Tier {
   tierProducts      TierProduct[]  // Products for purchasing this tier
   tierPurchases     TierPurchase[]    // One-time purchases of this tier
 
+  // CustomerTierState relations
+  tierStateEffective    CustomerTierState[] @relation("EffectiveTier")
+  tierStateSpendingBased CustomerTierState[] @relation("SpendingBasedTier")
+
   // Constraints
   @@unique([shop, name])  // Combination must be unique
   @@index([shop])         // Speed up queries by shop
@@ -277,11 +281,67 @@ model Customer {
   subscriptionEvents SubscriptionEvent[]  // Subscription event history
   appSubscriptions  Subscription[]       // App-level subscriptions
   
+  // Single source of truth for tier state (new unified system)
+  tierState         CustomerTierState? @relation("TierState")
+
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
   @@index([email])                     // Speed up queries by email
   @@index([shop, shopifyCustomerMetafieldId])  // Speed up storefront widget queries
   @@index([shop, currentTierId, createdAt(sort: Desc)])  // Optimize paginated tier-filtered queries
+}
+
+// ============================================
+// CUSTOMER TIER STATE - Single Source of Truth
+// ============================================
+// This model is the authoritative source for a customer's current tier.
+// It replaces the need to scan TierChangeLog for manual overrides and
+// consolidates tier source tracking in one place.
+
+model CustomerTierState {
+  id                    String     @id @default(uuid())
+  shop                  String
+  customerId            String     @unique
+  customer              Customer   @relation("TierState", fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Current effective tier (the tier the customer actually has)
+  effectiveTierId       String?
+  effectiveTier         Tier?      @relation("EffectiveTier", fields: [effectiveTierId], references: [id], onDelete: SetNull)
+  tierSource            TierSource @default(NONE)
+  tierSourceId          String?    // ID of the source record (subscription ID, purchase ID, etc.)
+
+  // Manual override tracking (explicit fields, no TierChangeLog scanning needed)
+  hasManualOverride     Boolean    @default(false)
+  manualOverrideAt      DateTime?
+  manualOverrideBy      String?    // Admin user ID who set the override
+  manualOverrideExpiry  DateTime?  // NULL = permanent, otherwise temporary override
+  manualOverrideNote    String?    @db.Text
+
+  // Active purchase tracking
+  activePurchaseId      String?
+  purchaseExpiresAt     DateTime?
+
+  // Active subscription tracking
+  activeSubscriptionId  String?
+  subscriptionExpiresAt DateTime?
+
+  // Spending-based tier (cached for performance)
+  spendingBasedTierId   String?
+  spendingBasedTier     Tier?      @relation("SpendingBasedTier", fields: [spendingBasedTierId], references: [id], onDelete: SetNull)
+  spendingLastCalculated DateTime?
+
+  // Resolution tracking
+  lastResolvedAt        DateTime   @default(now())
+  resolutionReason      String?    @db.Text  // Human-readable explanation of resolution
+
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  @@index([shop, effectiveTierId])
+  @@index([shop, tierSource])
+  @@index([hasManualOverride])
+  @@index([purchaseExpiresAt])
+  @@index([subscriptionExpiresAt])
 }
 
 model StoreCreditLedger {
@@ -1361,6 +1421,15 @@ enum PurchaseStatus {
   EXPIRED
   CANCELLED
   REFUNDED
+}
+
+// Tier source for CustomerTierState - indicates where the customer's current tier comes from
+enum TierSource {
+  MANUAL_OVERRIDE     // Admin explicitly set this tier
+  TIER_SUBSCRIPTION   // Customer has active recurring subscription
+  TIER_PURCHASE       // Customer has active one-time purchase
+  SPENDING_BASED      // Automatic calculation based on spending
+  NONE                // No tier assigned
 }
 
 // ============================================
