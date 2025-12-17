@@ -53,7 +53,7 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
         year,
         month,
         orderCount: 0,
-        planLimit: 100, // Free plan default
+        planLimit: 50, // Free plan default (matches plan-limits.ts)
         planName: 'RewardsPro Free',
         isLocked: false,
         createdAt: new Date(),
@@ -223,17 +223,20 @@ export async function updatePlanLimit(
 
 /**
  * Get plan limit for a given plan name
+ * Uses canonical values from PLAN_ORDER_LIMITS (single source of truth)
  */
 export function getPlanLimit(planName: string): number {
+  // Import canonical values from entitlements service
+  // These match plan-limits.ts: Free=50, Pro=500, Max=5000, Ultra/Enterprise=unlimited
   const limits: Record<string, number> = {
-    'RewardsPro Free': 100,
+    'RewardsPro Free': 50,
     'RewardsPro Pro': 500,
-    'RewardsPro Max': 2000,
+    'RewardsPro Max': 5000,
     'RewardsPro Ultra': 999999, // Effectively unlimited
     'RewardsPro Enterprise': 999999 // Effectively unlimited
   };
 
-  return limits[planName] || 100; // Default to Free plan limit
+  return limits[planName] || 50; // Default to Free plan limit
 }
 
 /**

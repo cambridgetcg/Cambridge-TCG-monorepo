@@ -139,6 +139,62 @@ model ShopSettings {
   @@index([tierRecalculationEnabled, tierRecalculationLastRun])  // Index for cron job queries
 }
 
+// ============================================
+// SHOP ENTITLEMENTS (Single Source of Truth for Feature Access)
+// ============================================
+
+model ShopEntitlements {
+  id                    String   @id @default(uuid())
+  shop                  String   @unique
+
+  // Resolved plan (single source of truth)
+  effectivePlan         String   @default("free")  // free, pro, max, ultra, enterprise
+  planSource            EntitlementSource @default(DEFAULT)
+
+  // Feature flags (boolean)
+  featureApiAccess      Boolean  @default(false)
+  featureWebhooks       Boolean  @default(false)
+  featureWhiteLabel     Boolean  @default(false)
+  featureAdvancedReport Boolean  @default(true)
+  featureCustomEmail    Boolean  @default(false)
+  featureAnnualEval     Boolean  @default(false)
+  featureBulkOps        Boolean  @default(false)
+  featureCustomBranding Boolean  @default(false)
+  featurePrioritySupport Boolean @default(false)
+  featureSubscriptionTiers Boolean @default(false)
+  featurePurchasableTiers Boolean @default(false)
+  featureExportData     Boolean  @default(false)
+  featureCustomRewards  Boolean  @default(false)
+
+  // Numeric limits
+  limitMaxTiers         Int      @default(2)
+  limitMaxOrders        Int      @default(50)
+  limitMaxEmails        Int      @default(0)
+
+  // Override support (for custom deals / grandfathered plans)
+  hasOverride           Boolean  @default(false)
+  overrideExpiry        DateTime?
+  overrideNote          String?
+  overrideBy            String?  // Admin who set the override
+
+  // Timestamps
+  lastResolvedAt        DateTime @default(now())
+  resolvedFrom          String?  // Source that triggered last resolution (webhook, manual, etc.)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([shop])
+  @@index([effectivePlan])
+  @@index([hasOverride])
+}
+
+enum EntitlementSource {
+  DEFAULT       // No subscription, using free defaults
+  SUBSCRIPTION  // From active Shopify subscription
+  OVERRIDE      // Manual override by admin
+  LEGACY        // Grandfathered from old billing system
+}
+
 model Tier {
   id                String @id
   shop              String

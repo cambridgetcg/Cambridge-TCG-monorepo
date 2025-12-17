@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import * as crypto from "crypto";
 import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
+import { refreshEntitlements } from "~/services/entitlements.server";
 
 /**
  * Webhook handler for APP_SUBSCRIPTIONS_UPDATE
@@ -149,6 +150,15 @@ export async function action({ request }: ActionFunctionArgs) {
         });
       } else if (subscription.status === "ACTIVE") {
         console.log(`[APP_SUBSCRIPTIONS_UPDATE] ✅ Subscription ACTIVE for ${shopDomain}`);
+      }
+
+      // Refresh entitlements to ensure features/limits are in sync
+      try {
+        await refreshEntitlements(shopDomain);
+        console.log(`[APP_SUBSCRIPTIONS_UPDATE] Refreshed entitlements for ${shopDomain}`);
+      } catch (entitlementsError) {
+        console.error("[APP_SUBSCRIPTIONS_UPDATE] Failed to refresh entitlements:", entitlementsError);
+        // Don't fail the webhook - entitlements will be refreshed on next page load
       }
 
     } catch (error) {

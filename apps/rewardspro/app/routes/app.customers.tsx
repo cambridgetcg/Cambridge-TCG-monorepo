@@ -87,7 +87,7 @@ import {
   getTierGradientCSS,
   getTierTextColor
 } from "../utils/tier-styles";
-import { getCurrentPlan, hasFeature } from "../utils/plan-limits";
+import { getEntitlements } from "../services/entitlements.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -139,6 +139,7 @@ interface LoaderData {
     currencyDisplayType: string;
   } | null;
   currentPlan: string;
+  hasAnnualEval: boolean;
   customersData: {
     customers: Customer[];
     pagination: {
@@ -497,7 +498,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Customers Loader] Page:', page, 'PageSize:', pageSize);
 
     // Fetch shell data and paginated customers in parallel
-    const [tiers, shopSettings, billingSubscription, paginatedResult] = await Promise.all([
+    const [tiers, shopSettings, entitlements, paginatedResult] = await Promise.all([
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
@@ -505,9 +506,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.shopSettings.findUnique({
         where: { shop },
       }),
-      db.billingSubscription.findUnique({
-        where: { shop },
-      }),
+      getEntitlements(shop),
       // NEW: Database-level pagination - only fetches customers for current page!
       fetchPaginatedCustomers(shop, {
         searchQuery,
@@ -524,7 +523,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Customers Loader] Fetched', customers.length, 'customers (page', page, 'of', Math.ceil(totalCount / pageSize), ')');
     console.log('[Customers Loader] Total matching customers:', totalCount);
 
-    const currentPlan = getCurrentPlan(null, billingSubscription);
+    // Get plan info from entitlements
+    const currentPlan = entitlements.effectivePlan;
+    const hasAnnualEval = entitlements.featureAnnualEval;
 
     // Serialize dates for tiers
     const serializedTiers = tiers.map(tier => ({
@@ -569,6 +570,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         currencyDisplayType: shopSettings.currencyDisplayType,
       } : null,
       currentPlan,
+      hasAnnualEval,
       customersData: essentialCustomersData, // Instant render!
 
       // DEFERRED: Enhanced metadata & stats (stream in progressively)
@@ -600,12 +602,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Handle tier management actions
     if (intent === "create" || intent === "update" || intent === "delete") {
+      // Get entitlements for server-side validation
+      const entitlements = await getEntitlements(shop);
+
       switch (intent) {
         case "create": {
           const name = formData.get("name") as string;
           const minSpend = Number(formData.get("minSpend"));
           const cashbackPercent = Number(formData.get("cashbackPercent"));
-          const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+          let evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+
+          // Server-side enforcement: Force LIFETIME if user doesn't have annualEval feature
+          if (evaluationPeriod === "ANNUAL" && !entitlements.featureAnnualEval) {
+            evaluationPeriod = "LIFETIME";
+          }
 
           // Validate inputs
           if (!name || name.trim().length === 0) {
@@ -650,7 +660,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const name = formData.get("name") as string;
           const minSpend = Number(formData.get("minSpend"));
           const cashbackPercent = Number(formData.get("cashbackPercent"));
-          const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+          let evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
+
+          // Server-side enforcement: Force LIFETIME if user doesn't have annualEval feature
+          if (evaluationPeriod === "ANNUAL" && !entitlements.featureAnnualEval) {
+            evaluationPeriod = "LIFETIME";
+          }
 
           if (!id) {
             return json({ error: "Tier ID is required" }, { status: 400 });
@@ -2367,7 +2382,7 @@ export default function Customers() {
               <Select
                 label="Evaluation Period"
                 options={
-                  hasFeature(data.currentPlan, 'annualEvaluationPeriod')
+                  data.hasAnnualEval
                     ? [
                         { label: "Annual (resets yearly)", value: "ANNUAL" },
                         { label: "Lifetime (cumulative)", value: "LIFETIME" },
@@ -2379,7 +2394,7 @@ export default function Customers() {
                 value={tierFormData.evaluationPeriod}
                 onChange={(value) => setTierFormData({ ...tierFormData, evaluationPeriod: value as "ANNUAL" | "LIFETIME" })}
                 helpText={
-                  !hasFeature(data.currentPlan, 'annualEvaluationPeriod')
+                  !data.hasAnnualEval
                     ? "Annual evaluation period is only available on Ultra plan and above. Upgrade to unlock this feature."
                     : "Choose how tier status is calculated: annually reset or lifetime cumulative"
                 }

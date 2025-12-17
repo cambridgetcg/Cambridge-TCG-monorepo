@@ -51,7 +51,7 @@ import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
-import { getCurrentPlan, hasFeature } from "../utils/plan-limits";
+import { getEntitlements } from "../services/entitlements.server";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
 import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
 
@@ -95,6 +95,8 @@ interface LoaderData {
   tierDistribution: Record<string, number>;
   canCreateProducts: boolean;
   currentPlan: string;
+  hasAnnualEval: boolean; // Feature flag from entitlements
+  hasPurchasableTiers: boolean; // Feature flag from entitlements
 }
 
 // ============================================
@@ -153,14 +155,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
   
   try {
-    // Fetch billing subscription to check plan access
-    const billingSubscription = await db.billingSubscription.findUnique({
-      where: { shop }
-    });
-
-    const currentPlan = getCurrentPlan(null, billingSubscription);
-    // TEMPORARILY ENABLED: Allow tier product creation on free plan for testing
-    const canCreateProducts = true; // hasFeature(currentPlan, 'purchasableTiers');
+    // Fetch entitlements (single source of truth for features/limits)
+    const entitlements = await getEntitlements(shop);
+    const currentPlan = entitlements.effectivePlan;
+    // Use entitlements for feature flags
+    const canCreateProducts = entitlements.featurePurchasableTiers;
+    const hasAnnualEval = entitlements.featureAnnualEval;
+    const hasPurchasableTiers = entitlements.featurePurchasableTiers;
 
     // Fetch tiers, shop settings, and tier distribution
     const [tiers, shopSettings, customers] = await Promise.all([
@@ -307,6 +308,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       tierDistribution,
       canCreateProducts,
       currentPlan,
+      hasAnnualEval,
+      hasPurchasableTiers,
     });
   } catch (error) {
     console.error("[TierProducts] Loader error:", error);
@@ -453,18 +456,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (intent === "create-product") {
-      // Check plan access (server-side validation)
-      const billingSubscription = await db.billingSubscription.findUnique({
-        where: { shop }
-      });
-      const currentPlan = getCurrentPlan(null, billingSubscription);
-      // TEMPORARILY ENABLED: Allow tier product creation on free plan for testing
-      const canCreateProducts = true; // hasFeature(currentPlan, 'purchasableTiers');
+      // Check plan access (server-side validation using entitlements)
+      const entitlements = await getEntitlements(shop);
+      const canCreateProducts = entitlements.featurePurchasableTiers;
 
       if (!canCreateProducts) {
         return json({
           success: false,
-          error: "Upgrade to Pro plan or higher to create purchasable tier products"
+          error: `Upgrade to Pro plan or higher to create purchasable tier products. Current plan: ${entitlements.effectivePlan}`
         }, { status: 403 });
       }
 
@@ -1763,7 +1762,7 @@ export default function TierProducts() {
               minSpend: "0",
               cashbackPercent: "0",
               // Default to LIFETIME for plans without annualEvaluationPeriod feature
-              evaluationPeriod: hasFeature(data.currentPlan, 'annualEvaluationPeriod') ? "ANNUAL" : "LIFETIME",
+              evaluationPeriod: data.hasAnnualEval ? "ANNUAL" : "LIFETIME",
             });
             setTierModalActive(true);
           },
@@ -1814,7 +1813,7 @@ export default function TierProducts() {
                           minSpend: "0",
                           cashbackPercent: "0",
                           // Default to LIFETIME for plans without annualEvaluationPeriod feature
-                          evaluationPeriod: hasFeature(data.currentPlan, 'annualEvaluationPeriod') ? "ANNUAL" : "LIFETIME",
+                          evaluationPeriod: data.hasAnnualEval ? "ANNUAL" : "LIFETIME",
                         });
                         setTierModalActive(true);
                       }}
@@ -2755,7 +2754,7 @@ export default function TierProducts() {
               <Select
                 label="Evaluation Period"
                 options={
-                  hasFeature(data.currentPlan, 'annualEvaluationPeriod')
+                  data.hasAnnualEval
                     ? [
                         { label: "Annual (resets yearly)", value: "ANNUAL" },
                         { label: "Lifetime (cumulative)", value: "LIFETIME" },
@@ -2767,7 +2766,7 @@ export default function TierProducts() {
                 value={tierFormData.evaluationPeriod}
                 onChange={(value) => setTierFormData({ ...tierFormData, evaluationPeriod: value as "ANNUAL" | "LIFETIME" })}
                 helpText={
-                  !hasFeature(data.currentPlan, 'annualEvaluationPeriod')
+                  !data.hasAnnualEval
                     ? "Annual evaluation period is only available on Ultra plan and above. Upgrade to unlock this feature."
                     : "Choose how tier status is calculated: annually reset or lifetime cumulative"
                 }

@@ -12,6 +12,20 @@ import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { HelpAssistant } from "../components/HelpAssistant";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
+import { getEntitlements } from "../services/entitlements.server";
+import type { ShopEntitlements } from "@prisma/client";
+
+// Type for loader data - exported for child routes
+export interface AppLoaderData {
+  apiKey: string;
+  shop: string;
+  host: string;
+  entitlements: ShopEntitlements | null;
+  features: {
+    emailMarketing: boolean;
+  };
+  currentPlan: string;
+}
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
@@ -131,9 +145,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
+    // Load entitlements (single source of truth for features/limits)
+    let entitlements: ShopEntitlements | null = null;
+    try {
+      entitlements = await getEntitlements(session.shop);
+      console.log(`[App Loader] Loaded entitlements for ${session.shop}: ${entitlements.effectivePlan}`);
+    } catch (entitlementsError) {
+      console.error("[App Loader] Error loading entitlements:", entitlementsError);
+    }
+
     // Fetch shop settings to check feature flags
     let emailMarketingEnabled = false;
-    let currentPlanName = '';
+    let currentPlanName = entitlements?.effectivePlan || '';
     try {
       const shopSettings = await db.shopSettings.findUnique({
         where: { shop: session.shop },
@@ -141,11 +164,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       if (shopSettings) {
         emailMarketingEnabled = (shopSettings as any).emailMarketingEnabled || false;
-        currentPlanName = (shopSettings as any).currentPlanName || '';
+        // Use entitlements as source of truth, fall back to shopSettings
+        if (!currentPlanName) {
+          currentPlanName = (shopSettings as any).currentPlanName || '';
+        }
       }
 
       // Also check if plan supports email marketing (Max, Ultra, Enterprise)
-      if (billing) {
+      // Only do billing check if entitlements didn't give us a plan
+      if (!entitlements?.effectivePlan && billing) {
         try {
           const { appSubscriptions } = await billing.check({
             plans: [STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
@@ -162,14 +189,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.error("[App Loader] Error fetching shop settings:", settingsError);
     }
 
-    // Check if email marketing should be shown (feature enabled OR plan supports it)
-    const hasEmailMarketingAccess = emailMarketingEnabled || EMAIL_MARKETING_PLANS.includes(currentPlanName);
+    // Check if email marketing should be shown (from entitlements or legacy check)
+    const hasEmailMarketingAccess = entitlements?.featureCustomEmail ||
+      emailMarketingEnabled ||
+      EMAIL_MARKETING_PLANS.includes(currentPlanName);
 
     const response = json(
       {
         apiKey: process.env.SHOPIFY_API_KEY || "",
         shop: session.shop,
         host: new URL(request.url).searchParams.get("host") || "",
+        entitlements, // NEW: Full entitlements object for child routes
         features: {
           emailMarketing: hasEmailMarketingAccess,
         },
