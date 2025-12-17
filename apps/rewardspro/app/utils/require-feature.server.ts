@@ -250,7 +250,7 @@ function getFeatureRequiredPlan(feature: FeatureKey): string {
     customBranding: 'RewardsPro Max',
     prioritySupport: 'RewardsPro Max',
     subscriptionTiers: 'RewardsPro Pro',
-    purchasableTiers: 'RewardsPro Pro',
+    purchasableTiers: 'RewardsPro Max',
     exportData: 'RewardsPro Pro',
     customRewards: 'RewardsPro Pro',
   };

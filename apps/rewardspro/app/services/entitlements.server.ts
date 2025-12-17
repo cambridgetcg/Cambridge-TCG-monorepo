@@ -132,7 +132,7 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureCustomBranding: false,
     featurePrioritySupport: false,
     featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
+    featurePurchasableTiers: false, // Max plan and above only
     featureExportData: true,
     featureCustomRewards: true,
     limitMaxTiers: 5,
@@ -205,7 +205,7 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureCustomBranding: false,
     featurePrioritySupport: false,
     featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
+    featurePurchasableTiers: false, // Max plan and above only
     featureExportData: true,
     featureCustomRewards: true,
     limitMaxTiers: 5,
