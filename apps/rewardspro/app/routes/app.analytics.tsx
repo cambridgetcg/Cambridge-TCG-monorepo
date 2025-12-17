@@ -91,7 +91,6 @@ import {
   type MonthlyImpactData
 } from "~/services/program-impact.server";
 import { formatPercentageChange, getBadgeTone } from "~/utils/analytics-formatters";
-import { useEntitlements } from "~/hooks/useEntitlements";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -191,6 +190,7 @@ interface AnalyticsData {
     averageTransactionFee: string | null;
     averageReturnRate: string | null;
     metricsLastUpdated: string | null;
+    advancedAnalyticsEnabled: boolean;
   } | null;
 
   // Auto-calculated business metrics
@@ -1176,6 +1176,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         averageTransactionFee: shopSettings.averageTransactionFee?.toString() || null,
         averageReturnRate: shopSettings.averageReturnRate?.toString() || null,
         metricsLastUpdated: shopSettings.metricsLastUpdated?.toISOString() || null,
+        advancedAnalyticsEnabled: (shopSettings as any).advancedAnalyticsEnabled ?? false,
       } : null,
 
       // Auto-calculated business metrics
@@ -2155,7 +2156,9 @@ export default function AnalyticsPage() {
   const navigation = useNavigation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { hasAdvancedReport } = useEntitlements();
+
+  // Check if advanced analytics is enabled via Feature Manager toggle
+  const hasAdvancedAnalytics = data.shopSettings?.advancedAnalyticsEnabled ?? false;
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedDateRange, setSelectedDateRange] = useState(
@@ -2164,10 +2167,10 @@ export default function AnalyticsPage() {
 
   // Reset to Overview tab if user doesn't have advanced analytics access
   useEffect(() => {
-    if (!hasAdvancedReport && selectedTab > 0) {
+    if (!hasAdvancedAnalytics && selectedTab > 0) {
       setSelectedTab(0);
     }
-  }, [hasAdvancedReport, selectedTab]);
+  }, [hasAdvancedAnalytics, selectedTab]);
 
   const isLoading = navigation.state === "loading";
   
@@ -2210,11 +2213,11 @@ export default function AnalyticsPage() {
   }, [selectedDateRange]);
 
   // Build tabs based on feature access - Overview is always visible
-  // Advanced tabs require Advanced Analytics feature
+  // Advanced tabs require Advanced Analytics feature (from Feature Manager toggle)
   const tabs = useMemo(() => {
     const baseTabs = [{ id: 'overview', content: 'Overview' }];
 
-    if (hasAdvancedReport) {
+    if (hasAdvancedAnalytics) {
       baseTabs.push(
         { id: 'financial', content: 'Financial' },
         { id: 'actions', content: 'Recommended Actions', badge: data.recommendations?.length.toString() || '0' },
@@ -2224,7 +2227,7 @@ export default function AnalyticsPage() {
     }
 
     return baseTabs;
-  }, [hasAdvancedReport, data.recommendations?.length]);
+  }, [hasAdvancedAnalytics, data.recommendations?.length]);
 
   return (
     <Page
