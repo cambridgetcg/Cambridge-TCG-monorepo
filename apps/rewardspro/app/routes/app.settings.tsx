@@ -900,6 +900,7 @@ export default function SettingsPage() {
   const [tierRecalculationEnabled, setTierRecalculationEnabled] = useState(settings.tierRecalculationEnabled);
   const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [showRecalculateModal, setShowRecalculateModal] = useState(false);
 
   // Widget theme state
   const [widgetThemeMode, setWidgetThemeMode] = useState<WidgetThemeMode>(settings.widgetThemeMode || "LIGHT");
@@ -1048,13 +1049,17 @@ export default function SettingsPage() {
 
   // Handle manual tier recalculation
   const handleManualRecalculation = useCallback(() => {
-    if (confirm("This will recalculate tiers for all customers in your store. This may take several minutes depending on the number of customers. Continue?")) {
-      setIsRecalculating(true);
-      fetcher.submit(
-        { intent: "recalculate-tiers" },
-        { method: "post" }
-      );
-    }
+    setShowRecalculateModal(true);
+  }, []);
+
+  // Confirm and execute tier recalculation
+  const confirmRecalculation = useCallback(() => {
+    setShowRecalculateModal(false);
+    setIsRecalculating(true);
+    fetcher.submit(
+      { intent: "recalculate-tiers" },
+      { method: "post" }
+    );
   }, [fetcher]);
 
   // Calculate next scheduled run based on frequency and last run
@@ -1456,6 +1461,35 @@ export default function SettingsPage() {
                           includes a grace period before downgrades, and logs all changes.
                         </Text>
                       </Banner>
+
+                      {/* Recalculate Confirmation Modal */}
+                      <Modal
+                        open={showRecalculateModal}
+                        onClose={() => setShowRecalculateModal(false)}
+                        title="Recalculate All Customer Tiers"
+                        primaryAction={{
+                          content: "Recalculate",
+                          onAction: confirmRecalculation,
+                          destructive: false,
+                        }}
+                        secondaryActions={[
+                          {
+                            content: "Cancel",
+                            onAction: () => setShowRecalculateModal(false),
+                          },
+                        ]}
+                      >
+                        <Modal.Section>
+                          <BlockStack gap="300">
+                            <Text as="p" variant="bodyMd">
+                              This will recalculate tiers for all customers in your store based on their spending history.
+                            </Text>
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              This may take several minutes depending on the number of customers. Manual tier overrides will be preserved.
+                            </Text>
+                          </BlockStack>
+                        </Modal.Section>
+                      </Modal>
                     </BlockStack>
                   )}
 
