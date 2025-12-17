@@ -32,6 +32,7 @@ import {
   getAllPlans,
 } from "~/services/billing/plan-subscription.server";
 import { detectNewSubscription } from "~/utils/billing-success-detection.server";
+import { isTestMode } from "~/utils/billing-test-mode.server";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
 import {
   FREE_PLAN,
@@ -79,6 +80,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Billing Loader] ========================================');
 
     // Check actual subscription status with billing.check()
+    // Use centralized test mode detection
+    const testMode = await isTestMode(session.shop, admin);
+    console.log('[Billing Loader] Test mode:', testMode, 'for shop:', session.shop);
     console.log('[Billing Loader] Calling billing.check()...');
     const billingCheck = await billing.check({
       plans: [
@@ -89,7 +93,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         ULTRA_PLAN,
         ULTRA_ANNUAL_PLAN
       ],
-      isTest: process.env.NODE_ENV === 'development',
+      isTest: testMode,
     });
 
     console.log('[Billing Loader] billing.check() completed:', {
@@ -448,12 +452,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     console.log(`[Billing Action] Requesting billing for plan: ${planConstant}`);
 
+    // Use centralized test mode detection
+    const actionTestMode = await isTestMode(session.shop, admin);
+    console.log(`[Billing Action] Test mode: ${actionTestMode} for shop: ${session.shop}`);
+
     // Use billing.request() - this will automatically redirect to Shopify's confirmation page
     // and then return the user back to the returnUrl after approval
     // Use the API callback route to handle the top-level redirect and re-embed into the app
     await billing.request({
       plan: planConstant,
-      isTest: process.env.NODE_ENV === 'development' || session.shop.includes('.myshopify.com'),
+      isTest: actionTestMode,
       returnUrl: `${process.env.SHOPIFY_APP_URL}/api/billing/callback?success=true&shop=${session.shop}`,
     });
 

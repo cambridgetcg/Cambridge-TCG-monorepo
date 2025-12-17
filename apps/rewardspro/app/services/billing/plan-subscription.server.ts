@@ -494,6 +494,8 @@ export async function cancelSubscription(
 
 /**
  * Get plan configuration by ID
+ * Note: isTest is included for type compatibility but is not used for billing decisions.
+ * Actual test mode is determined at billing time via billing-test-mode.server.ts
  */
 export function getPlanConfig(planId: string): (Omit<PlanConfig, 'isTest'> & { isTest: boolean }) | null {
   const config = PLAN_CONFIGS[planId];
@@ -501,16 +503,18 @@ export function getPlanConfig(planId: string): (Omit<PlanConfig, 'isTest'> & { i
 
   return {
     ...config,
-    isTest: process.env.NODE_ENV === 'development'
+    isTest: false // Placeholder - actual test mode determined at billing time
   };
 }
 
 /**
  * Get all available plans
+ * Note: isTest is included for type compatibility but is not used for billing decisions.
+ * Actual test mode is determined at billing time via billing-test-mode.server.ts
  */
 export function getAllPlans(): (Omit<PlanConfig, 'isTest'> & { isTest: boolean })[] {
   return Object.values(PLAN_CONFIGS).map(config => ({
     ...config,
-    isTest: process.env.NODE_ENV === 'development'
+    isTest: false // Placeholder - actual test mode determined at billing time
   }));
 }
