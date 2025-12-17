@@ -26,14 +26,17 @@
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.admin.clear-test-data": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-maintenance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.dismiss-widget-banner": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.admin.seed-test-data": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.refunded": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -245,6 +248,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.customer-sync.process": {
+        "id": "routes/api.customer-sync.process",
+        "parentId": "root",
+        "file": "app/routes/api.customer-sync.process.tsx",
+        "path": "api/customer-sync/process",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.dismiss-widget-banner": {
         "id": "routes/api.dismiss-widget-banner",
         "parentId": "root",
@@ -290,6 +302,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.customer-sync.status": {
+        "id": "routes/api.customer-sync.status",
+        "parentId": "root",
+        "file": "app/routes/api.customer-sync.status.tsx",
+        "path": "api/customer-sync/status",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
         "parentId": "root",
@@ -313,6 +334,15 @@
         "parentId": "root",
         "file": "app/routes/api.cron.exchange-rates.tsx",
         "path": "api/cron/exchange-rates",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-sync.start": {
+        "id": "routes/api.customer-sync.start",
+        "parentId": "root",
+        "file": "app/routes/api.customer-sync.start.tsx",
+        "path": "api/customer-sync/start",
         "config": {
           "runtime": "nodejs"
         }
@@ -981,6 +1011,12 @@
         "file": "routes/api.cron.tier-maintenance.tsx",
         "path": "api/cron/tier-maintenance"
       },
+      "routes/api.customer-sync.process": {
+        "id": "routes/api.customer-sync.process",
+        "parentId": "root",
+        "file": "routes/api.customer-sync.process.tsx",
+        "path": "api/customer-sync/process"
+      },
       "routes/api.dismiss-widget-banner": {
         "id": "routes/api.dismiss-widget-banner",
         "parentId": "root",
@@ -1011,6 +1047,12 @@
         "file": "routes/api.customer-details.$id.tsx",
         "path": "api/customer-details/:id"
       },
+      "routes/api.customer-sync.status": {
+        "id": "routes/api.customer-sync.status",
+        "parentId": "root",
+        "file": "routes/api.customer-sync.status.tsx",
+        "path": "api/customer-sync/status"
+      },
       "routes/webhooks.app.uninstalled": {
         "id": "routes/webhooks.app.uninstalled",
         "parentId": "root",
@@ -1028,6 +1070,12 @@
         "parentId": "root",
         "file": "routes/api.cron.exchange-rates.tsx",
         "path": "api/cron/exchange-rates"
+      },
+      "routes/api.customer-sync.start": {
+        "id": "routes/api.customer-sync.start",
+        "parentId": "root",
+        "file": "routes/api.customer-sync.start.tsx",
+        "path": "api/customer-sync/start"
       },
       "routes/api.subscription-action": {
         "id": "routes/api.subscription-action",

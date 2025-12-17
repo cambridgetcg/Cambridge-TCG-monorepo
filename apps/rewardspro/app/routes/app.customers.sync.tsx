@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import type { LoaderFunctionArgs } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Card,
@@ -12,232 +12,30 @@ import {
   Banner,
   ProgressBar,
   Badge,
-  InlineCode,
-  List
+  List,
+  Spinner
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
-/**
- * Enhanced customer sync function that fetches full customer data including spending
- * and assigns proper tiers based on total spent
- */
-async function syncCustomersWithFullData(shop: string, admin: any) {
-  console.log(`[Customer Sync] Starting full customer sync for shop: ${shop}`);
+interface SyncProgress {
+  processedCount: number;
+  totalCustomers: number | null;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errorCount: number;
+  percentComplete: number;
+}
 
-  const customersQuery = `
-    query getCustomers($first: Int!, $after: String) {
-      customers(first: $first, after: $after) {
-        edges {
-          cursor
-          node {
-            id
-            email
-            firstName
-            lastName
-            displayName
-            createdAt
-            updatedAt
-            amountSpent {
-              amount
-              currencyCode
-            }
-            numberOfOrders
-          }
-        }
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-      }
-    }
-  `;
-
-  let hasNextPage = true;
-  let cursor = null;
-  let totalProcessed = 0;
-  let totalCreated = 0;
-  let totalUpdated = 0;
-  let totalErrors = 0;
-  let totalSkipped = 0;
-
-  // Get all tiers for this shop
-  const tiers = await db.tier.findMany({
-    where: { shopDomain: shop },
-    orderBy: { minSpend: 'desc' } // Highest tier first
-  });
-
-  if (tiers.length === 0) {
-    throw new Error("No tiers found for shop. Please create tiers first.");
-  }
-
-  console.log(`[Customer Sync] Found ${tiers.length} tiers for shop`);
-
-  while (hasNextPage) {
-    const response = await admin.graphql(customersQuery, {
-      variables: {
-        first: 100, // Process 100 customers per batch
-        after: cursor,
-      },
-    });
-
-    const result = await response.json() as any;
-
-    if (result.errors) {
-      console.error("[Customer Sync] GraphQL errors:", result.errors);
-      throw new Error("GraphQL query failed: " + JSON.stringify(result.errors));
-    }
-
-    const customers = result.data.customers;
-
-    // Process each customer
-    for (const edge of customers.edges) {
-      const shopifyCustomer = edge.node;
-      const shopifyId = shopifyCustomer.id.split('/').pop();
-
-      try {
-        totalProcessed++;
-
-        // Skip customers without email (guest checkouts)
-        if (!shopifyCustomer.email) {
-          console.log(`[Customer Sync] Skipping customer ${shopifyId} - no email`);
-          totalSkipped++;
-          continue;
-        }
-
-        // Parse spending amount
-        const totalSpent = parseFloat(shopifyCustomer.amountSpent?.amount || '0');
-        const ordersCount = shopifyCustomer.numberOfOrders || 0;
-
-        // Determine appropriate tier based on spending
-        let assignedTier = tiers[tiers.length - 1]; // Default to lowest tier
-        for (const tier of tiers) {
-          if (totalSpent >= parseFloat(tier.minSpend.toString())) {
-            assignedTier = tier;
-            break;
-          }
-        }
-
-        // Check if customer already exists
-        const existingCustomer = await db.customer.findFirst({
-          where: {
-            shopDomain: shop,
-            shopifyCustomerId: shopifyId,
-          },
-          include: {
-            membershipHistory: {
-              where: { isActive: true },
-              include: { tier: true }
-            }
-          }
-        });
-
-        if (!existingCustomer) {
-          // Create new customer with full data
-          const newCustomer = await db.customer.create({
-            data: {
-              shopDomain: shop,
-              shopifyCustomerId: shopifyId,
-              email: shopifyCustomer.email,
-              firstName: shopifyCustomer.firstName || '',
-              lastName: shopifyCustomer.lastName || '',
-              totalSpent: totalSpent,
-              ordersCount: ordersCount,
-              storeCredit: 0, // Default store credit
-              totalEarned: 0,
-              totalCashbackEarned: 0,
-            },
-          });
-
-          // Assign tier via membership history
-          await db.membershipHistory.create({
-            data: {
-              customerId: newCustomer.id,
-              tierId: assignedTier.id,
-              isActive: true,
-            }
-          });
-
-          totalCreated++;
-          console.log(
-            `[Customer Sync] Created customer ${shopifyId} (${shopifyCustomer.email}) ` +
-            `with tier ${assignedTier.name} (spent: $${totalSpent})`
-          );
-        } else {
-          // Update existing customer with real Shopify data
-          const updates: any = {
-            email: shopifyCustomer.email,
-            firstName: shopifyCustomer.firstName || existingCustomer.firstName,
-            lastName: shopifyCustomer.lastName || existingCustomer.lastName,
-            totalSpent: totalSpent,
-            ordersCount: ordersCount,
-            updatedAt: new Date(),
-          };
-
-          await db.customer.update({
-            where: { id: existingCustomer.id },
-            data: updates,
-          });
-
-          // Check if tier needs updating
-          const currentTier = existingCustomer.membershipHistory[0]?.tier;
-          const needsTierUpdate = !currentTier || currentTier.id !== assignedTier.id;
-
-          if (needsTierUpdate) {
-            // Deactivate old memberships
-            if (currentTier) {
-              await db.membershipHistory.updateMany({
-                where: {
-                  customerId: existingCustomer.id,
-                  isActive: true,
-                },
-                data: { isActive: false },
-              });
-            }
-
-            // Create new membership with correct tier
-            await db.membershipHistory.create({
-              data: {
-                customerId: existingCustomer.id,
-                tierId: assignedTier.id,
-                isActive: true,
-              }
-            });
-
-            console.log(
-              `[Customer Sync] Updated customer ${shopifyId} - ` +
-              `tier changed from ${currentTier?.name || 'none'} to ${assignedTier.name}`
-            );
-          }
-
-          totalUpdated++;
-        }
-      } catch (customerError) {
-        console.error(`[Customer Sync] Error processing customer ${shopifyId}:`, customerError);
-        totalErrors++;
-      }
-    }
-
-    hasNextPage = customers.pageInfo.hasNextPage;
-    cursor = customers.pageInfo.endCursor;
-
-    console.log(
-      `[Customer Sync] Progress - Processed: ${totalProcessed}, ` +
-      `Created: ${totalCreated}, Updated: ${totalUpdated}, ` +
-      `Skipped: ${totalSkipped}, Errors: ${totalErrors}`
-    );
-  }
-
-  return {
-    success: true,
-    totalProcessed,
-    totalCreated,
-    totalUpdated,
-    totalSkipped,
-    totalErrors,
-    message: `Sync completed: ${totalCreated} created, ${totalUpdated} updated, ${totalSkipped} skipped, ${totalErrors} errors`
-  };
+interface SyncJobResult {
+  success: boolean;
+  jobId: string | null;
+  status: string;
+  progress: SyncProgress;
+  hasMore: boolean;
+  error?: string;
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -249,14 +47,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Get current customer statistics
   const customerStats = await db.customer.aggregate({
-    where: { shopDomain: session.shop },
+    where: { shop: session.shop },
     _count: { id: true },
   });
 
   // Count customers with placeholder emails
   const placeholderCount = await db.customer.count({
     where: {
-      shopDomain: session.shop,
+      shop: session.shop,
       email: {
         contains: 'placeholder'
       }
@@ -266,7 +64,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // Count customers with 'customer' prefix (another placeholder pattern)
   const customerPrefixCount = await db.customer.count({
     where: {
-      shopDomain: session.shop,
+      shop: session.shop,
       email: {
         startsWith: 'customer'
       }
@@ -275,10 +73,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Get tier count
   const tierCount = await db.tier.count({
-    where: { shopDomain: session.shop }
+    where: { shop: session.shop }
   });
 
-  // Check sync status
+  // Get most recent sync job
+  const lastSyncJob = await db.customerSyncJob.findFirst({
+    where: { shop: session.shop },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  // Check shop settings for legacy sync status
   const shopSettings = await db.shopSettings.findUnique({
     where: { shop: session.shop }
   });
@@ -290,137 +94,243 @@ export async function loader({ request }: LoaderFunctionArgs) {
       placeholderCustomers: placeholderCount + customerPrefixCount,
       tierCount: tierCount,
     },
-    syncInProgress: shopSettings?.customersSyncInProgress || false,
-    lastSyncDate: shopSettings?.updatedAt,
+    lastSyncJob: lastSyncJob ? {
+      id: lastSyncJob.id,
+      status: lastSyncJob.status,
+      processedCount: lastSyncJob.processedCount,
+      totalCustomers: lastSyncJob.totalCustomers,
+      createdCount: lastSyncJob.createdCount,
+      updatedCount: lastSyncJob.updatedCount,
+      skippedCount: lastSyncJob.skippedCount,
+      errorCount: lastSyncJob.errorCount,
+      lastError: lastSyncJob.lastError,
+      startedAt: lastSyncJob.startedAt?.toISOString(),
+      completedAt: lastSyncJob.completedAt?.toISOString(),
+    } : null,
+    legacySyncInProgress: shopSettings?.customersSyncInProgress || false,
   });
-}
-
-export async function action({ request }: ActionFunctionArgs) {
-  const { admin, session } = await authenticate.admin(request);
-
-  if (!session?.shop) {
-    throw new Response("Unauthorized", { status: 401 });
-  }
-
-  const formData = await request.formData();
-  const action = formData.get("action");
-
-  if (action === "sync_customers") {
-    try {
-      // Mark sync as in progress
-      await db.shopSettings.upsert({
-        where: { shop: session.shop },
-        create: {
-          shop: session.shop,
-          storeName: session.shop,
-          storeUrl: `https://${session.shop}`,
-          customersSyncInProgress: true,
-          customersInitialSynced: false,
-        },
-        update: {
-          customersSyncInProgress: true,
-          updatedAt: new Date(),
-        },
-      });
-
-      // Run sync
-      const result = await syncCustomersWithFullData(session.shop, admin);
-
-      // Mark sync as completed
-      await db.shopSettings.update({
-        where: { shop: session.shop },
-        data: {
-          customersInitialSynced: true,
-          customersSyncInProgress: false,
-          updatedAt: new Date(),
-        },
-      });
-
-      return json({
-        success: true,
-        ...result
-      });
-    } catch (error) {
-      console.error("Failed to sync customers:", error);
-
-      // Mark sync as failed
-      await db.shopSettings.update({
-        where: { shop: session.shop },
-        data: {
-          customersSyncInProgress: false,
-        },
-      }).catch(console.error);
-
-      return json({
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to sync customers"
-      }, { status: 500 });
-    }
-  }
-
-  return json({ success: false, error: "Invalid action" }, { status: 400 });
 }
 
 export default function CustomersSyncPage() {
   const data = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
-  const submit = useSubmit();
-  const navigation = useNavigation();
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
 
-  const isLoading = navigation.state !== "idle" || isSyncing;
+  // Sync state
+  const [syncJob, setSyncJob] = useState<SyncJobResult | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const processingRef = useRef(false);
 
-  const handleSyncCustomers = useCallback(() => {
+  // Check if there's an existing in-progress job on mount
+  useEffect(() => {
+    if (data.lastSyncJob?.status === 'IN_PROGRESS') {
+      setSyncJob({
+        success: true,
+        jobId: data.lastSyncJob.id,
+        status: 'IN_PROGRESS',
+        progress: {
+          processedCount: data.lastSyncJob.processedCount,
+          totalCustomers: data.lastSyncJob.totalCustomers,
+          createdCount: data.lastSyncJob.createdCount,
+          updatedCount: data.lastSyncJob.updatedCount,
+          skippedCount: data.lastSyncJob.skippedCount,
+          errorCount: data.lastSyncJob.errorCount,
+          percentComplete: data.lastSyncJob.totalCustomers
+            ? Math.round((data.lastSyncJob.processedCount / data.lastSyncJob.totalCustomers) * 100)
+            : 0
+        },
+        hasMore: true
+      });
+      // Start processing
+      setIsPolling(true);
+    }
+  }, [data.lastSyncJob]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearTimeout(pollingRef.current);
+      }
+    };
+  }, []);
+
+  // Process batches when polling is active
+  useEffect(() => {
+    if (!isPolling || !syncJob?.jobId || processingRef.current) return;
+
+    const processNextBatch = async () => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+
+      try {
+        const response = await fetch('/api/customer-sync/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: syncJob.jobId })
+        });
+
+        const result: SyncJobResult = await response.json();
+        setSyncJob(result);
+
+        if (result.hasMore && result.status === 'IN_PROGRESS') {
+          // Schedule next batch after a short delay
+          pollingRef.current = setTimeout(() => {
+            processingRef.current = false;
+            // This will trigger the useEffect again
+            setSyncJob(prev => prev ? { ...prev } : null);
+          }, 500);
+        } else {
+          // Sync completed or failed
+          setIsPolling(false);
+          if (result.status === 'COMPLETED') {
+            setShowSuccessBanner(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing batch:', error);
+        setIsPolling(false);
+        setSyncJob(prev => prev ? {
+          ...prev,
+          success: false,
+          status: 'FAILED',
+          error: 'Network error during sync'
+        } : null);
+      } finally {
+        processingRef.current = false;
+      }
+    };
+
+    processNextBatch();
+  }, [isPolling, syncJob?.jobId, syncJob?.progress.processedCount]);
+
+  const handleStartSync = useCallback(async () => {
     const confirmMessage = data.stats.totalCustomers > 0
-      ? `This will sync all customers from Shopify and update ${data.stats.placeholderCustomers} customers with placeholder data. Continue?`
+      ? `This will sync all customers from Shopify and update any customers with placeholder data. Continue?`
       : "This will import all customers from Shopify. Continue?";
 
-    if (window.confirm(confirmMessage)) {
-      setIsSyncing(true);
-      setSyncProgress(0);
+    if (!window.confirm(confirmMessage)) return;
 
-      const formData = new FormData();
-      formData.set("action", "sync_customers");
-      submit(formData, { method: "post" });
+    setIsStarting(true);
+    setShowSuccessBanner(false);
 
-      // Simulate progress
-      const interval = setInterval(() => {
-        setSyncProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(interval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 3000);
+    try {
+      const response = await fetch('/api/customer-sync/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: 'manual' })
+      });
+
+      const result: SyncJobResult = await response.json();
+      setSyncJob(result);
+
+      if (result.success && result.hasMore) {
+        setIsPolling(true);
+      }
+    } catch (error) {
+      console.error('Error starting sync:', error);
+      setSyncJob({
+        success: false,
+        jobId: null,
+        status: 'FAILED',
+        progress: {
+          processedCount: 0,
+          totalCustomers: null,
+          createdCount: 0,
+          updatedCount: 0,
+          skippedCount: 0,
+          errorCount: 0,
+          percentComplete: 0
+        },
+        hasMore: false,
+        error: 'Failed to start sync'
+      });
+    } finally {
+      setIsStarting(false);
     }
-  }, [submit, data.stats]);
+  }, [data.stats.totalCustomers]);
 
-  useEffect(() => {
-    if (navigation.state === "idle" && isSyncing && actionData) {
-      // Sync completed
-      setSyncProgress(100);
-      setTimeout(() => {
-        setIsSyncing(false);
-        setSyncProgress(0);
-        // Reload page to update stats
-        window.location.reload();
-      }, 2000);
+  const handleResumeSync = useCallback(async () => {
+    if (!syncJob?.jobId) return;
+
+    setIsPolling(true);
+    processingRef.current = false;
+
+    try {
+      const response = await fetch('/api/customer-sync/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: syncJob.jobId, resume: true })
+      });
+
+      const result: SyncJobResult = await response.json();
+      setSyncJob(result);
+
+      if (!result.hasMore || result.status !== 'IN_PROGRESS') {
+        setIsPolling(false);
+        if (result.status === 'COMPLETED') {
+          setShowSuccessBanner(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error resuming sync:', error);
+      setIsPolling(false);
     }
-  }, [navigation.state, isSyncing, actionData]);
+  }, [syncJob?.jobId]);
+
+  const handleCancelSync = useCallback(async () => {
+    if (!syncJob?.jobId) return;
+
+    try {
+      await fetch('/api/customer-sync/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', jobId: syncJob.jobId })
+      });
+
+      setIsPolling(false);
+      setSyncJob(prev => prev ? { ...prev, status: 'CANCELLED', hasMore: false } : null);
+    } catch (error) {
+      console.error('Error cancelling sync:', error);
+    }
+  }, [syncJob?.jobId]);
+
+  const isSyncing = isPolling || isStarting;
+  const canStartSync = !isSyncing && data.stats.tierCount > 0 && !data.legacySyncInProgress;
+  const canResume = syncJob?.status === 'FAILED' || syncJob?.status === 'CANCELLED';
+
+  // Calculate display progress
+  const progress = syncJob?.progress || {
+    processedCount: 0,
+    totalCustomers: null,
+    createdCount: 0,
+    updatedCount: 0,
+    skippedCount: 0,
+    errorCount: 0,
+    percentComplete: 0
+  };
 
   return (
     <Page
       title="Customer Sync"
       subtitle="Import and update customer data from Shopify"
       backAction={{ url: "/app/customers" }}
-      primaryAction={{
-        content: "Sync Customers",
-        onAction: handleSyncCustomers,
-        disabled: isLoading || data.syncInProgress || data.stats.tierCount === 0,
-        loading: isLoading
+      primaryAction={canResume ? {
+        content: "Resume Sync",
+        onAction: handleResumeSync,
+        loading: isStarting
+      } : {
+        content: "Sync All Customers",
+        onAction: handleStartSync,
+        disabled: !canStartSync,
+        loading: isStarting
       }}
+      secondaryActions={isSyncing ? [{
+        content: "Cancel",
+        onAction: handleCancelSync,
+        destructive: true
+      }] : undefined}
     >
       <BlockStack gap="400">
         {/* Tier Warning */}
@@ -433,26 +343,100 @@ export default function CustomersSyncPage() {
           </Banner>
         )}
 
-        {/* Success Message */}
-        {actionData && actionData.success && (
-          <Banner title="Sync Completed Successfully" tone="success">
-            <Text as="p">{actionData.message}</Text>
-            <List type="bullet">
-              <List.Item>Customers Created: {actionData.totalCreated}</List.Item>
-              <List.Item>Customers Updated: {actionData.totalUpdated}</List.Item>
-              <List.Item>Customers Skipped (no email): {actionData.totalSkipped}</List.Item>
-              {actionData.totalErrors > 0 && (
-                <List.Item>Errors: {actionData.totalErrors}</List.Item>
-              )}
-            </List>
+        {/* Legacy sync in progress warning */}
+        {data.legacySyncInProgress && (
+          <Banner title="Legacy Sync In Progress" tone="warning">
+            <Text as="p">
+              A sync is already in progress using the old system. Please wait for it to complete.
+            </Text>
           </Banner>
         )}
 
-        {/* Error Message */}
-        {actionData && !actionData.success && (
-          <Banner title="Sync Failed" tone="critical">
-            <Text as="p">{actionData.error}</Text>
+        {/* Success Banner */}
+        {showSuccessBanner && syncJob?.status === 'COMPLETED' && (
+          <Banner
+            title="Sync Completed Successfully"
+            tone="success"
+            onDismiss={() => setShowSuccessBanner(false)}
+          >
+            <BlockStack gap="200">
+              <Text as="p">All customers have been synced from Shopify.</Text>
+              <List type="bullet">
+                <List.Item>Customers Processed: {progress.processedCount.toLocaleString()}</List.Item>
+                <List.Item>New Customers Created: {progress.createdCount.toLocaleString()}</List.Item>
+                <List.Item>Existing Customers Updated: {progress.updatedCount.toLocaleString()}</List.Item>
+                <List.Item>Skipped (no email): {progress.skippedCount.toLocaleString()}</List.Item>
+                {progress.errorCount > 0 && (
+                  <List.Item>Errors: {progress.errorCount.toLocaleString()}</List.Item>
+                )}
+              </List>
+            </BlockStack>
           </Banner>
+        )}
+
+        {/* Error Banner */}
+        {syncJob?.status === 'FAILED' && syncJob.error && (
+          <Banner title="Sync Failed" tone="critical">
+            <BlockStack gap="200">
+              <Text as="p">{syncJob.error}</Text>
+              {progress.processedCount > 0 && (
+                <Text as="p" tone="subdued">
+                  Progress was saved. Click "Resume Sync" to continue from where it stopped.
+                </Text>
+              )}
+            </BlockStack>
+          </Banner>
+        )}
+
+        {/* Sync Progress Card */}
+        {(isSyncing || syncJob?.status === 'IN_PROGRESS') && (
+          <Card>
+            <Box padding="400">
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text as="h2" variant="headingMd">Sync Progress</Text>
+                  <InlineStack gap="200" blockAlign="center">
+                    <Spinner size="small" />
+                    <Badge tone="info">Syncing</Badge>
+                  </InlineStack>
+                </InlineStack>
+
+                <ProgressBar
+                  progress={progress.percentComplete}
+                  tone="primary"
+                  size="medium"
+                />
+
+                <InlineStack gap="400" wrap>
+                  <Text as="span" variant="bodyMd">
+                    {progress.processedCount.toLocaleString()}
+                    {progress.totalCustomers ? ` / ${progress.totalCustomers.toLocaleString()}` : ''} customers
+                  </Text>
+                  <Text as="span" variant="bodyMd" tone="success">
+                    {progress.createdCount.toLocaleString()} created
+                  </Text>
+                  <Text as="span" variant="bodyMd" tone="info">
+                    {progress.updatedCount.toLocaleString()} updated
+                  </Text>
+                  {progress.skippedCount > 0 && (
+                    <Text as="span" variant="bodyMd" tone="subdued">
+                      {progress.skippedCount.toLocaleString()} skipped
+                    </Text>
+                  )}
+                  {progress.errorCount > 0 && (
+                    <Text as="span" variant="bodyMd" tone="critical">
+                      {progress.errorCount.toLocaleString()} errors
+                    </Text>
+                  )}
+                </InlineStack>
+
+                <Text as="p" variant="bodySm" tone="subdued">
+                  Processing customers in batches of 100. Progress is saved automatically -
+                  you can close this page and return later.
+                </Text>
+              </BlockStack>
+            </Box>
+          </Card>
         )}
 
         {/* Current Statistics */}
@@ -463,7 +447,7 @@ export default function CustomersSyncPage() {
 
               <InlineStack gap="800" wrap>
                 <BlockStack gap="200">
-                  <Text as="span" tone="subdued">Total Customers</Text>
+                  <Text as="span" tone="subdued">Customers in Database</Text>
                   <Text as="p" variant="headingLg">{data.stats.totalCustomers.toLocaleString()}</Text>
                 </BlockStack>
 
@@ -482,11 +466,11 @@ export default function CustomersSyncPage() {
                   <Text as="p" variant="headingLg">{data.stats.tierCount}</Text>
                 </BlockStack>
 
-                {data.lastSyncDate && (
+                {data.lastSyncJob?.completedAt && (
                   <BlockStack gap="200">
-                    <Text as="span" tone="subdued">Last Sync</Text>
+                    <Text as="span" tone="subdued">Last Completed Sync</Text>
                     <Text as="p" variant="bodyMd">
-                      {new Date(data.lastSyncDate).toLocaleString()}
+                      {new Date(data.lastSyncJob.completedAt).toLocaleString()}
                     </Text>
                   </BlockStack>
                 )}
@@ -495,16 +479,36 @@ export default function CustomersSyncPage() {
           </Box>
         </Card>
 
-        {/* Sync Progress */}
-        {isSyncing && (
+        {/* Last Sync Summary */}
+        {data.lastSyncJob?.status === 'COMPLETED' && !showSuccessBanner && (
           <Card>
             <Box padding="400">
               <BlockStack gap="400">
-                <Text as="h2" variant="headingMd">Sync Progress</Text>
-                <ProgressBar progress={syncProgress} tone="primary" />
-                <Text as="p" tone="subdued">
-                  Syncing customers... This may take several minutes depending on customer count.
-                </Text>
+                <Text as="h2" variant="headingMd">Last Sync Results</Text>
+                <InlineStack gap="600" wrap>
+                  <BlockStack gap="100">
+                    <Text as="span" tone="subdued">Total Processed</Text>
+                    <Text as="p" variant="headingMd">{data.lastSyncJob.processedCount.toLocaleString()}</Text>
+                  </BlockStack>
+                  <BlockStack gap="100">
+                    <Text as="span" tone="subdued">Created</Text>
+                    <Text as="p" variant="headingMd" tone="success">{data.lastSyncJob.createdCount.toLocaleString()}</Text>
+                  </BlockStack>
+                  <BlockStack gap="100">
+                    <Text as="span" tone="subdued">Updated</Text>
+                    <Text as="p" variant="headingMd">{data.lastSyncJob.updatedCount.toLocaleString()}</Text>
+                  </BlockStack>
+                  <BlockStack gap="100">
+                    <Text as="span" tone="subdued">Skipped</Text>
+                    <Text as="p" variant="headingMd" tone="subdued">{data.lastSyncJob.skippedCount.toLocaleString()}</Text>
+                  </BlockStack>
+                  {data.lastSyncJob.errorCount > 0 && (
+                    <BlockStack gap="100">
+                      <Text as="span" tone="subdued">Errors</Text>
+                      <Text as="p" variant="headingMd" tone="critical">{data.lastSyncJob.errorCount.toLocaleString()}</Text>
+                    </BlockStack>
+                  )}
+                </InlineStack>
               </BlockStack>
             </Box>
           </Card>
@@ -534,20 +538,19 @@ export default function CustomersSyncPage() {
                 </List.Item>
               </List>
 
-              <Banner title="Important Notes" tone="info">
+              <Banner title="Improvements in This Version" tone="info">
                 <List type="bullet">
-                  <List.Item>Sync time depends on customer count (typically 2-10 minutes)</List.Item>
-                  <List.Item>Existing customers are updated, not duplicated</List.Item>
-                  <List.Item>Store credit and cashback amounts are preserved during updates</List.Item>
-                  <List.Item>Tiers are automatically recalculated based on current spending</List.Item>
-                  <List.Item>After initial sync, new customers are tracked via webhooks</List.Item>
+                  <List.Item>Fetches ALL customers from Shopify (not just recent ones)</List.Item>
+                  <List.Item>Real-time progress tracking with accurate counts</List.Item>
+                  <List.Item>Resume capability - if interrupted, continue from where you left off</List.Item>
+                  <List.Item>Progress is saved automatically - you can close this page safely</List.Item>
                 </List>
               </Banner>
             </BlockStack>
           </Box>
         </Card>
 
-        {/* Common Issues */}
+        {/* Troubleshooting */}
         <Card>
           <Box padding="400">
             <BlockStack gap="400">
@@ -555,26 +558,26 @@ export default function CustomersSyncPage() {
 
               <BlockStack gap="300">
                 <Box>
+                  <Text as="p" fontWeight="semibold">Missing customers after sync?</Text>
+                  <Text as="p" tone="subdued">
+                    This sync fetches ALL customers from Shopify using cursor-based pagination.
+                    If customers are still missing, they may not have email addresses (guest checkouts).
+                  </Text>
+                </Box>
+
+                <Box>
+                  <Text as="p" fontWeight="semibold">Sync interrupted or failed?</Text>
+                  <Text as="p" tone="subdued">
+                    Progress is automatically saved. Click "Resume Sync" to continue from where it stopped.
+                    You don't need to start over from the beginning.
+                  </Text>
+                </Box>
+
+                <Box>
                   <Text as="p" fontWeight="semibold">Widget showing wrong tier/credit?</Text>
                   <Text as="p" tone="subdued">
                     Run this sync to update customers with real Shopify data. The widget will then
                     display correct information from the database.
-                  </Text>
-                </Box>
-
-                <Box>
-                  <Text as="p" fontWeight="semibold">Placeholder emails in database?</Text>
-                  <Text as="p" tone="subdued">
-                    This happens when customers visit your store before webhooks are configured.
-                    This sync will replace placeholder emails with real data.
-                  </Text>
-                </Box>
-
-                <Box>
-                  <Text as="p" fontWeight="semibold">Sync taking too long?</Text>
-                  <Text as="p" tone="subdued">
-                    The sync processes customers in batches to respect Shopify API limits. For stores
-                    with 10,000+ customers, this may take 10-15 minutes.
                   </Text>
                 </Box>
               </BlockStack>

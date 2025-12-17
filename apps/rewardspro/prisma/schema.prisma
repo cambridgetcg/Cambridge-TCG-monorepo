@@ -344,6 +344,61 @@ model CustomerTierState {
   @@index([subscriptionExpiresAt])
 }
 
+// ============================================
+// CUSTOMER SYNC JOB - Reliable Full Sync
+// ============================================
+// Tracks progress of customer sync operations with resume capability.
+// Enables chunked processing and accurate progress display.
+
+model CustomerSyncJob {
+  id                String          @id @default(uuid())
+  shop              String
+
+  // Job status
+  status            SyncJobStatus   @default(PENDING)  // PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED
+
+  // Customer counts from Shopify
+  totalCustomers    Int?            // Total customers in Shopify (shop.customersCount)
+
+  // Progress tracking
+  processedCount    Int             @default(0)  // Customers processed so far
+  createdCount      Int             @default(0)  // New customers created
+  updatedCount      Int             @default(0)  // Existing customers updated
+  skippedCount      Int             @default(0)  // Customers skipped (no email, etc.)
+  errorCount        Int             @default(0)  // Processing errors
+
+  // Pagination for resume
+  lastCursor        String?         // GraphQL cursor for next batch
+  batchSize         Int             @default(100) // Customers per batch
+
+  // Error tracking
+  lastError         String?         @db.Text  // Most recent error message
+  errorDetails      Json?           // Detailed error info
+
+  // Timing
+  startedAt         DateTime?
+  completedAt       DateTime?
+  lastActivityAt    DateTime?       // Last batch processed timestamp
+
+  // Metadata
+  triggeredBy       String?         // 'manual', 'install', 'cron'
+  metadata          Json?           // Additional job data
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, createdAt(sort: Desc)])
+}
+
+enum SyncJobStatus {
+  PENDING       // Job created but not started
+  IN_PROGRESS   // Currently processing
+  COMPLETED     // Successfully finished
+  FAILED        // Failed with error
+  CANCELLED     // Manually cancelled
+}
+
 model StoreCreditLedger {
   id                String      @id @default(uuid())
   customerId        String

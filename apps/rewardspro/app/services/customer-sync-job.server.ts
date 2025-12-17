@@ -1,0 +1,637 @@
+import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
+import db from "../db.server";
+
+/**
+ * Customer Sync Job Service
+ *
+ * Provides reliable, resumable customer synchronization from Shopify.
+ * Key features:
+ * - Fetches total customer count first for accurate progress
+ * - Processes in batches with cursor persistence for resume
+ * - Real progress tracking (not simulated)
+ * - Error recovery and resume capability
+ */
+
+// GraphQL query to get shop's total customer count
+const SHOP_CUSTOMER_COUNT_QUERY = `
+  query getShopCustomerCount {
+    shop {
+      customersCount
+    }
+  }
+`;
+
+// GraphQL query to fetch customers in batches
+const CUSTOMERS_BATCH_QUERY = `
+  query getCustomers($first: Int!, $after: String) {
+    customers(first: $first, after: $after) {
+      edges {
+        cursor
+        node {
+          id
+          email
+          firstName
+          lastName
+          displayName
+          createdAt
+          updatedAt
+          amountSpent {
+            amount
+            currencyCode
+          }
+          numberOfOrders
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
+interface SyncJobResult {
+  success: boolean;
+  jobId: string;
+  status: string;
+  progress: {
+    processedCount: number;
+    totalCustomers: number | null;
+    createdCount: number;
+    updatedCount: number;
+    skippedCount: number;
+    errorCount: number;
+    percentComplete: number;
+  };
+  hasMore: boolean;
+  error?: string;
+}
+
+interface CustomerBatch {
+  edges: Array<{
+    cursor: string;
+    node: {
+      id: string;
+      email: string | null;
+      firstName: string | null;
+      lastName: string | null;
+      displayName: string;
+      createdAt: string;
+      updatedAt: string;
+      amountSpent: {
+        amount: string;
+        currencyCode: string;
+      } | null;
+      numberOfOrders: number;
+    };
+  }>;
+  pageInfo: {
+    hasNextPage: boolean;
+    endCursor: string | null;
+  };
+}
+
+/**
+ * Start a new customer sync job
+ * Creates the job record and fetches total customer count from Shopify
+ */
+export async function startSyncJob(
+  shop: string,
+  admin: AdminApiContext,
+  triggeredBy: string = 'manual'
+): Promise<SyncJobResult> {
+  console.log(`[Sync Job] Starting new sync job for shop: ${shop}`);
+
+  // Check for existing in-progress job
+  const existingJob = await db.customerSyncJob.findFirst({
+    where: {
+      shop,
+      status: 'IN_PROGRESS'
+    }
+  });
+
+  if (existingJob) {
+    console.log(`[Sync Job] Found existing in-progress job: ${existingJob.id}`);
+    return {
+      success: false,
+      jobId: existingJob.id,
+      status: 'IN_PROGRESS',
+      progress: {
+        processedCount: existingJob.processedCount,
+        totalCustomers: existingJob.totalCustomers,
+        createdCount: existingJob.createdCount,
+        updatedCount: existingJob.updatedCount,
+        skippedCount: existingJob.skippedCount,
+        errorCount: existingJob.errorCount,
+        percentComplete: existingJob.totalCustomers
+          ? Math.round((existingJob.processedCount / existingJob.totalCustomers) * 100)
+          : 0
+      },
+      hasMore: true,
+      error: 'Sync already in progress. Use resume or wait for completion.'
+    };
+  }
+
+  // Get total customer count from Shopify
+  let totalCustomers: number | null = null;
+  try {
+    const countResponse = await admin.graphql(SHOP_CUSTOMER_COUNT_QUERY);
+    const countResult = await countResponse.json() as any;
+
+    if (countResult.data?.shop?.customersCount !== undefined) {
+      totalCustomers = countResult.data.shop.customersCount;
+      console.log(`[Sync Job] Shopify reports ${totalCustomers} total customers`);
+    }
+  } catch (error) {
+    console.error('[Sync Job] Failed to get customer count:', error);
+    // Continue without count - progress will show as X processed
+  }
+
+  // Get tier information for assignments
+  const tiers = await db.tier.findMany({
+    where: { shop },
+    orderBy: { minSpend: 'desc' }
+  });
+
+  if (tiers.length === 0) {
+    return {
+      success: false,
+      jobId: '',
+      status: 'FAILED',
+      progress: {
+        processedCount: 0,
+        totalCustomers: null,
+        createdCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        errorCount: 0,
+        percentComplete: 0
+      },
+      hasMore: false,
+      error: 'No tiers configured. Please create at least one tier before syncing customers.'
+    };
+  }
+
+  // Create new job
+  const job = await db.customerSyncJob.create({
+    data: {
+      shop,
+      status: 'IN_PROGRESS',
+      totalCustomers,
+      startedAt: new Date(),
+      lastActivityAt: new Date(),
+      triggeredBy,
+      batchSize: 100,
+      metadata: {
+        tierCount: tiers.length,
+        lowestTierId: tiers[tiers.length - 1].id
+      }
+    }
+  });
+
+  console.log(`[Sync Job] Created job ${job.id} with ${totalCustomers} customers to process`);
+
+  return {
+    success: true,
+    jobId: job.id,
+    status: 'IN_PROGRESS',
+    progress: {
+      processedCount: 0,
+      totalCustomers,
+      createdCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      errorCount: 0,
+      percentComplete: 0
+    },
+    hasMore: true
+  };
+}
+
+/**
+ * Process the next batch of customers for a sync job
+ * Returns progress and whether more batches remain
+ */
+export async function processNextBatch(
+  jobId: string,
+  admin: AdminApiContext
+): Promise<SyncJobResult> {
+  // Get current job
+  const job = await db.customerSyncJob.findUnique({
+    where: { id: jobId }
+  });
+
+  if (!job) {
+    return {
+      success: false,
+      jobId,
+      status: 'FAILED',
+      progress: {
+        processedCount: 0,
+        totalCustomers: null,
+        createdCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        errorCount: 0,
+        percentComplete: 0
+      },
+      hasMore: false,
+      error: 'Sync job not found'
+    };
+  }
+
+  if (job.status !== 'IN_PROGRESS') {
+    return {
+      success: false,
+      jobId,
+      status: job.status,
+      progress: {
+        processedCount: job.processedCount,
+        totalCustomers: job.totalCustomers,
+        createdCount: job.createdCount,
+        updatedCount: job.updatedCount,
+        skippedCount: job.skippedCount,
+        errorCount: job.errorCount,
+        percentComplete: job.totalCustomers
+          ? Math.round((job.processedCount / job.totalCustomers) * 100)
+          : 0
+      },
+      hasMore: false,
+      error: `Job is ${job.status.toLowerCase()}, not in progress`
+    };
+  }
+
+  const shop = job.shop;
+
+  // Get tiers for assignment
+  const tiers = await db.tier.findMany({
+    where: { shop },
+    orderBy: { minSpend: 'desc' }
+  });
+
+  if (tiers.length === 0) {
+    await db.customerSyncJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'FAILED',
+        lastError: 'No tiers configured',
+        completedAt: new Date()
+      }
+    });
+
+    return {
+      success: false,
+      jobId,
+      status: 'FAILED',
+      progress: {
+        processedCount: job.processedCount,
+        totalCustomers: job.totalCustomers,
+        createdCount: job.createdCount,
+        updatedCount: job.updatedCount,
+        skippedCount: job.skippedCount,
+        errorCount: job.errorCount,
+        percentComplete: 0
+      },
+      hasMore: false,
+      error: 'No tiers configured'
+    };
+  }
+
+  try {
+    // Fetch batch from Shopify
+    const response = await admin.graphql(CUSTOMERS_BATCH_QUERY, {
+      variables: {
+        first: job.batchSize,
+        after: job.lastCursor
+      }
+    });
+
+    const result = await response.json() as any;
+
+    if (result.errors) {
+      throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
+    }
+
+    const customers: CustomerBatch = result.data.customers;
+
+    let batchCreated = 0;
+    let batchUpdated = 0;
+    let batchSkipped = 0;
+    let batchErrors = 0;
+
+    // Process each customer
+    for (const edge of customers.edges) {
+      const shopifyCustomer = edge.node;
+      const shopifyId = shopifyCustomer.id.split('/').pop()!;
+
+      try {
+        // Skip customers without email
+        if (!shopifyCustomer.email) {
+          console.log(`[Sync Job] Skipping customer ${shopifyId} - no email`);
+          batchSkipped++;
+          continue;
+        }
+
+        // Parse spending
+        const totalSpent = parseFloat(shopifyCustomer.amountSpent?.amount || '0');
+        const ordersCount = shopifyCustomer.numberOfOrders || 0;
+
+        // Determine appropriate tier based on spending
+        let assignedTier = tiers[tiers.length - 1]; // Default to lowest
+        for (const tier of tiers) {
+          if (totalSpent >= parseFloat(tier.minSpend.toString())) {
+            assignedTier = tier;
+            break;
+          }
+        }
+
+        // Check if customer exists
+        const existingCustomer = await db.customer.findFirst({
+          where: {
+            shop,
+            shopifyCustomerId: shopifyId
+          }
+        });
+
+        if (!existingCustomer) {
+          // Create new customer
+          await db.customer.create({
+            data: {
+              shop,
+              shopifyCustomerId: shopifyId,
+              email: shopifyCustomer.email,
+              firstName: shopifyCustomer.firstName || '',
+              lastName: shopifyCustomer.lastName || '',
+              totalSpent: totalSpent,
+              orderCount: ordersCount,
+              storeCredit: 0,
+              currentTierId: assignedTier.id,
+              createdAt: new Date(shopifyCustomer.createdAt),
+              updatedAt: new Date(shopifyCustomer.updatedAt)
+            }
+          });
+
+          batchCreated++;
+          console.log(`[Sync Job] Created customer ${shopifyId} (${shopifyCustomer.email}) - Tier: ${assignedTier.name}`);
+        } else {
+          // Update existing customer
+          const needsTierUpdate = existingCustomer.currentTierId !== assignedTier.id;
+
+          await db.customer.update({
+            where: { id: existingCustomer.id },
+            data: {
+              email: shopifyCustomer.email,
+              firstName: shopifyCustomer.firstName || existingCustomer.firstName,
+              lastName: shopifyCustomer.lastName || existingCustomer.lastName,
+              totalSpent: totalSpent,
+              orderCount: ordersCount,
+              updatedAt: new Date(),
+              // Only update tier if customer doesn't have manual override
+              ...(needsTierUpdate && !existingCustomer.currentTierId ? {
+                currentTierId: assignedTier.id
+              } : {})
+            }
+          });
+
+          batchUpdated++;
+        }
+      } catch (customerError) {
+        console.error(`[Sync Job] Error processing customer ${shopifyId}:`, customerError);
+        batchErrors++;
+      }
+    }
+
+    // Update job progress
+    const newProcessedCount = job.processedCount + customers.edges.length;
+    const hasMore = customers.pageInfo.hasNextPage;
+    const newStatus = hasMore ? 'IN_PROGRESS' : 'COMPLETED';
+
+    const updatedJob = await db.customerSyncJob.update({
+      where: { id: jobId },
+      data: {
+        processedCount: newProcessedCount,
+        createdCount: job.createdCount + batchCreated,
+        updatedCount: job.updatedCount + batchUpdated,
+        skippedCount: job.skippedCount + batchSkipped,
+        errorCount: job.errorCount + batchErrors,
+        lastCursor: customers.pageInfo.endCursor,
+        lastActivityAt: new Date(),
+        status: newStatus,
+        ...(newStatus === 'COMPLETED' ? { completedAt: new Date() } : {})
+      }
+    });
+
+    console.log(
+      `[Sync Job] Batch complete - ` +
+      `Processed: ${newProcessedCount}/${job.totalCustomers || '?'}, ` +
+      `Created: ${updatedJob.createdCount}, Updated: ${updatedJob.updatedCount}, ` +
+      `Skipped: ${updatedJob.skippedCount}, Errors: ${updatedJob.errorCount}`
+    );
+
+    return {
+      success: true,
+      jobId,
+      status: newStatus,
+      progress: {
+        processedCount: updatedJob.processedCount,
+        totalCustomers: updatedJob.totalCustomers,
+        createdCount: updatedJob.createdCount,
+        updatedCount: updatedJob.updatedCount,
+        skippedCount: updatedJob.skippedCount,
+        errorCount: updatedJob.errorCount,
+        percentComplete: updatedJob.totalCustomers
+          ? Math.round((updatedJob.processedCount / updatedJob.totalCustomers) * 100)
+          : 0
+      },
+      hasMore
+    };
+  } catch (error) {
+    console.error('[Sync Job] Batch processing failed:', error);
+
+    // Update job with error
+    await db.customerSyncJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'FAILED',
+        lastError: error instanceof Error ? error.message : 'Unknown error',
+        lastActivityAt: new Date()
+      }
+    });
+
+    return {
+      success: false,
+      jobId,
+      status: 'FAILED',
+      progress: {
+        processedCount: job.processedCount,
+        totalCustomers: job.totalCustomers,
+        createdCount: job.createdCount,
+        updatedCount: job.updatedCount,
+        skippedCount: job.skippedCount,
+        errorCount: job.errorCount,
+        percentComplete: job.totalCustomers
+          ? Math.round((job.processedCount / job.totalCustomers) * 100)
+          : 0
+      },
+      hasMore: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Get current status of a sync job
+ */
+export async function getSyncJobStatus(shop: string): Promise<SyncJobResult | null> {
+  // Get most recent job for this shop
+  const job = await db.customerSyncJob.findFirst({
+    where: { shop },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  if (!job) {
+    return null;
+  }
+
+  return {
+    success: true,
+    jobId: job.id,
+    status: job.status,
+    progress: {
+      processedCount: job.processedCount,
+      totalCustomers: job.totalCustomers,
+      createdCount: job.createdCount,
+      updatedCount: job.updatedCount,
+      skippedCount: job.skippedCount,
+      errorCount: job.errorCount,
+      percentComplete: job.totalCustomers
+        ? Math.round((job.processedCount / job.totalCustomers) * 100)
+        : 0
+    },
+    hasMore: job.status === 'IN_PROGRESS',
+    error: job.lastError || undefined
+  };
+}
+
+/**
+ * Resume a failed sync job from where it left off
+ */
+export async function resumeSyncJob(
+  jobId: string,
+  admin: AdminApiContext
+): Promise<SyncJobResult> {
+  const job = await db.customerSyncJob.findUnique({
+    where: { id: jobId }
+  });
+
+  if (!job) {
+    return {
+      success: false,
+      jobId,
+      status: 'FAILED',
+      progress: {
+        processedCount: 0,
+        totalCustomers: null,
+        createdCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        errorCount: 0,
+        percentComplete: 0
+      },
+      hasMore: false,
+      error: 'Sync job not found'
+    };
+  }
+
+  if (job.status !== 'FAILED' && job.status !== 'CANCELLED') {
+    return {
+      success: false,
+      jobId,
+      status: job.status,
+      progress: {
+        processedCount: job.processedCount,
+        totalCustomers: job.totalCustomers,
+        createdCount: job.createdCount,
+        updatedCount: job.updatedCount,
+        skippedCount: job.skippedCount,
+        errorCount: job.errorCount,
+        percentComplete: job.totalCustomers
+          ? Math.round((job.processedCount / job.totalCustomers) * 100)
+          : 0
+      },
+      hasMore: job.status === 'IN_PROGRESS',
+      error: `Cannot resume job with status: ${job.status}`
+    };
+  }
+
+  // Reset job to in-progress
+  await db.customerSyncJob.update({
+    where: { id: jobId },
+    data: {
+      status: 'IN_PROGRESS',
+      lastError: null,
+      lastActivityAt: new Date()
+    }
+  });
+
+  console.log(`[Sync Job] Resumed job ${jobId} from cursor: ${job.lastCursor}`);
+
+  // Process next batch
+  return processNextBatch(jobId, admin);
+}
+
+/**
+ * Cancel an in-progress sync job
+ */
+export async function cancelSyncJob(jobId: string): Promise<boolean> {
+  const job = await db.customerSyncJob.findUnique({
+    where: { id: jobId }
+  });
+
+  if (!job || job.status !== 'IN_PROGRESS') {
+    return false;
+  }
+
+  await db.customerSyncJob.update({
+    where: { id: jobId },
+    data: {
+      status: 'CANCELLED',
+      lastActivityAt: new Date()
+    }
+  });
+
+  console.log(`[Sync Job] Cancelled job ${jobId}`);
+  return true;
+}
+
+/**
+ * Get sync job by ID
+ */
+export async function getSyncJobById(jobId: string): Promise<SyncJobResult | null> {
+  const job = await db.customerSyncJob.findUnique({
+    where: { id: jobId }
+  });
+
+  if (!job) {
+    return null;
+  }
+
+  return {
+    success: true,
+    jobId: job.id,
+    status: job.status,
+    progress: {
+      processedCount: job.processedCount,
+      totalCustomers: job.totalCustomers,
+      createdCount: job.createdCount,
+      updatedCount: job.updatedCount,
+      skippedCount: job.skippedCount,
+      errorCount: job.errorCount,
+      percentComplete: job.totalCustomers
+        ? Math.round((job.processedCount / job.totalCustomers) * 100)
+        : 0
+    },
+    hasMore: job.status === 'IN_PROGRESS',
+    error: job.lastError || undefined
+  };
+}
