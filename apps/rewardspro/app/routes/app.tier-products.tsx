@@ -53,6 +53,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
 import { getCurrentPlan, hasFeature } from "../utils/plan-limits";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
+import { TierEmptyStateAllVariations } from "../components/TierEmptyStateVariations";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -1805,26 +1806,19 @@ export default function TierProducts() {
                   </Text>
 
                   {data.tiers.length === 0 ? (
-                    <EmptyState
-                      heading="Start rewarding your customers"
-                      action={{
-                        content: "Create first tier",
-                        onAction: () => {
-                          setEditingTier(null);
-                          setTierFormData({
-                            name: "",
-                            minSpend: "0",
-                            cashbackPercent: "0",
-                            // Default to LIFETIME for plans without annualEvaluationPeriod feature
-                            evaluationPeriod: hasFeature(data.currentPlan, 'annualEvaluationPeriod') ? "ANNUAL" : "LIFETIME",
-                          });
-                          setTierModalActive(true);
-                        },
+                    <TierEmptyStateAllVariations
+                      onCreateTier={() => {
+                        setEditingTier(null);
+                        setTierFormData({
+                          name: "",
+                          minSpend: "0",
+                          cashbackPercent: "0",
+                          // Default to LIFETIME for plans without annualEvaluationPeriod feature
+                          evaluationPeriod: hasFeature(data.currentPlan, 'annualEvaluationPeriod') ? "ANNUAL" : "LIFETIME",
+                        });
+                        setTierModalActive(true);
                       }}
-                      image="https://cdn.shopify.com/s/files/1/0583/8520/4949/files/loyalty-empty-state.svg"
-                    >
-                      <p>Create loyalty tiers to automatically reward customers based on their spending.</p>
-                    </EmptyState>
+                    />
                   ) : (
                     <BlockStack gap="300">
                       {data.tiers
