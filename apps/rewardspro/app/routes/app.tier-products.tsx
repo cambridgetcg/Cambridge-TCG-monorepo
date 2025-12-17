@@ -445,6 +445,55 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }, { status: 400 });
           }
 
+          // Check if tier products are linked to this tier
+          let tierProductCount = 0;
+          try {
+            tierProductCount = await (db as any).tierProduct.count({
+              where: { shop, tierId: id },
+            });
+          } catch (e) {
+            // TierProduct table may not exist in all environments
+            console.log('[TierProducts] Could not check tier products count:', e);
+          }
+
+          if (tierProductCount > 0) {
+            return json({
+              error: `Cannot delete tier with ${tierProductCount} linked tier product(s). Please delete the tier products first.`
+            }, { status: 400 });
+          }
+
+          // Check if tier purchases reference this tier
+          let tierPurchaseCount = 0;
+          try {
+            tierPurchaseCount = await db.tierPurchase.count({
+              where: { shop, tierId: id },
+            });
+          } catch (e) {
+            console.log('[TierProducts] Could not check tier purchases count:', e);
+          }
+
+          if (tierPurchaseCount > 0) {
+            return json({
+              error: `Cannot delete tier with ${tierPurchaseCount} existing tier purchase(s). These represent customer purchases that reference this tier.`
+            }, { status: 400 });
+          }
+
+          // Check if tier subscriptions reference this tier
+          let tierSubscriptionCount = 0;
+          try {
+            tierSubscriptionCount = await db.tierSubscription.count({
+              where: { shop, tierId: id },
+            });
+          } catch (e) {
+            console.log('[TierProducts] Could not check tier subscriptions count:', e);
+          }
+
+          if (tierSubscriptionCount > 0) {
+            return json({
+              error: `Cannot delete tier with ${tierSubscriptionCount} existing tier subscription(s). These represent active subscriptions that reference this tier.`
+            }, { status: 400 });
+          }
+
           // Delete tier
           await db.tier.delete({
             where: { id },
@@ -877,28 +926,50 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Store in database if successful
         if (result.productId && result.variantId) {
           try {
+            const tierProductId = uuidv4();
+            const tierProductData = {
+              id: tierProductId,
+              shop,
+              tierId: tier.id,  // Use tier.id from database, not form data
+              shopifyProductId: result.productId.replace('gid://shopify/Product/', ''),
+              shopifyVariantId: result.variantId.replace('gid://shopify/ProductVariant/', ''),
+              productHandle: result.handle || sku,
+              sku,
+              purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
+              duration: duration as any,
+              hasSubscription: enableSubscription,
+              price: price,  // Required base price field
+              oneTimePrice: price,
+              monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
+              annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            };
+
+            console.log('[TierProducts] ========================================');
+            console.log('[TierProducts] CREATING TIER PRODUCT RECORD');
+            console.log('[TierProducts] ========================================');
+            console.log('[TierProducts] TierProduct ID:', tierProductId);
+            console.log('[TierProducts] Shop:', shop);
+            console.log('[TierProducts] Tier ID:', tier.id);
+            console.log('[TierProducts] Tier Name:', tier.name);
+            console.log('[TierProducts] Shopify Product ID:', tierProductData.shopifyProductId);
+            console.log('[TierProducts] Shopify Variant ID:', tierProductData.shopifyVariantId);
+            console.log('[TierProducts] SKU:', sku);
+            console.log('[TierProducts] Duration:', duration);
+            console.log('[TierProducts] Price:', price);
+            console.log('[TierProducts] Purchase Type:', tierProductData.purchaseType);
+            console.log('[TierProducts] ========================================');
+
             await (db as any).tierProduct.create({
-              data: {
-                id: uuidv4(),
-                shop,
-                tierId: tier.id,  // Use tier.id from database, not form data
-                shopifyProductId: result.productId.replace('gid://shopify/Product/', ''),
-                shopifyVariantId: result.variantId.replace('gid://shopify/ProductVariant/', ''),
-                productHandle: result.handle || sku,
-                sku,
-                purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
-                duration: duration as any,
-                hasSubscription: enableSubscription,
-                price: price,  // Required base price field
-                oneTimePrice: price,
-                monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
-                annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
-                isActive: true,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              }
+              data: tierProductData
             });
-            
+
+            console.log('[TierProducts] ✅ TierProduct record created successfully!');
+            console.log('[TierProducts] TierProduct ID:', tierProductId);
+            console.log('[TierProducts] Linked to Tier:', tier.name, '(', tier.id, ')');
+
             // If subscription is enabled, create selling plans
             if (enableSubscription && subscriptionOptions) {
               const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
