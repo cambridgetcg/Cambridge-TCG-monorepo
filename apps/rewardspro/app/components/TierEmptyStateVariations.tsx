@@ -1,13 +1,11 @@
 /**
- * Tier Empty State Variations
+ * Tier Empty State Variations - Benefits Grid Variants
  *
- * Three distinct UI approaches for the "no tiers created" state on the Membership Tiers page.
- * Import and use the variation that best fits your needs.
+ * Three variations of the benefits-focused empty state for the Membership Tiers page.
+ * All variations highlight the key benefits but with different visual treatments.
  *
  * Usage:
- *   import { TierEmptyStateV1, TierEmptyStateV2, TierEmptyStateV3 } from '~/components/TierEmptyStateVariations';
- *
- *   <TierEmptyStateV1 onCreateTier={() => openTierModal()} />
+ *   import { TierEmptyStateV1A, TierEmptyStateV1B, TierEmptyStateV1C } from '~/components/TierEmptyStateVariations';
  */
 
 import {
@@ -26,10 +24,9 @@ import {
   CashDollarIcon,
   ChartVerticalIcon,
   PersonIcon,
-  CheckCircleIcon,
-  ArrowRightIcon,
   TargetIcon,
-  GiftCardIcon,
+  HeartIcon,
+  ChartHistogramGrowthIcon,
 } from '@shopify/polaris-icons';
 
 interface TierEmptyStateProps {
@@ -37,12 +34,11 @@ interface TierEmptyStateProps {
 }
 
 // ============================================================================
-// VARIATION 1: Benefits-Focused with Icon Grid
+// VARIATION 1A: Centered Hero with Icon Grid Cards
 // ============================================================================
-// Modern card-based design highlighting the key benefits of creating tiers.
-// Uses a 2x2 grid of benefit cards with icons and descriptions.
+// Clean, centered design with a hero icon, 2x2 benefit cards with shadows
 
-export function TierEmptyStateV1({ onCreateTier }: TierEmptyStateProps) {
+export function TierEmptyStateV1A({ onCreateTier }: TierEmptyStateProps) {
   const benefits = [
     {
       icon: CashDollarIcon,
@@ -141,268 +137,227 @@ export function TierEmptyStateV1({ onCreateTier }: TierEmptyStateProps) {
 }
 
 // ============================================================================
-// VARIATION 2: Step-by-Step Getting Started Guide
+// VARIATION 1B: Horizontal Layout with Left Content, Right Visual
 // ============================================================================
-// A numbered walkthrough showing how easy it is to set up tiers.
-// Reduces friction by making the process feel achievable.
+// Split layout with benefits list on left and decorative element on right
 
-export function TierEmptyStateV2({ onCreateTier }: TierEmptyStateProps) {
-  const steps = [
+export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
+  const benefits = [
     {
-      number: '1',
-      title: 'Create a tier',
-      description: 'Define your first tier with a name like "Bronze" or "Silver"',
+      icon: CashDollarIcon,
+      title: 'Automatic Cashback',
+      description: 'Customers earn rewards on every purchase',
+      iconColor: 'success' as const,
     },
     {
-      number: '2',
-      title: 'Set the requirements',
-      description: 'Choose the minimum spend needed to qualify for this tier',
+      icon: ChartHistogramGrowthIcon,
+      title: 'Boost Retention',
+      description: 'Increase customer lifetime value by 25%+',
+      iconColor: 'info' as const,
     },
     {
-      number: '3',
-      title: 'Add cashback rewards',
-      description: 'Set a cashback percentage that customers earn on purchases',
+      icon: PersonIcon,
+      title: 'Smart Segmentation',
+      description: 'Auto-group customers by spending behavior',
+      iconColor: 'caution' as const,
+    },
+    {
+      icon: TargetIcon,
+      title: 'Drive Revenue',
+      description: 'Motivate higher spending with tier rewards',
+      iconColor: 'magic' as const,
     },
   ];
 
   return (
     <Box padding="600">
-      <BlockStack gap="600">
-        {/* Header Section */}
-        <InlineStack align="space-between" blockAlign="center" wrap={false}>
+      <InlineStack gap="800" align="space-between" blockAlign="center" wrap={false}>
+        {/* Left Content */}
+        <Box minWidth="60%">
+          <BlockStack gap="500">
+            <BlockStack gap="200">
+              <Text variant="headingXl" as="h2">
+                Reward Your Best Customers
+              </Text>
+              <Text variant="bodyLg" tone="subdued">
+                Create a tiered loyalty program that keeps customers coming back
+              </Text>
+            </BlockStack>
+
+            {/* Benefits List */}
+            <BlockStack gap="300">
+              {benefits.map((benefit, index) => (
+                <InlineStack key={index} gap="300" blockAlign="center" wrap={false}>
+                  <Box
+                    background="bg-surface-secondary"
+                    padding="200"
+                    borderRadius="full"
+                  >
+                    <Icon source={benefit.icon} tone={benefit.iconColor} />
+                  </Box>
+                  <BlockStack gap="050">
+                    <Text variant="bodyMd" fontWeight="semibold" as="span">
+                      {benefit.title}
+                    </Text>
+                    <Text variant="bodySm" tone="subdued" as="span">
+                      {benefit.description}
+                    </Text>
+                  </BlockStack>
+                </InlineStack>
+              ))}
+            </BlockStack>
+
+            {/* CTA */}
+            <Box paddingBlockStart="200">
+              <Button variant="primary" size="large" onClick={onCreateTier}>
+                Create Your First Tier
+              </Button>
+            </Box>
+          </BlockStack>
+        </Box>
+
+        {/* Right Visual - Stacked Tier Preview */}
+        <Box minWidth="35%">
           <BlockStack gap="200">
-            <Text variant="headingLg" as="h2">
-              Get Started with Loyalty Tiers
-            </Text>
-            <Text variant="bodyMd" tone="subdued">
-              Set up your first tier in under a minute
+            {['Gold', 'Silver', 'Bronze'].map((tier, index) => {
+              const colors = {
+                Gold: { bg: 'rgba(212, 175, 55, 0.15)', border: '#D4AF37', text: '#B8860B' },
+                Silver: { bg: 'rgba(168, 169, 173, 0.15)', border: '#A8A9AD', text: '#6B6B6B' },
+                Bronze: { bg: 'rgba(205, 127, 50, 0.15)', border: '#CD7F32', text: '#8B4513' },
+              }[tier]!;
+              const cashback = { Gold: '10%', Silver: '5%', Bronze: '2%' }[tier];
+
+              return (
+                <div
+                  key={tier}
+                  style={{
+                    background: colors.bg,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    opacity: 0.7 + (0.1 * (2 - index)),
+                  }}
+                >
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={StarIcon} tone="base" />
+                    <Text variant="bodyMd" fontWeight="semibold" as="span">
+                      {tier}
+                    </Text>
+                  </InlineStack>
+                  <Text variant="bodySm" as="span">
+                    <span style={{ color: colors.text }}>{cashback} cashback</span>
+                  </Text>
+                </div>
+              );
+            })}
+            <Text variant="bodySm" tone="subdued" alignment="center">
+              Example tiers
             </Text>
           </BlockStack>
-          <Button variant="primary" onClick={onCreateTier}>
-            Create First Tier
-          </Button>
-        </InlineStack>
+        </Box>
+      </InlineStack>
+    </Box>
+  );
+}
 
-        <Divider />
+// ============================================================================
+// VARIATION 1C: Minimal with Large Icons in a Row
+// ============================================================================
+// Clean, minimal design with large icons in a horizontal row and subtle descriptions
 
-        {/* Steps */}
-        <BlockStack gap="500">
-          {steps.map((step, index) => (
-            <InlineStack key={index} gap="400" align="start" blockAlign="start" wrap={false}>
-              {/* Step Number */}
+export function TierEmptyStateV1C({ onCreateTier }: TierEmptyStateProps) {
+  const benefits = [
+    {
+      icon: CashDollarIcon,
+      title: 'Cashback',
+      description: 'Auto rewards',
+      gradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+    },
+    {
+      icon: HeartIcon,
+      title: 'Loyalty',
+      description: 'Keep customers',
+      gradient: 'linear-gradient(135deg, #F472B6 0%, #EC4899 100%)',
+    },
+    {
+      icon: ChartVerticalIcon,
+      title: 'Growth',
+      description: 'More revenue',
+      gradient: 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%)',
+    },
+    {
+      icon: StarIcon,
+      title: 'Tiers',
+      description: 'VIP levels',
+      gradient: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
+    },
+  ];
+
+  return (
+    <Box padding="800">
+      <BlockStack gap="800" align="center">
+        {/* Heading */}
+        <BlockStack gap="300" align="center">
+          <Text variant="heading2xl" as="h2" alignment="center">
+            Launch Your Loyalty Program
+          </Text>
+          <Text variant="bodyLg" tone="subdued" alignment="center">
+            Turn one-time buyers into lifelong customers with tiered rewards
+          </Text>
+        </BlockStack>
+
+        {/* Large Icon Row */}
+        <InlineStack gap="600" align="center" blockAlign="start">
+          {benefits.map((benefit, index) => (
+            <BlockStack key={index} gap="300" align="center">
               <div
                 style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'var(--p-color-bg-fill-brand)',
+                  width: '72px',
+                  height: '72px',
+                  borderRadius: '16px',
+                  background: benefit.gradient,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexShrink: 0,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                 }}
               >
-                <Text variant="headingMd" as="span" fontWeight="bold">
-                  <span style={{ color: 'white' }}>{step.number}</span>
-                </Text>
+                <div style={{ color: 'white', display: 'flex' }}>
+                  <Icon source={benefit.icon} tone="inherit" />
+                </div>
               </div>
-
-              {/* Step Content */}
-              <BlockStack gap="100">
-                <Text variant="headingMd" as="h3">
-                  {step.title}
+              <BlockStack gap="100" align="center">
+                <Text variant="headingSm" as="h3" alignment="center">
+                  {benefit.title}
                 </Text>
-                <Text variant="bodyMd" tone="subdued">
-                  {step.description}
+                <Text variant="bodySm" tone="subdued" alignment="center">
+                  {benefit.description}
                 </Text>
               </BlockStack>
-
-              {/* Arrow (except last) */}
-              {index < steps.length - 1 && (
-                <Box paddingBlockStart="200">
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: '19px',
-                      marginTop: '48px',
-                      width: '2px',
-                      height: '32px',
-                      background: 'var(--p-color-border-secondary)',
-                    }}
-                  />
-                </Box>
-              )}
-            </InlineStack>
-          ))}
-        </BlockStack>
-
-        {/* Bottom Banner */}
-        <Box
-          background="bg-surface-secondary"
-          padding="400"
-          borderRadius="200"
-        >
-          <InlineStack gap="300" align="start" blockAlign="center">
-            <Icon source={GiftCardIcon} tone="info" />
-            <BlockStack gap="100">
-              <Text variant="bodySm" fontWeight="semibold" as="span">
-                Pro tip: Start with 3 tiers
-              </Text>
-              <Text variant="bodySm" tone="subdued" as="span">
-                Most successful loyalty programs use Bronze, Silver, and Gold tiers with increasing rewards.
-              </Text>
             </BlockStack>
-          </InlineStack>
-        </Box>
-      </BlockStack>
-    </Box>
-  );
-}
-
-// ============================================================================
-// VARIATION 3: Visual Preview with Example Tiers
-// ============================================================================
-// Shows what completed tiers look like with example Bronze, Silver, Gold cards.
-// Makes the end result tangible and reduces uncertainty.
-
-export function TierEmptyStateV3({ onCreateTier }: TierEmptyStateProps) {
-  const exampleTiers = [
-    {
-      name: 'Bronze',
-      minSpend: '$0',
-      cashback: '2%',
-      color: '#CD7F32',
-      bgColor: 'rgba(205, 127, 50, 0.1)',
-    },
-    {
-      name: 'Silver',
-      minSpend: '$500',
-      cashback: '5%',
-      color: '#A8A9AD',
-      bgColor: 'rgba(168, 169, 173, 0.15)',
-    },
-    {
-      name: 'Gold',
-      minSpend: '$1,500',
-      cashback: '10%',
-      color: '#D4AF37',
-      bgColor: 'rgba(212, 175, 55, 0.15)',
-    },
-  ];
-
-  return (
-    <Box padding="600">
-      <BlockStack gap="600" align="center">
-        {/* Header */}
-        <BlockStack gap="200" align="center">
-          <Text variant="headingXl" as="h2" alignment="center">
-            Create Tiers Like These
-          </Text>
-          <Text variant="bodyLg" tone="subdued" alignment="center">
-            Design a tier structure that fits your business
-          </Text>
-        </BlockStack>
-
-        {/* Example Tier Cards */}
-        <Box paddingBlock="400" width="100%">
-          <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
-            {exampleTiers.map((tier, index) => (
-              <Box
-                key={index}
-                padding="0"
-                borderRadius="300"
-                shadow="200"
-                background="bg-surface"
-              >
-                {/* Colored Header Bar */}
-                <div
-                  style={{
-                    height: '8px',
-                    background: tier.color,
-                    borderTopLeftRadius: '12px',
-                    borderTopRightRadius: '12px',
-                  }}
-                />
-
-                <Box padding="400">
-                  <BlockStack gap="400" align="center">
-                    {/* Tier Icon */}
-                    <div
-                      style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '50%',
-                        background: tier.bgColor,
-                        border: `2px solid ${tier.color}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Icon source={StarIcon} tone="base" />
-                    </div>
-
-                    {/* Tier Name */}
-                    <Text variant="headingLg" as="h3" alignment="center">
-                      {tier.name}
-                    </Text>
-
-                    {/* Stats */}
-                    <BlockStack gap="200" align="center">
-                      <InlineStack gap="100" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued" as="span">
-                          Min spend:
-                        </Text>
-                        <Text variant="bodyMd" fontWeight="semibold" as="span">
-                          {tier.minSpend}
-                        </Text>
-                      </InlineStack>
-
-                      <div
-                        style={{
-                          background: tier.bgColor,
-                          padding: '4px 12px',
-                          borderRadius: '16px',
-                          border: `1px solid ${tier.color}`,
-                        }}
-                      >
-                        <Text variant="headingSm" as="span">
-                          <span style={{ color: tier.color }}>{tier.cashback} Cashback</span>
-                        </Text>
-                      </div>
-                    </BlockStack>
-                  </BlockStack>
-                </Box>
-              </Box>
-            ))}
-          </InlineGrid>
-        </Box>
-
-        {/* Dimmed overlay text */}
-        <Text variant="bodySm" tone="subdued" alignment="center">
-          These are examples. You can customize tier names, spending thresholds, and cashback rates.
-        </Text>
+          ))}
+        </InlineStack>
 
         {/* CTA Section */}
-        <Box paddingBlockStart="200">
-          <BlockStack gap="300" align="center">
-            <Button variant="primary" size="large" onClick={onCreateTier}>
-              Create Your First Tier
-            </Button>
-            <Text variant="bodySm" tone="subdued" alignment="center">
-              Takes less than 30 seconds
-            </Text>
-          </BlockStack>
-        </Box>
+        <BlockStack gap="200" align="center">
+          <Button variant="primary" size="large" onClick={onCreateTier}>
+            Create Your First Tier
+          </Button>
+          <Text variant="bodySm" tone="subdued">
+            Set up in under 60 seconds
+          </Text>
+        </BlockStack>
       </BlockStack>
     </Box>
   );
 }
 
 // ============================================================================
-// COMBINED COMPONENT - For easy testing of all variations
+// COMBINED COMPONENT - For displaying all 3 variations
 // ============================================================================
-// Use this to display all 3 variations at once for comparison
 
 interface AllVariationsProps {
   onCreateTier: () => void;
@@ -411,37 +366,34 @@ interface AllVariationsProps {
 export function TierEmptyStateAllVariations({ onCreateTier }: AllVariationsProps) {
   return (
     <BlockStack gap="800">
-      {/* Variation 1 */}
+      {/* Variation 1A */}
       <Card>
-        <Box padding="200">
+        <Box padding="300" background="bg-surface-secondary">
           <Text variant="headingSm" tone="subdued" as="h4">
-            Variation 1: Benefits Grid
+            Variation 1A: Centered Hero with Card Grid
           </Text>
         </Box>
-        <Divider />
-        <TierEmptyStateV1 onCreateTier={onCreateTier} />
+        <TierEmptyStateV1A onCreateTier={onCreateTier} />
       </Card>
 
-      {/* Variation 2 */}
+      {/* Variation 1B */}
       <Card>
-        <Box padding="200">
+        <Box padding="300" background="bg-surface-secondary">
           <Text variant="headingSm" tone="subdued" as="h4">
-            Variation 2: Step-by-Step Guide
+            Variation 1B: Horizontal Split Layout
           </Text>
         </Box>
-        <Divider />
-        <TierEmptyStateV2 onCreateTier={onCreateTier} />
+        <TierEmptyStateV1B onCreateTier={onCreateTier} />
       </Card>
 
-      {/* Variation 3 */}
+      {/* Variation 1C */}
       <Card>
-        <Box padding="200">
+        <Box padding="300" background="bg-surface-secondary">
           <Text variant="headingSm" tone="subdued" as="h4">
-            Variation 3: Visual Preview
+            Variation 1C: Minimal with Large Icon Row
           </Text>
         </Box>
-        <Divider />
-        <TierEmptyStateV3 onCreateTier={onCreateTier} />
+        <TierEmptyStateV1C onCreateTier={onCreateTier} />
       </Card>
     </BlockStack>
   );
