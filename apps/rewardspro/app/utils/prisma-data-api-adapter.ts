@@ -547,6 +547,7 @@ export class DataAPIModelProxy<T = any> {
       SubscriptionRetry: ['status'],
       SubscriptionEvent: ['eventType'],
       SyncStatus: ['status'],
+      ShopEntitlements: ['planSource'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -567,6 +568,7 @@ export class DataAPIModelProxy<T = any> {
       changeType: '"TierChangeType"',
       triggerType: '"TierTriggerType"',
       tierSource: '"TierSource"',
+      planSource: '"EntitlementSource"',
       purchaseType: '"PurchaseType"',
       duration: '"ProductDuration"',
       status: this.getStatusEnumForTable(),
@@ -1193,6 +1195,7 @@ export function createDataAPIPrismaClient() {
           billingAuditLog: new DataAPIModelProxy("BillingAuditLog", txAuroraClient),
           billingSubscription: new DataAPIModelProxy("BillingSubscription", txAuroraClient),
           appSubscription: new DataAPIModelProxy("AppSubscription", txAuroraClient),
+          shopEntitlements: new DataAPIModelProxy("ShopEntitlements", txAuroraClient),
 
           // Marketing and Analytics models
           emailTemplate: new DataAPIModelProxy("EmailTemplate", txAuroraClient),
@@ -1371,6 +1374,7 @@ export function createDataAPIPrismaClient() {
     billingAuditLog: new DataAPIModelProxy("BillingAuditLog", client),
     billingSubscription: new DataAPIModelProxy("BillingSubscription", client),
     appSubscription: new DataAPIModelProxy("AppSubscription", client),
+    shopEntitlements: new DataAPIModelProxy("ShopEntitlements", client),
 
     // Marketing and Analytics models
     emailTemplate: new DataAPIModelProxy("EmailTemplate", client),
