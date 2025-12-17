@@ -309,9 +309,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Detect orphaned tier products (database records referencing non-existent tiers)
+    // Check both: tierId not in tiers list, OR tier relation is null/undefined
     const tierIds = new Set(tiers.map(t => t.id));
     const orphanedTierProducts: OrphanedTierProduct[] = dbTierProducts
-      .filter((dbProduct: any) => !tierIds.has(dbProduct.tierId))
+      .filter((dbProduct: any) => {
+        const tierMissing = !tierIds.has(dbProduct.tierId);
+        const tierRelationNull = dbProduct.tier == null;
+        return tierMissing || tierRelationNull;
+      })
       .map((dbProduct: any) => ({
         id: dbProduct.id,
         tierId: dbProduct.tierId,
@@ -321,6 +326,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         duration: dbProduct.duration,
         createdAt: dbProduct.createdAt?.toISOString() || new Date().toISOString(),
       }));
+
+    // Log all tier products for debugging
+    console.log(`[TierProducts] Database tier products for ${shop}:`,
+      dbTierProducts.map((p: any) => ({
+        id: p.id,
+        tierId: p.tierId,
+        sku: p.sku,
+        tierExists: p.tier != null,
+        tierName: p.tier?.name || 'MISSING',
+      })));
 
     if (orphanedTierProducts.length > 0) {
       console.log(`[TierProducts] ⚠️ Found ${orphanedTierProducts.length} orphaned tier product(s):`,
