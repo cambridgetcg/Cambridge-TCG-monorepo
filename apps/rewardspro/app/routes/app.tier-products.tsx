@@ -78,6 +78,16 @@ interface TierProduct {
   updatedAt: string;
 }
 
+interface OrphanedTierProduct {
+  id: string;
+  tierId: string;
+  shopifyProductId: string | null;
+  sku: string | null;
+  price: number;
+  duration: string;
+  createdAt: string;
+}
+
 interface LoaderData {
   tiers: Array<{
     id: string;
@@ -87,6 +97,7 @@ interface LoaderData {
     evaluationPeriod: "ANNUAL" | "LIFETIME";
   }>;
   tierProducts: TierProduct[];
+  orphanedTierProducts: OrphanedTierProduct[]; // Tier products referencing non-existent tiers
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
@@ -296,10 +307,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
       }
     }
-    
+
+    // Detect orphaned tier products (database records referencing non-existent tiers)
+    const tierIds = new Set(tiers.map(t => t.id));
+    const orphanedTierProducts: OrphanedTierProduct[] = dbTierProducts
+      .filter((dbProduct: any) => !tierIds.has(dbProduct.tierId))
+      .map((dbProduct: any) => ({
+        id: dbProduct.id,
+        tierId: dbProduct.tierId,
+        shopifyProductId: dbProduct.shopifyProductId,
+        sku: dbProduct.sku,
+        price: dbProduct.price,
+        duration: dbProduct.duration,
+        createdAt: dbProduct.createdAt?.toISOString() || new Date().toISOString(),
+      }));
+
+    if (orphanedTierProducts.length > 0) {
+      console.log(`[TierProducts] ⚠️ Found ${orphanedTierProducts.length} orphaned tier product(s):`,
+        orphanedTierProducts.map(p => ({ id: p.id, tierId: p.tierId })));
+    }
+
     return json<LoaderData>({
       tiers,
       tierProducts,
+      orphanedTierProducts,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType,
@@ -1512,6 +1543,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         success: true,
         message: "Product deleted successfully",
       });
+    } else if (intent === "delete-tier-product-record") {
+      // Delete tier product by its database ID (for cleaning up orphaned records)
+      const tierProductId = formData.get("tierProductId") as string;
+
+      if (!tierProductId) {
+        return json({ success: false, error: "Tier product ID is required" }, { status: 400 });
+      }
+
+      console.log(`[TierProducts] Deleting tier product record: ${tierProductId}`);
+
+      try {
+        // Find the tier product first
+        const tierProduct = await (db as any).tierProduct.findFirst({
+          where: {
+            id: tierProductId,
+            shop,
+          },
+        });
+
+        if (!tierProduct) {
+          return json({ success: false, error: "Tier product not found or does not belong to this shop" }, { status: 404 });
+        }
+
+        // Delete the tier product record
+        await (db as any).tierProduct.delete({
+          where: { id: tierProductId },
+        });
+
+        console.log(`[TierProducts] Successfully deleted tier product record: ${tierProductId}`);
+
+        return json({
+          success: true,
+          message: "Tier product record deleted successfully",
+        });
+      } catch (error) {
+        console.error('[TierProducts] Error deleting tier product record:', error);
+        return json({
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to delete tier product record"
+        }, { status: 500 });
+      }
     }
 
     return json({ success: false, error: "Invalid action" }, { status: 400 });
@@ -1577,7 +1649,7 @@ export default function TierProducts() {
   useEffect(() => {
     if (navigation.state === "idle" && navigation.formData) {
       const intent = navigation.formData.get("intent");
-      if (intent === "create-product" || intent === "delete-product" || intent === "update-product") {
+      if (intent === "create-product" || intent === "delete-product" || intent === "update-product" || intent === "delete-tier-product-record") {
         // Add small delay to ensure database operation completes
         setTimeout(() => {
           revalidate();
@@ -1872,6 +1944,50 @@ export default function TierProducts() {
                 feature="Purchasable Tier Products"
                 upgradeMessage="Upgrade to Max plan or higher to create products that customers can purchase to unlock tier benefits. This feature allows you to sell tier memberships as one-time purchases or recurring subscriptions."
               />
+            </Layout.Section>
+          )}
+
+          {/* Orphaned Tier Products Warning */}
+          {data.orphanedTierProducts && data.orphanedTierProducts.length > 0 && (
+            <Layout.Section>
+              <Banner
+                title="Orphaned Tier Product Records Found"
+                tone="warning"
+                onDismiss={() => {}}
+              >
+                <BlockStack gap="400">
+                  <Text as="p">
+                    The following tier product records reference tiers that no longer exist.
+                    This can happen when a tier is deleted. These orphaned records may cause errors
+                    and should be cleaned up.
+                  </Text>
+                  {data.orphanedTierProducts.map((orphan) => (
+                    <Box key={orphan.id} padding="200" background="bg-surface-secondary" borderRadius="200">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <BlockStack gap="100">
+                          <Text as="span" fontWeight="semibold">ID: {orphan.id}</Text>
+                          <Text as="span" tone="subdued">Missing Tier ID: {orphan.tierId}</Text>
+                          <Text as="span" tone="subdued">
+                            SKU: {orphan.sku || 'N/A'} | Price: ${orphan.price} | Duration: {orphan.duration}
+                          </Text>
+                        </BlockStack>
+                        <Button
+                          variant="primary"
+                          tone="critical"
+                          onClick={() => {
+                            const formData = new FormData();
+                            formData.append("intent", "delete-tier-product-record");
+                            formData.append("tierProductId", orphan.id);
+                            submit(formData, { method: "post" });
+                          }}
+                        >
+                          Delete Record
+                        </Button>
+                      </InlineStack>
+                    </Box>
+                  ))}
+                </BlockStack>
+              </Banner>
             </Layout.Section>
           )}
 
