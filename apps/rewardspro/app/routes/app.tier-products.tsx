@@ -53,7 +53,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
 import { getCurrentPlan, hasFeature } from "../utils/plan-limits";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
-import { TierEmptyStateAllVariations } from "../components/TierEmptyStateVariations";
+import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -1806,7 +1806,7 @@ export default function TierProducts() {
                   </Text>
 
                   {data.tiers.length === 0 ? (
-                    <TierEmptyStateAllVariations
+                    <TierEmptyStateV1B
                       onCreateTier={() => {
                         setEditingTier(null);
                         setTierFormData({
