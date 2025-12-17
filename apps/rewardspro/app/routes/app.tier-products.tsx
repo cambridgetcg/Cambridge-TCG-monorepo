@@ -1683,21 +1683,22 @@ export default function TierProducts() {
       // Construct appropriate toast message
       let toastContent = '';
       let toastError = false;
+      let shouldRevalidate = false;
 
       if ('message' in actionData) {
         toastContent = actionData.message;
         toastError = !actionData.success;
-        // Close modal on success (revalidation happens automatically via navigation effect)
         if (actionData.success) {
           setModalActive(false);
           setEditModalActive(false);
+          shouldRevalidate = true;
         }
       } else if (actionData.success) {
         toastContent = "Product created successfully! The product is now available in your Shopify admin.";
         toastError = false;
-        // Close modals on success (revalidation happens automatically via navigation effect)
         setModalActive(false);
         setEditModalActive(false);
+        shouldRevalidate = true;
       } else {
         toastContent = actionData.error || "Operation failed. Please try again.";
         toastError = true;
@@ -1708,6 +1709,14 @@ export default function TierProducts() {
         content: toastContent,
         error: toastError,
       });
+
+      // Revalidate loader data to refresh the tier products list
+      if (shouldRevalidate) {
+        // Small delay to ensure database operations complete
+        setTimeout(() => {
+          revalidate();
+        }, 300);
+      }
     }
   }, [actionData, revalidate]);
   
