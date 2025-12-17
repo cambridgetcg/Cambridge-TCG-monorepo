@@ -399,6 +399,57 @@ enum SyncJobStatus {
   CANCELLED     // Manually cancelled
 }
 
+// ============================================
+// ORDER SYNC JOB - Reliable Full Sync
+// ============================================
+// Tracks progress of order sync operations with resume capability.
+// Enables chunked processing and accurate progress display.
+
+model OrderSyncJob {
+  id                String          @id @default(uuid())
+  shop              String
+
+  // Job status
+  status            SyncJobStatus   @default(PENDING)
+
+  // Order counts from Shopify
+  totalOrders       Int?            // Total orders in Shopify (shop.ordersCount)
+
+  // Progress tracking
+  processedCount    Int             @default(0)  // Orders processed so far
+  createdCount      Int             @default(0)  // New orders created
+  updatedCount      Int             @default(0)  // Existing orders updated
+  skippedCount      Int             @default(0)  // Orders skipped
+  errorCount        Int             @default(0)  // Processing errors
+
+  // Pagination for resume
+  lastCursor        String?         // GraphQL cursor for next batch
+  batchSize         Int             @default(50) // Orders per batch
+
+  // Date range
+  startDate         DateTime?       // Start of date range to sync
+  endDate           DateTime?       // End of date range to sync
+
+  // Error tracking
+  lastError         String?         @db.Text  // Most recent error message
+  errorDetails      Json?           // Detailed error info
+
+  // Timing
+  startedAt         DateTime?
+  completedAt       DateTime?
+  lastActivityAt    DateTime?       // Last batch processed timestamp
+
+  // Metadata
+  triggeredBy       String?         // 'manual', 'install', 'cron'
+  metadata          Json?           // Additional job data
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, createdAt(sort: Desc)])
+}
+
 model StoreCreditLedger {
   id                String      @id @default(uuid())
   customerId        String
