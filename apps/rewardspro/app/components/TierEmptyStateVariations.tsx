@@ -88,7 +88,7 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
             {/* Benefits List */}
             <BlockStack gap="300">
               {benefits.map((benefit, index) => (
-                <InlineStack key={index} gap="300" blockAlign="center" wrap={false}>
+                <InlineStack key={index} gap="150" blockAlign="center" wrap={false}>
                   <Box
                     background="bg-surface-secondary"
                     padding="200"
