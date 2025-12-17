@@ -364,6 +364,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }),
     ]);
 
+    // Debug: Log shopSettings to verify advancedAnalyticsEnabled is being returned
+    console.log('[Analytics Loader] shopSettings:', JSON.stringify({
+      shop: shopSettings?.shop,
+      advancedAnalyticsEnabled: (shopSettings as any)?.advancedAnalyticsEnabled,
+      allKeys: shopSettings ? Object.keys(shopSettings) : []
+    }));
+
     // Fetch analytics-powered recommendations
     let recommendations: any[] = [];
     try {
@@ -2159,6 +2166,9 @@ export default function AnalyticsPage() {
 
   // Check if advanced analytics is enabled via Feature Manager toggle
   const hasAdvancedAnalytics = data.shopSettings?.advancedAnalyticsEnabled ?? false;
+
+  // Debug: Log to verify the feature flag is being received
+  console.log('[Analytics Component] advancedAnalyticsEnabled:', data.shopSettings?.advancedAnalyticsEnabled, 'hasAdvancedAnalytics:', hasAdvancedAnalytics);
 
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedDateRange, setSelectedDateRange] = useState(
