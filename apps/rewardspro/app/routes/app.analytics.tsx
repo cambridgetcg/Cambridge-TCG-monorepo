@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigation, useNavigate, useSearchParams, useFetcher } from "@remix-run/react";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Page,
   Layout,
@@ -91,6 +91,7 @@ import {
   type MonthlyImpactData
 } from "~/services/program-impact.server";
 import { formatPercentageChange, getBadgeTone } from "~/utils/analytics-formatters";
+import { useEntitlements } from "~/hooks/useEntitlements";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -2154,12 +2155,20 @@ export default function AnalyticsPage() {
   const navigation = useNavigation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+  const { hasAdvancedReport } = useEntitlements();
+
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedDateRange, setSelectedDateRange] = useState(
     searchParams.get('range') || '30days'
   );
-  
+
+  // Reset to Overview tab if user doesn't have advanced analytics access
+  useEffect(() => {
+    if (!hasAdvancedReport && selectedTab > 0) {
+      setSelectedTab(0);
+    }
+  }, [hasAdvancedReport, selectedTab]);
+
   const isLoading = navigation.state === "loading";
   
   // Format currency helper
@@ -2200,14 +2209,22 @@ export default function AnalyticsPage() {
     }
   }, [selectedDateRange]);
 
-  const tabs = [
-    { id: 'overview', content: 'Overview' },
-    // { id: 'charts', content: 'Charts' }, // Hidden
-    { id: 'financial', content: 'Financial' },
-    { id: 'actions', content: 'Recommended Actions', badge: data.recommendations?.length.toString() || '0' },
-    { id: 'behaviour', content: 'Customer Behaviour' },
-    { id: 'cohorts', content: 'Cohort Analysis' },
-  ];
+  // Build tabs based on feature access - Overview is always visible
+  // Advanced tabs require Advanced Analytics feature
+  const tabs = useMemo(() => {
+    const baseTabs = [{ id: 'overview', content: 'Overview' }];
+
+    if (hasAdvancedReport) {
+      baseTabs.push(
+        { id: 'financial', content: 'Financial' },
+        { id: 'actions', content: 'Recommended Actions', badge: data.recommendations?.length.toString() || '0' },
+        { id: 'behaviour', content: 'Customer Behaviour' },
+        { id: 'cohorts', content: 'Cohort Analysis' },
+      );
+    }
+
+    return baseTabs;
+  }, [hasAdvancedReport, data.recommendations?.length]);
 
   return (
     <Page
