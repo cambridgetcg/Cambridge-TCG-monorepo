@@ -154,12 +154,20 @@ export async function resolveEffectiveTier(
     include: { tier: true }
   });
 
+  // Filter out subscriptions with missing tier records (tier may be null or undefined)
+  const validSubscriptions = activeTierSubscriptions.filter((s) => s.tier != null);
+
+  if (validSubscriptions.length !== activeTierSubscriptions.length) {
+    const invalidCount = activeTierSubscriptions.length - validSubscriptions.length;
+    console.warn(`[TierResolution] ⚠️ Found ${invalidCount} tier subscription(s) with missing tier records - skipping`);
+  }
+
   // Sort by tier minSpend in memory (highest first)
-  const activeTierSubscription = activeTierSubscriptions.sort((a, b) =>
-    b.tier.minSpend - a.tier.minSpend
+  const activeTierSubscription = validSubscriptions.sort((a, b) =>
+    (b.tier?.minSpend ?? 0) - (a.tier?.minSpend ?? 0)
   )[0];
 
-  if (activeTierSubscription) {
+  if (activeTierSubscription && activeTierSubscription.tier) {
     console.log(`[TierResolution] ✓ Active tier subscription found: ${activeTierSubscription.tier.name}`);
 
     sources.push({
@@ -173,6 +181,8 @@ export async function resolveEffectiveTier(
         endDate: activeTierSubscription.currentPeriodEnd.toISOString()
       }
     });
+  } else if (activeTierSubscription && !activeTierSubscription.tier) {
+    console.warn(`[TierResolution] ⚠️ Active tier subscription ${activeTierSubscription.id} has missing tier - skipping`);
   } else {
     console.log(`[TierResolution] ✗ No active tier subscription`);
   }
@@ -200,24 +210,26 @@ export async function resolveEffectiveTier(
 
   // CRITICAL: Filter out tier purchases with missing tier records
   // This prevents crashes when tier products reference non-existent tiers
-  const validPurchases = activeTierPurchases.filter((p) => p.tier !== null);
+  // Use != null to catch both null and undefined (Prisma may return either)
+  const validPurchases = activeTierPurchases.filter((p) => p.tier != null);
 
   if (validPurchases.length !== activeTierPurchases.length) {
     const invalidCount = activeTierPurchases.length - validPurchases.length;
-    const invalidPurchases = activeTierPurchases.filter((p) => p.tier === null);
+    const invalidPurchases = activeTierPurchases.filter((p) => p.tier == null);
 
     console.warn(`[TierResolution] ⚠️ Found ${invalidCount} tier purchase(s) with missing tier records!`);
     console.warn(`[TierResolution] Invalid purchase IDs: ${invalidPurchases.map(p => p.id).join(', ')}`);
+    console.warn(`[TierResolution] Invalid tier IDs: ${invalidPurchases.map(p => p.tierId).join(', ')}`);
     console.warn(`[TierResolution] These purchases reference non-existent tiers and will be skipped.`);
     console.warn(`[TierResolution] Action required: Run cleanup script to fix orphaned tier products.`);
   }
 
-  // Sort by tier minSpend in memory (highest first)
+  // Sort by tier minSpend in memory (highest first) with null-safe access
   const activeTierPurchase = validPurchases.sort((a, b) =>
-    b.tier.minSpend - a.tier.minSpend
+    (b.tier?.minSpend ?? 0) - (a.tier?.minSpend ?? 0)
   )[0];
 
-  if (activeTierPurchase) {
+  if (activeTierPurchase && activeTierPurchase.tier) {
     const isExpired = activeTierPurchase.endDate && activeTierPurchase.endDate < now;
 
     if (isExpired && !options?.includeExpired) {
@@ -238,6 +250,8 @@ export async function resolveEffectiveTier(
         }
       });
     }
+  } else if (activeTierPurchase && !activeTierPurchase.tier) {
+    console.warn(`[TierResolution] ⚠️ Active tier purchase ${activeTierPurchase.id} has missing tier - skipping`);
   } else {
     console.log(`[TierResolution] ✗ No active tier purchase`);
   }
