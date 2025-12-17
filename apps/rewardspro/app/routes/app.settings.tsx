@@ -22,9 +22,12 @@ import {
   ProgressBar,
   Checkbox,
   Tabs,
+  Toast,
+  Frame,
 } from "@shopify/polaris";
 import { RefreshIcon } from "~/utils/polaris-icons";
 import { useState, useCallback, useEffect } from "react";
+import { useToast } from "~/hooks/useToast";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
@@ -746,6 +749,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed`);
 
         return json({
+          recalculationComplete: true,
           success: true,
           message: `Tier recalculation completed: ${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`,
           result
@@ -753,6 +757,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       } catch (error: any) {
         console.error("[Settings Action] Error recalculating tiers:", error);
         return json({
+          recalculationComplete: true,
+          success: false,
           error: "Failed to recalculate tiers. Please try again."
         }, { status: 500 });
       }
@@ -885,6 +891,9 @@ export default function SettingsPage() {
   const navigation = useNavigation();
   const navigate = useNavigate();
 
+  // Toast notifications
+  const { toast, showInfo, showSuccess, showError, hideToast } = useToast();
+
   // Tab state
   const [selectedTab, setSelectedTab] = useState(0);
 
@@ -899,7 +908,6 @@ export default function SettingsPage() {
   // Tier recalculation state
   const [tierRecalculationEnabled, setTierRecalculationEnabled] = useState(settings.tierRecalculationEnabled);
   const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
-  const [isRecalculating, setIsRecalculating] = useState(false);
   const [showRecalculateModal, setShowRecalculateModal] = useState(false);
 
   // Widget theme state
@@ -1055,12 +1063,16 @@ export default function SettingsPage() {
   // Confirm and execute tier recalculation
   const confirmRecalculation = useCallback(() => {
     setShowRecalculateModal(false);
-    setIsRecalculating(true);
+
+    // Show immediate feedback - fire and forget pattern
+    showInfo("Tier recalculation started. This runs in the background and may take several minutes.");
+
+    // Submit without blocking UI
     fetcher.submit(
       { intent: "recalculate-tiers" },
       { method: "post" }
     );
-  }, [fetcher]);
+  }, [fetcher, showInfo]);
 
   // Calculate next scheduled run based on frequency and last run
   const calculateNextRun = useCallback((lastRun: string | null, frequency: RecalculationFrequency): string => {
@@ -1125,6 +1137,24 @@ export default function SettingsPage() {
       setHasUnsavedChanges(false);
     }
   }, [actionData]);
+
+  // Handle recalculation completion feedback
+  useEffect(() => {
+    const data = fetcher.data as {
+      recalculationComplete?: boolean;
+      success?: boolean;
+      message?: string;
+      error?: string;
+    } | undefined;
+
+    if (data?.recalculationComplete) {
+      if (data.success) {
+        showSuccess(data.message || "Tier recalculation completed successfully.");
+      } else {
+        showError(data.error || "Tier recalculation failed. Please try again.");
+      }
+    }
+  }, [fetcher.data, showSuccess, showError]);
 
   // Tab definitions - consolidated for better UX
   const tabs = [
@@ -1447,7 +1477,6 @@ export default function SettingsPage() {
                           </BlockStack>
                           <Button
                             onClick={handleManualRecalculation}
-                            loading={isRecalculating}
                             icon={RefreshIcon}
                           >
                             Recalculate Now
@@ -1849,6 +1878,16 @@ export default function SettingsPage() {
           </BlockStack>
         </Modal.Section>
       </Modal>
+
+      {/* Toast notification */}
+      {toast.active && (
+        <Toast
+          content={toast.content}
+          error={toast.error}
+          duration={toast.duration}
+          onDismiss={hideToast}
+        />
+      )}
     </Page>
   );
 }
