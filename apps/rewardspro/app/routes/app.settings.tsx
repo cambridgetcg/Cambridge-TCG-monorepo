@@ -1781,6 +1781,7 @@ export default function SettingsPage() {
                               icon={RefreshIcon}
                               disabled={isCustomerSyncing}
                               loading={isCustomerSyncStarting}
+                              size="slim"
                             >
                               Sync Customers
                             </Button>
@@ -1789,6 +1790,7 @@ export default function SettingsPage() {
                                 onClick={handleCancelCustomerSync}
                                 tone="critical"
                                 variant="plain"
+                                size="slim"
                               >
                                 Cancel
                               </Button>
@@ -1890,6 +1892,7 @@ export default function SettingsPage() {
                           <Button
                             onClick={() => setShowSyncModal(true)}
                             icon={RefreshIcon}
+                            size="slim"
                           >
                             Sync Orders
                           </Button>
@@ -1962,6 +1965,7 @@ export default function SettingsPage() {
                               icon={RefreshIcon}
                               disabled={isCreditSyncing}
                               loading={isCreditSyncStarting}
+                              size="slim"
                             >
                               Sync Store Credit
                             </Button>
@@ -1970,6 +1974,7 @@ export default function SettingsPage() {
                                 onClick={handleCancelCreditSync}
                                 tone="critical"
                                 variant="plain"
+                                size="slim"
                               >
                                 Cancel
                               </Button>
