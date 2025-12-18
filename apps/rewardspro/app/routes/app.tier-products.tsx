@@ -51,6 +51,7 @@ import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
+import { extractNumericId } from "../utils/shopify-id-normalizer";
 import { getEntitlements } from "../services/entitlements.server";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
 import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
@@ -268,13 +269,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           );
           
           // Check if this product exists in database
-          const dbProduct = dbTierProducts.find(p => 
-            p.shopifyProductId === product.id.replace('gid://shopify/Product/', '')
+          // Use normalized ID comparison to handle both formats:
+          // - Database may store full GraphQL ID: gid://shopify/Product/123
+          // - Or just numeric ID: 123
+          const productNumericId = extractNumericId(product.id);
+          const dbProduct = dbTierProducts.find(p =>
+            extractNumericId(p.shopifyProductId) === productNumericId
           );
-          
+
+          // Debug logging for SKU resolution
+          const resolvedSku = variant.sku || dbProduct?.sku || '';
+          if (!resolvedSku) {
+            console.log(`[TierProducts] SKU missing for "${product.title}":`, {
+              shopifyProductId: product.id,
+              normalizedId: productNumericId,
+              variantSku: variant.sku,
+              dbProductFound: !!dbProduct,
+              dbProductSku: dbProduct?.sku,
+              dbProductId: dbProduct?.shopifyProductId,
+            });
+          }
+
           const hasSubscription = product.sellingPlanGroups?.edges?.length > 0 || dbProduct?.hasSubscription;
           const sellingPlanGroupId = product.sellingPlanGroups?.edges?.[0]?.node?.id || dbProduct?.sellingPlanGroupId;
-          
+
           tierProducts.push({
             id: product.id,
             tierId: matchingTier?.id || dbProduct?.tierId || '',
@@ -282,7 +300,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             shopifyProductId: product.id,
             shopifyVariantId: variant.id,
             productHandle: product.handle,
-            sku: variant.sku || dbProduct?.sku || '',
+            sku: resolvedSku,
             price: parseFloat(variant.price || '0'),
             duration: dbProduct?.duration || duration,
             features: dbProduct?.features || [],
