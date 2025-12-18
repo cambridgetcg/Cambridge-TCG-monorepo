@@ -23,13 +23,18 @@ import {
   Tabs,
   Toast,
   Frame,
+  ProgressBar,
+  Spinner,
 } from "@shopify/polaris";
 import { RefreshIcon } from "~/utils/polaris-icons";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
+import { getCreditSyncStats } from "../services/credit-sync-job.server";
+import { getCustomerSyncStats } from "../services/customer-sync-job.server";
+import { getOrderSyncStats } from "../services/order-sync-job.server";
 import { createOrderSyncService } from "../services/order-sync.service";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
@@ -59,6 +64,9 @@ type ShopSettings = {
   tierRecalculationFrequency: RecalculationFrequency;
   tierRecalculationEnabled: boolean;
   tierRecalculationLastRun: string | null;
+  // Base Tier Settings
+  autoAssignBaseTier: boolean;
+  defaultBaseTierId: string | null;
   // Widget Theme Settings
   widgetThemeMode: WidgetThemeMode;
   widgetPrimaryColor: string | null;
@@ -104,11 +112,67 @@ type BillingPlan = {
   updatedAt: string;
 };
 
+type TierOption = {
+  id: string;
+  name: string;
+  minSpend: number;
+};
+
+type CreditSyncStats = {
+  customersWithCredit: number;
+  totalCreditBalance: number;
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: string | null;
+    updatedCount: number;
+    totalImported: number;
+  } | null;
+};
+
+type CustomerSyncStats = {
+  totalCustomers: number;
+  customersWithTier: number;
+  customersInitialSynced: boolean;
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: string | null;
+    createdCount: number;
+    updatedCount: number;
+    processedCount: number;
+  } | null;
+};
+
+type OrderSyncStats = {
+  totalOrders: number;
+  ordersWithCashback: number;
+  totalCashbackAmount: number;
+  dateRange: {
+    oldest: string | null;
+    newest: string | null;
+  };
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: string | null;
+    createdCount: number;
+    updatedCount: number;
+    processedCount: number;
+  } | null;
+};
+
 type LoaderData = {
   settings: ShopSettings;
   shop: string;
   shopifyTimezone?: string;
   orderStats?: OrderStats;
+  // Tiers for base tier selection
+  tiers: TierOption[];
+  // Sync stats
+  creditSyncStats: CreditSyncStats;
+  customerSyncStats: CustomerSyncStats;
+  orderSyncStats: OrderSyncStats;
   // Billing data
   currentPlan?: BillingPlan | null;
   activeSubscription?: any;
@@ -313,6 +377,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
+    // Fetch tiers for base tier selection
+    const tiers = await db.tier.findMany({
+      where: { shop },
+      select: {
+        id: true,
+        name: true,
+        minSpend: true,
+      },
+      orderBy: { minSpend: 'asc' }
+    });
+
     // Fetch order statistics
     let orderStats: OrderStats | undefined;
     try {
@@ -474,11 +549,74 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         : String(billingSubscription.updatedAt),
     } : null;
 
+    // Serialize tiers (minSpend is Decimal)
+    const serializedTiers = tiers.map(tier => ({
+      id: tier.id,
+      name: tier.name,
+      minSpend: Number(tier.minSpend),
+    }));
+
+    // Fetch credit sync stats
+    const creditSyncStatsRaw = await getCreditSyncStats(shop);
+    const creditSyncStats: CreditSyncStats = {
+      customersWithCredit: creditSyncStatsRaw.customersWithCredit,
+      totalCreditBalance: creditSyncStatsRaw.totalCreditBalance,
+      lastSyncJob: creditSyncStatsRaw.lastSyncJob ? {
+        id: creditSyncStatsRaw.lastSyncJob.id,
+        status: creditSyncStatsRaw.lastSyncJob.status,
+        completedAt: creditSyncStatsRaw.lastSyncJob.completedAt?.toISOString() || null,
+        updatedCount: creditSyncStatsRaw.lastSyncJob.updatedCount,
+        totalImported: creditSyncStatsRaw.lastSyncJob.totalImported,
+      } : null,
+    };
+
+    // Fetch customer sync stats
+    const customerSyncStatsRaw = await getCustomerSyncStats(shop);
+    const customerSyncStats: CustomerSyncStats = {
+      totalCustomers: customerSyncStatsRaw.totalCustomers,
+      customersWithTier: customerSyncStatsRaw.customersWithTier,
+      customersInitialSynced: customerSyncStatsRaw.customersInitialSynced,
+      lastSyncJob: customerSyncStatsRaw.lastSyncJob ? {
+        id: customerSyncStatsRaw.lastSyncJob.id,
+        status: customerSyncStatsRaw.lastSyncJob.status,
+        completedAt: customerSyncStatsRaw.lastSyncJob.completedAt?.toISOString() || null,
+        createdCount: customerSyncStatsRaw.lastSyncJob.createdCount,
+        updatedCount: customerSyncStatsRaw.lastSyncJob.updatedCount,
+        processedCount: customerSyncStatsRaw.lastSyncJob.processedCount,
+      } : null,
+    };
+
+    // Fetch order sync stats
+    const orderSyncStatsRaw = await getOrderSyncStats(shop);
+    const orderSyncStats: OrderSyncStats = {
+      totalOrders: orderSyncStatsRaw.totalOrders,
+      ordersWithCashback: orderSyncStatsRaw.ordersWithCashback,
+      totalCashbackAmount: orderSyncStatsRaw.totalCashbackAmount,
+      dateRange: {
+        oldest: orderSyncStatsRaw.dateRange.oldest?.toISOString() || null,
+        newest: orderSyncStatsRaw.dateRange.newest?.toISOString() || null,
+      },
+      lastSyncJob: orderSyncStatsRaw.lastSyncJob ? {
+        id: orderSyncStatsRaw.lastSyncJob.id,
+        status: orderSyncStatsRaw.lastSyncJob.status,
+        completedAt: orderSyncStatsRaw.lastSyncJob.completedAt?.toISOString() || null,
+        createdCount: orderSyncStatsRaw.lastSyncJob.createdCount,
+        updatedCount: orderSyncStatsRaw.lastSyncJob.updatedCount,
+        processedCount: orderSyncStatsRaw.lastSyncJob.processedCount,
+      } : null,
+    };
+
     return json<LoaderData>({
       settings: serializedSettings as ShopSettings,
       shop,
       shopifyTimezone, // Pass Shopify's timezone to show it's synced
       orderStats,
+      // Tiers for base tier selection
+      tiers: serializedTiers,
+      // Sync stats
+      creditSyncStats,
+      customerSyncStats,
+      orderSyncStats,
       // Billing data
       currentPlan: serializedPlan,
       activeSubscription,
@@ -766,6 +904,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const currencyDisplayType = formData.get("currencyDisplayType") as CurrencyDisplayType;
     const tierRecalculationEnabled = formData.get("tierRecalculationEnabled") === "true";
     const tierRecalculationFrequency = formData.get("tierRecalculationFrequency") as "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+    // Base tier settings
+    const autoAssignBaseTier = formData.get("autoAssignBaseTier") === "true";
+    const defaultBaseTierIdRaw = formData.get("defaultBaseTierId") as string;
+    const defaultBaseTierId = defaultBaseTierIdRaw === "" || defaultBaseTierIdRaw === "auto" ? null : defaultBaseTierIdRaw;
     // Widget theme settings
     const widgetThemeMode = formData.get("widgetThemeMode") as "LIGHT" | "DARK" | "CUSTOM";
     const widgetPrimaryColor = formData.get("widgetPrimaryColor") as string;
@@ -824,6 +966,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         currencyDisplayType,
         tierRecalculationEnabled,
         tierRecalculationFrequency,
+        // Base tier settings
+        autoAssignBaseTier,
+        defaultBaseTierId,
         // Widget theme settings
         widgetThemeMode,
         widgetPrimaryColor,
@@ -872,6 +1017,10 @@ export default function SettingsPage() {
     shop,
     shopifyTimezone,
     orderStats,
+    tiers,
+    creditSyncStats,
+    customerSyncStats,
+    orderSyncStats,
     currentPlan,
     activeSubscription,
     monthlyOrderUsage,
@@ -900,6 +1049,54 @@ export default function SettingsPage() {
   const [tierRecalculationEnabled, setTierRecalculationEnabled] = useState(settings.tierRecalculationEnabled);
   const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
   const [showRecalculateModal, setShowRecalculateModal] = useState(false);
+
+  // Base tier settings state
+  const [autoAssignBaseTier, setAutoAssignBaseTier] = useState(settings.autoAssignBaseTier ?? true);
+  const [defaultBaseTierId, setDefaultBaseTierId] = useState<string>(settings.defaultBaseTierId || "");
+
+  // Credit sync state
+  interface CreditSyncJob {
+    jobId: string;
+    status: string;
+    progress: {
+      processedCount: number;
+      totalCustomers: number | null;
+      updatedCount: number;
+      skippedCount: number;
+      errorCount: number;
+      percentComplete: number;
+      totalImported: number;
+    };
+    hasMore: boolean;
+    error?: string;
+  }
+  const [creditSyncJob, setCreditSyncJob] = useState<CreditSyncJob | null>(null);
+  const [isCreditSyncStarting, setIsCreditSyncStarting] = useState(false);
+  const [isCreditSyncPolling, setIsCreditSyncPolling] = useState(false);
+  const creditSyncPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const creditSyncProcessingRef = useRef(false);
+
+  // Customer sync state
+  interface CustomerSyncJob {
+    jobId: string;
+    status: string;
+    progress: {
+      processedCount: number;
+      totalCustomers: number | null;
+      createdCount: number;
+      updatedCount: number;
+      skippedCount: number;
+      errorCount: number;
+      percentComplete: number;
+    };
+    hasMore: boolean;
+    error?: string;
+  }
+  const [customerSyncJob, setCustomerSyncJob] = useState<CustomerSyncJob | null>(null);
+  const [isCustomerSyncStarting, setIsCustomerSyncStarting] = useState(false);
+  const [isCustomerSyncPolling, setIsCustomerSyncPolling] = useState(false);
+  const customerSyncPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const customerSyncProcessingRef = useRef(false);
 
   // Widget theme state
   const [widgetThemeMode, setWidgetThemeMode] = useState<WidgetThemeMode>(settings.widgetThemeMode || "LIGHT");
@@ -946,6 +1143,8 @@ export default function SettingsPage() {
       currencyDisplayType !== settings.currencyDisplayType ||
       tierRecalculationEnabled !== settings.tierRecalculationEnabled ||
       tierRecalculationFrequency !== settings.tierRecalculationFrequency ||
+      autoAssignBaseTier !== (settings.autoAssignBaseTier ?? true) ||
+      defaultBaseTierId !== (settings.defaultBaseTierId || "") ||
       widgetThemeMode !== (settings.widgetThemeMode || "LIGHT") ||
       widgetPrimaryColor !== (settings.widgetPrimaryColor || "#5C6AC4") ||
       widgetBackgroundColor !== (settings.widgetBackgroundColor || "#FFFFFF") ||
@@ -960,7 +1159,7 @@ export default function SettingsPage() {
       targetRoiPercent !== (settings.targetRoiPercent?.toString() || "");
 
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
 
   // Removed time display - timezone is now just shown as text
 
@@ -974,6 +1173,9 @@ export default function SettingsPage() {
     formData.append("currencyDisplayType", currencyDisplayType);
     formData.append("tierRecalculationEnabled", String(tierRecalculationEnabled));
     formData.append("tierRecalculationFrequency", tierRecalculationFrequency);
+    // Base tier settings
+    formData.append("autoAssignBaseTier", String(autoAssignBaseTier));
+    formData.append("defaultBaseTierId", defaultBaseTierId || "");
     // Widget theme settings
     formData.append("widgetThemeMode", widgetThemeMode);
     formData.append("widgetPrimaryColor", widgetPrimaryColor);
@@ -991,7 +1193,7 @@ export default function SettingsPage() {
     // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -1001,6 +1203,9 @@ export default function SettingsPage() {
     setCurrencyDisplayType(settings.currencyDisplayType);
     setTierRecalculationEnabled(settings.tierRecalculationEnabled);
     setTierRecalculationFrequency(settings.tierRecalculationFrequency);
+    // Base tier settings reset
+    setAutoAssignBaseTier(settings.autoAssignBaseTier ?? true);
+    setDefaultBaseTierId(settings.defaultBaseTierId || "");
     // Widget theme reset
     setWidgetThemeMode(settings.widgetThemeMode || "LIGHT");
     setWidgetPrimaryColor(settings.widgetPrimaryColor || "#5C6AC4");
@@ -1055,6 +1260,217 @@ export default function SettingsPage() {
       { method: "post" }
     );
   }, [fetcher, showInfo]);
+
+  // Credit sync polling cleanup
+  useEffect(() => {
+    return () => {
+      if (creditSyncPollingRef.current) {
+        clearTimeout(creditSyncPollingRef.current);
+      }
+    };
+  }, []);
+
+  // Process credit sync batches when polling is active
+  useEffect(() => {
+    if (!isCreditSyncPolling || !creditSyncJob?.jobId || creditSyncProcessingRef.current) return;
+
+    const processNextBatch = async () => {
+      if (creditSyncProcessingRef.current) return;
+      creditSyncProcessingRef.current = true;
+
+      try {
+        const response = await fetch('/api/credit-sync/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: creditSyncJob.jobId })
+        });
+
+        const result = await response.json();
+        setCreditSyncJob(result);
+
+        if (result.hasMore && result.status === 'IN_PROGRESS') {
+          // Schedule next batch after a short delay
+          creditSyncPollingRef.current = setTimeout(() => {
+            creditSyncProcessingRef.current = false;
+            // This will trigger the useEffect again
+            setCreditSyncJob(prev => prev ? { ...prev } : null);
+          }, 500);
+        } else {
+          // Sync completed or failed
+          setIsCreditSyncPolling(false);
+          if (result.status === 'COMPLETED') {
+            showSuccess(`Store credit sync complete: ${result.progress.updatedCount} customers updated`);
+          } else if (result.status === 'FAILED') {
+            showError(`Store credit sync failed: ${result.error || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing credit sync batch:', error);
+        setIsCreditSyncPolling(false);
+        showError('Network error during credit sync');
+      } finally {
+        creditSyncProcessingRef.current = false;
+      }
+    };
+
+    processNextBatch();
+  }, [isCreditSyncPolling, creditSyncJob?.jobId, creditSyncJob?.progress.processedCount, showSuccess, showError]);
+
+  // Handle start credit sync
+  const handleStartCreditSync = useCallback(async () => {
+    const confirmMessage = "This will sync store credit balances from Shopify for all customers. Continue?";
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsCreditSyncStarting(true);
+    showInfo("Store credit sync started...");
+
+    try {
+      const response = await fetch('/api/credit-sync/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: 'manual' })
+      });
+
+      const result = await response.json();
+      setCreditSyncJob(result);
+
+      if (result.success && result.hasMore) {
+        setIsCreditSyncPolling(true);
+      } else if (!result.success) {
+        showError(result.error || "Failed to start credit sync");
+      }
+    } catch (error) {
+      console.error('Error starting credit sync:', error);
+      showError("Failed to start credit sync. Please try again.");
+    } finally {
+      setIsCreditSyncStarting(false);
+    }
+  }, [showInfo, showError]);
+
+  // Handle cancel credit sync
+  const handleCancelCreditSync = useCallback(async () => {
+    if (!creditSyncJob?.jobId) return;
+
+    try {
+      await fetch('/api/credit-sync/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', jobId: creditSyncJob.jobId })
+      });
+
+      setIsCreditSyncPolling(false);
+      setCreditSyncJob(prev => prev ? { ...prev, status: 'CANCELLED', hasMore: false } : null);
+      showInfo("Store credit sync cancelled");
+    } catch (error) {
+      console.error('Error cancelling credit sync:', error);
+    }
+  }, [creditSyncJob?.jobId, showInfo]);
+
+  const isCreditSyncing = isCreditSyncPolling || isCreditSyncStarting;
+
+  // Customer sync polling cleanup
+  useEffect(() => {
+    return () => {
+      if (customerSyncPollingRef.current) {
+        clearTimeout(customerSyncPollingRef.current);
+      }
+    };
+  }, []);
+
+  // Process customer sync batches when polling is active
+  useEffect(() => {
+    if (!isCustomerSyncPolling || !customerSyncJob?.jobId || customerSyncProcessingRef.current) return;
+
+    const processNextBatch = async () => {
+      if (customerSyncProcessingRef.current) return;
+      customerSyncProcessingRef.current = true;
+
+      try {
+        const response = await fetch('/api/customer-sync/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: customerSyncJob.jobId })
+        });
+
+        const result = await response.json();
+        setCustomerSyncJob(result);
+
+        if (result.hasMore && result.status === 'IN_PROGRESS') {
+          // Schedule next batch after a short delay
+          customerSyncPollingRef.current = setTimeout(() => {
+            customerSyncProcessingRef.current = false;
+            // This will trigger the useEffect again
+            setCustomerSyncJob(prev => prev ? { ...prev } : null);
+          }, 500);
+        } else {
+          // Sync completed or failed
+          setIsCustomerSyncPolling(false);
+          if (result.status === 'COMPLETED') {
+            showSuccess(`Customer sync complete: ${result.progress.createdCount} created, ${result.progress.updatedCount} updated`);
+          } else if (result.status === 'FAILED') {
+            showError(`Customer sync failed: ${result.error || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing customer sync batch:', error);
+        setIsCustomerSyncPolling(false);
+        showError('Network error during customer sync');
+      } finally {
+        customerSyncProcessingRef.current = false;
+      }
+    };
+
+    processNextBatch();
+  }, [isCustomerSyncPolling, customerSyncJob?.jobId, customerSyncJob?.progress?.processedCount, showSuccess, showError]);
+
+  // Handle start customer sync
+  const handleStartCustomerSync = useCallback(async () => {
+    setIsCustomerSyncStarting(true);
+    showInfo("Customer sync started...");
+
+    try {
+      const response = await fetch('/api/customer-sync/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: 'manual' })
+      });
+
+      const result = await response.json();
+      setCustomerSyncJob(result);
+
+      if (result.success && result.hasMore) {
+        setIsCustomerSyncPolling(true);
+      } else if (!result.success) {
+        showError(result.error || "Failed to start customer sync");
+      }
+    } catch (error) {
+      console.error('Error starting customer sync:', error);
+      showError("Failed to start customer sync. Please try again.");
+    } finally {
+      setIsCustomerSyncStarting(false);
+    }
+  }, [showInfo, showError]);
+
+  // Handle cancel customer sync
+  const handleCancelCustomerSync = useCallback(async () => {
+    if (!customerSyncJob?.jobId) return;
+
+    try {
+      await fetch('/api/customer-sync/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', jobId: customerSyncJob.jobId })
+      });
+
+      setIsCustomerSyncPolling(false);
+      setCustomerSyncJob(prev => prev ? { ...prev, status: 'CANCELLED', hasMore: false } : null);
+      showInfo("Customer sync cancelled");
+    } catch (error) {
+      console.error('Error cancelling customer sync:', error);
+    }
+  }, [customerSyncJob?.jobId, showInfo]);
+
+  const isCustomerSyncing = isCustomerSyncPolling || isCustomerSyncStarting;
 
   // Calculate next scheduled run based on frequency and last run
   const calculateNextRun = useCallback((lastRun: string | null, frequency: RecalculationFrequency): string => {
@@ -1325,11 +1741,129 @@ export default function SettingsPage() {
                     <BlockStack gap="400">
                       <BlockStack gap="200">
                         <Text variant="headingMd" as="h2">
-                          Data Management
+                          Data Synchronization
                         </Text>
                         <Text as="p" variant="bodyMd" tone="subdued">
-                          Sync and manage your store's order data
+                          Sync customers, orders, and store credit from Shopify to enable the loyalty program
                         </Text>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Customer Sync Section */}
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Customer Sync
+                            </Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Import customer data and assign loyalty tiers
+                            </Text>
+                            <InlineStack gap="200">
+                              <Badge tone={customerSyncStats.customersInitialSynced ? "success" : "warning"}>
+                                {customerSyncStats.customersInitialSynced ? "Initial sync complete" : "Not synced"}
+                              </Badge>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                {customerSyncStats.totalCustomers} customers ({customerSyncStats.customersWithTier} with tier)
+                              </Text>
+                              {customerSyncStats.lastSyncJob?.completedAt && (
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Last: {formatDate(customerSyncStats.lastSyncJob.completedAt)}
+                                </Text>
+                              )}
+                            </InlineStack>
+                          </BlockStack>
+
+                          <InlineStack gap="200">
+                            <Button
+                              onClick={handleStartCustomerSync}
+                              icon={RefreshIcon}
+                              disabled={isCustomerSyncing}
+                              loading={isCustomerSyncStarting}
+                            >
+                              Sync Customers
+                            </Button>
+                            {isCustomerSyncing && (
+                              <Button
+                                onClick={handleCancelCustomerSync}
+                                tone="critical"
+                                variant="plain"
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                            <Button
+                              variant="plain"
+                              onClick={() => navigate("/app/customers/sync")}
+                            >
+                              Details
+                            </Button>
+                          </InlineStack>
+                        </InlineStack>
+
+                        {/* Customer Sync Progress */}
+                        {customerSyncJob && customerSyncJob.status === 'IN_PROGRESS' && (
+                          <Card>
+                            <Box padding="300">
+                              <BlockStack gap="300">
+                                <InlineStack align="space-between" blockAlign="center">
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                    Sync Progress
+                                  </Text>
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <Spinner size="small" />
+                                    <Badge tone="info">Syncing</Badge>
+                                  </InlineStack>
+                                </InlineStack>
+                                <ProgressBar
+                                  progress={customerSyncJob.progress.percentComplete}
+                                  tone="primary"
+                                  size="small"
+                                />
+                                <InlineStack gap="400">
+                                  <Text as="span" variant="bodySm">
+                                    {customerSyncJob.progress.processedCount} / {customerSyncJob.progress.totalCustomers || '?'} customers
+                                  </Text>
+                                  <Text as="span" variant="bodySm" tone="success">
+                                    {customerSyncJob.progress.createdCount} created, {customerSyncJob.progress.updatedCount} updated
+                                  </Text>
+                                  {customerSyncJob.progress.errorCount > 0 && (
+                                    <Text as="span" variant="bodySm" tone="critical">
+                                      {customerSyncJob.progress.errorCount} errors
+                                    </Text>
+                                  )}
+                                </InlineStack>
+                              </BlockStack>
+                            </Box>
+                          </Card>
+                        )}
+
+                        {/* Customer Sync Completed */}
+                        {customerSyncJob && customerSyncJob.status === 'COMPLETED' && (
+                          <Banner tone="success" onDismiss={() => setCustomerSyncJob(null)}>
+                            <Text as="p" variant="bodySm">
+                              Customer sync completed: {customerSyncJob.progress.createdCount} created, {customerSyncJob.progress.updatedCount} updated
+                            </Text>
+                          </Banner>
+                        )}
+
+                        {/* Customer Sync Failed */}
+                        {customerSyncJob && customerSyncJob.status === 'FAILED' && (
+                          <Banner tone="critical" onDismiss={() => setCustomerSyncJob(null)}>
+                            <Text as="p" variant="bodySm">
+                              Customer sync failed: {customerSyncJob.error || 'Unknown error'}
+                            </Text>
+                          </Banner>
+                        )}
+
+                        {!customerSyncStats.customersInitialSynced && (
+                          <Banner tone="warning">
+                            <Text as="p" variant="bodySm">
+                              Initial customer sync required. This imports your existing customers and assigns them to loyalty tiers.
+                            </Text>
+                          </Banner>
+                        )}
                       </BlockStack>
 
                       <Divider />
@@ -1341,18 +1875,22 @@ export default function SettingsPage() {
                             <Text as="p" variant="bodyMd" fontWeight="semibold">
                               Order History Sync
                             </Text>
-                            {orderStats && (
-                              <InlineStack gap="200">
-                                <Badge tone={orderStats.orderCount > 0 ? "success" : "warning"}>
-                                  {`${orderStats.orderCount} orders synced`}
-                                </Badge>
-                                {orderStats.lastSync && (
-                                  <Text as="span" variant="bodySm" tone="subdued">
-                                    Last sync: {formatDate(orderStats.lastSync)}
-                                  </Text>
-                                )}
-                              </InlineStack>
-                            )}
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Import orders for accurate spending and cashback calculations
+                            </Text>
+                            <InlineStack gap="200">
+                              <Badge tone={orderSyncStats.totalOrders > 0 ? "success" : "warning"}>
+                                {`${orderSyncStats.totalOrders} orders synced`}
+                              </Badge>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Cashback: ${orderSyncStats.totalCashbackAmount.toFixed(2)}
+                              </Text>
+                              {orderSyncStats.lastSyncJob?.completedAt && (
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Last: {formatDate(orderSyncStats.lastSyncJob.completedAt)}
+                                </Text>
+                              )}
+                            </InlineStack>
                           </BlockStack>
 
                           <InlineStack gap="200">
@@ -1366,22 +1904,22 @@ export default function SettingsPage() {
                               variant="plain"
                               onClick={() => navigate("/app/orders-sync")}
                             >
-                              Advanced Options
+                              Advanced
                             </Button>
                           </InlineStack>
                         </InlineStack>
 
-                        {/* Quick Stats */}
-                        {orderStats && (
+                        {/* Order Stats */}
+                        {orderSyncStats.totalOrders > 0 && (
                           <InlineStack gap="400">
                             <Text as="span" variant="bodySm">
-                              <Text as="span" fontWeight="semibold">Customers:</Text> {orderStats.customerCount}
+                              <Text as="span" fontWeight="semibold">Date Range:</Text>{" "}
+                              {orderSyncStats.dateRange.oldest && orderSyncStats.dateRange.newest
+                                ? `${formatDate(orderSyncStats.dateRange.oldest)} - ${formatDate(orderSyncStats.dateRange.newest)}`
+                                : "N/A"}
                             </Text>
                             <Text as="span" variant="bodySm">
-                              <Text as="span" fontWeight="semibold">Date Range:</Text> {formatDateRange(orderStats.oldestOrder, orderStats.newestOrder)}
-                            </Text>
-                            <Text as="span" variant="bodySm">
-                              <Text as="span" fontWeight="semibold">Total Cashback:</Text> ${orderStats.totalCashback.toFixed(2)}
+                              <Text as="span" fontWeight="semibold">With Cashback:</Text> {orderSyncStats.ordersWithCashback}
                             </Text>
                           </InlineStack>
                         )}
@@ -1396,15 +1934,127 @@ export default function SettingsPage() {
                           </Banner>
                         )}
 
-                        {/* No Orders Message */}
-                        {(!orderStats || orderStats.orderCount === 0) && (
+                        {orderSyncStats.totalOrders === 0 && (
                           <Banner tone="info">
-                            <p>
-                              No orders synced yet. Sync your order history to enable fast tier calculations,
-                              accurate cashback tracking, and complete order analytics.
-                            </p>
+                            <Text as="p" variant="bodySm">
+                              No orders synced yet. Sync your order history to enable accurate tier calculations and cashback tracking.
+                            </Text>
                           </Banner>
                         )}
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Store Credit Sync Section */}
+                      <BlockStack gap="300">
+                        <InlineStack align="space-between">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Store Credit Sync
+                            </Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Import existing Shopify store credit balances
+                            </Text>
+                            <InlineStack gap="200">
+                              <Badge tone={creditSyncStats.customersWithCredit > 0 ? "success" : "info"}>
+                                {`${creditSyncStats.customersWithCredit} customers with credit`}
+                              </Badge>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Total: ${creditSyncStats.totalCreditBalance.toFixed(2)}
+                              </Text>
+                              {creditSyncStats.lastSyncJob?.completedAt && (
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Last: {formatDate(creditSyncStats.lastSyncJob.completedAt)}
+                                </Text>
+                              )}
+                            </InlineStack>
+                          </BlockStack>
+
+                          <InlineStack gap="200">
+                            <Button
+                              onClick={handleStartCreditSync}
+                              icon={RefreshIcon}
+                              disabled={isCreditSyncing}
+                              loading={isCreditSyncStarting}
+                            >
+                              Sync Store Credit
+                            </Button>
+                            {isCreditSyncing && (
+                              <Button
+                                onClick={handleCancelCreditSync}
+                                tone="critical"
+                                variant="plain"
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </InlineStack>
+                        </InlineStack>
+
+                        {/* Credit Sync Progress */}
+                        {creditSyncJob && creditSyncJob.status === 'IN_PROGRESS' && (
+                          <Card>
+                            <Box padding="300">
+                              <BlockStack gap="300">
+                                <InlineStack align="space-between" blockAlign="center">
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                    Sync Progress
+                                  </Text>
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <Spinner size="small" />
+                                    <Badge tone="info">Syncing</Badge>
+                                  </InlineStack>
+                                </InlineStack>
+                                <ProgressBar
+                                  progress={creditSyncJob.progress.percentComplete}
+                                  tone="primary"
+                                  size="small"
+                                />
+                                <InlineStack gap="400">
+                                  <Text as="span" variant="bodySm">
+                                    {creditSyncJob.progress.processedCount} / {creditSyncJob.progress.totalCustomers || '?'} customers
+                                  </Text>
+                                  <Text as="span" variant="bodySm" tone="success">
+                                    {creditSyncJob.progress.updatedCount} updated
+                                  </Text>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    {creditSyncJob.progress.skippedCount} unchanged
+                                  </Text>
+                                  {creditSyncJob.progress.errorCount > 0 && (
+                                    <Text as="span" variant="bodySm" tone="critical">
+                                      {creditSyncJob.progress.errorCount} errors
+                                    </Text>
+                                  )}
+                                </InlineStack>
+                              </BlockStack>
+                            </Box>
+                          </Card>
+                        )}
+
+                        {/* Credit Sync Completed */}
+                        {creditSyncJob && creditSyncJob.status === 'COMPLETED' && (
+                          <Banner tone="success" onDismiss={() => setCreditSyncJob(null)}>
+                            <Text as="p" variant="bodySm">
+                              Store credit sync completed: {creditSyncJob.progress.updatedCount} customers updated,
+                              ${creditSyncJob.progress.totalImported.toFixed(2)} imported.
+                            </Text>
+                          </Banner>
+                        )}
+
+                        {/* Credit Sync Failed */}
+                        {creditSyncJob && creditSyncJob.status === 'FAILED' && (
+                          <Banner tone="critical" onDismiss={() => setCreditSyncJob(null)}>
+                            <Text as="p" variant="bodySm">
+                              Store credit sync failed: {creditSyncJob.error || 'Unknown error'}
+                            </Text>
+                          </Banner>
+                        )}
+
+                        <Banner tone="info">
+                          <Text as="p" variant="bodySm">
+                            Imports existing Shopify store credit balances. Use this when first installing the app or to reconcile discrepancies.
+                          </Text>
+                        </Banner>
                       </BlockStack>
 
                     </BlockStack>
@@ -1471,6 +2121,66 @@ export default function SettingsPage() {
                           includes a grace period before downgrades, and logs all changes.
                         </Text>
                       </Banner>
+
+                      <Divider />
+
+                      {/* Default Base Tier Section */}
+                      <BlockStack gap="200">
+                        <Text as="h2" variant="headingMd">Default Customer Tier</Text>
+                        <Text as="p" variant="bodyMd" tone="subdued">
+                          Automatically assign a base tier to new customers who don't qualify for any other tier.
+                          This ensures all customers participate in the loyalty program from day one.
+                        </Text>
+                      </BlockStack>
+
+                      <FormLayout>
+                        <Checkbox
+                          label="Enable automatic base tier assignment"
+                          checked={autoAssignBaseTier}
+                          onChange={setAutoAssignBaseTier}
+                          helpText="New customers will be assigned a base tier if they don't qualify for any higher tier"
+                        />
+
+                        {autoAssignBaseTier && (
+                          <Select
+                            label="Default tier for new customers"
+                            options={[
+                              { label: 'Auto-detect (lowest minSpend tier)', value: '' },
+                              ...tiers.map(t => ({
+                                label: `${t.name} (min spend: ${getCurrencySymbol(storeCurrency)}${t.minSpend})`,
+                                value: t.id
+                              }))
+                            ]}
+                            value={defaultBaseTierId}
+                            onChange={setDefaultBaseTierId}
+                            helpText="Select a specific tier or let the system auto-detect the appropriate base tier"
+                          />
+                        )}
+                      </FormLayout>
+
+                      {autoAssignBaseTier && (
+                        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="200">
+                            <Text as="span" variant="bodySm" fontWeight="semibold">
+                              Tier Priority (highest to lowest):
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              Manual Override → Subscription → Purchase → Spending-Based → Default Base Tier
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              The base tier only applies when no other tier source qualifies.
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      )}
+
+                      {tiers.length === 0 && (
+                        <Banner tone="warning">
+                          <Text as="p" variant="bodyMd">
+                            No tiers configured yet. Create tiers in the Loyalty Tiers section before enabling base tier assignment.
+                          </Text>
+                        </Banner>
+                      )}
 
                       {/* Recalculate Confirmation Modal */}
                       <Modal

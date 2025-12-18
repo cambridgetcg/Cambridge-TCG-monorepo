@@ -647,6 +647,73 @@ export async function getOrderSyncJobById(jobId: string): Promise<SyncJobResult 
   };
 }
 
+/**
+ * Get order sync statistics for a shop
+ */
+export async function getOrderSyncStats(shop: string): Promise<{
+  totalOrders: number;
+  ordersWithCashback: number;
+  totalCashbackAmount: number;
+  dateRange: {
+    oldest: Date | null;
+    newest: Date | null;
+  };
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: Date | null;
+    createdCount: number;
+    updatedCount: number;
+    processedCount: number;
+  } | null;
+}> {
+  // Count total orders
+  const totalOrders = await db.order.count({
+    where: { shop }
+  });
+
+  // Count orders with cashback
+  const ordersWithCashback = await db.order.count({
+    where: {
+      shop,
+      cashbackAmount: { gt: 0 }
+    }
+  });
+
+  // Sum total cashback
+  const cashbackSum = await db.order.aggregate({
+    where: { shop },
+    _sum: { cashbackAmount: true },
+    _min: { shopifyCreatedAt: true },
+    _max: { shopifyCreatedAt: true }
+  });
+
+  // Get last sync job
+  const lastJob = await db.orderSyncJob.findFirst({
+    where: { shop },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      status: true,
+      completedAt: true,
+      createdCount: true,
+      updatedCount: true,
+      processedCount: true
+    }
+  });
+
+  return {
+    totalOrders,
+    ordersWithCashback,
+    totalCashbackAmount: Number(cashbackSum._sum.cashbackAmount || 0),
+    dateRange: {
+      oldest: cashbackSum._min.shopifyCreatedAt,
+      newest: cashbackSum._max.shopifyCreatedAt
+    },
+    lastSyncJob: lastJob
+  };
+}
+
 // Helper functions
 
 async function createNewOrder(

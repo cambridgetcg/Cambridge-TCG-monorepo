@@ -122,6 +122,11 @@ model ShopSettings {
   emailMarketingEnabled         Boolean       @default(false)  // Email marketing campaigns
   tierProductsEnabled           Boolean       @default(true)   // Tier products module
 
+  // Base Tier Configuration (for new customers)
+  autoAssignBaseTier      Boolean   @default(true)   // Enable automatic base tier assignment for new customers
+  defaultBaseTierId       String?                     // Specific tier to assign (if null, uses lowest minSpend tier)
+  defaultBaseTier         Tier?     @relation("DefaultBaseTier", fields: [defaultBaseTierId], references: [id], onDelete: SetNull)
+
   // Widget Theme Settings
   widgetThemeMode         WidgetThemeMode     @default(LIGHT)  // Light, Dark, or Custom
   widgetPrimaryColor      String?             @default("#5C6AC4")  // Primary brand color
@@ -226,6 +231,9 @@ model Tier {
   // CustomerTierState relations
   tierStateEffective    CustomerTierState[] @relation("EffectiveTier")
   tierStateSpendingBased CustomerTierState[] @relation("SpendingBasedTier")
+
+  // Shop settings using this as default base tier
+  shopsUsingAsDefault   ShopSettings[] @relation("DefaultBaseTier")
 
   // Constraints
   @@unique([shop, name])  // Combination must be unique
@@ -453,6 +461,57 @@ enum SyncJobStatus {
   COMPLETED     // Successfully finished
   FAILED        // Failed with error
   CANCELLED     // Manually cancelled
+}
+
+// ============================================
+// STORE CREDIT SYNC JOB
+// ============================================
+// Tracks progress of store credit import from Shopify.
+// Enables merchants to sync existing Shopify credit balances
+// to the local database when first installing the app.
+
+model StoreCreditSyncJob {
+  id                String          @id @default(uuid())
+  shop              String
+
+  // Job status
+  status            SyncJobStatus   @default(PENDING)
+
+  // Customer counts
+  totalCustomers    Int?            // Total customers to process
+
+  // Progress tracking
+  processedCount    Int             @default(0)  // Customers checked so far
+  updatedCount      Int             @default(0)  // Customers with balance updated
+  skippedCount      Int             @default(0)  // Customers with matching/zero balance
+  errorCount        Int             @default(0)  // Processing errors
+
+  // Pagination for resume
+  lastCursor        String?         // Customer ID cursor for next batch
+  batchSize         Int             @default(25) // Lower due to Shopify API calls per customer
+
+  // Financial summary
+  totalImported     Decimal         @default(0) @db.Decimal(10, 2)  // Sum of credits imported
+  totalDifference   Decimal         @default(0) @db.Decimal(10, 2)  // Net adjustment made
+
+  // Error tracking
+  lastError         String?         @db.Text
+  errorDetails      Json?
+
+  // Timing
+  startedAt         DateTime?
+  completedAt       DateTime?
+  lastActivityAt    DateTime?
+
+  // Metadata
+  triggeredBy       String?         // 'manual', 'install', etc.
+  metadata          Json?
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([shop, status])
+  @@index([shop, createdAt(sort: Desc)])
 }
 
 // ============================================
@@ -996,13 +1055,16 @@ model MonthlyOrderUsage {
 // SUBSCRIPTION MODELS
 // ============================================
 
+// Tier subscription records (recurring subscriptions)
+// NOTE: tierId is nullable to allow tier deletion without blocking subscriptions
+// When a tier is deleted, subscriptions become orphaned and tier resolution skips them
 model TierSubscription {
   id                    String   @id @default(uuid())
   shop                  String
   customerId            String
   customer              Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  tierId                String
-  tier                  Tier     @relation(fields: [tierId], references: [id])
+  tierId                String?   // Nullable - allows tier deletion without cascade
+  tier                  Tier?     @relation(fields: [tierId], references: [id], onDelete: SetNull)
   
   // NEW: Link to tier product
   tierProductId         String?
@@ -1238,13 +1300,15 @@ model WebhookError {
 }
 
 // Tier purchase records (one-time purchases)
+// NOTE: tierId is nullable to allow tier deletion without cascading to purchases
+// When a tier is deleted, purchases become orphaned and tier resolution skips them
 model TierPurchase {
   id                  String    @id @default(uuid())
   shop                String
   customerId          String
   customer            Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  tierId              String
-  tier                Tier      @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  tierId              String?   // Nullable - allows tier deletion without cascade
+  tier                Tier?     @relation(fields: [tierId], references: [id], onDelete: SetNull)
   tierProductId       String
   tierProduct         TierProduct @relation(fields: [tierProductId], references: [id])
   shopifyOrderId      String
@@ -1591,6 +1655,7 @@ enum TierSource {
   TIER_SUBSCRIPTION   // Customer has active recurring subscription
   TIER_PURCHASE       // Customer has active one-time purchase
   SPENDING_BASED      // Automatic calculation based on spending
+  DEFAULT_BASE_TIER   // Shop's configured default tier for new customers
   NONE                // No tier assigned
 }
 
@@ -1705,6 +1770,19 @@ model WebhookProcessed {
   processedAt DateTime @default(now())
 
   @@index([shop, topic])
+}
+
+// Distributed lock for cron jobs to prevent concurrent execution
+// When a cron job starts, it tries to create a lock with unique jobName
+// If creation fails (unique constraint), another instance is running
+model CronLock {
+  id          String   @id @default(uuid())
+  jobName     String   @unique  // Only one lock per job type
+  lockedAt    DateTime @default(now())
+  expiresAt   DateTime          // Auto-release if instance crashes
+  instanceId  String?           // Vercel deployment ID or similar
+
+  @@index([expiresAt])          // For cleanup queries
 }
 
 model DeadLetterQueue {

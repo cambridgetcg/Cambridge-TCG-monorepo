@@ -1,5 +1,6 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import db from "../db.server";
+import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
 
 /**
  * Customer Sync Job Service
@@ -354,8 +355,9 @@ export async function processNextBatch(
         });
 
         if (!existingCustomer) {
-          // Create new customer
-          await db.customer.create({
+          // Create new customer WITHOUT tier assignment
+          // Tier will be resolved by updateCustomerToEffectiveTier below
+          const newCustomer = await db.customer.create({
             data: {
               shop,
               shopifyCustomerId: shopifyId,
@@ -365,18 +367,21 @@ export async function processNextBatch(
               totalSpent: totalSpent,
               orderCount: ordersCount,
               storeCredit: 0,
-              currentTierId: assignedTier.id,
+              // Don't set currentTierId - let resolver handle it
               createdAt: new Date(shopifyCustomer.createdAt),
               updatedAt: new Date(shopifyCustomer.updatedAt)
             }
           });
 
-          batchCreated++;
-          console.log(`[Sync Job] Created customer ${shopifyId} (${shopifyCustomer.email}) - Tier: ${assignedTier.name}`);
-        } else {
-          // Update existing customer
-          const needsTierUpdate = existingCustomer.currentTierId !== assignedTier.id;
+          // Use tier resolver to properly assign tier (respects purchases, subscriptions, etc.)
+          await updateCustomerToEffectiveTier(shop, newCustomer.id, {
+            triggeredBy: 'customer_sync'
+          });
 
+          batchCreated++;
+          console.log(`[Sync Job] Created customer ${shopifyId} (${shopifyCustomer.email}) - resolved via tier system`);
+        } else {
+          // Update existing customer - only update spending data, NOT tier
           await db.customer.update({
             where: { id: existingCustomer.id },
             data: {
@@ -385,12 +390,14 @@ export async function processNextBatch(
               lastName: shopifyCustomer.lastName || existingCustomer.lastName,
               totalSpent: totalSpent,
               orderCount: ordersCount,
-              updatedAt: new Date(),
-              // Only update tier if customer doesn't have manual override
-              ...(needsTierUpdate && !existingCustomer.currentTierId ? {
-                currentTierId: assignedTier.id
-              } : {})
+              updatedAt: new Date()
+              // DO NOT update tier directly - tier resolution handles this
             }
+          });
+
+          // Use tier resolver to recalculate (respects manual overrides, purchases, subscriptions)
+          await updateCustomerToEffectiveTier(shop, existingCustomer.id, {
+            triggeredBy: 'customer_sync'
           });
 
           batchUpdated++;
@@ -633,5 +640,62 @@ export async function getSyncJobById(jobId: string): Promise<SyncJobResult | nul
     },
     hasMore: job.status === 'IN_PROGRESS',
     error: job.lastError || undefined
+  };
+}
+
+/**
+ * Get customer sync statistics for a shop
+ */
+export async function getCustomerSyncStats(shop: string): Promise<{
+  totalCustomers: number;
+  customersWithTier: number;
+  customersInitialSynced: boolean;
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: Date | null;
+    createdCount: number;
+    updatedCount: number;
+    processedCount: number;
+  } | null;
+}> {
+  // Count total customers
+  const totalCustomers = await db.customer.count({
+    where: { shop }
+  });
+
+  // Count customers with a tier assigned
+  const customersWithTier = await db.customer.count({
+    where: {
+      shop,
+      currentTierId: { not: null }
+    }
+  });
+
+  // Check if initial sync has been done
+  const shopSettings = await db.shopSettings.findUnique({
+    where: { shop },
+    select: { customersInitialSynced: true }
+  });
+
+  // Get last sync job
+  const lastJob = await db.customerSyncJob.findFirst({
+    where: { shop },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      status: true,
+      completedAt: true,
+      createdCount: true,
+      updatedCount: true,
+      processedCount: true
+    }
+  });
+
+  return {
+    totalCustomers,
+    customersWithTier,
+    customersInitialSynced: shopSettings?.customersInitialSynced ?? false,
+    lastSyncJob: lastJob
   };
 }
