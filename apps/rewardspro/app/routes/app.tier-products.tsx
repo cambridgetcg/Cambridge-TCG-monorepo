@@ -262,11 +262,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           // Extract tier name from title (assuming format: "TierName Tier Membership - Duration")
           const tierNameMatch = product.title.match(/^(.+?)\s+Tier\s+Membership/);
           const tierName = tierNameMatch ? tierNameMatch[1] : product.title;
-          
-          // Find matching tier
-          const matchingTier = tiers.find(t => 
-            product.title.toLowerCase().includes(t.name.toLowerCase())
+
+          // Find matching tier - prefer exact match on extracted tier name
+          // then fall back to longest substring match to avoid matching
+          // "Gold" when tier is actually "Gold Premium"
+          let matchingTier = tiers.find(t =>
+            t.name.toLowerCase() === tierName.toLowerCase()
           );
+          if (!matchingTier) {
+            // Fall back to substring matching, but prioritize longer matches
+            // to avoid "Gold" matching before "Gold Premium"
+            const sortedTiers = [...tiers].sort((a, b) => b.name.length - a.name.length);
+            matchingTier = sortedTiers.find(t =>
+              product.title.toLowerCase().includes(t.name.toLowerCase())
+            );
+          }
           
           // Check if this product exists in database
           // Use normalized ID comparison to handle both formats:
@@ -277,15 +287,31 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             extractNumericId(p.shopifyProductId) === productNumericId
           );
 
-          // Debug logging for SKU resolution
+          // Debug logging for tier product resolution
           const resolvedSku = variant.sku || dbProduct?.sku || '';
-          if (!resolvedSku) {
-            console.log(`[TierProducts] SKU missing for "${product.title}":`, {
+          const resolvedTierId = dbProduct?.tierId || matchingTier?.id || '';
+          const resolvedDuration = dbProduct?.duration || duration;
+
+          // Log if any critical field is missing
+          if (!resolvedSku || !resolvedTierId) {
+            console.log(`[TierProducts] Resolution issue for "${product.title}":`, {
               shopifyProductId: product.id,
               normalizedId: productNumericId,
+              // SKU resolution
               variantSku: variant.sku,
-              dbProductFound: !!dbProduct,
               dbProductSku: dbProduct?.sku,
+              resolvedSku,
+              // Tier resolution
+              dbProductTierId: dbProduct?.tierId,
+              matchingTierId: matchingTier?.id,
+              matchingTierName: matchingTier?.name,
+              resolvedTierId,
+              // Duration resolution
+              dbProductDuration: dbProduct?.duration,
+              tagsDuration: duration,
+              resolvedDuration,
+              // DB lookup status
+              dbProductFound: !!dbProduct,
               dbProductId: dbProduct?.shopifyProductId,
             });
           }
@@ -295,14 +321,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
           tierProducts.push({
             id: product.id,
-            tierId: matchingTier?.id || dbProduct?.tierId || '',
+            // IMPORTANT: Database tierId takes priority over title-based matching
+            // because db stores the authoritative tier association
+            tierId: resolvedTierId,
             tierName: dbProduct?.tier?.name || tierName,
             shopifyProductId: product.id,
             shopifyVariantId: variant.id,
             productHandle: product.handle,
             sku: resolvedSku,
             price: parseFloat(variant.price || '0'),
-            duration: dbProduct?.duration || duration,
+            duration: resolvedDuration,
             features: dbProduct?.features || [],
             isActive: product.status === 'ACTIVE',
             hasSubscription,
