@@ -1,6 +1,7 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import db from "../db.server";
 import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
+import { withRetry } from "../utils/retry";
 
 /**
  * Customer Sync Job Service
@@ -12,7 +13,19 @@ import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
  * - Processes in batches with cursor persistence for resume
  * - Real progress tracking (not simulated)
  * - Error recovery and resume capability
+ * - Rate limiting with 200ms delay between batches
+ * - Retry with exponential backoff for transient errors
+ * - Timeout protection for hanging requests
  */
+
+// Rate limiting: delay between batches to avoid Shopify throttling
+const RATE_LIMIT_DELAY_MS = 200;
+
+// Maximum job duration before timeout (4 hours)
+const MAX_JOB_DURATION_MS = 4 * 60 * 60 * 1000;
+
+// Helper function for delay
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GraphQL query to get shop's total customer count
 const SHOP_CUSTOMER_COUNT_QUERY = `
@@ -67,6 +80,8 @@ interface SyncJobResult {
   };
   hasMore: boolean;
   error?: string;
+  retryAfterMs?: number; // Delay before retry when rate limited
+  startedAt?: string; // ISO timestamp for ETA calculation
 }
 
 interface CustomerBatch {
@@ -174,6 +189,14 @@ export async function startSyncJob(
     };
   }
 
+  // Determine batch size based on store size for memory efficiency
+  let batchSize = 50; // Default reduced from 100 for memory efficiency
+  if (totalCustomers && totalCustomers > 50000) {
+    batchSize = 25; // Smaller batches for very large stores
+  } else if (totalCustomers && totalCustomers < 1000) {
+    batchSize = 100; // Larger batches OK for small stores
+  }
+
   // Create new job
   const job = await db.customerSyncJob.create({
     data: {
@@ -183,7 +206,7 @@ export async function startSyncJob(
       startedAt: new Date(),
       lastActivityAt: new Date(),
       triggeredBy,
-      batchSize: 100,
+      batchSize,
       metadata: {
         tierCount: tiers.length,
         lowestTierId: tiers[tiers.length - 1].id
@@ -206,7 +229,8 @@ export async function startSyncJob(
       errorCount: 0,
       percentComplete: 0
     },
-    hasMore: true
+    hasMore: true,
+    startedAt: job.startedAt?.toISOString()
   };
 }
 
@@ -263,6 +287,38 @@ export async function processNextBatch(
     };
   }
 
+  // Check for job timeout (4 hours max)
+  const jobAge = Date.now() - new Date(job.startedAt || job.createdAt).getTime();
+  if (jobAge > MAX_JOB_DURATION_MS) {
+    await db.customerSyncJob.update({
+      where: { id: jobId },
+      data: {
+        status: 'FAILED',
+        lastError: 'Job timed out after 4 hours',
+        completedAt: new Date()
+      }
+    });
+
+    return {
+      success: false,
+      jobId,
+      status: 'FAILED',
+      progress: {
+        processedCount: job.processedCount,
+        totalCustomers: job.totalCustomers,
+        createdCount: job.createdCount,
+        updatedCount: job.updatedCount,
+        skippedCount: job.skippedCount,
+        errorCount: job.errorCount,
+        percentComplete: job.totalCustomers
+          ? Math.round((job.processedCount / job.totalCustomers) * 100)
+          : 0
+      },
+      hasMore: false,
+      error: 'Job exceeded maximum duration of 4 hours'
+    };
+  }
+
   const shop = job.shop;
 
   // Get tiers for assignment
@@ -300,13 +356,26 @@ export async function processNextBatch(
   }
 
   try {
-    // Fetch batch from Shopify
-    const response = await admin.graphql(CUSTOMERS_BATCH_QUERY, {
-      variables: {
-        first: job.batchSize,
-        after: job.lastCursor
+    // Fetch batch from Shopify with retry for transient errors
+    const response = await withRetry(
+      async () => {
+        const res = await admin.graphql(CUSTOMERS_BATCH_QUERY, {
+          variables: {
+            first: job.batchSize,
+            after: job.lastCursor
+          }
+        });
+        return res;
+      },
+      {
+        maxAttempts: 3,
+        initialDelayMs: 1000,
+        maxDelayMs: 10000,
+        onRetry: (error, attempt) => {
+          console.log(`[Sync Job] Retry attempt ${attempt} for batch fetch: ${error.message}`);
+        }
       }
-    });
+    );
 
     const result = await response.json() as any;
 
@@ -436,6 +505,11 @@ export async function processNextBatch(
       `Skipped: ${updatedJob.skippedCount}, Errors: ${updatedJob.errorCount}`
     );
 
+    // Rate limiting: add delay between batches to avoid Shopify throttling
+    if (hasMore) {
+      await sleep(RATE_LIMIT_DELAY_MS);
+    }
+
     return {
       success: true,
       jobId,
@@ -451,17 +525,66 @@ export async function processNextBatch(
           ? Math.round((updatedJob.processedCount / updatedJob.totalCustomers) * 100)
           : 0
       },
-      hasMore
+      hasMore,
+      startedAt: job.startedAt?.toISOString()
     };
   } catch (error) {
     console.error('[Sync Job] Batch processing failed:', error);
 
-    // Update job with error
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Check for Shopify rate limiting / throttling
+    const isThrottled = errorMessage.includes('Throttled') ||
+                        errorMessage.includes('rate limit') ||
+                        errorMessage.includes('429') ||
+                        errorMessage.includes('Too Many Requests');
+
+    if (isThrottled) {
+      // Don't mark as FAILED - keep as IN_PROGRESS for auto-resume with delay
+      const metadata = (job.metadata as Record<string, unknown>) || {};
+      await db.customerSyncJob.update({
+        where: { id: jobId },
+        data: {
+          lastError: 'Rate limited by Shopify - will retry',
+          lastActivityAt: new Date(),
+          metadata: {
+            ...metadata,
+            throttledAt: new Date().toISOString(),
+            retryAfterMs: 5000
+          }
+        }
+      });
+
+      console.log('[Sync Job] Rate limited by Shopify, will retry in 5 seconds');
+
+      return {
+        success: false,
+        jobId,
+        status: 'IN_PROGRESS', // Keep as in-progress for auto-resume
+        progress: {
+          processedCount: job.processedCount,
+          totalCustomers: job.totalCustomers,
+          createdCount: job.createdCount,
+          updatedCount: job.updatedCount,
+          skippedCount: job.skippedCount,
+          errorCount: job.errorCount,
+          percentComplete: job.totalCustomers
+            ? Math.round((job.processedCount / job.totalCustomers) * 100)
+            : 0
+        },
+        hasMore: true,
+        error: 'Rate limited - retry in 5 seconds',
+        retryAfterMs: 5000,
+        startedAt: job.startedAt?.toISOString()
+      };
+    }
+
+    // Non-throttle error: mark as failed
     await db.customerSyncJob.update({
       where: { id: jobId },
       data: {
         status: 'FAILED',
-        lastError: error instanceof Error ? error.message : 'Unknown error',
+        lastError: errorMessage,
         lastActivityAt: new Date()
       }
     });
@@ -482,7 +605,8 @@ export async function processNextBatch(
           : 0
       },
       hasMore: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorMessage,
+      startedAt: job.startedAt?.toISOString()
     };
   }
 }
@@ -517,7 +641,8 @@ export async function getSyncJobStatus(shop: string): Promise<SyncJobResult | nu
         : 0
     },
     hasMore: job.status === 'IN_PROGRESS',
-    error: job.lastError || undefined
+    error: job.lastError || undefined,
+    startedAt: job.startedAt?.toISOString()
   };
 }
 
@@ -640,7 +765,8 @@ export async function getSyncJobById(jobId: string): Promise<SyncJobResult | nul
         : 0
     },
     hasMore: job.status === 'IN_PROGRESS',
-    error: job.lastError || undefined
+    error: job.lastError || undefined,
+    startedAt: job.startedAt?.toISOString()
   };
 }
 

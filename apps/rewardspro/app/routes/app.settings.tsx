@@ -1092,6 +1092,8 @@ export default function SettingsPage() {
     };
     hasMore: boolean;
     error?: string;
+    retryAfterMs?: number;
+    startedAt?: string;
   }
   const [customerSyncJob, setCustomerSyncJob] = useState<CustomerSyncJob | null>(null);
   const [isCustomerSyncStarting, setIsCustomerSyncStarting] = useState(false);
@@ -1136,6 +1138,31 @@ export default function SettingsPage() {
 
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Calculate ETA for customer sync
+  const getCustomerSyncETA = useCallback(() => {
+    if (!customerSyncJob || !customerSyncJob.startedAt || !customerSyncJob.progress.totalCustomers) {
+      return null;
+    }
+
+    const processed = customerSyncJob.progress.processedCount;
+    const total = customerSyncJob.progress.totalCustomers;
+
+    if (processed === 0) return null;
+
+    const elapsed = Date.now() - new Date(customerSyncJob.startedAt).getTime();
+    const msPerCustomer = elapsed / processed;
+    const remaining = total - processed;
+    const etaMs = msPerCustomer * remaining;
+
+    const minutes = Math.ceil(etaMs / 60000);
+    if (minutes > 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `~${hours}h ${mins}m remaining`;
+    }
+    return `~${minutes}m remaining`;
+  }, [customerSyncJob]);
 
 
   // Check for unsaved changes
@@ -1850,7 +1877,19 @@ export default function SettingsPage() {
                                   )}
                                 </InlineStack>
                                 {customerSyncJob && customerSyncJob.status === 'IN_PROGRESS' && (
-                                  <ProgressBar progress={customerSyncJob.progress.percentComplete} size="small" />
+                                  <BlockStack gap="100">
+                                    <ProgressBar progress={customerSyncJob.progress.percentComplete} size="small" />
+                                    <InlineStack align="space-between">
+                                      <Text as="span" variant="bodySm" tone="subdued">
+                                        {customerSyncJob.progress.processedCount} / {customerSyncJob.progress.totalCustomers || '?'} customers
+                                      </Text>
+                                      {getCustomerSyncETA() && (
+                                        <Text as="span" variant="bodySm" tone="subdued">
+                                          {getCustomerSyncETA()}
+                                        </Text>
+                                      )}
+                                    </InlineStack>
+                                  </BlockStack>
                                 )}
                               </BlockStack>
                             </Box>
@@ -1935,6 +1974,13 @@ export default function SettingsPage() {
                         <Banner tone="critical" onDismiss={() => setCustomerSyncJob(null)}>
                           <Text as="p" variant="bodySm">
                             Customer sync failed: {customerSyncJob.error || 'Unknown error'}
+                          </Text>
+                        </Banner>
+                      )}
+                      {customerSyncJob && customerSyncJob.error?.includes('Rate limited') && customerSyncJob.status === 'IN_PROGRESS' && (
+                        <Banner tone="warning">
+                          <Text as="p" variant="bodySm">
+                            Shopify rate limit reached. The sync will automatically retry in a few seconds.
                           </Text>
                         </Banner>
                       )}
