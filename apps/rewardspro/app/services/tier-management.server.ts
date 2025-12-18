@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import db from "../db.server";
 import type { Tier, Customer } from "@prisma/client";
+import { updateCustomerToEffectiveTier, resolveEffectiveTier } from "./tier-resolution.server";
 
 /**
  * Ensures a base tier exists for the shop
@@ -317,52 +318,132 @@ export async function assignBaseTierToAllCustomersWithoutTier(shop: string): Pro
 
 /**
  * Recalculate and update tiers for all customers in a shop
+ *
+ * IMPORTANT: This function uses the Tier Resolution System which considers ALL tier sources:
+ * 1. Manual overrides (admin-assigned tiers)
+ * 2. Active tier subscriptions (recurring payments)
+ * 3. Active tier purchases (one-time payments)
+ * 4. Spending-based tiers (automatic calculation)
+ *
+ * This ensures that customers who purchased a tier keep it during recalculation.
  */
 export async function recalculateTiersForAllCustomers(shop: string): Promise<{
   processed: number;
   upgraded: number;
   downgraded: number;
   unchanged: number;
+  bySource: {
+    manualOverride: number;
+    tierSubscription: number;
+    tierPurchase: number;
+    spendingBased: number;
+    none: number;
+  };
 }> {
-  console.log(`[Tier Management] Starting tier recalculation for all customers in shop: ${shop}`);
+  console.log(`[Tier Management] ========================================`);
+  console.log(`[Tier Management] Starting tier recalculation for shop: ${shop}`);
+  console.log(`[Tier Management] Using Tier Resolution System (respects purchases/subscriptions)`);
+  console.log(`[Tier Management] ========================================`);
 
   const customers = await db.customer.findMany({
     where: { shop },
-    select: { id: true }
+    select: { id: true, currentTierId: true }
   });
+
+  console.log(`[Tier Management] Found ${customers.length} customers to process`);
 
   let upgraded = 0;
   let downgraded = 0;
   let unchanged = 0;
+  const bySource = {
+    manualOverride: 0,
+    tierSubscription: 0,
+    tierPurchase: 0,
+    spendingBased: 0,
+    none: 0,
+  };
 
-  for (const customer of customers) {
-    const result = await calculateAndAssignTier(shop, customer.id, 'PERIODIC');
+  // Process customers in batches to avoid overwhelming the database
+  const batchSize = 50;
+  for (let i = 0; i < customers.length; i += batchSize) {
+    const batch = customers.slice(i, i + batchSize);
+    console.log(`[Tier Management] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(customers.length / batchSize)}`);
 
-    if (result.changed) {
-      // Check if upgrade or downgrade
-      const oldTier = result.previousTierId ? await db.tier.findUnique({ where: { id: result.previousTierId } }) : null;
-      const newTier = result.newTierId ? await db.tier.findUnique({ where: { id: result.newTierId } }) : null;
+    for (const customer of batch) {
+      try {
+        // Use the Tier Resolution System which considers ALL sources
+        const result = await updateCustomerToEffectiveTier(shop, customer.id, {
+          triggeredBy: 'tier_recalculation'
+        });
 
-      if (oldTier && newTier) {
-        if (newTier.cashbackPercent > oldTier.cashbackPercent) {
-          upgraded++;
-        } else {
-          downgraded++;
+        // Track tier source distribution
+        switch (result.source) {
+          case 'MANUAL_OVERRIDE':
+            bySource.manualOverride++;
+            break;
+          case 'TIER_SUBSCRIPTION':
+            bySource.tierSubscription++;
+            break;
+          case 'TIER_PURCHASE':
+            bySource.tierPurchase++;
+            break;
+          case 'SPENDING_BASED':
+            bySource.spendingBased++;
+            break;
+          default:
+            bySource.none++;
         }
-      } else if (newTier && !oldTier) {
-        upgraded++; // From no tier to a tier is an upgrade
+
+        if (result.changed) {
+          // Check if upgrade or downgrade by comparing tier levels
+          const oldTier = result.previousTierId
+            ? await db.tier.findUnique({ where: { id: result.previousTierId } })
+            : null;
+          const newTier = result.newTierId
+            ? await db.tier.findUnique({ where: { id: result.newTierId } })
+            : null;
+
+          if (oldTier && newTier) {
+            if (newTier.cashbackPercent > oldTier.cashbackPercent || newTier.minSpend > oldTier.minSpend) {
+              upgraded++;
+            } else {
+              downgraded++;
+            }
+          } else if (newTier && !oldTier) {
+            upgraded++; // From no tier to a tier is an upgrade
+          } else if (!newTier && oldTier) {
+            downgraded++; // From a tier to no tier is a downgrade
+          }
+        } else {
+          unchanged++;
+        }
+      } catch (error) {
+        console.error(`[Tier Management] Error processing customer ${customer.id}:`, error);
+        unchanged++; // Count as unchanged if error
       }
-    } else {
-      unchanged++;
     }
   }
 
-  console.log(`[Tier Management] Recalculation complete: ${upgraded} upgraded, ${downgraded} downgraded, ${unchanged} unchanged`);
+  console.log(`[Tier Management] ========================================`);
+  console.log(`[Tier Management] Recalculation Complete`);
+  console.log(`[Tier Management] ========================================`);
+  console.log(`[Tier Management] Total Processed: ${customers.length}`);
+  console.log(`[Tier Management] Upgraded: ${upgraded}`);
+  console.log(`[Tier Management] Downgraded: ${downgraded}`);
+  console.log(`[Tier Management] Unchanged: ${unchanged}`);
+  console.log(`[Tier Management] --- By Source ---`);
+  console.log(`[Tier Management] Manual Override: ${bySource.manualOverride}`);
+  console.log(`[Tier Management] Tier Subscription: ${bySource.tierSubscription}`);
+  console.log(`[Tier Management] Tier Purchase: ${bySource.tierPurchase}`);
+  console.log(`[Tier Management] Spending-Based: ${bySource.spendingBased}`);
+  console.log(`[Tier Management] No Tier: ${bySource.none}`);
+  console.log(`[Tier Management] ========================================`);
 
   return {
     processed: customers.length,
     upgraded,
     downgraded,
-    unchanged
+    unchanged,
+    bySource
   };
 }

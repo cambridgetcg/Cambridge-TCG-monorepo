@@ -78,16 +78,6 @@ interface TierProduct {
   updatedAt: string;
 }
 
-interface OrphanedTierProduct {
-  id: string;
-  tierId: string;
-  shopifyProductId: string | null;
-  sku: string | null;
-  price: number;
-  duration: string;
-  createdAt: string;
-}
-
 interface LoaderData {
   tiers: Array<{
     id: string;
@@ -97,7 +87,6 @@ interface LoaderData {
     evaluationPeriod: "ANNUAL" | "LIFETIME";
   }>;
   tierProducts: TierProduct[];
-  orphanedTierProducts: OrphanedTierProduct[]; // Tier products referencing non-existent tiers
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
@@ -308,44 +297,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
-    // Detect orphaned tier products (database records referencing non-existent tiers)
-    // Check both: tierId not in tiers list, OR tier relation is null/undefined
-    const tierIds = new Set(tiers.map(t => t.id));
-    const orphanedTierProducts: OrphanedTierProduct[] = dbTierProducts
-      .filter((dbProduct: any) => {
-        const tierMissing = !tierIds.has(dbProduct.tierId);
-        const tierRelationNull = dbProduct.tier == null;
-        return tierMissing || tierRelationNull;
-      })
-      .map((dbProduct: any) => ({
-        id: dbProduct.id,
-        tierId: dbProduct.tierId,
-        shopifyProductId: dbProduct.shopifyProductId,
-        sku: dbProduct.sku,
-        price: dbProduct.price,
-        duration: dbProduct.duration,
-        createdAt: dbProduct.createdAt?.toISOString() || new Date().toISOString(),
-      }));
-
-    // Log all tier products for debugging
-    console.log(`[TierProducts] Database tier products for ${shop}:`,
-      dbTierProducts.map((p: any) => ({
-        id: p.id,
-        tierId: p.tierId,
-        sku: p.sku,
-        tierExists: p.tier != null,
-        tierName: p.tier?.name || 'MISSING',
-      })));
-
-    if (orphanedTierProducts.length > 0) {
-      console.log(`[TierProducts] ⚠️ Found ${orphanedTierProducts.length} orphaned tier product(s):`,
-        orphanedTierProducts.map(p => ({ id: p.id, tierId: p.tierId })));
-    }
-
     return json<LoaderData>({
       tiers,
       tierProducts,
-      orphanedTierProducts,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType,
@@ -412,8 +366,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const storeName = shop.split('.')[0];
           const tierId = `${storeName}-${name.trim().toLowerCase().replace(/\s+/g, '-')}`;
 
+          console.log('[TierProducts] Creating tier with ID:', tierId);
+          console.log('[TierProducts] Tier data:', { id: tierId, shop, name: name.trim(), minSpend, cashbackPercent, evaluationPeriod });
+
           // Create tier with timestamps
-          await db.tier.create({
+          const createdTier = await db.tier.create({
             data: {
               id: tierId,
               shop,
@@ -425,6 +382,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               updatedAt: new Date(),
             },
           });
+
+          console.log('[TierProducts] ✅ Tier created successfully:', createdTier);
+
+          // Verify the tier was created by fetching it back
+          const verifyTier = await db.tier.findFirst({ where: { id: tierId, shop } });
+          if (verifyTier) {
+            console.log('[TierProducts] ✅ Tier verified in database:', verifyTier.id, verifyTier.name);
+          } else {
+            console.error('[TierProducts] ❌ CRITICAL: Tier was NOT found after creation!');
+          }
 
           return json({ success: true, message: "Tier created successfully" });
         }
@@ -825,6 +792,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
                 duration: duration as any,
                 hasSubscription: enableSubscription,
+                price: price,  // REQUIRED field
+                currency: shopSettings?.storeCurrency || 'USD',  // REQUIRED field
                 oneTimePrice: price,
                 monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
                 annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
@@ -850,8 +819,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 console.warn('[TierProducts] Could not create selling plans:', sellingPlanResult.error);
               }
             }
-          } catch (dbError) {
-            console.log('[TierProducts] Could not create database record:', dbError);
+          } catch (dbError: any) {
+            console.error('[TierProducts] ❌ CRITICAL: Could not create database record!');
+            console.error('[TierProducts] Error:', dbError?.message || dbError);
+            // Continue but log the error - the product was created in Shopify
           }
         }
 
@@ -985,6 +956,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               duration: duration as any,
               hasSubscription: enableSubscription,
               price: price,  // Required base price field
+              currency: shopSettings?.storeCurrency || 'USD',  // REQUIRED field - was missing!
               oneTimePrice: price,
               monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
               annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
@@ -1032,10 +1004,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 console.warn('[TierProducts] Could not create selling plans:', sellingPlanResult.error);
               }
             }
-          } catch (dbError) {
-            console.error('[TierProducts] Could not create database record:', dbError);
-            console.error('[TierProducts] Error details:', JSON.stringify(dbError, null, 2));
+          } catch (dbError: any) {
+            console.error('[TierProducts] ❌ CRITICAL: Could not create database record!');
+            console.error('[TierProducts] Error:', dbError?.message || dbError);
+            console.error('[TierProducts] Tier Product Data:', JSON.stringify(tierProductData, null, 2));
+
+            // Return error - don't silently fail!
+            return json({
+              success: false,
+              error: `Shopify product was created but database record failed: ${dbError?.message || 'Unknown error'}. Please check the product in Shopify admin.`,
+              productId: result.productId,  // Include product ID so user can find it in Shopify
+            }, { status: 500 });
           }
+        } else {
+          console.error('[TierProducts] ❌ Missing productId or variantId from Shopify response');
+          return json({
+            success: false,
+            error: 'Product creation returned incomplete data from Shopify'
+          }, { status: 500 });
         }
 
         // Verify publication status
@@ -1959,50 +1945,6 @@ export default function TierProducts() {
                 feature="Purchasable Tier Products"
                 upgradeMessage="Upgrade to Max plan or higher to create products that customers can purchase to unlock tier benefits. This feature allows you to sell tier memberships as one-time purchases or recurring subscriptions."
               />
-            </Layout.Section>
-          )}
-
-          {/* Orphaned Tier Products Warning */}
-          {data.orphanedTierProducts && data.orphanedTierProducts.length > 0 && (
-            <Layout.Section>
-              <Banner
-                title="Orphaned Tier Product Records Found"
-                tone="warning"
-                onDismiss={() => {}}
-              >
-                <BlockStack gap="400">
-                  <Text as="p">
-                    The following tier product records reference tiers that no longer exist.
-                    This can happen when a tier is deleted. These orphaned records may cause errors
-                    and should be cleaned up.
-                  </Text>
-                  {data.orphanedTierProducts.map((orphan) => (
-                    <Box key={orphan.id} padding="200" background="bg-surface-secondary" borderRadius="200">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <BlockStack gap="100">
-                          <Text as="span" fontWeight="semibold">ID: {orphan.id}</Text>
-                          <Text as="span" tone="subdued">Missing Tier ID: {orphan.tierId}</Text>
-                          <Text as="span" tone="subdued">
-                            SKU: {orphan.sku || 'N/A'} | Price: ${orphan.price} | Duration: {orphan.duration}
-                          </Text>
-                        </BlockStack>
-                        <Button
-                          variant="primary"
-                          tone="critical"
-                          onClick={() => {
-                            const formData = new FormData();
-                            formData.append("intent", "delete-tier-product-record");
-                            formData.append("tierProductId", orphan.id);
-                            submit(formData, { method: "post" });
-                          }}
-                        >
-                          Delete Record
-                        </Button>
-                      </InlineStack>
-                    </Box>
-                  ))}
-                </BlockStack>
-              </Banner>
             </Layout.Section>
           )}
 

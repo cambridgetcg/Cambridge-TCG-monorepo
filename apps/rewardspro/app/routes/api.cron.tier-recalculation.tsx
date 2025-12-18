@@ -87,6 +87,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     totalUnchanged: 0,
     errors: 0,
     skippedShops: 0,
+    // Track tier sources across all shops
+    bySource: {
+      manualOverride: 0,
+      tierSubscription: 0,
+      tierPurchase: 0,
+      spendingBased: 0,
+      none: 0,
+    },
     details: [] as any[]
   };
 
@@ -143,12 +151,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
           results.totalDowngraded += recalcResult.downgraded;
           results.totalUnchanged += recalcResult.unchanged;
 
+          // Aggregate tier source statistics
+          if (recalcResult.bySource) {
+            results.bySource.manualOverride += recalcResult.bySource.manualOverride;
+            results.bySource.tierSubscription += recalcResult.bySource.tierSubscription;
+            results.bySource.tierPurchase += recalcResult.bySource.tierPurchase;
+            results.bySource.spendingBased += recalcResult.bySource.spendingBased;
+            results.bySource.none += recalcResult.bySource.none;
+          }
+
           results.details.push({
             shop: shopSettings.shop,
             processed: recalcResult.processed,
             upgraded: recalcResult.upgraded,
             downgraded: recalcResult.downgraded,
-            unchanged: recalcResult.unchanged
+            unchanged: recalcResult.unchanged,
+            bySource: recalcResult.bySource
           });
 
           log('info', `Completed ${shopSettings.shop}`, {
@@ -179,6 +197,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
       totalUpgraded: results.totalUpgraded,
       totalDowngraded: results.totalDowngraded,
       totalUnchanged: results.totalUnchanged,
+      // Tier source breakdown (shows how many customers get their tier from each source)
+      tierSources: {
+        manualOverride: results.bySource.manualOverride,
+        tierSubscription: results.bySource.tierSubscription,
+        tierPurchase: results.bySource.tierPurchase,
+        spendingBased: results.bySource.spendingBased,
+        noTier: results.bySource.none,
+      },
       errors: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun

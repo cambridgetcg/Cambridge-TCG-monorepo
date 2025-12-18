@@ -250,13 +250,13 @@ export class DataAPIModelProxy<T = any> {
     for (const [relation, includeConfig] of Object.entries(include)) {
       if (!includeConfig) continue;
 
-      // Handle currentTier relation (many-to-one)
+      // Handle currentTier relation (many-to-one) for Customer model
       if (relation === 'currentTier' && record.currentTierId) {
         const tierResult = await this.client.executeStatement(
           `SELECT * FROM "Tier" WHERE id = :tierId`,
           [AuroraDataAPI.buildParameter('tierId', record.currentTierId)]
         );
-        
+
         if (tierResult.records.length > 0) {
           const tier = tierResult.records[0];
           // Handle select if specified
@@ -273,6 +273,36 @@ export class DataAPIModelProxy<T = any> {
           }
         } else {
           record.currentTier = null;
+        }
+      }
+
+      // Handle tier relation (many-to-one) for TierProduct model
+      if (relation === 'tier' && record.tierId) {
+        console.log(`[DataAPI] Loading tier relation for tierId: ${record.tierId}`);
+        const tierResult = await this.client.executeStatement(
+          `SELECT * FROM "Tier" WHERE id = :tierId`,
+          [AuroraDataAPI.buildParameter('tierId', record.tierId)]
+        );
+
+        console.log(`[DataAPI] Tier lookup result: found ${tierResult.records.length} records`);
+        if (tierResult.records.length > 0) {
+          const tier = tierResult.records[0];
+          console.log(`[DataAPI] Tier found: ${tier.name} (${tier.id})`);
+          // Handle select if specified
+          if (typeof includeConfig === 'object' && includeConfig.select) {
+            const selected: any = {};
+            for (const field of Object.keys(includeConfig.select)) {
+              if (includeConfig.select[field]) {
+                selected[field] = tier[field];
+              }
+            }
+            record.tier = selected;
+          } else {
+            record.tier = tier;
+          }
+        } else {
+          console.log(`[DataAPI] ⚠️ No tier found for tierId: ${record.tierId}`);
+          record.tier = null;
         }
       }
       // Add more relation handlers as needed
