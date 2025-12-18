@@ -6,6 +6,7 @@ import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
  * Customer Sync Job Service
  *
  * Provides reliable, resumable customer synchronization from Shopify.
+ *
  * Key features:
  * - Fetches total customer count first for accurate progress
  * - Processes in batches with cursor persistence for resume
