@@ -678,19 +678,25 @@ export async function getCustomerSyncStats(shop: string): Promise<{
     select: { customersInitialSynced: true }
   });
 
-  // Get last sync job
-  const lastJob = await db.customerSyncJob.findFirst({
-    where: { shop },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      status: true,
-      completedAt: true,
-      createdCount: true,
-      updatedCount: true,
-      processedCount: true
-    }
-  });
+  // Get last sync job (handle case where table doesn't exist yet)
+  let lastJob = null;
+  try {
+    lastJob = await db.customerSyncJob.findFirst({
+      where: { shop },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        completedAt: true,
+        createdCount: true,
+        updatedCount: true,
+        processedCount: true
+      }
+    });
+  } catch (error) {
+    // Table may not exist yet if migration hasn't been run
+    console.warn('[Customer Sync] CustomerSyncJob table not available:', error instanceof Error ? error.message : 'Unknown error');
+  }
 
   return {
     totalCustomers,

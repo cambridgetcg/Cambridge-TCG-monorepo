@@ -604,18 +604,24 @@ export async function getCreditSyncStats(shop: string): Promise<{
     _sum: { storeCredit: true }
   });
 
-  // Get last sync job
-  const lastJob = await db.storeCreditSyncJob.findFirst({
-    where: { shop },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      status: true,
-      completedAt: true,
-      updatedCount: true,
-      totalImported: true
-    }
-  });
+  // Get last sync job (handle case where table doesn't exist yet)
+  let lastJob = null;
+  try {
+    lastJob = await db.storeCreditSyncJob.findFirst({
+      where: { shop },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        completedAt: true,
+        updatedCount: true,
+        totalImported: true
+      }
+    });
+  } catch (error) {
+    // Table may not exist yet if migration hasn't been run
+    console.warn('[Credit Sync] StoreCreditSyncJob table not available:', error instanceof Error ? error.message : 'Unknown error');
+  }
 
   return {
     customersWithCredit,
