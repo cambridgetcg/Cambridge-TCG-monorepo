@@ -13,6 +13,12 @@ import { sendTierUpgradeEmailNotification } from "../services/email-notification
 import { withRetry } from "../utils/retry";
 import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
+import {
+  extractNumericId,
+  normalizeSku,
+  findMatchingTierProduct,
+  analyzeTierProductMismatch,
+} from "../utils/shopify-id-normalizer";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
@@ -514,13 +520,23 @@ async function processLineItem(tx: any, params: {
   console.log('│ SECTION 2: NORMALIZED VALUES FOR MATCHING                                   │');
   console.log('└─────────────────────────────────────────────────────────────────────────────┘');
 
-  const normalizedProductId = lineItem.product_id?.toString() || null;
-  const normalizedVariantId = lineItem.variant_id?.toString() || null;
-  const normalizedSku = lineItem.sku || null;
+  // Use the Shopify ID normalizer to extract numeric IDs from any format
+  // This handles both REST API IDs (123456789) and GraphQL IDs (gid://shopify/Product/123456789)
+  const normalizedProductId = extractNumericId(lineItem.product_id);
+  const normalizedVariantId = extractNumericId(lineItem.variant_id);
+  const normalizedSku = normalizeSku(lineItem.sku);
 
-  console.log('[TPR] Normalized Product ID: ', `"${normalizedProductId}"`, normalizedProductId ? `(length: ${normalizedProductId.length})` : '(null)');
-  console.log('[TPR] Normalized Variant ID: ', `"${normalizedVariantId}"`, normalizedVariantId ? `(length: ${normalizedVariantId.length})` : '(null)');
-  console.log('[TPR] Normalized SKU:        ', `"${normalizedSku}"`, normalizedSku ? `(length: ${normalizedSku.length})` : '(null)');
+  // Also keep raw values for logging
+  const rawProductId = lineItem.product_id?.toString() || null;
+  const rawVariantId = lineItem.variant_id?.toString() || null;
+  const rawSku = lineItem.sku || null;
+
+  console.log('[TPR] Raw Product ID:        ', `"${rawProductId}"`, rawProductId ? `(type: ${typeof lineItem.product_id})` : '(null)');
+  console.log('[TPR] Raw Variant ID:        ', `"${rawVariantId}"`, rawVariantId ? `(type: ${typeof lineItem.variant_id})` : '(null)');
+  console.log('[TPR] Raw SKU:               ', `"${rawSku}"`);
+  console.log('[TPR] Normalized Product ID: ', `"${normalizedProductId}"`, normalizedProductId !== rawProductId ? '(extracted from GID)' : '');
+  console.log('[TPR] Normalized Variant ID: ', `"${normalizedVariantId}"`, normalizedVariantId !== rawVariantId ? '(extracted from GID)' : '');
+  console.log('[TPR] Normalized SKU:        ', `"${normalizedSku}"`, normalizedSku !== rawSku ? '(normalized: uppercase, trimmed)' : '');
   console.log('[TPR] Shop:                  ', `"${shop}"`);
 
   // ============================================
@@ -629,20 +645,25 @@ async function processLineItem(tx: any, params: {
       continue;
     }
 
-    // Check Product ID match
-    const productIdMatch = normalizedProductId && tp.shopifyProductId &&
-      normalizedProductId === tp.shopifyProductId;
-    console.log(`[TPR]   Product ID Match: "${normalizedProductId}" === "${tp.shopifyProductId}" → ${productIdMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
+    // Normalize tier product IDs (handles GraphQL global ID format)
+    const tpNormalizedProductId = extractNumericId(tp.shopifyProductId);
+    const tpNormalizedVariantId = extractNumericId(tp.shopifyVariantId);
+    const tpNormalizedSku = normalizeSku(tp.sku);
 
-    // Check Variant ID match
-    const variantIdMatch = normalizedVariantId && tp.shopifyVariantId &&
-      normalizedVariantId === tp.shopifyVariantId;
-    console.log(`[TPR]   Variant ID Match: "${normalizedVariantId}" === "${tp.shopifyVariantId}" → ${variantIdMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
+    // Check Product ID match (normalized comparison)
+    const productIdMatch = normalizedProductId && tpNormalizedProductId &&
+      normalizedProductId === tpNormalizedProductId;
+    console.log(`[TPR]   Product ID Match: "${normalizedProductId}" === "${tpNormalizedProductId}" (from "${tp.shopifyProductId}") → ${productIdMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
 
-    // Check SKU match
-    const skuMatch = normalizedSku && tp.sku &&
-      normalizedSku === tp.sku;
-    console.log(`[TPR]   SKU Match:        "${normalizedSku}" === "${tp.sku}" → ${skuMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
+    // Check Variant ID match (normalized comparison)
+    const variantIdMatch = normalizedVariantId && tpNormalizedVariantId &&
+      normalizedVariantId === tpNormalizedVariantId;
+    console.log(`[TPR]   Variant ID Match: "${normalizedVariantId}" === "${tpNormalizedVariantId}" (from "${tp.shopifyVariantId}") → ${variantIdMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
+
+    // Check SKU match (case-insensitive via normalization)
+    const skuMatch = normalizedSku && tpNormalizedSku &&
+      normalizedSku === tpNormalizedSku;
+    console.log(`[TPR]   SKU Match:        "${normalizedSku}" === "${tpNormalizedSku}" (from "${tp.sku}") → ${skuMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
 
     // Check if any match criteria is met
     const hasMatch = productIdMatch || variantIdMatch || skuMatch;
@@ -688,46 +709,61 @@ async function processLineItem(tx: any, params: {
   console.log(`\n[TPR] Total potential matches found: ${potentialMatches.length}`);
 
   // ============================================
-  // SECTION 6: DATABASE QUERY EXECUTION
+  // SECTION 6: NORMALIZED TIER PRODUCT MATCHING
   // ============================================
   console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 6: EXECUTING DATABASE QUERY                                         │');
+  console.log('│ SECTION 6: NORMALIZED TIER PRODUCT MATCHING                                 │');
   console.log('└─────────────────────────────────────────────────────────────────────────────┘');
 
-  console.log('[TPR] Query Parameters:');
-  console.log('[TPR]   shop:', shop);
-  console.log('[TPR]   OR conditions:');
-  console.log('[TPR]     - shopifyProductId:', normalizedProductId);
-  console.log('[TPR]     - shopifyVariantId:', normalizedVariantId);
-  console.log('[TPR]     - sku:', normalizedSku);
-  console.log('[TPR]   purchaseType: IN [ONE_TIME, BOTH]');
+  console.log('[TPR] Using findMatchingTierProduct utility for normalized matching');
+  console.log('[TPR] This handles:');
+  console.log('[TPR]   - REST API IDs vs GraphQL global IDs');
+  console.log('[TPR]   - Case-insensitive SKU matching');
+  console.log('[TPR]   - Whitespace normalization');
 
-  const queryStartTime = Date.now();
+  const matchStartTime = Date.now();
 
-  const tierProduct = await tx.tierProduct.findFirst({
-    where: {
-      shop,
-      OR: [
-        { shopifyProductId: normalizedProductId },
-        { shopifyVariantId: normalizedVariantId },
-        { sku: normalizedSku },
-      ],
-      purchaseType: { in: ['ONE_TIME', 'BOTH'] }
+  // Use the utility function for normalized matching
+  // This handles the ID format mismatch between webhook (REST) and database (GraphQL)
+  const matchResult = findMatchingTierProduct(
+    {
+      product_id: lineItem.product_id,
+      variant_id: lineItem.variant_id,
+      sku: lineItem.sku,
     },
-    include: {
-      tier: {
-        select: {
-          id: true,
-          name: true,
-          minSpend: true,
-          cashbackPercent: true
-        }
-      }
-    }
-  });
+    allTierProducts
+  );
 
-  const queryDuration = Date.now() - queryStartTime;
-  console.log(`[TPR] Query completed in ${queryDuration}ms`);
+  const tierProduct = matchResult.matched ? matchResult.tierProduct : null;
+
+  const matchDuration = Date.now() - matchStartTime;
+  console.log(`[TPR] Matching completed in ${matchDuration}ms`);
+
+  if (matchResult.matched) {
+    console.log('[TPR] ✅ Match found via utility:');
+    console.log(`[TPR]   Matched by: ${matchResult.matchedBy.join(', ')}`);
+    console.log(`[TPR]   Details: ${JSON.stringify(matchResult.matchDetails, null, 2)}`);
+  } else {
+    // Provide detailed mismatch analysis
+    const mismatchAnalysis = analyzeTierProductMismatch(
+      {
+        product_id: lineItem.product_id,
+        variant_id: lineItem.variant_id,
+        sku: lineItem.sku,
+      },
+      allTierProducts
+    );
+
+    console.log('[TPR] ❌ No match found. Mismatch analysis:');
+    console.log(`[TPR]   Line Item IDs: ${JSON.stringify(mismatchAnalysis.lineItemIds)}`);
+    console.log(`[TPR]   Eligible products checked: ${mismatchAnalysis.eligibleProducts}`);
+    if (mismatchAnalysis.nearMisses.length > 0) {
+      console.log('[TPR]   Near misses detected:');
+      mismatchAnalysis.nearMisses.forEach(nm => {
+        console.log(`[TPR]     - ${nm.tierName}: ${nm.reason}`);
+      });
+    }
+  }
 
   // ============================================
   // SECTION 7: RESULT ANALYSIS
@@ -755,18 +791,12 @@ async function processLineItem(tx: any, params: {
     console.log(`[TPR]   Currency:           ${tierProduct.currency}`);
     console.log(`[TPR]   Status:             ${tierProduct.status}`);
 
-    // Determine which field matched
-    const matchedBy = [];
-    if (normalizedProductId && tierProduct.shopifyProductId === normalizedProductId) {
-      matchedBy.push('PRODUCT_ID');
-    }
-    if (normalizedVariantId && tierProduct.shopifyVariantId === normalizedVariantId) {
-      matchedBy.push('VARIANT_ID');
-    }
-    if (normalizedSku && tierProduct.sku === normalizedSku) {
-      matchedBy.push('SKU');
-    }
-    console.log(`[TPR]   Matched By:         ${matchedBy.join(', ') || 'UNKNOWN'}`);
+    // Use match result from utility
+    console.log(`[TPR]   Matched By:         ${matchResult.matchedBy.join(', ')}`);
+    console.log(`[TPR]   Match Details:`);
+    console.log(`[TPR]     - Product ID: ${matchResult.matchDetails.productIdMatch ? '✅' : '❌'} (line: ${matchResult.matchDetails.lineItemProductId} → db: ${matchResult.matchDetails.tierProductProductId})`);
+    console.log(`[TPR]     - Variant ID: ${matchResult.matchDetails.variantIdMatch ? '✅' : '❌'} (line: ${matchResult.matchDetails.lineItemVariantId} → db: ${matchResult.matchDetails.tierProductVariantId})`);
+    console.log(`[TPR]     - SKU:        ${matchResult.matchDetails.skuMatch ? '✅' : '❌'} (line: ${matchResult.matchDetails.lineItemSku} → db: ${matchResult.matchDetails.tierProductSku})`);
 
     // Validate tier exists
     if (!tierProduct.tier) {
