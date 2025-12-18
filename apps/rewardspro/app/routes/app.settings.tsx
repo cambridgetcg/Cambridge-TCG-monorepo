@@ -19,7 +19,6 @@ import {
   Box,
   Badge,
   Modal,
-  ProgressBar,
   Checkbox,
   Tabs,
   Toast,
@@ -941,8 +940,6 @@ export default function SettingsPage() {
   const [syncRange, setSyncRange] = useState("365");
   const [reconcileLedger, setReconcileLedger] = useState(false);
   const [updateMetrics, setUpdateMetrics] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
 
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1029,11 +1026,15 @@ export default function SettingsPage() {
     // Timezone is read-only, no need to reset
   }, [settings]);
 
-  // Handle order sync
+  // Handle order sync - fire and forget pattern
   const handleStartSync = useCallback(() => {
-    setIsSyncing(true);
-    setSyncProgress(0);
+    // Close modal immediately
+    setShowSyncModal(false);
 
+    // Show immediate feedback
+    showInfo("Order sync started. You can continue working while this runs in the background.");
+
+    // Submit without blocking UI
     const formData = new FormData();
     formData.append("intent", "sync-orders");
     formData.append("syncRange", syncRange);
@@ -1041,18 +1042,7 @@ export default function SettingsPage() {
     formData.append("updateMetrics", String(updateMetrics));
 
     fetcher.submit(formData, { method: "post" });
-
-    // Simulate progress (in production, use WebSockets or polling)
-    const interval = setInterval(() => {
-      setSyncProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + 10;
-      });
-    }, 2000);
-  }, [syncRange, reconcileLedger, updateMetrics, fetcher]);
+  }, [syncRange, reconcileLedger, updateMetrics, fetcher, showInfo]);
 
 
   // Handle manual tier recalculation
@@ -1099,21 +1089,21 @@ export default function SettingsPage() {
     return nextRun.toLocaleDateString();
   }, []);
 
-  // Handle sync completion
+  // Handle sync completion feedback
   useEffect(() => {
-    if (fetcher.data?.syncStarted && isSyncing) {
-      setTimeout(() => {
-        setSyncProgress(100);
-        setTimeout(() => {
-          setIsSyncing(false);
-          setShowSyncModal(false);
-          setSyncProgress(0);
-          // Reload to update stats
-          window.location.reload();
-        }, 1000);
-      }, 1000);
+    const data = fetcher.data as {
+      syncStarted?: boolean;
+      success?: boolean;
+      message?: string;
+      error?: string;
+    } | undefined;
+
+    if (data?.syncStarted) {
+      if (data.success) {
+        showSuccess(data.message || "Order sync completed successfully.");
+      }
     }
-  }, [fetcher.data, isSyncing]);
+  }, [fetcher.data, showSuccess]);
 
   // Format date helper
   const formatDate = (dateStr: string | null) => {
@@ -1190,22 +1180,23 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <Page
-      title="Store Settings"
-      primaryAction={{
-        content: "Save Settings",
-        onAction: handleSubmit,
-        loading: isLoading,
-        disabled: !hasUnsavedChanges,
-      }}
-      secondaryActions={[
-        {
-          content: "Reset",
-          onAction: handleReset,
+    <Frame>
+      <Page
+        title="Store Settings"
+        primaryAction={{
+          content: "Save Settings",
+          onAction: handleSubmit,
+          loading: isLoading,
           disabled: !hasUnsavedChanges,
-        },
-      ]}
-    >
+        }}
+        secondaryActions={[
+          {
+            content: "Reset",
+            onAction: handleReset,
+            disabled: !hasUnsavedChanges,
+          },
+        ]}
+      >
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
@@ -1375,11 +1366,9 @@ export default function SettingsPage() {
                           <InlineStack gap="200">
                             <Button
                               onClick={() => setShowSyncModal(true)}
-                              disabled={isSyncing}
-                              loading={isSyncing}
                               icon={RefreshIcon}
                             >
-                              {isSyncing ? "Syncing..." : "Sync Orders"}
+                              Sync Orders
                             </Button>
                             <Button
                               variant="plain"
@@ -1816,14 +1805,11 @@ export default function SettingsPage() {
         primaryAction={{
           content: "Start Sync",
           onAction: handleStartSync,
-          loading: isSyncing,
-          disabled: isSyncing
         }}
         secondaryActions={[
           {
             content: "Cancel",
             onAction: () => setShowSyncModal(false),
-            disabled: isSyncing
           }
         ]}
       >
@@ -1848,7 +1834,6 @@ export default function SettingsPage() {
               ]}
               value={syncRange}
               onChange={setSyncRange}
-              disabled={isSyncing}
             />
 
             <Checkbox
@@ -1856,7 +1841,6 @@ export default function SettingsPage() {
               checked={reconcileLedger}
               onChange={setReconcileLedger}
               helpText="Check and fix any cashback discrepancies"
-              disabled={isSyncing}
             />
 
             <Checkbox
@@ -1864,17 +1848,7 @@ export default function SettingsPage() {
               checked={updateMetrics}
               onChange={setUpdateMetrics}
               helpText="Recalculate totalSpent and orderCount"
-              disabled={isSyncing}
             />
-
-            {isSyncing && (
-              <>
-                <ProgressBar progress={syncProgress} tone="primary" />
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Processing orders... This may take several minutes.
-                </Text>
-              </>
-            )}
           </BlockStack>
         </Modal.Section>
       </Modal>
@@ -1888,6 +1862,7 @@ export default function SettingsPage() {
           onDismiss={hideToast}
         />
       )}
-    </Page>
+      </Page>
+    </Frame>
   );
 }
