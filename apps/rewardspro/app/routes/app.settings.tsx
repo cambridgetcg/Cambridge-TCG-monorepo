@@ -1793,12 +1793,6 @@ export default function SettingsPage() {
                                 Cancel
                               </Button>
                             )}
-                            <Button
-                              variant="plain"
-                              onClick={() => navigate("/app/customers/sync")}
-                            >
-                              Details
-                            </Button>
                           </InlineStack>
                         </InlineStack>
 
@@ -1893,20 +1887,12 @@ export default function SettingsPage() {
                             </InlineStack>
                           </BlockStack>
 
-                          <InlineStack gap="200">
-                            <Button
-                              onClick={() => setShowSyncModal(true)}
-                              icon={RefreshIcon}
-                            >
-                              Sync Orders
-                            </Button>
-                            <Button
-                              variant="plain"
-                              onClick={() => navigate("/app/orders-sync")}
-                            >
-                              Advanced
-                            </Button>
-                          </InlineStack>
+                          <Button
+                            onClick={() => setShowSyncModal(true)}
+                            icon={RefreshIcon}
+                          >
+                            Sync Orders
+                          </Button>
                         </InlineStack>
 
                         {/* Order Stats */}
