@@ -475,10 +475,12 @@ export class DataAPIModelProxy<T = any> {
   async findFirst(args?: {
     where?: Record<string, any>;
     orderBy?: Record<string, "asc" | "desc">;
+    include?: Record<string, any>;
   }): Promise<T | null> {
     const results = await this.findMany({
       where: args?.where,
       orderBy: args?.orderBy,
+      include: args?.include,
       take: 1,
     });
     return results[0] || null;
