@@ -14,6 +14,7 @@ import {
   Banner,
   BlockStack,
   InlineStack,
+  InlineGrid,
   Text,
   Divider,
   Box,
@@ -1736,318 +1737,259 @@ export default function SettingsPage() {
                     </BlockStack>
                   )}
 
-                  {/* Data Sync Tab */}
+                  {/* Data Sync Tab - Stats Dashboard Layout */}
                   {selectedTab === 1 && (
-                    <BlockStack gap="400">
+                    <BlockStack gap="500">
                       <BlockStack gap="200">
-                        <Text variant="headingMd" as="h2">
-                          Data Synchronization
-                        </Text>
+                        <Text variant="headingMd" as="h2">Data Synchronization</Text>
                         <Text as="p" variant="bodyMd" tone="subdued">
-                          Sync customers, orders, and store credit from Shopify to enable the loyalty program
+                          Sync customers, orders, and store credit from Shopify
                         </Text>
                       </BlockStack>
 
-                      <Divider />
-
-                      {/* Customer Sync Section */}
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between">
+                      {/* Stats Summary Grid */}
+                      <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                        {/* Customers Stat */}
+                        <Card>
                           <BlockStack gap="200">
-                            <Text as="p" variant="bodyMd" fontWeight="semibold">
-                              Customer Sync
-                            </Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Import customer data and assign loyalty tiers
-                            </Text>
-                            <InlineStack gap="200">
-                              <Badge tone={customerSyncStats.customersInitialSynced ? "success" : "warning"}>
-                                {customerSyncStats.customersInitialSynced ? "Initial sync complete" : "Not synced"}
-                              </Badge>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                {customerSyncStats.totalCustomers} customers ({customerSyncStats.customersWithTier} with tier)
-                              </Text>
-                              {customerSyncStats.lastSyncJob?.completedAt && (
-                                <Text as="span" variant="bodySm" tone="subdued">
-                                  Last: {formatDate(customerSyncStats.lastSyncJob.completedAt)}
-                                </Text>
-                              )}
-                            </InlineStack>
-                          </BlockStack>
-
-                          <InlineStack gap="200">
-                            <Button
-                              onClick={handleStartCustomerSync}
-                              icon={RefreshIcon}
-                              disabled={isCustomerSyncing}
-                              loading={isCustomerSyncStarting}
-                              size="slim"
-                            >
-                              Sync Customers
-                            </Button>
-                            {isCustomerSyncing && (
-                              <Button
-                                onClick={handleCancelCustomerSync}
-                                tone="critical"
-                                variant="plain"
-                                size="slim"
+                            <InlineStack align="space-between" blockAlign="center">
+                              <Text as="span" variant="bodySm" tone="subdued">Customers</Text>
+                              <Badge
+                                tone={customerSyncStats.customersInitialSynced ? "success" : "warning"}
+                                size="small"
                               >
-                                Cancel
-                              </Button>
-                            )}
-                          </InlineStack>
-                        </InlineStack>
-
-                        {/* Customer Sync Progress */}
-                        {customerSyncJob && customerSyncJob.status === 'IN_PROGRESS' && (
-                          <Card>
-                            <Box padding="300">
-                              <BlockStack gap="300">
-                                <InlineStack align="space-between" blockAlign="center">
-                                  <Text as="span" variant="bodyMd" fontWeight="semibold">
-                                    Sync Progress
-                                  </Text>
-                                  <InlineStack gap="200" blockAlign="center">
-                                    <Spinner size="small" />
-                                    <Badge tone="info">Syncing</Badge>
-                                  </InlineStack>
-                                </InlineStack>
-                                <ProgressBar
-                                  progress={customerSyncJob.progress.percentComplete}
-                                  tone="primary"
-                                  size="small"
-                                />
-                                <InlineStack gap="400">
-                                  <Text as="span" variant="bodySm">
-                                    {customerSyncJob.progress.processedCount} / {customerSyncJob.progress.totalCustomers || '?'} customers
-                                  </Text>
-                                  <Text as="span" variant="bodySm" tone="success">
-                                    {customerSyncJob.progress.createdCount} created, {customerSyncJob.progress.updatedCount} updated
-                                  </Text>
-                                  {customerSyncJob.progress.errorCount > 0 && (
-                                    <Text as="span" variant="bodySm" tone="critical">
-                                      {customerSyncJob.progress.errorCount} errors
-                                    </Text>
-                                  )}
-                                </InlineStack>
-                              </BlockStack>
-                            </Box>
-                          </Card>
-                        )}
-
-                        {/* Customer Sync Completed */}
-                        {customerSyncJob && customerSyncJob.status === 'COMPLETED' && (
-                          <Banner tone="success" onDismiss={() => setCustomerSyncJob(null)}>
-                            <Text as="p" variant="bodySm">
-                              Customer sync completed: {customerSyncJob.progress.createdCount} created, {customerSyncJob.progress.updatedCount} updated
-                            </Text>
-                          </Banner>
-                        )}
-
-                        {/* Customer Sync Failed */}
-                        {customerSyncJob && customerSyncJob.status === 'FAILED' && (
-                          <Banner tone="critical" onDismiss={() => setCustomerSyncJob(null)}>
-                            <Text as="p" variant="bodySm">
-                              Customer sync failed: {customerSyncJob.error || 'Unknown error'}
-                            </Text>
-                          </Banner>
-                        )}
-
-                        {!customerSyncStats.customersInitialSynced && (
-                          <Banner tone="warning">
-                            <Text as="p" variant="bodySm">
-                              Initial customer sync required. This imports your existing customers and assigns them to loyalty tiers.
-                            </Text>
-                          </Banner>
-                        )}
-                      </BlockStack>
-
-                      <Divider />
-
-                      {/* Order Sync Status */}
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between">
-                          <BlockStack gap="200">
-                            <Text as="p" variant="bodyMd" fontWeight="semibold">
-                              Order History Sync
-                            </Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              Import orders for accurate spending and cashback calculations
-                            </Text>
-                            <InlineStack gap="200">
-                              <Badge tone={orderSyncStats.totalOrders > 0 ? "success" : "warning"}>
-                                {`${orderSyncStats.totalOrders} orders synced`}
+                                {customerSyncStats.customersInitialSynced ? "Synced" : "Pending"}
                               </Badge>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                Cashback: ${orderSyncStats.totalCashbackAmount.toFixed(2)}
-                              </Text>
-                              {orderSyncStats.lastSyncJob?.completedAt && (
-                                <Text as="span" variant="bodySm" tone="subdued">
-                                  Last: {formatDate(orderSyncStats.lastSyncJob.completedAt)}
-                                </Text>
-                              )}
                             </InlineStack>
-                          </BlockStack>
-
-                          <Button
-                            onClick={() => setShowSyncModal(true)}
-                            icon={RefreshIcon}
-                            size="slim"
-                          >
-                            Sync Orders
-                          </Button>
-                        </InlineStack>
-
-                        {/* Order Stats */}
-                        {orderSyncStats.totalOrders > 0 && (
-                          <InlineStack gap="400">
-                            <Text as="span" variant="bodySm">
-                              <Text as="span" fontWeight="semibold">Date Range:</Text>{" "}
-                              {orderSyncStats.dateRange.oldest && orderSyncStats.dateRange.newest
-                                ? `${formatDate(orderSyncStats.dateRange.oldest)} - ${formatDate(orderSyncStats.dateRange.newest)}`
-                                : "N/A"}
-                            </Text>
-                            <Text as="span" variant="bodySm">
-                              <Text as="span" fontWeight="semibold">With Cashback:</Text> {orderSyncStats.ordersWithCashback}
-                            </Text>
-                          </InlineStack>
-                        )}
-
-                        {/* Discrepancies Warning */}
-                        {orderStats && orderStats.discrepancies > 0 && (
-                          <Banner tone="warning">
-                            Found {orderStats.discrepancies} ledger discrepancies.
-                            <Button variant="plain" onClick={() => navigate("/app/orders-sync")}>
-                              Review & Fix
-                            </Button>
-                          </Banner>
-                        )}
-
-                        {orderSyncStats.totalOrders === 0 && (
-                          <Banner tone="info">
-                            <Text as="p" variant="bodySm">
-                              No orders synced yet. Sync your order history to enable accurate tier calculations and cashback tracking.
-                            </Text>
-                          </Banner>
-                        )}
-                      </BlockStack>
-
-                      <Divider />
-
-                      {/* Store Credit Sync Section */}
-                      <BlockStack gap="300">
-                        <InlineStack align="space-between">
-                          <BlockStack gap="200">
-                            <Text as="p" variant="bodyMd" fontWeight="semibold">
-                              Store Credit Sync
-                            </Text>
+                            <Text as="p" variant="headingXl">{customerSyncStats.totalCustomers.toLocaleString()}</Text>
                             <Text as="p" variant="bodySm" tone="subdued">
-                              Import existing Shopify store credit balances
+                              {customerSyncStats.customersWithTier} with tier assigned
                             </Text>
-                            <InlineStack gap="200">
-                              <Badge tone={creditSyncStats.customersWithCredit > 0 ? "success" : "info"}>
-                                {`${creditSyncStats.customersWithCredit} customers with credit`}
-                              </Badge>
-                              <Text as="span" variant="bodySm" tone="subdued">
-                                Total: ${creditSyncStats.totalCreditBalance.toFixed(2)}
-                              </Text>
-                              {creditSyncStats.lastSyncJob?.completedAt && (
-                                <Text as="span" variant="bodySm" tone="subdued">
-                                  Last: {formatDate(creditSyncStats.lastSyncJob.completedAt)}
-                                </Text>
-                              )}
-                            </InlineStack>
                           </BlockStack>
+                        </Card>
 
-                          <InlineStack gap="200">
-                            <Button
-                              onClick={handleStartCreditSync}
-                              icon={RefreshIcon}
-                              disabled={isCreditSyncing}
-                              loading={isCreditSyncStarting}
-                              size="slim"
-                            >
-                              Sync Store Credit
-                            </Button>
-                            {isCreditSyncing && (
-                              <Button
-                                onClick={handleCancelCreditSync}
-                                tone="critical"
-                                variant="plain"
-                                size="slim"
+                        {/* Orders Stat */}
+                        <Card>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between" blockAlign="center">
+                              <Text as="span" variant="bodySm" tone="subdued">Orders</Text>
+                              <Badge
+                                tone={orderSyncStats.totalOrders > 0 ? "success" : "warning"}
+                                size="small"
                               >
-                                Cancel
-                              </Button>
-                            )}
-                          </InlineStack>
-                        </InlineStack>
+                                {orderSyncStats.totalOrders > 0 ? "Synced" : "Pending"}
+                              </Badge>
+                            </InlineStack>
+                            <Text as="p" variant="headingXl">{orderSyncStats.totalOrders.toLocaleString()}</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              ${orderSyncStats.totalCashbackAmount.toFixed(2)} cashback earned
+                            </Text>
+                          </BlockStack>
+                        </Card>
 
-                        {/* Credit Sync Progress */}
-                        {creditSyncJob && creditSyncJob.status === 'IN_PROGRESS' && (
-                          <Card>
-                            <Box padding="300">
+                        {/* Store Credit Stat */}
+                        <Card>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between" blockAlign="center">
+                              <Text as="span" variant="bodySm" tone="subdued">Store Credit</Text>
+                              <Badge
+                                tone={creditSyncStats.customersWithCredit > 0 ? "success" : "info"}
+                                size="small"
+                              >
+                                {creditSyncStats.customersWithCredit > 0 ? "Active" : "None"}
+                              </Badge>
+                            </InlineStack>
+                            <Text as="p" variant="headingXl">${creditSyncStats.totalCreditBalance.toFixed(0)}</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {creditSyncStats.customersWithCredit} customers with credit
+                            </Text>
+                          </BlockStack>
+                        </Card>
+                      </InlineGrid>
+
+                      {/* Sync Actions */}
+                      <Card>
+                        <BlockStack gap="400">
+                          <Text as="h3" variant="headingSm">Sync Actions</Text>
+
+                          <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                            {/* Customer Sync Action */}
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                            >
                               <BlockStack gap="300">
-                                <InlineStack align="space-between" blockAlign="center">
-                                  <Text as="span" variant="bodyMd" fontWeight="semibold">
-                                    Sync Progress
-                                  </Text>
-                                  <InlineStack gap="200" blockAlign="center">
-                                    <Spinner size="small" />
-                                    <Badge tone="info">Syncing</Badge>
-                                  </InlineStack>
-                                </InlineStack>
-                                <ProgressBar
-                                  progress={creditSyncJob.progress.percentComplete}
-                                  tone="primary"
-                                  size="small"
-                                />
-                                <InlineStack gap="400">
-                                  <Text as="span" variant="bodySm">
-                                    {creditSyncJob.progress.processedCount} / {creditSyncJob.progress.totalCustomers || '?'} customers
-                                  </Text>
-                                  <Text as="span" variant="bodySm" tone="success">
-                                    {creditSyncJob.progress.updatedCount} updated
-                                  </Text>
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">Customers</Text>
                                   <Text as="span" variant="bodySm" tone="subdued">
-                                    {creditSyncJob.progress.skippedCount} unchanged
+                                    Import customer data and assign loyalty tiers
                                   </Text>
-                                  {creditSyncJob.progress.errorCount > 0 && (
-                                    <Text as="span" variant="bodySm" tone="critical">
-                                      {creditSyncJob.progress.errorCount} errors
-                                    </Text>
+                                </BlockStack>
+                                <InlineStack gap="200">
+                                  <Button
+                                    onClick={handleStartCustomerSync}
+                                    icon={RefreshIcon}
+                                    disabled={isCustomerSyncing}
+                                    loading={isCustomerSyncStarting}
+                                    size="slim"
+                                    fullWidth
+                                  >
+                                    Sync Customers
+                                  </Button>
+                                  {isCustomerSyncing && (
+                                    <Button
+                                      onClick={handleCancelCustomerSync}
+                                      tone="critical"
+                                      variant="plain"
+                                      size="slim"
+                                    >
+                                      Cancel
+                                    </Button>
                                   )}
                                 </InlineStack>
+                                {customerSyncJob && customerSyncJob.status === 'IN_PROGRESS' && (
+                                  <ProgressBar progress={customerSyncJob.progress.percentComplete} size="small" />
+                                )}
                               </BlockStack>
                             </Box>
-                          </Card>
-                        )}
 
-                        {/* Credit Sync Completed */}
-                        {creditSyncJob && creditSyncJob.status === 'COMPLETED' && (
-                          <Banner tone="success" onDismiss={() => setCreditSyncJob(null)}>
-                            <Text as="p" variant="bodySm">
-                              Store credit sync completed: {creditSyncJob.progress.updatedCount} customers updated,
-                              ${creditSyncJob.progress.totalImported.toFixed(2)} imported.
-                            </Text>
-                          </Banner>
-                        )}
+                            {/* Order Sync Action */}
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                            >
+                              <BlockStack gap="300">
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">Orders</Text>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    Import order history for spending calculations
+                                  </Text>
+                                </BlockStack>
+                                <Button
+                                  onClick={() => setShowSyncModal(true)}
+                                  icon={RefreshIcon}
+                                  size="slim"
+                                  fullWidth
+                                >
+                                  Sync Orders
+                                </Button>
+                              </BlockStack>
+                            </Box>
 
-                        {/* Credit Sync Failed */}
-                        {creditSyncJob && creditSyncJob.status === 'FAILED' && (
-                          <Banner tone="critical" onDismiss={() => setCreditSyncJob(null)}>
-                            <Text as="p" variant="bodySm">
-                              Store credit sync failed: {creditSyncJob.error || 'Unknown error'}
-                            </Text>
-                          </Banner>
-                        )}
+                            {/* Credit Sync Action */}
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                            >
+                              <BlockStack gap="300">
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">Store Credit</Text>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    Import existing Shopify credit balances
+                                  </Text>
+                                </BlockStack>
+                                <InlineStack gap="200">
+                                  <Button
+                                    onClick={handleStartCreditSync}
+                                    icon={RefreshIcon}
+                                    disabled={isCreditSyncing}
+                                    loading={isCreditSyncStarting}
+                                    size="slim"
+                                    fullWidth
+                                  >
+                                    Sync Credit
+                                  </Button>
+                                  {isCreditSyncing && (
+                                    <Button
+                                      onClick={handleCancelCreditSync}
+                                      tone="critical"
+                                      variant="plain"
+                                      size="slim"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  )}
+                                </InlineStack>
+                                {creditSyncJob && creditSyncJob.status === 'IN_PROGRESS' && (
+                                  <ProgressBar progress={creditSyncJob.progress.percentComplete} size="small" />
+                                )}
+                              </BlockStack>
+                            </Box>
+                          </InlineGrid>
+                        </BlockStack>
+                      </Card>
 
-                        <Banner tone="info">
+                      {/* Status Banners */}
+                      {customerSyncJob && customerSyncJob.status === 'COMPLETED' && (
+                        <Banner tone="success" onDismiss={() => setCustomerSyncJob(null)}>
                           <Text as="p" variant="bodySm">
-                            Imports existing Shopify store credit balances. Use this when first installing the app or to reconcile discrepancies.
+                            Customer sync completed: {customerSyncJob.progress.createdCount} created, {customerSyncJob.progress.updatedCount} updated
                           </Text>
                         </Banner>
-                      </BlockStack>
+                      )}
+                      {customerSyncJob && customerSyncJob.status === 'FAILED' && (
+                        <Banner tone="critical" onDismiss={() => setCustomerSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Customer sync failed: {customerSyncJob.error || 'Unknown error'}
+                          </Text>
+                        </Banner>
+                      )}
+                      {creditSyncJob && creditSyncJob.status === 'COMPLETED' && (
+                        <Banner tone="success" onDismiss={() => setCreditSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Store credit sync completed: {creditSyncJob.progress.updatedCount} customers updated,
+                            ${creditSyncJob.progress.totalImported.toFixed(2)} imported.
+                          </Text>
+                        </Banner>
+                      )}
+                      {creditSyncJob && creditSyncJob.status === 'FAILED' && (
+                        <Banner tone="critical" onDismiss={() => setCreditSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Store credit sync failed: {creditSyncJob.error || 'Unknown error'}
+                          </Text>
+                        </Banner>
+                      )}
+                      {!customerSyncStats.customersInitialSynced && (
+                        <Banner tone="warning">
+                          <Text as="p" variant="bodySm">
+                            Initial customer sync required. This imports your existing customers and assigns them to loyalty tiers.
+                          </Text>
+                        </Banner>
+                      )}
+                      {orderStats && orderStats.discrepancies > 0 && (
+                        <Banner tone="warning">
+                          Found {orderStats.discrepancies} ledger discrepancies.
+                          <Button variant="plain" onClick={() => navigate("/app/orders-sync")}>
+                            Review & Fix
+                          </Button>
+                        </Banner>
+                      )}
 
+                      {/* Last Sync Info */}
+                      <Box paddingBlockStart="200">
+                        <InlineStack gap="400" align="center">
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Last customer sync: {customerSyncStats.lastSyncJob?.completedAt
+                              ? formatDate(customerSyncStats.lastSyncJob.completedAt)
+                              : "Never"}
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">|</Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Last order sync: {orderSyncStats.lastSyncJob?.completedAt
+                              ? formatDate(orderSyncStats.lastSyncJob.completedAt)
+                              : "Never"}
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">|</Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Last credit sync: {creditSyncStats.lastSyncJob?.completedAt
+                              ? formatDate(creditSyncStats.lastSyncJob.completedAt)
+                              : "Never"}
+                          </Text>
+                        </InlineStack>
+                      </Box>
                     </BlockStack>
                   )}
 
