@@ -13,8 +13,11 @@ import {
   ProgressBar,
   Badge,
   List,
-  Spinner
+  Spinner,
+  Toast,
+  Frame,
 } from "@shopify/polaris";
+import { useToast } from "~/hooks/useToast";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -114,6 +117,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function CustomersSyncPage() {
   const data = useLoaderData<typeof loader>();
 
+  // Toast notifications
+  const { toast, showInfo, showSuccess, showError, hideToast } = useToast();
+
   // Sync state
   const [syncJob, setSyncJob] = useState<SyncJobResult | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -155,6 +161,18 @@ export default function CustomersSyncPage() {
       }
     };
   }, []);
+
+  // Show toast notification on sync completion or failure
+  useEffect(() => {
+    if (syncJob?.status === 'COMPLETED') {
+      const { createdCount, updatedCount, processedCount } = syncJob.progress;
+      showSuccess(`Sync complete: ${processedCount} customers processed, ${createdCount} created, ${updatedCount} updated`);
+    } else if (syncJob?.status === 'FAILED' && syncJob.error) {
+      showError(`Sync failed: ${syncJob.error}`);
+    } else if (syncJob?.status === 'CANCELLED') {
+      showInfo("Sync cancelled. Progress has been saved.");
+    }
+  }, [syncJob?.status, syncJob?.progress, syncJob?.error, showSuccess, showError, showInfo]);
 
   // Process batches when polling is active
   useEffect(() => {
@@ -215,6 +233,9 @@ export default function CustomersSyncPage() {
     setIsStarting(true);
     setShowSuccessBanner(false);
 
+    // Show immediate feedback
+    showInfo("Customer sync started. Progress will update automatically.");
+
     try {
       const response = await fetch('/api/customer-sync/start', {
         method: 'POST',
@@ -227,9 +248,12 @@ export default function CustomersSyncPage() {
 
       if (result.success && result.hasMore) {
         setIsPolling(true);
+      } else if (!result.success) {
+        showError(result.error || "Failed to start sync");
       }
     } catch (error) {
       console.error('Error starting sync:', error);
+      showError("Failed to start sync. Please try again.");
       setSyncJob({
         success: false,
         jobId: null,
@@ -249,7 +273,7 @@ export default function CustomersSyncPage() {
     } finally {
       setIsStarting(false);
     }
-  }, [data.stats.totalCustomers]);
+  }, [data.stats.totalCustomers, showInfo, showError]);
 
   const handleResumeSync = useCallback(async () => {
     if (!syncJob?.jobId) return;
@@ -312,26 +336,27 @@ export default function CustomersSyncPage() {
   };
 
   return (
-    <Page
-      title="Customer Sync"
-      subtitle="Import and update customer data from Shopify"
-      backAction={{ url: "/app/customers" }}
-      primaryAction={canResume ? {
-        content: "Resume Sync",
-        onAction: handleResumeSync,
-        loading: isStarting
-      } : {
-        content: "Sync All Customers",
-        onAction: handleStartSync,
-        disabled: !canStartSync,
-        loading: isStarting
-      }}
-      secondaryActions={isSyncing ? [{
-        content: "Cancel",
-        onAction: handleCancelSync,
-        destructive: true
-      }] : undefined}
-    >
+    <Frame>
+      <Page
+        title="Customer Sync"
+        subtitle="Import and update customer data from Shopify"
+        backAction={{ url: "/app/customers" }}
+        primaryAction={canResume ? {
+          content: "Resume Sync",
+          onAction: handleResumeSync,
+          loading: isStarting
+        } : {
+          content: "Sync All Customers",
+          onAction: handleStartSync,
+          disabled: !canStartSync,
+          loading: isStarting
+        }}
+        secondaryActions={isSyncing ? [{
+          content: "Cancel",
+          onAction: handleCancelSync,
+          destructive: true
+        }] : undefined}
+      >
       <BlockStack gap="400">
         {/* Tier Warning */}
         {data.stats.tierCount === 0 && (
@@ -586,5 +611,16 @@ export default function CustomersSyncPage() {
         </Card>
       </BlockStack>
     </Page>
+
+    {/* Toast notification */}
+    {toast.active && (
+      <Toast
+        content={toast.content}
+        error={toast.error}
+        duration={toast.duration}
+        onDismiss={hideToast}
+      />
+    )}
+    </Frame>
   );
 }

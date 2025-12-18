@@ -21,7 +21,7 @@ export interface SKUGeneratorOptions {
 /**
  * Generate a unique SKU for tier products
  * Format: SHOP-TIER-DUR-DATE-RND
- * Example: TESTS-GOLD-MON-2501-X9K (TestStore - Gold - Monthly - Jan 2025 - Random X9K)
+ * Example: TESTS-GOLD1-MON-2501-X9K (TestStore - Gold1 - Monthly - Jan 2025 - Random X9K)
  *
  * @param options SKU generation options
  * @returns Formatted SKU string (max 40 chars)
@@ -45,12 +45,9 @@ export function generateTierSKU(options: SKUGeneratorOptions): string {
     .replace(/[^A-Z0-9]/g, '')
     .substring(0, Math.min(6, Math.max(3, shopName.length)));
 
-  // Clean the tier name (use first word if multi-word, max 5 chars)
-  const tierWords = tierName.split(/\s+/);
-  const cleanTierName = tierWords[0]
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .substring(0, 5) || 'TIER';
+  // Generate tier code that captures uniqueness from similar names
+  // e.g., "Tier product test tier 1" vs "Tier product test tier 2"
+  const cleanTierName = generateTierCode(tierName);
 
   // Duration code mapping
   const durationCode = getDurationCode(duration);
@@ -107,14 +104,71 @@ export function generateSimpleSKU(
     .replace(/[^A-Z0-9]/g, '')
     .substring(0, 4);
 
-  const tierCode = tierName
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .substring(0, 4);
+  // Use generateTierCode for consistent handling of similar names
+  const tierCode = generateTierCode(tierName);
 
   const durCode = getDurationCode(duration);
 
   return `${shopCode}-${tierCode}-${durCode}`.toUpperCase();
+}
+
+/**
+ * Generate a unique tier code from tier name
+ * Handles cases like "Tier product test tier 1" vs "Tier product test tier 2"
+ *
+ * Strategy:
+ * 1. Extract trailing numbers which are often differentiators
+ * 2. Take first letter of significant words
+ * 3. Ensure uniqueness for similar names
+ *
+ * @param tierName The tier name to generate code from
+ * @returns A short unique tier code (max 6 chars)
+ */
+function generateTierCode(tierName: string): string {
+  if (!tierName) return 'TIER';
+
+  // Extract trailing numbers (e.g., "tier 1" -> "1", "tier 2" -> "2")
+  const trailingNumberMatch = tierName.match(/(\d+)\s*$/);
+  const trailingNumber = trailingNumberMatch ? trailingNumberMatch[1] : '';
+
+  // Remove trailing number for word processing
+  const nameWithoutNumber = tierName.replace(/\d+\s*$/, '').trim();
+
+  // Common words to skip for more meaningful codes
+  const skipWords = new Set(['tier', 'product', 'test', 'level', 'plan', 'the', 'a', 'an', 'membership']);
+
+  // Get words and filter
+  const words = nameWithoutNumber
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 0 && !skipWords.has(word));
+
+  let code = '';
+
+  if (words.length > 0) {
+    // Take first letters of significant words (up to 4 chars)
+    code = words
+      .map(word => word.charAt(0))
+      .join('')
+      .substring(0, 4)
+      .toUpperCase();
+  }
+
+  // If no significant words, use first 4 chars of cleaned name
+  if (!code) {
+    code = nameWithoutNumber
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .substring(0, 4) || 'TIER';
+  }
+
+  // Append trailing number for differentiation
+  if (trailingNumber) {
+    code = code + trailingNumber;
+  }
+
+  // Ensure max 6 characters for the tier code
+  return code.substring(0, 6);
 }
 
 /**

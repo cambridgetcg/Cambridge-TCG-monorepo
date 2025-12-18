@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json, defer } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData, useSearchParams } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useToast } from "~/hooks/useToast";
 import * as crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -166,13 +167,6 @@ interface LoaderData {
     totalCustomers: number;
     tierDistribution: Record<string, number>;
   }>;
-}
-
-interface ToastState {
-  active: boolean;
-  content: string;
-  error?: boolean;
-  duration?: number;
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -1888,7 +1882,7 @@ export default function Customers() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState(0);
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
-  const [toast, setToast] = useState<ToastState>({ active: false, content: '' });
+  const { toast, showInfo, showSuccess, showError, hideToast } = useToast();
 
   // Tier management states
   const [tierModalActive, setTierModalActive] = useState(false);
@@ -1980,35 +1974,25 @@ export default function Customers() {
   }, [searchParams, setSearchParams]);
 
 
-  // Calculate all tiers with better feedback
+  // Calculate all tiers - fire and forget pattern
   const handleCalculateAll = useCallback(() => {
-    setIsCalculating(true);
-
-    // Show processing toast
-    setToast({
-      active: true,
-      content: "Processing all customers...",
-      duration: 60000, // Long duration for processing
-    });
+    // Show immediate feedback without blocking UI
+    showInfo("Tier calculation started for all customers. This runs in the background.");
 
     const formData = new FormData();
     formData.append("action", "calculate-all");
     submit(formData, { method: "post" });
-  }, [submit]);
+  }, [submit, showInfo]);
 
-  // Sync customers from Shopify
+  // Sync customers from Shopify - fire and forget pattern
   const handleSyncCustomers = useCallback(() => {
-    setIsCalculating(true);
-    setToast({
-      active: true,
-      content: "Syncing all customers from Shopify... This may take a few moments.",
-      duration: 60000, // Long duration for sync
-    });
+    // Show immediate feedback without blocking UI
+    showInfo("Customer sync started. This runs in the background and may take a few minutes.");
 
     const formData = new FormData();
     formData.append("action", "sync-customers");
     submit(formData, { method: "post" });
-  }, [submit]);
+  }, [submit, showInfo]);
 
   // Calculate single customer tier with inline feedback
   const handleCalculateSingle = useCallback((customerId: string) => {
@@ -2040,10 +2024,7 @@ export default function Customers() {
   // Submit manual tier assignment
   const handleSubmitManualTier = useCallback(() => {
     if (!manualTierCustomer || !manualTierReason.trim()) {
-      setToast({
-        active: true,
-        content: "Please provide a reason for the manual tier change",
-      });
+      showError("Please provide a reason for the manual tier change");
       return;
     }
 
@@ -2056,7 +2037,7 @@ export default function Customers() {
 
     submit(formData, { method: "post" });
     setManualTierModalActive(false);
-  }, [manualTierCustomer, manualTierSelection, manualTierReason, permanentOverride, submit]);
+  }, [manualTierCustomer, manualTierSelection, manualTierReason, permanentOverride, submit, showError]);
 
   // Tier management handlers
   const handleSaveTier = useCallback(() => {
@@ -2092,66 +2073,64 @@ export default function Customers() {
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data && calculatingCustomerId) {
       setCalculatingCustomerId(null);
-      
+
       const data = fetcher.data as Record<string, any>;
       if (data.success) {
-        setToast({
-          active: true,
-          content: data.message ? String(data.message) : 'Success',
-          error: false,
-          duration: 4000,
-        });
+        showSuccess(data.message ? String(data.message) : 'Success');
       } else {
-        setToast({
-          active: true,
-          content: data.message ? String(data.message) : 'Error',
-          error: true,
-          duration: 4000,
-        });
+        showError(data.message ? String(data.message) : 'Error');
       }
     }
-  }, [fetcher.state, fetcher.data, calculatingCustomerId]);
+  }, [fetcher.state, fetcher.data, calculatingCustomerId, showSuccess, showError]);
 
-  // Handle action results for bulk operations
+  // Handle action results for bulk operations - completion feedback
   useEffect(() => {
-    if (navigation.state === "idle" && isCalculating) {
-      setIsCalculating(false);
+    if (!actionData) return;
 
-      // Check if we have sync results
-      if (actionData && 'results' in actionData && actionData.results &&
-          typeof actionData.results === 'object') {
+    // Check if we have sync results
+    if ('results' in actionData && actionData.results &&
+        typeof actionData.results === 'object') {
 
-        // Check for sync completion (new format)
-        if ('total' in actionData.results && 'syncCompleted' in actionData.results) {
-          const results = actionData.results as { total: number; syncCompleted: boolean };
-          setToast({
-            active: true,
-            content: actionData.message || `Sync complete! Total customers: ${results.total}`,
-            error: false,
-            duration: 8000,
-          });
-        }
-        // Legacy format support (old sync results)
-        else if ('imported' in actionData.results && 'updated' in actionData.results && 'errors' in actionData.results) {
-          const results = actionData.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
-          setToast({
-            active: true,
-            content: `Sync complete! Imported: ${results.imported}, Updated: ${results.updated}${results.errors ? `, Errors: ${results.errors}` : ''}`,
-            error: results.errors > 0,
-            duration: 8000,
-          });
-        }
-      } else if (navigation.formData && actionData?.message) {
-        // Other operations with message
-        setToast({
-          active: true,
-          content: actionData.message as string,
-          error: !actionData.success,
-          duration: 5000,
-        });
+      // Check for sync completion (new format)
+      if ('total' in actionData.results && 'syncCompleted' in actionData.results) {
+        const results = actionData.results as { total: number; syncCompleted: boolean };
+        showSuccess(actionData.message || `Sync complete! Total customers: ${results.total}`);
       }
+      // Check for calculate-all results
+      else if ('total' in actionData.results && 'changed' in actionData.results) {
+        const results = actionData.results as { total: number; changed: number; errors: number };
+        if (results.errors > 0) {
+          showError(actionData.message || `Calculation completed with errors: ${results.errors}`);
+        } else {
+          showSuccess(actionData.message || `Calculated tiers for ${results.total} customers. ${results.changed} tiers updated.`);
+        }
+      }
+      // Legacy format support (old sync results)
+      else if ('imported' in actionData.results && 'updated' in actionData.results && 'errors' in actionData.results) {
+        const results = actionData.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
+        if (results.errors > 0) {
+          showError(`Sync complete with errors! Imported: ${results.imported}, Updated: ${results.updated}, Errors: ${results.errors}`);
+        } else {
+          showSuccess(`Sync complete! Imported: ${results.imported}, Updated: ${results.updated}`);
+        }
+      }
+      // Check for recalculate-all results
+      else if ('processed' in actionData.results && 'changed' in actionData.results) {
+        const results = actionData.results as { processed: number; changed: number; unchanged: number; errors: number };
+        if (results.errors > 0) {
+          showError(actionData.message || `Recalculation completed with ${results.errors} errors`);
+        } else {
+          showSuccess(actionData.message || `Recalculated ${results.processed} customers: ${results.changed} changed`);
+        }
+      }
+    } else if (actionData.success && actionData.message) {
+      // Other successful operations with message
+      showSuccess(actionData.message as string);
+    } else if (!actionData.success && actionData.message) {
+      // Error operations
+      showError(actionData.message as string);
     }
-  }, [navigation.state, isCalculating, navigation.formData, actionData]);
+  }, [actionData, showSuccess, showError]);
 
   // Resolve deferred enhanced metadata and merge with customers
   useEffect(() => {
@@ -2211,11 +2190,11 @@ export default function Customers() {
 
   // Toast markup
   const toastMarkup = toast.active ? (
-    <Toast 
+    <Toast
       content={toast.content}
       error={toast.error}
       duration={toast.duration}
-      onDismiss={() => setToast({ ...toast, active: false })}
+      onDismiss={hideToast}
     />
   ) : null;
 
@@ -2229,8 +2208,6 @@ export default function Customers() {
             content: "Sync Customers",
             icon: RefreshIcon,
             onAction: handleSyncCustomers,
-            loading: isCalculating,
-            disabled: isCalculating,
           }
         ]}
       >
