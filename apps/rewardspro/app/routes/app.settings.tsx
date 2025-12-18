@@ -1131,6 +1131,9 @@ export default function SettingsPage() {
   const [reconcileLedger, setReconcileLedger] = useState(false);
   const [updateMetrics, setUpdateMetrics] = useState(true);
 
+  // Credit sync modal state
+  const [showCreditSyncModal, setShowCreditSyncModal] = useState(false);
+
   // UI state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -1319,9 +1322,7 @@ export default function SettingsPage() {
 
   // Handle start credit sync
   const handleStartCreditSync = useCallback(async () => {
-    const confirmMessage = "This will sync store credit balances from Shopify for all customers. Continue?";
-    if (!window.confirm(confirmMessage)) return;
-
+    setShowCreditSyncModal(false);
     setIsCreditSyncStarting(true);
     showInfo("Store credit sync started...");
 
@@ -1893,7 +1894,7 @@ export default function SettingsPage() {
                                 </BlockStack>
                                 <InlineStack gap="200">
                                   <Button
-                                    onClick={handleStartCreditSync}
+                                    onClick={() => setShowCreditSyncModal(true)}
                                     icon={RefreshIcon}
                                     disabled={isCreditSyncing}
                                     loading={isCreditSyncStarting}
@@ -2484,6 +2485,48 @@ export default function SettingsPage() {
               onChange={setUpdateMetrics}
               helpText="Recalculate totalSpent and orderCount"
             />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+
+      {/* Store Credit Sync Modal */}
+      <Modal
+        open={showCreditSyncModal}
+        onClose={() => setShowCreditSyncModal(false)}
+        title="Sync Store Credit"
+        primaryAction={{
+          content: "Start Sync",
+          onAction: handleStartCreditSync,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setShowCreditSyncModal(false),
+          }
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Banner tone="info">
+              <p>This will import existing Shopify store credit balances for all customers.</p>
+            </Banner>
+
+            <BlockStack gap="200">
+              <Text as="p" variant="bodyMd">
+                The sync will:
+              </Text>
+              <ul style={{ marginLeft: "20px", marginTop: "4px" }}>
+                <li>Fetch store credit balances from Shopify</li>
+                <li>Update customer records with current balances</li>
+                <li>Track imported amounts for reconciliation</li>
+              </ul>
+            </BlockStack>
+
+            <Banner tone="warning">
+              <Text as="p" variant="bodySm">
+                Use this when first installing the app or to reconcile discrepancies between Shopify and your loyalty program.
+              </Text>
+            </Banner>
           </BlockStack>
         </Modal.Section>
       </Modal>
