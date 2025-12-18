@@ -23,6 +23,7 @@ import {
   ButtonGroup,
   ProgressBar,
   Modal,
+  Frame,
 } from "@shopify/polaris";
 import { CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
@@ -723,11 +724,12 @@ export default function BillingPage() {
   const currentTierLevel = getCurrentTierLevel();
 
   return (
-    <Page
-      title="Choose Your Plan"
-      subtitle="Select the perfect plan for your business"
-      backAction={{ url: "/app" }}
-    >
+    <Frame>
+      <Page
+        title="Choose Your Plan"
+        subtitle="Select the perfect plan for your business"
+        backAction={{ url: "/app" }}
+      >
       <Layout>
         <Layout.Section>
           <BlockStack gap="600">
@@ -1222,6 +1224,7 @@ export default function BillingPage() {
           </BlockStack>
         </Modal.Section>
       </Modal>
-    </Page>
+      </Page>
+    </Frame>
   );
 }

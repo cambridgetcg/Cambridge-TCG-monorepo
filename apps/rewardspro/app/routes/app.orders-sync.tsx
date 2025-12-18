@@ -14,7 +14,8 @@ import {
   Badge,
   InlineCode,
   List,
-  Modal
+  Modal,
+  Frame,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
@@ -260,15 +261,16 @@ export default function OrdersSyncPage() {
   };
 
   return (
-    <Page
-      title="Order Sync"
-      subtitle="Import historical orders from Shopify"
-      backAction={{ url: "/app" }}
-      primaryAction={{
-        content: isSyncing ? "Syncing..." : "Sync Orders",
-        onAction: () => setConfirmModalOpen(true),
-        disabled: isSyncing || isProcessing,
-        loading: isProcessing
+    <Frame>
+      <Page
+        title="Order Sync"
+        subtitle="Import historical orders from Shopify"
+        backAction={{ url: "/app" }}
+        primaryAction={{
+          content: isSyncing ? "Syncing..." : "Sync Orders",
+          onAction: () => setConfirmModalOpen(true),
+          disabled: isSyncing || isProcessing,
+          loading: isProcessing
       }}
     >
       <BlockStack gap="400">
@@ -464,6 +466,7 @@ export default function OrdersSyncPage() {
           </BlockStack>
         </Modal.Section>
       </Modal>
-    </Page>
+      </Page>
+    </Frame>
   );
 }
