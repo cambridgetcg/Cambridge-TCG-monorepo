@@ -32,7 +32,7 @@ import db from "../db.server";
 import { useNavigate } from "@remix-run/react";
 import { createOrderSyncService } from "../services/order-sync.service";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
-import { countOrdersWithFallback, countOrdersDateExtraction, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
+import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { v4 as uuidv4 } from "uuid";
 
 // ============= TYPES =============
@@ -398,24 +398,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       console.log(`[Settings Page] Attempting to count orders for ${shop} - ${getCurrentMonthName()} ${year}`);
 
-      // Strategy 1: Try date extraction method (most reliable for month-based)
-      try {
-        orderCount = await countOrdersDateExtraction(shop, year, month);
-        orderCountStrategy = "DateExtraction";
-        console.log(`[Settings Page] Date extraction strategy succeeded: ${orderCount} orders`);
-      } catch (error) {
-        console.log("[Settings Page] Date extraction failed, trying fallback strategies");
+      // Use countOrdersWithFallback which tries multiple strategies
+      // Note: countOrdersDateExtraction removed - causes SerializationException with Aurora Data API
+      const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
-        // Strategy 2: Try multiple strategies with fallback
-        const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+      const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
+      orderCount = result.count;
+      orderCountStrategy = result.strategy;
 
-        const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
-        orderCount = result.count;
-        orderCountStrategy = result.strategy;
-      }
-
-      // Strategy 3: If still 0, try pre-aggregated count
+      // If still 0, try pre-aggregated count
       if (orderCount === 0) {
         console.log("[Settings Page] Trying pre-aggregated count");
         orderCount = await getOrCreateMonthlyCount(shop, year, month);
