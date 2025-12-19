@@ -240,20 +240,115 @@ const shopify = shopifyApp({
       // Import db here to avoid circular dependencies
       const db = (await import("./db.server")).default;
 
-      // Check if initial sync already completed
-      const shopSettings = await db.shopSettings.findUnique({
+      // Valid currency codes from our Prisma enum
+      const VALID_CURRENCIES = [
+        'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SEK', 'NZD',
+        'NOK', 'MXN', 'SGD', 'HKD', 'KRW', 'TRY', 'INR', 'RUB', 'BRL', 'ZAR',
+        'AED', 'PLN', 'DKK', 'THB', 'IDR', 'HUF', 'CZK', 'ILS', 'CLP', 'PHP'
+      ];
+
+      // Fetch shop details from Shopify (currency, timezone, name)
+      let shopDetails: { currencyCode?: string; ianaTimezone?: string; name?: string; url?: string } = {};
+      try {
+        const shopQuery = `#graphql
+          query getShopDetails {
+            shop {
+              name
+              currencyCode
+              ianaTimezone
+              url
+            }
+          }
+        `;
+        const response = await admin.graphql(shopQuery);
+        const shopData = await response.json();
+        shopDetails = shopData.data?.shop || {};
+        console.log(`[AfterAuth] Shopify shop details: currency=${shopDetails.currencyCode}, timezone=${shopDetails.ianaTimezone}`);
+      } catch (error) {
+        console.error(`[AfterAuth] Failed to fetch shop details from Shopify:`, error);
+        // Continue with defaults
+      }
+
+      // Validate currency - only use if it's in our supported list
+      const shopifyCurrency = VALID_CURRENCIES.includes(shopDetails.currencyCode || '')
+        ? shopDetails.currencyCode
+        : 'USD';
+
+      // Check if ShopSettings exists
+      let shopSettings = await db.shopSettings.findUnique({
         where: { shop: session.shop }
       });
 
-      if (!shopSettings?.customersInitialSynced) {
-        // First install or sync not completed - trigger sync
-        console.log(`[AfterAuth] Starting initial customer sync for ${session.shop}`);
+      if (!shopSettings) {
+        // First install - create ShopSettings with Shopify's currency
+        console.log(`[AfterAuth] Creating ShopSettings for ${session.shop} with currency: ${shopifyCurrency}`);
+        try {
+          shopSettings = await db.shopSettings.create({
+            data: {
+              id: crypto.randomUUID(),
+              shop: session.shop,
+              storeName: shopDetails.name || session.shop.split('.')[0],
+              storeUrl: shopDetails.url || `https://${session.shop}`,
+              storeCurrency: shopifyCurrency,
+              timezone: shopDetails.ianaTimezone || 'UTC',
+              currencyDisplayType: 'SYMBOL',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }
+          });
+          console.log(`[AfterAuth] Created ShopSettings with currency: ${shopSettings.storeCurrency}`);
+        } catch (createError) {
+          console.error(`[AfterAuth] Failed to create ShopSettings:`, createError);
+        }
+      } else {
+        // ShopSettings exists - check if currency needs updating
+        // Only update if: currency is not set OR was defaulted to USD but Shopify reports different
+        const currentCurrency = shopSettings.storeCurrency;
+        const shouldUpdateCurrency = shopifyCurrency &&
+          shopifyCurrency !== 'USD' &&
+          currentCurrency === 'USD' &&
+          shopifyCurrency !== currentCurrency;
 
+        if (shouldUpdateCurrency) {
+          console.log(`[AfterAuth] Updating currency from ${currentCurrency} to ${shopifyCurrency} for ${session.shop}`);
+          try {
+            await db.shopSettings.update({
+              where: { shop: session.shop },
+              data: {
+                storeCurrency: shopifyCurrency,
+                updatedAt: new Date()
+              }
+            });
+            console.log(`[AfterAuth] Updated currency to ${shopifyCurrency}`);
+          } catch (updateError) {
+            console.error(`[AfterAuth] Failed to update currency:`, updateError);
+          }
+        }
+
+        // Also update timezone if it differs
+        if (shopDetails.ianaTimezone && shopSettings.timezone !== shopDetails.ianaTimezone) {
+          try {
+            await db.shopSettings.update({
+              where: { shop: session.shop },
+              data: {
+                timezone: shopDetails.ianaTimezone,
+                updatedAt: new Date()
+              }
+            });
+            console.log(`[AfterAuth] Updated timezone to ${shopDetails.ianaTimezone}`);
+          } catch (tzError) {
+            console.error(`[AfterAuth] Failed to update timezone:`, tzError);
+          }
+        }
+      }
+
+      // Trigger customer sync if not completed
+      if (!shopSettings?.customersInitialSynced) {
+        console.log(`[AfterAuth] Starting initial customer sync for ${session.shop}`);
         syncCustomersInBackground(session.shop, admin).catch((error) => {
           console.error(`[AfterAuth] Customer sync failed for ${session.shop}:`, error);
         });
       } else {
-        // Re-auth - customers already synced
         console.log(`[AfterAuth] Customers already synced for ${session.shop}, skipping re-sync`);
       }
     },
