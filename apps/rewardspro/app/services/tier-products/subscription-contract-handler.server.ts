@@ -11,6 +11,7 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { updateCustomerToEffectiveTier } from "../tier-resolution.server";
 import type {
   Customer,
   TierProduct,
@@ -63,6 +64,9 @@ interface ContractUpdate {
 export class SubscriptionContractHandler {
   /**
    * Create and activate a new subscription contract
+   *
+   * IMPORTANT: Checks for existing active subscriptions to prevent duplicates.
+   * A customer can only have one ACTIVE subscription at a time.
    */
   static async createContract(
     admin: AdminApiContext,
@@ -70,6 +74,51 @@ export class SubscriptionContractHandler {
   ): Promise<ContractResult> {
     try {
       console.log(`[ContractHandler] Creating contract for customer ${input.customer.id}`);
+
+      // CHECK FOR DUPLICATE ACTIVE SUBSCRIPTIONS
+      // A customer should only have one ACTIVE tier subscription at a time
+      const existingActiveSubscription = await db.tierSubscription.findFirst({
+        where: {
+          customerId: input.customer.id,
+          shop: input.shop,
+          status: 'ACTIVE'
+        },
+        include: { tier: true }
+      });
+
+      if (existingActiveSubscription) {
+        console.warn(
+          `[ContractHandler] Customer ${input.customer.id} already has active subscription ${existingActiveSubscription.id} ` +
+          `(tier: ${existingActiveSubscription.tier?.name || existingActiveSubscription.tierId})`
+        );
+
+        // Option 1: Return error - customer must cancel existing first
+        // Uncomment below to block duplicate subscriptions:
+        // return {
+        //   success: false,
+        //   error: `Customer already has an active subscription for tier ${existingActiveSubscription.tier?.name || 'unknown'}`
+        // };
+
+        // Option 2: Auto-cancel old subscription (upgrade/downgrade flow)
+        // This is the current behavior - new subscription replaces old one
+        console.log(`[ContractHandler] Cancelling existing subscription ${existingActiveSubscription.id} to replace with new one`);
+
+        await db.tierSubscription.update({
+          where: { id: existingActiveSubscription.id },
+          data: {
+            status: 'CANCELLED',
+            endDate: new Date(),
+            metadata: {
+              ...existingActiveSubscription.metadata as object,
+              cancelledReason: 'replaced_by_new_subscription',
+              replacedBySubscriptionCreatedAt: new Date().toISOString()
+            },
+            updatedAt: new Date()
+          }
+        });
+
+        console.log(`[ContractHandler] Previous subscription ${existingActiveSubscription.id} cancelled`);
+      }
 
       // Get selling plan details
       const sellingPlan = await db.sellingPlan.findFirst({
@@ -144,33 +193,11 @@ export class SubscriptionContractHandler {
         },
       });
 
-      // Update customer tier
-      await db.customer.update({
-        where: { id: input.customer.id },
-        data: {
-          currentTierId: input.tierProduct.tierId,
-          updatedAt: new Date(),
-        },
-      });
-
-      // Log tier change
-      await db.tierChangeLog.create({
-        data: {
-          id: uuidv4(),
-          customerId: input.customer.id,
-          shop: input.shop,
-          fromTierId: input.customer.currentTierId,
-          toTierId: input.tierProduct.tierId,
-          changeType: input.customer.currentTierId ? "UPGRADE" : "INITIAL_ASSIGNMENT",
-          triggerType: "SUBSCRIPTION_STARTED",
-          subscriptionId: subscription.id,
-          metadata: {
-            contractId,
-            sellingPlanId: input.sellingPlanId,
-            billingInterval: input.billingInterval,
-          },
-          createdAt: new Date(),
-        },
+      // Use tier resolution to determine effective tier
+      // The resolver handles priority: Manual Override > Subscription > Purchase > Spending-based
+      await updateCustomerToEffectiveTier(input.shop, input.customer.id, {
+        triggeredBy: 'subscription_contract_created',
+        subscriptionId: subscription.id
       });
 
       console.log(`[ContractHandler] Successfully created contract ${contractId}`);
@@ -416,31 +443,11 @@ export class SubscriptionContractHandler {
         },
       });
 
-      // Remove customer from tier
-      await db.customer.update({
-        where: { id: subscription.customerId },
-        data: {
-          currentTierId: null,
-          updatedAt: new Date(),
-        },
-      });
-
-      // Log tier change
-      await db.tierChangeLog.create({
-        data: {
-          id: uuidv4(),
-          customerId: subscription.customerId,
-          shop: subscription.shop,
-          fromTierId: subscription.tierId,
-          toTierId: null,
-          changeType: "DOWNGRADE",
-          triggerType: "SUBSCRIPTION_CANCELLED",
-          subscriptionId: subscription.id,
-          metadata: {
-            cancellationReason: reason,
-          },
-          createdAt: new Date(),
-        },
+      // Use tier resolution to determine effective tier after cancellation
+      // Customer may still have tier purchases or spending-based tiers
+      await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+        triggeredBy: 'subscription_contract_cancelled',
+        subscriptionId: subscription.id
       });
 
       return {

@@ -8,6 +8,7 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../../shopify.server";
 import db from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
+import { setManualOverride } from "../../services/tier-state.server";
 
 /**
  * GET /api/customers
@@ -115,19 +116,41 @@ export async function action({ request }: ActionFunctionArgs) {
     throw new Response("Customer already exists", { status: 409 });
   }
   
+  // Create customer without tier (tier will be set through proper channel)
+  const customerId = uuidv4();
   const customer = await db.customer.create({
     data: {
-      id: uuidv4(),
+      id: customerId,
       shop: session.shop,
       email: data.email,
       shopifyCustomerId: data.shopifyCustomerId,
       storeCredit: data.storeCredit || 0,
-      currentTierId: data.tierId || null,
+      currentTierId: null, // Set through setManualOverride below
       createdAt: new Date(),
       updatedAt: new Date()
     }
   });
-  
+
+  // If tier was specified, set it through proper tier assignment
+  // This ensures logging and CustomerTierState are properly updated
+  if (data.tierId) {
+    const tierResult = await setManualOverride(
+      session.shop,
+      customerId,
+      data.tierId,
+      'api',
+      {
+        permanent: true,
+        note: 'Initial tier set via API'
+      }
+    );
+
+    if (!tierResult.success) {
+      // Log warning but don't fail customer creation
+      console.warn(`[API/Customers] Failed to set initial tier for customer ${customerId}: ${tierResult.error}`);
+    }
+  }
+
   return json({
     success: true,
     customer: {

@@ -7,7 +7,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "../db.server";
-import TierResolver from "../services/tier-resolver.server";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import TierProductCache from "../services/tier-product-cache.server";
 import * as crypto from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -239,7 +239,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
       // 10. Re-evaluate tier if membership was refunded or spending changed significantly
       if (tierProductRefunded) {
-        await TierResolver.updateEffectiveTier(customer.id);
+        await updateCustomerToEffectiveTier(shopDomain, customer.id, {
+          triggeredBy: 'order_refunded',
+          orderId: orderRecord.id
+        });
         console.log(`[OrderRefunded] Re-evaluated tier for customer ${customer.id} after membership refund`);
       }
 

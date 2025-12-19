@@ -7,9 +7,9 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import db from '~/db.server';
-import { calculateCustomerTier } from './tier-calculation.server';
 import { hasManualOverride } from './manual-tier-assignment.server';
 import { sendWelcomeEmailNotification } from './email-notifications.server';
+import { updateCustomerToEffectiveTier } from './tier-resolution.server';
 import type { Customer, Tier } from '@prisma/client';
 
 /**
@@ -253,98 +253,43 @@ function parseCustomerPayload(payload: ShopifyCustomerWebhook) {
 
 /**
  * Calculate and assign appropriate tier based on customer spending
+ *
+ * This function uses the Tier Resolution System which considers ALL tier sources:
+ * 1. Manual overrides (admin-assigned tiers) - Priority 1
+ * 2. Active tier subscriptions (recurring payments) - Priority 2
+ * 3. Active tier purchases (one-time payments) - Priority 3
+ * 4. Spending-based tiers (automatic calculation) - Priority 4
+ *
+ * This ensures customers who purchased a tier keep it during webhook syncs.
  */
 async function calculateAndAssignTier(
   customerId: string,
   shop: string,
-  totalSpent: number
+  _totalSpent: number // kept for backward compatibility, but resolver calculates this
 ): Promise<Tier | null> {
-  // Check if customer has a manual override
-  const hasOverride = await hasManualOverride(customerId);
-  if (hasOverride) {
-    console.log(`[CustomerSync] Customer ${customerId} has manual override - skipping tier calculation`);
-    // Return current tier without changes
-    const customer = await db.customer.findUnique({
-      where: { id: customerId },
-      select: { tierId: true },
+  console.log(`[CustomerSync] Resolving tier for customer ${customerId} via Tier Resolution System`);
+
+  try {
+    // Use the Tier Resolution System which respects all tier sources
+    const result = await updateCustomerToEffectiveTier(shop, customerId, {
+      triggeredBy: 'customer_webhook'
     });
-    if (customer?.tierId) {
-      const currentTier = await db.tier.findUnique({
-        where: { id: customer.tierId },
+
+    console.log(`[CustomerSync] Tier resolution complete - source: ${result.source}, changed: ${result.changed}`);
+
+    // Return the new tier if one was assigned
+    if (result.newTierId) {
+      const tier = await db.tier.findUnique({
+        where: { id: result.newTierId }
       });
-      return currentTier;
+      return tier;
     }
+
+    return null;
+  } catch (error) {
+    console.error(`[CustomerSync] Tier resolution failed for customer ${customerId}:`, error);
     return null;
   }
-  
-  // Get all tiers for this shop, ordered by minSpend descending
-  const tiers = await db.tier.findMany({
-    where: {
-      shop: shop,
-    },
-    orderBy: {
-      minSpend: 'desc',
-    },
-  });
-  
-  if (tiers.length === 0) {
-    console.log(`[CustomerSync] No tiers configured for shop: ${shop}`);
-    return null;
-  }
-  
-  // Find the appropriate tier based on spending
-  let appropriateTier: Tier | null = null;
-  for (const tier of tiers) {
-    if (totalSpent >= tier.minSpend) {
-      appropriateTier = tier;
-      break; // Found the highest tier they qualify for
-    }
-  }
-  
-  if (!appropriateTier) {
-    // Customer doesn't qualify for any tier
-    console.log(`[CustomerSync] Customer doesn't qualify for any tier (spent: ${totalSpent})`);
-    return null;
-  }
-  
-  // Get current customer tier
-  const customer = await db.customer.findUnique({
-    where: { id: customerId },
-    select: { tierId: true },
-  });
-  
-  const previousTierId = customer?.tierId || null;
-  
-  // Only update if tier has changed
-  if (previousTierId !== appropriateTier.id) {
-    // Update customer's tier
-    await db.customer.update({
-      where: { id: customerId },
-      data: {
-        tierId: appropriateTier.id,
-        updatedAt: new Date(),
-      },
-    });
-    
-    // Log tier change
-    await db.tierChangeLog.create({
-      data: {
-        id: uuidv4(),
-        customerId: customerId,
-        previousTierId: previousTierId,
-        newTierId: appropriateTier.id,
-        changeType: previousTierId ? 
-          (totalSpent > 0 ? 'UPGRADE' : 'DOWNGRADE') : 
-          'INITIAL_ASSIGNMENT',
-        reason: `Webhook sync: Total spent ${totalSpent.toFixed(2)} qualifies for ${appropriateTier.name}`,
-        createdAt: new Date(),
-      },
-    });
-    
-    console.log(`[CustomerSync] Tier changed from ${previousTierId} to ${appropriateTier.id}`);
-  }
-  
-  return appropriateTier;
 }
 
 /**

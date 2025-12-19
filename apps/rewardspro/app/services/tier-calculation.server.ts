@@ -15,6 +15,7 @@ type AdminApiContextType = AdminApiContext | AdminApiContextWithRest;
 import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { hasManualOverride } from "./manual-tier-assignment.server";
+import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -46,6 +47,16 @@ interface CustomerSpending {
 /**
  * Calculate and update tier for a single customer using LOCAL DATABASE
  * Optimized for webhooks - uses local data instead of Shopify API
+ *
+ * IMPORTANT: This function should ONLY be called with skipUpdate: true.
+ * Direct tier updates from this function bypass the Tier Resolution System,
+ * which can cause purchased/subscription tiers to be incorrectly overwritten.
+ *
+ * For tier updates, always use `updateCustomerToEffectiveTier()` from
+ * tier-resolution.server.ts which respects tier priority:
+ * 1. Manual Override > 2. Subscription > 3. Purchase > 4. Spending-based
+ *
+ * @see updateCustomerToEffectiveTier in tier-resolution.server.ts
  */
 export async function calculateCustomerTierFromDB(
   shop: string,
@@ -53,7 +64,8 @@ export async function calculateCustomerTierFromDB(
   context?: {
     orderId?: string;
     triggerType?: string;
-    skipOverrideCheck?: boolean;  // NEW: Allow skipping override check for tier resolution
+    skipOverrideCheck?: boolean;  // Allow skipping override check for tier resolution
+    skipUpdate?: boolean;         // Skip DB updates - return calculation result only (for tier resolution)
   }
 ): Promise<TierCalculationResult> {
   try {
@@ -184,6 +196,21 @@ export async function calculateCustomerTierFromDB(
     // Check if tier needs to change
     const tierChanged = qualifyingTier?.id !== customer.currentTierId;
 
+    // If skipUpdate is true, return the result without making DB changes
+    // This is used by tier resolution to get spending-based tier info without side effects
+    if (context?.skipUpdate) {
+      console.log(`[TierCalc-DB] skipUpdate=true - returning calculation result without DB changes`);
+      return {
+        customerId,
+        previousTierId: customer.currentTierId,
+        previousTierName: currentTier?.name || null,
+        newTierId: qualifyingTier?.id || null,
+        newTierName: qualifyingTier?.name || null,
+        totalSpending: highestQualifyingSpend,
+        changed: tierChanged
+      };
+    }
+
     if (tierChanged) {
       // Update customer's tier
       await db.customer.update({
@@ -249,6 +276,16 @@ export async function calculateCustomerTierFromDB(
 /**
  * Calculate and update tier for a single customer using SHOPIFY API
  * Used by admin UI for accurate, real-time calculation
+ *
+ * IMPORTANT: This function should ONLY be called with skipUpdate: true.
+ * Direct tier updates from this function bypass the Tier Resolution System,
+ * which can cause purchased/subscription tiers to be incorrectly overwritten.
+ *
+ * For tier updates, always use `updateCustomerToEffectiveTier()` from
+ * tier-resolution.server.ts which respects tier priority:
+ * 1. Manual Override > 2. Subscription > 3. Purchase > 4. Spending-based
+ *
+ * @see updateCustomerToEffectiveTier in tier-resolution.server.ts
  */
 export async function calculateCustomerTier(
   shop: string,
@@ -257,6 +294,7 @@ export async function calculateCustomerTier(
   context?: {
     orderId?: string;
     triggerType?: string;
+    skipUpdate?: boolean;  // Skip DB updates - return calculation result only (for tier resolution)
   }
 ): Promise<TierCalculationResult> {
   try {
@@ -367,6 +405,21 @@ export async function calculateCustomerTier(
     // Check if tier needs to change
     const tierChanged = qualifyingTier?.id !== customer.currentTierId;
 
+    // If skipUpdate is true, return the result without making DB changes
+    // This is used by tier resolution to get spending-based tier info without side effects
+    if (context?.skipUpdate) {
+      console.log(`[TierCalc] skipUpdate=true - returning calculation result without DB changes`);
+      return {
+        customerId,
+        previousTierId: customer.currentTierId,
+        previousTierName: currentTier?.name || null,
+        newTierId: qualifyingTier?.id || null,
+        newTierName: qualifyingTier?.name || null,
+        totalSpending: highestQualifyingSpend,
+        changed: tierChanged
+      };
+    }
+
     if (tierChanged) {
       // Update customer's tier
       await db.customer.update({
@@ -429,48 +482,91 @@ export async function calculateCustomerTier(
 }
 
 /**
- * Calculate tiers for multiple customers
+ * Calculate tiers for multiple customers using the Tier Resolution System
+ *
+ * This function uses the resolver which considers ALL tier sources:
+ * 1. Manual overrides (admin-assigned tiers) - Priority 1
+ * 2. Active tier subscriptions (recurring payments) - Priority 2
+ * 3. Active tier purchases (one-time payments) - Priority 3
+ * 4. Spending-based tiers (automatic calculation) - Priority 4
  */
 export async function calculateTiersForCustomers(
   shop: string,
   customerIds: string[],
   admin: AdminApiContextType
 ): Promise<TierCalculationResult[]> {
-  console.log(`[TierCalc] Calculating tiers for ${customerIds.length} customers`);
-  
+  console.log(`[TierCalc] Calculating tiers for ${customerIds.length} customers via Tier Resolution System`);
+
   const results: TierCalculationResult[] = [];
-  
-  // Process customers in batches to avoid overwhelming the API
+
+  // Process customers in batches to avoid overwhelming the database
   const batchSize = 10;
   for (let i = 0; i < customerIds.length; i += batchSize) {
     const batch = customerIds.slice(i, i + batchSize);
+
+    // Use the resolver for each customer to respect tier priority
     const batchResults = await Promise.all(
-      batch.map(customerId => calculateCustomerTier(shop, customerId, admin))
+      batch.map(async (customerId) => {
+        try {
+          const result = await updateCustomerToEffectiveTier(shop, customerId, {
+            triggeredBy: 'admin_batch_recalculate'
+          });
+
+          return {
+            customerId,
+            previousTierId: result.previousTierId,
+            previousTierName: null, // Resolver doesn't return names
+            newTierId: result.newTierId,
+            newTierName: null, // Resolver doesn't return names
+            totalSpending: 0, // Resolver handles spending calculation internally
+            changed: result.changed
+          } as TierCalculationResult;
+        } catch (error) {
+          return {
+            customerId,
+            previousTierId: null,
+            previousTierName: null,
+            newTierId: null,
+            newTierName: null,
+            totalSpending: 0,
+            changed: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          } as TierCalculationResult;
+        }
+      })
     );
     results.push(...batchResults);
-    
-    // Add a small delay between batches to avoid rate limiting
+
+    // Add a small delay between batches to avoid overwhelming the database
     if (i + batchSize < customerIds.length) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
-  
+
   return results;
 }
 
 /**
- * Calculate tiers for all customers in a shop
+ * Calculate tiers for all customers in a shop using the Tier Resolution System
+ *
+ * This function uses the resolver which considers ALL tier sources:
+ * 1. Manual overrides (admin-assigned tiers) - Priority 1
+ * 2. Active tier subscriptions (recurring payments) - Priority 2
+ * 3. Active tier purchases (one-time payments) - Priority 3
+ * 4. Spending-based tiers (automatic calculation) - Priority 4
+ *
+ * This ensures that customers who purchased a tier keep it during recalculation.
  */
 export async function calculateAllCustomerTiers(
   shop: string,
   admin: AdminApiContextType
-): Promise<{ 
-  total: number; 
-  changed: number; 
+): Promise<{
+  total: number;
+  changed: number;
   errors: number;
   results: TierCalculationResult[];
 }> {
-  console.log(`[TierCalc] Starting tier calculation for all customers in shop ${shop}`);
+  console.log(`[TierCalc] Starting tier calculation for all customers in shop ${shop} via Tier Resolution System`);
   
   // Get all customers for the shop
   const customers = await db.customer.findMany({
@@ -811,8 +907,20 @@ function determineTierChangeType(
 }
 
 /**
- * Calculate tier for a customer after a new order
- * Used by the order webhook
+ * @deprecated This function is no longer used and bypasses the Tier Resolution System.
+ * Use `updateCustomerToEffectiveTier()` from tier-resolution.server.ts instead.
+ *
+ * This function directly calls calculateCustomerTier without skipUpdate: true,
+ * which can incorrectly overwrite purchased/subscription tiers with spending-based tiers.
+ *
+ * For order-triggered tier recalculation, use:
+ * ```
+ * await updateCustomerToEffectiveTier(shop, customerId, {
+ *   triggeredBy: 'order_webhook'
+ * });
+ * ```
+ *
+ * @see updateCustomerToEffectiveTier in tier-resolution.server.ts
  */
 export async function calculateTierAfterOrder(
   shop: string,

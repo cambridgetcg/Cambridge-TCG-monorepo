@@ -6,12 +6,16 @@
  * Will check each shop's settings to determine if recalculation is needed
  *
  * Add to vercel.json: { "path": "/api/cron/tier-recalculation", "schedule": "0 3 * * *" }
+ *
+ * IMPORTANT: Uses distributed locking to prevent concurrent execution
+ * across multiple Vercel regions.
  */
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "../db.server";
 import { recalculateTiersForAllCustomers } from "../services/tier-management.server";
+import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "crypto";
 
 // Configuration
@@ -71,7 +75,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  // 2. Parse query parameters
+  // 2. Clean up any expired locks from crashed instances
+  await cleanupExpiredLocks();
+
+  // 3. Acquire distributed lock to prevent concurrent execution
+  const lock = await acquireCronLock('tier-recalculation', 30); // 30 minute TTL (longer due to batch processing)
+
+  if (!lock.acquired) {
+    log('info', 'Another instance is running, skipping', {
+      existingLock: lock.existingLock
+    });
+    return json({
+      success: true,
+      skipped: true,
+      reason: 'lock_not_acquired',
+      correlationId
+    });
+  }
+
+  // 4. Parse query parameters
   const url = new URL(request.url);
   const isDryRun = url.searchParams.get('dry-run') === 'true';
 
@@ -231,6 +253,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       correlationId,
       error: error.message
     }, { status: 500 });
+  } finally {
+    // Always release the lock when done, even if there was an error
+    if (lock.lockId) {
+      await releaseCronLock(lock.lockId);
+      log('info', 'Released distributed lock');
+    }
   }
 }
 

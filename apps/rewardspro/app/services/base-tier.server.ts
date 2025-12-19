@@ -176,15 +176,19 @@ export async function shouldAssignBaseTier(
 }
 
 /**
- * Assign base tier to a customer if they don't have any tier
+ * @deprecated This function directly updates Customer.currentTierId, bypassing the Tier Resolution System.
+ * Use `updateCustomerToEffectiveTier()` from tier-resolution.server.ts instead.
  *
- * This function is typically called during tier resolution when no other
- * tier source qualifies.
+ * The tier resolution system already handles base tier assignment as the lowest priority source.
+ * Direct tier updates from this function can incorrectly overwrite purchased/subscription tiers.
+ *
+ * This function has no callers in the codebase and should be removed in future cleanup.
  *
  * @param shop - Shop domain
  * @param customerId - Customer ID
  * @param options - Assignment options
  * @returns Assignment result
+ * @see updateCustomerToEffectiveTier in tier-resolution.server.ts
  */
 export async function assignBaseTierIfNeeded(
   shop: string,

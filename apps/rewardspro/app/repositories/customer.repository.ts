@@ -348,6 +348,14 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
     }
   }
   
+  /**
+   * @deprecated This function bypasses the tier resolution system and should NOT be used.
+   *
+   * Direct tier updates can override purchased or subscription tiers with spending-based tiers.
+   * Use `updateCustomerToEffectiveTier()` from tier-resolution.server.ts instead for each customer.
+   *
+   * This function is kept for reference but has no callers in the codebase.
+   */
   async bulkUpdateTiers(updates: Array<{ id: string; tierId: string | null }>): Promise<void> {
     try {
       // Use transaction for atomic updates

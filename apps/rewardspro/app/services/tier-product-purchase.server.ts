@@ -1,8 +1,17 @@
 /**
  * Tier Product Purchase Service
- * 
- * Handles automatic tier assignment when customers purchase tier membership products.
- * Integrates with the manual override system to protect purchased tiers from recalculation.
+ *
+ * @deprecated This service is deprecated and no longer used.
+ *
+ * The new tier purchase flow is handled in webhooks.orders.paid.tsx which:
+ * 1. Creates a TierPurchase record in the database
+ * 2. Calls updateCustomerToEffectiveTier() from tier-resolution.server.ts
+ * 3. Respects the tier priority system (Manual > Subscription > Purchase > Spending)
+ *
+ * This file is kept for reference only. All functions are unused.
+ *
+ * @see app/routes/webhooks.orders.paid.tsx - New tier purchase handling
+ * @see app/services/tier-resolution.server.ts - Tier resolution system
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
@@ -35,6 +44,7 @@ interface TierInfo {
 
 /**
  * Process tier product purchase and assign customer to tier with override protection
+ * @deprecated Use the TierPurchase flow in webhooks.orders.paid.tsx instead
  */
 export async function processTierProductPurchase(
   shop: string,
@@ -382,6 +392,7 @@ function calculateOverrideOptions(duration: string): {
 
 /**
  * Check if a tier membership needs renewal
+ * @deprecated Use CustomerTierState.purchaseExpiresAt instead
  */
 export async function checkTierMembershipExpiry(
   customerId: string
@@ -468,6 +479,7 @@ export async function checkTierMembershipExpiry(
 
 /**
  * Handle tier product refund - remove override protection
+ * @deprecated Refund handling is done in webhooks.orders.refunded.tsx
  */
 export async function handleTierProductRefund(
   shop: string,

@@ -4,6 +4,7 @@ import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { getAuroraClient } from "../utils/aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 
 /**
  * Calculate tier progression data for a customer
@@ -497,49 +498,39 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           console.log('[Proxy API] ✅ Bronze tier created:', assignedTier.id);
         }
 
-        // Update customer's currentTierId
-        if (assignedTier) {
-          console.log('[Proxy API] ➕ Updating customer currentTierId:', {
-            customerId: customer.id,
-            tierId: assignedTier.id,
-            tierName: assignedTier.name
+        // Use tier resolution system to assign the correct tier
+        // This respects priority: Manual Override > Subscription > Purchase > Spending-based
+        console.log('[Proxy API] ➕ Using tier resolution system for customer:', customer.id);
+
+        try {
+          const result = await updateCustomerToEffectiveTier(shop, customer.id, {
+            triggeredBy: 'proxy_api_first_access'
           });
 
-          try {
-            await prisma.customer.update({
-              where: { id: customer.id },
-              data: { currentTierId: assignedTier.id }
+          console.log('[Proxy API] ✅ Tier resolution complete:', {
+            changed: result.changed,
+            source: result.source,
+            tierId: result.newTierId
+          });
+
+          // Fetch the updated tier for the response
+          if (result.newTierId) {
+            currentTier = await prisma.tier.findUnique({
+              where: { id: result.newTierId }
             });
-
-            console.log('[Proxy API] ✅ Customer tier updated successfully');
-
-            // Also create a tier change log entry
-            await prisma.tierChangeLog.create({
-              data: {
-                customerId: customer.id,
-                shop: shop,
-                fromTierId: null,
-                fromTierName: null,
-                toTierId: assignedTier.id,
-                toTierName: assignedTier.name,
-                changeType: "INITIAL_ASSIGNMENT",
-                triggerType: "ACCOUNT_CREATED",
-                totalSpending: customerSpending,
-                note: "Tier auto-assigned on first proxy API call"
-              }
-            });
-
+          } else if (assignedTier) {
+            // Fallback to assignedTier if resolver didn't assign one
             currentTier = assignedTier;
-          } catch (error) {
-            console.error('[Proxy API] ❌ Failed to update customer tier:', error);
-            console.error('[Proxy API] ❌ Error details:', {
-              message: error.message,
-              code: error.code,
-              meta: error.meta
-            });
           }
-        } else {
-          console.log('[Proxy API] ⚠️ No tier available to assign - this should not happen!');
+        } catch (error: any) {
+          console.error('[Proxy API] ❌ Failed to resolve customer tier:', error);
+          console.error('[Proxy API] ❌ Error details:', {
+            message: error.message,
+            code: error.code,
+            meta: error.meta
+          });
+          // Fallback to assignedTier if resolver failed
+          currentTier = assignedTier;
         }
       }
 

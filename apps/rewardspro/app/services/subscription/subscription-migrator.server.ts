@@ -8,7 +8,7 @@ import { db } from "~/db.server";
 import type { TierSubscription, Prisma } from "@prisma/client";
 import { withRetry } from "~/utils/retry";
 import { validatePrice } from "~/utils/price-validation";
-import { TierResolver } from "./tier-resolver.server";
+import { updateCustomerToEffectiveTier } from "../tier-resolution.server";
 
 export interface MigrationOptions {
   immediateSwitch?: boolean;      // Switch immediately or at next billing
@@ -107,10 +107,13 @@ export class SubscriptionMigrator {
         // 4. Calculate prorated credit if needed
         let creditAmount = 0;
         if (creditUnusedTime && subscription.nextBillingDate) {
+          // Cast dates explicitly to avoid TypeScript deep type instantiation error
+          const lastBilling = (subscription.lastBillingDate || subscription.startDate) as Date;
+          const nextBilling = subscription.nextBillingDate as Date;
           creditAmount = await this.calculateProratedCredit(
             subscription.currentPrice.toNumber(),
-            subscription.lastBillingDate || subscription.startDate,
-            subscription.nextBillingDate,
+            lastBilling,
+            nextBilling,
             new Date()
           );
         }
@@ -189,7 +192,10 @@ export class SubscriptionMigrator {
 
         // 10. Update customer tier if immediate switch
         if (immediateSwitch) {
-          await TierResolver.updateEffectiveTier(subscription.customerId);
+          await updateCustomerToEffectiveTier(shop, subscription.customerId, {
+            triggeredBy: 'subscription_migration',
+            subscriptionId: subscription.id
+          });
         }
 
         return {

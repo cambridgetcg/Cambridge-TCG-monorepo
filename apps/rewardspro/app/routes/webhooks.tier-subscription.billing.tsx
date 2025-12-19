@@ -7,6 +7,8 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
+import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop, payload } = await authenticate.webhook(request);
@@ -107,7 +109,8 @@ async function handleSuccessfulBilling(
   idempotencyKey: string
 ) {
   const now = new Date();
-  
+  const wasInFailedStatus = subscription.status === 'FAILED';
+
   // Record successful billing attempt
   await db.subscriptionBillingAttempt.create({
     data: {
@@ -125,6 +128,7 @@ async function handleSuccessfulBilling(
       metadata: {
         orderId: billingAttempt.order?.id,
         orderNumber: billingAttempt.order?.name,
+        recoveredFromFailed: wasInFailedStatus,
       },
       createdAt: now,
       updatedAt: now,
@@ -137,7 +141,25 @@ async function handleSuccessfulBilling(
     subscription.billingInterval
   );
 
-  // Update subscription
+  // If subscription was in FAILED status, recover it to ACTIVE using state machine
+  // This ensures proper status transition validation and logging
+  if (wasInFailedStatus) {
+    console.log(`[TierBillingWebhook] Recovering subscription ${subscription.id} from FAILED to ACTIVE`);
+
+    await TierSubscriptionBridgeV2.handleStatusChange({
+      shop: subscription.shop,
+      subscriptionId: subscription.id,
+      newStatus: 'ACTIVE',
+      reason: 'Payment recovered after failure',
+      metadata: {
+        recoveredAt: now.toISOString(),
+        billingAttemptId: billingAttempt.id,
+        previousFailureCount: subscription.failureCount || 0,
+      }
+    });
+  }
+
+  // Update subscription billing details
   await db.tierSubscription.update({
     where: { id: subscription.id },
     data: {
@@ -150,39 +172,18 @@ async function handleSuccessfulBilling(
     },
   });
 
-  // Ensure customer is assigned to tier
-  if (subscription.customer.currentTierId !== subscription.tierId) {
-    await db.customer.update({
-      where: { id: subscription.customerId },
-      data: {
-        currentTierId: subscription.tierId,
-        updatedAt: now,
-      },
-    });
-
-    // Log tier renewal
-    await db.tierChangeLog.create({
-      data: {
-        id: uuidv4(),
-        customerId: subscription.customerId,
-        shop: subscription.shop,
-        fromTierId: subscription.customer.currentTierId,
-        toTierId: subscription.tierId,
-        fromTierName: null,
-        toTierName: subscription.tier.name,
-        changeType: "UPGRADE",
-        triggerType: "SUBSCRIPTION_ACTIVATED",
-        subscriptionId: subscription.id,
-        metadata: {
-          billingAttemptId: billingAttempt.id,
-          amount: billingAttempt.total_price,
-        },
-        createdAt: now,
-      },
+  // Use tier resolution system to determine effective tier
+  // This respects priority: Manual Override > Subscription > Purchase > Spending-based
+  // Note: If recovering from FAILED, handleStatusChange already triggers tier resolution
+  // but we call it again here to ensure consistency in all cases
+  if (!wasInFailedStatus) {
+    await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+      triggeredBy: 'subscription_billing_success',
+      subscriptionId: subscription.id
     });
   }
 
-  console.log(`[TierBillingWebhook] Successfully processed billing for subscription ${subscription.id}`);
+  console.log(`[TierBillingWebhook] Successfully processed billing for subscription ${subscription.id}${wasInFailedStatus ? ' (recovered from FAILED)' : ''}`);
 }
 
 /**
@@ -234,36 +235,12 @@ async function handleFailedBilling(
     updateData.endDate = now;
     
     console.log(`[TierBillingWebhook] Subscription ${subscription.id} marked as FAILED after ${MAX_FAILURES} attempts`);
-    
-    // Remove customer from tier
-    await db.customer.update({
-      where: { id: subscription.customerId },
-      data: {
-        currentTierId: null,
-        updatedAt: now,
-      },
-    });
 
-    // Log tier removal
-    await db.tierChangeLog.create({
-      data: {
-        id: uuidv4(),
-        customerId: subscription.customerId,
-        shop,
-        fromTierId: subscription.tierId,
-        toTierId: null,
-        fromTierName: subscription.tier.name,
-        toTierName: null,
-        changeType: "DOWNGRADE",
-        triggerType: "SUBSCRIPTION_CANCELLED",
-        subscriptionId: subscription.id,
-        metadata: {
-          reason: "Exceeded maximum billing failures",
-          failureCount: newFailureCount,
-          lastError: billingAttempt.error_message,
-        },
-        createdAt: now,
-      },
+    // Use tier resolution to determine effective tier after subscription failure
+    // Customer may still have a tier purchase or spending-based tier
+    await updateCustomerToEffectiveTier(shop, subscription.customerId, {
+      triggeredBy: 'subscription_billing_failed',
+      subscriptionId: subscription.id
     });
   }
 

@@ -7,6 +7,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
 import { v4 as uuidv4 } from "uuid";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop, payload } = await authenticate.webhook(request);
@@ -67,50 +68,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    // Remove customer from tier if they don't have another active subscription
-    const otherActiveSubscriptions = await db.tierSubscription.findFirst({
-      where: {
-        customerId: subscriptionWithRelations.customerId,
-        status: "ACTIVE",
-        id: { not: subscriptionWithRelations.id },
-      },
+    // Use tier resolution to determine effective tier after subscription cancellation
+    // The resolver handles: other active subscriptions, tier purchases, and spending-based tiers
+    const result = await updateCustomerToEffectiveTier(shop, subscriptionWithRelations.customerId, {
+      triggeredBy: isCancelled ? 'subscription_cancelled' : 'subscription_expired',
+      subscriptionId: subscriptionWithRelations.id
     });
 
-    if (!otherActiveSubscriptions) {
-      // No other active subscriptions, remove from tier
-      await db.customer.update({
-        where: { id: subscriptionWithRelations.customerId },
-        data: {
-          currentTierId: null,
-          updatedAt: now,
-        },
-      });
-
-      // Log tier removal
-      await db.tierChangeLog.create({
-        data: {
-          id: uuidv4(),
-          customerId: subscriptionWithRelations.customerId,
-          shop,
-          fromTierId: subscriptionWithRelations.tierId,
-          toTierId: null,
-          fromTierName: subscriptionWithRelations.tier.name,
-          toTierName: null,
-          changeType: "DOWNGRADE",
-          triggerType: isCancelled ? "SUBSCRIPTION_CANCELLED" : "SUBSCRIPTION_EXPIRED",
-          subscriptionId: subscriptionWithRelations.id,
-          metadata: {
-            cancellationReason: subscription.cancellation_reason,
-            cancelledBy: subscription.cancelled_by,
-            contractId,
-          },
-          createdAt: now,
-        },
-      });
-
-      console.log(`[TierCancellationWebhook] Removed customer ${subscriptionWithRelations.customerId} from tier ${subscriptionWithRelations.tier.name}`);
+    if (result.changed) {
+      console.log(`[TierCancellationWebhook] Customer ${subscriptionWithRelations.customerId} tier changed from ${result.previousTierId} to ${result.newTierId} (source: ${result.source})`);
     } else {
-      console.log(`[TierCancellationWebhook] Customer has other active subscriptions, keeping tier assignment`);
+      console.log(`[TierCancellationWebhook] Customer ${subscriptionWithRelations.customerId} tier unchanged (source: ${result.source})`);
     }
 
     // Check if this was a trial that ended

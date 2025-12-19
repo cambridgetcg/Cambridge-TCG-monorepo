@@ -6,12 +6,16 @@
  *
  * Should run daily at midnight UTC
  * Add to vercel.json: { "path": "/api/cron/tier-maintenance", "schedule": "0 0 * * *" }
+ *
+ * IMPORTANT: Uses distributed locking to prevent concurrent execution
+ * across multiple Vercel regions.
  */
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "../db.server";
-import TierResolver from "../services/tier-resolver.server";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
+import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "crypto";
 import { Decimal } from "decimal.js";
 
@@ -47,7 +51,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  // 2. Parse query parameters
+  // 2. Clean up any expired locks from crashed instances
+  await cleanupExpiredLocks();
+
+  // 3. Acquire distributed lock to prevent concurrent execution
+  const lock = await acquireCronLock('tier-maintenance', 15); // 15 minute TTL
+
+  if (!lock.acquired) {
+    log('info', 'Another instance is running, skipping', {
+      existingLock: lock.existingLock
+    });
+    return json({
+      success: true,
+      skipped: true,
+      reason: 'lock_not_acquired',
+      correlationId
+    });
+  }
+
+  // 4. Parse query parameters
   const url = new URL(request.url);
   const isDryRun = url.searchParams.get('dry-run') === 'true';
 
@@ -84,13 +106,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const subscription of expiredSubscriptions) {
       try {
         if (!isDryRun) {
-          // Mark as expired and update customer's tier
+          // Mark as expired
           await db.tierSubscription.update({
             where: { id: subscription.id },
-            data: { status: 'EXPIRED' }
+            data: {
+              status: 'EXPIRED',
+              endDate: new Date()
+            }
           });
 
-          await TierResolver.handleMembershipExpiration(subscription);
+          // Recalculate effective tier using resolver
+          await updateCustomerToEffectiveTier(subscription.shop, subscription.customerId, {
+            triggeredBy: 'subscription_expired',
+            subscriptionId: subscription.id
+          });
         }
 
         results.expiredMemberships++;
@@ -128,13 +157,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
     for (const purchase of expiredPurchases) {
       try {
         if (!isDryRun) {
-          // Mark as expired and update customer's tier
+          // Mark as expired
           await db.tierPurchase.update({
             where: { id: purchase.id },
             data: { status: 'EXPIRED' }
           });
 
-          await TierResolver.handleMembershipExpiration(purchase);
+          // Recalculate effective tier using resolver
+          await updateCustomerToEffectiveTier(purchase.shop, purchase.customerId, {
+            triggeredBy: 'purchase_expired',
+            purchaseId: purchase.id
+          });
         }
 
         results.expiredMemberships++;
@@ -245,49 +278,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
             );
 
             if (daysSinceWarning >= DOWNGRADE_WARNING_DAYS) {
-              // Execute downgrade
+              // Execute downgrade using tier resolution system
+              // This respects priority: Manual Override > Subscription > Purchase > Spending-based
               if (!isDryRun) {
-                await db.customer.update({
-                  where: { id: customer.id },
-                  data: {
-                    currentTierId: earnedTier?.id || null,
-                    updatedAt: new Date()
-                  }
+                const result = await updateCustomerToEffectiveTier(customer.shop, customer.id, {
+                  triggeredBy: 'periodic_maintenance_downgrade'
                 });
 
-                await db.tierChangeLog.create({
-                  data: {
-                    id: crypto.randomUUID(),
+                // Only count as downgrade if tier actually changed
+                if (result.changed) {
+                  results.downgrades++;
+                  results.details.push({
+                    type: 'downgrade_executed',
                     customerId: customer.id,
-                    shop: customer.shop,
-                    fromTierId: customer.currentTierId,
-                    fromTierName: customer.currentTier?.name,
-                    toTierId: earnedTier?.id,
-                    toTierName: earnedTier?.name,
-                    changeType: 'DOWNGRADE',
-                    triggerType: 'PERIODIC_REVIEW',
-                    totalSpending: customer.totalSpent,
-                    periodSpending: customer.netSpent,
-                    metadata: {
-                      reason: 'Grace period expired',
-                      inactiveDays: DOWNGRADE_GRACE_PERIOD_DAYS
-                    },
-                    createdAt: new Date()
-                  }
-                });
+                    fromTier: customer.currentTier?.name,
+                    toTier: result.newTierId ? 'resolved by system' : null,
+                    source: result.source,
+                    shop: customer.shop
+                  });
+                }
 
                 // TODO: Send downgrade notification email
                 // await sendDowngradeEmail(customer, earnedTier);
+              } else {
+                // Dry run - just record what would happen
+                results.downgrades++;
+                results.details.push({
+                  type: 'downgrade_executed',
+                  customerId: customer.id,
+                  fromTier: customer.currentTier?.name,
+                  toTier: earnedTier?.name,
+                  shop: customer.shop
+                });
               }
-
-              results.downgrades++;
-              results.details.push({
-                type: 'downgrade_executed',
-                customerId: customer.id,
-                fromTier: customer.currentTier?.name,
-                toTier: earnedTier?.name,
-                shop: customer.shop
-              });
             }
           }
         }
@@ -297,11 +320,52 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
 
-    // 6. Log summary
+    // 6. Check for CustomerTierState consistency (Customer.currentTierId vs CustomerTierState.effectiveTierId)
+    // This detects when the two sources of truth have gotten out of sync
+    let consistencyRepairs = 0;
+    try {
+      const desyncedCustomers = await db.$queryRaw<
+        Array<{ id: string; shop: string; currentTierId: string | null; effectiveTierId: string | null }>
+      >`
+        SELECT c.id, c.shop, c."currentTierId", cts."effectiveTierId"
+        FROM "Customer" c
+        JOIN "CustomerTierState" cts ON c.id = cts."customerId"
+        WHERE c."currentTierId" IS DISTINCT FROM cts."effectiveTierId"
+        LIMIT 100
+      `;
+
+      if (desyncedCustomers.length > 0) {
+        log('warn', `Found ${desyncedCustomers.length} customers with tier state desync`);
+
+        if (!isDryRun) {
+          // Auto-repair by re-resolving each customer's tier
+          for (const customer of desyncedCustomers) {
+            try {
+              await updateCustomerToEffectiveTier(customer.shop, customer.id, {
+                triggeredBy: 'consistency_repair'
+              });
+              consistencyRepairs++;
+            } catch (error: any) {
+              log('error', `Failed to repair customer ${customer.id}`, { error: error.message });
+              results.errors++;
+            }
+          }
+
+          log('info', `Repaired ${consistencyRepairs} desynced customer tier states`);
+        } else {
+          log('info', `[DRY RUN] Would repair ${desyncedCustomers.length} desynced customer tier states`);
+        }
+      }
+    } catch (error: any) {
+      log('error', 'Failed to check tier state consistency', { error: error.message });
+    }
+
+    // 7. Log summary
     const summary = {
       expiredMemberships: results.expiredMemberships,
       downgradeWarnings: results.downgradeWarnings,
       downgrades: results.downgrades,
+      consistencyRepairs,
       errors: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun
@@ -328,6 +392,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
       correlationId,
       error: error.message
     });
+  } finally {
+    // Always release the lock when done, even if there was an error
+    if (lock.lockId) {
+      await releaseCronLock(lock.lockId);
+      log('info', 'Released distributed lock');
+    }
   }
 }
 

@@ -76,7 +76,6 @@ import {
   getTierHistory
 } from "../services/manual-tier-assignment.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
-import { checkTierMembershipExpiry } from "../services/tier-product-purchase.server";
 import { syncCustomersInBackground } from "../services/background-customer-sync.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { TierBadge } from "../components/TierBadge";

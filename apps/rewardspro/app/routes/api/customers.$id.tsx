@@ -7,6 +7,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../../shopify.server";
 import db from "../../db.server";
+import { setManualOverride } from "../../services/tier-state.server";
 
 /**
  * GET /api/customers/:id
@@ -83,22 +84,56 @@ export async function action({ request, params }: ActionFunctionArgs) {
     case "PATCH":
     case "PUT": {
       const data = await request.json();
-      
-      const customer = await db.customer.update({
-        where: {
-          id: params.id
-        },
-        data: {
-          ...(data.storeCredit !== undefined && {
-            storeCredit: parseFloat(data.storeCredit)
-          }),
-          ...(data.currentTierId !== undefined && {
-            currentTierId: data.currentTierId
-          }),
-          updatedAt: new Date()
+
+      // Handle tier change through the manual override system (not direct update)
+      // This ensures proper logging, CustomerTierState update, and tier resolution
+      if (data.currentTierId !== undefined) {
+        const overrideResult = await setManualOverride(
+          session.shop,
+          params.id,
+          data.currentTierId, // Can be null to remove tier
+          'api', // Admin user ID - could be enhanced to pass actual user from session
+          {
+            permanent: true,
+            note: data.tierNote || 'Updated via API'
+          }
+        );
+
+        if (!overrideResult.success) {
+          return json({
+            success: false,
+            error: overrideResult.error || 'Failed to update tier'
+          }, { status: 400 });
         }
-      });
-      
+      }
+
+      // Handle other updates (like storeCredit)
+      const updateData: any = {
+        updatedAt: new Date()
+      };
+
+      if (data.storeCredit !== undefined) {
+        updateData.storeCredit = parseFloat(data.storeCredit);
+      }
+
+      // Only update if we have fields other than tier to update
+      let customer;
+      if (Object.keys(updateData).length > 1) { // More than just updatedAt
+        customer = await db.customer.update({
+          where: { id: params.id },
+          data: updateData
+        });
+      } else {
+        // Just fetch the customer for response
+        customer = await db.customer.findUnique({
+          where: { id: params.id }
+        });
+      }
+
+      if (!customer) {
+        throw new Response("Customer not found", { status: 404 });
+      }
+
       return json({
         success: true,
         customer: {

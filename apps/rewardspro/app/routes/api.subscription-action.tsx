@@ -10,6 +10,7 @@ import { json } from "@remix-run/node";
 import db from "~/db.server";
 import { authenticate } from "~/shopify.server";
 import { pauseCustomerSubscription, resumeCustomerSubscription, cancelCustomerSubscription } from "~/services/subscription-contract.server";
+import { TierSubscriptionBridgeV2 } from "~/services/subscription/tier-subscription-bridge.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   try {
@@ -93,13 +94,13 @@ export async function action({ request }: ActionFunctionArgs) {
               },
             });
           } else {
-            await db.tierSubscription.update({
-              where: { id: subscriptionId },
-              data: {
-                status: 'PAUSED',
-                pausedAt: new Date(),
-                updatedAt: new Date(),
-              },
+            // Use state machine for tier subscriptions to ensure proper validation and tier resolution
+            await TierSubscriptionBridgeV2.handleStatusChange({
+              shop,
+              subscriptionId,
+              newStatus: 'PAUSED',
+              reason: 'Customer requested pause',
+              metadata: { source: 'customer_portal' }
             });
           }
         }
@@ -120,14 +121,13 @@ export async function action({ request }: ActionFunctionArgs) {
               },
             });
           } else {
-            await db.tierSubscription.update({
-              where: { id: subscriptionId },
-              data: {
-                status: 'ACTIVE',
-                pausedAt: null,
-                resumedAt: new Date(),
-                updatedAt: new Date(),
-              },
+            // Use state machine for tier subscriptions to ensure proper validation and tier resolution
+            await TierSubscriptionBridgeV2.handleStatusChange({
+              shop,
+              subscriptionId,
+              newStatus: 'ACTIVE',
+              reason: 'Customer requested resume',
+              metadata: { source: 'customer_portal', resumedAt: new Date().toISOString() }
             });
           }
         }
@@ -147,27 +147,27 @@ export async function action({ request }: ActionFunctionArgs) {
                 updatedAt: new Date(),
               },
             });
-          } else {
-            await db.tierSubscription.update({
-              where: { id: subscriptionId },
+
+            // Update customer subscription status for app subscriptions
+            await db.customer.update({
+              where: { id: customer.id },
               data: {
-                status: 'CANCELLED',
-                cancelledAt: new Date(),
-                cancellationReason: reason,
+                hasActiveSubscription: false,
+                subscriptionTier: null,
                 updatedAt: new Date(),
               },
             });
+          } else {
+            // Use state machine for tier subscriptions to ensure proper validation and tier resolution
+            // This will handle the customer tier update automatically via tier resolution
+            await TierSubscriptionBridgeV2.handleStatusChange({
+              shop,
+              subscriptionId,
+              newStatus: 'CANCELLED',
+              reason: reason || 'Customer requested cancellation',
+              metadata: { source: 'customer_portal' }
+            });
           }
-
-          // Update customer subscription status
-          await db.customer.update({
-            where: { id: customer.id },
-            data: {
-              hasActiveSubscription: false,
-              subscriptionTier: null,
-              updatedAt: new Date(),
-            },
-          });
         }
         break;
 
