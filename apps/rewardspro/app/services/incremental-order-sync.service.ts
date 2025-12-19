@@ -7,6 +7,7 @@
 import db from '../db.server';
 import { v4 as uuidv4 } from 'uuid';
 import type { AdminApiContext } from '@shopify/shopify-app-remix/server';
+import { updateCustomerToEffectiveTier } from './tier-resolution.server';
 
 // Helper function to extract numeric ID from GraphQL ID
 function extractNumericId(gid: string | null | undefined): string | null {
@@ -498,7 +499,8 @@ export class IncrementalOrderSync {
           shopifyOrderName: orderData.name,
           customerId,
           email: orderData.email || orderData.customer?.email || '',
-          currency: orderData.currencyCode || 'USD',
+          // Use shop currency to match shopMoney amounts (currencyCode is presentment)
+          currency: orderData.currentSubtotalPriceSet?.shopMoney?.currencyCode || orderData.currencyCode || 'USD',
           subtotalPrice: parseFloat(orderData.currentSubtotalPriceSet?.shopMoney?.amount || '0'),
           totalDiscounts: parseFloat(orderData.currentTotalDiscountsSet?.shopMoney?.amount || '0'),
           totalShipping: parseFloat(orderData.totalShippingPriceSet?.shopMoney?.amount || '0'),
@@ -696,13 +698,17 @@ export class IncrementalOrderSync {
             }
           });
 
-          // Assign base tier to guest customer
-          const { ensureBaseTierExists } = await import('./tier-management.server');
-          const baseTier = await ensureBaseTierExists(shop);
-          await tx.customer.update({
-            where: { id: guestCustomer.id },
-            data: { currentTierId: baseTier.id }
-          });
+          // Use resolver to assign tier after transaction (don't bypass tier resolution)
+          // The resolver will be called after transaction commits
+          setTimeout(async () => {
+            try {
+              await updateCustomerToEffectiveTier(shop, guestCustomer.id, {
+                triggeredBy: 'order_sync_guest_created'
+              });
+            } catch (err) {
+              console.error(`[IncrementalSync] Failed to resolve tier for guest customer:`, err);
+            }
+          }, 0);
 
           return guestCustomer.id;
         }
@@ -736,13 +742,16 @@ export class IncrementalOrderSync {
           }
         });
 
-        // Assign base tier
-        const { ensureBaseTierExists } = await import('./tier-management.server');
-        const baseTier = await ensureBaseTierExists(shop);
-        await tx.customer.update({
-          where: { id: newUnknownCustomer.id },
-          data: { currentTierId: baseTier.id }
-        });
+        // Use resolver to assign tier after transaction (don't bypass tier resolution)
+        setTimeout(async () => {
+          try {
+            await updateCustomerToEffectiveTier(shop, newUnknownCustomer.id, {
+              triggeredBy: 'order_sync_unknown_created'
+            });
+          } catch (err) {
+            console.error(`[IncrementalSync] Failed to resolve tier for unknown customer:`, err);
+          }
+        }, 0);
 
         return newUnknownCustomer.id;
       });
@@ -781,13 +790,16 @@ export class IncrementalOrderSync {
         }
       });
 
-      // Assign base tier to new customer
-      const { ensureBaseTierExists } = await import('./tier-management.server');
-      const baseTier = await ensureBaseTierExists(shop);
-      await tx.customer.update({
-        where: { id: newCustomer.id },
-        data: { currentTierId: baseTier.id }
-      });
+      // Use resolver to assign tier after transaction (don't bypass tier resolution)
+      setTimeout(async () => {
+        try {
+          await updateCustomerToEffectiveTier(shop, newCustomer.id, {
+            triggeredBy: 'order_sync_customer_created'
+          });
+        } catch (err) {
+          console.error(`[IncrementalSync] Failed to resolve tier for new customer:`, err);
+        }
+      }, 0);
 
       return newCustomer.id;
     });

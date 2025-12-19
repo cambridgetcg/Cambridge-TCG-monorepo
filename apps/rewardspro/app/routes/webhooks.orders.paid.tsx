@@ -72,7 +72,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log(`  - Webhook ID: ${request.headers.get('X-Shopify-Webhook-Id') || 'N/A'}`);
     console.log(`  - Order Updated At: ${order.updated_at}`);
     console.log(`  - Customer: ${order.customer?.email || 'Guest'}`);
-    console.log(`  - Total: ${order.total_price} ${order.currency}`);
+    // Log both shop and presentment currency for multi-currency visibility
+    const shopMoney = order.total_price_set?.shop_money;
+    const presentmentMoney = order.total_price_set?.presentment_money;
+    console.log(`  - Shop Currency Total: ${shopMoney?.amount || order.total_price} ${shopMoney?.currency_code || 'N/A'}`);
+    console.log(`  - Presentment Total: ${presentmentMoney?.amount || order.total_price} ${presentmentMoney?.currency_code || order.currency}`);
+    console.log(`  - Is Multi-Currency: ${shopMoney?.currency_code !== presentmentMoney?.currency_code ? 'YES' : 'NO'}`);
     console.log('─────────────────────────────────────────────────────────────────────\n');
 
     // Generate idempotency key
@@ -1299,6 +1304,20 @@ async function createOrderRecord(_dbOrTx: any, params: {
   const now = new Date();
 
   // Use the same pattern as the working sync service
+  // IMPORTANT: REST API total_price is in SHOP CURRENCY, not presentment currency
+  // So we must store the shop currency code to match the amount
+  // See: docs/multi-currency-order-handling.md for full analysis
+  const shopCurrencyCode = order.total_price_set?.shop_money?.currency_code;
+  const presentmentCurrencyCode = order.currency;
+  const orderCurrency = shopCurrencyCode || presentmentCurrencyCode || 'USD';
+
+  if (shopCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode) {
+    console.log(`[OrderPaid] Multi-currency order detected:`);
+    console.log(`  - Customer paid in: ${presentmentCurrencyCode} (${order.total_price_set?.presentment_money?.amount})`);
+    console.log(`  - Shop receives: ${shopCurrencyCode} (${order.total_price})`);
+    console.log(`  - Storing as: ${orderCurrency}`);
+  }
+
   const newOrder = await db.order.create({
     data: {
       id: orderId,
@@ -1308,7 +1327,7 @@ async function createOrderRecord(_dbOrTx: any, params: {
       shopifyOrderName: order.name || '',
       customerId: customer?.id || "unknown", // Match sync service - use "unknown" for guest orders
       email: order.email || order.customer?.email || '',
-      currency: order.currency || 'USD',
+      currency: orderCurrency, // Use shop currency to match total_price amount
       subtotalPrice: parseFloat(order.subtotal_price || '0'),
       totalDiscounts: parseFloat(order.total_discounts || '0'),
       totalShipping: parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),

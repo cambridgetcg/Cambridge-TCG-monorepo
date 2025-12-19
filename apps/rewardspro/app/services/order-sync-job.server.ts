@@ -758,7 +758,8 @@ async function createNewOrder(
       shopifyOrderName: orderData.name || "",
       customerId: customer.id,
       email: orderData.email || customer?.email || "",
-      currency: orderData.currencyCode || "USD",
+      // Use shop currency to match shopMoney amounts (currencyCode is presentment)
+      currency: orderData.subtotalPriceSet?.shopMoney?.currencyCode || orderData.currencyCode || "USD",
       subtotalPrice: parseFloat(orderData.subtotalPriceSet?.shopMoney?.amount || "0"),
       totalDiscounts: parseFloat(orderData.totalDiscountsSet?.shopMoney?.amount || "0"),
       totalShipping: parseFloat(orderData.totalShippingPriceSet?.shopMoney?.amount || "0"),
