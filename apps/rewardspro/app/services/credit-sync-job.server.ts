@@ -287,6 +287,7 @@ export async function processCreditSyncBatch(
           });
 
           // Create ledger entry for audit trail
+          // Note: syncStatus and syncedAt columns don't exist in production yet
           await tx.storeCreditLedger.create({
             data: {
               id: crypto.randomUUID(),
@@ -295,14 +296,13 @@ export async function processCreditSyncBatch(
               amount: difference, // Positive = credit added, negative = reduced
               balance: shopifyBalance, // New balance after sync
               type: 'SHOPIFY_SYNC',
-              syncStatus: 'SYNCED',
-              syncedAt: new Date(),
               metadata: {
                 previousLocalBalance: localBalance,
                 shopifyBalance,
                 syncJobId: jobId,
                 syncReason: 'Initial import from Shopify',
-                customerEmail: customer.email
+                customerEmail: customer.email,
+                syncedAt: new Date().toISOString() // Store in metadata until column exists
               }
             }
           });
@@ -339,6 +339,7 @@ export async function processCreditSyncBatch(
     const newStatus = hasMore ? 'IN_PROGRESS' : 'COMPLETED';
 
     // Update job progress
+    // Note: Data API adapter doesn't support Prisma's increment syntax, calculate manually
     const updatedJob = await db.storeCreditSyncJob.update({
       where: { id: jobId },
       data: {
@@ -348,8 +349,8 @@ export async function processCreditSyncBatch(
         errorCount: job.errorCount + batchErrors,
         lastCursor,
         lastActivityAt: new Date(),
-        totalImported: { increment: batchImported },
-        totalDifference: { increment: batchDifference },
+        totalImported: Number(job.totalImported) + batchImported,
+        totalDifference: Number(job.totalDifference) + batchDifference,
         status: newStatus,
         ...(newStatus === 'COMPLETED' ? { completedAt: new Date() } : {})
       }
