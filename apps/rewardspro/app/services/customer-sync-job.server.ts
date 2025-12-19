@@ -28,16 +28,12 @@ const MAX_JOB_DURATION_MS = 4 * 60 * 60 * 1000;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GraphQL query to get shop's total customer count
-// Note: shop.customersCount doesn't exist in 2025-01 API
-// Use customers query with count approximation instead
+// In Shopify API 2025-01, customersCount returns an object with count and precision
 const SHOP_CUSTOMER_COUNT_QUERY = `
   query getShopCustomerCount {
-    customers(first: 1) {
-      edges {
-        node {
-          id
-        }
-      }
+    customersCount {
+      count
+      precision
     }
   }
 `;
@@ -155,10 +151,21 @@ export async function startSyncJob(
     };
   }
 
-  // Note: Shopify 2025-01 API doesn't have shop.customersCount field
-  // We'll show progress as "X processed" without total, which is more reliable
+  // Get total customer count from Shopify (2025-01 API uses customersCount object)
   let totalCustomers: number | null = null;
-  console.log(`[Sync Job] Starting sync - progress will show as customers processed`);
+  try {
+    const countResponse = await admin.graphql(SHOP_CUSTOMER_COUNT_QUERY);
+    const countResult = await countResponse.json() as any;
+
+    if (countResult.data?.customersCount?.count !== undefined) {
+      totalCustomers = countResult.data.customersCount.count;
+      const precision = countResult.data.customersCount.precision || 'EXACT';
+      console.log(`[Sync Job] Shopify reports ${totalCustomers} total customers (precision: ${precision})`);
+    }
+  } catch (error) {
+    console.error('[Sync Job] Failed to get customer count:', error);
+    // Continue without count - progress will show as X processed
+  }
 
   // Get tier information for assignments
   const tiers = await db.tier.findMany({
