@@ -1,5 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Last regenerated: 2025-12-19 - StoreCreditSyncJob model
 
 generator client {
   provider = "prisma-client-js"
