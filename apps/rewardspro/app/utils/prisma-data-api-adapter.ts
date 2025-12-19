@@ -580,6 +580,9 @@ export class DataAPIModelProxy<T = any> {
       SubscriptionEvent: ['eventType'],
       SyncStatus: ['status'],
       ShopEntitlements: ['planSource'],
+      CustomerSyncJob: ['status'],
+      StoreCreditSyncJob: ['status'],
+      OrderSyncJob: ['status'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -628,6 +631,9 @@ export class DataAPIModelProxy<T = any> {
       TierPurchase: '"PurchaseStatus"',
       SubscriptionRetry: '"RetryStatus"',
       SyncStatus: '"SyncStatusEnum"',
+      CustomerSyncJob: '"SyncJobStatus"',
+      StoreCreditSyncJob: '"SyncJobStatus"',
+      OrderSyncJob: '"SyncJobStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
@@ -1238,6 +1244,11 @@ export function createDataAPIPrismaClient() {
           sendGridDomain: new DataAPIModelProxy("SendGridDomain", txAuroraClient),
           analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", txAuroraClient),
 
+          // Sync Job models
+          customerSyncJob: new DataAPIModelProxy("CustomerSyncJob", txAuroraClient),
+          storeCreditSyncJob: new DataAPIModelProxy("StoreCreditSyncJob", txAuroraClient),
+          orderSyncJob: new DataAPIModelProxy("OrderSyncJob", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1416,6 +1427,11 @@ export function createDataAPIPrismaClient() {
     emailEvent: new DataAPIModelProxy("EmailEvent", client),
     sendGridDomain: new DataAPIModelProxy("SendGridDomain", client),
     analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", client),
+
+    // Sync Job models
+    customerSyncJob: new DataAPIModelProxy("CustomerSyncJob", client),
+    storeCreditSyncJob: new DataAPIModelProxy("StoreCreditSyncJob", client),
+    orderSyncJob: new DataAPIModelProxy("OrderSyncJob", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {
