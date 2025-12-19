@@ -28,10 +28,16 @@ const MAX_JOB_DURATION_MS = 4 * 60 * 60 * 1000;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // GraphQL query to get shop's total customer count
+// Note: shop.customersCount doesn't exist in 2025-01 API
+// Use customers query with count approximation instead
 const SHOP_CUSTOMER_COUNT_QUERY = `
   query getShopCustomerCount {
-    shop {
-      customersCount
+    customers(first: 1) {
+      edges {
+        node {
+          id
+        }
+      }
     }
   }
 `;
@@ -149,20 +155,10 @@ export async function startSyncJob(
     };
   }
 
-  // Get total customer count from Shopify
+  // Note: Shopify 2025-01 API doesn't have shop.customersCount field
+  // We'll show progress as "X processed" without total, which is more reliable
   let totalCustomers: number | null = null;
-  try {
-    const countResponse = await admin.graphql(SHOP_CUSTOMER_COUNT_QUERY);
-    const countResult = await countResponse.json() as any;
-
-    if (countResult.data?.shop?.customersCount !== undefined) {
-      totalCustomers = countResult.data.shop.customersCount;
-      console.log(`[Sync Job] Shopify reports ${totalCustomers} total customers`);
-    }
-  } catch (error) {
-    console.error('[Sync Job] Failed to get customer count:', error);
-    // Continue without count - progress will show as X processed
-  }
+  console.log(`[Sync Job] Starting sync - progress will show as customers processed`);
 
   // Get tier information for assignments
   const tiers = await db.tier.findMany({
@@ -404,9 +400,10 @@ export async function processNextBatch(
           continue;
         }
 
-        // Parse spending
+        // Parse spending - explicitly cast to correct types for Data API adapter
         const totalSpent = parseFloat(shopifyCustomer.amountSpent?.amount || '0');
-        const ordersCount = shopifyCustomer.numberOfOrders || 0;
+        // Ensure orderCount is an integer (Data API adapter can pass as text otherwise)
+        const ordersCount = parseInt(String(shopifyCustomer.numberOfOrders || 0), 10);
 
         // Determine appropriate tier based on spending
         let assignedTier = tiers[tiers.length - 1]; // Default to lowest
@@ -435,8 +432,8 @@ export async function processNextBatch(
               email: shopifyCustomer.email,
               firstName: shopifyCustomer.firstName || '',
               lastName: shopifyCustomer.lastName || '',
-              totalSpent: totalSpent,
-              orderCount: ordersCount,
+              totalSpent: Number(totalSpent),
+              orderCount: Number(ordersCount), // Explicit cast for Data API adapter
               storeCredit: 0,
               // Don't set currentTierId - let resolver handle it
               createdAt: new Date(shopifyCustomer.createdAt),
@@ -459,8 +456,8 @@ export async function processNextBatch(
               email: shopifyCustomer.email,
               firstName: shopifyCustomer.firstName || existingCustomer.firstName,
               lastName: shopifyCustomer.lastName || existingCustomer.lastName,
-              totalSpent: totalSpent,
-              orderCount: ordersCount,
+              totalSpent: Number(totalSpent),
+              orderCount: Number(ordersCount), // Explicit cast for Data API adapter
               updatedAt: new Date()
               // DO NOT update tier directly - tier resolution handles this
             }
