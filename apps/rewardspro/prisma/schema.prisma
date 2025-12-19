@@ -1410,9 +1410,15 @@ model Order {
   
   // Order details
   email                 String
-  currency              String      // Currency code (USD, EUR, etc.)
-  
-  // Financial data - stored as Decimal for precision
+  currency              String      // Shop currency code (matches totalPrice currency)
+
+  // Multi-currency tracking (for international orders)
+  // When customer pays in different currency than shop, we track both
+  presentmentCurrency   String?     // Customer's currency code (what they paid in)
+  presentmentTotal      Decimal?    @db.Decimal(10, 2)  // Amount in customer's currency
+  exchangeRate          Decimal?    @db.Decimal(10, 6)  // Rate: presentment / shop (for audit)
+
+  // Financial data - stored as Decimal for precision (all in SHOP currency)
   subtotalPrice         Decimal     @db.Decimal(10, 2)  // Before discounts/shipping/tax
   totalDiscounts        Decimal     @db.Decimal(10, 2)  // Total discounts applied
   totalShipping         Decimal     @db.Decimal(10, 2)  // Shipping cost

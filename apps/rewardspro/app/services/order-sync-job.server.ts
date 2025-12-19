@@ -41,6 +41,10 @@ const ORDERS_BATCH_QUERY = `
               amount
               currencyCode
             }
+            presentmentMoney {
+              amount
+              currencyCode
+            }
           }
           totalDiscountsSet {
             shopMoney {
@@ -60,6 +64,11 @@ const ORDERS_BATCH_QUERY = `
           totalPriceSet {
             shopMoney {
               amount
+              currencyCode
+            }
+            presentmentMoney {
+              amount
+              currencyCode
             }
           }
           totalRefundedSet {
@@ -749,6 +758,26 @@ async function createNewOrder(
   const orderId = uuidv4();
   const now = new Date();
 
+  // Multi-currency tracking
+  const shopCurrencyCode = orderData.totalPriceSet?.shopMoney?.currencyCode ||
+                           orderData.subtotalPriceSet?.shopMoney?.currencyCode ||
+                           orderData.currencyCode || "USD";
+  const presentmentCurrencyCode = orderData.totalPriceSet?.presentmentMoney?.currencyCode ||
+                                   orderData.subtotalPriceSet?.presentmentMoney?.currencyCode ||
+                                   orderData.currencyCode;
+  const shopAmount = parseFloat(orderData.totalPriceSet?.shopMoney?.amount || "0");
+  const presentmentAmount = parseFloat(orderData.totalPriceSet?.presentmentMoney?.amount || "0");
+  const isMultiCurrency = shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
+
+  // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
+  const exchangeRate = isMultiCurrency && shopAmount > 0
+    ? presentmentAmount / shopAmount
+    : null;
+
+  if (isMultiCurrency) {
+    console.log(`[Order Sync Job] Multi-currency order ${orderData.name}: ${presentmentCurrencyCode} ${presentmentAmount} → ${shopCurrencyCode} ${shopAmount} (rate: ${exchangeRate?.toFixed(4)})`);
+  }
+
   await (db as any).order.create({
     data: {
       id: orderId,
@@ -759,14 +788,18 @@ async function createNewOrder(
       customerId: customer.id,
       email: orderData.email || customer?.email || "",
       // Use shop currency to match shopMoney amounts (currencyCode is presentment)
-      currency: orderData.subtotalPriceSet?.shopMoney?.currencyCode || orderData.currencyCode || "USD",
+      currency: shopCurrencyCode,
       subtotalPrice: parseFloat(orderData.subtotalPriceSet?.shopMoney?.amount || "0"),
       totalDiscounts: parseFloat(orderData.totalDiscountsSet?.shopMoney?.amount || "0"),
       totalShipping: parseFloat(orderData.totalShippingPriceSet?.shopMoney?.amount || "0"),
       totalTax: parseFloat(orderData.totalTaxSet?.shopMoney?.amount || "0"),
-      totalPrice: parseFloat(orderData.totalPriceSet?.shopMoney?.amount || "0"),
+      totalPrice: shopAmount,
       totalRefunded: parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || "0"),
       netAmount: parseFloat(orderData.netPaymentSet?.shopMoney?.amount || orderData.totalPriceSet?.shopMoney?.amount || "0"),
+      // Multi-currency tracking fields
+      presentmentCurrency: isMultiCurrency ? presentmentCurrencyCode : null,
+      presentmentTotal: isMultiCurrency ? presentmentAmount : null,
+      exchangeRate: exchangeRate,
       financialStatus: mapFinancialStatus(orderData.displayFinancialStatus),
       fulfillmentStatus: orderData.displayFulfillmentStatus || null,
       cashbackEligible: true,

@@ -490,6 +490,26 @@ export class IncrementalOrderSync {
           console.error(`[Order Sync] Customer ${customerId} has no tier assigned - this should not happen`);
         }
 
+        // Multi-currency tracking
+        const shopCurrencyCode = orderData.currentTotalPriceSet?.shopMoney?.currencyCode ||
+                                 orderData.currentSubtotalPriceSet?.shopMoney?.currencyCode ||
+                                 orderData.currencyCode || 'USD';
+        const presentmentCurrencyCode = orderData.currentTotalPriceSet?.presentmentMoney?.currencyCode ||
+                                         orderData.currentSubtotalPriceSet?.presentmentMoney?.currencyCode ||
+                                         orderData.currencyCode;
+        const shopAmount = parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0');
+        const presentmentAmount = parseFloat(orderData.currentTotalPriceSet?.presentmentMoney?.amount || '0');
+        const isMultiCurrency = shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
+
+        // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
+        const exchangeRate = isMultiCurrency && shopAmount > 0
+          ? presentmentAmount / shopAmount
+          : null;
+
+        if (isMultiCurrency) {
+          console.log(`[IncrementalSync] Multi-currency order ${orderData.name}: ${presentmentCurrencyCode} ${presentmentAmount} → ${shopCurrencyCode} ${shopAmount} (rate: ${exchangeRate?.toFixed(4)})`);
+        }
+
         const newOrder = await tx.order.create({
         data: {
           id: uuidv4(),
@@ -500,14 +520,18 @@ export class IncrementalOrderSync {
           customerId,
           email: orderData.email || orderData.customer?.email || '',
           // Use shop currency to match shopMoney amounts (currencyCode is presentment)
-          currency: orderData.currentSubtotalPriceSet?.shopMoney?.currencyCode || orderData.currencyCode || 'USD',
+          currency: shopCurrencyCode,
           subtotalPrice: parseFloat(orderData.currentSubtotalPriceSet?.shopMoney?.amount || '0'),
           totalDiscounts: parseFloat(orderData.currentTotalDiscountsSet?.shopMoney?.amount || '0'),
           totalShipping: parseFloat(orderData.totalShippingPriceSet?.shopMoney?.amount || '0'),
           totalTax: parseFloat(orderData.currentTotalTaxSet?.shopMoney?.amount || '0'),
-          totalPrice: parseFloat(orderData.currentTotalPriceSet?.shopMoney?.amount || '0'),
+          totalPrice: shopAmount,
           totalRefunded: parseFloat(orderData.totalRefundedSet?.shopMoney?.amount || '0'),
           netAmount,
+          // Multi-currency tracking fields
+          presentmentCurrency: isMultiCurrency ? presentmentCurrencyCode : null,
+          presentmentTotal: isMultiCurrency ? presentmentAmount : null,
+          exchangeRate: exchangeRate,
           financialStatus: mapFinancialStatus(orderData.displayFinancialStatus),
           fulfillmentStatus: orderData.displayFulfillmentStatus || null,
           cashbackEligible: !orderData.test,
@@ -872,9 +896,17 @@ const ORDERS_QUERY = `#graphql
               amount
               currencyCode
             }
+            presentmentMoney {
+              amount
+              currencyCode
+            }
           }
           currentTotalPriceSet {
             shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {
               amount
               currencyCode
             }

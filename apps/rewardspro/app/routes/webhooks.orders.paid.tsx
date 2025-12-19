@@ -1311,10 +1311,21 @@ async function createOrderRecord(_dbOrTx: any, params: {
   const presentmentCurrencyCode = order.currency;
   const orderCurrency = shopCurrencyCode || presentmentCurrencyCode || 'USD';
 
-  if (shopCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode) {
+  // Multi-currency tracking
+  const shopAmount = parseFloat(order.total_price_set?.shop_money?.amount || order.total_price || '0');
+  const presentmentAmount = parseFloat(order.total_price_set?.presentment_money?.amount || order.total_price || '0');
+  const isMultiCurrency = shopCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
+
+  // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
+  const exchangeRate = isMultiCurrency && shopAmount > 0
+    ? presentmentAmount / shopAmount
+    : null;
+
+  if (isMultiCurrency) {
     console.log(`[OrderPaid] Multi-currency order detected:`);
-    console.log(`  - Customer paid in: ${presentmentCurrencyCode} (${order.total_price_set?.presentment_money?.amount})`);
-    console.log(`  - Shop receives: ${shopCurrencyCode} (${order.total_price})`);
+    console.log(`  - Customer paid in: ${presentmentCurrencyCode} (${presentmentAmount})`);
+    console.log(`  - Shop receives: ${shopCurrencyCode} (${shopAmount})`);
+    console.log(`  - Exchange rate: ${exchangeRate?.toFixed(6)}`);
     console.log(`  - Storing as: ${orderCurrency}`);
   }
 
@@ -1328,6 +1339,10 @@ async function createOrderRecord(_dbOrTx: any, params: {
       customerId: customer?.id || "unknown", // Match sync service - use "unknown" for guest orders
       email: order.email || order.customer?.email || '',
       currency: orderCurrency, // Use shop currency to match total_price amount
+      // Multi-currency tracking fields
+      presentmentCurrency: isMultiCurrency ? presentmentCurrencyCode : null,
+      presentmentTotal: isMultiCurrency ? presentmentAmount : null,
+      exchangeRate: exchangeRate,
       subtotalPrice: parseFloat(order.subtotal_price || '0'),
       totalDiscounts: parseFloat(order.total_discounts || '0'),
       totalShipping: parseFloat(order.total_shipping_price || order.shipping_lines?.reduce((sum: number, line: any) => sum + parseFloat(line.price || '0'), 0) || '0'),
