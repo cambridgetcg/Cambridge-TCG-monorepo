@@ -895,6 +895,65 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    // Handle fetch Shopify currency
+    if (intent === "fetch-shopify-currency") {
+      try {
+        console.log(`[Settings Action] ${shop} fetching Shopify store currency`);
+
+        const shopQuery = `#graphql
+          query getShopCurrency {
+            shop {
+              name
+              currencyCode
+              ianaTimezone
+              url
+            }
+          }
+        `;
+        const response = await admin.graphql(shopQuery);
+        const shopData = await response.json();
+
+        if (shopData.errors) {
+          console.error("[Settings Action] GraphQL errors fetching currency:", shopData.errors);
+          return json({
+            fetchCurrencyComplete: true,
+            success: false,
+            error: "Failed to fetch currency from Shopify"
+          }, { status: 500 });
+        }
+
+        const shopDetails = shopData.data?.shop || {};
+        const shopifyCurrency = shopDetails.currencyCode || "UNKNOWN";
+
+        // Get current settings for comparison
+        const currentSettings = await db.shopSettings.findUnique({
+          where: { shop },
+          select: { storeCurrency: true }
+        });
+
+        console.log(`[Settings Action] Shopify reports currency: ${shopifyCurrency}, Current setting: ${currentSettings?.storeCurrency}`);
+
+        return json({
+          fetchCurrencyComplete: true,
+          success: true,
+          shopifyCurrency,
+          currentCurrency: currentSettings?.storeCurrency || "NOT_SET",
+          shopName: shopDetails.name,
+          timezone: shopDetails.ianaTimezone,
+          message: shopifyCurrency === currentSettings?.storeCurrency
+            ? `Currency matches: ${shopifyCurrency}`
+            : `Shopify currency (${shopifyCurrency}) differs from current setting (${currentSettings?.storeCurrency})`
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error fetching Shopify currency:", error);
+        return json({
+          fetchCurrencyComplete: true,
+          success: false,
+          error: "Failed to fetch currency from Shopify. Please try again."
+        }, { status: 500 });
+      }
+    }
+
     if (intent !== "update") {
       return json({ error: "Invalid action" }, { status: 400 });
     }
@@ -1030,6 +1089,7 @@ export default function SettingsPage() {
     daysRemaining
   } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
+  const currencyFetcher = useFetcher();
   const navigation = useNavigation();
   const navigate = useNavigate();
 
@@ -1051,6 +1111,14 @@ export default function SettingsPage() {
   const [tierRecalculationEnabled, setTierRecalculationEnabled] = useState(settings.tierRecalculationEnabled);
   const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
   const [showRecalculateModal, setShowRecalculateModal] = useState(false);
+
+  // Currency fetch state
+  const [isFetchingCurrency, setIsFetchingCurrency] = useState(false);
+  const [shopifyCurrencyResult, setShopifyCurrencyResult] = useState<{
+    shopifyCurrency: string;
+    currentCurrency: string;
+    message: string;
+  } | null>(null);
 
   // Base tier settings state
   const [autoAssignBaseTier, setAutoAssignBaseTier] = useState(settings.autoAssignBaseTier ?? true);
@@ -1192,6 +1260,47 @@ export default function SettingsPage() {
 
     setHasUnsavedChanges(hasChanges);
   }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
+
+  // Handle currency fetch response
+  useEffect(() => {
+    if (currencyFetcher.state === "loading") {
+      setIsFetchingCurrency(true);
+    } else if (currencyFetcher.state === "idle" && currencyFetcher.data) {
+      setIsFetchingCurrency(false);
+      const data = currencyFetcher.data as {
+        fetchCurrencyComplete?: boolean;
+        success?: boolean;
+        shopifyCurrency?: string;
+        currentCurrency?: string;
+        message?: string;
+        error?: string;
+      };
+      if (data.fetchCurrencyComplete) {
+        if (data.success) {
+          setShopifyCurrencyResult({
+            shopifyCurrency: data.shopifyCurrency || "UNKNOWN",
+            currentCurrency: data.currentCurrency || "NOT_SET",
+            message: data.message || ""
+          });
+          if (data.shopifyCurrency === data.currentCurrency) {
+            showSuccess("Currency matches Shopify store settings");
+          } else {
+            showInfo(`Shopify currency: ${data.shopifyCurrency}`);
+          }
+        } else {
+          showError(data.error || "Failed to fetch currency");
+        }
+      }
+    }
+  }, [currencyFetcher.state, currencyFetcher.data, showSuccess, showInfo, showError]);
+
+  // Fetch Shopify currency handler
+  const handleFetchShopifyCurrency = useCallback(() => {
+    setShopifyCurrencyResult(null);
+    const formData = new FormData();
+    formData.append("intent", "fetch-shopify-currency");
+    currencyFetcher.submit(formData, { method: "post" });
+  }, [currencyFetcher]);
 
   // Removed time display - timezone is now just shown as text
 
@@ -1742,6 +1851,35 @@ export default function SettingsPage() {
                             <Text as="span" variant="headingMd">
                               {formatCurrencyExample(storeCurrency, currencyDisplayType)}
                             </Text>
+                          </InlineStack>
+                        </Box>
+
+                        {/* Fetch Shopify Currency Button */}
+                        <Box paddingBlockStart="200">
+                          <InlineStack gap="300" blockAlign="center">
+                            <Button
+                              onClick={handleFetchShopifyCurrency}
+                              loading={isFetchingCurrency}
+                              disabled={isFetchingCurrency}
+                              size="slim"
+                            >
+                              Fetch Shopify Store Currency
+                            </Button>
+                            {shopifyCurrencyResult && (
+                              <InlineStack gap="200" blockAlign="center">
+                                <Badge tone={shopifyCurrencyResult.shopifyCurrency === shopifyCurrencyResult.currentCurrency ? "success" : "warning"}>
+                                  Shopify: {shopifyCurrencyResult.shopifyCurrency}
+                                </Badge>
+                                <Badge tone="info">
+                                  Current: {shopifyCurrencyResult.currentCurrency}
+                                </Badge>
+                                {shopifyCurrencyResult.shopifyCurrency !== shopifyCurrencyResult.currentCurrency && (
+                                  <Text as="span" variant="bodySm" tone="caution">
+                                    Mismatch detected
+                                  </Text>
+                                )}
+                              </InlineStack>
+                            )}
                           </InlineStack>
                         </Box>
                       </BlockStack>
