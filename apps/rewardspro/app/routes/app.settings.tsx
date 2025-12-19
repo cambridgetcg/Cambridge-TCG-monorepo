@@ -39,6 +39,7 @@ import { getOrderSyncStats } from "../services/order-sync-job.server";
 import { createOrderSyncService } from "../services/order-sync.service";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
+import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
 
 // ============= TYPES =============
@@ -1810,7 +1811,7 @@ export default function SettingsPage() {
                             </InlineStack>
                             <Text as="p" variant="headingXl">{orderSyncStats.totalOrders.toLocaleString()}</Text>
                             <Text as="p" variant="bodySm" tone="subdued">
-                              ${orderSyncStats.totalCashbackAmount.toFixed(2)} cashback earned
+                              {formatCurrency(orderSyncStats.totalCashbackAmount, { storeCurrency, currencyDisplayType })} cashback earned
                             </Text>
                           </BlockStack>
                         </Card>
@@ -1827,7 +1828,7 @@ export default function SettingsPage() {
                                 {creditSyncStats.customersWithCredit > 0 ? "Active" : "None"}
                               </Badge>
                             </InlineStack>
-                            <Text as="p" variant="headingXl">${creditSyncStats.totalCreditBalance.toFixed(0)}</Text>
+                            <Text as="p" variant="headingXl">{formatCurrency(creditSyncStats.totalCreditBalance, { storeCurrency, currencyDisplayType })}</Text>
                             <Text as="p" variant="bodySm" tone="subdued">
                               {creditSyncStats.customersWithCredit} customers with credit
                             </Text>
@@ -1988,7 +1989,7 @@ export default function SettingsPage() {
                         <Banner tone="success" onDismiss={() => setCreditSyncJob(null)}>
                           <Text as="p" variant="bodySm">
                             Store credit sync completed: {creditSyncJob.progress.updatedCount} customers updated,
-                            ${creditSyncJob.progress.totalImported.toFixed(2)} imported.
+                            {formatCurrency(creditSyncJob.progress.totalImported, { storeCurrency, currencyDisplayType })} imported.
                           </Text>
                         </Banner>
                       )}
@@ -2127,7 +2128,7 @@ export default function SettingsPage() {
                             options={[
                               { label: 'Auto-detect (lowest minSpend tier)', value: '' },
                               ...tiers.map(t => ({
-                                label: `${t.name} (min spend: ${getCurrencySymbol(storeCurrency)}${t.minSpend})`,
+                                label: `${t.name} (min spend: ${formatCurrency(t.minSpend, { storeCurrency, currencyDisplayType })})`,
                                 value: t.id
                               }))
                             ]}
@@ -2285,7 +2286,7 @@ export default function SettingsPage() {
                               {averageOrderValue && (
                                 <BlockStack gap="100">
                                   <Text as="span" variant="bodySm" tone="subdued">Avg Order</Text>
-                                  <Text as="span" variant="headingSm">{getCurrencySymbol(storeCurrency)}{averageOrderValue}</Text>
+                                  <Text as="span" variant="headingSm">{formatCurrency(averageOrderValue, { storeCurrency, currencyDisplayType })}</Text>
                                 </BlockStack>
                               )}
                               {targetRoiPercent && (
@@ -2444,7 +2445,7 @@ export default function SettingsPage() {
                             <InlineStack align="space-between" blockAlign="center">
                               <BlockStack gap="100">
                                 <span style={{ color: widgetTextColor, fontWeight: 600, fontSize: "14px" }}>Gold Member</span>
-                                <span style={{ color: widgetAccentColor, fontWeight: 700, fontSize: "20px" }}>$125.50</span>
+                                <span style={{ color: widgetAccentColor, fontWeight: 700, fontSize: "20px" }}>{formatCurrency(125.50, { storeCurrency, currencyDisplayType })}</span>
                               </BlockStack>
                               <div style={{
                                 backgroundColor: widgetPrimaryColor,

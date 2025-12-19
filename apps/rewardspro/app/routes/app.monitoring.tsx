@@ -19,6 +19,7 @@ import { authenticate } from "~/shopify.server";
 import { db } from "~/db.server";
 import { MetricsService } from "~/services/monitoring/metrics.service";
 import { Logger } from "~/services/logger.service";
+import { formatCurrency } from "~/utils/currency";
 
 interface HealthStatus {
   status: string;
@@ -57,8 +58,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   try {
-    // Get current system health
-    const healthResponse = await fetch(new URL('/api/health?detailed=true', request.url).href);
+    // Get current system health and shop settings
+    const [healthResponse, shopSettings] = await Promise.all([
+      fetch(new URL('/api/health?detailed=true', request.url).href),
+      db.shopSettings.findUnique({
+        where: { shop: session.shop },
+        select: { storeCurrency: true, currencyDisplayType: true }
+      })
+    ]);
     const health: HealthStatus = await healthResponse.json();
 
     // Get recent error count
@@ -103,6 +110,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       metrics: metrics.metrics,
       recentErrors: Number(recentErrors[0]?.count || 0),
       webhookActivity,
+      shopSettings: shopSettings || { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
     });
   } catch (error) {
     Logger.error('Failed to load monitoring dashboard', error as Error, {
@@ -117,6 +125,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       recentErrors: 0,
       webhookActivity: [],
       error: 'Failed to load some metrics',
+      shopSettings: { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
     });
   }
 }
@@ -295,13 +304,13 @@ export default function MonitoringDashboard() {
                   <Text as="h3" variant="headingSm">Store Credit</Text>
                   <InlineStack gap="400" wrap>
                     <Text as="p">
-                      Total Distributed: ${data.metrics.cashbackMetrics.totalDistributed.toFixed(2)}
+                      Total Distributed: {formatCurrency(data.metrics.cashbackMetrics.totalDistributed, data.shopSettings as any)}
                     </Text>
                     <Text as="p">
-                      Today: ${data.metrics.cashbackMetrics.distributedToday.toFixed(2)}
+                      Today: {formatCurrency(data.metrics.cashbackMetrics.distributedToday, data.shopSettings as any)}
                     </Text>
                     <Text as="p">
-                      Average: ${data.metrics.cashbackMetrics.averageAmount.toFixed(2)}
+                      Average: {formatCurrency(data.metrics.cashbackMetrics.averageAmount, data.shopSettings as any)}
                     </Text>
                   </InlineStack>
                 </BlockStack>

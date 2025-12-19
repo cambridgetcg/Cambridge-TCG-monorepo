@@ -21,17 +21,22 @@ import {
   ProgressBar,
 } from "@shopify/polaris";
 import db from "../db.server";
+import { formatCurrency } from "~/utils/currency";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Get statistics
-  const [totalOrders, ordersWithCashback, ordersWithoutCashback, unprocessedCashback] = await Promise.all([
+  // Get statistics and shop settings
+  const [totalOrders, ordersWithCashback, ordersWithoutCashback, unprocessedCashback, shopSettings] = await Promise.all([
     db.order.count({ where: { shop } }),
     db.order.count({ where: { shop, cashbackAmount: { not: null } } }),
     db.order.count({ where: { shop, cashbackAmount: null, cashbackEligible: true, financialStatus: 'PAID' } }),
-    db.order.count({ where: { shop, cashbackAmount: { not: null }, cashbackProcessed: false } })
+    db.order.count({ where: { shop, cashbackAmount: { not: null }, cashbackProcessed: false } }),
+    db.shopSettings.findUnique({
+      where: { shop },
+      select: { storeCurrency: true, currencyDisplayType: true }
+    })
   ]);
 
   const totalUnprocessedAmount = await db.order.aggregate({
@@ -50,7 +55,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ordersWithoutCashback,
       unprocessedCashback,
       totalUnprocessedAmount: totalUnprocessedAmount._sum.cashbackAmount || 0
-    }
+    },
+    shopSettings: shopSettings || { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' }
   });
 }
 
@@ -86,10 +92,12 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function RecalculateCashbackPage() {
-  const { stats } = useLoaderData<typeof loader>();
+  const { stats, shopSettings } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isProcessing = navigation.state === "submitting";
+
+  const formatAmount = (amount: number) => formatCurrency(amount, shopSettings as any);
 
   return (
     <Page
@@ -150,7 +158,7 @@ export default function RecalculateCashbackPage() {
                       <Divider />
                       <InlineStack align="space-between">
                         <Text variant="bodyMd" as="p">Total Unprocessed Cashback</Text>
-                        <Text variant="headingMd" as="p">${Number(stats.totalUnprocessedAmount).toFixed(2)}</Text>
+                        <Text variant="headingMd" as="p">{formatAmount(Number(stats.totalUnprocessedAmount))}</Text>
                       </InlineStack>
                     </>
                   )}
@@ -206,7 +214,7 @@ export default function RecalculateCashbackPage() {
                       loading={isProcessing && navigation.formData?.get("action") === "process"}
                       disabled={isProcessing || stats.unprocessedCashback === 0}
                     >
-                      Process {stats.unprocessedCashback} Orders (Credit ${Number(stats.totalUnprocessedAmount).toFixed(2)})
+                      Process {stats.unprocessedCashback} Orders (Credit {formatAmount(Number(stats.totalUnprocessedAmount))})
                     </Button>
                   </Form>
                 </BlockStack>
