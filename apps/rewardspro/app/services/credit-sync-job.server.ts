@@ -104,6 +104,7 @@ export async function startCreditSyncJob(
   // Create new job
   const job = await db.storeCreditSyncJob.create({
     data: {
+      id: crypto.randomUUID(),
       shop,
       status: 'IN_PROGRESS',
       totalCustomers,

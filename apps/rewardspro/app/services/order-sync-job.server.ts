@@ -231,6 +231,7 @@ export async function startOrderSyncJob(
   // Create new job
   const job = await db.orderSyncJob.create({
     data: {
+      id: crypto.randomUUID(),
       shop,
       status: 'IN_PROGRESS',
       totalOrders,
