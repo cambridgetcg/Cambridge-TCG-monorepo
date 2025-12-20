@@ -1948,6 +1948,9 @@
   color: var(--rp-text-color, #212B36);
   position: relative;
   overflow: hidden;
+  /* Outer frame to stand out from page background */
+  border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1));
+  box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05));
 }
 
 .rp-auth::before {
@@ -2543,6 +2546,9 @@
   color: var(--rp-text-color, #212B36);
   position: relative;
   overflow: hidden;
+  /* Outer frame to stand out from page background */
+  border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1));
+  box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05));
 }
 
 .rp-guest-b::before {

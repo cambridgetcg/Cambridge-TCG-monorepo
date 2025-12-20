@@ -810,6 +810,12 @@
       // Create semi-transparent version of primary color for radial gradients
       cssVars['--rp-primary-color-alpha'] = isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(92, 106, 196, 0.08)';
 
+      // Frame styling (border and shadow for widget container)
+      cssVars['--rp-frame-border'] = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      cssVars['--rp-frame-shadow'] = isDark
+        ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)'
+        : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)';
+
       console.log('[RewardsWidget] 🎨 Setting CSS variables:', cssVars);
       console.log('[RewardsWidget] 🎨 Theme mode:', theme.mode, '| isDark:', isDark);
 
