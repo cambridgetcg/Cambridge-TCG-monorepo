@@ -2,23 +2,50 @@
   "membership": {
     "title": "My Membership",
     "refresh": "Refresh",
+    "welcome": {
+      "greeting": "Welcome back, {{name}}!",
+      "greetingGeneric": "Welcome back!",
+      "memberSince": "Member since {{date}}"
+    },
     "tier": {
       "current": "Current Tier",
       "next": "Next: {{tierName}}",
       "spendMore": "Spend {{amount}} more to unlock {{percent}}% cashback",
       "progress": "{{percent}}% progress",
-      "atHighest": "You've reached the highest tier!"
+      "atHighest": "You've reached the highest tier!",
+      "maxTierCongrats": "Maximum Rewards Unlocked",
+      "earnedVia": {
+        "spending": "Earned through spending",
+        "subscription": "Active Subscription",
+        "purchase": "Membership Purchase",
+        "manual": "Special Access"
+      },
+      "subscriptionRenews": "Renews {{date}}",
+      "purchaseExpires": "Expires {{date}}",
+      "purchaseLifetime": "Lifetime Access"
     },
     "balance": {
-      "available": "Available Store Credit",
-      "totalEarned": "Total earned: {{amount}}"
+      "available": "Store Credit",
+      "totalEarned": "Lifetime Earned",
+      "current": "Available"
+    },
+    "benefits": {
+      "title": "Your Benefits"
     },
     "stats": {
       "totalSpent": "Total Spent",
       "orders": "Orders"
     },
+    "progress": {
+      "title": "Tier Progress",
+      "nextTier": "Next: {{tierName}} ({{percent}}% cashback)",
+      "amountToGo": "{{amount}} to go",
+      "maxTier": "You're earning the maximum cashback rate!"
+    },
     "transactions": {
-      "title": "Recent Activity"
+      "title": "Recent Activity",
+      "viewAll": "View all",
+      "empty": "No recent activity"
     },
     "tiers": {
       "viewAll": "View all tiers",
@@ -26,7 +53,8 @@
       "allTitle": "All Membership Tiers",
       "current": "Current",
       "achieved": "Achieved",
-      "minSpend": "Min spend: {{amount}}"
+      "minSpend": "Min spend: {{amount}}",
+      "toGo": "{{amount}} to go"
     },
     "preview": {
       "title": "Membership Preview",

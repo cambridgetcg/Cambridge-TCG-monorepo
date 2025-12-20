@@ -212,6 +212,36 @@ function getTransactionDescription(transaction: any): string {
   }
 }
 
+/**
+ * Generate a list of benefits based on tier cashback percentage
+ * In the future, this could be configured per-tier in the database
+ */
+function generateBenefitsList(cashbackPercent: number, isMaxTier: boolean): string[] {
+  const benefits: string[] = [];
+
+  // Core benefit - cashback
+  benefits.push(`${cashbackPercent}% cashback on every order`);
+
+  // Add more benefits based on tier level
+  if (cashbackPercent >= 2) {
+    benefits.push('Member-only promotions');
+  }
+
+  if (cashbackPercent >= 5) {
+    benefits.push('Early access to new products');
+  }
+
+  if (cashbackPercent >= 7) {
+    benefits.push('Priority customer support');
+  }
+
+  if (isMaxTier) {
+    benefits.push('Exclusive VIP perks');
+  }
+
+  return benefits;
+}
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const startTime = Date.now();
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -364,7 +394,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log.debug(`[${requestId}] Extracted customer ID: ${customerId}`);
 
-    // Step 5: Fetch customer with tier included (optimized single query)
+    // Step 5: Fetch customer with tier AND tier state included (optimized single query)
     let customer;
     try {
       customer = await db.customer.findFirst({
@@ -373,7 +403,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
           shop: shop  // CRITICAL: Always scope to shop!
         },
         include: {
-          currentTier: true  // Include tier in same query
+          currentTier: true,  // Include tier in same query
+          tierState: {        // Include tier state for source information
+            include: {
+              effectiveTier: true,
+              nextTier: true
+            }
+          },
+          currentSubscription: true  // Include active subscription for renewal info
         }
       });
       log.debug(`[${requestId}] Customer lookup:`, customer ? 'found' : 'not found');
@@ -456,8 +493,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log.debug(`[${requestId}] Next tier: ${nextTier?.name || 'none'}, Progress: ${progressToNextTier.toFixed(0)}%`);
 
-    // Step 10-13: Batch fetch transactions, shop settings, and latest ledger entry (parallel)
-    const [transactions, shopSettings] = await Promise.all([
+    // Step 10-13: Batch fetch transactions, shop settings, tier purchase, and orders (parallel)
+    const [transactions, shopSettings, activeTierPurchase, recentOrders] = await Promise.all([
       // Transactions (last 50 for pagination in frontend)
       db.storeCreditLedger.findMany({
         where: {
@@ -465,11 +502,49 @@ export async function loader({ request }: LoaderFunctionArgs) {
           shop: shop  // CRITICAL: Scope to shop!
         },
         orderBy: { createdAt: 'desc' },
-        take: 50
+        take: 50,
+        include: {
+          order: {
+            select: {
+              shopifyOrderName: true,
+              shopifyOrderNumber: true
+            }
+          }
+        }
       }),
       // Shop settings for currency
       db.shopSettings.findUnique({
         where: { shop }
+      }),
+      // Active tier purchase (for expiration info)
+      db.tierPurchase.findFirst({
+        where: {
+          customerId: customer.id,
+          shop: shop,
+          status: 'ACTIVE',
+          OR: [
+            { endDate: null },  // Lifetime
+            { endDate: { gte: new Date() } }  // Not expired
+          ]
+        },
+        include: {
+          tier: true
+        }
+      }),
+      // Recent orders for enhanced transaction context
+      db.order.findMany({
+        where: {
+          customerId: customer.id,
+          shop: shop
+        },
+        orderBy: { shopifyCreatedAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          shopifyOrderId: true,
+          shopifyOrderName: true,
+          shopifyOrderNumber: true
+        }
       })
     ]);
 
@@ -500,20 +575,151 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log.debug(`[${requestId}] Balance: $${actualBalance.toFixed(2)}, Total earned: $${totalEarned.toFixed(2)}`);
 
+    // Determine tier source from CustomerTierState
+    const tierState = customer.tierState;
+    const tierSource = tierState?.tierSource || 'SPENDING_BASED';
+
+    // Determine if max tier
+    const isMaxTier = !nextTier || (tierState?.isMaxTier ?? false);
+
+    // Build tier source details based on source type
+    let tierSourceDetails: Record<string, any> | undefined;
+
+    if (tierSource === 'TIER_SUBSCRIPTION' && customer.currentSubscription) {
+      const sub = customer.currentSubscription;
+      tierSourceDetails = {
+        type: 'subscription',
+        nextBillingDate: sub.nextBillingDate?.toISOString() || null,
+        billingInterval: sub.billingInterval || 'MONTHLY',
+        status: sub.status
+      };
+    } else if (tierSource === 'TIER_PURCHASE' && activeTierPurchase) {
+      tierSourceDetails = {
+        type: 'purchase',
+        expiresAt: activeTierPurchase.endDate?.toISOString() || null,
+        isLifetime: !activeTierPurchase.endDate
+      };
+    } else if (tierSource === 'MANUAL_OVERRIDE' && tierState?.hasManualOverride) {
+      tierSourceDetails = {
+        type: 'manual',
+        expiresAt: tierState.manualOverrideExpiry?.toISOString() || null,
+        note: tierState.manualOverrideNote || null
+      };
+    } else {
+      tierSourceDetails = {
+        type: 'spending',
+        annualSpend: currentSpending,
+        evaluationPeriod: evaluationPeriod
+      };
+    }
+
+    // Generate benefits list based on tier
+    const tierCashbackPercent = tier
+      ? (typeof tier.cashbackPercent === 'object' && 'toNumber' in tier.cashbackPercent
+          ? (tier.cashbackPercent as any).toNumber()
+          : Number(tier.cashbackPercent))
+      : 0;
+
+    const benefits = generateBenefitsList(tierCashbackPercent, isMaxTier);
+
+    // Create order lookup map for enhanced transaction descriptions
+    const orderMap = new Map(recentOrders.map(o => [o.id, o]));
+
     // Format and return response
     const responseData = {
       success: true,
       enrolled: true,
-      balance: actualBalance,
+
+      // NEW: Customer personalization
+      customer: {
+        firstName: customer.firstName || null,
+        lastName: customer.lastName || null,
+        memberSince: customer.createdAt.toISOString(),
+        tags: customer.tags ? customer.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+      },
+
+      // Balance information (compact format)
+      balance: {
+        current: actualBalance,
+        lifetimeEarned: totalEarned
+      },
+
+      // Enhanced tier information
       tier: tier ? {
+        id: tier.id,
         name: tier.name,
-        cashbackPercent: typeof tier.cashbackPercent === 'object' && 'toNumber' in tier.cashbackPercent
-          ? (tier.cashbackPercent as any).toNumber()
-          : Number(tier.cashbackPercent),
+        icon: tier.icon || '⭐',
+        color: tier.color || '#FFD700',
+        cashbackPercent: tierCashbackPercent,
         minSpend: typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
           ? (tier.minSpend as any).toNumber()
-          : Number(tier.minSpend)
+          : Number(tier.minSpend),
+        source: tierSource,
+        sourceDetails: tierSourceDetails
       } : null,
+
+      // Benefits list
+      benefits,
+
+      // Progress information
+      progress: {
+        nextTierName: nextTier?.name || null,
+        nextTierCashback: nextTier
+          ? (typeof nextTier.cashbackPercent === 'object' && 'toNumber' in nextTier.cashbackPercent
+              ? (nextTier.cashbackPercent as any).toNumber()
+              : Number(nextTier.cashbackPercent))
+          : null,
+        percent: progressToNextTier,
+        amountRemaining: amountToNextTier,
+        isMaxTier
+      },
+
+      // Stats
+      stats: {
+        orderCount: spendingStats.orderCount,
+        totalSpent: spendingStats.totalSpending,
+        lastOrderDate: spendingStats.lastOrderDate?.toISOString() || null
+      },
+
+      // All tiers for comparison
+      allTiers: allTiers.map(t => {
+        const tMinSpend = typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
+          ? (t.minSpend as any).toNumber()
+          : Number(t.minSpend);
+        return {
+          id: t.id,
+          name: t.name,
+          icon: t.icon || '⭐',
+          cashbackPercent: typeof t.cashbackPercent === 'object' && 'toNumber' in t.cashbackPercent
+            ? (t.cashbackPercent as any).toNumber()
+            : Number(t.cashbackPercent),
+          minSpend: tMinSpend,
+          isCurrentTier: tier?.id === t.id,
+          isAchieved: currentSpending >= tMinSpend
+        };
+      }),
+
+      // Enhanced recent transactions with order info
+      recentTransactions: transactions.map(t => {
+        const order = t.orderId ? orderMap.get(t.orderId) : null;
+        return {
+          id: t.id,
+          type: t.type,
+          amount: typeof t.amount === 'object' && 'toNumber' in t.amount
+            ? (t.amount as any).toNumber()
+            : Number(t.amount),
+          date: t.createdAt.toISOString(),
+          description: getTransactionDescription(t),
+          orderNumber: order?.shopifyOrderName || (t as any).order?.shopifyOrderName || null
+        };
+      }),
+
+      currency: shopSettings?.storeCurrency || 'USD',
+
+      // Legacy fields for backward compatibility
+      totalEarned,
+      progressToNextTier,
+      amountToNextTier,
       nextTier: nextTier ? {
         name: nextTier.name,
         cashbackPercent: typeof nextTier.cashbackPercent === 'object' && 'toNumber' in nextTier.cashbackPercent
@@ -522,36 +728,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         minSpend: typeof nextTier.minSpend === 'object' && 'toNumber' in nextTier.minSpend
           ? (nextTier.minSpend as any).toNumber()
           : Number(nextTier.minSpend)
-      } : null,
-      progressToNextTier,
-      amountToNextTier,
-      totalEarned,
-      stats: {
-        orderCount: spendingStats.orderCount, // From standardized calculation
-        totalSpent: spendingStats.totalSpending, // From standardized calculation
-        netSpent: spendingStats.totalSpending, // Same as totalSpent (already net of refunds)
-        averageCashbackPerOrder: spendingStats.orderCount > 0 ? totalEarned / spendingStats.orderCount : 0,
-        lastOrderDate: spendingStats.lastOrderDate?.toISOString() || null
-      },
-      allTiers: allTiers.map(t => ({
-        name: t.name,
-        cashbackPercent: typeof t.cashbackPercent === 'object' && 'toNumber' in t.cashbackPercent
-          ? (t.cashbackPercent as any).toNumber()
-          : Number(t.cashbackPercent),
-        minSpend: typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
-          ? (t.minSpend as any).toNumber()
-          : Number(t.minSpend)
-      })),
-      recentTransactions: transactions.map(t => ({
-        id: t.id,
-        type: t.type,
-        amount: typeof t.amount === 'object' && 'toNumber' in t.amount
-          ? (t.amount as any).toNumber()
-          : Number(t.amount),
-        date: t.createdAt.toISOString(),
-        description: getTransactionDescription(t)
-      })),
-      currency: shopSettings?.storeCurrency || 'USD'
+      } : null
     };
 
     const responseTime = Date.now() - startTime;
