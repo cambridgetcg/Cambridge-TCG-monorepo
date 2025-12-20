@@ -23,9 +23,9 @@ import { appProxyRateLimit } from "../utils/rate-limiter";
 // Set PROXY_LOG_LEVEL=debug for troubleshooting, default is 'error'
 // ============================================================================
 
-// TEMPORARY: Force debug logging to diagnose 500 error
-// TODO: Revert to environment-controlled logging after diagnosis
-const FORCE_DEBUG = true;
+// Debug logging controlled by PROXY_LOG_LEVEL environment variable
+// Set PROXY_LOG_LEVEL=debug for troubleshooting
+const FORCE_DEBUG = false;
 
 const LOG_LEVEL = process.env.PROXY_LOG_LEVEL || 'error';
 const isDebugLogging = FORCE_DEBUG || LOG_LEVEL === 'debug';

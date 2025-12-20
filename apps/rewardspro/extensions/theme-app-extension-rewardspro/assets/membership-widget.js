@@ -797,11 +797,18 @@
         '--rp-font-family': theme.fontFamily || 'inherit'
       };
 
-      // Calculate derived colors
+      // Calculate derived colors based on theme mode
       const isDark = theme.mode === 'DARK';
       cssVars['--rp-text-secondary'] = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
-      cssVars['--rp-border-color'] = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-      cssVars['--rp-progress-bg'] = isDark ? 'rgba(255, 255, 255, 0.1)' : '#E1E3E5';
+      cssVars['--rp-border-color'] = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+      cssVars['--rp-progress-bg'] = isDark ? 'rgba(255, 255, 255, 0.15)' : '#E1E3E5';
+      cssVars['--rp-card-bg'] = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)';
+      cssVars['--rp-card-hover-bg'] = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+
+      // Parse primary color for alpha variant (for gradient overlays)
+      const primaryColor = theme.primaryColor || '#5C6AC4';
+      // Create semi-transparent version of primary color for radial gradients
+      cssVars['--rp-primary-color-alpha'] = isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(92, 106, 196, 0.08)';
 
       console.log('[RewardsWidget] 🎨 Setting CSS variables:', cssVars);
       console.log('[RewardsWidget] 🎨 Theme mode:', theme.mode, '| isDark:', isDark);
