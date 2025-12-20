@@ -1,8 +1,46 @@
 {
-  "banner": {
-    "title": "Hello World!",
-    "message": "This is a test block on the Profile page."
-  },
-  "extensionLocation": "This extension is rendering on the customer account profile page.",
-  "currentLocale": "Current locale: {{locale}} | Date: {{date}}"
+  "membership": {
+    "title": "My Membership",
+    "refresh": "Refresh",
+    "tier": {
+      "current": "Current Tier",
+      "next": "Next: {{tierName}}",
+      "spendMore": "Spend {{amount}} more to unlock {{percent}}% cashback",
+      "progress": "{{percent}}% progress",
+      "atHighest": "You've reached the highest tier!"
+    },
+    "balance": {
+      "available": "Available Store Credit",
+      "totalEarned": "Total earned: {{amount}}"
+    },
+    "stats": {
+      "totalSpent": "Total Spent",
+      "orders": "Orders"
+    },
+    "transactions": {
+      "title": "Recent Activity"
+    },
+    "tiers": {
+      "viewAll": "View all tiers",
+      "hide": "Hide tiers",
+      "allTitle": "All Membership Tiers",
+      "current": "Current",
+      "achieved": "Achieved",
+      "minSpend": "Min spend: {{amount}}"
+    },
+    "preview": {
+      "title": "Membership Preview",
+      "signInMessage": "Sign in to see your membership status and rewards.",
+      "exampleTier": "Example: Gold Member - 5% cashback",
+      "exampleBalance": "Earn store credit on every purchase!"
+    },
+    "notEnrolled": {
+      "title": "Join Our Rewards Program",
+      "message": "Start earning cashback on every purchase. Enroll now to unlock exclusive benefits!"
+    },
+    "error": {
+      "title": "Unable to Load Membership",
+      "generic": "Something went wrong. Please try again later."
+    }
+  }
 }

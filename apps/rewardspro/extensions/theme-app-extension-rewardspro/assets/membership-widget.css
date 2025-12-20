@@ -2035,6 +2035,11 @@
   color: #60a5fa;
 }
 
+/* Warning icon for unavailable state */
+.rp-auth__icon--warning svg {
+  color: #fbbf24;
+}
+
 .rp-auth__text {
   flex: 1;
   position: relative;
@@ -2843,6 +2848,56 @@
   text-align: center;
 }
 
+/* ============================================
+   UNAVAILABLE STATE STYLES
+   Shows when API fails and no cache exists
+   ============================================ */
+
+.rp-unavailable {
+  text-align: center;
+  padding: 16px 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.rp-unavailable__message {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.rp-unavailable__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.rp-unavailable__retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.rp-unavailable__retry:active {
+  transform: translateY(0);
+}
+
+.rp-unavailable__retry svg {
+  flex-shrink: 0;
+}
+
+/* Dark mode already handled by parent .rp-auth styles */
+
 /* Accessibility: Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .rp-widget,
@@ -2851,7 +2906,8 @@
   .rp-widget__spinner,
   .rp-guest-a__cta,
   .rp-guest-b__cta,
-  .rp-guest-c__cta {
+  .rp-guest-c__cta,
+  .rp-unavailable__retry {
     transition: none !important;
     animation: none !important;
   }

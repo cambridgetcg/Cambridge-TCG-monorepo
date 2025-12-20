@@ -1,4 +1,5 @@
 import type { DecodedSessionToken, SessionTokenClaims } from '../types/session';
+import { logger } from './logger';
 
 /**
  * Decodes a JWT session token without verification
@@ -15,12 +16,11 @@ export function decodeSessionToken(token: string): DecodedSessionToken {
     const decodedPayload = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
     const claims = JSON.parse(decodedPayload) as SessionTokenClaims;
 
-    console.log('[decodeSessionToken] Decoded claims:', {
+    logger.debug('Decoded claims:', {
       hasDest: !!claims.dest,
       hasSub: !!claims.sub,
       dest: claims.dest,
       sub: claims.sub,
-      aud: claims.aud,
       exp: claims.exp
     });
 
@@ -33,7 +33,7 @@ export function decodeSessionToken(token: string): DecodedSessionToken {
     if (claims.sub) {
       const match = claims.sub.match(/gid:\/\/shopify\/Customer\/(\d+)/);
       customerId = match ? match[1] : undefined;
-      console.log('[decodeSessionToken] Extracted customer ID:', customerId, 'from sub:', claims.sub);
+      logger.debug('Extracted customer ID:', customerId, 'from sub:', claims.sub);
     }
 
     return {
@@ -43,7 +43,7 @@ export function decodeSessionToken(token: string): DecodedSessionToken {
       customerId,
     };
   } catch (error) {
-    console.error('Failed to decode session token:', error);
+    logger.error('Failed to decode session token:', error);
     throw new Error('Invalid session token');
   }
 }

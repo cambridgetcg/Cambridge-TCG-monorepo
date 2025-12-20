@@ -1,5 +1,6 @@
 import { useAuthenticatedAccountCustomer, useAuthenticatedAccountPurchasingCompany } from '@shopify/ui-extensions-react/customer-account';
 import type { Customer, PurchasingCompany } from '../types/session';
+import { logger } from '../utils/logger';
 
 /**
  * Hook to access authenticated customer information
@@ -13,14 +14,14 @@ export function useAuthenticatedCustomer() {
   const customer = useAuthenticatedAccountCustomer();
   const purchasingCompany = useAuthenticatedAccountPurchasingCompany();
 
-  console.log('[useAuthenticatedCustomer] Customer data:', {
+  logger.debug('Customer data:', {
     customerId: customer?.id,
     email: customer?.email,
     firstName: customer?.firstName,
     lastName: customer?.lastName,
   });
 
-  console.log('[useAuthenticatedCustomer] Purchasing company data:', {
+  logger.debug('Purchasing company data:', {
     companyId: purchasingCompany?.company?.id,
     locationId: purchasingCompany?.location?.id,
     isB2B: !!purchasingCompany?.company?.id,
@@ -37,8 +38,7 @@ export function useAuthenticatedCustomer() {
   const customerId = extractCustomerId(customer?.id);
   const isAuthenticated = !!customer?.id;
 
-  console.log('[useAuthenticatedCustomer] Extracted customer ID:', customerId);
-  console.log('[useAuthenticatedCustomer] Is authenticated:', isAuthenticated);
+  logger.debug('Extracted customer ID:', customerId, 'Authenticated:', isAuthenticated);
 
   return {
     /** Full customer object with GID */

@@ -35,14 +35,18 @@
       "routes/api.customer-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.refunded": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.credit-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.credit-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.storefront.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.admin.tier-health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.credit-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.gitbook-assistant": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-billing-mode": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -332,6 +336,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.credit-sync.process": {
+        "id": "routes/api.credit-sync.process",
+        "parentId": "root",
+        "file": "app/routes/api.credit-sync.process.tsx",
+        "path": "api/credit-sync/process",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.cron.exchange-rates": {
         "id": "routes/api.cron.exchange-rates",
         "parentId": "root",
@@ -355,6 +368,15 @@
         "parentId": "root",
         "file": "app/routes/api.subscription-action.tsx",
         "path": "api/subscription-action",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.credit-sync.status": {
+        "id": "routes/api.credit-sync.status",
+        "parentId": "root",
+        "file": "app/routes/api.credit-sync.status.tsx",
+        "path": "api/credit-sync/status",
         "config": {
           "runtime": "nodejs"
         }
@@ -400,6 +422,24 @@
         "parentId": "root",
         "file": "app/routes/webhooks.orders.create.tsx",
         "path": "webhooks/orders/create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.admin.tier-health": {
+        "id": "routes/api.admin.tier-health",
+        "parentId": "root",
+        "file": "app/routes/api.admin.tier-health.tsx",
+        "path": "api/admin/tier-health",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.credit-sync.start": {
+        "id": "routes/api.credit-sync.start",
+        "parentId": "root",
+        "file": "app/routes/api.credit-sync.start.tsx",
+        "path": "api/credit-sync/start",
         "config": {
           "runtime": "nodejs"
         }
@@ -1095,6 +1135,12 @@
         "file": "routes/webhooks.orders.refunded.tsx",
         "path": "webhooks/orders/refunded"
       },
+      "routes/api.credit-sync.process": {
+        "id": "routes/api.credit-sync.process",
+        "parentId": "root",
+        "file": "routes/api.credit-sync.process.tsx",
+        "path": "api/credit-sync/process"
+      },
       "routes/api.cron.exchange-rates": {
         "id": "routes/api.cron.exchange-rates",
         "parentId": "root",
@@ -1112,6 +1158,12 @@
         "parentId": "root",
         "file": "routes/api.subscription-action.tsx",
         "path": "api/subscription-action"
+      },
+      "routes/api.credit-sync.status": {
+        "id": "routes/api.credit-sync.status",
+        "parentId": "root",
+        "file": "routes/api.credit-sync.status.tsx",
+        "path": "api/credit-sync/status"
       },
       "routes/api.cron.monthly-reset": {
         "id": "routes/api.cron.monthly-reset",
@@ -1142,6 +1194,18 @@
         "parentId": "root",
         "file": "routes/webhooks.orders.create.tsx",
         "path": "webhooks/orders/create"
+      },
+      "routes/api.admin.tier-health": {
+        "id": "routes/api.admin.tier-health",
+        "parentId": "root",
+        "file": "routes/api.admin.tier-health.tsx",
+        "path": "api/admin/tier-health"
+      },
+      "routes/api.credit-sync.start": {
+        "id": "routes/api.credit-sync.start",
+        "parentId": "root",
+        "file": "routes/api.credit-sync.start.tsx",
+        "path": "api/credit-sync/start"
       },
       "routes/api.gitbook-assistant": {
         "id": "routes/api.gitbook-assistant",

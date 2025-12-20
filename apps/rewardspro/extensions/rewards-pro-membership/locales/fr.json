@@ -1,8 +1,46 @@
 {
-  "banner": {
-    "title": "Bonjour le monde!",
-    "message": "Ceci est un bloc de test sur la page de profil."
-  },
-  "extensionLocation": "Cette extension s'affiche sur la page de profil du compte client.",
-  "currentLocale": "Locale actuelle: {{locale}} | Date: {{date}}"
+  "membership": {
+    "title": "Mon Adhésion",
+    "refresh": "Actualiser",
+    "tier": {
+      "current": "Niveau Actuel",
+      "next": "Prochain: {{tierName}}",
+      "spendMore": "Dépensez {{amount}} de plus pour débloquer {{percent}}% de cashback",
+      "progress": "{{percent}}% de progression",
+      "atHighest": "Vous avez atteint le niveau le plus élevé!"
+    },
+    "balance": {
+      "available": "Crédit Magasin Disponible",
+      "totalEarned": "Total gagné: {{amount}}"
+    },
+    "stats": {
+      "totalSpent": "Total Dépensé",
+      "orders": "Commandes"
+    },
+    "transactions": {
+      "title": "Activité Récente"
+    },
+    "tiers": {
+      "viewAll": "Voir tous les niveaux",
+      "hide": "Masquer les niveaux",
+      "allTitle": "Tous les Niveaux d'Adhésion",
+      "current": "Actuel",
+      "achieved": "Atteint",
+      "minSpend": "Dépense min: {{amount}}"
+    },
+    "preview": {
+      "title": "Aperçu de l'Adhésion",
+      "signInMessage": "Connectez-vous pour voir votre statut d'adhésion et vos récompenses.",
+      "exampleTier": "Exemple: Membre Or - 5% de cashback",
+      "exampleBalance": "Gagnez du crédit magasin sur chaque achat!"
+    },
+    "notEnrolled": {
+      "title": "Rejoignez Notre Programme de Récompenses",
+      "message": "Commencez à gagner du cashback sur chaque achat. Inscrivez-vous maintenant pour débloquer des avantages exclusifs!"
+    },
+    "error": {
+      "title": "Impossible de Charger l'Adhésion",
+      "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    }
+  }
 }

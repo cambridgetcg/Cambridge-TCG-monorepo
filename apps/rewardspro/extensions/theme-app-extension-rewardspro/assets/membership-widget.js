@@ -58,7 +58,7 @@
         api: {
           endpoint: dataset.apiEndpoint,
           enabled: dataset.enableApi !== 'false',
-          cacheDuration: parseInt(dataset.cacheDuration) || 300 // seconds
+          cacheDuration: parseInt(dataset.cacheDuration) || 120 // seconds (aligned with server 60s + 30s stale-while-revalidate)
         },
 
         // Guest configuration
@@ -302,40 +302,99 @@
     }
 
     /**
-     * Use fallback data when API is unavailable
+     * Use fallback when API is unavailable - show unavailable state instead of fake zeros
+     * This prevents misleading customers into thinking they have no rewards
      */
     useFallbackData() {
-      console.log('[RewardsWidget] Using fallback data');
-      this.state.data = {
-        customer: {
-          id: this.config.customer.id,
-          email: this.config.customer.email,
-          name: this.config.customer.name
-        },
-        balance: {
-          storeCredit: 0,
-          totalEarned: 0,
-          lastSynced: null
-        },
-        membership: {
-          tier: {
-            id: 'default',
-            name: 'Member',
-            cashbackPercent: 1
-          }
-        },
-        tierProgress: {
-          currentSpending: 0,
-          nextTierTarget: 0,
-          nextTierName: '',
-          amountRemaining: 0,
-          progressPercent: 0,
-          isMaxTier: false
-        }
-      };
-      this.state.dataSource = 'fallback';
+      console.log('[RewardsWidget] API unavailable - showing unavailable state instead of fake data');
+      this.state.data = null;
+      this.state.dataSource = 'unavailable';
+      this.state.error = 'Data temporarily unavailable';
+      this.renderUnavailable();
+    }
 
-      this.renderAuthenticated();
+    /**
+     * Render unavailable state when API fails and no cache exists
+     * Shows a friendly message with retry option instead of misleading zeros
+     */
+    renderUnavailable() {
+      const expandedClass = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
+
+      this.root.innerHTML = `
+        <div class="rp-auth ${expandedClass}">
+          <div class="rp-auth__header" role="button" tabindex="0" aria-expanded="${this.state.isExpanded}">
+            <div class="rp-auth__icon rp-auth__icon--warning">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <div class="rp-auth__text">
+              <h3 class="rp-auth__title">Rewards</h3>
+              <p class="rp-auth__subtitle">Temporarily unavailable</p>
+            </div>
+            <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+          </div>
+          <div class="rp-auth__body">
+            <div class="rp-unavailable">
+              <p class="rp-unavailable__message">
+                We couldn't load your rewards data right now.
+                Your rewards are still safe - please try again.
+              </p>
+              <button class="rp-unavailable__retry" data-retry="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M23 4v6h-6M1 20v-6h6"/>
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      this.attachUnavailableEventListeners();
+    }
+
+    /**
+     * Attach event listeners for unavailable state
+     */
+    attachUnavailableEventListeners() {
+      const header = this.root.querySelector('.rp-auth__header');
+      const toggle = this.root.querySelector('.rp-auth__toggle');
+      const retryBtn = this.root.querySelector('[data-retry]');
+
+      const handleToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.state.isExpanded = !this.state.isExpanded;
+        this.saveExpandedState();
+        this.renderUnavailable();
+      };
+
+      if (header) {
+        header.addEventListener('click', handleToggle);
+        header.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') handleToggle(e);
+        });
+      }
+
+      if (toggle) {
+        toggle.addEventListener('click', handleToggle);
+      }
+
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          console.log('[RewardsWidget] User clicked retry - fetching fresh data');
+          this.renderLoading();
+          this.fetchCustomerData();
+        });
+      }
     }
 
     /**

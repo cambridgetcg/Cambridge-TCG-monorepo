@@ -111,6 +111,13 @@ export async function assignCustomerToTier(
       };
     }
 
+    // Calculate override expiry if duration is specified
+    let overrideExpiry: Date | null = null;
+    if (options?.overrideDuration && options.overrideDuration > 0) {
+      overrideExpiry = new Date();
+      overrideExpiry.setDate(overrideExpiry.getDate() + options.overrideDuration);
+    }
+
     // Update customer's tier
     const updatedCustomer = await db.customer.update({
       where: { id: customerId },
@@ -118,6 +125,39 @@ export async function assignCustomerToTier(
         currentTierId: tierId,
         updatedAt: new Date()
       }
+    });
+
+    // Update or create CustomerTierState to store the manual override
+    await db.customerTierState.upsert({
+      where: { customerId },
+      create: {
+        id: uuidv4(),
+        shop,
+        customerId,
+        effectiveTierId: tierId,
+        tierSource: 'MANUAL_OVERRIDE',
+        hasManualOverride: true,
+        manualOverrideTierId: tierId,  // Store the override tier ID
+        manualOverrideAt: new Date(),
+        manualOverrideBy: adminUserId,
+        manualOverrideExpiry: overrideExpiry,
+        manualOverrideNote: note || null,
+        lastResolvedAt: new Date(),
+        resolutionReason: `Manual override by admin: ${note || 'No reason provided'}`,
+      },
+      update: {
+        effectiveTierId: tierId,
+        tierSource: 'MANUAL_OVERRIDE',
+        hasManualOverride: true,
+        manualOverrideTierId: tierId,  // Store the override tier ID
+        manualOverrideAt: new Date(),
+        manualOverrideBy: adminUserId,
+        manualOverrideExpiry: overrideExpiry,
+        manualOverrideNote: note || null,
+        lastResolvedAt: new Date(),
+        resolutionReason: `Manual override by admin: ${note || 'No reason provided'}`,
+        updatedAt: new Date(),
+      },
     });
 
     // Determine change type
@@ -146,7 +186,7 @@ export async function assignCustomerToTier(
         processedBy: adminUserId,
         metadata: {
           adminUserId,
-          permanentOverride: options?.permanentOverride || false,
+          permanentOverride: options?.permanentOverride ?? true, // Default to permanent
           overrideDuration: options?.overrideDuration || null,
           reason: note,
           timestamp: new Date().toISOString()
@@ -181,51 +221,94 @@ export async function assignCustomerToTier(
 }
 
 /**
- * Check if a customer has a manual override active
- *
- * NEW IMPLEMENTATION: Uses CustomerTierState for O(1) lookup instead of
- * scanning TierChangeLog. This is much faster and more reliable.
- *
- * Falls back to legacy TierChangeLog scanning if CustomerTierState doesn't exist
- * (for backward compatibility during migration).
+ * Manual override information returned by getManualOverride
  */
-export async function hasManualOverride(
-  customerId: string
-): Promise<boolean> {
-  try {
-    console.log(`[hasManualOverride] Checking override status for customer: ${customerId}`);
+export interface ManualOverrideInfo {
+  hasOverride: boolean;
+  tierId: string | null;
+  tierName: string | null;
+  setAt: Date | null;
+  setBy: string | null;
+  expiresAt: Date | null;
+  note: string | null;
+}
 
-    // NEW: Check CustomerTierState first (O(1) lookup)
-    const tierState = await db.customerTierState.findUnique({
+// Transaction client type for Prisma
+type TransactionClient = Omit<typeof db, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
+
+/**
+ * Get manual override information for a customer
+ *
+ * Returns the tier ID that was manually set, not just a boolean.
+ * This is the preferred function for tier resolution.
+ *
+ * @param customerId - The customer ID to check
+ * @param tx - Optional transaction client for atomic operations
+ */
+export async function getManualOverride(
+  customerId: string,
+  tx?: TransactionClient
+): Promise<ManualOverrideInfo> {
+  const prisma = tx || db;
+  const noOverride: ManualOverrideInfo = {
+    hasOverride: false,
+    tierId: null,
+    tierName: null,
+    setAt: null,
+    setBy: null,
+    expiresAt: null,
+    note: null,
+  };
+
+  try {
+    console.log(`[getManualOverride] Checking override for customer: ${customerId}`);
+
+    // Check CustomerTierState first (O(1) lookup)
+    const tierState = await prisma.customerTierState.findUnique({
       where: { customerId },
       select: {
         hasManualOverride: true,
+        manualOverrideTierId: true,
+        manualOverrideTier: {
+          select: { name: true }
+        },
+        manualOverrideAt: true,
+        manualOverrideBy: true,
         manualOverrideExpiry: true,
+        manualOverrideNote: true,
       },
     });
 
     if (tierState) {
-      // If CustomerTierState exists, use the explicit boolean field
+      // If CustomerTierState exists, use the explicit fields
       if (!tierState.hasManualOverride) {
-        console.log(`[hasManualOverride] CustomerTierState.hasManualOverride is false`);
-        return false;
+        console.log(`[getManualOverride] CustomerTierState.hasManualOverride is false`);
+        return noOverride;
       }
 
       // Check if temporary override has expired
       if (tierState.manualOverrideExpiry && tierState.manualOverrideExpiry < new Date()) {
-        console.log(`[hasManualOverride] Manual override has expired at ${tierState.manualOverrideExpiry}`);
-        return false;
+        console.log(`[getManualOverride] Manual override expired at ${tierState.manualOverrideExpiry}`);
+        return noOverride;
       }
 
-      console.log(`[hasManualOverride] Active manual override found in CustomerTierState`);
-      return true;
+      // Return the stored override tier ID
+      console.log(`[getManualOverride] Active override found: tierId=${tierState.manualOverrideTierId}`);
+      return {
+        hasOverride: true,
+        tierId: tierState.manualOverrideTierId,
+        tierName: tierState.manualOverrideTier?.name || null,
+        setAt: tierState.manualOverrideAt,
+        setBy: tierState.manualOverrideBy,
+        expiresAt: tierState.manualOverrideExpiry,
+        note: tierState.manualOverrideNote,
+      };
     }
 
-    // LEGACY FALLBACK: If CustomerTierState doesn't exist, fall back to TierChangeLog scanning
-    // This ensures backward compatibility during migration
-    console.log(`[hasManualOverride] CustomerTierState not found, falling back to legacy TierChangeLog scan`);
+    // LEGACY FALLBACK: Scan TierChangeLog for manual overrides
+    console.log(`[getManualOverride] CustomerTierState not found, falling back to TierChangeLog`);
 
-    const permanentOverride = await db.tierChangeLog.findFirst({
+    const lastManualEntry = await prisma.tierChangeLog.findFirst({
       where: {
         customerId,
         triggerType: 'MANUAL_ADMIN'
@@ -233,66 +316,98 @@ export async function hasManualOverride(
       orderBy: { createdAt: 'desc' }
     });
 
-    if (!permanentOverride) {
-      console.log(`[hasManualOverride] No MANUAL_ADMIN entries found - returning false`);
-      return false;
+    if (!lastManualEntry) {
+      console.log(`[getManualOverride] No MANUAL_ADMIN entries found`);
+      return noOverride;
     }
 
-    // Parse metadata (Aurora Data API may return as string)
-    let metadata = permanentOverride.metadata as any;
+    // Parse metadata
+    let metadata = lastManualEntry.metadata as any;
     if (typeof metadata === 'string') {
       try {
         metadata = JSON.parse(metadata);
-      } catch (error) {
-        console.error(`[hasManualOverride] Failed to parse metadata string:`, error);
+      } catch {
         metadata = null;
       }
     }
 
+    // Check if override was removed
+    if (metadata?.action === 'remove_override' || lastManualEntry.note?.includes('override removed')) {
+      console.log(`[getManualOverride] Last manual action was removal`);
+      return noOverride;
+    }
+
     // Check permanent override
     if (metadata?.permanentOverride === true) {
-      // Check for removal after this override
-      const removalAfterOverride = await db.tierChangeLog.findFirst({
+      // Verify no removal after this
+      const removalAfter = await prisma.tierChangeLog.findFirst({
         where: {
           customerId,
-          createdAt: { gt: permanentOverride.createdAt },
+          createdAt: { gt: lastManualEntry.createdAt },
           triggerType: 'MANUAL_ADMIN',
           note: { contains: 'override removed' }
         }
       });
 
-      const hasActiveOverride = !removalAfterOverride;
-      console.log(`[hasManualOverride] Legacy check - permanent override active: ${hasActiveOverride}`);
-      return hasActiveOverride;
+      if (removalAfter) {
+        console.log(`[getManualOverride] Override was removed after being set`);
+        return noOverride;
+      }
+
+      console.log(`[getManualOverride] Legacy permanent override found: tierId=${lastManualEntry.toTierId}`);
+      return {
+        hasOverride: true,
+        tierId: lastManualEntry.toTierId,
+        tierName: lastManualEntry.toTierName,
+        setAt: lastManualEntry.createdAt,
+        setBy: metadata?.adminUserId || lastManualEntry.processedBy || null,
+        expiresAt: null,
+        note: lastManualEntry.note,
+      };
     }
 
     // Check temporary override
     if (metadata?.overrideDuration) {
-      const overrideDate = new Date(permanentOverride.createdAt);
-      overrideDate.setDate(overrideDate.getDate() + metadata.overrideDuration);
+      const expiryDate = new Date(lastManualEntry.createdAt);
+      expiryDate.setDate(expiryDate.getDate() + metadata.overrideDuration);
 
-      if (overrideDate > new Date()) {
-        const removalAfterOverride = await db.tierChangeLog.findFirst({
-          where: {
-            customerId,
-            createdAt: { gt: permanentOverride.createdAt, lt: overrideDate },
-            triggerType: 'MANUAL_ADMIN',
-            note: { contains: 'override removed' }
-          }
-        });
-
-        const isActive = !removalAfterOverride;
-        console.log(`[hasManualOverride] Legacy check - temporary override active: ${isActive}`);
-        return isActive;
+      if (expiryDate > new Date()) {
+        console.log(`[getManualOverride] Legacy temporary override found: tierId=${lastManualEntry.toTierId}`);
+        return {
+          hasOverride: true,
+          tierId: lastManualEntry.toTierId,
+          tierName: lastManualEntry.toTierName,
+          setAt: lastManualEntry.createdAt,
+          setBy: metadata?.adminUserId || lastManualEntry.processedBy || null,
+          expiresAt: expiryDate,
+          note: lastManualEntry.note,
+        };
       }
     }
 
-    console.log(`[hasManualOverride] No active override found - returning false`);
-    return false;
+    console.log(`[getManualOverride] No active override found`);
+    return noOverride;
   } catch (error) {
-    console.error(`[ManualTierAssignment] Error checking override:`, error);
-    return false;
+    console.error(`[getManualOverride] Error:`, error);
+    return noOverride;
   }
+}
+
+/**
+ * Check if a customer has a manual override active (backward compatible)
+ *
+ * @deprecated Use getManualOverride() instead for tier resolution
+ * This function only returns a boolean and cannot return the override tier ID.
+ *
+ * @param customerId - The customer ID to check
+ * @param tx - Optional transaction client for atomic operations
+ */
+export async function hasManualOverride(
+  customerId: string,
+  tx?: TransactionClient
+): Promise<boolean> {
+  const result = await getManualOverride(customerId, tx);
+  return result.hasOverride;
 }
 
 /**
@@ -329,6 +444,27 @@ export async function removeManualOverride(
     if (customer.currentTierId) {
       currentTier = await db.tier.findUnique({
         where: { id: customer.currentTierId }
+      });
+    }
+
+    // Clear the manual override in CustomerTierState
+    const tierState = await db.customerTierState.findUnique({
+      where: { customerId }
+    });
+
+    if (tierState) {
+      await db.customerTierState.update({
+        where: { customerId },
+        data: {
+          hasManualOverride: false,
+          manualOverrideTierId: null,
+          manualOverrideAt: null,
+          manualOverrideBy: null,
+          manualOverrideExpiry: null,
+          manualOverrideNote: null,
+          // Don't change effectiveTierId - let tier resolution handle it
+          updatedAt: new Date(),
+        }
       });
     }
 

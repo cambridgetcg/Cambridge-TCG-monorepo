@@ -31,6 +31,25 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
+// ============================================================================
+// Configurable Logging
+// ============================================================================
+
+const LOG_LEVEL = process.env.CUSTOMER_ACCOUNT_LOG_LEVEL || 'error';
+const isDebugLogging = LOG_LEVEL === 'debug';
+const isInfoLogging = LOG_LEVEL === 'info' || isDebugLogging;
+
+const log = {
+  debug: (...args: unknown[]) => isDebugLogging && console.log('[CustomerAccount]', ...args),
+  info: (...args: unknown[]) => isInfoLogging && console.log('[CustomerAccount]', ...args),
+  warn: (...args: unknown[]) => console.warn('[CustomerAccount]', ...args),
+  error: (...args: unknown[]) => console.error('[CustomerAccount]', ...args),
+};
+
+// ============================================================================
+// Types
+// ============================================================================
+
 // Import standardized spending calculation used by tier recalculation
 interface CustomerSpending {
   customerId: string;
@@ -50,7 +69,7 @@ async function getCustomerSpendingFromDB(
   evaluationPeriod: 'ANNUAL' | 'LIFETIME'
 ): Promise<CustomerSpending> {
   try {
-    console.log(`[CustomerAccount] Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
+    log.debug(`Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
 
     // Fetch all orders for manual calculation (Aurora Data API aggregates are unreliable)
     const allOrders = await db.order.findMany({
@@ -72,7 +91,7 @@ async function getCustomerSpendingFromDB(
       }
     });
 
-    console.log(`[CustomerAccount] Found ${allOrders.length} total orders for customer`);
+    log.debug(`Found ${allOrders.length} total orders for customer`);
 
     // Manual calculation of spending (more reliable than Aurora aggregates)
     let totalSpent = 0;
@@ -121,12 +140,13 @@ async function getCustomerSpendingFromDB(
 
     const netSpending = totalSpent - totalRefunded;
 
-    console.log(`[CustomerAccount] Manual calculation results:`);
-    console.log(`[CustomerAccount]   - Total orders: ${allOrders.length}`);
-    console.log(`[CustomerAccount]   - Eligible orders: ${eligibleOrderCount}`);
-    console.log(`[CustomerAccount]   - Total spent: $${totalSpent.toFixed(2)}`);
-    console.log(`[CustomerAccount]   - Total refunded: $${totalRefunded.toFixed(2)}`);
-    console.log(`[CustomerAccount]   - Net spending: $${netSpending.toFixed(2)}`);
+    log.debug('Manual calculation results:', {
+      totalOrders: allOrders.length,
+      eligibleOrders: eligibleOrderCount,
+      totalSpent: totalSpent.toFixed(2),
+      totalRefunded: totalRefunded.toFixed(2),
+      netSpending: netSpending.toFixed(2)
+    });
 
     return {
       customerId,
@@ -136,7 +156,7 @@ async function getCustomerSpendingFromDB(
       lastOrderDate: lastOrderDate
     };
   } catch (error) {
-    console.error(`[CustomerAccount] Error fetching spending from DB for customer ${customerId}:`, error);
+    log.error(`Error fetching spending from DB for customer ${customerId}:`, error);
 
     // Return zero spending on error
     return {
@@ -197,14 +217,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const origin = request.headers.get('origin');
 
-  console.log(`\n[${requestId}] ========== NEW REQUEST ==========`);
-  console.log(`[${requestId}] URL: ${request.url}`);
-  console.log(`[${requestId}] Method: ${request.method}`);
-  console.log(`[${requestId}] Origin: ${origin}`);
+  log.debug(`[${requestId}] New request:`, {
+    url: request.url,
+    method: request.method,
+    origin
+  });
 
   // Handle OPTIONS preflight immediately
   if (request.method === 'OPTIONS') {
-    console.log(`[${requestId}] OPTIONS preflight request - returning 204 with CORS headers`);
+    log.debug(`[${requestId}] OPTIONS preflight`);
     return new Response(null, {
       status: 204,
       headers: getCorsHeaders(origin)
@@ -226,7 +247,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
           // Check if required claims are present
           if (!payload.dest || !payload.sub) {
-            console.log(`[${requestId}] Preview mode detected - token missing dest/sub claims`);
+            log.debug(`[${requestId}] Preview mode detected - token missing dest/sub claims`);
 
             // Return friendly preview state instead of error
             return json(
@@ -266,19 +287,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }
       } catch (decodeError) {
         // If we can't decode, let the auth helper handle it
-        console.log(`[${requestId}] Could not decode token, proceeding with authentication`);
+        log.debug(`[${requestId}] Could not decode token, proceeding with authentication`);
       }
     }
 
     // Step 1: Validate session token from customer account extension
-    console.log(`[${requestId}] Step 1: Authenticating request...`);
+    log.debug(`[${requestId}] Authenticating request...`);
 
     let authResult;
     try {
       authResult = await authenticate.public.customerAccount(request);
-      console.log(`[${requestId}] Step 2: Authenticated successfully`);
+      log.debug(`[${requestId}] Authenticated successfully`);
     } catch (authError: any) {
-      console.log(`[${requestId}] Authentication failed:`, authError.message || 'Unknown error');
+      log.info(`[${requestId}] Authentication failed:`, authError.message || 'Unknown error');
       return json({
         error: "Authentication failed",
         message: authError.message || "Unable to authenticate customer account session"
@@ -292,7 +313,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const sessionToken = authResult?.sessionToken;
 
     if (!sessionToken) {
-      console.error(`[${requestId}] No session token in auth result`);
+      log.error(`[${requestId}] No session token in auth result`);
       return json(
         { error: "Unauthorized", message: "Invalid session token" },
         { status: 401, headers: getCorsHeaders(origin) }
@@ -302,15 +323,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const customerGid = sessionToken.sub; // gid://shopify/Customer/23893043347801
     const shop = sessionToken.dest; // rewardspro-dev.myshopify.com
 
-    console.log(`[${requestId}] Customer GID: ${customerGid}`);
-    console.log(`[${requestId}] Shop: ${shop}`);
+    log.debug(`[${requestId}] Customer: ${customerGid}, Shop: ${shop}`);
 
     // Validate that we have the required claims (should always be present if auth succeeded)
     if (!customerGid || !shop) {
-      console.error(`[${requestId}] Missing required claims after successful authentication:`, {
-        hasCustomerGid: !!customerGid,
-        hasShop: !!shop
-      });
+      log.error(`[${requestId}] Missing required claims after successful authentication`);
       return json(
         { error: "Invalid session token", message: "Session token is missing required claims" },
         { status: 401, headers: getCorsHeaders(origin) }
@@ -320,7 +337,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Step 3: Rate limiting per customer
     const rateLimitKey = `customer-account:${shop}:${customerGid}`;
     if (!checkRateLimit(rateLimitKey, 100)) {
-      console.warn(`[Customer Account API] Rate limit exceeded for ${customerGid}`);
+      log.warn(`[${requestId}] Rate limit exceeded for ${customerGid}`);
       return json(
         { error: "Too many requests", message: "Please try again in a minute" },
         {
@@ -338,47 +355,36 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const customerId = customerGid.split('/').pop();
 
     if (!customerId) {
-      console.error(`[Customer Account API] Invalid customer GID format: ${customerGid}`);
+      log.error(`[${requestId}] Invalid customer GID format: ${customerGid}`);
       return json(
         { error: "Invalid customer ID", message: "Unable to extract customer ID from token" },
         { status: 400, headers: getCorsHeaders(origin) }
       );
     }
 
-    console.log(`[${requestId}] Step 4: Extracted customer ID: ${customerId}`);
-    console.log(`[${requestId}] Step 5: Querying database for customer...`);
-    console.log(`[${requestId}] Query params:`, { shopifyCustomerId: customerId, shop });
+    log.debug(`[${requestId}] Extracted customer ID: ${customerId}`);
 
-    // Step 5: Fetch customer from database (scoped to shop!)
+    // Step 5: Fetch customer with tier included (optimized single query)
     let customer;
     try {
       customer = await db.customer.findFirst({
         where: {
           shopifyCustomerId: customerId,
           shop: shop  // CRITICAL: Always scope to shop!
+        },
+        include: {
+          currentTier: true  // Include tier in same query
         }
       });
-      console.log(`[${requestId}] Database query result:`, customer ? 'Customer found' : 'Customer not found');
-      if (customer) {
-        console.log(`[${requestId}] Customer details:`, {
-          id: customer.id,
-          email: customer.email,
-          storeCredit: customer.storeCredit,
-          currentTierId: customer.currentTierId
-        });
-      }
+      log.debug(`[${requestId}] Customer lookup:`, customer ? 'found' : 'not found');
     } catch (dbError: any) {
-      console.error(`[${requestId}] Database query error:`, {
-        message: dbError.message,
-        stack: dbError.stack,
-        name: dbError.name
-      });
+      log.error(`[${requestId}] Database query error:`, dbError.message);
       throw dbError;
     }
 
     // Step 6: Handle non-enrolled customers
     if (!customer) {
-      console.log(`[${requestId}] Customer ${customerId} not enrolled in ${shop}`);
+      log.info(`[${requestId}] Customer ${customerId} not enrolled`);
       return json(
         {
           success: true,
@@ -396,45 +402,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
       );
     }
 
-    // Step 7: Fetch tier information and all available tiers
-    console.log(`[${requestId}] Step 7: Fetching tier information...`);
-    console.log(`[${requestId}] Current tier ID:`, customer.currentTierId || 'None');
+    // Use tier from the included relation (already fetched with customer)
+    const tier = customer.currentTier;
+    log.debug(`[${requestId}] Current tier:`, tier?.name || 'None');
 
-    let tier = null;
-    if (customer.currentTierId) {
-      tier = await db.tier.findFirst({
-        where: {
-          id: customer.currentTierId,
-          shop: shop  // CRITICAL: Scope to shop!
-        }
-      });
-      console.log(`[${requestId}] Current tier found:`, tier ? {
-        id: tier.id,
-        name: tier.name,
-        cashbackPercent: tier.cashbackPercent,
-        minSpend: tier.minSpend,
-        evaluationPeriod: tier.evaluationPeriod
-      } : 'Not found');
-    }
-
-    // Fetch all tiers sorted by minSpend to calculate next tier
-    console.log(`[${requestId}] Fetching all tiers for shop...`);
+    // Step 7: Fetch all tiers sorted by minSpend to calculate next tier
     const allTiers = await db.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' }
     });
-    console.log(`[${requestId}] Found ${allTiers.length} tiers:`, allTiers.map(t => ({
-      name: t.name,
-      minSpend: t.minSpend,
-      cashbackPercent: t.cashbackPercent
-    })));
+    log.debug(`[${requestId}] Found ${allTiers.length} tiers`);
 
-    // Step 8: Get customer spending stats using standardized calculation FIRST
+    // Step 8: Get customer spending stats using standardized calculation
     // This uses the SAME method as tier recalculation for consistency
-    // We use the current tier's evaluation period, or LIFETIME if no tier
-    console.log(`[${requestId}] Step 8: Fetching customer spending stats...`);
     const evaluationPeriod = tier?.evaluationPeriod || 'LIFETIME';
-    console.log(`[${requestId}] Evaluation period: ${evaluationPeriod}`);
 
     const spendingStats = await getCustomerSpendingFromDB(
       shop,
@@ -442,21 +423,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
       evaluationPeriod
     );
 
-    console.log(`[${requestId}] Spending stats from DB:`, {
-      totalSpending: `$${spendingStats.totalSpending.toFixed(2)}`,
-      orderCount: spendingStats.orderCount,
-      lastOrderDate: spendingStats.lastOrderDate?.toISOString() || 'None'
-    });
+    log.debug(`[${requestId}] Spending: $${spendingStats.totalSpending.toFixed(2)}, Orders: ${spendingStats.orderCount}`);
 
     // Use the standardized spending calculation for tier progress
     const currentSpending = spendingStats.totalSpending;
-    console.log(`[${requestId}] Step 9: Calculating next tier and progress...`);
-    console.log(`[${requestId}] Current spending (standardized): $${currentSpending.toFixed(2)}`);
 
     const currentTierMinSpend = tier ? (typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
       ? (tier.minSpend as any).toNumber()
       : Number(tier.minSpend)) : 0;
-    console.log(`[${requestId}] Current tier min spend: $${currentTierMinSpend.toFixed(2)}`);
 
     const nextTier = allTiers.find(t => {
       const minSpend = typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
@@ -464,11 +438,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
         : Number(t.minSpend);
       return minSpend > currentTierMinSpend;
     });
-    console.log(`[${requestId}] Next tier:`, nextTier ? {
-      name: nextTier.name,
-      minSpend: nextTier.minSpend,
-      cashbackPercent: nextTier.cashbackPercent
-    } : 'None (at highest tier)');
 
     // Calculate progress to next tier
     let progressToNextTier = 100;
@@ -483,32 +452,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
       const progressInTier = currentSpending - currentTierMinSpend;
       const tierRange = nextTierMinSpend - currentTierMinSpend;
       progressToNextTier = Math.min(100, Math.max(0, (progressInTier / tierRange) * 100));
-
-      console.log(`[${requestId}] Tier progress calculation:`, {
-        nextTierMinSpend: nextTierMinSpend.toFixed(2),
-        amountToNextTier: amountToNextTier.toFixed(2),
-        progressInTier: progressInTier.toFixed(2),
-        tierRange: tierRange.toFixed(2),
-        progressPercent: progressToNextTier.toFixed(1)
-      });
-    } else {
-      console.log(`[${requestId}] Customer at highest tier - no next tier`);
     }
 
-    // Step 10: Fetch recent transactions (last 50 for pagination in frontend)
-    console.log(`[${requestId}] Step 10: Fetching recent transactions...`);
-    const transactions = await db.storeCreditLedger.findMany({
-      where: {
-        customerId: customer.id,
-        shop: shop  // CRITICAL: Scope to shop!
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
-    console.log(`[${requestId}] Found ${transactions.length} transactions`);
+    log.debug(`[${requestId}] Next tier: ${nextTier?.name || 'none'}, Progress: ${progressToNextTier.toFixed(0)}%`);
 
-    // Step 11: Calculate lifetime earned (cashback + refunds) from ledger entries
-    console.log(`[${requestId}] Step 11: Calculating lifetime earned...`);
+    // Step 10-13: Batch fetch transactions, shop settings, and latest ledger entry (parallel)
+    const [transactions, shopSettings] = await Promise.all([
+      // Transactions (last 50 for pagination in frontend)
+      db.storeCreditLedger.findMany({
+        where: {
+          customerId: customer.id,
+          shop: shop  // CRITICAL: Scope to shop!
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50
+      }),
+      // Shop settings for currency
+      db.shopSettings.findUnique({
+        where: { shop }
+      })
+    ]);
+
+    log.debug(`[${requestId}] Fetched ${transactions.length} transactions`);
+
+    // Calculate lifetime earned (cashback + refunds) from ledger entries
     const totalEarned = transactions
       .filter(t => ['CASHBACK_EARNED', 'REFUND_CREDIT'].includes(t.type))
       .reduce((sum, t) => {
@@ -517,24 +484,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
           : Number(t.amount);
         return sum + (amount > 0 ? amount : 0);
       }, 0);
-    console.log(`[${requestId}] Total earned from ${transactions.filter(t => ['CASHBACK_EARNED', 'REFUND_CREDIT'].includes(t.type)).length} earn transactions: $${totalEarned.toFixed(2)}`);
 
-    // Step 12: Get shop settings for currency
-    console.log(`[${requestId}] Step 12: Fetching shop settings...`);
-    const shopSettings = await db.shopSettings.findUnique({
-      where: { shop }
-    });
-    console.log(`[${requestId}] Shop currency:`, shopSettings?.storeCurrency || 'USD (default)');
-
-    // Step 13: Get actual balance from most recent ledger entry (source of truth)
-    console.log(`[${requestId}] Step 13: Determining current store credit balance...`);
-    const latestLedgerEntry = await db.storeCreditLedger.findFirst({
-      where: {
-        customerId: customer.id,
-        shop: shop
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    // Get actual balance from most recent ledger entry (source of truth)
+    // Since we already fetched transactions ordered by date, the first one is the latest
+    const latestLedgerEntry = transactions.length > 0 ? transactions[0] : null;
 
     // Use ledger balance as source of truth, fallback to customer.storeCredit
     const actualBalance = latestLedgerEntry
@@ -545,15 +498,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
           ? (customer.storeCredit as any).toNumber()
           : Number(customer.storeCredit));
 
-    console.log(`[${requestId}] Balance sources:`, {
-      customerStoreCreditField: typeof customer.storeCredit === 'object' ? (customer.storeCredit as any).toNumber() : Number(customer.storeCredit),
-      latestLedgerBalance: latestLedgerEntry ? (typeof latestLedgerEntry.balance === 'object' ? (latestLedgerEntry.balance as any).toNumber() : Number(latestLedgerEntry.balance)) : 'No ledger entries',
-      finalBalance: actualBalance.toFixed(2),
-      source: latestLedgerEntry ? 'ledger' : 'customer record'
-    });
+    log.debug(`[${requestId}] Balance: $${actualBalance.toFixed(2)}, Total earned: $${totalEarned.toFixed(2)}`);
 
-    // Step 14: Format and return response
-    console.log(`[${requestId}] Step 14: Formatting response data...`);
+    // Format and return response
     const responseData = {
       success: true,
       enrolled: true,
@@ -607,40 +554,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
       currency: shopSettings?.storeCurrency || 'USD'
     };
 
-    console.log(`[${requestId}] ========== RESPONSE SUMMARY ==========`);
-    console.log(`[${requestId}] Success: true`);
-    console.log(`[${requestId}] Balance: $${actualBalance.toFixed(2)}`);
-    console.log(`[${requestId}] Current tier: ${tier?.name || 'None'}`);
-    console.log(`[${requestId}] Next tier: ${nextTier?.name || 'None'}`);
-    console.log(`[${requestId}] Progress to next: ${progressToNextTier.toFixed(1)}%`);
-    console.log(`[${requestId}] Amount to next tier: $${amountToNextTier.toFixed(2)}`);
-    console.log(`[${requestId}] Total earned: $${totalEarned.toFixed(2)}`);
-    console.log(`[${requestId}] Order count: ${spendingStats.orderCount}`);
-    console.log(`[${requestId}] Total spent: $${spendingStats.totalSpending.toFixed(2)}`);
-    console.log(`[${requestId}] Transaction count: ${transactions.length}`);
-    console.log(`[${requestId}] Response time: ${Date.now() - startTime}ms`);
-    console.log(`[${requestId}] ========== REQUEST COMPLETE ==========`);
+    const responseTime = Date.now() - startTime;
+    log.info(`[${requestId}] Success: ${tier?.name || 'No tier'}, Balance: $${actualBalance.toFixed(2)}, ${responseTime}ms`);
 
     return json(responseData, {
       headers: {
         ...getCorsHeaders(origin),
-        "Cache-Control": "private, max-age=60",  // Cache for 1 minute
-        "X-Response-Time": `${Date.now() - startTime}ms`
+        // Extended cache with stale-while-revalidate for better performance
+        "Cache-Control": "private, max-age=120, stale-while-revalidate=60",
+        "X-Response-Time": `${responseTime}ms`
       }
     });
 
   } catch (error: any) {
-    console.error(`[${requestId}] ========== UNHANDLED ERROR ==========`);
-    console.error(`[${requestId}] Error type:`, error?.constructor?.name || 'Unknown');
-    console.error(`[${requestId}] Error message:`, error?.message || 'No message');
-    console.error(`[${requestId}] Error stack:`, error?.stack || 'No stack trace');
-
-    // Try to stringify the error object
-    try {
-      console.error(`[${requestId}] Error details:`, JSON.stringify(error, null, 2));
-    } catch (e) {
-      console.error(`[${requestId}] Error details: [Unable to stringify]`);
-    }
+    log.error(`[${requestId}] Unhandled error:`, error?.message || 'Unknown error');
 
     // Check if error is from authentication
     if (error?.message?.includes('Unauthorized') || error?.status === 401) {

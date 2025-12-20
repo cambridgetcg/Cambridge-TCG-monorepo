@@ -1,4 +1,6 @@
 import type { ApiResponse } from '../types/session';
+import { logger } from './logger';
+import { API_TIMEOUT, DEBUG_MODE } from '../config';
 
 /**
  * Configuration for API client
@@ -22,8 +24,8 @@ export class ApiClient {
   constructor(config: ApiClientConfig) {
     this.baseUrl = config.baseUrl;
     this.shopDomain = config.shopDomain;
-    this.timeout = config.timeout || 10000;
-    this.enableDebugLogs = config.enableDebugLogs || false;
+    this.timeout = config.timeout || API_TIMEOUT;
+    this.enableDebugLogs = config.enableDebugLogs ?? DEBUG_MODE;
   }
 
   /**
@@ -46,8 +48,8 @@ export class ApiClient {
     const fullUrl = `https://${appDomain}${path}${endpoint}`;
 
     if (this.enableDebugLogs) {
-      console.log(`[ApiClient] Constructed URL: ${fullUrl}`);
-      console.log(`[ApiClient] For shop: ${this.shopDomain || 'not set'}`);
+      logger.debug(`Constructed URL: ${fullUrl}`);
+      logger.debug(`For shop: ${this.shopDomain || 'not set'}`);
     }
 
     return fullUrl;
@@ -66,40 +68,27 @@ export class ApiClient {
 
     try {
       if (this.enableDebugLogs) {
-        console.log(`[ApiClient:${requestId}] Starting request`);
-        console.log(`[ApiClient:${requestId}] URL: ${fullUrl}`);
-        console.log(`[ApiClient:${requestId}] Shop domain: ${this.shopDomain || 'not set'}`);
-        console.log(`[ApiClient:${requestId}] Method: ${options.method || 'GET'}`);
-        console.log(`[ApiClient:${requestId}] Timeout: ${this.timeout}ms`);
+        logger.debug(`[${requestId}] Starting request`);
+        logger.debug(`[${requestId}] URL: ${fullUrl}`);
+        logger.debug(`[${requestId}] Shop: ${this.shopDomain || 'not set'}`);
+        logger.debug(`[${requestId}] Method: ${options.method || 'GET'}`);
       }
-
-      // Use the provided session token string
-      if (this.enableDebugLogs) {
-        console.log(`[ApiClient:${requestId}] Using session token, length: ${sessionToken.length}`);
-        console.log(`[ApiClient:${requestId}] Token preview: ${sessionToken.substring(0, 50)}...`);
-      }
-
-      const token = sessionToken;
 
       // Create abort controller for timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         if (this.enableDebugLogs) {
-          console.warn(`[ApiClient:${requestId}] Request timeout after ${this.timeout}ms`);
+          logger.warn(`[${requestId}] Request timeout after ${this.timeout}ms`);
         }
         controller.abort();
       }, this.timeout);
-
-      if (this.enableDebugLogs) {
-        console.log(`[ApiClient:${requestId}] Sending fetch request...`);
-      }
 
       const startTime = Date.now();
       const response = await fetch(fullUrl, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${sessionToken}`,
           ...options.headers,
         },
         signal: controller.signal,
@@ -109,19 +98,15 @@ export class ApiClient {
       const requestDuration = Date.now() - startTime;
 
       if (this.enableDebugLogs) {
-        console.log(`[ApiClient:${requestId}] Response received in ${requestDuration}ms`);
-        console.log(`[ApiClient:${requestId}] Status: ${response.status} ${response.statusText}`);
-        console.log(`[ApiClient:${requestId}] Headers:`, Object.fromEntries(response.headers.entries()));
+        logger.debug(`[${requestId}] Response: ${response.status} in ${requestDuration}ms`);
       }
 
       if (!response.ok) {
         const errorText = await response.text();
         if (this.enableDebugLogs) {
-          console.error(`[ApiClient:${requestId}] Request failed:`, {
+          logger.error(`[${requestId}] Request failed:`, {
             status: response.status,
-            statusText: response.statusText,
             error: errorText,
-            duration: requestDuration,
           });
         }
 
@@ -132,19 +117,13 @@ export class ApiClient {
         };
       }
 
-      if (this.enableDebugLogs) {
-        console.log(`[ApiClient:${requestId}] Parsing JSON response...`);
-      }
       const data = await response.json();
 
       if (this.enableDebugLogs) {
-        console.log(`[ApiClient:${requestId}] Request successful:`, {
-          success: data.success,
+        logger.debug(`[${requestId}] Success:`, {
           enrolled: data.enrolled,
           balance: data.balance,
           tierName: data.tier?.name,
-          dataKeys: Object.keys(data),
-          duration: requestDuration,
         });
       }
 
@@ -156,14 +135,7 @@ export class ApiClient {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const isTimeout = errorMessage.includes('aborted');
 
-      if (this.enableDebugLogs) {
-        console.error(`[ApiClient:${requestId}] Request error:`, {
-          type: error instanceof Error ? error.constructor.name : 'Unknown',
-          message: errorMessage,
-          isTimeout,
-          error,
-        });
-      }
+      logger.error(`[${requestId}] Request error:`, errorMessage);
 
       return {
         success: false,
@@ -235,8 +207,8 @@ export function createApiClient(config?: Partial<ApiClientConfig>): ApiClient {
   const defaultConfig: ApiClientConfig = {
     baseUrl: '/api/customer-account/loyalty',
     shopDomain: undefined, // Must be provided by caller
-    timeout: 10000,
-    enableDebugLogs: false,
+    timeout: API_TIMEOUT,
+    enableDebugLogs: DEBUG_MODE,
   };
 
   return new ApiClient({

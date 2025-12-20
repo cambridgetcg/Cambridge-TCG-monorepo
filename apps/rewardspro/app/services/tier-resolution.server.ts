@@ -16,10 +16,11 @@
  */
 
 import db from "~/db.server";
-import type { Prisma, PrismaClient } from "@prisma/client";
-import { hasManualOverride } from "./manual-tier-assignment.server";
+import type { Prisma, PrismaClient, TierSource as TierSourceEnum } from "@prisma/client";
+import { getManualOverride } from "./manual-tier-assignment.server";
 import { calculateCustomerTierFromDB } from "./tier-calculation.server";
 import { getBaseTier, getBaseTierConfig } from "./base-tier.server";
+import { calculateProgress } from "./customer-tier-state-update.server";
 
 // Transaction client type for Prisma
 type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -142,20 +143,33 @@ export async function resolveEffectiveTier(
   // ============================================
 
   if (!options?.skipManualCheck) {
-    const hasOverride = await hasManualOverride(customerId);
+    // FIX: Pass transaction client to getManualOverride for proper isolation
+    // FIX: Use the stored override tier ID, not customer.currentTierId
+    const overrideInfo = await getManualOverride(customerId, prisma);
 
-    if (hasOverride && customer.currentTierId) {
-      console.log(`[TierResolution] ✓ Manual override detected`);
+    if (overrideInfo.hasOverride && overrideInfo.tierId) {
+      console.log(`[TierResolution] ✓ Manual override detected: tier=${overrideInfo.tierName} (${overrideInfo.tierId})`);
 
-      const tier = customer.currentTier;
+      // Get tier details if not already included
+      let tierMinSpend = 0;
+      if (overrideInfo.tierId) {
+        const tier = await prisma.tier.findFirst({
+          where: { id: overrideInfo.tierId, shop }
+        });
+        tierMinSpend = tier?.minSpend || 0;
+      }
+
       sources.push({
         source: 'MANUAL_OVERRIDE',
         priority: TIER_SOURCE_PRIORITY.MANUAL_OVERRIDE,
-        tierId: customer.currentTierId,
-        tierName: tier?.name || null,
-        tierMinSpend: tier?.minSpend || 0,
+        tierId: overrideInfo.tierId,  // Use the stored override tier ID
+        tierName: overrideInfo.tierName,
+        tierMinSpend,
         metadata: {
-          changeLogId: 'latest'  // Could fetch actual changeLog ID if needed
+          setAt: overrideInfo.setAt?.toISOString(),
+          setBy: overrideInfo.setBy,
+          expiresAt: overrideInfo.expiresAt?.toISOString(),
+          note: overrideInfo.note,
         }
       });
     } else {
@@ -488,6 +502,66 @@ export async function updateCustomerToEffectiveTier(
 
       if (!changed) {
         console.log(`[TierResolution] No tier change needed - customer already has effective tier`);
+
+        // Still update CustomerTierState with progress (may have changed)
+        const allTiers = await tx.tier.findMany({
+          where: { shop },
+          select: { id: true, name: true, minSpend: true },
+          orderBy: { minSpend: 'asc' }
+        });
+
+        const progress = calculateProgress(
+          Number(customer.netSpent || 0),
+          newTierId,
+          allTiers
+        );
+
+        const tierSourceMap: Record<string, TierSourceEnum> = {
+          'MANUAL_OVERRIDE': 'MANUAL_OVERRIDE',
+          'TIER_SUBSCRIPTION': 'TIER_SUBSCRIPTION',
+          'TIER_PURCHASE': 'TIER_PURCHASE',
+          'SPENDING_BASED': 'SPENDING_BASED',
+          'DEFAULT_BASE_TIER': 'DEFAULT_BASE_TIER',
+          'NONE': 'NONE',
+        };
+        const tierSource = tierSourceMap[resolution.effectiveSource] || 'NONE';
+
+        await tx.customerTierState.upsert({
+          where: { customerId },
+          create: {
+            id: crypto.randomUUID(),
+            customerId,
+            shop,
+            effectiveTierId: newTierId,
+            tierSource,
+            progressPercent: progress.progressPercent,
+            nextTierId: progress.nextTierId,
+            nextTierName: progress.nextTierName,
+            nextTierMinSpend: progress.nextTierMinSpend,
+            amountToNextTier: progress.amountToNextTier,
+            isMaxTier: progress.isMaxTier,
+            progressCalculatedAt: new Date(),
+            lastResolvedAt: new Date(),
+            resolutionReason: resolution.resolutionReason,
+          },
+          update: {
+            effectiveTierId: newTierId,
+            tierSource,
+            progressPercent: progress.progressPercent,
+            nextTierId: progress.nextTierId,
+            nextTierName: progress.nextTierName,
+            nextTierMinSpend: progress.nextTierMinSpend,
+            amountToNextTier: progress.amountToNextTier,
+            isMaxTier: progress.isMaxTier,
+            progressCalculatedAt: new Date(),
+            lastResolvedAt: new Date(),
+            resolutionReason: resolution.resolutionReason,
+            updatedAt: new Date(),
+          }
+        });
+
+        console.log(`[TierResolution] CustomerTierState progress updated: ${progress.progressPercent}%`);
+
         return {
           success: true,
           previousTierId,
@@ -547,6 +621,69 @@ export async function updateCustomerToEffectiveTier(
           updatedAt: new Date()
         }
       });
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // Update CustomerTierState with pre-computed progress for widget
+      // This ensures the widget can display data with a single query
+      // ═══════════════════════════════════════════════════════════════════════
+      const allTiers = await tx.tier.findMany({
+        where: { shop },
+        select: { id: true, name: true, minSpend: true },
+        orderBy: { minSpend: 'asc' }
+      });
+
+      const progress = calculateProgress(
+        Number(customer.netSpent || 0),
+        newTierId,
+        allTiers
+      );
+
+      // Map TierSource string to enum value
+      const tierSourceMap: Record<string, TierSourceEnum> = {
+        'MANUAL_OVERRIDE': 'MANUAL_OVERRIDE',
+        'TIER_SUBSCRIPTION': 'TIER_SUBSCRIPTION',
+        'TIER_PURCHASE': 'TIER_PURCHASE',
+        'SPENDING_BASED': 'SPENDING_BASED',
+        'DEFAULT_BASE_TIER': 'DEFAULT_BASE_TIER',
+        'NONE': 'NONE',
+      };
+      const tierSource = tierSourceMap[resolution.effectiveSource] || 'NONE';
+
+      await tx.customerTierState.upsert({
+        where: { customerId },
+        create: {
+          id: crypto.randomUUID(),
+          customerId,
+          shop,
+          effectiveTierId: newTierId,
+          tierSource,
+          progressPercent: progress.progressPercent,
+          nextTierId: progress.nextTierId,
+          nextTierName: progress.nextTierName,
+          nextTierMinSpend: progress.nextTierMinSpend,
+          amountToNextTier: progress.amountToNextTier,
+          isMaxTier: progress.isMaxTier,
+          progressCalculatedAt: new Date(),
+          lastResolvedAt: new Date(),
+          resolutionReason: resolution.resolutionReason,
+        },
+        update: {
+          effectiveTierId: newTierId,
+          tierSource,
+          progressPercent: progress.progressPercent,
+          nextTierId: progress.nextTierId,
+          nextTierName: progress.nextTierName,
+          nextTierMinSpend: progress.nextTierMinSpend,
+          amountToNextTier: progress.amountToNextTier,
+          isMaxTier: progress.isMaxTier,
+          progressCalculatedAt: new Date(),
+          lastResolvedAt: new Date(),
+          resolutionReason: resolution.resolutionReason,
+          updatedAt: new Date(),
+        }
+      });
+
+      console.log(`[TierResolution] CustomerTierState updated with progress: ${progress.progressPercent}% to ${progress.nextTierName || 'MAX'}`);
 
       return {
         success: true,

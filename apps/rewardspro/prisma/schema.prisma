@@ -230,8 +230,10 @@ model Tier {
   tierPurchases     TierPurchase[]    // One-time purchases of this tier
 
   // CustomerTierState relations
-  tierStateEffective    CustomerTierState[] @relation("EffectiveTier")
+  tierStateEffective     CustomerTierState[] @relation("EffectiveTier")
   tierStateSpendingBased CustomerTierState[] @relation("SpendingBasedTier")
+  tierStateManualOverride CustomerTierState[] @relation("ManualOverrideTier")
+  tierStateNextTier      CustomerTierState[] @relation("NextTier")
 
   // Shop settings using this as default base tier
   shopsUsingAsDefault   ShopSettings[] @relation("DefaultBaseTier")
@@ -377,6 +379,8 @@ model CustomerTierState {
 
   // Manual override tracking (explicit fields, no TierChangeLog scanning needed)
   hasManualOverride     Boolean    @default(false)
+  manualOverrideTierId  String?    // The tier ID that was manually set (persists even if effectiveTierId changes)
+  manualOverrideTier    Tier?      @relation("ManualOverrideTier", fields: [manualOverrideTierId], references: [id], onDelete: SetNull)
   manualOverrideAt      DateTime?
   manualOverrideBy      String?    // Admin user ID who set the override
   manualOverrideExpiry  DateTime?  // NULL = permanent, otherwise temporary override
@@ -399,6 +403,19 @@ model CustomerTierState {
   lastResolvedAt        DateTime   @default(now())
   resolutionReason      String?    @db.Text  // Human-readable explanation of resolution
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Pre-computed Tier Progress (cached for widget performance)
+  // Updated by: updateCustomerTierState() on order/subscription/purchase events
+  // ═══════════════════════════════════════════════════════════════════════
+  progressPercent       Int        @default(0)       // 0-100, progress towards next tier
+  nextTierId            String?                      // Next tier customer can reach
+  nextTier              Tier?      @relation("NextTier", fields: [nextTierId], references: [id], onDelete: SetNull)
+  nextTierName          String?                      // Cached for display (denormalized)
+  nextTierMinSpend      Decimal?   @db.Decimal(10, 2) // minSpend of next tier
+  amountToNextTier      Decimal    @default(0) @db.Decimal(10, 2) // Amount remaining to reach next tier
+  isMaxTier             Boolean    @default(false)   // True if at highest tier
+  progressCalculatedAt  DateTime?                    // When progress was last calculated
+
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
 
@@ -407,6 +424,7 @@ model CustomerTierState {
   @@index([hasManualOverride])
   @@index([purchaseExpiresAt])
   @@index([subscriptionExpiresAt])
+  @@index([isMaxTier])
 }
 
 // ============================================

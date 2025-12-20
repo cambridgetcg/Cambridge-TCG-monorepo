@@ -16,7 +16,7 @@ uid = "be72a1b4-3ed3-d78d-61f7-19361e1583d89ba79ee3"
 # https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/extension-targets-overview
 
 [[extensions.targeting]]
-module = "./src/HelloWorldBlock.tsx"
+module = "./src/MembershipBlock.tsx"
 target = "customer-account.profile.block.render"
 
 [extensions.capabilities]

@@ -7,7 +7,11 @@
   - Shows loading/error states appropriately
 {% endcomment %}
 
-{% assign proxy_base = shop.permanent_domain | prepend: 'https://' | append: '/apps/rewardspro' %}
+{% comment %}
+  API endpoint uses relative URL to avoid CORS issues with custom domains.
+  The browser will resolve this to the current domain (e.g., www.cambridgetcg.com/apps/rewardspro/membership)
+  rather than forcing myshopify.com domain which triggers redirects and breaks CORS preflight.
+{% endcomment %}
 
 {% if customer %}
   {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
@@ -20,9 +24,9 @@
        data-customer-tags="{{ customer.tags | join: ',' }}"
        data-shop-domain="{{ shop.permanent_domain }}"
        data-shop-currency="{{ shop.currency }}"
-       data-api-endpoint="{{ proxy_base }}/membership"
+       data-api-endpoint="/apps/rewardspro/membership"
        data-enable-api="{{ block.settings.enable_api_calls | default: true }}"
-       data-cache-duration="{{ block.settings.cache_duration | default: 300 }}">
+       data-cache-duration="{{ block.settings.cache_duration | default: 120 }}">
     {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
     <div class="rp-widget-loading">Loading rewards...</div>
   </div>
@@ -76,11 +80,11 @@
       "id": "cache_duration",
       "label": "Cache duration (seconds)",
       "min": 60,
-      "max": 3600,
-      "step": 60,
-      "default": 300,
+      "max": 600,
+      "step": 30,
+      "default": 120,
       "unit": "sec",
-      "info": "How long to cache customer data before fetching fresh data (5 minutes recommended)"
+      "info": "How long to cache customer data (2 minutes recommended for balance of freshness and performance)"
     },
     {
       "type": "header",

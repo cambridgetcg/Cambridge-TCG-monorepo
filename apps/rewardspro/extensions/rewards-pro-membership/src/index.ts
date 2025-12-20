@@ -1,3 +1,11 @@
+// Config
+export {
+  DEBUG_MODE,
+  API_TIMEOUT,
+  MAX_TRANSACTIONS_DISPLAY,
+  TOKEN_REFRESH_INTERVAL
+} from './config';
+
 // Hooks
 export { useSessionToken } from './hooks/useSessionToken';
 export { useApiClient } from './hooks/useApiClient';
@@ -12,6 +20,7 @@ export {
 } from './utils/sessionToken';
 export { ApiClient, createApiClient } from './utils/apiClient';
 export type { ApiClientConfig } from './utils/apiClient';
+export { logger } from './utils/logger';
 
 // Types
 export type {
