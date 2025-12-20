@@ -1317,6 +1317,15 @@ export default function SettingsPage() {
 
   // Handle form submission
   const handleSubmit = useCallback(() => {
+    console.log("[Settings UI] handleSubmit called with widgetThemeMode:", widgetThemeMode);
+    console.log("[Settings UI] Full theme state:", {
+      widgetThemeMode,
+      widgetPrimaryColor,
+      widgetBackgroundColor,
+      widgetTextColor,
+      widgetAccentColor
+    });
+
     const formData = new FormData();
     formData.append("intent", "update");
     formData.append("storeName", storeName);
@@ -2483,6 +2492,7 @@ export default function SettingsPage() {
                           <div
                             key={mode}
                             onClick={() => {
+                              console.log("[Settings UI] Theme mode clicked:", mode);
                               setWidgetThemeMode(mode);
                               if (mode === "LIGHT") {
                                 setWidgetPrimaryColor("#5C6AC4");
@@ -2490,6 +2500,7 @@ export default function SettingsPage() {
                                 setWidgetTextColor("#212B36");
                                 setWidgetAccentColor("#008060");
                               } else if (mode === "DARK") {
+                                console.log("[Settings UI] Setting DARK preset colors");
                                 setWidgetPrimaryColor("#9CA3FF");
                                 setWidgetBackgroundColor("#1A1A2E");
                                 setWidgetTextColor("#F4F4F5");

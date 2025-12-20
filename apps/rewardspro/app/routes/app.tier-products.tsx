@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData, useRevalidator } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, useRevalidator, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import {
   Page,
@@ -55,6 +55,13 @@ import { extractNumericId } from "../utils/shopify-id-normalizer";
 import { getEntitlements } from "../services/entitlements.server";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
 import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
+import {
+  validateTierProductDeletion,
+  deleteTierProduct,
+  type DeletionValidationResult,
+  type DeletionBlocker,
+  type DeletionWarning,
+} from "../services/tier-products/tier-product-deletion.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -1543,52 +1550,89 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
     } else if (intent === "delete-product") {
-      const productId = formData.get("productId") as string;
-      
-      // Try to delete tier product record first
-      try {
-        await (db as any).tierProduct.deleteMany({
-          where: {
-            shop,
-            shopifyProductId: productId,
-          },
-        });
-      } catch (error) {
-        console.log('[TierProducts] Could not delete database record');
-      }
-      
-      // Delete product from Shopify
-      const response = await admin.graphql(
-        `#graphql
-        mutation deleteProduct($id: ID!) {
-          productDelete(input: { id: $id }) {
-            deletedProductId
-            userErrors {
-              field
-              message
-            }
-          }
-        }`,
-        {
-          variables: {
-            id: productId,
-          },
-        }
-      );
-      
-      const result = await response.json();
-      
-      if (result.data?.productDelete?.userErrors?.length > 0) {
-        const errors = result.data.productDelete.userErrors.map((e: any) => e.message).join(", ");
-        return json({ 
-          success: false, 
-          error: `Failed to delete product: ${errors}` 
+      // ═══════════════════════════════════════════════════════════════════════
+      // TIER PRODUCT DELETION (Improved with validation)
+      // ═══════════════════════════════════════════════════════════════════════
+      const tierProductId = formData.get("tierProductId") as string;
+      const skipValidation = formData.get("skipValidation") === "true";
+
+      if (!tierProductId) {
+        return json({
+          success: false,
+          action: "delete-product",
+          error: "Tier product ID is required"
         }, { status: 400 });
       }
-      
+
+      console.log(`[TierProducts] Delete request for tier product: ${tierProductId}`);
+
+      // 1. Validate deletion (unless skipped for force-delete scenarios)
+      if (!skipValidation) {
+        const validation = await validateTierProductDeletion(shop, tierProductId);
+
+        if (!validation.canDelete) {
+          console.log(`[TierProducts] Deletion blocked:`, validation.blockers);
+          return json({
+            success: false,
+            action: "delete-product",
+            error: "Cannot delete tier product",
+            blockers: validation.blockers,
+            warnings: validation.warnings,
+          }, { status: 400 });
+        }
+      }
+
+      // 2. Perform deletion (Shopify first, then database)
+      const result = await deleteTierProduct(shop, tierProductId, admin);
+
+      if (!result.success) {
+        console.log(`[TierProducts] Deletion failed:`, result.error);
+        return json({
+          success: false,
+          action: "delete-product",
+          error: result.error || "Failed to delete tier product"
+        }, { status: 500 });
+      }
+
+      console.log(`[TierProducts] Deletion successful:`, result.cleanupSummary);
+
       return json({
         success: true,
-        message: "Product deleted successfully",
+        action: "delete-product",
+        message: "Tier product deleted successfully",
+        deletedShopifyProductId: result.deletedShopifyProductId,
+        cleanupSummary: result.cleanupSummary,
+      });
+
+    } else if (intent === "validate-delete-product") {
+      // ═══════════════════════════════════════════════════════════════════════
+      // VALIDATE TIER PRODUCT DELETION (Pre-check for UI)
+      // ═══════════════════════════════════════════════════════════════════════
+      const tierProductId = formData.get("tierProductId") as string;
+
+      if (!tierProductId) {
+        return json({
+          success: false,
+          action: "validate-delete-product",
+          error: "Tier product ID is required"
+        }, { status: 400 });
+      }
+
+      const validation = await validateTierProductDeletion(shop, tierProductId);
+
+      return json({
+        success: true,
+        action: "validate-delete-product",
+        canDelete: validation.canDelete,
+        blockers: validation.blockers,
+        warnings: validation.warnings,
+        product: validation.product ? {
+          id: validation.product.id,
+          name: validation.product.tier?.name || 'Unknown Tier',
+          shopifyProductId: validation.product.shopifyProductId,
+          duration: validation.product.duration,
+          price: validation.product.price,
+        } : null,
       });
     } else if (intent === "delete-tier-product-record") {
       // Delete tier product by its database ID (for cleaning up orphaned records)
@@ -1660,6 +1704,22 @@ export default function TierProducts() {
   const [editModalActive, setEditModalActive] = useState(false);
   const [deleteModalActive, setDeleteModalActive] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [deleteValidation, setDeleteValidation] = useState<{
+    canDelete: boolean;
+    blockers: DeletionBlocker[];
+    warnings: DeletionWarning[];
+    product: { id: string; name: string } | null;
+  } | null>(null);
+  const [isValidatingDelete, setIsValidatingDelete] = useState(false);
+  const deleteFetcher = useFetcher<{
+    success: boolean;
+    action: string;
+    canDelete?: boolean;
+    blockers?: DeletionBlocker[];
+    warnings?: DeletionWarning[];
+    product?: { id: string; name: string } | null;
+    error?: string;
+  }>();
   const [editingProduct, setEditingProduct] = useState<TierProduct | null>(null);
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
@@ -1924,26 +1984,52 @@ export default function TierProducts() {
     { label: "Lifetime (one-time)", value: "LIFETIME" },
   ];
   
-  // Handle delete product
-  const handleDeleteProduct = useCallback((productId: string) => {
-    setProductToDelete(productId);
+  // Handle delete product with validation
+  const handleDeleteProduct = useCallback((tierProductId: string) => {
+    setProductToDelete(tierProductId);
+    setDeleteValidation(null);
+    setIsValidatingDelete(true);
     setDeleteModalActive(true);
-  }, []);
+
+    // Call validation endpoint
+    const formData = new FormData();
+    formData.append("intent", "validate-delete-product");
+    formData.append("tierProductId", tierProductId);
+    deleteFetcher.submit(formData, { method: "post" });
+  }, [deleteFetcher]);
+
+  // Handle validation response
+  useEffect(() => {
+    if (deleteFetcher.state === "idle" && deleteFetcher.data) {
+      setIsValidatingDelete(false);
+      if (deleteFetcher.data.action === "validate-delete-product") {
+        setDeleteValidation({
+          canDelete: deleteFetcher.data.canDelete ?? false,
+          blockers: deleteFetcher.data.blockers ?? [],
+          warnings: deleteFetcher.data.warnings ?? [],
+          product: deleteFetcher.data.product ?? null,
+        });
+      }
+    }
+  }, [deleteFetcher.state, deleteFetcher.data]);
 
   const confirmDelete = useCallback(() => {
-    if (productToDelete) {
+    if (productToDelete && deleteValidation?.canDelete) {
       const formData = new FormData();
       formData.append("intent", "delete-product");
-      formData.append("productId", productToDelete);
+      formData.append("tierProductId", productToDelete);
       submit(formData, { method: "post" });
       setDeleteModalActive(false);
       setProductToDelete(null);
+      setDeleteValidation(null);
     }
-  }, [productToDelete, submit]);
+  }, [productToDelete, deleteValidation, submit]);
 
   const cancelDelete = useCallback(() => {
     setDeleteModalActive(false);
     setProductToDelete(null);
+    setDeleteValidation(null);
+    setIsValidatingDelete(false);
   }, []);
   
   return (
@@ -3004,46 +3090,105 @@ export default function TierProducts() {
           </Modal.Section>
         </Modal>
 
-        {/* Delete Confirmation Modal */}
+        {/* Delete Confirmation Modal with Validation */}
         <Modal
           open={deleteModalActive}
           onClose={cancelDelete}
-          title="Delete Tier Product"
-          primaryAction={{
+          title={`Delete Tier Product${deleteValidation?.product?.name ? `: ${deleteValidation.product.name}` : ''}`}
+          primaryAction={deleteValidation?.canDelete ? {
             content: "Delete",
             destructive: true,
             onAction: confirmDelete,
             loading: navigation.state === "submitting",
-          }}
+          } : undefined}
           secondaryActions={[
             {
-              content: "Cancel",
+              content: deleteValidation?.canDelete ? "Cancel" : "Close",
               onAction: cancelDelete,
             },
           ]}
         >
           <Modal.Section>
             <BlockStack gap="400">
-              <Text as="p" variant="bodyMd">
-                Are you sure you want to delete this tier product? This will:
-              </Text>
-              <BlockStack gap="200">
-                <InlineStack gap="200" blockAlign="start">
-                  <Icon source={AlertTriangleIcon} tone="critical" />
-                  <Text as="p" variant="bodyMd">
-                    Remove the product from your Shopify store
-                  </Text>
+              {/* Loading State */}
+              {isValidatingDelete && (
+                <InlineStack gap="200" align="center">
+                  <Spinner size="small" />
+                  <Text as="p" variant="bodyMd">Checking for active purchases and subscriptions...</Text>
                 </InlineStack>
-                <InlineStack gap="200" blockAlign="start">
-                  <Icon source={AlertTriangleIcon} tone="critical" />
-                  <Text as="p" variant="bodyMd">
-                    Delete the tier product record from the database
+              )}
+
+              {/* Blockers - Cannot Delete */}
+              {!isValidatingDelete && deleteValidation && !deleteValidation.canDelete && (
+                <>
+                  <Banner tone="critical" title="Cannot delete this tier product">
+                    <Text as="p" variant="bodyMd">
+                      This product has active purchases or subscriptions that must be resolved first.
+                    </Text>
+                  </Banner>
+                  <BlockStack gap="200">
+                    {deleteValidation.blockers.map((blocker, index) => (
+                      <InlineStack key={index} gap="200" blockAlign="start">
+                        <Icon source={AlertTriangleIcon} tone="critical" />
+                        <Text as="p" variant="bodyMd" tone="critical">
+                          {blocker.message}
+                        </Text>
+                      </InlineStack>
+                    ))}
+                  </BlockStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    Cancel or expire active subscriptions and wait for purchases to expire before deleting.
                   </Text>
-                </InlineStack>
-              </BlockStack>
-              <Text as="p" variant="bodyMd" tone="critical">
-                This action cannot be undone.
-              </Text>
+                </>
+              )}
+
+              {/* Can Delete - Show Warnings and Confirmation */}
+              {!isValidatingDelete && deleteValidation?.canDelete && (
+                <>
+                  {/* Warnings (non-blocking) */}
+                  {deleteValidation.warnings.length > 0 && (
+                    <>
+                      <Banner tone="warning" title="Please note">
+                        <BlockStack gap="100">
+                          {deleteValidation.warnings.map((warning, index) => (
+                            <Text key={index} as="p" variant="bodyMd">
+                              • {warning.message}
+                            </Text>
+                          ))}
+                        </BlockStack>
+                      </Banner>
+                      <Divider />
+                    </>
+                  )}
+
+                  <Text as="p" variant="bodyMd">
+                    Are you sure you want to delete this tier product? This will:
+                  </Text>
+                  <BlockStack gap="200">
+                    <InlineStack gap="200" blockAlign="start">
+                      <Icon source={AlertTriangleIcon} tone="critical" />
+                      <Text as="p" variant="bodyMd">
+                        Remove the product from your Shopify store
+                      </Text>
+                    </InlineStack>
+                    <InlineStack gap="200" blockAlign="start">
+                      <Icon source={AlertTriangleIcon} tone="critical" />
+                      <Text as="p" variant="bodyMd">
+                        Delete the tier product record from the database
+                      </Text>
+                    </InlineStack>
+                    <InlineStack gap="200" blockAlign="start">
+                      <Icon source={AlertTriangleIcon} tone="critical" />
+                      <Text as="p" variant="bodyMd">
+                        Remove any expired purchase records
+                      </Text>
+                    </InlineStack>
+                  </BlockStack>
+                  <Text as="p" variant="bodyMd" tone="critical">
+                    This action cannot be undone.
+                  </Text>
+                </>
+              )}
             </BlockStack>
           </Modal.Section>
         </Modal>
