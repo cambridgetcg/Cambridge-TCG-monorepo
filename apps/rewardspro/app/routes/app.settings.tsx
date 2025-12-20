@@ -41,6 +41,7 @@ import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
+import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 
 // ============= TYPES =============
 type Currency = 
@@ -2531,33 +2532,27 @@ export default function SettingsPage() {
                       {widgetThemeMode === "CUSTOM" && (
                         <FormLayout>
                           <FormLayout.Group>
-                            <TextField
+                            <ColorPickerFieldInline
                               label="Primary"
-                              value={widgetPrimaryColor}
+                              color={widgetPrimaryColor}
                               onChange={setWidgetPrimaryColor}
-                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetPrimaryColor, border: "1px solid #DFE3E8" }} />}
-                              autoComplete="off"
                             />
-                            <TextField
+                            <ColorPickerFieldInline
                               label="Background"
-                              value={widgetBackgroundColor}
+                              color={widgetBackgroundColor}
                               onChange={setWidgetBackgroundColor}
-                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetBackgroundColor, border: "1px solid #DFE3E8" }} />}
-                              autoComplete="off"
                             />
-                            <TextField
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <ColorPickerFieldInline
                               label="Text"
-                              value={widgetTextColor}
+                              color={widgetTextColor}
                               onChange={setWidgetTextColor}
-                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetTextColor, border: "1px solid #DFE3E8" }} />}
-                              autoComplete="off"
                             />
-                            <TextField
+                            <ColorPickerFieldInline
                               label="Accent"
-                              value={widgetAccentColor}
+                              color={widgetAccentColor}
                               onChange={setWidgetAccentColor}
-                              prefix={<div style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: widgetAccentColor, border: "1px solid #DFE3E8" }} />}
-                              autoComplete="off"
                             />
                           </FormLayout.Group>
                           <FormLayout.Group>
