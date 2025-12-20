@@ -405,6 +405,18 @@ export function HelpAssistant({
                                 const subject = encodeURIComponent(action.emailSubject || "");
                                 const body = encodeURIComponent(action.emailBody || "");
                                 window.open(`mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`, "_blank");
+
+                                // Add a fallback message to the chat in case mailto doesn't work
+                                const isContactUs = action.category === "Contact Us";
+                                const fallbackMessage: Message = {
+                                  id: `assistant-${Date.now()}`,
+                                  type: "assistant",
+                                  content: isContactUs
+                                    ? `📧 **Contact Us**\n\nWe'd love to hear from you! Please send us an email at:\n\n**${CONTACT_EMAIL}**\n\nOur team typically responds within 24 hours.`
+                                    : `🐛 **Report a Bug**\n\nThank you for helping us improve! Please send your bug report to:\n\n**${CONTACT_EMAIL}**\n\nInclude steps to reproduce, expected vs actual behavior, and your store URL if possible.`,
+                                  timestamp: new Date(),
+                                };
+                                setMessages((prev) => [...prev, fallbackMessage]);
                               } else {
                                 setSelectedCategory(action.category);
                               }
