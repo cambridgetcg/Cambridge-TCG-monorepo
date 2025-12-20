@@ -419,7 +419,8 @@
      * Render methods for different states
      */
     renderGuest() {
-      const { ctaText, ctaUrl } = this.config.guest;
+      const { message, ctaText, ctaUrl } = this.config.guest;
+      const escapedMessage = this.escapeHtml(message || 'Sign in to view your rewards');
       const escapedCtaUrl = this.escapeHtml(ctaUrl);
       const escapedCtaText = this.escapeHtml(ctaText);
       const expandedClass = this.state.isExpanded ? 'rp-guest-b--expanded' : 'rp-guest-b--collapsed';
@@ -435,7 +436,7 @@
             </div>
             <div class="rp-guest-b__text">
               <h3 class="rp-guest-b__title">Member Benefits</h3>
-              <p class="rp-guest-b__subtitle">Sign in to view your rewards</p>
+              <p class="rp-guest-b__subtitle">${escapedMessage}</p>
             </div>
             <button class="rp-guest-b__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
