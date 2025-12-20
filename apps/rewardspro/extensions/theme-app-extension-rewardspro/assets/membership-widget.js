@@ -94,6 +94,13 @@
         console.log('[RewardsWidget] Using cached data');
         this.state.data = cachedData;
         this.state.dataSource = 'cache';
+
+        // FIX: Apply theme from cached data before rendering
+        if (cachedData.theme) {
+          console.log('[RewardsWidget] 🎨 Applying theme from CACHE:', cachedData.theme.mode);
+          this.applyTheme(cachedData.theme);
+        }
+
         this.renderAuthenticated();
       } else {
         // Show loading state
@@ -213,7 +220,7 @@
         this.state.dataSource = 'fresh';
 
         // Apply theme settings from API response
-        console.log('[RewardsWidget] 🎨 Theme data received from API:', JSON.stringify(data.theme, null, 2));
+        console.log('[RewardsWidget] 🎨 Theme data received from FRESH API:', JSON.stringify(data.theme, null, 2));
         if (data.theme) {
           this.applyTheme(data.theme);
         } else {
