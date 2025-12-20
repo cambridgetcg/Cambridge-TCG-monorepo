@@ -23,15 +23,19 @@ import { appProxyRateLimit } from "../utils/rate-limiter";
 // Set PROXY_LOG_LEVEL=debug for troubleshooting, default is 'error'
 // ============================================================================
 
+// TEMPORARY: Force debug logging to diagnose 500 error
+// TODO: Revert to environment-controlled logging after diagnosis
+const FORCE_DEBUG = true;
+
 const LOG_LEVEL = process.env.PROXY_LOG_LEVEL || 'error';
-const isDebugLogging = LOG_LEVEL === 'debug';
-const isInfoLogging = LOG_LEVEL === 'info' || isDebugLogging;
+const isDebugLogging = FORCE_DEBUG || LOG_LEVEL === 'debug';
+const isInfoLogging = FORCE_DEBUG || LOG_LEVEL === 'info' || isDebugLogging;
 
 const log = {
-  debug: (...args: unknown[]) => isDebugLogging && console.log('[Proxy]', ...args),
-  info: (...args: unknown[]) => isInfoLogging && console.log('[Proxy]', ...args),
-  warn: (...args: unknown[]) => console.warn('[Proxy]', ...args),
-  error: (...args: unknown[]) => console.error('[Proxy]', ...args),
+  debug: (...args: unknown[]) => isDebugLogging && console.log('[Proxy:DEBUG]', new Date().toISOString(), ...args),
+  info: (...args: unknown[]) => isInfoLogging && console.log('[Proxy:INFO]', new Date().toISOString(), ...args),
+  warn: (...args: unknown[]) => console.warn('[Proxy:WARN]', new Date().toISOString(), ...args),
+  error: (...args: unknown[]) => console.error('[Proxy:ERROR]', new Date().toISOString(), ...args),
 };
 
 // NOTE: calculateTierProgress function removed (2025-12-20)
@@ -41,7 +45,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const proxyPath = params["*"] || "";
   const url = new URL(request.url);
 
-  log.debug('Request received:', { path: proxyPath });
+  log.info('=== NEW REQUEST ===', {
+    path: proxyPath,
+    method: request.method,
+    url: url.pathname,
+    searchParams: Object.fromEntries(url.searchParams),
+    headers: {
+      host: request.headers.get('host'),
+      'user-agent': request.headers.get('user-agent')?.substring(0, 50),
+      'x-forwarded-for': request.headers.get('x-forwarded-for')
+    }
+  });
 
   // SECURITY: Rate limiting to prevent abuse
   const rateLimitResponse = await appProxyRateLimit(request);
@@ -52,13 +66,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   // SECURITY: Authenticate the app proxy request with HMAC validation
   // This ensures the request is coming from Shopify and not a direct attack
+  log.debug('=== AUTH: Starting HMAC authentication ===');
+
   let session;
   try {
     const authResult = await authenticate.public.appProxy(request);
     session = authResult.session;
-    log.debug('Proxy authentication successful');
+    log.debug('=== AUTH SUCCESS ===', {
+      shop: session?.shop,
+      hasSession: !!session
+    });
   } catch (authError: any) {
-    log.error('Proxy authentication failed:', authError.message);
+    log.error('=== AUTH FAILED ===', {
+      message: authError.message,
+      code: authError.code,
+      name: authError.name,
+      stack: authError.stack?.split('\n').slice(0, 5).join('\n')
+    });
     return json({
       success: false,
       error: "Authentication failed",
@@ -145,8 +169,20 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     try {
+      log.debug('=== STEP 1: Initializing Data API client ===');
+
       // Use direct Data API for customer lookup with pre-computed data
-      const dataApi = getAuroraClient();
+      let dataApi;
+      try {
+        dataApi = getAuroraClient();
+        log.debug('=== STEP 1 SUCCESS: Data API client created ===');
+      } catch (clientError: any) {
+        log.error('=== STEP 1 FAILED: Data API client creation failed ===', {
+          error: clientError.message,
+          stack: clientError.stack
+        });
+        throw clientError;
+      }
 
       // ═══════════════════════════════════════════════════════════════════════
       // SINGLE QUERY - All widget data in one join
@@ -210,11 +246,35 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         { name: 'shopifyCustomerId', value: { stringValue: customerId } }
       ];
 
-      const startTime = Date.now();
-      const result = await dataApi.executeStatement(sql, parameters);
-      const executionTime = Date.now() - startTime;
+      log.debug('=== STEP 2: Executing SQL query ===', {
+        shop,
+        customerId,
+        paramCount: parameters.length
+      });
 
-      log.debug('Single query completed:', { executionTime: `${executionTime}ms`, found: !!(result.records?.length) });
+      const startTime = Date.now();
+      let result;
+      try {
+        result = await dataApi.executeStatement(sql, parameters);
+        const executionTime = Date.now() - startTime;
+        log.debug('=== STEP 2 SUCCESS: Query completed ===', {
+          executionTime: `${executionTime}ms`,
+          recordCount: result.records?.length || 0,
+          found: !!(result.records?.length)
+        });
+      } catch (queryError: any) {
+        const executionTime = Date.now() - startTime;
+        log.error('=== STEP 2 FAILED: SQL query error ===', {
+          executionTime: `${executionTime}ms`,
+          error: queryError.message,
+          code: queryError.code,
+          name: queryError.name,
+          stack: queryError.stack?.split('\n').slice(0, 5).join('\n')
+        });
+        throw queryError;
+      }
+
+      const executionTime = Date.now() - startTime;
 
       // ═══════════════════════════════════════════════════════════════════════
       // SIMPLIFIED RESPONSE - No runtime calculations!
@@ -243,14 +303,21 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         }, { headers });
       }
 
+      log.debug('=== STEP 3: Processing result row ===');
+
       const row = result.records[0];
 
-      log.debug('Customer found:', {
-        id: row.id,
-        tier: row.tier_name || 'none',
-        tierSource: row.tierSource || 'none',
-        progress: row.progressPercent || 0
+      log.debug('=== STEP 3 SUCCESS: Row extracted ===', {
+        rowKeys: Object.keys(row || {}),
+        id: row?.id,
+        tier: row?.tier_name || 'none',
+        tierSource: row?.tierSource || 'none',
+        progress: row?.progressPercent || 0,
+        hasStoreCredit: 'storeCredit' in (row || {}),
+        hasNetSpent: 'netSpent' in (row || {})
       });
+
+      log.debug('=== STEP 4: Building response object ===');
 
       // Build response directly from query result - no additional calculations!
       const responseData = {
@@ -318,18 +385,45 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         }
       };
 
-      log.info('Success response:', {
+      log.debug('=== STEP 4 SUCCESS: Response object built ===', {
         tier: responseData.membership.tier?.name || 'none',
         tierSource: responseData.membership.tierSource,
         balance: responseData.balance.storeCredit,
         progress: responseData.tierProgress.progressPercent
       });
 
+      // Debug theme data specifically
+      log.debug('=== THEME DEBUG ===', {
+        rawFromDB: {
+          widgetThemeMode: row.widgetThemeMode,
+          widgetPrimaryColor: row.widgetPrimaryColor,
+          widgetBackgroundColor: row.widgetBackgroundColor,
+          widgetTextColor: row.widgetTextColor,
+          widgetAccentColor: row.widgetAccentColor,
+          widgetBorderRadius: row.widgetBorderRadius,
+          widgetFontFamily: row.widgetFontFamily
+        },
+        themeInResponse: responseData.theme
+      });
+
+      log.info('=== REQUEST COMPLETE: Returning success response ===');
+
       return json(responseData, { headers });
 
     } catch (error: any) {
-      // Log error internally but don't expose details to client
-      log.error('Membership endpoint error:', error.message);
+      // Log comprehensive error details for debugging
+      log.error('=== REQUEST FAILED: Unhandled error ===', {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        // Include first 10 lines of stack for debugging
+        stack: error.stack?.split('\n').slice(0, 10).join('\n'),
+        // AWS-specific error info (if applicable)
+        $metadata: error.$metadata,
+        // Request context
+        shop,
+        customerId
+      });
 
       // Return sanitized error response (no stack traces or internal details)
       return json({

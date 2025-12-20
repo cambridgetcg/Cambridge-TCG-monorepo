@@ -977,6 +977,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const widgetAccentColor = formData.get("widgetAccentColor") as string;
     const widgetBorderRadius = parseInt(formData.get("widgetBorderRadius") as string) || 12;
     const widgetFontFamily = formData.get("widgetFontFamily") as string;
+
+    // DEBUG: Log widget theme settings being saved
+    console.log("[Settings] Widget theme settings to save:", {
+      widgetThemeMode,
+      widgetPrimaryColor,
+      widgetBackgroundColor,
+      widgetTextColor,
+      widgetAccentColor,
+      widgetBorderRadius,
+      widgetFontFamily
+    });
     // Store business metrics
     const averageProfitMarginStr = formData.get("averageProfitMargin") as string;
     const averageCogsPercentStr = formData.get("averageCogsPercent") as string;

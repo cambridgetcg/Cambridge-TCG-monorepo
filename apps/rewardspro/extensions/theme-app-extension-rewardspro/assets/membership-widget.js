@@ -213,8 +213,11 @@
         this.state.dataSource = 'fresh';
 
         // Apply theme settings from API response
+        console.log('[RewardsWidget] 🎨 Theme data received from API:', JSON.stringify(data.theme, null, 2));
         if (data.theme) {
           this.applyTheme(data.theme);
+        } else {
+          console.warn('[RewardsWidget] ⚠️ No theme data in API response!');
         }
 
         // Cache the data
@@ -764,30 +767,58 @@
     applyTheme(theme) {
       console.log('[RewardsWidget] 🎨 Applying theme:', theme);
 
-      if (!theme) return;
+      if (!theme) {
+        console.warn('[RewardsWidget] ⚠️ applyTheme called with null/undefined theme');
+        return;
+      }
 
       // Set CSS custom properties on the widget root
       const root = this.root;
 
+      if (!root) {
+        console.error('[RewardsWidget] ❌ Cannot apply theme - root element not found!');
+        return;
+      }
+
       // Apply theme colors
-      root.style.setProperty('--rp-primary-color', theme.primaryColor || '#5C6AC4');
-      root.style.setProperty('--rp-background-color', theme.backgroundColor || '#FFFFFF');
-      root.style.setProperty('--rp-text-color', theme.textColor || '#212B36');
-      root.style.setProperty('--rp-accent-color', theme.accentColor || '#008060');
-      root.style.setProperty('--rp-border-radius', (theme.borderRadius || 12) + 'px');
-      root.style.setProperty('--rp-font-family', theme.fontFamily || 'inherit');
+      const cssVars = {
+        '--rp-primary-color': theme.primaryColor || '#5C6AC4',
+        '--rp-background-color': theme.backgroundColor || '#FFFFFF',
+        '--rp-text-color': theme.textColor || '#212B36',
+        '--rp-accent-color': theme.accentColor || '#008060',
+        '--rp-border-radius': (theme.borderRadius || 12) + 'px',
+        '--rp-font-family': theme.fontFamily || 'inherit'
+      };
 
       // Calculate derived colors
       const isDark = theme.mode === 'DARK';
-      root.style.setProperty('--rp-text-secondary', isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)');
-      root.style.setProperty('--rp-border-color', isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)');
-      root.style.setProperty('--rp-progress-bg', isDark ? 'rgba(255, 255, 255, 0.1)' : '#E1E3E5');
+      cssVars['--rp-text-secondary'] = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
+      cssVars['--rp-border-color'] = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      cssVars['--rp-progress-bg'] = isDark ? 'rgba(255, 255, 255, 0.1)' : '#E1E3E5';
+
+      console.log('[RewardsWidget] 🎨 Setting CSS variables:', cssVars);
+      console.log('[RewardsWidget] 🎨 Theme mode:', theme.mode, '| isDark:', isDark);
+
+      // Apply all CSS variables
+      Object.entries(cssVars).forEach(([prop, value]) => {
+        root.style.setProperty(prop, value);
+      });
 
       // Add theme mode class
       root.classList.remove('rp-theme-light', 'rp-theme-dark', 'rp-theme-custom');
-      root.classList.add(`rp-theme-${theme.mode?.toLowerCase() || 'light'}`);
+      const themeClass = `rp-theme-${theme.mode?.toLowerCase() || 'light'}`;
+      root.classList.add(themeClass);
 
+      console.log('[RewardsWidget] 🎨 Added theme class:', themeClass);
       console.log('[RewardsWidget] ✅ Theme applied successfully');
+
+      // Debug: Log computed styles after applying
+      const computedBg = getComputedStyle(root).getPropertyValue('--rp-background-color');
+      const computedText = getComputedStyle(root).getPropertyValue('--rp-text-color');
+      console.log('[RewardsWidget] 🔍 Computed CSS vars after apply:', {
+        '--rp-background-color': computedBg,
+        '--rp-text-color': computedText
+      });
     }
 
     /**
