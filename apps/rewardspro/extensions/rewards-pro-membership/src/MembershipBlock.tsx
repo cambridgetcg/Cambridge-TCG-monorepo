@@ -46,6 +46,10 @@ interface TierSourceDetails {
   annualSpend?: number;
   evaluationPeriod?: string;
   note?: string | null;
+  // Countdown fields for dual progress display
+  daysRemaining?: number | null;
+  expiryType?: 'renewal' | 'expiration' | 'none';
+  willAutoRenew?: boolean;
 }
 
 interface TierInfo {
@@ -86,6 +90,18 @@ interface AllTierInfo {
   isAchieved: boolean;
 }
 
+interface SpendingProgressInfo {
+  spendingBasedTierId: string | null;
+  spendingBasedTierName: string | null;
+  spendingBasedCashback: number | null;
+  currentSpending: number;
+  nextSpendingTierName: string | null;
+  nextSpendingTierMinSpend: number | null;
+  progressToNextSpendingTier: number;
+  amountToNextSpendingTier: number;
+  wouldDowngradeOnExpiry: boolean;
+}
+
 interface LoyaltyData {
   success: boolean;
   enrolled: boolean;
@@ -105,6 +121,8 @@ interface LoyaltyData {
   message?: string;
   canEnroll?: boolean;
   isPreview?: boolean;
+  // Dual progress: spending-based progress for non-spending tier sources
+  spendingProgress?: SpendingProgressInfo | null;
   // Legacy fields for backward compatibility
   totalEarned?: number;
   progressToNextTier?: number;
@@ -154,6 +172,9 @@ function formatMonthYear(dateString: string, locale: string = 'en-US'): string {
 }
 
 function getMockData(): LoyaltyData {
+  // Mock data simulates a subscription tier with dual progress display
+  const nextBillingDate = new Date(Date.now() + 23 * 24 * 60 * 60 * 1000); // 23 days from now
+
   return {
     success: true,
     enrolled: true,
@@ -174,11 +195,14 @@ function getMockData(): LoyaltyData {
       color: '#FFD700',
       cashbackPercent: 5,
       minSpend: 500,
-      source: 'SPENDING_BASED',
+      source: 'TIER_SUBSCRIPTION',
       sourceDetails: {
-        type: 'spending',
-        annualSpend: 650,
-        evaluationPeriod: 'ANNUAL'
+        type: 'subscription',
+        nextBillingDate: nextBillingDate.toISOString(),
+        billingInterval: 'MONTHLY',
+        daysRemaining: 23,
+        expiryType: 'renewal',
+        willAutoRenew: true
       }
     },
     benefits: [
@@ -195,13 +219,13 @@ function getMockData(): LoyaltyData {
     },
     stats: {
       orderCount: 12,
-      totalSpent: 650.00,
+      totalSpent: 420.00,
       lastOrderDate: new Date().toISOString()
     },
     allTiers: [
       { id: '1', name: 'Bronze', icon: '🥉', cashbackPercent: 2, minSpend: 0, isCurrentTier: false, isAchieved: true },
       { id: '2', name: 'Silver', icon: '🥈', cashbackPercent: 3, minSpend: 250, isCurrentTier: false, isAchieved: true },
-      { id: '3', name: 'Gold', icon: '⭐', cashbackPercent: 5, minSpend: 500, isCurrentTier: true, isAchieved: true },
+      { id: '3', name: 'Gold', icon: '⭐', cashbackPercent: 5, minSpend: 500, isCurrentTier: true, isAchieved: false },
       { id: '4', name: 'Platinum', icon: '💎', cashbackPercent: 10, minSpend: 1000, isCurrentTier: false, isAchieved: false }
     ],
     recentTransactions: [
@@ -212,6 +236,18 @@ function getMockData(): LoyaltyData {
     currency: 'USD',
     message: 'Preview - This is sample membership data',
     isPreview: true,
+    // Dual progress: spending-based tier progress (customer has subscription but also building organic tier)
+    spendingProgress: {
+      spendingBasedTierId: 'mock-tier-silver',
+      spendingBasedTierName: 'Silver',
+      spendingBasedCashback: 3,
+      currentSpending: 420,
+      nextSpendingTierName: 'Gold',
+      nextSpendingTierMinSpend: 500,
+      progressToNextSpendingTier: 68,
+      amountToNextSpendingTier: 80,
+      wouldDowngradeOnExpiry: true // Customer would drop from Gold (5%) to Silver (3%)
+    },
     totalEarned: 125.50,
     progressToNextTier: 65,
     amountToNextTier: 350,
@@ -413,28 +449,14 @@ interface BalanceCardProps {
 function BalanceCard({ balance, currency, locale, translate }: BalanceCardProps) {
   return (
     <View border="base" cornerRadius="base" padding="base" background="base">
-      <InlineStack spacing="base">
-        <View inlineSize="fill">
-          <BlockStack spacing="extraTight">
-            <Text size="small" appearance="subdued">
-              {translate('membership.balance.available')}
-            </Text>
-            <Text size="large" emphasis="bold">
-              {formatCurrency(balance.current, currency, locale)}
-            </Text>
-          </BlockStack>
-        </View>
-        <View inlineSize="fill">
-          <BlockStack spacing="extraTight">
-            <Text size="small" appearance="subdued">
-              {translate('membership.balance.totalEarned')}
-            </Text>
-            <Text size="medium" emphasis="bold">
-              {formatCurrency(balance.lifetimeEarned, currency, locale)}
-            </Text>
-          </BlockStack>
-        </View>
-      </InlineStack>
+      <BlockStack spacing="extraTight">
+        <Text size="small" appearance="subdued">
+          {translate('membership.balance.available')}
+        </Text>
+        <Text size="large" emphasis="bold">
+          {formatCurrency(balance.current, currency, locale)}
+        </Text>
+      </BlockStack>
     </View>
   );
 }
@@ -492,19 +514,208 @@ function ProgressCard({ progress, currency, locale, translate }: ProgressCardPro
   );
 }
 
+interface DualProgressCardProps {
+  tier: TierInfo;
+  spendingProgress: SpendingProgressInfo;
+  currency: string;
+  locale: string;
+  translate: (key: string, options?: Record<string, string>) => string;
+}
+
+function DualProgressCard({
+  tier,
+  spendingProgress,
+  currency,
+  locale,
+  translate
+}: DualProgressCardProps) {
+  const sourceDetails = tier.sourceDetails;
+  const sourceType = sourceDetails?.type;
+  const daysRemaining = sourceDetails?.daysRemaining;
+
+  // Helper to get countdown text
+  const getCountdownText = () => {
+    if (daysRemaining === null || daysRemaining === undefined) return null;
+
+    if (sourceType === 'subscription') {
+      if (daysRemaining === 1) {
+        return translate('membership.dualProgress.renewsInOne');
+      }
+      return translate('membership.dualProgress.renewsIn', { days: String(daysRemaining) });
+    }
+
+    // For purchase or manual with expiration
+    if (daysRemaining === 1) {
+      return translate('membership.dualProgress.endsInOne');
+    }
+    return translate('membership.dualProgress.endsIn', { days: String(daysRemaining) });
+  };
+
+  // Helper to get date text
+  const getDateText = () => {
+    if (sourceType === 'subscription' && sourceDetails?.nextBillingDate) {
+      return translate('membership.dualProgress.nextBilling', {
+        date: formatDate(sourceDetails.nextBillingDate, locale)
+      });
+    }
+    if ((sourceType === 'purchase' || sourceType === 'manual') && sourceDetails?.expiresAt) {
+      return translate('membership.dualProgress.expiresOn', {
+        date: formatDate(sourceDetails.expiresAt, locale)
+      });
+    }
+    return null;
+  };
+
+  const countdownText = getCountdownText();
+  const dateText = getDateText();
+  const isLifetime = sourceType === 'purchase' && sourceDetails?.isLifetime;
+  const isManualNoExpiry = sourceType === 'manual' && !sourceDetails?.expiresAt;
+
+  return (
+    <BlockStack spacing="tight">
+      {/* Primary: Current Tier Status */}
+      <View border="base" cornerRadius="base" padding="base" background="base">
+        <BlockStack spacing="tight">
+          <Text size="small" emphasis="bold">
+            {translate('membership.dualProgress.currentStatus')}
+          </Text>
+
+          {/* Lifetime Purchase */}
+          {isLifetime && (
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="small" appearance="success">✓</Text>
+              <Text size="small">
+                {translate('membership.dualProgress.lifetimeAccess')}
+              </Text>
+            </InlineStack>
+          )}
+
+          {/* Manual Override without expiry */}
+          {isManualNoExpiry && (
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="small" appearance="success">✓</Text>
+              <Text size="small">
+                {translate('membership.dualProgress.specialAccess')}
+              </Text>
+            </InlineStack>
+          )}
+
+          {/* Countdown for subscription/expiring tiers */}
+          {!isLifetime && !isManualNoExpiry && countdownText && (
+            <>
+              <InlineStack spacing="tight" blockAlignment="center">
+                <Text size="small">{countdownText}</Text>
+              </InlineStack>
+              {dateText && (
+                <Text size="small" appearance="subdued">{dateText}</Text>
+              )}
+            </>
+          )}
+        </BlockStack>
+      </View>
+
+      {/* Secondary: Spending Progress - only show if not lifetime */}
+      {!isLifetime && (
+        <View border="base" cornerRadius="base" padding="base" background="subdued">
+          <BlockStack spacing="tight">
+            <InlineStack spacing="base" blockAlignment="center">
+              <View inlineSize="fill">
+                <Text size="small" emphasis="bold">
+                  {translate('membership.dualProgress.spendingProgress')}
+                </Text>
+              </View>
+              {spendingProgress.wouldDowngradeOnExpiry && (
+                <Badge tone="warning">
+                  {translate('membership.dualProgress.buildingTowards')}
+                </Badge>
+              )}
+            </InlineStack>
+
+            {/* Spending-based tier status */}
+            <Text size="small">
+              {spendingProgress.spendingBasedTierName
+                ? translate('membership.dualProgress.qualifiesFor', {
+                    tierName: spendingProgress.spendingBasedTierName,
+                    percent: String(spendingProgress.spendingBasedCashback || 0)
+                  })
+                : translate('membership.dualProgress.noSpendingTier')
+              }
+            </Text>
+
+            {/* Progress bar to next spending tier */}
+            {spendingProgress.nextSpendingTierName && (
+              <>
+                <TierProgressBar progress={spendingProgress.progressToNextSpendingTier} height={6} />
+                <Text size="small" appearance="subdued">
+                  {translate('membership.dualProgress.spendMore', {
+                    amount: formatCurrency(spendingProgress.amountToNextSpendingTier, currency, locale),
+                    tierName: spendingProgress.nextSpendingTierName
+                  })}
+                </Text>
+              </>
+            )}
+
+            {/* Max spending tier reached */}
+            {!spendingProgress.nextSpendingTierName && spendingProgress.spendingBasedTierName && (
+              <Text size="small" appearance="success">
+                {translate('membership.dualProgress.maxSpendingTier')}
+              </Text>
+            )}
+
+            <Text size="small" appearance="subdued">
+              {translate('membership.dualProgress.totalSpent', {
+                amount: formatCurrency(spendingProgress.currentSpending, currency, locale)
+              })}
+            </Text>
+          </BlockStack>
+        </View>
+      )}
+    </BlockStack>
+  );
+}
+
+// ============================================================================
+// Activity Card Variations
+// ============================================================================
+
+type ActivityVariant = 'compact' | 'timeline' | 'cards';
+
 interface TransactionRowProps {
   transaction: TransactionInfo;
   currency: string;
   locale: string;
 }
 
-function TransactionRow({ transaction, currency, locale }: TransactionRowProps) {
+// Get emoji icon based on transaction type
+function getTransactionIcon(type: string): string {
+  switch (type) {
+    case 'CASHBACK_EARNED':
+      return '💰';
+    case 'ORDER_PAYMENT':
+      return '🛒';
+    case 'REFUND_CREDIT':
+      return '↩️';
+    case 'MANUAL_ADJUSTMENT':
+      return '✏️';
+    case 'BONUS':
+      return '🎁';
+    default:
+      return '📝';
+  }
+}
+
+// ----------------------------------------------------------------------------
+// VARIATION 1: Compact List (with icons)
+// ----------------------------------------------------------------------------
+function TransactionRowCompact({ transaction, currency, locale }: TransactionRowProps) {
   const isPositive = transaction.amount > 0;
   const formattedAmount = formatCurrency(Math.abs(transaction.amount), currency, locale);
   const formattedDate = formatDate(transaction.date, locale);
+  const icon = getTransactionIcon(transaction.type);
 
   return (
-    <InlineStack spacing="base" blockAlignment="center">
+    <InlineStack spacing="tight" blockAlignment="center">
+      <Text size="small">{icon}</Text>
       <View inlineSize="fill">
         <BlockStack spacing="extraTight">
           <Text size="small">{transaction.description}</Text>
@@ -522,14 +733,106 @@ function TransactionRow({ transaction, currency, locale }: TransactionRowProps) 
   );
 }
 
+// ----------------------------------------------------------------------------
+// VARIATION 2: Timeline Style
+// ----------------------------------------------------------------------------
+function TransactionRowTimeline({ transaction, currency, locale }: TransactionRowProps) {
+  const isPositive = transaction.amount > 0;
+  const formattedAmount = formatCurrency(Math.abs(transaction.amount), currency, locale);
+  const formattedDate = formatDate(transaction.date, locale);
+
+  return (
+    <InlineStack spacing="tight" blockAlignment="start">
+      {/* Timeline dot and line */}
+      <View>
+        <BlockStack spacing="none">
+          <View
+            background={isPositive ? 'interactive' : 'subdued'}
+            cornerRadius="fullyRounded"
+            minBlockSize={12}
+            maxBlockSize={12}
+            minInlineSize={12}
+            maxInlineSize={12}
+          />
+        </BlockStack>
+      </View>
+      {/* Content */}
+      <View inlineSize="fill">
+        <BlockStack spacing="extraTight">
+          <InlineStack spacing="base" blockAlignment="center">
+            <View inlineSize="fill">
+              <Text size="small" emphasis="bold">
+                {isPositive ? '+' : '-'}{formattedAmount}
+              </Text>
+            </View>
+            <Text size="small" appearance="subdued">{formattedDate}</Text>
+          </InlineStack>
+          <Text size="small" appearance="subdued">{transaction.description}</Text>
+        </BlockStack>
+      </View>
+    </InlineStack>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// VARIATION 3: Mini Cards
+// ----------------------------------------------------------------------------
+function TransactionRowCard({ transaction, currency, locale }: TransactionRowProps) {
+  const isPositive = transaction.amount > 0;
+  const formattedAmount = formatCurrency(Math.abs(transaction.amount), currency, locale);
+  const formattedDate = formatDate(transaction.date, locale);
+  const icon = getTransactionIcon(transaction.type);
+
+  return (
+    <View
+      border="base"
+      cornerRadius="base"
+      padding="tight"
+      background={isPositive ? 'subdued' : 'base'}
+    >
+      <InlineStack spacing="tight" blockAlignment="center">
+        <View
+          background={isPositive ? 'interactive' : 'subdued'}
+          cornerRadius="base"
+          padding="extraTight"
+          minInlineSize={32}
+          maxInlineSize={32}
+          minBlockSize={32}
+          maxBlockSize={32}
+        >
+          <Text size="medium">{icon}</Text>
+        </View>
+        <View inlineSize="fill">
+          <BlockStack spacing="none">
+            <Text size="small" emphasis="bold">
+              {isPositive ? '+' : '-'}{formattedAmount}
+            </Text>
+            <Text size="small" appearance="subdued">
+              {transaction.description}
+            </Text>
+          </BlockStack>
+        </View>
+        <Text size="small" appearance="subdued">{formattedDate}</Text>
+      </InlineStack>
+    </View>
+  );
+}
+
 interface ActivityCardProps {
   transactions: TransactionInfo[];
   currency: string;
   locale: string;
   translate: (key: string, options?: Record<string, string>) => string;
+  variant?: ActivityVariant;
 }
 
-function ActivityCard({ transactions, currency, locale, translate }: ActivityCardProps) {
+function ActivityCard({
+  transactions,
+  currency,
+  locale,
+  translate,
+  variant = 'compact'  // Default to compact style
+}: ActivityCardProps) {
   if (transactions.length === 0) {
     return (
       <View border="base" cornerRadius="base" padding="base" background="base">
@@ -544,21 +847,62 @@ function ActivityCard({ transactions, currency, locale, translate }: ActivityCar
     );
   }
 
+  const displayTransactions = transactions.slice(0, MAX_TRANSACTIONS_DISPLAY);
+
+  // Render based on variant
+  const renderTransactions = () => {
+    switch (variant) {
+      case 'timeline':
+        return (
+          <BlockStack spacing="base">
+            {displayTransactions.map((tx) => (
+              <TransactionRowTimeline
+                key={tx.id}
+                transaction={tx}
+                currency={currency}
+                locale={locale}
+              />
+            ))}
+          </BlockStack>
+        );
+
+      case 'cards':
+        return (
+          <BlockStack spacing="tight">
+            {displayTransactions.map((tx) => (
+              <TransactionRowCard
+                key={tx.id}
+                transaction={tx}
+                currency={currency}
+                locale={locale}
+              />
+            ))}
+          </BlockStack>
+        );
+
+      case 'compact':
+      default:
+        return (
+          <BlockStack spacing="tight">
+            {displayTransactions.map((tx) => (
+              <TransactionRowCompact
+                key={tx.id}
+                transaction={tx}
+                currency={currency}
+                locale={locale}
+              />
+            ))}
+          </BlockStack>
+        );
+    }
+  };
+
   return (
     <View border="base" cornerRadius="base" padding="base" background="base">
       <BlockStack spacing="base">
         <Text emphasis="bold">{translate('membership.transactions.title')}</Text>
         <Divider />
-        <BlockStack spacing="tight">
-          {transactions.slice(0, MAX_TRANSACTIONS_DISPLAY).map((tx) => (
-            <TransactionRow
-              key={tx.id}
-              transaction={tx}
-              currency={currency}
-              locale={locale}
-            />
-          ))}
-        </BlockStack>
+        {renderTransactions()}
       </BlockStack>
     </View>
   );
@@ -858,22 +1202,54 @@ function MembershipBlock() {
         translate={translate}
       />
 
-      {/* Tier Progress */}
-      <ProgressCard
-        progress={progress}
-        currency={loyaltyData.currency}
-        locale={locale}
-        translate={translate}
-      />
-
-      {/* Recent Activity */}
-      {loyaltyData.recentTransactions && (
-        <ActivityCard
-          transactions={loyaltyData.recentTransactions}
+      {/* Tier Progress - Dual display for subscription/purchase tiers */}
+      {loyaltyData.tier && loyaltyData.spendingProgress && loyaltyData.tier.sourceDetails?.type !== 'spending' ? (
+        <DualProgressCard
+          tier={loyaltyData.tier}
+          spendingProgress={loyaltyData.spendingProgress}
           currency={loyaltyData.currency}
           locale={locale}
           translate={translate}
         />
+      ) : (
+        <ProgressCard
+          progress={progress}
+          currency={loyaltyData.currency}
+          locale={locale}
+          translate={translate}
+        />
+      )}
+
+      {/* Recent Activity - All 3 Variations */}
+      {loyaltyData.recentTransactions && (
+        <BlockStack spacing="base">
+          <Text size="small" appearance="subdued" emphasis="bold">Variation 1: Compact</Text>
+          <ActivityCard
+            transactions={loyaltyData.recentTransactions}
+            currency={loyaltyData.currency}
+            locale={locale}
+            translate={translate}
+            variant="compact"
+          />
+
+          <Text size="small" appearance="subdued" emphasis="bold">Variation 2: Timeline</Text>
+          <ActivityCard
+            transactions={loyaltyData.recentTransactions}
+            currency={loyaltyData.currency}
+            locale={locale}
+            translate={translate}
+            variant="timeline"
+          />
+
+          <Text size="small" appearance="subdued" emphasis="bold">Variation 3: Cards</Text>
+          <ActivityCard
+            transactions={loyaltyData.recentTransactions}
+            currency={loyaltyData.currency}
+            locale={locale}
+            translate={translate}
+            variant="cards"
+          />
+        </BlockStack>
       )}
 
       {/* View All Tiers Toggle */}

@@ -23,6 +23,8 @@ import {
   AppsIcon,
   AlertCircleIcon,
   StarIcon,
+  EmailIcon,
+  BugIcon,
 } from "@shopify/polaris-icons";
 
 interface Source {
@@ -49,11 +51,15 @@ interface HelpAssistantProps {
   docsUrl?: string;
 }
 
+// Contact email
+const CONTACT_EMAIL = "contact@rewardspro.io";
+
 // Quick action categories for better UX
 const QUICK_ACTIONS = [
   {
     category: "Getting Started",
     icon: StarIcon,
+    type: "questions" as const,
     questions: [
       "How do I set up my first loyalty tier?",
       "What's the quickest way to launch my rewards program?",
@@ -62,6 +68,7 @@ const QUICK_ACTIONS = [
   {
     category: "Features",
     icon: AppsIcon,
+    type: "questions" as const,
     questions: [
       "How does cashback work for my customers?",
       "Can I offer different rewards for VIP customers?",
@@ -70,6 +77,7 @@ const QUICK_ACTIONS = [
   {
     category: "Setup & Config",
     icon: SettingsIcon,
+    type: "questions" as const,
     questions: [
       "How do I customize the customer widget?",
       "How do I configure email notifications?",
@@ -78,10 +86,25 @@ const QUICK_ACTIONS = [
   {
     category: "Troubleshooting",
     icon: AlertCircleIcon,
+    type: "questions" as const,
     questions: [
       "Why isn't my widget showing on my store?",
       "How do I sync customer data from Shopify?",
     ],
+  },
+  {
+    category: "Contact Us",
+    icon: EmailIcon,
+    type: "email" as const,
+    emailSubject: "Rewards Pro Support Request",
+    emailBody: "Hi Rewards Pro Team,\n\nI have a question about:\n\n",
+  },
+  {
+    category: "Report a Bug",
+    icon: BugIcon,
+    type: "email" as const,
+    emailSubject: "Bug Report - Rewards Pro",
+    emailBody: "Hi Rewards Pro Team,\n\nI'd like to report a bug:\n\n**Steps to reproduce:**\n1. \n\n**Expected behavior:**\n\n**Actual behavior:**\n\n**Store URL:**\n\n",
   },
 ];
 
@@ -377,7 +400,15 @@ export function HelpAssistant({
                         {QUICK_ACTIONS.map((action) => (
                           <button
                             key={action.category}
-                            onClick={() => setSelectedCategory(action.category)}
+                            onClick={() => {
+                              if (action.type === "email") {
+                                const subject = encodeURIComponent(action.emailSubject || "");
+                                const body = encodeURIComponent(action.emailBody || "");
+                                window.open(`mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`, "_blank");
+                              } else {
+                                setSelectedCategory(action.category);
+                              }
+                            }}
                             style={{
                               display: "flex",
                               flexDirection: "column",
@@ -386,7 +417,9 @@ export function HelpAssistant({
                               padding: "12px 8px",
                               borderRadius: "8px",
                               border: "1px solid var(--p-color-border)",
-                              backgroundColor: "var(--p-color-bg-surface)",
+                              backgroundColor: action.type === "email"
+                                ? "var(--p-color-bg-surface-secondary)"
+                                : "var(--p-color-bg-surface)",
                               cursor: "pointer",
                               transition: "all 0.15s ease",
                             }}
@@ -395,11 +428,13 @@ export function HelpAssistant({
                               e.currentTarget.style.borderColor = "var(--p-color-border-hover)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = "var(--p-color-bg-surface)";
+                              e.currentTarget.style.backgroundColor = action.type === "email"
+                                ? "var(--p-color-bg-surface-secondary)"
+                                : "var(--p-color-bg-surface)";
                               e.currentTarget.style.borderColor = "var(--p-color-border)";
                             }}
                           >
-                            <Icon source={action.icon} tone="base" />
+                            <Icon source={action.icon} tone={action.type === "email" ? "interactive" : "base"} />
                             <Text as="span" variant="bodySm" alignment="center">
                               {action.category}
                             </Text>

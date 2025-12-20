@@ -41,6 +41,25 @@
     "error": {
       "title": "Impossible de Charger l'Adhésion",
       "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    },
+    "dualProgress": {
+      "currentStatus": "Statut Actuel",
+      "renewsIn": "Renouvellement dans {{days}} jours",
+      "renewsInOne": "Renouvellement demain",
+      "endsIn": "Se termine dans {{days}} jours",
+      "endsInOne": "Se termine demain",
+      "nextBilling": "Prochaine facturation: {{date}}",
+      "expiresOn": "Expire: {{date}}",
+      "lifetimeAccess": "Accès à Vie",
+      "specialAccess": "Accès Spécial",
+      "spendingProgress": "Progression des Dépenses",
+      "buildingTowards": "En construction",
+      "qualifiesFor": "Éligible pour {{tierName}} ({{percent}}% cashback)",
+      "noSpendingTier": "Continuez vos achats pour débloquer des niveaux",
+      "spendMore": "Dépensez {{amount}} de plus pour {{tierName}}",
+      "totalSpent": "Total dépensé: {{amount}}",
+      "maxSpendingTier": "Niveau maximum atteint par dépenses",
+      "ifExpires": "Si l'abonnement se termine, vous aurez {{tierName}}"
     }
   }
 }

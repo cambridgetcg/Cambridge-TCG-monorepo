@@ -587,29 +587,53 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     if (tierSource === 'TIER_SUBSCRIPTION' && customer.currentSubscription) {
       const sub = customer.currentSubscription;
+      const nextBillingDate = sub.nextBillingDate;
+      const daysRemaining = nextBillingDate
+        ? Math.max(0, Math.ceil((nextBillingDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : null;
       tierSourceDetails = {
         type: 'subscription',
-        nextBillingDate: sub.nextBillingDate?.toISOString() || null,
+        nextBillingDate: nextBillingDate?.toISOString() || null,
         billingInterval: sub.billingInterval || 'MONTHLY',
-        status: sub.status
+        status: sub.status,
+        daysRemaining,
+        expiryType: 'renewal',
+        willAutoRenew: sub.status === 'ACTIVE'
       };
     } else if (tierSource === 'TIER_PURCHASE' && activeTierPurchase) {
+      const expiresAt = activeTierPurchase.endDate;
+      const daysRemaining = expiresAt
+        ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : null;
       tierSourceDetails = {
         type: 'purchase',
-        expiresAt: activeTierPurchase.endDate?.toISOString() || null,
-        isLifetime: !activeTierPurchase.endDate
+        expiresAt: expiresAt?.toISOString() || null,
+        isLifetime: !expiresAt,
+        daysRemaining,
+        expiryType: expiresAt ? 'expiration' : 'none',
+        willAutoRenew: false
       };
     } else if (tierSource === 'MANUAL_OVERRIDE' && tierState?.hasManualOverride) {
+      const expiresAt = tierState.manualOverrideExpiry;
+      const daysRemaining = expiresAt
+        ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : null;
       tierSourceDetails = {
         type: 'manual',
-        expiresAt: tierState.manualOverrideExpiry?.toISOString() || null,
-        note: tierState.manualOverrideNote || null
+        expiresAt: expiresAt?.toISOString() || null,
+        note: tierState.manualOverrideNote || null,
+        daysRemaining,
+        expiryType: expiresAt ? 'expiration' : 'none',
+        willAutoRenew: false
       };
     } else {
       tierSourceDetails = {
         type: 'spending',
         annualSpend: currentSpending,
-        evaluationPeriod: evaluationPeriod
+        evaluationPeriod: evaluationPeriod,
+        daysRemaining: null,
+        expiryType: 'none',
+        willAutoRenew: false
       };
     }
 
@@ -621,6 +645,101 @@ export async function loader({ request }: LoaderFunctionArgs) {
       : 0;
 
     const benefits = generateBenefitsList(tierCashbackPercent, isMaxTier);
+
+    // =========================================================================
+    // Calculate spending-based tier progress (for dual progress display)
+    // This is calculated for ALL customers, even those with subscription/purchase tiers
+    // =========================================================================
+    let spendingProgress: {
+      spendingBasedTierId: string | null;
+      spendingBasedTierName: string | null;
+      spendingBasedCashback: number | null;
+      currentSpending: number;
+      nextSpendingTierName: string | null;
+      nextSpendingTierMinSpend: number | null;
+      progressToNextSpendingTier: number;
+      amountToNextSpendingTier: number;
+      wouldDowngradeOnExpiry: boolean;
+    } | null = null;
+
+    // Only calculate if customer has non-spending tier source (subscription, purchase, manual)
+    if (tierSource !== 'SPENDING_BASED' && tierSource !== 'NONE' && tierSource !== 'DEFAULT_BASE_TIER') {
+      // Find the highest tier the customer qualifies for based on spending alone
+      const qualifyingTiers = allTiers
+        .filter(t => {
+          const minSpend = typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
+            ? (t.minSpend as any).toNumber()
+            : Number(t.minSpend);
+          return currentSpending >= minSpend;
+        })
+        .sort((a, b) => {
+          const aMinSpend = typeof a.minSpend === 'object' && 'toNumber' in a.minSpend
+            ? (a.minSpend as any).toNumber()
+            : Number(a.minSpend);
+          const bMinSpend = typeof b.minSpend === 'object' && 'toNumber' in b.minSpend
+            ? (b.minSpend as any).toNumber()
+            : Number(b.minSpend);
+          return bMinSpend - aMinSpend; // Sort descending by minSpend
+        });
+
+      const spendingBasedTier = qualifyingTiers.length > 0 ? qualifyingTiers[0] : null;
+
+      // Find the next tier above the spending-based tier
+      const spendingBasedMinSpend = spendingBasedTier
+        ? (typeof spendingBasedTier.minSpend === 'object' && 'toNumber' in spendingBasedTier.minSpend
+            ? (spendingBasedTier.minSpend as any).toNumber()
+            : Number(spendingBasedTier.minSpend))
+        : 0;
+
+      const nextSpendingTier = allTiers.find(t => {
+        const minSpend = typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
+          ? (t.minSpend as any).toNumber()
+          : Number(t.minSpend);
+        return minSpend > spendingBasedMinSpend;
+      });
+
+      // Calculate progress to next spending tier
+      let progressToNextSpendingTier = 100;
+      let amountToNextSpendingTier = 0;
+      let nextSpendingTierMinSpend: number | null = null;
+
+      if (nextSpendingTier) {
+        nextSpendingTierMinSpend = typeof nextSpendingTier.minSpend === 'object' && 'toNumber' in nextSpendingTier.minSpend
+          ? (nextSpendingTier.minSpend as any).toNumber()
+          : Number(nextSpendingTier.minSpend);
+
+        amountToNextSpendingTier = Math.max(0, nextSpendingTierMinSpend - currentSpending);
+
+        const progressInTier = currentSpending - spendingBasedMinSpend;
+        const tierRange = nextSpendingTierMinSpend - spendingBasedMinSpend;
+        progressToNextSpendingTier = tierRange > 0
+          ? Math.min(100, Math.max(0, (progressInTier / tierRange) * 100))
+          : 100;
+      }
+
+      // Determine if customer would downgrade when their subscription/purchase expires
+      const currentTierCashback = tierCashbackPercent;
+      const spendingTierCashback = spendingBasedTier
+        ? (typeof spendingBasedTier.cashbackPercent === 'object' && 'toNumber' in spendingBasedTier.cashbackPercent
+            ? (spendingBasedTier.cashbackPercent as any).toNumber()
+            : Number(spendingBasedTier.cashbackPercent))
+        : 0;
+      const wouldDowngradeOnExpiry = spendingTierCashback < currentTierCashback;
+
+      spendingProgress = {
+        spendingBasedTierId: spendingBasedTier?.id || null,
+        spendingBasedTierName: spendingBasedTier?.name || null,
+        spendingBasedCashback: spendingTierCashback || null,
+        currentSpending,
+        nextSpendingTierName: nextSpendingTier?.name || null,
+        nextSpendingTierMinSpend,
+        progressToNextSpendingTier,
+        amountToNextSpendingTier,
+        wouldDowngradeOnExpiry
+      };
+
+      log.debug(`[${requestId}] Spending progress: ${spendingBasedTier?.name || 'None'}, Would downgrade: ${wouldDowngradeOnExpiry}`);
+    }
 
     // Create order lookup map for enhanced transaction descriptions
     const orderMap = new Map(recentOrders.map(o => [o.id, o]));
@@ -715,6 +834,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }),
 
       currency: shopSettings?.storeCurrency || 'USD',
+
+      // Dual progress: spending-based tier progress for non-spending tier sources
+      spendingProgress,
 
       // Legacy fields for backward compatibility
       totalEarned,

@@ -69,6 +69,25 @@
     "error": {
       "title": "Unable to Load Membership",
       "generic": "Something went wrong. Please try again later."
+    },
+    "dualProgress": {
+      "currentStatus": "Current Status",
+      "renewsIn": "Renews in {{days}} days",
+      "renewsInOne": "Renews tomorrow",
+      "endsIn": "Ends in {{days}} days",
+      "endsInOne": "Ends tomorrow",
+      "nextBilling": "Next billing: {{date}}",
+      "expiresOn": "Expires: {{date}}",
+      "lifetimeAccess": "Lifetime Access",
+      "specialAccess": "Special Access",
+      "spendingProgress": "Spending Progress",
+      "buildingTowards": "Building",
+      "qualifiesFor": "Qualifies for {{tierName}} ({{percent}}% cashback)",
+      "noSpendingTier": "Keep shopping to unlock spending-based tiers",
+      "spendMore": "Spend {{amount}} more for {{tierName}}",
+      "totalSpent": "Total spent: {{amount}}",
+      "maxSpendingTier": "Maximum tier through spending",
+      "ifExpires": "If subscription ends, you'll have {{tierName}}"
     }
   }
 }
