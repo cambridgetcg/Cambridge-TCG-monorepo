@@ -50,125 +50,6 @@ const log = {
 // Types
 // ============================================================================
 
-// Import standardized spending calculation used by tier recalculation
-interface CustomerSpending {
-  customerId: string;
-  shopifyCustomerId: string;
-  totalSpending: number;
-  orderCount: number;
-  lastOrderDate: Date | null;
-}
-
-/**
- * Get customer spending from LOCAL DATABASE
- * This is the SAME calculation used by tier recalculation for consistency
- */
-async function getCustomerSpendingFromDB(
-  shop: string,
-  customerId: string,
-  evaluationPeriod: 'ANNUAL' | 'LIFETIME'
-): Promise<CustomerSpending> {
-  try {
-    log.debug(`Getting spending from local DB for customer ${customerId}, period: ${evaluationPeriod}`);
-
-    // Fetch all orders for manual calculation (Aurora Data API aggregates are unreliable)
-    const allOrders = await db.order.findMany({
-      where: {
-        shop,
-        customerId,
-        financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] },
-        cashbackEligible: true // Exclude tier product orders
-      },
-      select: {
-        id: true,
-        shopifyOrderName: true,
-        totalPrice: true,
-        totalRefunded: true,
-        financialStatus: true,
-        cashbackEligible: true,
-        shopifyCreatedAt: true,
-        createdAt: true
-      }
-    });
-
-    log.debug(`Found ${allOrders.length} total orders for customer`);
-
-    // Manual calculation of spending (more reliable than Aurora aggregates)
-    let totalSpent = 0;
-    let totalRefunded = 0;
-    let eligibleOrderCount = 0;
-    let lastOrderDate: Date | null = null;
-
-    // Filter based on evaluation period
-    const oneYearAgo = evaluationPeriod === 'ANNUAL' ? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) : null;
-
-    for (const order of allOrders) {
-      // Skip if not eligible
-      if (!order.cashbackEligible) {
-        continue;
-      }
-
-      // Skip if wrong financial status
-      if (order.financialStatus !== 'PAID' && order.financialStatus !== 'PARTIALLY_REFUNDED') {
-        continue;
-      }
-
-      // Skip if outside evaluation period
-      if (evaluationPeriod === 'ANNUAL' && oneYearAgo && order.shopifyCreatedAt) {
-        const orderDate = new Date(order.shopifyCreatedAt);
-        if (orderDate < oneYearAgo) {
-          continue;
-        }
-      }
-
-      // Add to totals
-      const price = order.totalPrice ? parseFloat(order.totalPrice.toString()) : 0;
-      const refunded = order.totalRefunded ? parseFloat(order.totalRefunded.toString()) : 0;
-
-      totalSpent += price;
-      totalRefunded += refunded;
-      eligibleOrderCount++;
-
-      // Track last order date
-      if (order.shopifyCreatedAt) {
-        const orderDate = new Date(order.shopifyCreatedAt);
-        if (!lastOrderDate || orderDate > lastOrderDate) {
-          lastOrderDate = orderDate;
-        }
-      }
-    }
-
-    const netSpending = totalSpent - totalRefunded;
-
-    log.debug('Manual calculation results:', {
-      totalOrders: allOrders.length,
-      eligibleOrders: eligibleOrderCount,
-      totalSpent: totalSpent.toFixed(2),
-      totalRefunded: totalRefunded.toFixed(2),
-      netSpending: netSpending.toFixed(2)
-    });
-
-    return {
-      customerId,
-      shopifyCustomerId: customerId, // Already have customer ID
-      totalSpending: Math.max(0, netSpending),
-      orderCount: eligibleOrderCount,
-      lastOrderDate: lastOrderDate
-    };
-  } catch (error) {
-    log.error(`Error fetching spending from DB for customer ${customerId}:`, error);
-
-    // Return zero spending on error
-    return {
-      customerId,
-      shopifyCustomerId: '',
-      totalSpending: 0,
-      orderCount: 0,
-      lastOrderDate: null
-    };
-  }
-}
-
 // Rate limiting (simple in-memory, consider Redis for production)
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
@@ -209,6 +90,24 @@ function getTransactionDescription(transaction: any): string {
       return metadata?.reason || metadata?.note || 'Account adjustment';
     default:
       return transaction.type.replace(/_/g, ' ').toLowerCase();
+  }
+}
+
+/**
+ * Map tier change trigger type to a user-friendly reason
+ */
+function mapTriggerTypeToReason(triggerType: string): string {
+  switch (triggerType) {
+    case 'SPENDING_MILESTONE': return 'spending';
+    case 'PRODUCT_PURCHASE': return 'purchase';
+    case 'SUBSCRIPTION_STARTED': return 'subscription';
+    case 'SUBSCRIPTION_CANCELLED': return 'subscription_ended';
+    case 'SUBSCRIPTION_EXPIRED': return 'subscription_ended';
+    case 'PURCHASE_EXPIRED': return 'purchase_expired';
+    case 'MANUAL_ADMIN': return 'special';
+    case 'PERIODIC_REVIEW': return 'review';
+    case 'ACCOUNT_CREATED': return 'new_account';
+    default: return 'other';
   }
 }
 
@@ -441,60 +340,93 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // Use tier from the included relation (already fetched with customer)
     const tier = customer.currentTier;
+    const tierState = customer.tierState;
     log.debug(`[${requestId}] Current tier:`, tier?.name || 'None');
+    log.debug(`[${requestId}] TierState cached:`, tierState ? 'yes' : 'no');
 
-    // Step 7: Fetch all tiers sorted by minSpend to calculate next tier
+    // Step 7: Fetch all tiers sorted by minSpend (needed for allTiers display and dual progress)
     const allTiers = await db.tier.findMany({
       where: { shop },
       orderBy: { minSpend: 'asc' }
     });
     log.debug(`[${requestId}] Found ${allTiers.length} tiers`);
 
-    // Step 8: Get customer spending stats using standardized calculation
-    // This uses the SAME method as tier recalculation for consistency
-    const evaluationPeriod = tier?.evaluationPeriod || 'LIFETIME';
+    // =========================================================================
+    // OPTIMIZATION: Use pre-computed values from Customer and CustomerTierState
+    // instead of scanning all orders and recalculating progress
+    // =========================================================================
 
-    const spendingStats = await getCustomerSpendingFromDB(
-      shop,
-      customer.id,
-      evaluationPeriod
-    );
+    // Use cached spending from Customer model (updated on order events)
+    const currentSpending = Number(customer.netSpent || 0);
+    const spendingStats = {
+      totalSpending: currentSpending,
+      orderCount: customer.orderCount || 0,
+      lastOrderDate: customer.lastOrderDate
+    };
 
-    log.debug(`[${requestId}] Spending: $${spendingStats.totalSpending.toFixed(2)}, Orders: ${spendingStats.orderCount}`);
+    log.debug(`[${requestId}] Cached spending: $${currentSpending.toFixed(2)}, Orders: ${spendingStats.orderCount}`);
 
-    // Use the standardized spending calculation for tier progress
-    const currentSpending = spendingStats.totalSpending;
+    // Use pre-computed progress from CustomerTierState if available and fresh
+    // Fallback to calculation if stale (> 1 hour) or missing
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const progressAge = tierState?.progressCalculatedAt
+      ? Date.now() - new Date(tierState.progressCalculatedAt).getTime()
+      : Infinity;
+    const usesCachedProgress = tierState && progressAge < ONE_HOUR_MS;
 
-    const currentTierMinSpend = tier ? (typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
-      ? (tier.minSpend as any).toNumber()
-      : Number(tier.minSpend)) : 0;
+    let progressToNextTier: number;
+    let amountToNextTier: number;
+    let nextTier: typeof allTiers[0] | undefined;
+    let isMaxTier: boolean;
 
-    const nextTier = allTiers.find(t => {
-      const minSpend = typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
-        ? (t.minSpend as any).toNumber()
-        : Number(t.minSpend);
-      return minSpend > currentTierMinSpend;
-    });
+    if (usesCachedProgress && tierState) {
+      // FAST PATH: Use pre-computed values from CustomerTierState
+      progressToNextTier = tierState.progressPercent || 0;
+      amountToNextTier = Number(tierState.amountToNextTier || 0);
+      isMaxTier = tierState.isMaxTier || false;
+      nextTier = tierState.nextTierId
+        ? allTiers.find(t => t.id === tierState.nextTierId)
+        : undefined;
 
-    // Calculate progress to next tier
-    let progressToNextTier = 100;
-    let amountToNextTier = 0;
-    if (nextTier) {
-      const nextTierMinSpend = typeof nextTier.minSpend === 'object' && 'toNumber' in nextTier.minSpend
-        ? (nextTier.minSpend as any).toNumber()
-        : Number(nextTier.minSpend);
+      log.debug(`[${requestId}] Using CACHED progress (age: ${Math.round(progressAge / 1000)}s)`);
+    } else {
+      // SLOW PATH: Calculate progress (fallback for stale/missing data)
+      log.debug(`[${requestId}] Calculating progress (no cache or stale)`);
 
-      amountToNextTier = Math.max(0, nextTierMinSpend - currentSpending);
+      const currentTierMinSpend = tier ? (typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
+        ? (tier.minSpend as any).toNumber()
+        : Number(tier.minSpend)) : 0;
 
-      const progressInTier = currentSpending - currentTierMinSpend;
-      const tierRange = nextTierMinSpend - currentTierMinSpend;
-      progressToNextTier = Math.min(100, Math.max(0, (progressInTier / tierRange) * 100));
+      nextTier = allTiers.find(t => {
+        const minSpend = typeof t.minSpend === 'object' && 'toNumber' in t.minSpend
+          ? (t.minSpend as any).toNumber()
+          : Number(t.minSpend);
+        return minSpend > currentTierMinSpend;
+      });
+
+      isMaxTier = !nextTier;
+      progressToNextTier = 100;
+      amountToNextTier = 0;
+
+      if (nextTier) {
+        const nextTierMinSpend = typeof nextTier.minSpend === 'object' && 'toNumber' in nextTier.minSpend
+          ? (nextTier.minSpend as any).toNumber()
+          : Number(nextTier.minSpend);
+
+        amountToNextTier = Math.max(0, nextTierMinSpend - currentSpending);
+
+        const progressInTier = currentSpending - currentTierMinSpend;
+        const tierRange = nextTierMinSpend - currentTierMinSpend;
+        progressToNextTier = tierRange > 0
+          ? Math.min(100, Math.max(0, (progressInTier / tierRange) * 100))
+          : 100;
+      }
     }
 
     log.debug(`[${requestId}] Next tier: ${nextTier?.name || 'none'}, Progress: ${progressToNextTier.toFixed(0)}%`);
 
-    // Step 10-13: Batch fetch transactions, shop settings, tier purchase, and orders (parallel)
-    const [transactions, shopSettings, activeTierPurchase, recentOrders] = await Promise.all([
+    // Step 10-13: Batch fetch transactions, shop settings, tier purchase, orders, pending cashback, and tier changes (parallel)
+    const [transactions, shopSettings, activeTierPurchase, recentOrders, pendingCashbackOrders, recentTierChangeLog] = await Promise.all([
       // Transactions (last 50 for pagination in frontend)
       db.storeCreditLedger.findMany({
         where: {
@@ -545,6 +477,43 @@ export async function loader({ request }: LoaderFunctionArgs) {
           shopifyOrderName: true,
           shopifyOrderNumber: true
         }
+      }),
+      // Pending cashback: Orders that are paid but cashback not yet credited
+      db.order.findMany({
+        where: {
+          customerId: customer.id,
+          shop: shop,
+          financialStatus: 'PAID',
+          cashbackProcessed: false,
+          cashbackEligible: true,
+          cashbackAmount: { not: null }
+        },
+        orderBy: { shopifyCreatedAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          shopifyOrderName: true,
+          cashbackAmount: true,
+          shopifyCreatedAt: true
+        }
+      }),
+      // Recent tier change (within last 7 days) for celebration/alert banners
+      db.tierChangeLog.findFirst({
+        where: {
+          customerId: customer.id,
+          shop: shop,
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          fromTierName: true,
+          toTierName: true,
+          changeType: true,
+          triggerType: true,
+          createdAt: true
+        }
       })
     ]);
 
@@ -575,12 +544,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     log.debug(`[${requestId}] Balance: $${actualBalance.toFixed(2)}, Total earned: $${totalEarned.toFixed(2)}`);
 
-    // Determine tier source from CustomerTierState
-    const tierState = customer.tierState;
+    // Determine tier source from CustomerTierState (tierState already defined above)
     const tierSource = tierState?.tierSource || 'SPENDING_BASED';
 
-    // Determine if max tier
-    const isMaxTier = !nextTier || (tierState?.isMaxTier ?? false);
+    // isMaxTier is already determined above in the progress calculation
 
     // Build tier source details based on source type
     let tierSourceDetails: Record<string, any> | undefined;
@@ -744,6 +711,44 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // Create order lookup map for enhanced transaction descriptions
     const orderMap = new Map(recentOrders.map(o => [o.id, o]));
 
+    // =========================================================================
+    // Process pending cashback for display
+    // =========================================================================
+    const pendingCashback = pendingCashbackOrders.length > 0 ? {
+      amount: pendingCashbackOrders.reduce((sum, o) => {
+        const amt = typeof o.cashbackAmount === 'object' && 'toNumber' in o.cashbackAmount
+          ? (o.cashbackAmount as any).toNumber()
+          : Number(o.cashbackAmount || 0);
+        return sum + amt;
+      }, 0),
+      orderCount: pendingCashbackOrders.length,
+      orders: pendingCashbackOrders.map(o => ({
+        orderName: o.shopifyOrderName,
+        amount: typeof o.cashbackAmount === 'object' && 'toNumber' in o.cashbackAmount
+          ? (o.cashbackAmount as any).toNumber()
+          : Number(o.cashbackAmount || 0),
+        date: o.shopifyCreatedAt.toISOString()
+      }))
+    } : null;
+
+    log.debug(`[${requestId}] Pending cashback: ${pendingCashback?.amount ?? 0} from ${pendingCashback?.orderCount ?? 0} orders`);
+
+    // =========================================================================
+    // Process recent tier change for celebration/alert banners
+    // =========================================================================
+    const recentTierChange = recentTierChangeLog ? {
+      fromTier: recentTierChangeLog.fromTierName,
+      toTier: recentTierChangeLog.toTierName,
+      changeType: recentTierChangeLog.changeType,
+      reason: mapTriggerTypeToReason(recentTierChangeLog.triggerType),
+      changedAt: recentTierChangeLog.createdAt.toISOString(),
+      daysAgo: Math.floor((Date.now() - recentTierChangeLog.createdAt.getTime()) / (24 * 60 * 60 * 1000))
+    } : null;
+
+    if (recentTierChange) {
+      log.debug(`[${requestId}] Recent tier change: ${recentTierChange.changeType} to ${recentTierChange.toTier} (${recentTierChange.daysAgo} days ago)`);
+    }
+
     // Format and return response
     const responseData = {
       success: true,
@@ -793,12 +798,32 @@ export async function loader({ request }: LoaderFunctionArgs) {
         isMaxTier
       },
 
-      // Stats
+      // Stats (enhanced with cashback data for max tier display)
       stats: {
         orderCount: spendingStats.orderCount,
         totalSpent: spendingStats.totalSpending,
-        lastOrderDate: spendingStats.lastOrderDate?.toISOString() || null
+        lastOrderDate: spendingStats.lastOrderDate?.toISOString() || null,
+        totalCashbackEarned: totalEarned,
+        annualSpent: Number(customer.annualSpent || 0)
       },
+
+      // Tier maintenance info (for max tier annual evaluation display)
+      maintenance: tier ? {
+        evaluationPeriod: tier.evaluationPeriod || 'LIFETIME',
+        minSpendToMaintain: typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
+          ? (tier.minSpend as any).toNumber()
+          : Number(tier.minSpend),
+        annualSpent: Number(customer.annualSpent || 0),
+        isSecured: Number(customer.annualSpent || 0) >= (typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
+          ? (tier.minSpend as any).toNumber()
+          : Number(tier.minSpend)),
+        maintenancePercent: Math.min(100, Math.round((Number(customer.annualSpent || 0) / (typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
+          ? (tier.minSpend as any).toNumber()
+          : Number(tier.minSpend) || 1)) * 100)),
+        amountToMaintain: Math.max(0, (typeof tier.minSpend === 'object' && 'toNumber' in tier.minSpend
+          ? (tier.minSpend as any).toNumber()
+          : Number(tier.minSpend)) - Number(customer.annualSpent || 0))
+      } : null,
 
       // All tiers for comparison
       allTiers: allTiers.map(t => {
@@ -850,7 +875,28 @@ export async function loader({ request }: LoaderFunctionArgs) {
         minSpend: typeof nextTier.minSpend === 'object' && 'toNumber' in nextTier.minSpend
           ? (nextTier.minSpend as any).toNumber()
           : Number(nextTier.minSpend)
-      } : null
+      } : null,
+
+      // =========================================================================
+      // NEW: Edge case handling fields
+      // =========================================================================
+
+      // Pending cashback from orders not yet credited
+      pendingCashback,
+
+      // Recent tier change for celebration/alert banners
+      recentTierChange,
+
+      // Flag for new customer welcome state
+      isNewCustomer: spendingStats.orderCount === 0 && totalEarned === 0,
+
+      // Metadata for staleness detection
+      lastUpdated: new Date().toISOString(),
+      dataFreshness: {
+        customerUpdatedAt: customer.updatedAt.toISOString(),
+        tierStateUpdatedAt: tierState?.updatedAt?.toISOString() || null,
+        progressCalculatedAt: tierState?.progressCalculatedAt?.toISOString() || null
+      }
     };
 
     const responseTime = Date.now() - startTime;

@@ -2,10 +2,23 @@
   "membership": {
     "title": "My Membership",
     "refresh": "Refresh",
+    "data": {
+      "stale": "Data may be outdated. {{time}} - tap Refresh for latest.",
+      "minutesAgo": "Updated {{minutes}} min ago",
+      "hoursAgo": "Updated {{hours}}h ago"
+    },
     "welcome": {
       "greeting": "Welcome back, {{name}}!",
       "greetingGeneric": "Welcome back!",
-      "memberSince": "Member since {{date}}"
+      "memberSince": "Member since {{date}}",
+      "newMember": "Welcome to Our Rewards Program!",
+      "newMemberMessage": "Hi {{name}}, you're all set to start earning cashback on every purchase.",
+      "newMemberMessageGeneric": "You're all set to start earning cashback on every purchase.",
+      "howItWorks": "How It Works",
+      "step1": "Shop and earn cashback on every order",
+      "step2": "Your cashback becomes store credit",
+      "step3": "Use your credit on future purchases",
+      "currentRate": "You're earning {{percent}}% cashback as a {{tierName}} member"
     },
     "tier": {
       "current": "Current Tier",
@@ -27,7 +40,11 @@
     "balance": {
       "available": "Store Credit",
       "totalEarned": "Lifetime Earned",
-      "current": "Available"
+      "current": "Available",
+      "pending": "{{amount}} pending",
+      "pendingOrderSingle": "From 1 recent order",
+      "pendingOrders": "From {{count}} recent orders",
+      "saved": "You've saved {{amount}} with us!"
     },
     "benefits": {
       "title": "Your Benefits"
@@ -40,7 +57,16 @@
       "title": "Tier Progress",
       "nextTier": "Next: {{tierName}} ({{percent}}% cashback)",
       "amountToGo": "{{amount}} to go",
-      "maxTier": "You're earning the maximum cashback rate!"
+      "maxTier": "You're earning the maximum cashback rate!",
+      "percentComplete": "{{percent}}% complete"
+    },
+    "starterTier": {
+      "title": "Start Earning Rewards!",
+      "message": "Spend {{amount}} to unlock {{percent}}% cashback on every order.",
+      "nextTier": "Next: {{tierName}}"
+    },
+    "evaluation": {
+      "warning": "Tier evaluation in {{days}} days"
     },
     "transactions": {
       "title": "Recent Activity",
@@ -54,13 +80,15 @@
       "current": "Current",
       "achieved": "Achieved",
       "minSpend": "Min spend: {{amount}}",
+      "noMinimum": "No minimum spend",
       "toGo": "{{amount}} to go"
     },
     "preview": {
       "title": "Membership Preview",
       "signInMessage": "Sign in to see your membership status and rewards.",
       "exampleTier": "Example: Gold Member - 5% cashback",
-      "exampleBalance": "Earn store credit on every purchase!"
+      "exampleBalance": "Earn store credit on every purchase!",
+      "mode": "Preview mode"
     },
     "notEnrolled": {
       "title": "Join Our Rewards Program",
@@ -88,6 +116,26 @@
       "totalSpent": "Total spent: {{amount}}",
       "maxSpendingTier": "Maximum tier through spending",
       "ifExpires": "If subscription ends, you'll have {{tierName}}"
+    },
+    "maxTier": {
+      "topTier": "Top Tier",
+      "rewardsSummary": "Your Rewards Summary",
+      "cashbackEarned": "Cashback Earned",
+      "ordersPlaced": "Orders Placed",
+      "maintainStatus": "Maintain Your Status",
+      "spendMoreToKeep": "Spend {{amount}} more to keep {{tierName}} status",
+      "statusSecured": "Your {{tierName}} status is secured for this year",
+      "currentRate": "{{percent}}% cashback on every purchase"
+    },
+    "tierChange": {
+      "welcome": "Welcome!",
+      "welcomeMessage": "You've been assigned to the {{tierName}} tier. Start shopping to earn rewards!",
+      "upgraded": "Congratulations!",
+      "upgradedFrom": "You've upgraded from {{fromTier}} to {{toTier}}!",
+      "upgradedTo": "You've reached {{tierName}} status!",
+      "statusChanged": "Status Update",
+      "downgraded": "Your status changed from {{fromTier}} to {{toTier}}.",
+      "changedTo": "Your current tier is {{tierName}}."
     }
   }
 }

@@ -2,6 +2,24 @@
   "membership": {
     "title": "Mon Adhésion",
     "refresh": "Actualiser",
+    "data": {
+      "stale": "Les données peuvent être obsolètes. {{time}} - appuyez sur Actualiser.",
+      "minutesAgo": "Mis à jour il y a {{minutes}} min",
+      "hoursAgo": "Mis à jour il y a {{hours}}h"
+    },
+    "welcome": {
+      "greeting": "Bon retour, {{name}}!",
+      "greetingGeneric": "Bon retour!",
+      "memberSince": "Membre depuis {{date}}",
+      "newMember": "Bienvenue dans Notre Programme de Récompenses!",
+      "newMemberMessage": "Bonjour {{name}}, vous êtes prêt à gagner du cashback sur chaque achat.",
+      "newMemberMessageGeneric": "Vous êtes prêt à gagner du cashback sur chaque achat.",
+      "howItWorks": "Comment Ça Marche",
+      "step1": "Achetez et gagnez du cashback sur chaque commande",
+      "step2": "Votre cashback devient un crédit magasin",
+      "step3": "Utilisez votre crédit sur vos futurs achats",
+      "currentRate": "Vous gagnez {{percent}}% de cashback en tant que membre {{tierName}}"
+    },
     "tier": {
       "current": "Niveau Actuel",
       "next": "Prochain: {{tierName}}",
@@ -11,14 +29,35 @@
     },
     "balance": {
       "available": "Crédit Magasin Disponible",
-      "totalEarned": "Total gagné: {{amount}}"
+      "totalEarned": "Total gagné: {{amount}}",
+      "pending": "{{amount}} en attente",
+      "pendingOrderSingle": "D'une commande récente",
+      "pendingOrders": "De {{count}} commandes récentes",
+      "saved": "Vous avez économisé {{amount}} avec nous!"
     },
     "stats": {
       "totalSpent": "Total Dépensé",
       "orders": "Commandes"
     },
+    "progress": {
+      "title": "Progression",
+      "nextTier": "Prochain: {{tierName}} ({{percent}}% cashback)",
+      "amountToGo": "{{amount}} restant",
+      "maxTier": "Vous gagnez le taux maximum de cashback!",
+      "percentComplete": "{{percent}}% complété"
+    },
+    "starterTier": {
+      "title": "Commencez à Gagner des Récompenses!",
+      "message": "Dépensez {{amount}} pour débloquer {{percent}}% de cashback sur chaque commande.",
+      "nextTier": "Prochain: {{tierName}}"
+    },
+    "evaluation": {
+      "warning": "Évaluation du niveau dans {{days}} jours"
+    },
     "transactions": {
-      "title": "Activité Récente"
+      "title": "Activité Récente",
+      "viewAll": "Voir tout",
+      "empty": "Aucune activité récente"
     },
     "tiers": {
       "viewAll": "Voir tous les niveaux",
@@ -26,13 +65,16 @@
       "allTitle": "Tous les Niveaux d'Adhésion",
       "current": "Actuel",
       "achieved": "Atteint",
-      "minSpend": "Dépense min: {{amount}}"
+      "minSpend": "Dépense min: {{amount}}",
+      "noMinimum": "Aucune dépense minimum",
+      "toGo": "{{amount}} restant"
     },
     "preview": {
       "title": "Aperçu de l'Adhésion",
       "signInMessage": "Connectez-vous pour voir votre statut d'adhésion et vos récompenses.",
       "exampleTier": "Exemple: Membre Or - 5% de cashback",
-      "exampleBalance": "Gagnez du crédit magasin sur chaque achat!"
+      "exampleBalance": "Gagnez du crédit magasin sur chaque achat!",
+      "mode": "Mode aperçu"
     },
     "notEnrolled": {
       "title": "Rejoignez Notre Programme de Récompenses",
@@ -60,6 +102,26 @@
       "totalSpent": "Total dépensé: {{amount}}",
       "maxSpendingTier": "Niveau maximum atteint par dépenses",
       "ifExpires": "Si l'abonnement se termine, vous aurez {{tierName}}"
+    },
+    "maxTier": {
+      "topTier": "Niveau Maximum",
+      "rewardsSummary": "Résumé de Vos Récompenses",
+      "cashbackEarned": "Cashback Gagné",
+      "ordersPlaced": "Commandes Passées",
+      "maintainStatus": "Maintenez Votre Statut",
+      "spendMoreToKeep": "Dépensez {{amount}} de plus pour conserver le statut {{tierName}}",
+      "statusSecured": "Votre statut {{tierName}} est assuré pour cette année",
+      "currentRate": "{{percent}}% de cashback sur chaque achat"
+    },
+    "tierChange": {
+      "welcome": "Bienvenue!",
+      "welcomeMessage": "Vous avez été assigné au niveau {{tierName}}. Commencez vos achats pour gagner des récompenses!",
+      "upgraded": "Félicitations!",
+      "upgradedFrom": "Vous êtes passé de {{fromTier}} à {{toTier}}!",
+      "upgradedTo": "Vous avez atteint le statut {{tierName}}!",
+      "statusChanged": "Mise à Jour du Statut",
+      "downgraded": "Votre statut est passé de {{fromTier}} à {{toTier}}.",
+      "changedTo": "Votre niveau actuel est {{tierName}}."
     }
   }
 }

@@ -20,6 +20,26 @@ import { useApiClient } from './hooks/useApiClient';
 import { useAuthenticatedCustomer } from './hooks/useAuthenticatedCustomer';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
+import {
+  safeBalance,
+  safeCustomer,
+  safeTier,
+  safeProgress,
+  safeStats,
+  safeMaintenance,
+  safePendingCashback,
+  safeTierChange,
+  safeTransactions,
+  safeAllTiers,
+  isNewCustomerState,
+  isDataStale,
+  getDataAgeMinutes,
+  safeNumber,
+  safeString,
+  safeBoolean,
+  type SafePendingCashbackInfo,
+  type SafeTierChangeInfo,
+} from './utils/safeData';
 
 // ============================================================================
 // Types - Updated for new API response
@@ -71,6 +91,15 @@ interface ProgressInfo {
   isMaxTier: boolean;
 }
 
+interface MaintenanceInfo {
+  evaluationPeriod: 'ANNUAL' | 'LIFETIME';
+  minSpendToMaintain: number;
+  annualSpent: number;
+  isSecured: boolean;
+  maintenancePercent: number;
+  amountToMaintain: number;
+}
+
 interface TransactionInfo {
   id: string;
   type: string;
@@ -102,6 +131,31 @@ interface SpendingProgressInfo {
   wouldDowngradeOnExpiry: boolean;
 }
 
+interface PendingCashbackInfo {
+  amount: number;
+  orderCount: number;
+  orders: Array<{
+    orderName: string;
+    amount: number;
+    date: string;
+  }>;
+}
+
+interface TierChangeInfo {
+  fromTier: string | null;
+  toTier: string | null;
+  changeType: 'UPGRADE' | 'DOWNGRADE' | 'LATERAL' | 'INITIAL';
+  reason: string;
+  changedAt: string;
+  daysAgo: number;
+}
+
+interface DataFreshnessInfo {
+  customerUpdatedAt: string | null;
+  tierStateUpdatedAt: string | null;
+  progressCalculatedAt: string | null;
+}
+
 interface LoyaltyData {
   success: boolean;
   enrolled: boolean;
@@ -114,7 +168,10 @@ interface LoyaltyData {
     orderCount: number;
     totalSpent: number;
     lastOrderDate: string | null;
+    totalCashbackEarned?: number;
+    annualSpent?: number;
   };
+  maintenance?: MaintenanceInfo | null;
   allTiers: AllTierInfo[];
   recentTransactions: TransactionInfo[];
   currency: string;
@@ -123,6 +180,13 @@ interface LoyaltyData {
   isPreview?: boolean;
   // Dual progress: spending-based progress for non-spending tier sources
   spendingProgress?: SpendingProgressInfo | null;
+  // Edge case handling: new customer, pending cashback, tier changes
+  isNewCustomer?: boolean;
+  pendingCashback?: PendingCashbackInfo | null;
+  recentTierChange?: TierChangeInfo | null;
+  // Data freshness metadata
+  lastUpdated?: string;
+  dataFreshness?: DataFreshnessInfo;
   // Legacy fields for backward compatibility
   totalEarned?: number;
   progressToNextTier?: number;
@@ -288,7 +352,19 @@ interface ProgressBarProps {
 }
 
 function TierProgressBar({ progress, height = 8 }: ProgressBarProps) {
-  const clampedProgress = Math.min(100, Math.max(0, progress));
+  // Handle NaN/undefined safely
+  const safeProgress = Number.isFinite(progress) ? progress : 0;
+
+  // Clamp to 0-100 range
+  const clampedProgress = Math.min(100, Math.max(0, safeProgress));
+
+  // Visual minimum for non-zero values (3% ensures visibility)
+  const visualProgress = clampedProgress === 0
+    ? 0
+    : clampedProgress === 100
+      ? 100
+      : Math.max(3, Math.min(97, clampedProgress)); // Avoid looking "complete" when it's not
+
   return (
     <View
       border="base"
@@ -302,7 +378,7 @@ function TierProgressBar({ progress, height = 8 }: ProgressBarProps) {
         background="interactive"
         minBlockSize={height}
         maxBlockSize={height}
-        inlineSize={`${clampedProgress}%`}
+        inlineSize={`${visualProgress}%`}
       />
     </View>
   );
@@ -461,31 +537,299 @@ function BalanceCard({ balance, currency, locale, translate }: BalanceCardProps)
   );
 }
 
-interface ProgressCardProps {
+interface BalanceCardWithPendingProps extends BalanceCardProps {
+  pendingCashback?: PendingCashbackInfo | null;
+}
+
+function BalanceCardWithPending({ balance, currency, locale, translate, pendingCashback }: BalanceCardWithPendingProps) {
+  const hasPending = pendingCashback && pendingCashback.amount > 0;
+  const justRedeemed = balance.current === 0 && balance.lifetimeEarned > 0;
+
+  return (
+    <View border="base" cornerRadius="base" padding="base" background="base">
+      <BlockStack spacing="tight">
+        {/* Current Balance */}
+        <BlockStack spacing="extraTight">
+          <Text size="small" appearance="subdued">
+            {translate('membership.balance.available')}
+          </Text>
+          <Text size="large" emphasis="bold">
+            {formatCurrency(balance.current, currency, locale)}
+          </Text>
+        </BlockStack>
+
+        {/* Post-redemption encouragement - when balance is $0 but has earned before */}
+        {justRedeemed && !hasPending && (
+          <>
+            <Divider />
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="small" appearance="success">✓</Text>
+              <Text size="small">
+                {translate('membership.balance.saved', {
+                  amount: formatCurrency(balance.lifetimeEarned, currency, locale)
+                })}
+              </Text>
+            </InlineStack>
+          </>
+        )}
+
+        {/* Pending Cashback */}
+        {hasPending && (
+          <>
+            <Divider />
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Icon source="clock" size="small" appearance="subdued" />
+              <View inlineSize="fill">
+                <Text size="small" appearance="subdued">
+                  {translate('membership.balance.pending', {
+                    amount: formatCurrency(pendingCashback.amount, currency, locale)
+                  })}
+                </Text>
+              </View>
+            </InlineStack>
+            {pendingCashback.orderCount > 0 && (
+              <Text size="small" appearance="subdued">
+                {pendingCashback.orderCount === 1
+                  ? translate('membership.balance.pendingOrderSingle')
+                  : translate('membership.balance.pendingOrders', {
+                      count: String(pendingCashback.orderCount)
+                    })
+                }
+              </Text>
+            )}
+          </>
+        )}
+      </BlockStack>
+    </View>
+  );
+}
+
+interface WelcomeCardProps {
+  customer: CustomerInfo;
+  tier: TierInfo | null;
+  currency: string;
+  locale: string;
+  translate: (key: string, options?: Record<string, string>) => string;
+}
+
+function WelcomeCard({ customer, tier, currency, locale, translate }: WelcomeCardProps) {
+  const displayName = customer.firstName || null;
+
+  return (
+    <View border="base" cornerRadius="base" padding="base" background="subdued">
+      <BlockStack spacing="base">
+        {/* Welcome Message */}
+        <BlockStack spacing="tight">
+          <Text size="large" emphasis="bold">
+            {translate('membership.welcome.newMember')}
+          </Text>
+          <Text size="small">
+            {displayName
+              ? translate('membership.welcome.newMemberMessage', { name: displayName })
+              : translate('membership.welcome.newMemberMessageGeneric')
+            }
+          </Text>
+        </BlockStack>
+
+        <Divider />
+
+        {/* How it Works */}
+        <BlockStack spacing="tight">
+          <Text size="small" emphasis="bold">
+            {translate('membership.welcome.howItWorks')}
+          </Text>
+          <InlineStack spacing="tight" blockAlignment="start">
+            <Text size="small">1.</Text>
+            <Text size="small">{translate('membership.welcome.step1')}</Text>
+          </InlineStack>
+          <InlineStack spacing="tight" blockAlignment="start">
+            <Text size="small">2.</Text>
+            <Text size="small">{translate('membership.welcome.step2')}</Text>
+          </InlineStack>
+          <InlineStack spacing="tight" blockAlignment="start">
+            <Text size="small">3.</Text>
+            <Text size="small">{translate('membership.welcome.step3')}</Text>
+          </InlineStack>
+        </BlockStack>
+
+        {/* Current Tier Info */}
+        {tier && (
+          <>
+            <Divider />
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="small">{tier.icon}</Text>
+              <Text size="small">
+                {translate('membership.welcome.currentRate', {
+                  tierName: tier.name,
+                  percent: String(tier.cashbackPercent)
+                })}
+              </Text>
+            </InlineStack>
+          </>
+        )}
+      </BlockStack>
+    </View>
+  );
+}
+
+interface TierChangeBannerProps {
+  tierChange: TierChangeInfo;
+  translate: (key: string, options?: Record<string, string>) => string;
+}
+
+function TierChangeBanner({ tierChange, translate }: TierChangeBannerProps) {
+  const isUpgrade = tierChange.changeType === 'UPGRADE';
+  const isDowngrade = tierChange.changeType === 'DOWNGRADE';
+  const isInitial = tierChange.changeType === 'INITIAL';
+
+  // Skip if too old (API should filter, but double-check)
+  if (tierChange.daysAgo > 7) return null;
+
+  // Initial tier assignment - show welcome style
+  if (isInitial && tierChange.toTier) {
+    return (
+      <Banner tone="info" title={translate('membership.tierChange.welcome')}>
+        {translate('membership.tierChange.welcomeMessage', {
+          tierName: tierChange.toTier
+        })}
+      </Banner>
+    );
+  }
+
+  // Upgrade celebration
+  if (isUpgrade && tierChange.toTier) {
+    return (
+      <Banner tone="success" title={translate('membership.tierChange.upgraded')}>
+        {tierChange.fromTier
+          ? translate('membership.tierChange.upgradedFrom', {
+              fromTier: tierChange.fromTier,
+              toTier: tierChange.toTier
+            })
+          : translate('membership.tierChange.upgradedTo', {
+              tierName: tierChange.toTier
+            })
+        }
+      </Banner>
+    );
+  }
+
+  // Downgrade notice
+  if (isDowngrade && tierChange.toTier) {
+    return (
+      <Banner tone="warning" title={translate('membership.tierChange.statusChanged')}>
+        {tierChange.fromTier
+          ? translate('membership.tierChange.downgraded', {
+              fromTier: tierChange.fromTier,
+              toTier: tierChange.toTier
+            })
+          : translate('membership.tierChange.changedTo', {
+              tierName: tierChange.toTier
+            })
+        }
+      </Banner>
+    );
+  }
+
+  return null;
+}
+
+interface StaleDataBannerProps {
+  lastUpdated?: string;
+  translate: (key: string, options?: Record<string, string>) => string;
+}
+
+function StaleDataBanner({ lastUpdated, translate }: StaleDataBannerProps) {
+  // Only show if data is stale (> 15 minutes old)
+  if (!lastUpdated || !isDataStale(lastUpdated, 15 * 60 * 1000)) {
+    return null;
+  }
+
+  const ageMinutes = getDataAgeMinutes(lastUpdated);
+  const displayTime = ageMinutes >= 60
+    ? translate('membership.data.hoursAgo', { hours: String(Math.floor(ageMinutes / 60)) })
+    : translate('membership.data.minutesAgo', { minutes: String(ageMinutes) });
+
+  return (
+    <Banner tone="warning">
+      {translate('membership.data.stale', { time: displayTime })}
+    </Banner>
+  );
+}
+
+interface StarterTierCardProps {
+  tier: TierInfo;
   progress: ProgressInfo;
   currency: string;
   locale: string;
   translate: (key: string, options?: Record<string, string>) => string;
 }
 
-function ProgressCard({ progress, currency, locale, translate }: ProgressCardProps) {
-  if (progress.isMaxTier) {
-    return (
-      <View border="base" cornerRadius="base" padding="base" background="subdued">
+function StarterTierCard({ tier, progress, currency, locale, translate }: StarterTierCardProps) {
+  return (
+    <View border="base" cornerRadius="base" padding="base" background="base">
+      <BlockStack spacing="base">
+        {/* Header */}
         <BlockStack spacing="tight">
-          <InlineStack spacing="tight" blockAlignment="center">
-            <Text size="medium" emphasis="bold">
-              🏆 {translate('membership.tier.maxTierCongrats')}
-            </Text>
-          </InlineStack>
-          <TierProgressBar progress={100} />
-          <Text size="small" appearance="subdued">
-            {translate('membership.progress.maxTier')}
+          <Text size="large" emphasis="bold">
+            {translate('membership.starterTier.title')}
+          </Text>
+          <Text size="small">
+            {translate('membership.starterTier.message', {
+              amount: formatCurrency(progress.amountRemaining, currency, locale),
+              percent: String(progress.nextTierCashback || 0)
+            })}
           </Text>
         </BlockStack>
-      </View>
-    );
+
+        {/* Progress to first cashback tier */}
+        <TierProgressBar progress={progress.percent} />
+
+        <InlineStack spacing="tight" blockAlignment="center">
+          <Text size="small" appearance="subdued">
+            {translate('membership.progress.percentComplete', {
+              percent: String(Math.round(progress.percent))
+            })}
+          </Text>
+          {progress.nextTierName && (
+            <>
+              <Text size="small" appearance="subdued">•</Text>
+              <Text size="small" appearance="subdued">
+                {translate('membership.starterTier.nextTier', {
+                  tierName: progress.nextTierName
+                })}
+              </Text>
+            </>
+          )}
+        </InlineStack>
+      </BlockStack>
+    </View>
+  );
+}
+
+interface ProgressCardProps {
+  progress: ProgressInfo;
+  currency: string;
+  locale: string;
+  translate: (key: string, options?: Record<string, string>) => string;
+  maintenance?: MaintenanceInfo | null;
+}
+
+function ProgressCard({ progress, currency, locale, translate, maintenance }: ProgressCardProps) {
+  // Max tier is now handled by MaxTierCard component
+  if (progress.isMaxTier) {
+    return null;
   }
+
+  // Calculate days until year end for annual evaluation warning
+  const getDaysUntilYearEnd = (): number => {
+    const now = new Date();
+    const yearEnd = new Date(now.getFullYear(), 11, 31);
+    return Math.ceil((yearEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const showEvaluationWarning =
+    maintenance?.evaluationPeriod === 'ANNUAL' &&
+    getDaysUntilYearEnd() <= 60;
 
   return (
     <View border="base" cornerRadius="base" padding="base" background="base">
@@ -507,8 +851,135 @@ function ProgressCard({ progress, currency, locale, translate }: ProgressCardPro
         </InlineStack>
         <TierProgressBar progress={progress.percent} />
         <Text size="small" appearance="subdued">
-          {progress.percent.toFixed(0)}% complete
+          {translate('membership.progress.percentComplete', {
+            percent: String(Math.round(progress.percent))
+          })}
         </Text>
+
+        {/* Annual evaluation countdown warning */}
+        {showEvaluationWarning && (
+          <>
+            <Divider />
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Icon source="calendar" size="small" appearance="warning" />
+              <Text size="small" appearance="warning">
+                {translate('membership.evaluation.warning', {
+                  days: String(getDaysUntilYearEnd())
+                })}
+              </Text>
+            </InlineStack>
+          </>
+        )}
+      </BlockStack>
+    </View>
+  );
+}
+
+interface MaxTierCardProps {
+  tier: TierInfo;
+  stats: {
+    orderCount: number;
+    totalSpent: number;
+    totalCashbackEarned?: number;
+  };
+  maintenance?: MaintenanceInfo | null;
+  currency: string;
+  locale: string;
+  translate: (key: string, options?: Record<string, string>) => string;
+}
+
+function MaxTierCard({ tier, stats, maintenance, currency, locale, translate }: MaxTierCardProps) {
+  const showMaintenanceProgress =
+    maintenance?.evaluationPeriod === 'ANNUAL' && !maintenance.isSecured;
+
+  return (
+    <View border="base" cornerRadius="base" padding="base" background="subdued">
+      <BlockStack spacing="base">
+        {/* Header */}
+        <InlineStack spacing="tight" blockAlignment="center">
+          <Text size="large" emphasis="bold">
+            {tier.icon} {tier.name}
+          </Text>
+          <Badge tone="success">{translate('membership.maxTier.topTier')}</Badge>
+        </InlineStack>
+
+        <Divider />
+
+        {/* Value Stats */}
+        <BlockStack spacing="tight">
+          <Text size="small" emphasis="bold">
+            {translate('membership.maxTier.rewardsSummary')}
+          </Text>
+
+          <InlineStack spacing="base">
+            <View inlineSize="fill">
+              <BlockStack spacing="extraTight">
+                <Text size="small" appearance="subdued">
+                  {translate('membership.maxTier.cashbackEarned')}
+                </Text>
+                <Text size="medium" emphasis="bold">
+                  {formatCurrency(stats.totalCashbackEarned || 0, currency, locale)}
+                </Text>
+              </BlockStack>
+            </View>
+            <View inlineSize="fill">
+              <BlockStack spacing="extraTight">
+                <Text size="small" appearance="subdued">
+                  {translate('membership.maxTier.ordersPlaced')}
+                </Text>
+                <Text size="medium" emphasis="bold">
+                  {stats.orderCount}
+                </Text>
+              </BlockStack>
+            </View>
+          </InlineStack>
+        </BlockStack>
+
+        {/* Maintenance Progress (Annual evaluation, not yet secured) */}
+        {showMaintenanceProgress && maintenance && (
+          <>
+            <Divider />
+            <BlockStack spacing="tight">
+              <InlineStack spacing="tight" blockAlignment="center">
+                <Text size="small" emphasis="bold">
+                  {translate('membership.maxTier.maintainStatus')}
+                </Text>
+              </InlineStack>
+              <TierProgressBar progress={maintenance.maintenancePercent} />
+              <Text size="small" appearance="subdued">
+                {translate('membership.maxTier.spendMoreToKeep', {
+                  amount: formatCurrency(maintenance.amountToMaintain, currency, locale),
+                  tierName: tier.name
+                })}
+              </Text>
+            </BlockStack>
+          </>
+        )}
+
+        {/* Status Secured (Annual evaluation, already secured) */}
+        {maintenance?.evaluationPeriod === 'ANNUAL' && maintenance.isSecured && (
+          <>
+            <Divider />
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="small" appearance="success">✓</Text>
+              <Text size="small">
+                {translate('membership.maxTier.statusSecured', { tierName: tier.name })}
+              </Text>
+            </InlineStack>
+          </>
+        )}
+
+        {/* Current Cashback Rate */}
+        <BlockStack spacing="extraTight">
+          <InlineStack spacing="tight" blockAlignment="center">
+            <Text size="small" appearance="success">⭐</Text>
+            <Text size="small">
+              {translate('membership.maxTier.currentRate', {
+                percent: String(tier.cashbackPercent)
+              })}
+            </Text>
+          </InlineStack>
+        </BlockStack>
       </BlockStack>
     </View>
   );
@@ -932,7 +1403,7 @@ function TierRow({ tier, currency, locale, currentSpending, translate }: TierRow
           </InlineStack>
           <Text size="small" appearance="subdued">
             {tier.minSpend === 0
-              ? 'No minimum'
+              ? translate('membership.tiers.noMinimum')
               : translate('membership.tiers.minSpend', { amount: formatCurrency(tier.minSpend, currency, locale) })
             }
           </Text>
@@ -1166,6 +1637,19 @@ function MembershipBlock() {
 
   const benefits = loyaltyData.benefits || [];
 
+  // Detect new customer state using safe utilities
+  const safeStatsData = safeStats(loyaltyData.stats);
+  const safeBalanceData = safeBalance(loyaltyData.balance);
+  const isNewCustomer = isNewCustomerState(safeStatsData, safeBalanceData, loyaltyData.isNewCustomer);
+
+  // Get tier change info if available
+  const tierChange = loyaltyData.recentTierChange;
+
+  // Edge case detection
+  const isSingleTierProgram = (loyaltyData.allTiers?.length ?? 0) === 1;
+  const isZeroCashbackTier = loyaltyData.tier?.cashbackPercent === 0 && !progress.isMaxTier;
+  const hasHigherTiers = loyaltyData.allTiers?.some(t => t.cashbackPercent > 0) ?? false;
+
   return (
     <BlockStack spacing="base">
       {/* Welcome Header */}
@@ -1180,30 +1664,76 @@ function MembershipBlock() {
       {/* Preview Banner */}
       {loyaltyData.isPreview && (
         <Banner tone="info">
-          {loyaltyData.message || 'Preview mode'}
+          {loyaltyData.message || translate('membership.preview.mode')}
         </Banner>
       )}
 
-      {/* Membership Status Card */}
-      {loyaltyData.tier && (
-        <MembershipCard
-          tier={loyaltyData.tier}
-          benefits={benefits}
-          locale={locale}
+      {/* Stale Data Warning - when data is older than 15 minutes */}
+      <StaleDataBanner
+        lastUpdated={loyaltyData.lastUpdated}
+        translate={translate}
+      />
+
+      {/* Tier Change Banner - Show upgrade/downgrade celebrations */}
+      {tierChange && !isNewCustomer && (
+        <TierChangeBanner
+          tierChange={tierChange}
           translate={translate}
         />
       )}
 
-      {/* Store Credit Balance - Compact */}
-      <BalanceCard
+      {/* New Customer Welcome Card */}
+      {isNewCustomer ? (
+        <WelcomeCard
+          customer={customer}
+          tier={loyaltyData.tier}
+          currency={loyaltyData.currency}
+          locale={locale}
+          translate={translate}
+        />
+      ) : (
+        /* Membership Status Card - for existing customers */
+        loyaltyData.tier && (
+          <MembershipCard
+            tier={loyaltyData.tier}
+            benefits={benefits}
+            locale={locale}
+            translate={translate}
+          />
+        )
+      )}
+
+      {/* Store Credit Balance - with pending cashback */}
+      <BalanceCardWithPending
         balance={balance}
         currency={loyaltyData.currency}
         locale={locale}
         translate={translate}
+        pendingCashback={loyaltyData.pendingCashback}
       />
 
-      {/* Tier Progress - Dual display for subscription/purchase tiers */}
-      {loyaltyData.tier && loyaltyData.spendingProgress && loyaltyData.tier.sourceDetails?.type !== 'spending' ? (
+      {/* Tier Progress - Different displays based on tier status and source */}
+      {progress.isMaxTier && loyaltyData.tier ? (
+        /* Max tier - show value reinforcement */
+        <MaxTierCard
+          tier={loyaltyData.tier}
+          stats={loyaltyData.stats}
+          maintenance={loyaltyData.maintenance}
+          currency={loyaltyData.currency}
+          locale={locale}
+          translate={translate}
+        />
+      ) : isZeroCashbackTier && hasHigherTiers && loyaltyData.tier ? (
+        /* Zero cashback starter tier - show encouraging progress card */
+        <StarterTierCard
+          tier={loyaltyData.tier}
+          progress={progress}
+          currency={loyaltyData.currency}
+          locale={locale}
+          translate={translate}
+        />
+      ) : loyaltyData.tier && loyaltyData.spendingProgress && loyaltyData.tier.sourceDetails?.type !== 'spending' ? (
+        /* Non-spending tier source - show dual progress */
         <DualProgressCard
           tier={loyaltyData.tier}
           spendingProgress={loyaltyData.spendingProgress}
@@ -1212,48 +1742,29 @@ function MembershipBlock() {
           translate={translate}
         />
       ) : (
+        /* Standard progress card */
         <ProgressCard
           progress={progress}
           currency={loyaltyData.currency}
           locale={locale}
           translate={translate}
+          maintenance={loyaltyData.maintenance}
         />
       )}
 
-      {/* Recent Activity - All 3 Variations */}
-      {loyaltyData.recentTransactions && (
-        <BlockStack spacing="base">
-          <Text size="small" appearance="subdued" emphasis="bold">Variation 1: Compact</Text>
-          <ActivityCard
-            transactions={loyaltyData.recentTransactions}
-            currency={loyaltyData.currency}
-            locale={locale}
-            translate={translate}
-            variant="compact"
-          />
-
-          <Text size="small" appearance="subdued" emphasis="bold">Variation 2: Timeline</Text>
-          <ActivityCard
-            transactions={loyaltyData.recentTransactions}
-            currency={loyaltyData.currency}
-            locale={locale}
-            translate={translate}
-            variant="timeline"
-          />
-
-          <Text size="small" appearance="subdued" emphasis="bold">Variation 3: Cards</Text>
-          <ActivityCard
-            transactions={loyaltyData.recentTransactions}
-            currency={loyaltyData.currency}
-            locale={locale}
-            translate={translate}
-            variant="cards"
-          />
-        </BlockStack>
+      {/* Recent Activity */}
+      {loyaltyData.recentTransactions && loyaltyData.recentTransactions.length > 0 && (
+        <ActivityCard
+          transactions={loyaltyData.recentTransactions}
+          currency={loyaltyData.currency}
+          locale={locale}
+          translate={translate}
+          variant="compact"
+        />
       )}
 
-      {/* View All Tiers Toggle */}
-      {loyaltyData.allTiers && loyaltyData.allTiers.length > 0 && (
+      {/* View All Tiers Toggle - hide for single-tier programs */}
+      {!isSingleTierProgram && loyaltyData.allTiers && loyaltyData.allTiers.length > 1 && (
         <>
           <Button
             kind="plain"
