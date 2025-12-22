@@ -19,6 +19,13 @@ import {
   findMatchingTierProduct,
   analyzeTierProductMismatch,
 } from "../utils/shopify-id-normalizer";
+import { trackOrderForKlaviyo } from "../services/email-provider.server";
+import { isKlaviyoEnabled } from "../services/klaviyo.server";
+import {
+  syncCustomerToKlaviyo,
+  trackTierUpgraded,
+  trackCashbackEarned,
+} from "../services/klaviyo-events.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
@@ -146,10 +153,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log(`  - Fulfillment Status: ${item.fulfillment_status || 'unfulfilled'}`);
             console.log(`  - Has Selling Plan: ${!!item.selling_plan_allocation}`);
 
-            // Check if it's a tier product
+            // Check if it's a tier product (exclude soft-deleted products)
             const tierProduct = await db.tierProduct.findFirst({
               where: {
                 shop: shop!,
+                deletedAt: null,  // Only active tier products
                 OR: [
                   { shopifyProductId: item.product_id?.toString() },
                   { shopifyVariantId: item.variant_id?.toString() },
@@ -181,11 +189,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           console.log('[OrderPaid] ⚠️ No line items in order');
         }
 
-        // Show all tier products in database for comparison
-        console.log('\n[OrderPaid] DATABASE TIER PRODUCTS FOR THIS SHOP:');
+        // Show all tier products in database for comparison (only active ones)
+        console.log('\n[OrderPaid] DATABASE TIER PRODUCTS FOR THIS SHOP (active only):');
         console.log('----------------------------------------');
         const allTierProducts = await db.tierProduct.findMany({
-          where: { shop: shop! },
+          where: {
+            shop: shop!,
+            deletedAt: null  // Only active tier products
+          },
           include: {
             tier: {
               select: {
@@ -588,8 +599,13 @@ async function processLineItem(tx: any, params: {
   console.log('│ SECTION 4: ALL TIER PRODUCTS IN DATABASE FOR THIS SHOP                      │');
   console.log('└─────────────────────────────────────────────────────────────────────────────┘');
 
+  // CRITICAL FIX: Filter out soft-deleted tier products
+  // Products with deletedAt set should not be matched for purchases
   const allTierProducts = await tx.tierProduct.findMany({
-    where: { shop },
+    where: {
+      shop,
+      deletedAt: null  // Only active (non-deleted) tier products
+    },
     include: {
       tier: {
         select: {
@@ -939,8 +955,64 @@ async function processOneTimeTierPurchase(tx: any, params: {
   console.log(`[TIER PURCHASE CREATION] ✅ Customer: ${customer.id} (${customer.email})`);
 
   // Validate that the tier exists before creating TierPurchase
-  console.log('[TIER PURCHASE CREATION] Step 3: Validate Tier Exists');
+  console.log('[TIER PURCHASE CREATION] Step 3: Validate Tier & TierProduct Status');
   console.log(`  - Tier ID: ${tierProduct.tierId}`);
+  console.log(`  - TierProduct ID: ${tierProduct.id}`);
+
+  // CRITICAL FIX: Check if TierProduct was soft-deleted (edge case: deleted between checkout and webhook)
+  const currentTierProduct = await tx.tierProduct.findUnique({
+    where: { id: tierProduct.id },
+    select: { id: true, deletedAt: true, tierId: true }
+  });
+
+  if (!currentTierProduct || currentTierProduct.deletedAt) {
+    console.error(`[TIER PURCHASE CREATION] ❌ CRITICAL: TierProduct was deleted between checkout and payment`);
+    console.error(`  - TierProduct ID: ${tierProduct.id}`);
+    console.error(`  - Deleted At: ${currentTierProduct?.deletedAt || 'Not found'}`);
+    console.error(`  - Order ID: ${order.id}`);
+    console.error(`  - Customer: ${order.customer?.email || 'Unknown'}`);
+    console.error(`  - Line Item Price: ${lineItem.price} ${order.currency}`);
+
+    // Create a failed tier purchase record for admin review
+    try {
+      await tx.webhookError.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          topic: 'tier_purchase_failed',
+          orderId: order.id.toString(),
+          error: `TierProduct ${tierProduct.id} was deleted - customer charged but cannot receive tier`,
+          payload: {
+            tierProductId: tierProduct.id,
+            tierId: tierProduct.tierId,
+            lineItemId: lineItem.id,
+            lineItemPrice: lineItem.price,
+            currency: order.currency,
+            customerEmail: order.customer?.email,
+            customerId: order.customer?.id,
+            sku: lineItem.sku,
+            productTitle: lineItem.name,
+            requiresManualReview: true,
+            suggestedAction: 'REFUND_OR_ASSIGN_TIER_MANUALLY'
+          },
+          createdAt: new Date(),
+        }
+      });
+      console.log(`[TIER PURCHASE CREATION] ⚠️ Created admin alert for manual review`);
+    } catch (alertError) {
+      console.error(`[TIER PURCHASE CREATION] Failed to create admin alert:`, alertError);
+    }
+
+    return {
+      type: 'one_time_tier',
+      processed: false,
+      error: 'TIER_PRODUCT_DELETED',
+      message: 'Tier product was deleted - requires manual review',
+      orderId: order.id.toString(),
+      lineItemId: lineItem.id.toString(),
+      requiresRefund: true,
+    };
+  }
 
   const tier = await tx.tier.findUnique({
     where: { id: tierProduct.tierId },
@@ -951,7 +1023,49 @@ async function processOneTimeTierPurchase(tx: any, params: {
     console.error(`  - TierProduct ID: ${tierProduct.id}`);
     console.error(`  - TierProduct.tierId: ${tierProduct.tierId}`);
     console.error(`  - This is an orphaned TierProduct record`);
-    throw new Error(`Tier ${tierProduct.tierId} not found - TierProduct ${tierProduct.id} is orphaned`);
+    console.error(`  - Order ID: ${order.id}`);
+    console.error(`  - Customer: ${order.customer?.email || 'Unknown'}`);
+    console.error(`  - Line Item Price: ${lineItem.price} ${order.currency}`);
+
+    // Create a failed tier purchase record for admin review
+    try {
+      await tx.webhookError.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          topic: 'tier_purchase_failed',
+          orderId: order.id.toString(),
+          error: `Tier ${tierProduct.tierId} not found - TierProduct ${tierProduct.id} is orphaned`,
+          payload: {
+            tierProductId: tierProduct.id,
+            tierId: tierProduct.tierId,
+            lineItemId: lineItem.id,
+            lineItemPrice: lineItem.price,
+            currency: order.currency,
+            customerEmail: order.customer?.email,
+            customerId: order.customer?.id,
+            sku: lineItem.sku,
+            productTitle: lineItem.name,
+            requiresManualReview: true,
+            suggestedAction: 'REFUND_OR_ASSIGN_TIER_MANUALLY'
+          },
+          createdAt: new Date(),
+        }
+      });
+      console.log(`[TIER PURCHASE CREATION] ⚠️ Created admin alert for manual review`);
+    } catch (alertError) {
+      console.error(`[TIER PURCHASE CREATION] Failed to create admin alert:`, alertError);
+    }
+
+    return {
+      type: 'one_time_tier',
+      processed: false,
+      error: 'TIER_NOT_FOUND',
+      message: 'Tier was deleted - requires manual review',
+      orderId: order.id.toString(),
+      lineItemId: lineItem.id.toString(),
+      requiresRefund: true,
+    };
   }
 
   console.log(`[TIER PURCHASE CREATION] ✅ Tier validated: ${tier.name}`);
@@ -1235,6 +1349,51 @@ async function processCashback(tx: any, params: {
         updatedAt: now
       }
     });
+
+    // Track order and cashback events in Klaviyo (non-blocking)
+    try {
+      if (await isKlaviyoEnabled(shop)) {
+        // Build customer object with tier
+        const customerWithTier = {
+          ...customer,
+          currentTier,
+        };
+
+        // Track order placed event (uses trackOrderForKlaviyo from email-provider)
+        await trackOrderForKlaviyo(shop, customerWithTier, {
+          id: order.id.toString(),
+          orderNumber: order.name,
+          totalPrice: eligibleAmount,
+          cashbackEarned: cashbackAmount,
+          cashbackUsed: 0, // TODO: calculate from store credit usage
+          currency: currency,
+          lineItems: order.line_items?.map((item: any) => ({
+            productId: item.product_id?.toString(),
+            sku: item.sku,
+            title: item.title || item.name,
+            quantity: item.quantity,
+            price: parseFloat(item.price || '0'),
+            imageUrl: item.image?.src,
+          })),
+        });
+
+        // Track cashback earned event if cashback was issued
+        if (cashbackAmount > 0) {
+          await trackCashbackEarned(
+            shop,
+            customerWithTier,
+            cashbackAmount,
+            order.id.toString(),
+            order.name
+          );
+        }
+
+        console.log(`[OrderPaid] Klaviyo events tracked for order ${order.name}`);
+      }
+    } catch (klaviyoError) {
+      // Log but don't fail the webhook
+      console.error(`[OrderPaid] Failed to track Klaviyo events (non-fatal):`, klaviyoError);
+    }
   } else {
     console.log(`[OrderPaid] Cashback already processed for order ${order.name}`);
   }
@@ -1544,6 +1703,38 @@ async function checkTierProgression(_dbOrTx: any, params: {
                 cashbackPercent: newTier.cashbackPercent,
               }
             );
+
+            // Track tier upgrade in Klaviyo (non-blocking)
+            try {
+              if (await isKlaviyoEnabled(shop)) {
+                // Get all tiers for progress tracking
+                const allTiers = await db.tier.findMany({
+                  where: { shop },
+                  orderBy: { minSpend: 'asc' },
+                });
+
+                // Sync profile first to update tier info
+                await syncCustomerToKlaviyo(
+                  shop,
+                  { ...customer, currentTier: newTier },
+                  allTiers
+                );
+
+                // Track tier upgrade event
+                await trackTierUpgraded(
+                  shop,
+                  customer,
+                  previousTier,
+                  newTier,
+                  orderId,
+                  allTiers
+                );
+
+                console.log(`[OrderPaid] Klaviyo tier upgrade event tracked for customer ${customer.id}`);
+              }
+            } catch (klaviyoError) {
+              console.error(`[OrderPaid] Failed to track Klaviyo tier upgrade (non-fatal):`, klaviyoError);
+            }
           } else {
             console.log(`[OrderPaid] Tier change is not an upgrade, skipping email`);
           }

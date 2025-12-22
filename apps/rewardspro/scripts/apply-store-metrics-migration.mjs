@@ -3,7 +3,10 @@
 /**
  * Migration Script for Store Business Metrics Fields
  * Adds averageProfitMargin, averageCogsPercent, averageShippingCost,
- * averageOrderValue, targetRoiPercent, metricsLastUpdated to ShopSettings table
+ * averageTransactionFee, averageReturnRate, averageOrderValue,
+ * targetRoiPercent, metricsLastUpdated to ShopSettings table
+ *
+ * Updated: 2024-12-22 - Added averageTransactionFee and averageReturnRate columns
  */
 
 import { RDSDataClient, ExecuteStatementCommand, BeginTransactionCommand, CommitTransactionCommand, RollbackTransactionCommand } from "@aws-sdk/client-rds-data";
@@ -64,6 +67,14 @@ async function applyStoreMetricsMigration() {
       sql: `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "averageShippingCost" DECIMAL(10, 2);`
     },
     {
+      name: "Add averageTransactionFee column",
+      sql: `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "averageTransactionFee" DECIMAL(5, 2);`
+    },
+    {
+      name: "Add averageReturnRate column",
+      sql: `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "averageReturnRate" DECIMAL(5, 2);`
+    },
+    {
       name: "Add averageOrderValue column",
       sql: `ALTER TABLE "ShopSettings" ADD COLUMN IF NOT EXISTS "averageOrderValue" DECIMAL(10, 2);`
     },
@@ -93,7 +104,8 @@ async function applyStoreMetricsMigration() {
     }
 
     // Record migration in _prisma_migrations table (check if exists first)
-    const migrationName = "20251219_add_store_metrics";
+    // Updated: 20251222 added averageTransactionFee and averageReturnRate columns
+    const migrationName = "20251222_add_store_metrics_v2";
     const checksum = crypto.createHash("sha256").update(statements.map(s => s.sql).join("\n")).digest("hex");
     const migrationId = crypto.randomUUID();
 

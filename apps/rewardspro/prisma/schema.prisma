@@ -113,6 +113,8 @@ model ShopSettings {
   averageProfitMargin     Decimal?            @db.Decimal(5, 2)  // Average profit margin % (e.g., 45.00 for 45%)
   averageCogsPercent      Decimal?            @db.Decimal(5, 2)  // Average COGS as % of revenue (e.g., 55.00 for 55%)
   averageShippingCost     Decimal?            @db.Decimal(10, 2) // Average shipping cost per order
+  averageTransactionFee   Decimal?            @db.Decimal(5, 2)  // Average transaction fee % (e.g., 2.90 for 2.9%)
+  averageReturnRate       Decimal?            @db.Decimal(5, 2)  // Average return rate % (e.g., 5.00 for 5%)
   averageOrderValue       Decimal?            @db.Decimal(10, 2) // Historical average order value
   targetRoiPercent        Decimal?            @db.Decimal(5, 2)  // Target ROI % for loyalty program
   metricsLastUpdated      DateTime?                               // When merchant last updated these metrics
@@ -286,15 +288,45 @@ model TierProduct {
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
-  
+
+  // Soft Delete
+  deletedAt             DateTime?  // Null = not deleted, timestamp = soft deleted
+  deletedBy             String?    // Email or identifier of who deleted
+  deletionReason        String?    // Optional reason for deletion
+
   // Relations
   subscriptions         TierSubscription[]
   tierPurchases         TierPurchase[]
-  
+  auditLogs             TierProductAuditLog[]
+
   @@unique([shop, shopifyProductId])
   @@unique([shop, shopifyVariantId])
   @@index([shop, tierId])
   @@index([shop, isActive])
+  @@index([shop, deletedAt])
+}
+
+// Audit log for tier product changes
+model TierProductAuditLog {
+  id              String   @id @default(uuid())
+  shop            String
+  tierProductId   String
+  tierProduct     TierProduct @relation(fields: [tierProductId], references: [id], onDelete: Cascade)
+
+  // Action tracking
+  action          String   // CREATE, UPDATE, DELETE, RESTORE, PERMANENT_DELETE
+  performedBy     String?  // Email or identifier of who performed the action
+
+  // Change details
+  previousState   Json?    // Snapshot of state before change
+  newState        Json?    // Snapshot of state after change
+  metadata        Json?    // Additional context (e.g., deletion reason, affected records)
+
+  createdAt       DateTime @default(now())
+
+  @@index([shop, tierProductId])
+  @@index([shop, action])
+  @@index([createdAt])
 }
 
 model Customer {
@@ -308,7 +340,9 @@ model Customer {
   email             String          @db.VarChar(255)
   firstName         String?         @db.VarChar(255)  // Added for Shopify sync
   lastName          String?         @db.VarChar(255)  // Added for Shopify sync
+  phone             String?         @db.VarChar(50)   // Customer phone number
   tags              String?         @db.Text           // Added for customer tagging
+  birthday          DateTime?                          // Customer birthday (Phase 1 Gap Fill)
   storeCredit       Decimal         @default(0) @db.Decimal(10, 2)
 
   // Points tracking for loyalty widgets
@@ -2017,6 +2051,45 @@ model EmailSettings {
   sendingMode       SendingMode         @default(SHARED)  // SHARED or CUSTOM_DOMAIN
   customDomainId    String?             // Reference to SendGridDomain if using custom domain
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // EMAIL PROVIDER SELECTION
+  // ═══════════════════════════════════════════════════════════════════════
+  emailProvider           EmailProvider   @default(SENDGRID)  // Which provider to use
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoEnabled          Boolean         @default(false)      // Feature flag
+  klaviyoApiKey           String?         // Private API key (encrypted in production)
+  klaviyoPublicKey        String?         // 6-char public key for client-side
+  klaviyoDefaultListId    String?         // Default list for new subscribers
+  klaviyoIntegrationId    String?         // Custom integration identifier
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO SYNC CONFIGURATION
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoSyncProfiles     Boolean         @default(true)       // Auto-sync customer profiles
+  klaviyoSyncEvents       Boolean         @default(true)       // Auto-sync order/tier events
+  klaviyoSyncConsent      String          @default("EXPLICIT") // EXPLICIT or IMPLICIT
+  klaviyoLastSyncAt       DateTime?       // Last successful full sync
+  klaviyoSyncStatus       String?         // IDLE, SYNCING, ERROR
+  klaviyoSyncError        String?         // Last sync error message
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO WEBHOOK CONFIGURATION (if using Advanced KDP)
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoWebhookSecret    String?         // For signature verification
+  klaviyoWebhookId        String?         // Registered webhook ID
+  klaviyoWebhookEnabled   Boolean         @default(false)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // KLAVIYO OAUTH CONFIGURATION (Preferred over API key)
+  // ═══════════════════════════════════════════════════════════════════════
+  klaviyoOAuthConnected   Boolean         @default(false)  // Is OAuth connected?
+  klaviyoAccessToken      String?         // OAuth access token (short-lived)
+  klaviyoRefreshToken     String?         // OAuth refresh token (long-lived)
+  klaviyoTokenExpiresAt   DateTime?       // When access token expires
+
   // Timestamps
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -2066,6 +2139,41 @@ model SendGridDomain {
 enum SendingMode {
   SHARED          // Send from rewardspro.io domain
   CUSTOM_DOMAIN   // Send from merchant's authenticated domain
+}
+
+// ============================================
+// KLAVIYO INTEGRATION ENUMS
+// ============================================
+
+enum EmailProvider {
+  SENDGRID        // Current default provider
+  KLAVIYO         // Klaviyo as primary provider
+  HYBRID          // SendGrid for transactional, Klaviyo for marketing
+}
+
+enum KlaviyoSyncStatus {
+  PENDING         // Never synced
+  SYNCED          // Successfully synced
+  SYNCING         // Currently syncing
+  STALE           // Needs re-sync (local data changed)
+  ERROR           // Sync failed
+  UNSUBSCRIBED    // Profile unsubscribed, no longer sync
+}
+
+enum KlaviyoConsentStatus {
+  UNKNOWN         // Not yet fetched from Klaviyo
+  SUBSCRIBED      // Opted in to receive marketing
+  NEVER_SUBSCRIBED // Never subscribed (transactional only)
+  UNSUBSCRIBED    // Previously subscribed, now opted out
+  SUPPRESSED      // Manually suppressed
+}
+
+enum KlaviyoEventStatus {
+  PENDING         // Not yet sent
+  SENDING         // Currently sending
+  SENT            // Successfully sent to Klaviyo
+  FAILED          // Send failed (will retry)
+  ABANDONED       // Max retries exceeded
 }
 
 enum DomainStatus {
@@ -2123,4 +2231,185 @@ model AnalyticsRecommendation {
   @@unique([shop, slug])
   @@index([shop, status])
   @@index([shop, expiresAt])
+}
+
+// ============================================
+// KLAVIYO INTEGRATION MODELS
+// ============================================
+
+// Tracks the synchronization state between RewardsPro customers and Klaviyo profiles
+model KlaviyoProfile {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Identity mapping
+  customerId        String              // RewardsPro Customer.id (UUID)
+  klaviyoProfileId  String              // Klaviyo's profile ID (e.g., "01HXYZ...")
+  email             String              // Denormalized for quick lookups
+  shopifyCustomerId String?             // Shopify customer ID (stored as external_id in Klaviyo)
+
+  // Sync status tracking
+  syncStatus        KlaviyoSyncStatus   @default(PENDING)
+  syncedAt          DateTime?           // Last successful sync timestamp
+  syncVersion       Int                 @default(1)  // Increment on each sync
+  lastSyncError     String?             // Error message if sync failed
+  syncRetryCount    Int                 @default(0)  // Failed sync attempts
+
+  // Data freshness tracking
+  profileDataHash   String?             // Hash of last synced profile data (for change detection)
+  lastEventAt       DateTime?           // When last event was tracked for this profile
+  lastEventType     String?             // Type of last event (e.g., "Placed Order")
+
+  // Phase 1 Gap Fill: Segment tracking for change detection
+  lastKnownSegment  String?             // CHAMPION, LOYAL, ENGAGED, AT_RISK, LAPSED, NEW
+
+  // Consent & subscription status (cached from Klaviyo)
+  emailConsent      KlaviyoConsentStatus @default(UNKNOWN)
+  smsConsent        KlaviyoConsentStatus @default(UNKNOWN)
+  consentUpdatedAt  DateTime?
+
+  // List memberships (cached)
+  listIds           String[]            @default([])  // Klaviyo list IDs profile belongs to
+  segmentIds        String[]            @default([])  // Klaviyo segment IDs (cached)
+
+  // Metadata
+  metadata          Json?               // Additional sync metadata
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([shop, customerId])          // One Klaviyo profile per customer per shop
+  @@unique([shop, klaviyoProfileId])    // Klaviyo profile ID unique per shop
+  @@index([shop, email])                // Fast email lookups
+  @@index([shop, syncStatus])           // Find profiles needing sync
+  @@index([shop, syncedAt])             // Find stale profiles
+  @@index([shop, emailConsent])         // Filter by consent status
+  @@index([shopifyCustomerId])          // Cross-reference with Shopify
+}
+
+// Records all events sent to Klaviyo for deduplication, audit trail, and retry
+model KlaviyoEvent {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Event identification
+  eventType         String              // e.g., "Placed Order", "Tier Upgraded"
+  uniqueId          String              // Klaviyo unique_id for deduplication
+  metricName        String              // Klaviyo metric name
+
+  // Profile reference
+  customerId        String?             // RewardsPro customer ID
+  klaviyoProfileId  String?             // Klaviyo profile ID (if known)
+  customerEmail     String              // Email used in event
+
+  // Event data
+  eventValue        Decimal?            @db.Decimal(10, 2)  // $value for revenue tracking
+  eventProperties   Json                // Full event properties sent to Klaviyo
+  eventTime         DateTime            // Timestamp of the event
+
+  // Source references
+  orderId           String?             // If triggered by order
+  orderRefundId     String?             // If triggered by refund
+  tierChangeLogId   String?             // If triggered by tier change
+
+  // Sync status
+  status            KlaviyoEventStatus  @default(PENDING)
+  sentAt            DateTime?           // When sent to Klaviyo
+  errorMessage      String?             // Error if failed
+  retryCount        Int                 @default(0)
+  nextRetryAt       DateTime?           // Scheduled retry time
+
+  // Metadata
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([shop, uniqueId])            // Prevent duplicate events
+  @@index([shop, eventType, createdAt(sort: Desc)])
+  @@index([shop, status])               // Find events needing retry
+  @@index([customerId, eventType])      // Customer's event history
+  @@index([orderId])                    // Events for an order
+  @@index([nextRetryAt])                // Retry scheduler
+}
+
+// Caches Klaviyo lists for UI and sync operations
+model KlaviyoList {
+  id                String              @id @default(uuid())
+  shop              String
+
+  // Klaviyo list data
+  klaviyoListId     String              // Klaviyo's list ID
+  name              String              // List name
+  listType          String              @default("list")  // "list" or "segment"
+
+  // Mapping to RewardsPro
+  purpose           String?             // e.g., "subscribers", "vip_customers", "tier_gold"
+  segmentRules      Json?               // RewardsPro segment rules that map to this list
+  isDefault         Boolean             @default(false)  // Default list for new subscribers
+  isManaged         Boolean             @default(false)  // Managed by RewardsPro (vs user-created)
+
+  // Cache data
+  profileCount      Int                 @default(0)       // Cached count
+  lastSyncedAt      DateTime?           // When cache was refreshed
+
+  // Metadata
+  metadata          Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([shop, klaviyoListId])
+  @@index([shop, isDefault])
+  @@index([shop, purpose])
+}
+
+// Merchant configuration for Klaviyo automation events
+model KlaviyoAutomationSettings {
+  id                          String   @id @default(uuid())
+  shop                        String   @unique
+
+  // Master toggle
+  automationsEnabled          Boolean  @default(false)
+
+  // Event toggles - Customer lifecycle
+  sendCustomerEnrolled        Boolean  @default(true)
+  sendCustomerBirthday        Boolean  @default(true)
+  sendCustomerAnniversary     Boolean  @default(true)
+
+  // Event toggles - Transaction events
+  sendOrderPlaced             Boolean  @default(true)
+  sendCashbackEarned          Boolean  @default(true)
+  sendCashbackRedeemed        Boolean  @default(true)
+
+  // Event toggles - Tier events
+  sendTierUpgraded            Boolean  @default(true)
+  sendTierDowngraded          Boolean  @default(true)
+  sendTierUpgradeNear         Boolean  @default(true)
+  sendVipAchieved             Boolean  @default(true)
+
+  // Event toggles - Engagement events
+  sendPointsExpiring          Boolean  @default(true)
+  sendBalanceReminder         Boolean  @default(true)
+  sendWinBack                 Boolean  @default(true)
+
+  // Phase 1 Gap Fill - New event toggles
+  sendCashbackAdjusted        Boolean  @default(true)   // Manual adjustment notifications
+  sendCustomerBecameChampion  Boolean  @default(true)   // Champion segment achieved
+  sendCustomerBecameLoyal     Boolean  @default(true)   // Loyal segment achieved
+
+  // Timing configuration
+  pointsExpiryWarningDays     Int[]    @default([30, 7, 1])   // Days before expiry
+  balanceReminderDays         Int      @default(30)           // Days since last order
+  winBackTriggerDays          Int[]    @default([60, 90])     // Inactivity triggers
+  tierNudgeThreshold          Int      @default(80)           // Percentage progress
+
+  // Cooldowns (prevent over-emailing)
+  expiryReminderCooldownDays  Int      @default(7)
+  balanceReminderCooldownDays Int      @default(14)
+  winBackCooldownDays         Int      @default(30)
+  tierNudgeCooldownDays       Int      @default(14)
+
+  // Scheduling
+  scheduledJobTime            String   @default("06:00")  // HH:MM in shop timezone
+  timezone                    String   @default("America/New_York")
+
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 }

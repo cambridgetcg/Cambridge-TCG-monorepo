@@ -41,6 +41,111 @@ interface PricingUpdate {
   effectiveDate: Date;
 }
 
+interface DiscountValidationResult {
+  valid: boolean;
+  error?: string;
+  sanitizedValue?: number;
+}
+
+// ============================================
+// DISCOUNT VALIDATION
+// ============================================
+
+/**
+ * Validate discount value to prevent invalid pricing scenarios
+ *
+ * CRITICAL: Prevents:
+ * - Percentage discounts >= 100% (would result in $0 or negative price)
+ * - Negative discount values
+ * - Percentage discounts with excessive precision
+ */
+function validateDiscount(
+  discountType: "PERCENTAGE" | "FIXED_AMOUNT",
+  discountValue: number,
+  productPrice?: number
+): DiscountValidationResult {
+  // Check for negative values
+  if (discountValue < 0) {
+    return {
+      valid: false,
+      error: "Discount value cannot be negative",
+    };
+  }
+
+  if (discountType === "PERCENTAGE") {
+    // Percentage discount validation
+    if (discountValue >= 100) {
+      return {
+        valid: false,
+        error: `Percentage discount must be less than 100%. Received: ${discountValue}%`,
+      };
+    }
+
+    // Cap at 99% to ensure there's always some amount charged
+    if (discountValue > 99) {
+      console.warn(`[SellingPlanManager] Discount ${discountValue}% capped at 99%`);
+      return {
+        valid: true,
+        sanitizedValue: 99,
+      };
+    }
+
+    // Round to 2 decimal places for consistency
+    const sanitizedValue = Math.round(discountValue * 100) / 100;
+
+    return {
+      valid: true,
+      sanitizedValue,
+    };
+  } else {
+    // Fixed amount discount validation
+    if (productPrice !== undefined && discountValue >= productPrice) {
+      return {
+        valid: false,
+        error: `Fixed discount (${discountValue}) cannot exceed or equal product price (${productPrice})`,
+      };
+    }
+
+    // Round to 2 decimal places for currency
+    const sanitizedValue = Math.round(discountValue * 100) / 100;
+
+    return {
+      valid: true,
+      sanitizedValue,
+    };
+  }
+}
+
+/**
+ * Validate all plans in a selling plan group config
+ */
+function validateSellingPlanConfigs(
+  plans: SellingPlanConfig[],
+  productPrice?: number
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  for (const plan of plans) {
+    const validation = validateDiscount(
+      plan.discountType,
+      plan.discountValue,
+      productPrice
+    );
+
+    if (!validation.valid) {
+      errors.push(`Plan "${plan.name}": ${validation.error}`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+// Export validation function for use in UI and API endpoints
+export { validateDiscount, validateSellingPlanConfigs };
+
 interface SellingPlanSyncResult {
   success: boolean;
   synced: number;
@@ -62,6 +167,16 @@ export class SellingPlanManager {
   ): Promise<{ success: boolean; groupId?: string; error?: string }> {
     try {
       console.log(`[SellingPlanManager] Creating selling plan group: ${config.name}`);
+
+      // CRITICAL FIX: Validate discount values before creating plans
+      const validation = validateSellingPlanConfigs(config.plans);
+      if (!validation.valid) {
+        console.error(`[SellingPlanManager] Discount validation failed:`, validation.errors);
+        return {
+          success: false,
+          error: `Invalid discount configuration: ${validation.errors.join("; ")}`,
+        };
+      }
 
       const mutation = `
         mutation CreateSellingPlanGroup($input: SellingPlanGroupInput!) {
@@ -327,6 +442,28 @@ export class SellingPlanManager {
           success: false,
           error: "Selling plan not found in database",
         };
+      }
+
+      // CRITICAL FIX: Validate new discount value if provided
+      if (update.newDiscount !== undefined) {
+        const discountValidation = validateDiscount(
+          dbPlan.discountType as "PERCENTAGE" | "FIXED_AMOUNT",
+          update.newDiscount,
+          update.newPrice || dbPlan.basePrice || undefined
+        );
+
+        if (!discountValidation.valid) {
+          console.error(`[SellingPlanManager] Discount validation failed:`, discountValidation.error);
+          return {
+            success: false,
+            error: `Invalid discount: ${discountValidation.error}`,
+          };
+        }
+
+        // Use sanitized value
+        if (discountValidation.sanitizedValue !== undefined) {
+          update.newDiscount = discountValidation.sanitizedValue;
+        }
       }
 
       // Record pricing history

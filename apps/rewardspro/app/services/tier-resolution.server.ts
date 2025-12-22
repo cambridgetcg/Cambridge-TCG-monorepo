@@ -145,7 +145,8 @@ export async function resolveEffectiveTier(
   if (!options?.skipManualCheck) {
     // FIX: Pass transaction client to getManualOverride for proper isolation
     // FIX: Use the stored override tier ID, not customer.currentTierId
-    const overrideInfo = await getManualOverride(customerId, prisma);
+    // FIX: Clear expired overrides from database to prevent stale data
+    const overrideInfo = await getManualOverride(customerId, prisma, { clearIfExpired: true });
 
     if (overrideInfo.hasOverride && overrideInfo.tierId) {
       console.log(`[TierResolution] ✓ Manual override detected: tier=${overrideInfo.tierName} (${overrideInfo.tierId})`);

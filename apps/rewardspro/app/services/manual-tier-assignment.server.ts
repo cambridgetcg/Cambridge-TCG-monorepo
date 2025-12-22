@@ -244,10 +244,13 @@ type TransactionClient = Omit<typeof db, '$connect' | '$disconnect' | '$on' | '$
  *
  * @param customerId - The customer ID to check
  * @param tx - Optional transaction client for atomic operations
+ * @param options - Additional options
+ * @param options.clearIfExpired - If true, clears expired overrides from database
  */
 export async function getManualOverride(
   customerId: string,
-  tx?: TransactionClient
+  tx?: TransactionClient,
+  options?: { clearIfExpired?: boolean }
 ): Promise<ManualOverrideInfo> {
   const prisma = tx || db;
   const noOverride: ManualOverrideInfo = {
@@ -289,6 +292,33 @@ export async function getManualOverride(
       // Check if temporary override has expired
       if (tierState.manualOverrideExpiry && tierState.manualOverrideExpiry < new Date()) {
         console.log(`[getManualOverride] Manual override expired at ${tierState.manualOverrideExpiry}`);
+
+        // CRITICAL FIX: Clear expired override from database to prevent stale data
+        if (options?.clearIfExpired) {
+          console.log(`[getManualOverride] Clearing expired override for customer: ${customerId}`);
+          try {
+            // Use non-transactional update since we're just cleaning up
+            // and this is a best-effort operation
+            await db.customerTierState.update({
+              where: { customerId },
+              data: {
+                hasManualOverride: false,
+                manualOverrideTierId: null,
+                manualOverrideAt: null,
+                manualOverrideBy: null,
+                manualOverrideExpiry: null,
+                manualOverrideNote: null,
+                // Note: Don't clear effectiveTierId - let tier resolution update it
+                updatedAt: new Date(),
+              }
+            });
+            console.log(`[getManualOverride] Expired override cleared successfully`);
+          } catch (clearError) {
+            // Don't fail the main operation if cleanup fails
+            console.error(`[getManualOverride] Failed to clear expired override:`, clearError);
+          }
+        }
+
         return noOverride;
       }
 
@@ -618,4 +648,123 @@ export async function bulkAssignTier(
     failed,
     results
   };
+}
+
+// ============================================
+// CLEANUP FUNCTIONS
+// ============================================
+
+/**
+ * Clean up expired manual overrides across all customers
+ *
+ * This function is designed to be called by a cron job or scheduled task.
+ * It finds all customers with expired manual overrides and clears them.
+ *
+ * @param shop - Optional shop domain to limit cleanup to specific shop
+ * @returns Summary of cleanup operation
+ */
+export async function cleanupExpiredManualOverrides(shop?: string): Promise<{
+  checked: number;
+  cleared: number;
+  errors: number;
+  details: Array<{ customerId: string; expiredAt: Date; error?: string }>;
+}> {
+  console.log(`[ManualTierAssignment] Starting cleanup of expired manual overrides${shop ? ` for shop: ${shop}` : ''}`);
+
+  const now = new Date();
+
+  try {
+    // Find all customers with expired manual overrides
+    const expiredOverrides = await db.customerTierState.findMany({
+      where: {
+        ...(shop ? { shop } : {}),
+        hasManualOverride: true,
+        manualOverrideExpiry: {
+          not: null,
+          lt: now  // Expiry date is in the past
+        }
+      },
+      select: {
+        customerId: true,
+        shop: true,
+        manualOverrideExpiry: true,
+        manualOverrideTierId: true,
+      }
+    });
+
+    console.log(`[ManualTierAssignment] Found ${expiredOverrides.length} expired overrides to clear`);
+
+    let cleared = 0;
+    let errors = 0;
+    const details: Array<{ customerId: string; expiredAt: Date; error?: string }> = [];
+
+    for (const state of expiredOverrides) {
+      try {
+        // Clear the expired override
+        await db.customerTierState.update({
+          where: { customerId: state.customerId },
+          data: {
+            hasManualOverride: false,
+            manualOverrideTierId: null,
+            manualOverrideAt: null,
+            manualOverrideBy: null,
+            manualOverrideExpiry: null,
+            manualOverrideNote: null,
+            // Update resolution reason to indicate cleanup
+            resolutionReason: `Manual override expired on ${state.manualOverrideExpiry?.toISOString()} - cleared by cleanup job`,
+            updatedAt: new Date(),
+          }
+        });
+
+        // Log the expiration in TierChangeLog
+        await db.tierChangeLog.create({
+          data: {
+            id: uuidv4(),
+            customerId: state.customerId,
+            shop: state.shop,
+            fromTierId: state.manualOverrideTierId,
+            toTierId: null, // Will be recalculated
+            changeType: 'DOWNGRADE',
+            triggerType: 'TIER_RECALCULATION',
+            note: `Manual override expired on ${state.manualOverrideExpiry?.toISOString()}`,
+            metadata: {
+              action: 'override_expired',
+              expiredAt: state.manualOverrideExpiry?.toISOString(),
+              clearedBy: 'cleanup_job',
+              timestamp: new Date().toISOString()
+            },
+            createdAt: new Date()
+          }
+        });
+
+        cleared++;
+        details.push({
+          customerId: state.customerId,
+          expiredAt: state.manualOverrideExpiry!
+        });
+
+        console.log(`[ManualTierAssignment] Cleared expired override for customer: ${state.customerId}`);
+      } catch (error) {
+        errors++;
+        details.push({
+          customerId: state.customerId,
+          expiredAt: state.manualOverrideExpiry!,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        console.error(`[ManualTierAssignment] Failed to clear override for customer ${state.customerId}:`, error);
+      }
+    }
+
+    console.log(`[ManualTierAssignment] Cleanup complete: ${cleared} cleared, ${errors} errors`);
+
+    return {
+      checked: expiredOverrides.length,
+      cleared,
+      errors,
+      details
+    };
+  } catch (error) {
+    console.error(`[ManualTierAssignment] Cleanup job failed:`, error);
+    throw error;
+  }
 }
