@@ -2550,13 +2550,23 @@ export default function TierProducts() {
                                     <Text variant="bodySm" tone="subdued" as="code" truncate>
                                       {monthlyProduct.sku}
                                     </Text>
-                                    <Button
-                                      size="micro"
-                                      onClick={() => handleEditModalOpen(monthlyProduct)}
-                                      disabled={!data.canCreateProducts}
-                                    >
-                                      Edit
-                                    </Button>
+                                    <InlineStack gap="100">
+                                      <Button
+                                        size="micro"
+                                        onClick={() => handleEditModalOpen(monthlyProduct)}
+                                        disabled={!data.canCreateProducts}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="micro"
+                                        tone="critical"
+                                        onClick={() => handleDeleteProduct(monthlyProduct.id)}
+                                        disabled={!data.canCreateProducts}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </InlineStack>
                                   </>
                                 ) : (
                                   <div style={{
@@ -2627,13 +2637,23 @@ export default function TierProducts() {
                                     <Text variant="bodySm" tone="subdued" as="code" truncate>
                                       {annualProduct.sku}
                                     </Text>
-                                    <Button
-                                      size="micro"
-                                      onClick={() => handleEditModalOpen(annualProduct)}
-                                      disabled={!data.canCreateProducts}
-                                    >
-                                      Edit
-                                    </Button>
+                                    <InlineStack gap="100">
+                                      <Button
+                                        size="micro"
+                                        onClick={() => handleEditModalOpen(annualProduct)}
+                                        disabled={!data.canCreateProducts}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="micro"
+                                        tone="critical"
+                                        onClick={() => handleDeleteProduct(annualProduct.id)}
+                                        disabled={!data.canCreateProducts}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </InlineStack>
                                   </>
                                 ) : (
                                   <div style={{
@@ -2704,13 +2724,23 @@ export default function TierProducts() {
                                     <Text variant="bodySm" tone="subdued" as="code" truncate>
                                       {lifetimeProduct.sku}
                                     </Text>
-                                    <Button
-                                      size="micro"
-                                      onClick={() => handleEditModalOpen(lifetimeProduct)}
-                                      disabled={!data.canCreateProducts}
-                                    >
-                                      Edit
-                                    </Button>
+                                    <InlineStack gap="100">
+                                      <Button
+                                        size="micro"
+                                        onClick={() => handleEditModalOpen(lifetimeProduct)}
+                                        disabled={!data.canCreateProducts}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="micro"
+                                        tone="critical"
+                                        onClick={() => handleDeleteProduct(lifetimeProduct.id)}
+                                        disabled={!data.canCreateProducts}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </InlineStack>
                                   </>
                                 ) : (
                                   <div style={{
