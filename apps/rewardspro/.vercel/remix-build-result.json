@@ -18,7 +18,9 @@
       "routes/webhooks.tier-subscription.created": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.order-points": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app-subscriptions-update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.billing-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.subscription-expiry": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.setup-customer-metafield": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-recalculation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -31,6 +33,7 @@
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.admin.seed-test-data": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.webhook-cleanup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -106,7 +109,8 @@
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.locked": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
+      "routes/app.orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
     "routes": {
       "root": {
@@ -187,11 +191,29 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.billing-reconciliation": {
+        "id": "routes/api.cron.billing-reconciliation",
+        "parentId": "root",
+        "file": "app/routes/api.cron.billing-reconciliation.tsx",
+        "path": "api/cron/billing-reconciliation",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.cron.webhook-reconciliation": {
         "id": "routes/api.cron.webhook-reconciliation",
         "parentId": "root",
         "file": "app/routes/api.cron.webhook-reconciliation.tsx",
         "path": "api/cron/webhook-reconciliation",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.cron.subscription-expiry": {
+        "id": "routes/api.cron.subscription-expiry",
+        "parentId": "root",
+        "file": "app/routes/api.cron.subscription-expiry.tsx",
+        "path": "api/cron/subscription-expiry",
         "config": {
           "runtime": "nodejs"
         }
@@ -300,6 +322,15 @@
         "parentId": "root",
         "file": "app/routes/api.admin.seed-test-data.tsx",
         "path": "api/admin/seed-test-data",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.cron.webhook-cleanup": {
+        "id": "routes/api.cron.webhook-cleanup",
+        "parentId": "root",
+        "file": "app/routes/api.cron.webhook-cleanup.tsx",
+        "path": "api/cron/webhook-cleanup",
         "config": {
           "runtime": "nodejs"
         }
@@ -999,6 +1030,15 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/app.tiers": {
+        "id": "routes/app.tiers",
+        "parentId": "routes/app",
+        "file": "app/routes/app.tiers.tsx",
+        "path": "tiers",
+        "config": {
+          "runtime": "nodejs"
+        }
       }
     }
   },
@@ -1071,11 +1111,23 @@
         "file": "routes/webhooks.app-subscriptions-update.tsx",
         "path": "webhooks/app-subscriptions-update"
       },
+      "routes/api.cron.billing-reconciliation": {
+        "id": "routes/api.cron.billing-reconciliation",
+        "parentId": "root",
+        "file": "routes/api.cron.billing-reconciliation.tsx",
+        "path": "api/cron/billing-reconciliation"
+      },
       "routes/api.cron.webhook-reconciliation": {
         "id": "routes/api.cron.webhook-reconciliation",
         "parentId": "root",
         "file": "routes/api.cron.webhook-reconciliation.tsx",
         "path": "api/cron/webhook-reconciliation"
+      },
+      "routes/api.cron.subscription-expiry": {
+        "id": "routes/api.cron.subscription-expiry",
+        "parentId": "root",
+        "file": "routes/api.cron.subscription-expiry.tsx",
+        "path": "api/cron/subscription-expiry"
       },
       "routes/api.customer-account.loyalty": {
         "id": "routes/api.customer-account.loyalty",
@@ -1148,6 +1200,12 @@
         "parentId": "root",
         "file": "routes/api.admin.seed-test-data.tsx",
         "path": "api/admin/seed-test-data"
+      },
+      "routes/api.cron.webhook-cleanup": {
+        "id": "routes/api.cron.webhook-cleanup",
+        "parentId": "root",
+        "file": "routes/api.cron.webhook-cleanup.tsx",
+        "path": "api/cron/webhook-cleanup"
       },
       "routes/api.customer-details.$id": {
         "id": "routes/api.customer-details.$id",
@@ -1628,6 +1686,12 @@
         "parentId": "routes/app",
         "file": "routes/app.orders.tsx",
         "path": "orders"
+      },
+      "routes/app.tiers": {
+        "id": "routes/app.tiers",
+        "parentId": "routes/app",
+        "file": "routes/app.tiers.tsx",
+        "path": "tiers"
       }
     },
     "serverBuildFile": "index.js",
