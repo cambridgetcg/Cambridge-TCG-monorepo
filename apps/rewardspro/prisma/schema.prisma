@@ -799,6 +799,7 @@ model AppSubscription {
   // Webhook Tracking
   lastWebhookUpdate       DateTime? // Last time webhook updated this
   webhookUpdateCount      Int       @default(0)
+  webhookTimestamp        DateTime? // Shopify's updated_at from webhook (for ordering)
 
   // Return URL Tracking
   returnUrlProcessed      Boolean   @default(false) // Has return URL been processed
@@ -2458,4 +2459,90 @@ model KlaviyoAutomationSettings {
 
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
+}
+
+// ============================================
+// WEBHOOK IDEMPOTENCY & AUDIT MODELS
+// ============================================
+
+// Track processed webhooks to prevent duplicate processing
+model ProcessedWebhook {
+  id              String    @id  // X-Shopify-Webhook-Id header value
+  topic           String        // APP_SUBSCRIPTIONS_UPDATE, ORDERS_CREATE, etc.
+  shop            String
+
+  // Processing status
+  status          String    @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
+
+  // Timestamps
+  receivedAt      DateTime  @default(now())
+  completedAt     DateTime?
+
+  // Error tracking (if processing failed)
+  errorMessage    String?   @db.Text
+  retryCount      Int       @default(0)
+
+  // Payload hash for debugging (not storing full payload to save space)
+  payloadHash     String?   // SHA256 of payload for verification
+
+  @@index([shop])
+  @@index([topic])
+  @@index([receivedAt])
+  @@index([status])
+}
+
+// Audit log for webhook processing events
+model WebhookAuditLog {
+  id              String    @id @default(uuid())
+  shop            String
+  webhookId       String    // Reference to ProcessedWebhook.id
+  topic           String
+
+  // Event details
+  action          String    // RECEIVED, PROCESSING, COMPLETED, FAILED, REJECTED_DUPLICATE, REJECTED_STALE
+
+  // For ordering checks
+  incomingTimestamp   DateTime?  // Timestamp from webhook payload (updated_at or triggered_at)
+  existingTimestamp   DateTime?  // Existing record's timestamp (for stale rejection)
+
+  // Rejection details
+  rejectionReason String?   // DUPLICATE, STALE, INVALID_SIGNATURE, etc.
+
+  // Metadata
+  metadata        Json?     // Additional context
+  createdAt       DateTime  @default(now())
+
+  @@index([shop, createdAt(sort: Desc)])
+  @@index([webhookId])
+  @@index([action])
+}
+
+// ============================================
+// SUBSCRIPTION RECONCILIATION
+// ============================================
+
+// Track subscription state reconciliation between local DB and Shopify
+model ReconciliationLog {
+  id              String    @id @default(uuid())
+  shop            String
+
+  // State comparison
+  localState      Json?     // Snapshot of local subscription state
+  shopifyState    Json?     // Snapshot of Shopify subscription state
+
+  // Detected issues
+  mismatches      Json?     // Array of mismatch descriptions
+  mismatchCount   Int       @default(0)
+
+  // Resolution
+  action          String    // DETECTED, AUTO_FIXED, MANUAL_REVIEW, IGNORED
+  resolution      String?   // Description of fix applied
+  resolvedAt      DateTime?
+  resolvedBy      String?   // System or admin who resolved
+
+  createdAt       DateTime  @default(now())
+
+  @@index([shop, createdAt(sort: Desc)])
+  @@index([action])
+  @@index([mismatchCount])
 }

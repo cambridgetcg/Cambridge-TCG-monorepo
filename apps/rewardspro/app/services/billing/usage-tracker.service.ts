@@ -27,9 +27,26 @@ export class UsageTrackerService {
 
   /**
    * Track an order and update usage
+   *
+   * Uses idempotency to prevent duplicate counting of the same order.
+   * The atomic increment is safe for concurrent requests.
    */
   async trackOrder(shop: string, orderId: string): Promise<void> {
     try {
+      // 1. Check if order already tracked (idempotency)
+      const existingOrder = await db.order.findFirst({
+        where: {
+          shop,
+          shopifyOrderId: orderId,
+        },
+        select: { id: true },
+      });
+
+      if (existingOrder) {
+        console.log(`[UsageTracker] Order ${orderId} already tracked for ${shop}, skipping`);
+        return;
+      }
+
       const billingSubscription = await db.billingSubscription.findUnique({
         where: { shop }
       });
@@ -42,7 +59,9 @@ export class UsageTrackerService {
       // Check if we need to reset usage for new period
       await this.checkAndResetPeriod(shop, billingSubscription);
 
-      // Increment order count
+      // 2. Increment order count atomically
+      // The { increment: 1 } operation is atomic at the database level
+      // This prevents race conditions in concurrent order processing
       await db.billingSubscription.update({
         where: { shop },
         data: {
