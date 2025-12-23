@@ -37,6 +37,7 @@
       "routes/webhooks.orders.refunded": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.klaviyo-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -51,6 +52,7 @@
       "routes/api.order-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.test-billing-mode": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.klaviyo.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -95,6 +97,8 @@
       "routes/app.marketing.templates.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.templates.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.klaviyo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.klaviyo.connect": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.store-metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -354,6 +358,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.klaviyo-events": {
+        "id": "routes/api.cron.klaviyo-events",
+        "parentId": "root",
+        "file": "app/routes/api.cron.klaviyo-events.tsx",
+        "path": "api/cron/klaviyo-events",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.customer-sync.start": {
         "id": "routes/api.customer-sync.start",
         "parentId": "root",
@@ -476,6 +489,15 @@
         "parentId": "root",
         "file": "app/routes/api.billing.callback.tsx",
         "path": "api/billing/callback",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.klaviyo.callback": {
+        "id": "routes/api.klaviyo.callback",
+        "parentId": "root",
+        "file": "app/routes/api.klaviyo.callback.tsx",
+        "path": "api/klaviyo/callback",
         "config": {
           "runtime": "nodejs"
         }
@@ -894,6 +916,22 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.marketing.klaviyo": {
+        "id": "routes/app.marketing.klaviyo",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.klaviyo.tsx",
+        "path": "klaviyo",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.klaviyo.connect": {
+        "id": "routes/app.marketing.klaviyo.connect",
+        "parentId": "routes/app.marketing.klaviyo",
+        "file": "app/routes/app.marketing.klaviyo.connect.tsx",
+        "path": "connect",
+        "config": {}
+      },
       "routes/app.marketing._index": {
         "id": "routes/app.marketing._index",
         "parentId": "routes/app.marketing",
@@ -1147,6 +1185,12 @@
         "file": "routes/api.cron.exchange-rates.tsx",
         "path": "api/cron/exchange-rates"
       },
+      "routes/api.cron.klaviyo-events": {
+        "id": "routes/api.cron.klaviyo-events",
+        "parentId": "root",
+        "file": "routes/api.cron.klaviyo-events.tsx",
+        "path": "api/cron/klaviyo-events"
+      },
       "routes/api.customer-sync.start": {
         "id": "routes/api.customer-sync.start",
         "parentId": "root",
@@ -1230,6 +1274,12 @@
         "parentId": "root",
         "file": "routes/api.billing.callback.tsx",
         "path": "api/billing/callback"
+      },
+      "routes/api.klaviyo.callback": {
+        "id": "routes/api.klaviyo.callback",
+        "parentId": "root",
+        "file": "routes/api.klaviyo.callback.tsx",
+        "path": "api/klaviyo/callback"
       },
       "routes/api.order-sync.start": {
         "id": "routes/api.order-sync.start",
@@ -1518,6 +1568,18 @@
         "parentId": "routes/app.marketing",
         "file": "routes/app.marketing.settings.tsx",
         "path": "settings"
+      },
+      "routes/app.marketing.klaviyo": {
+        "id": "routes/app.marketing.klaviyo",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.klaviyo.tsx",
+        "path": "klaviyo"
+      },
+      "routes/app.marketing.klaviyo.connect": {
+        "id": "routes/app.marketing.klaviyo.connect",
+        "parentId": "routes/app.marketing.klaviyo",
+        "file": "routes/app.marketing.klaviyo.connect.tsx",
+        "path": "connect"
       },
       "routes/app.marketing._index": {
         "id": "routes/app.marketing._index",

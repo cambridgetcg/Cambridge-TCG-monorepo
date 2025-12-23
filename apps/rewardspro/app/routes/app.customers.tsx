@@ -88,6 +88,7 @@ import {
   getTierTextColor
 } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
+import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -962,6 +963,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
           });
 
+          // Track Klaviyo event for cashback adjustment
+          try {
+            const customerTier = customer.currentTierId
+              ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+              : null;
+
+            await trackCashbackAdjusted(session.shop, { ...customer, currentTier: customerTier }, {
+              amount,
+              type: "ADDITION",
+              reason,
+              newBalance: result.balance || newBalance,
+            });
+          } catch (e) {
+            console.error("[Klaviyo] Failed to track cashback adjustment:", e);
+            // Don't fail the request if Klaviyo tracking fails
+          }
+
           // Fetch updated transactions to return with response
           const updatedTransactions = await db.storeCreditLedger.findMany({
             where: {
@@ -1038,6 +1056,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               updatedAt: new Date()
             }
           });
+
+          // Track Klaviyo event for cashback removal
+          try {
+            const customerTier = customer.currentTierId
+              ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+              : null;
+
+            await trackCashbackAdjusted(session.shop, { ...customer, currentTier: customerTier }, {
+              amount,
+              type: "REMOVAL",
+              reason,
+              newBalance,
+            });
+          } catch (e) {
+            console.error("[Klaviyo] Failed to track cashback adjustment:", e);
+            // Don't fail the request if Klaviyo tracking fails
+          }
 
           // Fetch updated transactions to return with response
           const updatedTransactions = await db.storeCreditLedger.findMany({

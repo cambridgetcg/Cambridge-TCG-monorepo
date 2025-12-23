@@ -38,6 +38,9 @@ import {
   CashDollarIcon,
   CalendarIcon,
   PackageIcon,
+  UndoIcon,
+  ClockIcon,
+  ArchiveIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -58,9 +61,12 @@ import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
 import {
   validateTierProductDeletion,
   deleteTierProduct,
+  restoreTierProduct,
+  permanentlyDeleteTierProduct,
   type DeletionValidationResult,
   type DeletionBlocker,
   type DeletionWarning,
+  type RestoreResult,
 } from "../services/tier-products/tier-product-deletion.server";
 
 // ============================================
@@ -86,6 +92,15 @@ interface TierProduct {
   updatedAt: string;
 }
 
+interface DeletedTierProduct extends TierProduct {
+  deletedAt: string;
+  deletedBy: string | null;
+  deletionReason: string | null;
+  recoveryDeadline: string;
+  canRecover: boolean;
+  daysUntilPermanentDelete: number;
+}
+
 interface LoaderData {
   tiers: Array<{
     id: string;
@@ -95,6 +110,7 @@ interface LoaderData {
     evaluationPeriod: "ANNUAL" | "LIFETIME";
   }>;
   tierProducts: TierProduct[];
+  deletedTierProducts: DeletedTierProduct[]; // Soft-deleted products
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
@@ -196,12 +212,49 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     
     // Try to fetch tier products from database (if table exists)
     let dbTierProducts: any[] = [];
+    let deletedTierProducts: any[] = [];
     try {
+      // Filter out soft-deleted products from main list
       dbTierProducts = await (db as any).tierProduct.findMany({
-        where: { shop },
+        where: {
+          shop,
+          deletedAt: null // Exclude soft-deleted products
+        },
         include: {
           tier: true,
         }
+      });
+
+      // Also fetch soft-deleted products for "Recently Deleted" section
+      const now = new Date();
+      const softDeleted = await (db as any).tierProduct.findMany({
+        where: {
+          shop,
+          deletedAt: { not: null } // Only soft-deleted products
+        },
+        include: {
+          tier: true,
+        },
+        orderBy: { deletedAt: 'desc' }
+      });
+
+      // Calculate recovery info for each deleted product
+      const SOFT_DELETE_RETENTION_DAYS = 30;
+      deletedTierProducts = softDeleted.map((product: any) => {
+        const deletedAt = new Date(product.deletedAt);
+        const recoveryDeadline = new Date(deletedAt.getTime() + SOFT_DELETE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        const canRecover = now < recoveryDeadline;
+        const daysUntilPermanentDelete = Math.max(0, Math.ceil((recoveryDeadline.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+
+        return {
+          ...product,
+          deletedAt: product.deletedAt,
+          deletedBy: product.deletedBy,
+          deletionReason: product.deletionReason,
+          recoveryDeadline: recoveryDeadline.toISOString(),
+          canRecover,
+          daysUntilPermanentDelete
+        };
       });
     } catch (error) {
       console.log('[TierProducts] Database table not yet available, using Shopify data only');
@@ -353,6 +406,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json<LoaderData>({
       tiers,
       tierProducts,
+      deletedTierProducts,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType,
@@ -1675,6 +1729,77 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           error: error instanceof Error ? error.message : "Failed to delete tier product record"
         }, { status: 500 });
       }
+    } else if (intent === "restore-tier-product") {
+      // ═══════════════════════════════════════════════════════════════════════
+      // RESTORE SOFT-DELETED TIER PRODUCT
+      // ═══════════════════════════════════════════════════════════════════════
+      const tierProductId = formData.get("tierProductId") as string;
+
+      if (!tierProductId) {
+        return json({
+          success: false,
+          action: "restore-tier-product",
+          error: "Tier product ID is required"
+        }, { status: 400 });
+      }
+
+      console.log(`[TierProducts] Restore request for tier product: ${tierProductId}`);
+
+      const result = await restoreTierProduct(shop, tierProductId);
+
+      if (!result.success) {
+        console.log(`[TierProducts] Restore failed:`, result.error);
+        return json({
+          success: false,
+          action: "restore-tier-product",
+          error: result.error || "Failed to restore tier product"
+        }, { status: 400 });
+      }
+
+      console.log(`[TierProducts] Restore successful for: ${result.restoredProductId}`);
+
+      return json({
+        success: true,
+        action: "restore-tier-product",
+        message: "Tier product restored successfully. Note: The Shopify product may need to be recreated.",
+        restoredProductId: result.restoredProductId,
+      });
+
+    } else if (intent === "permanent-delete-tier-product") {
+      // ═══════════════════════════════════════════════════════════════════════
+      // PERMANENTLY DELETE SOFT-DELETED TIER PRODUCT
+      // ═══════════════════════════════════════════════════════════════════════
+      const tierProductId = formData.get("tierProductId") as string;
+
+      if (!tierProductId) {
+        return json({
+          success: false,
+          action: "permanent-delete-tier-product",
+          error: "Tier product ID is required"
+        }, { status: 400 });
+      }
+
+      console.log(`[TierProducts] Permanent delete request for tier product: ${tierProductId}`);
+
+      const result = await permanentlyDeleteTierProduct(shop, tierProductId);
+
+      if (!result.success) {
+        console.log(`[TierProducts] Permanent delete failed:`, result.error);
+        return json({
+          success: false,
+          action: "permanent-delete-tier-product",
+          error: result.error || "Failed to permanently delete tier product"
+        }, { status: 500 });
+      }
+
+      console.log(`[TierProducts] Permanent delete successful:`, result.cleanupSummary);
+
+      return json({
+        success: true,
+        action: "permanent-delete-tier-product",
+        message: "Tier product permanently deleted",
+        cleanupSummary: result.cleanupSummary,
+      });
     }
 
     return json({ success: false, error: "Invalid action" }, { status: 400 });
@@ -1720,6 +1845,19 @@ export default function TierProducts() {
     product?: { id: string; name: string } | null;
     error?: string;
   }>();
+
+  // Soft delete / restore states
+  const [restoreModalActive, setRestoreModalActive] = useState(false);
+  const [permanentDeleteModalActive, setPermanentDeleteModalActive] = useState(false);
+  const [selectedDeletedProduct, setSelectedDeletedProduct] = useState<DeletedTierProduct | null>(null);
+  const [showRecentlyDeleted, setShowRecentlyDeleted] = useState(false);
+  const restoreFetcher = useFetcher<{
+    success: boolean;
+    action: string;
+    message?: string;
+    error?: string;
+  }>();
+
   const [editingProduct, setEditingProduct] = useState<TierProduct | null>(null);
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
@@ -2012,6 +2150,59 @@ export default function TierProducts() {
       }
     }
   }, [deleteFetcher.state, deleteFetcher.data]);
+
+  // Handle restore/permanent delete response
+  useEffect(() => {
+    if (restoreFetcher.state === "idle" && restoreFetcher.data) {
+      const { success, action, message, error } = restoreFetcher.data;
+
+      if (action === "restore-tier-product" || action === "permanent-delete-tier-product") {
+        setRestoreModalActive(false);
+        setPermanentDeleteModalActive(false);
+        setSelectedDeletedProduct(null);
+
+        setToast({
+          active: true,
+          content: success ? (message || "Operation completed") : (error || "Operation failed"),
+          error: !success,
+        });
+
+        if (success) {
+          // Revalidate to refresh the lists
+          setTimeout(() => revalidate(), 300);
+        }
+      }
+    }
+  }, [restoreFetcher.state, restoreFetcher.data, revalidate]);
+
+  // Handlers for restore and permanent delete
+  const handleRestoreProduct = useCallback((product: DeletedTierProduct) => {
+    setSelectedDeletedProduct(product);
+    setRestoreModalActive(true);
+  }, []);
+
+  const handlePermanentDeleteProduct = useCallback((product: DeletedTierProduct) => {
+    setSelectedDeletedProduct(product);
+    setPermanentDeleteModalActive(true);
+  }, []);
+
+  const confirmRestoreProduct = useCallback(() => {
+    if (!selectedDeletedProduct) return;
+
+    const formData = new FormData();
+    formData.append("intent", "restore-tier-product");
+    formData.append("tierProductId", selectedDeletedProduct.id);
+    restoreFetcher.submit(formData, { method: "post" });
+  }, [selectedDeletedProduct, restoreFetcher]);
+
+  const confirmPermanentDelete = useCallback(() => {
+    if (!selectedDeletedProduct) return;
+
+    const formData = new FormData();
+    formData.append("intent", "permanent-delete-tier-product");
+    formData.append("tierProductId", selectedDeletedProduct.id);
+    restoreFetcher.submit(formData, { method: "post" });
+  }, [selectedDeletedProduct, restoreFetcher]);
 
   const confirmDelete = useCallback(() => {
     if (productToDelete && deleteValidation?.canDelete) {
@@ -2785,8 +2976,96 @@ export default function TierProducts() {
               </>
             )}
           </Layout.Section>}
+
+          {/* Recently Deleted Section */}
+          {data.deletedTierProducts.length > 0 && (
+            <Layout.Section>
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Icon source={ArchiveIcon} tone="subdued" />
+                        <Text as="h2" variant="headingMd">
+                          Recently Deleted ({data.deletedTierProducts.length})
+                        </Text>
+                      </InlineStack>
+                      <Button
+                        variant="plain"
+                        onClick={() => setShowRecentlyDeleted(!showRecentlyDeleted)}
+                      >
+                        {showRecentlyDeleted ? "Hide" : "Show"}
+                      </Button>
+                    </InlineStack>
+
+                    {showRecentlyDeleted && (
+                      <BlockStack gap="300">
+                        <Banner tone="info">
+                          <Text as="p" variant="bodyMd">
+                            Deleted products can be restored within 30 days. After that, they are permanently removed.
+                          </Text>
+                        </Banner>
+
+                        {data.deletedTierProducts.map((deletedProduct) => (
+                          <Box
+                            key={deletedProduct.id}
+                            padding="300"
+                            background="bg-surface-secondary"
+                            borderRadius="200"
+                          >
+                            <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                              <BlockStack gap="100">
+                                <InlineStack gap="200" blockAlign="center">
+                                  <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                    {deletedProduct.tierName}
+                                  </Text>
+                                  <Badge tone={deletedProduct.canRecover ? "attention" : "critical"}>
+                                    {deletedProduct.canRecover
+                                      ? `${deletedProduct.daysUntilPermanentDelete} days left`
+                                      : "Expired"}
+                                  </Badge>
+                                </InlineStack>
+                                <InlineStack gap="200">
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    {formatCurrency(Number(deletedProduct.price), data.shopSettings?.storeCurrency || "USD")} • {deletedProduct.duration}
+                                  </Text>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    • Deleted {new Date(deletedProduct.deletedAt).toLocaleDateString()}
+                                  </Text>
+                                </InlineStack>
+                              </BlockStack>
+
+                              <InlineStack gap="200">
+                                {deletedProduct.canRecover && (
+                                  <Button
+                                    size="slim"
+                                    icon={UndoIcon}
+                                    onClick={() => handleRestoreProduct(deletedProduct)}
+                                  >
+                                    Restore
+                                  </Button>
+                                )}
+                                <Button
+                                  size="slim"
+                                  tone="critical"
+                                  icon={DeleteIcon}
+                                  onClick={() => handlePermanentDeleteProduct(deletedProduct)}
+                                >
+                                  Delete Forever
+                                </Button>
+                              </InlineStack>
+                            </InlineStack>
+                          </Box>
+                        ))}
+                      </BlockStack>
+                    )}
+                  </BlockStack>
+                </Box>
+              </Card>
+            </Layout.Section>
+          )}
         </Layout>
-        
+
         {/* Create Product Modal */}
         <Modal
           open={modalActive}
@@ -3184,9 +3463,97 @@ export default function TierProducts() {
                       </Text>
                     </InlineStack>
                   </BlockStack>
-                  <Text as="p" variant="bodyMd" tone="critical">
-                    This action cannot be undone.
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    You can restore deleted products within 30 days from the "Recently Deleted" section.
                   </Text>
+                </>
+              )}
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+
+        {/* Restore Confirmation Modal */}
+        <Modal
+          open={restoreModalActive}
+          onClose={() => {
+            setRestoreModalActive(false);
+            setSelectedDeletedProduct(null);
+          }}
+          title="Restore Tier Product"
+          primaryAction={{
+            content: "Restore",
+            onAction: confirmRestoreProduct,
+            loading: restoreFetcher.state === "submitting",
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setRestoreModalActive(false);
+                setSelectedDeletedProduct(null);
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              {selectedDeletedProduct && (
+                <>
+                  <Text as="p" variant="bodyMd">
+                    Are you sure you want to restore <strong>{selectedDeletedProduct.tierName}</strong> tier product?
+                  </Text>
+                  <Banner tone="info">
+                    <Text as="p" variant="bodyMd">
+                      This will restore the database record. However, the Shopify product was permanently deleted and may need to be recreated in Shopify.
+                    </Text>
+                  </Banner>
+                </>
+              )}
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+
+        {/* Permanent Delete Confirmation Modal */}
+        <Modal
+          open={permanentDeleteModalActive}
+          onClose={() => {
+            setPermanentDeleteModalActive(false);
+            setSelectedDeletedProduct(null);
+          }}
+          title="Permanently Delete Tier Product"
+          primaryAction={{
+            content: "Permanently Delete",
+            destructive: true,
+            onAction: confirmPermanentDelete,
+            loading: restoreFetcher.state === "submitting",
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setPermanentDeleteModalActive(false);
+                setSelectedDeletedProduct(null);
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              {selectedDeletedProduct && (
+                <>
+                  <Text as="p" variant="bodyMd">
+                    Are you sure you want to permanently delete <strong>{selectedDeletedProduct.tierName}</strong> tier product?
+                  </Text>
+                  <Banner tone="critical">
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        This action cannot be undone!
+                      </Text>
+                      <Text as="p" variant="bodyMd">
+                        All purchase records associated with this tier product will also be permanently deleted.
+                      </Text>
+                    </BlockStack>
+                  </Banner>
                 </>
               )}
             </BlockStack>

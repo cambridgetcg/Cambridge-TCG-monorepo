@@ -10,6 +10,8 @@ import db from '~/db.server';
 import { hasManualOverride } from './manual-tier-assignment.server';
 import { sendWelcomeEmailNotification } from './email-notifications.server';
 import { updateCustomerToEffectiveTier } from './tier-resolution.server';
+import { isKlaviyoEnabled } from './klaviyo.server';
+import { syncCustomerToKlaviyo, trackCustomerEnrolled } from './klaviyo-events.server';
 import type { Customer, Tier } from '@prisma/client';
 
 /**
@@ -120,6 +122,36 @@ export async function handleCustomerCreate(
     console.error(`[CustomerSync] Failed to send welcome email (non-fatal):`, emailError);
   }
 
+  // Sync to Klaviyo if enabled (non-blocking)
+  try {
+    if (await isKlaviyoEnabled(shopDomain)) {
+      console.log(`[CustomerSync] Syncing customer to Klaviyo: ${customerId}`);
+
+      // Get all tiers for profile properties
+      const tiers = await db.tier.findMany({
+        where: { shop: shopDomain },
+        orderBy: { minSpend: 'asc' },
+      });
+
+      // Build customer object with tier for Klaviyo sync
+      const customerWithTier = {
+        ...customer,
+        currentTier: tier || null,
+      };
+
+      // Sync profile to Klaviyo
+      await syncCustomerToKlaviyo(shopDomain, customerWithTier as Customer & { currentTier: Tier | null }, tiers);
+
+      // Track enrollment event
+      await trackCustomerEnrolled(shopDomain, customerWithTier as Customer & { currentTier: Tier | null }, 'checkout');
+
+      console.log(`[CustomerSync] Klaviyo sync complete for customer: ${customerId}`);
+    }
+  } catch (klaviyoError) {
+    // Log but don't fail the webhook
+    console.error(`[CustomerSync] Failed to sync to Klaviyo (non-fatal):`, klaviyoError);
+  }
+
   return {
     action: 'created',
     customerId: customerId,
@@ -215,11 +247,47 @@ async function updateCustomer(
   
   // Recalculate tier based on new total spent
   const tier = await calculateAndAssignTier(customerId, shopDomain, customerData.totalSpent);
-  
+
   if (tier) {
     console.log(`[CustomerSync] Updated tier to ${tier.name} for customer ${customerId}`);
   }
-  
+
+  // Sync updated profile to Klaviyo if enabled (non-blocking)
+  try {
+    if (await isKlaviyoEnabled(shopDomain)) {
+      console.log(`[CustomerSync] Syncing updated customer to Klaviyo: ${customerId}`);
+
+      // Get all tiers for profile properties
+      const tiers = await db.tier.findMany({
+        where: { shop: shopDomain },
+        orderBy: { minSpend: 'asc' },
+      });
+
+      // Get full customer record
+      const fullCustomer = await db.customer.findUnique({
+        where: { id: customerId },
+      });
+
+      if (fullCustomer) {
+        // Get current tier if customer has one
+        const currentTier = fullCustomer.currentTierId
+          ? await db.tier.findUnique({ where: { id: fullCustomer.currentTierId } })
+          : null;
+
+        const customerWithTier = {
+          ...fullCustomer,
+          currentTier,
+        };
+
+        await syncCustomerToKlaviyo(shopDomain, customerWithTier, tiers);
+        console.log(`[CustomerSync] Klaviyo profile sync complete for customer: ${customerId}`);
+      }
+    }
+  } catch (klaviyoError) {
+    // Log but don't fail the webhook
+    console.error(`[CustomerSync] Failed to sync to Klaviyo (non-fatal):`, klaviyoError);
+  }
+
   return {
     action: 'updated',
     customerId: customerId,
