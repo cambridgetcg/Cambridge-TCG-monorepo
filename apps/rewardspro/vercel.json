@@ -34,6 +34,18 @@
     {
       "path": "/api/cron/metrics",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-expiry",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/billing-reconciliation",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/webhook-cleanup",
+      "schedule": "0 5 * * 0"
     }
   ]
 }
