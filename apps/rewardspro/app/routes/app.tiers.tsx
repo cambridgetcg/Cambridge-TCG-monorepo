@@ -107,7 +107,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       isActive: tier.isActive ?? true,
       createdAt: tier.createdAt.toISOString(),
       updatedAt: tier.updatedAt.toISOString(),
-      _count: tier._count,
+      _count: tier._count ?? { tierProducts: 0, customers: 0 },
     })),
     shopSettings,
   });
@@ -426,10 +426,10 @@ export default function TiersPage() {
                           <InlineStack gap="300">
                             <BlockStack gap="100" inlineAlign="end">
                               <Text variant="bodySm" tone="subdued" as="span">
-                                {tier._count.customers} customers
+                                {tier._count?.customers ?? 0} customers
                               </Text>
                               <Text variant="bodySm" tone="subdued" as="span">
-                                {tier._count.tierProducts} products
+                                {tier._count?.tierProducts ?? 0} products
                               </Text>
                             </BlockStack>
                           </InlineStack>
@@ -613,11 +613,11 @@ export default function TiersPage() {
               <Text as="p">
                 Are you sure you want to delete the <strong>{selectedTier?.name}</strong> tier?
               </Text>
-              {selectedTier && (selectedTier._count.customers > 0 || selectedTier._count.tierProducts > 0) && (
+              {selectedTier && ((selectedTier._count?.customers ?? 0) > 0 || (selectedTier._count?.tierProducts ?? 0) > 0) && (
                 <Banner tone="warning">
                   <p>
-                    This tier has {selectedTier._count.customers} customers and{" "}
-                    {selectedTier._count.tierProducts} tier products. You must reassign
+                    This tier has {selectedTier._count?.customers ?? 0} customers and{" "}
+                    {selectedTier._count?.tierProducts ?? 0} tier products. You must reassign
                     customers and delete tier products before deleting this tier.
                   </p>
                 </Banner>
