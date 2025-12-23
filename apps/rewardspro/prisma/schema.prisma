@@ -210,6 +210,7 @@ model Tier {
   minSpend          Int
   cashbackPercent   Int
   evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
+  sortOrder         Int                 @default(0)  // Display order for UI
 
   // Display properties for storefront widgets
   icon              String?             @default("⭐")  // Emoji or icon identifier
