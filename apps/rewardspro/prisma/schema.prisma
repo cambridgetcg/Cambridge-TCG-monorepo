@@ -770,6 +770,12 @@ model AppSubscription {
   trialDays               Int?
   trialEndsAt             DateTime?
 
+  // Trial Abuse Prevention
+  hasUsedTrial            Boolean   @default(false)  // Has merchant ever used a trial
+  firstTrialStartedAt     DateTime?                  // When first trial was activated
+  totalTrialDaysUsed      Int       @default(0)      // Accumulated trial days across all plans
+  lastTrialPlanId         String?                    // Last plan that granted a trial
+
   // Recurring Pricing
   recurringAmount         Decimal?  @db.Decimal(10, 2)
   recurringCurrency       String?   // USD, EUR, etc.
@@ -807,6 +813,42 @@ model AppSubscription {
   @@index([shopifySubscriptionId])
   @@index([chargeId])
   @@index([status, nextBillingDate])
+}
+
+// ============================================
+// TRIAL AUDIT LOG - Tracks trial grant attempts
+// ============================================
+model TrialAuditLog {
+  id                String    @id @default(uuid())
+  shop              String
+
+  // Trial Details
+  planId            String                      // Plan that was requested
+  planName          String?                     // Human-readable plan name
+  trialDaysRequested Int                        // Trial days that were requested
+  trialDaysGranted  Int       @default(0)       // Trial days actually granted (0 if blocked)
+
+  // Previous State
+  previousPlanId    String?                     // Plan before switch (if applicable)
+  previousPlanName  String?
+  wasInTrial        Boolean   @default(false)   // Was merchant in trial before this request
+
+  // Validation Result
+  wasBlocked        Boolean   @default(false)   // Was the trial request blocked
+  blockReason       String?                     // ACTIVE_TRIAL, TRIAL_ALREADY_USED, etc.
+  eligibilityCheck  Json?                       // Full eligibility check result
+
+  // Request Context
+  requestSource     String?                     // "billing_page", "api", "webhook"
+  ipAddress         String?                     // For abuse detection
+  userAgent         String?
+
+  createdAt         DateTime  @default(now())
+
+  @@index([shop])
+  @@index([shop, createdAt])
+  @@index([wasBlocked])
+  @@index([createdAt])
 }
 
 model UsageRecord {

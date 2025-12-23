@@ -35,6 +35,7 @@ import {
 import { detectNewSubscription } from "~/utils/billing-success-detection.server";
 import { isTestMode } from "~/utils/billing-test-mode.server";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
+import { checkTrialEligibility } from "~/services/billing/trial-eligibility.server";
 import {
   FREE_PLAN,
   PRO_PLAN,
@@ -385,6 +386,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Continue without usage metrics
     }
 
+    // Check trial eligibility for display purposes
+    const trialEligibility = await checkTrialEligibility(session.shop);
+    console.log('[Billing Loader] Trial eligibility:', {
+      eligible: trialEligibility.eligible,
+      reason: trialEligibility.reason,
+      hasUsedTrial: trialEligibility.details.hasUsedTrial
+    });
+
     const loaderData = {
       hasActivePayment: billingCheck.hasActivePayment,
       appSubscriptions: billingCheck.appSubscriptions,
@@ -396,6 +405,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       plans,
       shop: session.shop,
       usageMetrics,
+      trialEligibility: {
+        eligible: trialEligibility.eligible,
+        reason: trialEligibility.reason,
+        message: trialEligibility.message,
+        hasUsedTrial: trialEligibility.details.hasUsedTrial,
+        isCurrentlyInTrial: trialEligibility.details.isCurrentlyInTrial,
+        trialDaysRemaining: trialEligibility.details.trialDaysRemaining,
+      },
     };
 
     console.log('[Billing Loader] Returning loader data:', {
@@ -774,6 +791,16 @@ export default function BillingPage() {
               </Banner>
             )}
 
+            {/* Trial Eligibility Banner */}
+            {data.trialEligibility && !data.trialEligibility.eligible && data.trialEligibility.hasUsedTrial && (
+              <Banner tone="info">
+                <Text as="p">
+                  <strong>Free trial already used</strong> - Your store has already used its free trial period.
+                  New subscriptions will begin billing immediately.
+                </Text>
+              </Banner>
+            )}
+
             {/* Current Plan Info - Dashboard Style (Variation C) */}
             {currentPlan && subscriptionInfo && (
               <Card>
@@ -949,7 +976,12 @@ export default function BillingPage() {
                     <div style={{ padding: '20px', backgroundColor: '#f6f6f7', borderBottom: '2px solid #e1e3e5' }}>
                       <BlockStack gap="100">
                         <Text as="span" variant="headingMd">Compare Plans</Text>
-                        <Text as="span" variant="bodySm" tone="subdued">All paid plans include a 7-day free trial</Text>
+                        <Text as="span" variant="bodySm" tone="subdued">
+                          {data.trialEligibility?.eligible
+                            ? "All paid plans include a 7-day free trial"
+                            : "Your free trial has been used - billing starts immediately"
+                          }
+                        </Text>
                       </BlockStack>
                     </div>
                     {planCards.map((plan) => {
@@ -992,7 +1024,15 @@ export default function BillingPage() {
                       { label: 'Sell tier memberships', values: ['—', '—', '✓', '✓'], icons: ['x', 'x', 'check', 'check'] },
                       { label: 'Advanced analytics', values: ['—', '✓', '✓', '✓'], icons: ['x', 'check', 'check', 'check'] },
                       { label: 'Support', values: ['Email', 'Priority', 'Phone', 'Dedicated'], icons: ['text', 'text', 'text', 'text'] },
-                      { label: 'Free trial', values: ['—', '7 days', '7 days', '7 days'], icons: ['x', 'check', 'check', 'check'] },
+                      {
+                        label: 'Free trial',
+                        values: data.trialEligibility?.eligible
+                          ? ['—', '7 days', '7 days', '7 days']
+                          : ['—', 'Used', 'Used', 'Used'],
+                        icons: data.trialEligibility?.eligible
+                          ? ['x', 'check', 'check', 'check']
+                          : ['x', 'x', 'x', 'x']
+                      },
                     ].map((row, idx) => (
                       <>
                         <div key={`c3-label-${idx}`} style={{ padding: '14px 20px', backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa', display: 'flex', alignItems: 'center' }}>

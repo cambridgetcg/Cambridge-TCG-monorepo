@@ -13,6 +13,11 @@ import {
   isDevelopmentStore
 } from "../../utils/billing-config";
 import { getTestMode } from "../../utils/billing-test-mode.server";
+import {
+  getTrialDaysForRequest,
+  logTrialAttempt,
+  type TrialEligibilityResult
+} from "./trial-eligibility.server";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
@@ -214,6 +219,40 @@ export class GraphQLBillingService {
         testModeSource: testModeResult.source
       });
 
+      // ============================================
+      // TRIAL ELIGIBILITY CHECK - Prevent trial abuse
+      // ============================================
+      const configuredTrialDays = planConfig.trialDays || BillingConfig.trialDays;
+      const { trialDays: eligibleTrialDays, eligibility } = await getTrialDaysForRequest(
+        shop,
+        planType,
+        configuredTrialDays
+      );
+
+      console.log(`[GraphQLBilling] Trial eligibility check for ${shop}:`, {
+        planType,
+        configuredTrialDays,
+        eligibleTrialDays,
+        eligible: eligibility.eligible,
+        reason: eligibility.reason,
+        hasUsedTrial: eligibility.details.hasUsedTrial,
+        isCurrentlyInTrial: eligibility.details.isCurrentlyInTrial
+      });
+
+      // Log the trial attempt for audit purposes
+      await logTrialAttempt({
+        shop,
+        planId: planType,
+        planName: planConfig.name,
+        trialDaysRequested: configuredTrialDays,
+        trialDaysGranted: eligibleTrialDays,
+        wasInTrial: eligibility.details.isCurrentlyInTrial,
+        wasBlocked: !eligibility.eligible,
+        blockReason: eligibility.reason || null,
+        eligibilityCheck: eligibility,
+        requestSource: "graphql_billing_service"
+      });
+
       // Build return URL with shop parameter
       const returnUrl = options.returnUrl ||
         `${process.env.SHOPIFY_APP_URL}/app/billing/callback?shop=${shop}&plan=${planType}`;
@@ -260,16 +299,24 @@ export class GraphQLBillingService {
         });
       }
 
-      const variables = {
+      // Build variables - ONLY include trialDays if eligible
+      const variables: Record<string, any> = {
         name: planConfig.name,
         returnUrl,
         lineItems,
-        trialDays: planConfig.trialDays || BillingConfig.trialDays,
         replacementBehavior: isUpgrade
           ? BillingConfig.replacementBehavior.upgrade
           : BillingConfig.replacementBehavior.downgrade,
         test: testModeResult.isTest  // Auto-detect test mode
       };
+
+      // Only include trialDays if merchant is eligible for a trial
+      if (eligibleTrialDays > 0) {
+        variables.trialDays = eligibleTrialDays;
+        console.log(`[GraphQLBilling] Including trial: ${eligibleTrialDays} days`);
+      } else {
+        console.log(`[GraphQLBilling] Trial NOT included: ${eligibility.message}`);
+      }
 
       const response = await this.admin.graphql(CREATE_SUBSCRIPTION_MUTATION, {
         variables

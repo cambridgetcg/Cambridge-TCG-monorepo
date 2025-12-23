@@ -4,6 +4,7 @@ import * as crypto from "crypto";
 import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { refreshEntitlements } from "~/services/entitlements.server";
+import { markTrialUsed } from "~/services/billing/trial-eligibility.server";
 
 /**
  * Webhook handler for APP_SUBSCRIPTIONS_UPDATE
@@ -150,6 +151,30 @@ export async function action({ request }: ActionFunctionArgs) {
         });
       } else if (subscription.status === "ACTIVE") {
         console.log(`[APP_SUBSCRIPTIONS_UPDATE] ✅ Subscription ACTIVE for ${shopDomain}`);
+
+        // Track trial usage when subscription becomes active with trial days
+        if (subscription.trial_days && subscription.trial_days > 0) {
+          try {
+            // Check if this shop already has trial marked as used
+            const existingSubscription = await db.appSubscription.findUnique({
+              where: { shop: shopDomain },
+              select: { hasUsedTrial: true }
+            });
+
+            if (!existingSubscription?.hasUsedTrial) {
+              // Extract plan ID from subscription name (e.g., "RewardsPro Pro" -> "pro")
+              const planId = subscription.name?.toLowerCase()?.replace('rewardspro ', '') || 'unknown';
+
+              await markTrialUsed(shopDomain, planId, subscription.trial_days);
+              console.log(`[APP_SUBSCRIPTIONS_UPDATE] 🎁 Trial marked as used for ${shopDomain}: ${subscription.trial_days} days on plan ${planId}`);
+            } else {
+              console.log(`[APP_SUBSCRIPTIONS_UPDATE] Trial already marked as used for ${shopDomain}, skipping`);
+            }
+          } catch (trialError) {
+            console.error("[APP_SUBSCRIPTIONS_UPDATE] Failed to mark trial as used:", trialError);
+            // Don't fail the webhook - trial tracking is non-critical
+          }
+        }
       }
 
       // Refresh entitlements to ensure features/limits are in sync
