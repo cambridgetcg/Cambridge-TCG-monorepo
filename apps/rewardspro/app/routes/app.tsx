@@ -263,7 +263,6 @@ export default function App() {
           */}
           <Link to="/app/customers">Customers</Link>
           <Link to="/app/orders">Orders</Link>
-          <Link to="/app/tiers">Membership Tiers</Link>
           <Link to="/app/tier-products">Tier Products</Link>
           <Link to="/app/settings">Settings</Link>
           <Link to="/app/billing">Billing</Link>
