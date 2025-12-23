@@ -11,14 +11,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { RDSDataClient, ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
-
-// Aurora Data API configuration
-const resourceArn = process.env.DATABASE_RESOURCE_ARN || "arn:aws:rds:us-east-1:748091776737:cluster:rewardspro-database-cluster";
-const secretArn = process.env.DATABASE_SECRET_ARN || "arn:aws:secretsmanager:us-east-1:748091776737:secret:RewardsProDatabaseSecret-nqwMzo";
-const database = process.env.DATABASE_NAME || "rewardspro";
-
-const client = new RDSDataClient({ region: "us-east-1" });
+import { getAuroraClient } from "~/utils/aurora-data-api";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Verify secret
@@ -32,16 +25,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const results: { step: string; success: boolean; error?: string }[] = [];
 
+  // Use the app's configured Aurora client
+  const client = getAuroraClient();
+
   // Helper to run SQL and track results using Aurora Data API
   async function runSQL(description: string, sql: string) {
     try {
-      const command = new ExecuteStatementCommand({
-        resourceArn,
-        secretArn,
-        database,
-        sql,
-      });
-      await client.send(command);
+      await client.executeStatement(sql);
       results.push({ step: description, success: true });
       console.log(`[Migration] ✅ ${description}`);
     } catch (error: any) {
