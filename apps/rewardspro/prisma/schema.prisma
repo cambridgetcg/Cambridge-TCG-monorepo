@@ -207,10 +207,13 @@ model Tier {
   id                String @id
   shop              String
   name              String
+  description       String?             // Tier description
   minSpend          Int
   cashbackPercent   Int
   evaluationPeriod  EvaluationPeriod    @default(ANNUAL)
   sortOrder         Int                 @default(0)  // Display order for UI
+  benefits          Json?               // Array of benefit strings
+  isActive          Boolean             @default(true)  // Whether tier is active
 
   // Display properties for storefront widgets
   icon              String?             @default("⭐")  // Emoji or icon identifier
