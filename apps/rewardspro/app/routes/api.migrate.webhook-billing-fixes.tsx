@@ -113,7 +113,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     )
   `);
 
-  // 6. ReconciliationLog indexes
+  // 6. Ensure ReconciliationLog columns exist (in case table was created earlier with different schema)
+  await runSQL("Add action column to ReconciliationLog if missing",
+    `ALTER TABLE "ReconciliationLog" ADD COLUMN IF NOT EXISTS "action" VARCHAR(100) NOT NULL DEFAULT 'UNKNOWN'`);
+  await runSQL("Add mismatchCount column to ReconciliationLog if missing",
+    `ALTER TABLE "ReconciliationLog" ADD COLUMN IF NOT EXISTS "mismatchCount" INTEGER NOT NULL DEFAULT 0`);
+
+  // ReconciliationLog indexes
   await runSQL("Create ReconciliationLog shop_createdAt index",
     `CREATE INDEX IF NOT EXISTS "ReconciliationLog_shop_createdAt_idx" ON "ReconciliationLog"("shop", "createdAt" DESC)`);
   await runSQL("Create ReconciliationLog action index",
