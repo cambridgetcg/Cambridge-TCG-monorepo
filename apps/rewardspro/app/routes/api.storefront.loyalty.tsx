@@ -1,5 +1,6 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import db from "../db.server";
+import { fetchAndSyncCustomerFromShopify } from "../services/on-demand-customer-sync.server";
 
 /**
  * DEPRECATED: Storefront API endpoint for loyalty widget
@@ -18,6 +19,19 @@ import db from "../db.server";
  * No session tokens (not available on storefront)
  *
  * Security: Shop-scoped queries prevent cross-shop access
+ *
+ * On-Demand Customer Sync:
+ * If a customer isn't found in the database but shopifyCustomerId is provided,
+ * this endpoint will automatically fetch the customer from Shopify Admin API
+ * and create them in the database. This handles cases where:
+ * - The customers/create webhook hasn't arrived yet (race condition)
+ * - The webhook was missed or failed
+ * - The customer existed before the app was installed
+ *
+ * Parameters:
+ * - customerId: Internal RewardsPro customer UUID (from metafield)
+ * - shopifyCustomerId: Shopify customer ID for on-demand sync fallback
+ * - shop: Shop domain (required)
  */
 
 interface LoyaltyData {
@@ -51,11 +65,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const customerIdFromMetafield = url.searchParams.get("customerId");
   const shopDomain = url.searchParams.get("shop");
+  // shopifyCustomerId is used for on-demand sync when customer isn't in database yet
+  const shopifyCustomerId = url.searchParams.get("shopifyCustomerId");
 
-  // Validate required parameters
-  if (!customerIdFromMetafield || !shopDomain) {
+  // Validate required parameters - need either customerId OR shopifyCustomerId
+  if ((!customerIdFromMetafield && !shopifyCustomerId) || !shopDomain) {
     return json(
-      { error: "Missing required parameters: customerId and shop" },
+      { error: "Missing required parameters: (customerId or shopifyCustomerId) and shop" },
       {
         status: 400,
         headers: getCorsHeaders(request)
@@ -90,32 +106,110 @@ export async function loader({ request }: LoaderFunctionArgs) {
       );
     }
 
-    // Find customer by internal ID (from metafield value) and shop (shop-scoped for security)
-    const customer = await db.customer.findFirst({
-      where: {
-        id: customerIdFromMetafield,
-        shop: shopWithDomain
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        pointsBalance: true,
-        lifetimePoints: true,
-        currentTierId: true,
-        currentTier: {
+    // Try to find customer by internal ID (from metafield value) first
+    let customer = customerIdFromMetafield
+      ? await db.customer.findFirst({
+          where: {
+            id: customerIdFromMetafield,
+            shop: shopWithDomain
+          },
           select: {
             id: true,
-            name: true,
-            icon: true,
-            color: true,
-            minSpend: true,
-            threshold: true
+            email: true,
+            firstName: true,
+            lastName: true,
+            pointsBalance: true,
+            lifetimePoints: true,
+            currentTierId: true,
+            currentTier: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                color: true,
+                minSpend: true,
+                threshold: true
+              }
+            }
+          }
+        })
+      : null;
+
+    // If not found by internal ID, try by Shopify customer ID
+    if (!customer && shopifyCustomerId) {
+      customer = await db.customer.findFirst({
+        where: {
+          shopifyCustomerId: shopifyCustomerId,
+          shop: shopWithDomain
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          pointsBalance: true,
+          lifetimePoints: true,
+          currentTierId: true,
+          currentTier: {
+            select: {
+              id: true,
+              name: true,
+              icon: true,
+              color: true,
+              minSpend: true,
+              threshold: true
+            }
           }
         }
+      });
+    }
+
+    // If still not found and we have shopifyCustomerId, try on-demand sync
+    if (!customer && shopifyCustomerId) {
+      console.log(`[Loyalty] Customer not found, attempting on-demand sync for ${shopifyCustomerId}`);
+
+      const syncResult = await fetchAndSyncCustomerFromShopify(shopWithDomain, shopifyCustomerId);
+
+      if (!syncResult.success) {
+        console.error(`[Loyalty] On-demand sync failed: ${syncResult.error}`);
+        return json(
+          { error: syncResult.error || "Failed to sync customer" },
+          {
+            status: 404,
+            headers: getCorsHeaders(request)
+          }
+        );
       }
-    });
+
+      // Fetch the newly synced customer
+      customer = await db.customer.findFirst({
+        where: {
+          id: syncResult.customerId,
+          shop: shopWithDomain
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          pointsBalance: true,
+          lifetimePoints: true,
+          currentTierId: true,
+          currentTier: {
+            select: {
+              id: true,
+              name: true,
+              icon: true,
+              color: true,
+              minSpend: true,
+              threshold: true
+            }
+          }
+        }
+      });
+
+      console.log(`[Loyalty] On-demand sync successful, customer: ${syncResult.customerId}`);
+    }
 
     if (!customer) {
       return json(

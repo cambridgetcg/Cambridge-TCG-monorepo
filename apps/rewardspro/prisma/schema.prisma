@@ -362,6 +362,10 @@ model Customer {
   orderCount            Int         @default(0)                      // Number of orders
   lastOrderDate         DateTime?   // Date of most recent order
 
+  // Shopify timestamps for sync tracking
+  shopifyCreatedAt      DateTime?   // When customer was created in Shopify
+  shopifyUpdatedAt      DateTime?   // Last update in Shopify
+
   // Current tier relationship
   currentTierId     String?
   currentTier       Tier?           @relation(fields: [currentTierId], references: [id], onDelete: SetNull)

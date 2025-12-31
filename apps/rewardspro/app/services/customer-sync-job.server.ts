@@ -443,6 +443,8 @@ export async function processNextBatch(
               orderCount: Number(ordersCount), // Explicit cast for Data API adapter
               storeCredit: 0,
               // Don't set currentTierId - let resolver handle it
+              shopifyCreatedAt: new Date(shopifyCustomer.createdAt),
+              shopifyUpdatedAt: new Date(shopifyCustomer.updatedAt),
               createdAt: new Date(shopifyCustomer.createdAt),
               updatedAt: new Date(shopifyCustomer.updatedAt)
             }
@@ -465,6 +467,7 @@ export async function processNextBatch(
               lastName: shopifyCustomer.lastName || existingCustomer.lastName,
               totalSpent: Number(totalSpent),
               orderCount: Number(ordersCount), // Explicit cast for Data API adapter
+              shopifyUpdatedAt: new Date(shopifyCustomer.updatedAt),
               updatedAt: new Date()
               // DO NOT update tier directly - tier resolution handles this
             }

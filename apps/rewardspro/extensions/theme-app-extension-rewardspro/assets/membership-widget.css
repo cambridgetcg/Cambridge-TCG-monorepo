@@ -2927,3 +2927,178 @@
     display: none;
   }
 }
+
+/* ============================================
+   CLOSE BUTTON STYLES
+   Allows users to hide the widget completely
+   ============================================ */
+
+/* Actions container - holds toggle and close buttons */
+.rp-auth__actions,
+.rp-guest-b__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* Close button base styles */
+.rp-auth__close,
+.rp-guest-b__close,
+.rp-widget__close {
+  background: none;
+  border: none;
+  color: var(--rp-text-color, #212B36);
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.rp-auth__close:hover,
+.rp-guest-b__close:hover,
+.rp-widget__close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.rp-theme-dark .rp-auth__close:hover,
+.rp-theme-dark .rp-guest-b__close:hover,
+.rp-theme-dark .rp-widget__close:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.rp-auth__close:focus,
+.rp-guest-b__close:focus,
+.rp-widget__close:focus {
+  outline: 2px solid var(--rp-primary-color, #5C6AC4);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.rp-auth__close svg,
+.rp-guest-b__close svg,
+.rp-widget__close svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+}
+
+/* ============================================
+   MINIMIZED STATE STYLES
+   Small floating button to re-open widget
+   ============================================ */
+
+.rp-minimized {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999999;
+}
+
+.rp-minimized__button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rp-primary-color, #5C6AC4) 0%, #4c5ab8 100%);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(92, 106, 196, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  color: #ffffff;
+}
+
+.rp-minimized__button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(92, 106, 196, 0.5), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.rp-minimized__button:active {
+  transform: scale(1.05);
+}
+
+.rp-minimized__button:focus {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.rp-minimized__button svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+/* Pulse animation to attract attention */
+.rp-minimized__button::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  animation: rp-pulse 2s ease-out infinite;
+  z-index: -1;
+}
+
+@keyframes rp-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Reduced motion - disable pulse */
+@media (prefers-reduced-motion: reduce) {
+  .rp-minimized__button::before {
+    animation: none;
+  }
+}
+
+/* ============================================
+   NOT FOUND STATE HEADER STYLES
+   ============================================ */
+
+.rp-widget__not-found-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-widget__not-found-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--rp-text-color, #212B36);
+}
+
+/* Mobile responsiveness for minimized button */
+@media (max-width: 480px) {
+  .rp-minimized {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  .rp-minimized__button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .rp-minimized__button svg {
+    width: 20px;
+    height: 20px;
+  }
+}

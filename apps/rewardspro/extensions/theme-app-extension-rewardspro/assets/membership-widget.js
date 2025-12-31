@@ -13,6 +13,7 @@
       this.config = this.parseConfiguration();
       this.state = {
         isExpanded: this.loadExpandedState(),
+        isClosed: this.loadClosedState(),
         isLoading: false,
         data: null,
         error: null,
@@ -25,6 +26,12 @@
         return;
       }
       this.root.dataset.initialized = 'true';
+
+      // Check if widget is closed - show minimized button instead
+      if (this.state.isClosed) {
+        this.renderMinimized();
+        return;
+      }
 
       // Initialize based on authentication state
       this.initialize();
@@ -344,11 +351,18 @@
               <h3 class="rp-auth__title">Rewards</h3>
               <p class="rp-auth__subtitle">Temporarily unavailable</p>
             </div>
-            <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9l6 6 6-6"/>
-              </svg>
-            </button>
+            <div class="rp-auth__actions">
+              <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+              <button class="rp-auth__close" aria-label="Close widget" data-close="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="rp-auth__body">
             <div class="rp-unavailable">
@@ -377,6 +391,7 @@
     attachUnavailableEventListeners() {
       const header = this.root.querySelector('.rp-auth__header');
       const toggle = this.root.querySelector('.rp-auth__toggle');
+      const closeBtn = this.root.querySelector('.rp-auth__close');
       const retryBtn = this.root.querySelector('[data-retry]');
 
       const handleToggle = (e) => {
@@ -387,15 +402,33 @@
         this.renderUnavailable();
       };
 
+      const handleClose = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeWidget();
+      };
+
       if (header) {
-        header.addEventListener('click', handleToggle);
+        header.addEventListener('click', (e) => {
+          if (!e.target.closest('.rp-auth__close')) {
+            handleToggle(e);
+          }
+        });
         header.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') handleToggle(e);
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (!e.target.closest('.rp-auth__close')) {
+              handleToggle(e);
+            }
+          }
         });
       }
 
       if (toggle) {
         toggle.addEventListener('click', handleToggle);
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', handleClose);
       }
 
       if (retryBtn) {
@@ -438,11 +471,18 @@
               <h3 class="rp-guest-b__title">Member Benefits</h3>
               <p class="rp-guest-b__subtitle">${escapedMessage}</p>
             </div>
-            <button class="rp-guest-b__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9l6 6 6-6"/>
-              </svg>
-            </button>
+            <div class="rp-guest-b__actions">
+              <button class="rp-guest-b__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+              <button class="rp-guest-b__close" aria-label="Close widget" data-close="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="rp-guest-b__body">
             <div class="rp-guest-b__perks">
@@ -484,6 +524,7 @@
     attachGuestEventListeners() {
       const header = this.root.querySelector('.rp-guest-b__header');
       const toggle = this.root.querySelector('.rp-guest-b__toggle');
+      const closeBtn = this.root.querySelector('.rp-guest-b__close');
 
       const handleToggle = (e) => {
         e.preventDefault();
@@ -493,17 +534,33 @@
         this.renderGuest();
       };
 
+      const handleClose = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeWidget();
+      };
+
       if (header) {
-        header.addEventListener('click', handleToggle);
+        header.addEventListener('click', (e) => {
+          if (!e.target.closest('.rp-guest-b__close')) {
+            handleToggle(e);
+          }
+        });
         header.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            handleToggle(e);
+            if (!e.target.closest('.rp-guest-b__close')) {
+              handleToggle(e);
+            }
           }
         });
       }
 
       if (toggle) {
         toggle.addEventListener('click', handleToggle);
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', handleClose);
       }
     }
 
@@ -651,11 +708,18 @@
               <h3 class="rp-auth__title">${tierName}</h3>
               <p class="rp-auth__subtitle">${storeCreditFormatted} Store Credit</p>
             </div>
-            <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9l6 6 6-6"/>
-              </svg>
-            </button>
+            <div class="rp-auth__actions">
+              <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </button>
+              <button class="rp-auth__close" aria-label="Close widget" data-close="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="rp-auth__body">
             <!-- Variation C: Card Stack Layout -->
@@ -716,6 +780,7 @@
     attachAuthEventListeners() {
       const header = this.root.querySelector('.rp-auth__header');
       const toggle = this.root.querySelector('.rp-auth__toggle');
+      const closeBtn = this.root.querySelector('.rp-auth__close');
 
       const handleToggle = (e) => {
         e.preventDefault();
@@ -725,17 +790,34 @@
         this.renderAuthenticated();
       };
 
+      const handleClose = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeWidget();
+      };
+
       if (header) {
-        header.addEventListener('click', handleToggle);
+        header.addEventListener('click', (e) => {
+          // Don't toggle if clicking on close button
+          if (!e.target.closest('.rp-auth__close')) {
+            handleToggle(e);
+          }
+        });
         header.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            handleToggle(e);
+            if (!e.target.closest('.rp-auth__close')) {
+              handleToggle(e);
+            }
           }
         });
       }
 
       if (toggle) {
         toggle.addEventListener('click', handleToggle);
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', handleClose);
       }
     }
 
@@ -749,6 +831,14 @@
 
       this.root.innerHTML = `
         <div class="rp-widget rp-widget--not-found rp-widget--expanded">
+          <div class="rp-widget__not-found-header">
+            <span class="rp-widget__not-found-label">Rewards</span>
+            <button class="rp-widget__close" aria-label="Close widget" data-close="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
           <div class="rp-widget__not-found">
             <div class="rp-widget__not-found-icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -765,6 +855,16 @@
           </div>
         </div>
       `;
+
+      // Attach close button listener
+      const closeBtn = this.root.querySelector('.rp-widget__close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.closeWidget();
+        });
+      }
     }
 
 
@@ -1010,6 +1110,71 @@
         localStorage.setItem('rp-widget-expanded', String(this.state.isExpanded));
       } catch (error) {
         // Silently fail if localStorage is not available
+      }
+    }
+
+    /**
+     * Load closed state from localStorage
+     */
+    loadClosedState() {
+      try {
+        const stored = localStorage.getItem('rp-widget-closed');
+        return stored === 'true';
+      } catch {
+        return false;
+      }
+    }
+
+    /**
+     * Save closed state to localStorage
+     */
+    saveClosedState() {
+      try {
+        localStorage.setItem('rp-widget-closed', String(this.state.isClosed));
+      } catch (error) {
+        // Silently fail if localStorage is not available
+      }
+    }
+
+    /**
+     * Close the widget
+     */
+    closeWidget() {
+      this.state.isClosed = true;
+      this.saveClosedState();
+      this.renderMinimized();
+    }
+
+    /**
+     * Open the widget (from minimized state)
+     */
+    openWidget() {
+      this.state.isClosed = false;
+      this.saveClosedState();
+      // Re-initialize the widget
+      this.initialize();
+    }
+
+    /**
+     * Render minimized state - small floating button to re-open widget
+     */
+    renderMinimized() {
+      this.root.innerHTML = `
+        <div class="rp-minimized">
+          <button class="rp-minimized__button" aria-label="Open rewards widget" title="Open rewards">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </button>
+        </div>
+      `;
+
+      // Attach click handler to re-open widget
+      const button = this.root.querySelector('.rp-minimized__button');
+      if (button) {
+        button.addEventListener('click', () => {
+          this.openWidget();
+        });
       }
     }
   }
