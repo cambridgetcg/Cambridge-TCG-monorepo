@@ -715,20 +715,27 @@ export async function updateCustomerToEffectiveTier(
 
 /**
  * Map context trigger to TierTriggerType enum
+ *
+ * Valid enum values:
+ * ACCOUNT_CREATED, PERIODIC_REVIEW, SPENDING_MILESTONE, MANUAL_ADMIN,
+ * PRODUCT_PURCHASE, SUBSCRIPTION_STARTED, SUBSCRIPTION_RENEWED,
+ * SUBSCRIPTION_UPGRADED, SUBSCRIPTION_DOWNGRADED, SUBSCRIPTION_CANCELLED,
+ * SUBSCRIPTION_PURCHASE
  */
 function mapContextToTriggerType(trigger?: string): string {
   const mapping: Record<string, string> = {
-    'order_paid': 'ORDER_PROCESSED',
+    'order_paid': 'SPENDING_MILESTONE',
+    'customer_webhook': 'ACCOUNT_CREATED',
     'subscription_created': 'SUBSCRIPTION_STARTED',
-    'subscription_updated': 'SUBSCRIPTION_UPDATED',
+    'subscription_updated': 'SUBSCRIPTION_RENEWED',
     'subscription_cancelled': 'SUBSCRIPTION_CANCELLED',
     'purchase_created': 'PRODUCT_PURCHASE',
-    'purchase_expired': 'PURCHASE_EXPIRED',
+    'purchase_expired': 'PRODUCT_PURCHASE',
     'manual_assignment': 'MANUAL_ADMIN',
-    'tier_recalculation': 'TIER_RECALCULATION'
+    'tier_recalculation': 'PERIODIC_REVIEW'
   };
 
-  return mapping[trigger || ''] || 'TIER_RECALCULATION';
+  return mapping[trigger || ''] || 'PERIODIC_REVIEW';
 }
 
 /**
