@@ -618,8 +618,7 @@ export async function updateCustomerToEffectiveTier(
             conflictResolved: resolution.conflictResolved,
             resolutionReason: resolution.resolutionReason
           },
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: new Date()
         }
       });
 

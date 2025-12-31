@@ -144,8 +144,8 @@ export async function sendWelcomeEmailNotification(
           data: {
             id: crypto.randomUUID(),
             shop,
-            type: "WELCOME",
-            recipientEmail: customer.email,
+            eventType: "WELCOME",
+            customerEmail: customer.email,
             status: "SENT",
             metadata: { customerId: customer.id, tierName: tier?.name },
             createdAt: new Date(),
@@ -231,8 +231,8 @@ export async function sendTierUpgradeEmailNotification(
           data: {
             id: crypto.randomUUID(),
             shop,
-            type: "TIER_UPGRADE",
-            recipientEmail: customer.email,
+            eventType: "TIER_UPGRADE",
+            customerEmail: customer.email,
             status: "SENT",
             metadata: {
               customerId: customer.id,
@@ -331,7 +331,7 @@ export async function sendCampaignEmails(
       data: {
         id: crypto.randomUUID(),
         shop,
-        type: "CAMPAIGN",
+        eventType: "CAMPAIGN",
         campaignId,
         status: result.sent > 0 ? "SENT" : "FAILED",
         metadata: {
