@@ -3102,3 +3102,302 @@
     height: 20px;
   }
 }
+
+/* ============================================
+   RESPONSIVE LAYOUTS
+   Mobile: Simplified (balance + tier only)
+   Tablet: Compact (balance + key stats)
+   Desktop: Full details (all cards + progress)
+   ============================================ */
+
+/* ----- MOBILE: Under 480px ----- */
+/* Simplified view - show only balance and tier in header */
+@media (max-width: 480px) {
+  .rp-widget-root {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  /* Hide the detailed cards and progress on mobile */
+  .rp-auth-c__cards,
+  .rp-auth-c__progress {
+    display: none;
+  }
+
+  /* Compact balance hero for mobile */
+  .rp-auth-c__balance-hero {
+    padding: 12px 0;
+    margin-bottom: 0;
+  }
+
+  .rp-auth-c__balance-label {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 28px;
+  }
+
+  /* Adjust header for mobile */
+  .rp-auth__header {
+    padding: 10px 12px;
+  }
+
+  .rp-auth__title {
+    font-size: 14px;
+  }
+
+  .rp-auth__subtitle {
+    font-size: 11px;
+  }
+
+  .rp-auth__icon {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+  }
+
+  .rp-auth__icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Body padding for mobile */
+  .rp-auth__body {
+    padding: 12px;
+  }
+
+  /* Guest widget mobile adjustments */
+  .rp-guest-b__header {
+    padding: 10px 12px;
+  }
+
+  .rp-guest-b__title {
+    font-size: 14px;
+  }
+
+  .rp-guest-b__subtitle {
+    font-size: 11px;
+  }
+
+  .rp-guest-b__body {
+    padding: 12px;
+  }
+
+  .rp-guest-b__perks {
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .rp-guest-b__perk {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  .rp-guest-b__cta {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}
+
+/* ----- TABLET: 481px to 768px ----- */
+/* Compact view - show balance + cashback/tier cards only */
+@media (min-width: 481px) and (max-width: 768px) {
+  .rp-widget-root {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  /* Show only 2 cards on tablet (tier + cashback) */
+  .rp-auth-c__cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Hide the progress card on tablet */
+  .rp-auth-c__card:nth-child(3) {
+    display: none;
+  }
+
+  /* Compact balance hero for tablet */
+  .rp-auth-c__balance-hero {
+    padding: 16px 0;
+    margin-bottom: 12px;
+  }
+
+  .rp-auth-c__balance-label {
+    font-size: 10px;
+    margin-bottom: 6px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 32px;
+  }
+
+  /* Simplified progress on tablet */
+  .rp-auth-c__progress {
+    margin-top: 12px;
+  }
+
+  .rp-auth-c__progress-header {
+    margin-bottom: 6px;
+  }
+
+  .rp-auth-c__progress-label,
+  .rp-auth-c__progress-value {
+    font-size: 10px;
+  }
+
+  .rp-auth-c__progress-bar {
+    height: 6px;
+  }
+
+  /* Header adjustments for tablet */
+  .rp-auth__header {
+    padding: 12px 14px;
+  }
+
+  .rp-auth__body {
+    padding: 14px;
+  }
+
+  /* Card adjustments for tablet */
+  .rp-auth-c__card {
+    padding: 10px 6px;
+  }
+
+  .rp-auth-c__card-icon {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 6px;
+  }
+
+  .rp-auth-c__card-value {
+    font-size: 13px;
+  }
+
+  .rp-auth-c__card-label {
+    font-size: 8px;
+  }
+
+  /* Guest widget tablet adjustments */
+  .rp-guest-b__perks {
+    gap: 8px;
+  }
+
+  .rp-guest-b__perk {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
+
+/* ----- DESKTOP: 769px and above ----- */
+/* Full view - all details visible */
+@media (min-width: 769px) {
+  .rp-widget-root {
+    right: 24px;
+    bottom: 24px;
+    left: auto;
+    max-width: 320px;
+  }
+
+  /* Full balance hero */
+  .rp-auth-c__balance-hero {
+    padding: 20px 0;
+    margin-bottom: 16px;
+  }
+
+  .rp-auth-c__balance-label {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 42px;
+  }
+
+  /* All 3 cards visible */
+  .rp-auth-c__cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .rp-auth-c__card {
+    padding: 14px 10px;
+  }
+
+  .rp-auth-c__card-icon {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 8px;
+  }
+
+  .rp-auth-c__card-value {
+    font-size: 14px;
+  }
+
+  .rp-auth-c__card-label {
+    font-size: 9px;
+  }
+
+  /* Full progress bar */
+  .rp-auth-c__progress {
+    margin-top: 16px;
+  }
+
+  .rp-auth-c__progress-bar {
+    height: 8px;
+  }
+
+  .rp-auth-c__progress-label,
+  .rp-auth-c__progress-value {
+    font-size: 11px;
+  }
+
+  /* Header adjustments */
+  .rp-auth__header {
+    padding: 14px 16px;
+  }
+
+  .rp-auth__body {
+    padding: 16px;
+  }
+}
+
+/* ----- LARGE DESKTOP: 1200px and above ----- */
+/* Slightly larger widget for big screens */
+@media (min-width: 1200px) {
+  .rp-widget-root {
+    max-width: 360px;
+    right: 32px;
+    bottom: 32px;
+  }
+
+  .rp-auth-c__balance-amount {
+    font-size: 48px;
+  }
+
+  .rp-auth-c__cards {
+    gap: 12px;
+  }
+
+  .rp-auth-c__card {
+    padding: 16px 12px;
+  }
+
+  .rp-auth-c__card-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .rp-auth-c__card-value {
+    font-size: 15px;
+  }
+
+  .rp-auth-c__card-label {
+    font-size: 10px;
+  }
+}
