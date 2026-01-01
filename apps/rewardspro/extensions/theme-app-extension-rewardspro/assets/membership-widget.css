@@ -3119,7 +3119,155 @@
     bottom: 12px;
   }
 
-  /* Hide the detailed cards and progress on mobile */
+  /* ==========================================
+     MOBILE COLLAPSED STATE - ICON ONLY
+     Compact rectangular button with just the icon
+     ========================================== */
+
+  .rp-auth--collapsed {
+    /* Transform into compact rectangular button */
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 !important;
+    border-radius: 8px !important;
+
+    /* Position in corner */
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    left: auto !important;
+
+    /* Gradient background */
+    background: linear-gradient(135deg, var(--rp-primary-color, #5C6AC4) 0%, #4c5ab8 100%) !important;
+
+    /* Shadow for depth */
+    box-shadow: 0 4px 12px rgba(92, 106, 196, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+
+    /* Smooth transition */
+    transition: all 0.3s ease;
+  }
+
+  .rp-auth--collapsed:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(92, 106, 196, 0.5), 0 3px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  .rp-auth--collapsed:active {
+    transform: scale(1);
+  }
+
+  .rp-auth--collapsed .rp-auth__header {
+    /* Center content */
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 0;
+  }
+
+  /* Hide text and action buttons in collapsed */
+  .rp-auth--collapsed .rp-auth__text,
+  .rp-auth--collapsed .rp-auth__actions {
+    display: none !important;
+  }
+
+  /* Style the icon as main button element */
+  .rp-auth--collapsed .rp-auth__icon {
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rp-auth--collapsed .rp-auth__icon svg {
+    width: 24px;
+    height: 24px;
+    color: #ffffff;
+  }
+
+  /* Hide the radial gradient overlay in collapsed */
+  .rp-auth--collapsed::before {
+    display: none;
+  }
+
+  /* Guest widget - same icon-only treatment */
+  .rp-guest-b--collapsed {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    left: auto !important;
+    background: linear-gradient(135deg, var(--rp-primary-color, #5C6AC4) 0%, #4c5ab8 100%) !important;
+    box-shadow: 0 4px 12px rgba(92, 106, 196, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.3s ease;
+  }
+
+  .rp-guest-b--collapsed:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(92, 106, 196, 0.5), 0 3px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  .rp-guest-b--collapsed:active {
+    transform: scale(1);
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__header {
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    gap: 0;
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__text,
+  .rp-guest-b--collapsed .rp-guest-b__actions {
+    display: none !important;
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__icon {
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 8px;
+    margin: 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rp-guest-b--collapsed .rp-guest-b__icon svg {
+    width: 24px;
+    height: 24px;
+    color: #ffffff;
+  }
+
+  .rp-guest-b--collapsed::before {
+    display: none;
+  }
+
+  /* ==========================================
+     MOBILE EXPANDED STATE
+     Full widget with all details
+     ========================================== */
+
+  /* Hide the detailed cards and progress on mobile expanded */
   .rp-auth-c__cards,
   .rp-auth-c__progress {
     display: none;
@@ -3140,8 +3288,8 @@
     font-size: 28px;
   }
 
-  /* Adjust header for mobile */
-  .rp-auth__header {
+  /* Adjust header for mobile expanded */
+  .rp-auth--expanded .rp-auth__header {
     padding: 10px 12px;
   }
 
@@ -3153,13 +3301,13 @@
     font-size: 11px;
   }
 
-  .rp-auth__icon {
+  .rp-auth--expanded .rp-auth__icon {
     width: 32px;
     height: 32px;
     padding: 6px;
   }
 
-  .rp-auth__icon svg {
+  .rp-auth--expanded .rp-auth__icon svg {
     width: 16px;
     height: 16px;
   }
@@ -3170,7 +3318,7 @@
   }
 
   /* Guest widget mobile adjustments */
-  .rp-guest-b__header {
+  .rp-guest-b--expanded .rp-guest-b__header {
     padding: 10px 12px;
   }
 
