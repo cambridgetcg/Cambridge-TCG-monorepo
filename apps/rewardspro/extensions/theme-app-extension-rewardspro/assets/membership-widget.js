@@ -2,10 +2,100 @@
  * RewardsPro Membership Widget - Dynamic Version
  * Fetches real-time customer data from proxy API
  * Handles authentication, caching, and error states
+ *
+ * Security: CSS injection protection via sanitizeColor/sanitizeNumber/sanitizeFontFamily
+ * Performance: LocalStorage caching with shop-specific keys
+ * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
  */
 
 (function() {
   'use strict';
+
+  // ============================================
+  // CONFIGURATION CONSTANTS
+  // Document magic numbers for maintainability
+  // ============================================
+  const CONFIG = {
+    API_TIMEOUT_MS: 10000,        // API request timeout (10 seconds)
+    API_MAX_RETRIES: 3,           // Max retry attempts for failed requests
+    API_RETRY_BASE_MS: 1000,      // Base delay for exponential backoff (1s)
+    API_RETRY_MAX_MS: 10000,      // Max retry delay (10s)
+    TAP_DEBOUNCE_MS: 300,         // Debounce for tap/click detection
+    DRAG_THRESHOLD_PX: 10,        // Min pixels moved to count as drag
+    DEFAULT_CACHE_DURATION_S: 120, // Default cache TTL (2 minutes)
+    CACHE_VERSION: 1              // Cache schema version for invalidation
+  };
+
+  // ============================================
+  // DEBUG UTILITY
+  // Enable via: localStorage.setItem('rp-debug', 'true')
+  // ============================================
+  const DEBUG = (() => {
+    try {
+      return localStorage.getItem('rp-debug') === 'true';
+    } catch {
+      return false;
+    }
+  })();
+
+  const log = {
+    debug: (...args) => DEBUG && console.log('[RewardsWidget]', ...args),
+    info: (...args) => DEBUG && console.log('[RewardsWidget]', ...args),
+    warn: (...args) => console.warn('[RewardsWidget]', ...args),
+    error: (...args) => console.error('[RewardsWidget]', ...args)
+  };
+
+  // ============================================
+  // SECURITY UTILITIES
+  // Validates inputs to prevent XSS via CSS injection
+  // ============================================
+
+  /**
+   * Validate CSS color value to prevent injection attacks
+   * Only allows hex, rgb, rgba, hsl, hsla, and named colors
+   */
+  const isValidColor = (color) => {
+    if (!color || typeof color !== 'string') return false;
+    const trimmed = color.trim();
+    // Hex: #RGB, #RRGGBB, #RRGGBBAA
+    if (/^#[0-9a-f]{3,8}$/i.test(trimmed)) return true;
+    // rgb/rgba
+    if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return true;
+    // hsl/hsla
+    if (/^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*(,\s*[\d.]+)?\s*\)$/i.test(trimmed)) return true;
+    // Named colors (common subset)
+    const namedColors = ['transparent', 'inherit', 'currentcolor', 'white', 'black', 'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'gray', 'grey'];
+    if (namedColors.includes(trimmed.toLowerCase())) return true;
+    return false;
+  };
+
+  /**
+   * Sanitize color value - returns validated color or default
+   */
+  const sanitizeColor = (color, defaultColor) => {
+    return isValidColor(color) ? color.trim() : defaultColor;
+  };
+
+  /**
+   * Validate numeric value within range
+   */
+  const sanitizeNumber = (value, defaultValue, min = 0, max = 100) => {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < min || num > max) return defaultValue;
+    return num;
+  };
+
+  /**
+   * Sanitize font family - only allows safe font values
+   */
+  const sanitizeFontFamily = (font, defaultFont = 'inherit') => {
+    if (!font || typeof font !== 'string') return defaultFont;
+    // Only allow alphanumeric, spaces, quotes, commas, hyphens
+    if (!/^[a-zA-Z0-9\s'",-]+$/.test(font)) return defaultFont;
+    // Block anything that looks like CSS injection
+    if (/[{}:;]/.test(font)) return defaultFont;
+    return font;
+  };
 
   class MembershipWidget {
     constructor(rootElement) {
@@ -13,12 +103,24 @@
       this.config = this.parseConfiguration();
       this.state = {
         isExpanded: this.loadExpandedState(),
-        isClosed: this.loadClosedState(),
         isLoading: false,
         data: null,
         error: null,
         lastFetch: null,
         dataSource: null // 'fresh', 'cache', 'fallback'
+      };
+
+      // Drag state
+      this.drag = {
+        isDragging: false,
+        hasMoved: false, // Track if user actually dragged vs just tapped
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        initialLeft: 0,
+        initialTop: 0,
+        dragThreshold: CONFIG.DRAG_THRESHOLD_PX
       };
 
       // Prevent double initialization
@@ -27,11 +129,11 @@
       }
       this.root.dataset.initialized = 'true';
 
-      // Check if widget is closed - show minimized button instead
-      if (this.state.isClosed) {
-        this.renderMinimized();
-        return;
-      }
+      // Load saved position and apply it
+      this.loadPosition();
+
+      // Initialize drag functionality
+      this.initDrag();
 
       // Initialize based on authentication state
       this.initialize();
@@ -81,12 +183,14 @@
      * Initialize widget based on state
      */
     async initialize() {
-      console.log('[RewardsWidget] Initializing:', {
+      log.info('Initializing', {
         authenticated: this.config.isAuthenticated,
         customerId: this.config.customer?.id,
-        apiEnabled: this.config.api.enabled,
-        apiEndpoint: this.config.api.endpoint
+        apiEnabled: this.config.api.enabled
       });
+
+      // PROJECTION: Initialize system theme detection
+      this.initSystemThemeDetection();
 
       if (!this.config.isAuthenticated) {
         // Guest user - render CTA immediately
@@ -98,13 +202,13 @@
       const cachedData = this.getCachedData();
 
       if (cachedData) {
-        console.log('[RewardsWidget] Using cached data');
+        log.debug('Using cached data');
         this.state.data = cachedData;
         this.state.dataSource = 'cache';
 
-        // FIX: Apply theme from cached data before rendering
+        // Apply theme from cached data before rendering
         if (cachedData.theme) {
-          console.log('[RewardsWidget] 🎨 Applying theme from CACHE:', cachedData.theme.mode);
+          log.debug('Applying theme from cache:', cachedData.theme.mode);
           this.applyTheme(cachedData.theme);
         }
 
@@ -116,12 +220,93 @@
 
       // Fetch fresh data if API is enabled
       if (this.config.api.enabled) {
-        console.log('[RewardsWidget] 🚀 API is enabled, fetching customer data...');
+        log.debug('API enabled, fetching customer data');
         await this.fetchCustomerData();
       } else {
-        console.log('[RewardsWidget] ⚠️ API disabled, using fallback data');
-        console.log('[RewardsWidget] Config:', this.config);
+        log.debug('API disabled, using fallback data');
         this.useFallbackData();
+      }
+    }
+
+    /**
+     * PROJECTION: Detect system color scheme preference
+     * The Sulfur soul projects its nature onto surrounding matter
+     */
+    initSystemThemeDetection() {
+      try {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+        // Store current system preference
+        this.systemPrefersDark = mediaQuery.matches;
+        log.debug('System prefers dark mode:', this.systemPrefersDark);
+
+        // Listen for changes to system preference
+        mediaQuery.addEventListener('change', (e) => {
+          this.systemPrefersDark = e.matches;
+          log.debug('System theme changed, prefers dark:', e.matches);
+
+          // Only auto-apply if no explicit theme is set from API
+          const currentTheme = this.state.data?.theme;
+          if (!currentTheme?.mode || currentTheme.mode === 'SYSTEM') {
+            this.applySystemTheme();
+          }
+        });
+      } catch (error) {
+        // Fallback for browsers without matchMedia support
+        this.systemPrefersDark = false;
+        log.debug('matchMedia not supported, defaulting to light');
+      }
+    }
+
+    /**
+     * Apply theme based on system preference
+     */
+    applySystemTheme() {
+      const mode = this.systemPrefersDark ? 'DARK' : 'LIGHT';
+      log.debug('Applying system theme:', mode);
+
+      // Merge with existing theme or create minimal theme object
+      const baseTheme = this.state.data?.theme || {};
+      this.applyTheme({ ...baseTheme, mode });
+    }
+
+    /**
+     * FERMENTATION: Fetch with exponential backoff retry
+     * The volatile Mercury spirit is multiplied through repeated cycles
+     */
+    async fetchWithRetry(url, options, attempt = 0) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
+
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return response;
+      } catch (error) {
+        // Don't retry on abort or if we've exhausted retries
+        if (error.name === 'AbortError' || attempt >= CONFIG.API_MAX_RETRIES - 1) {
+          throw error;
+        }
+
+        // Calculate exponential backoff delay: 1s, 2s, 4s... capped at 10s
+        const delay = Math.min(
+          CONFIG.API_RETRY_BASE_MS * Math.pow(2, attempt),
+          CONFIG.API_RETRY_MAX_MS
+        );
+
+        log.debug(`Retry ${attempt + 1}/${CONFIG.API_MAX_RETRIES} after ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        return this.fetchWithRetry(url, options, attempt + 1);
       }
     }
 
@@ -129,19 +314,10 @@
      * Fetch real customer data from proxy API
      */
     async fetchCustomerData() {
-      console.log('[RewardsWidget] 📞 fetchCustomerData called');
-      console.log('[RewardsWidget] API Config:', {
-        endpoint: this.config.api.endpoint,
-        enabled: this.config.api.enabled,
-        customerId: this.config.customer?.id,
-        shopDomain: this.config.shop.domain
-      });
+      log.debug('fetchCustomerData called');
 
       if (!this.config.api.endpoint || !this.config.customer?.id) {
-        console.error('[RewardsWidget] ❌ Missing API endpoint or customer ID:', {
-          endpoint: this.config.api.endpoint,
-          customerId: this.config.customer?.id
-        });
+        log.error('Missing API endpoint or customer ID');
         this.handleError('Configuration error');
         return;
       }
@@ -154,56 +330,26 @@
         url.searchParams.append('logged_in_customer_id', this.config.customer.id);
         url.searchParams.append('shop', this.config.shop.domain);
 
-        console.log('[RewardsWidget] 🌐 MAKING API CALL TO:', url.toString());
-        console.log('[RewardsWidget] 📍 Full URL breakdown:', {
-          origin: window.location.origin,
-          endpoint: this.config.api.endpoint,
-          fullUrl: url.toString()
-        });
+        log.debug('Making API call to:', url.toString());
 
-        // Fetch with timeout
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-        const response = await fetch(url.toString(), {
+        // FERMENTATION: Fetch with exponential backoff retry
+        const response = await this.fetchWithRetry(url.toString(), {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
           },
-          signal: controller.signal,
           credentials: 'same-origin'
         });
 
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
         const data = await response.json();
 
-        console.log('[RewardsWidget] ✅ Response received:', data);
-        console.log('[RewardsWidget] 📦 Full JSON response:', JSON.stringify(data, null, 2));
-        console.log('[RewardsWidget] Response details:', {
-          success: data.success,
-          status: data.status,
-          hasBalance: !!data.balance,
-          hasMembership: !!data.membership,
-          tierName: data.membership?.tier?.name,
-          storeCredit: data.balance?.storeCredit,
-          storeCreditType: typeof data.balance?.storeCredit,
-          totalEarned: data.balance?.totalEarned,
-          totalEarnedType: typeof data.balance?.totalEarned,
-          cashbackPercent: data.membership?.tier?.cashbackPercent,
-          cashbackPercentType: typeof data.membership?.tier?.cashbackPercent,
-          query: data.query
-        });
+        log.debug('Response received', { success: data.success, tierName: data.membership?.tier?.name });
 
         // Handle customer not found specifically
         if (!data.success && data.status === 'customer_not_found') {
-          console.log('[RewardsWidget] 📭 Customer not found in database');
+          log.debug('Customer not found in database');
 
           // Update state with not found info
           this.state.data = data;
@@ -227,11 +373,9 @@
         this.state.dataSource = 'fresh';
 
         // Apply theme settings from API response
-        console.log('[RewardsWidget] 🎨 Theme data received from FRESH API:', JSON.stringify(data.theme, null, 2));
         if (data.theme) {
+          log.debug('Applying theme from API:', data.theme.mode);
           this.applyTheme(data.theme);
-        } else {
-          console.warn('[RewardsWidget] ⚠️ No theme data in API response!');
         }
 
         // Cache the data
@@ -241,7 +385,7 @@
         this.renderAuthenticated();
 
       } catch (error) {
-        console.error('[RewardsWidget] Fetch error:', error);
+        log.error('Fetch error:', error.message);
 
         if (error.name === 'AbortError') {
           this.handleError('Request timed out');
@@ -252,7 +396,7 @@
         // Try to use cached data on error
         const cachedData = this.getCachedData();
         if (cachedData) {
-          console.log('[RewardsWidget] Using cached data after error');
+          log.debug('Using stale cache after error');
           this.state.data = cachedData;
           this.state.dataSource = 'cache-stale';
           this.renderAuthenticated();
@@ -266,55 +410,83 @@
     }
 
     /**
-     * Get cached data if available and fresh
+     * MULTIPLICATION: Get cached data if available, fresh, and correct version
+     * The fixed Salt body is multiplied to preserve across transformations
      */
     getCachedData() {
       if (!this.config.customer?.id) return null;
 
       try {
-        const key = `rp-widget-${this.config.customer.id}`;
+        // SECURITY: Include shop domain in cache key to prevent cross-shop data leakage
+        const key = `rp-widget-${this.config.shop.domain}-${this.config.customer.id}`;
         const cached = localStorage.getItem(key);
 
         if (!cached) return null;
 
-        const { data, timestamp } = JSON.parse(cached);
+        const { data, timestamp, version } = JSON.parse(cached);
+
+        // MULTIPLICATION: Invalidate cache if version mismatch (schema changed)
+        if (version !== CONFIG.CACHE_VERSION) {
+          log.debug('Cache version mismatch, invalidating (cached:', version, 'current:', CONFIG.CACHE_VERSION, ')');
+          this.clearCache();
+          return null;
+        }
+
         const age = (Date.now() - timestamp) / 1000; // Age in seconds
 
         // Check if cache is still fresh
         if (age < this.config.api.cacheDuration) {
-          console.log('[RewardsWidget] Cache is fresh (age: ' + Math.round(age) + 's)');
+          log.debug('Cache hit (age: ' + Math.round(age) + 's, version:', version, ')');
           return data;
         }
 
-        console.log('[RewardsWidget] Cache expired (age: ' + Math.round(age) + 's)');
+        log.debug('Cache expired (age: ' + Math.round(age) + 's)');
         return null;
 
       } catch (error) {
-        console.error('[RewardsWidget] Cache read error:', error);
+        log.error('Cache read error:', error.message);
         // Clear corrupted cache
         try {
-          localStorage.removeItem('rp-widget-' + this.config.customer.id);
+          localStorage.removeItem(`rp-widget-${this.config.shop.domain}-${this.config.customer.id}`);
         } catch (e) {}
         return null;
       }
     }
 
     /**
-     * Cache data with timestamp
+     * MULTIPLICATION: Cache data with timestamp and version
+     * The Salt preserves the essence for future transformations
      */
     cacheData(data) {
       if (!this.config.customer?.id) return;
 
       try {
-        const key = `rp-widget-${this.config.customer.id}`;
+        // SECURITY: Include shop domain in cache key to prevent cross-shop data leakage
+        const key = `rp-widget-${this.config.shop.domain}-${this.config.customer.id}`;
         const cache = {
           data: data,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          version: CONFIG.CACHE_VERSION  // MULTIPLICATION: Version for future invalidation
         };
         localStorage.setItem(key, JSON.stringify(cache));
-        console.log('[RewardsWidget] Data cached successfully');
+        log.debug('Data cached (version:', CONFIG.CACHE_VERSION, ')');
       } catch (error) {
-        console.error('[RewardsWidget] Cache write error:', error);
+        log.error('Cache write error:', error.message);
+      }
+    }
+
+    /**
+     * Clear cached data for current customer
+     */
+    clearCache() {
+      if (!this.config.customer?.id) return;
+
+      try {
+        const key = `rp-widget-${this.config.shop.domain}-${this.config.customer.id}`;
+        localStorage.removeItem(key);
+        log.debug('Cache cleared');
+      } catch (error) {
+        log.error('Cache clear error:', error.message);
       }
     }
 
@@ -323,7 +495,7 @@
      * This prevents misleading customers into thinking they have no rewards
      */
     useFallbackData() {
-      console.log('[RewardsWidget] API unavailable - showing unavailable state instead of fake data');
+      log.debug('API unavailable, showing unavailable state');
       this.state.data = null;
       this.state.dataSource = 'unavailable';
       this.state.error = 'Data temporarily unavailable';
@@ -357,11 +529,6 @@
                   <path d="M6 9l6 6 6-6"/>
                 </svg>
               </button>
-              <button class="rp-auth__close" aria-label="Close widget" data-close="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
             </div>
           </div>
           <div class="rp-auth__body">
@@ -370,7 +537,7 @@
                 We couldn't load your rewards data right now.
                 Your rewards are still safe - please try again.
               </p>
-              <button class="rp-unavailable__retry" data-retry="true">
+              <button class="rp-unavailable__retry rp-btn-secondary" data-retry="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                   <path d="M23 4v6h-6M1 20v-6h6"/>
                   <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
@@ -391,34 +558,26 @@
     attachUnavailableEventListeners() {
       const header = this.root.querySelector('.rp-auth__header');
       const toggle = this.root.querySelector('.rp-auth__toggle');
-      const closeBtn = this.root.querySelector('.rp-auth__close');
       const retryBtn = this.root.querySelector('[data-retry]');
 
       const handleToggle = (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Skip if tap was just handled by drag system (prevents double-toggle)
+        if (this.wasTapRecentlyHandled()) return;
+
         this.state.isExpanded = !this.state.isExpanded;
         this.saveExpandedState();
         this.renderUnavailable();
-      };
-
-      const handleClose = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.closeWidget();
+        this.reapplyPosition();
       };
 
       if (header) {
-        header.addEventListener('click', (e) => {
-          if (!e.target.closest('.rp-auth__close')) {
-            handleToggle(e);
-          }
-        });
+        header.addEventListener('click', handleToggle);
         header.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            if (!e.target.closest('.rp-auth__close')) {
-              handleToggle(e);
-            }
+            handleToggle(e);
           }
         });
       }
@@ -427,13 +586,9 @@
         toggle.addEventListener('click', handleToggle);
       }
 
-      if (closeBtn) {
-        closeBtn.addEventListener('click', handleClose);
-      }
-
       if (retryBtn) {
         retryBtn.addEventListener('click', () => {
-          console.log('[RewardsWidget] User clicked retry - fetching fresh data');
+          log.debug('User clicked retry');
           this.renderLoading();
           this.fetchCustomerData();
         });
@@ -477,35 +632,30 @@
                   <path d="M6 9l6 6 6-6"/>
                 </svg>
               </button>
-              <button class="rp-guest-b__close" aria-label="Close widget" data-close="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
             </div>
           </div>
           <div class="rp-guest-b__body">
             <div class="rp-guest-b__perks">
-              <span class="rp-guest-b__perk">
+              <span class="rp-guest-b__perk rp-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
                 Store Credit
               </span>
-              <span class="rp-guest-b__perk">
+              <span class="rp-guest-b__perk rp-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
                 Tier Status
               </span>
-              <span class="rp-guest-b__perk">
+              <span class="rp-guest-b__perk rp-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
                 Progress
               </span>
             </div>
-            <a href="${escapedCtaUrl}" class="rp-guest-b__cta">
+            <a href="${escapedCtaUrl}" class="rp-guest-b__cta rp-btn-primary">
               ${escapedCtaText}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -524,43 +674,31 @@
     attachGuestEventListeners() {
       const header = this.root.querySelector('.rp-guest-b__header');
       const toggle = this.root.querySelector('.rp-guest-b__toggle');
-      const closeBtn = this.root.querySelector('.rp-guest-b__close');
 
       const handleToggle = (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Skip if tap was just handled by drag system (prevents double-toggle)
+        if (this.wasTapRecentlyHandled()) return;
+
         this.state.isExpanded = !this.state.isExpanded;
         this.saveExpandedState();
         this.renderGuest();
-      };
-
-      const handleClose = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.closeWidget();
+        this.reapplyPosition();
       };
 
       if (header) {
-        header.addEventListener('click', (e) => {
-          if (!e.target.closest('.rp-guest-b__close')) {
-            handleToggle(e);
-          }
-        });
+        header.addEventListener('click', handleToggle);
         header.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            if (!e.target.closest('.rp-guest-b__close')) {
-              handleToggle(e);
-            }
+            handleToggle(e);
           }
         });
       }
 
       if (toggle) {
         toggle.addEventListener('click', handleToggle);
-      }
-
-      if (closeBtn) {
-        closeBtn.addEventListener('click', handleClose);
       }
     }
 
@@ -580,7 +718,7 @@
         <div class="rp-widget rp-widget--error">
           <div class="rp-widget__content">
             <p class="rp-widget__error-message">Unable to load rewards data</p>
-            <button class="rp-widget__retry" data-retry="true">
+            <button class="rp-widget__retry rp-btn-secondary" data-retry="true">
               Try Again
             </button>
           </div>
@@ -599,23 +737,13 @@
 
     renderAuthenticated() {
       if (!this.state.data) {
-        console.warn('[RewardsWidget] Cannot render - no data available');
+        log.warn('Cannot render - no data available');
         return;
       }
 
-      console.log('[RewardsWidget] 🎨 Starting renderAuthenticated');
-      console.log('[RewardsWidget] 📊 Full state.data:', JSON.stringify(this.state.data, null, 2));
+      log.debug('Rendering authenticated state');
 
       const { balance, membership, tierProgress } = this.state.data;
-
-      console.log('[RewardsWidget] 💰 Balance object:', balance);
-      console.log('[RewardsWidget] 💰 Balance.storeCredit:', balance?.storeCredit);
-      console.log('[RewardsWidget] 💰 Balance.storeCredit type:', typeof balance?.storeCredit);
-      console.log('[RewardsWidget] 🎖️ Membership object:', membership);
-      console.log('[RewardsWidget] 🎖️ Tier object:', membership?.tier);
-      console.log('[RewardsWidget] 🎖️ Tier.cashbackPercent:', membership?.tier?.cashbackPercent);
-      console.log('[RewardsWidget] 🎖️ Tier.cashbackPercent type:', typeof membership?.tier?.cashbackPercent);
-      console.log('[RewardsWidget] 📊 TierProgress object:', tierProgress);
 
       const expandedClass = this.state.isExpanded ? 'rp-widget--expanded' : 'rp-widget--collapsed';
 
@@ -623,75 +751,51 @@
       let tierName, cashbackPercent, storeCreditFormatted;
       try {
         tierName = this.escapeHtml(membership?.tier?.name || 'Member');
-        console.log('[RewardsWidget] 🏷️ Tier name:', tierName);
       } catch (e) {
-        console.error('[RewardsWidget] ❌ Error formatting tier name:', e);
+        log.error('Error formatting tier name:', e.message);
         tierName = 'Member';
       }
 
       try {
         cashbackPercent = membership?.tier?.cashbackPercent ?? 0;
-        console.log('[RewardsWidget] 💎 Cashback percent:', cashbackPercent);
       } catch (e) {
-        console.error('[RewardsWidget] ❌ Error getting cashback percent:', e);
+        log.error('Error getting cashback percent:', e.message);
         cashbackPercent = 0;
       }
 
       try {
-        console.log('[RewardsWidget] 💰 About to format storeCredit:', balance?.storeCredit);
         storeCreditFormatted = this.formatCurrency(balance?.storeCredit);
-        console.log('[RewardsWidget] ✅ Store credit formatted:', storeCreditFormatted);
       } catch (e) {
-        console.error('[RewardsWidget] ❌ Error formatting store credit:', e);
+        log.error('Error formatting store credit:', e.message);
         storeCreditFormatted = '$0.00';
       }
 
       // Calculate tier progress values
       let progressPercent = 0;
-      let currentSpending = 0;
-      let nextTierTarget = 0;
-      let amountRemaining = 0;
       let nextTierName = '';
       let isMaxTier = false;
       let progressStats = '';
-      let progressStatsCompact = '';
 
       try {
         if (tierProgress) {
           progressPercent = tierProgress.progressPercent || 0;
-          currentSpending = tierProgress.currentSpending || 0;
-          nextTierTarget = tierProgress.nextTierTarget || 0;
-          amountRemaining = tierProgress.amountRemaining || 0;
+          const currentSpending = tierProgress.currentSpending || 0;
+          const nextTierTarget = tierProgress.nextTierTarget || 0;
           nextTierName = tierProgress.nextTierName || '';
           isMaxTier = tierProgress.isMaxTier || false;
 
           // Format progress stats for display
           const currentSpendingFormatted = this.formatCurrency(currentSpending);
           const nextTierTargetFormatted = this.formatCurrency(nextTierTarget);
-          const amountRemainingFormatted = this.formatCurrency(amountRemaining);
 
-          if (isMaxTier) {
-            progressStats = 'Max tier reached';
-            progressStatsCompact = 'Max tier';
-          } else {
-            progressStats = `${currentSpendingFormatted} / ${nextTierTargetFormatted}`;
-            progressStatsCompact = `${currentSpendingFormatted} of ${nextTierTargetFormatted}`;
-          }
+          progressStats = isMaxTier
+            ? 'Max tier reached'
+            : `${currentSpendingFormatted} / ${nextTierTargetFormatted}`;
 
-          console.log('[RewardsWidget] 📊 Tier Progress Calculated:', {
-            progressPercent,
-            currentSpending,
-            nextTierTarget,
-            amountRemaining,
-            nextTierName,
-            isMaxTier,
-            progressStats
-          });
-        } else {
-          console.warn('[RewardsWidget] ⚠️ No tierProgress data available');
+          log.debug('Tier progress calculated', { progressPercent, nextTierName, isMaxTier });
         }
       } catch (e) {
-        console.error('[RewardsWidget] ❌ Error calculating tier progress:', e);
+        log.error('Error calculating tier progress:', e.message);
       }
 
       const authExpandedClass = this.state.isExpanded ? 'rp-auth--expanded' : 'rp-auth--collapsed';
@@ -712,11 +816,6 @@
               <button class="rp-auth__toggle" aria-label="${this.state.isExpanded ? 'Collapse' : 'Expand'} widget">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </button>
-              <button class="rp-auth__close" aria-label="Close widget" data-close="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
               </button>
             </div>
@@ -780,34 +879,25 @@
     attachAuthEventListeners() {
       const header = this.root.querySelector('.rp-auth__header');
       const toggle = this.root.querySelector('.rp-auth__toggle');
-      const closeBtn = this.root.querySelector('.rp-auth__close');
 
       const handleToggle = (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Skip if tap was just handled by drag system (prevents double-toggle)
+        if (this.wasTapRecentlyHandled()) return;
+
         this.state.isExpanded = !this.state.isExpanded;
         this.saveExpandedState();
         this.renderAuthenticated();
-      };
-
-      const handleClose = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.closeWidget();
+        this.reapplyPosition();
       };
 
       if (header) {
-        header.addEventListener('click', (e) => {
-          // Don't toggle if clicking on close button
-          if (!e.target.closest('.rp-auth__close')) {
-            handleToggle(e);
-          }
-        });
+        header.addEventListener('click', handleToggle);
         header.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            if (!e.target.closest('.rp-auth__close')) {
-              handleToggle(e);
-            }
+            handleToggle(e);
           }
         });
       }
@@ -815,29 +905,18 @@
       if (toggle) {
         toggle.addEventListener('click', handleToggle);
       }
-
-      if (closeBtn) {
-        closeBtn.addEventListener('click', handleClose);
-      }
     }
 
     /**
      * Render "not found" state when customer doesn't exist in database
      */
     renderNotFound() {
-      console.log('[RewardsWidget] Rendering not found state');
-
-      const query = this.state.data?.query || {};
+      log.debug('Rendering not found state');
 
       this.root.innerHTML = `
         <div class="rp-widget rp-widget--not-found rp-widget--expanded">
           <div class="rp-widget__not-found-header">
             <span class="rp-widget__not-found-label">Rewards</span>
-            <button class="rp-widget__close" aria-label="Close widget" data-close="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
           </div>
           <div class="rp-widget__not-found">
             <div class="rp-widget__not-found-icon">
@@ -855,59 +934,61 @@
           </div>
         </div>
       `;
-
-      // Attach close button listener
-      const closeBtn = this.root.querySelector('.rp-widget__close');
-      if (closeBtn) {
-        closeBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.closeWidget();
-        });
-      }
     }
 
 
     /**
      * Apply theme settings from API response
      * Sets CSS custom properties on the widget root element
+     * SECURITY: All color values are sanitized to prevent CSS injection
      */
     applyTheme(theme) {
-      console.log('[RewardsWidget] 🎨 Applying theme:', theme);
-
       if (!theme) {
-        console.warn('[RewardsWidget] ⚠️ applyTheme called with null/undefined theme');
+        log.warn('applyTheme called with null/undefined theme');
         return;
       }
 
-      // Set CSS custom properties on the widget root
       const root = this.root;
-
       if (!root) {
-        console.error('[RewardsWidget] ❌ Cannot apply theme - root element not found!');
+        log.error('Cannot apply theme - root element not found');
         return;
       }
 
-      // Apply theme colors
+      // PROJECTION: Resolve theme mode - use system preference if mode is 'SYSTEM' or unset
+      let resolvedMode = theme.mode;
+      if (!resolvedMode || resolvedMode === 'SYSTEM') {
+        resolvedMode = this.systemPrefersDark ? 'DARK' : 'LIGHT';
+        log.debug('Using system preference for theme:', resolvedMode);
+      }
+
+      log.debug('Applying theme:', resolvedMode);
+
+      // SECURITY: Sanitize all color inputs to prevent CSS injection attacks
+      const primaryColor = sanitizeColor(theme.primaryColor, '#5C6AC4');
+      const backgroundColor = sanitizeColor(theme.backgroundColor, '#FFFFFF');
+      const textColor = sanitizeColor(theme.textColor, '#212B36');
+      const accentColor = sanitizeColor(theme.accentColor, '#008060');
+      const borderRadius = sanitizeNumber(theme.borderRadius, 12, 0, 50);
+      const fontFamily = sanitizeFontFamily(theme.fontFamily, 'inherit');
+
+      // Apply theme colors (all values pre-validated)
       const cssVars = {
-        '--rp-primary-color': theme.primaryColor || '#5C6AC4',
-        '--rp-background-color': theme.backgroundColor || '#FFFFFF',
-        '--rp-text-color': theme.textColor || '#212B36',
-        '--rp-accent-color': theme.accentColor || '#008060',
-        '--rp-border-radius': (theme.borderRadius || 12) + 'px',
-        '--rp-font-family': theme.fontFamily || 'inherit'
+        '--rp-primary-color': primaryColor,
+        '--rp-background-color': backgroundColor,
+        '--rp-text-color': textColor,
+        '--rp-accent-color': accentColor,
+        '--rp-border-radius': borderRadius + 'px',
+        '--rp-font-family': fontFamily
       };
 
-      // Calculate derived colors based on theme mode
-      const isDark = theme.mode === 'DARK';
+      // Calculate derived colors based on resolved theme mode
+      const isDark = resolvedMode === 'DARK';
       cssVars['--rp-text-secondary'] = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
       cssVars['--rp-border-color'] = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)';
       cssVars['--rp-progress-bg'] = isDark ? 'rgba(255, 255, 255, 0.15)' : '#E1E3E5';
       cssVars['--rp-card-bg'] = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)';
       cssVars['--rp-card-hover-bg'] = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
 
-      // Parse primary color for alpha variant (for gradient overlays)
-      const primaryColor = theme.primaryColor || '#5C6AC4';
       // Create semi-transparent version of primary color for radial gradients
       cssVars['--rp-primary-color-alpha'] = isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(92, 106, 196, 0.08)';
 
@@ -917,8 +998,7 @@
         ? '0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2)'
         : '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)';
 
-      console.log('[RewardsWidget] 🎨 Setting CSS variables:', cssVars);
-      console.log('[RewardsWidget] 🎨 Theme mode:', theme.mode, '| isDark:', isDark);
+      log.debug('Setting CSS variables for theme mode:', resolvedMode);
 
       // Apply all CSS variables
       Object.entries(cssVars).forEach(([prop, value]) => {
@@ -926,61 +1006,29 @@
       });
 
       // Add theme mode class
-      root.classList.remove('rp-theme-light', 'rp-theme-dark', 'rp-theme-custom');
-      const themeClass = `rp-theme-${theme.mode?.toLowerCase() || 'light'}`;
+      root.classList.remove('rp-theme-light', 'rp-theme-dark', 'rp-theme-custom', 'rp-theme-system');
+      const themeClass = `rp-theme-${resolvedMode.toLowerCase()}`;
       root.classList.add(themeClass);
 
-      console.log('[RewardsWidget] 🎨 Added theme class:', themeClass);
-      console.log('[RewardsWidget] ✅ Theme applied successfully');
-
-      // Debug: Log computed styles after applying
-      const computedBg = getComputedStyle(root).getPropertyValue('--rp-background-color');
-      const computedText = getComputedStyle(root).getPropertyValue('--rp-text-color');
-      console.log('[RewardsWidget] 🔍 Computed CSS vars after apply:', {
-        '--rp-background-color': computedBg,
-        '--rp-text-color': computedText
-      });
+      log.debug('Theme applied:', themeClass);
     }
 
     /**
      * Format currency
      */
     formatCurrency(amount) {
-      console.log('[RewardsWidget] 💵 formatCurrency called with:', {
-        amount,
-        type: typeof amount,
-        isNull: amount === null,
-        isUndefined: amount === undefined,
-        orZero: amount || 0,
-        currency: this.config.shop.currency
-      });
-
       try {
-        const formatted = new Intl.NumberFormat('en-US', {
+        return new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: this.config.shop.currency
         }).format(amount || 0);
-        console.log('[RewardsWidget] ✅ Formatted successfully:', formatted);
-        return formatted;
       } catch (error) {
-        console.error('[RewardsWidget] ❌ Intl.NumberFormat failed:', error);
-        console.log('[RewardsWidget] 🔄 Trying fallback formatting...');
-
-        const fallbackAmount = amount || 0;
-        console.log('[RewardsWidget] 💵 Fallback amount:', fallbackAmount, 'type:', typeof fallbackAmount);
-
-        // Extra safety: ensure it's a number
-        const numericAmount = Number(fallbackAmount);
-        console.log('[RewardsWidget] 💵 Numeric amount:', numericAmount, 'type:', typeof numericAmount);
-
+        log.error('Intl.NumberFormat failed, using fallback');
+        const numericAmount = Number(amount || 0);
         if (isNaN(numericAmount)) {
-          console.error('[RewardsWidget] ❌ Amount is NaN, returning $0.00');
           return '$0.00';
         }
-
-        const result = '$' + numericAmount.toFixed(2);
-        console.log('[RewardsWidget] ✅ Fallback formatted:', result);
-        return result;
+        return '$' + numericAmount.toFixed(2);
       }
     }
 
@@ -1113,70 +1161,288 @@
       }
     }
 
+    // ============================================
+    // DRAG FUNCTIONALITY
+    // ============================================
+
     /**
-     * Load closed state from localStorage
+     * Initialize drag functionality
      */
-    loadClosedState() {
-      try {
-        const stored = localStorage.getItem('rp-widget-closed');
-        return stored === 'true';
-      } catch {
-        return false;
+    initDrag() {
+      // Bind event handlers to preserve 'this' context
+      this.handleDragStart = this.handleDragStart.bind(this);
+      this.handleDragMove = this.handleDragMove.bind(this);
+      this.handleDragEnd = this.handleDragEnd.bind(this);
+
+      // Mouse events
+      this.root.addEventListener('mousedown', this.handleDragStart);
+      document.addEventListener('mousemove', this.handleDragMove);
+      document.addEventListener('mouseup', this.handleDragEnd);
+
+      // Touch events
+      this.root.addEventListener('touchstart', this.handleDragStart, { passive: false });
+      document.addEventListener('touchmove', this.handleDragMove, { passive: false });
+      document.addEventListener('touchend', this.handleDragEnd);
+
+      // Add draggable cursor style
+      this.root.style.cursor = 'grab';
+    }
+
+    /**
+     * Handle drag start (mousedown/touchstart)
+     */
+    handleDragStart(e) {
+      // Don't start drag on buttons, links, or interactive elements
+      const target = e.target;
+      if (target.closest('button, a, input, [data-retry]')) {
+        return;
+      }
+
+      // Only allow drag from header area or icon (for collapsed mobile)
+      const header = target.closest('.rp-auth__header, .rp-guest-b__header, .rp-widget__not-found-header, .rp-auth__icon, .rp-guest-b__icon');
+      if (!header) {
+        return;
+      }
+
+      const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+      const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+      const rect = this.root.getBoundingClientRect();
+
+      this.drag.isDragging = true;
+      this.drag.hasMoved = false; // Reset - will be set true if user actually drags
+      this.drag.startX = clientX;
+      this.drag.startY = clientY;
+      this.drag.initialLeft = rect.left;
+      this.drag.initialTop = rect.top;
+
+      // Don't apply dragging styles immediately - wait until actual movement
+      // This allows taps to feel responsive
+
+      // Switch to fixed positioning during drag
+      this.root.style.position = 'fixed';
+      this.root.style.left = rect.left + 'px';
+      this.root.style.top = rect.top + 'px';
+      this.root.style.right = 'auto';
+      this.root.style.bottom = 'auto';
+    }
+
+    /**
+     * Handle drag move (mousemove/touchmove)
+     */
+    handleDragMove(e) {
+      if (!this.drag.isDragging) return;
+
+      const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+      const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+      const deltaX = clientX - this.drag.startX;
+      const deltaY = clientY - this.drag.startY;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      // Check if movement exceeds threshold (distinguishes drag from tap)
+      if (!this.drag.hasMoved && distance > this.drag.dragThreshold) {
+        this.drag.hasMoved = true;
+        // Now apply dragging styles since user is actually dragging
+        this.root.classList.add('rp-widget--dragging');
+        this.root.style.cursor = 'grabbing';
+      }
+
+      // Only move if user has exceeded the drag threshold
+      if (!this.drag.hasMoved) return;
+
+      e.preventDefault();
+
+      let newLeft = this.drag.initialLeft + deltaX;
+      let newTop = this.drag.initialTop + deltaY;
+
+      // Constrain to viewport
+      const rect = this.root.getBoundingClientRect();
+      const maxLeft = window.innerWidth - rect.width;
+      const maxTop = window.innerHeight - rect.height;
+
+      newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+      newTop = Math.max(0, Math.min(newTop, maxTop));
+
+      this.drag.currentX = newLeft;
+      this.drag.currentY = newTop;
+
+      this.root.style.left = newLeft + 'px';
+      this.root.style.top = newTop + 'px';
+    }
+
+    /**
+     * Handle drag end (mouseup/touchend)
+     */
+    handleDragEnd(e) {
+      if (!this.drag.isDragging) return;
+
+      const wasDragged = this.drag.hasMoved;
+
+      this.drag.isDragging = false;
+      this.root.classList.remove('rp-widget--dragging');
+      this.root.style.cursor = 'grab';
+
+      if (wasDragged) {
+        // User actually dragged - snap to edge and save position
+        this.snapToEdge();
+        this.savePosition();
+      } else {
+        // User just tapped - toggle expanded state
+        this.handleTap();
       }
     }
 
     /**
-     * Save closed state to localStorage
+     * Handle tap (when user taps without dragging)
+     * Toggles expanded/collapsed state
      */
-    saveClosedState() {
+    handleTap() {
+      // Set flag to prevent click handlers from double-toggling
+      this.drag.tapHandledAt = Date.now();
+
+      this.state.isExpanded = !this.state.isExpanded;
+      this.saveExpandedState();
+
+      // Re-render based on current state
+      if (this.config.isAuthenticated) {
+        if (this.state.data) {
+          this.renderAuthenticated();
+        } else if (this.state.dataSource === 'unavailable') {
+          this.renderUnavailable();
+        } else if (this.state.dataSource === 'not_found') {
+          this.renderNotFound();
+        }
+      } else {
+        this.renderGuest();
+      }
+
+      // Re-apply saved position after re-render
+      this.reapplyPosition();
+    }
+
+    /**
+     * Check if a tap was recently handled by the drag system
+     * Used to prevent double-toggling from click events
+     */
+    wasTapRecentlyHandled() {
+      if (!this.drag.tapHandledAt) return false;
+      return (Date.now() - this.drag.tapHandledAt) < CONFIG.TAP_DEBOUNCE_MS;
+    }
+
+    /**
+     * Re-apply saved position after re-render
+     */
+    reapplyPosition() {
+      if (this.drag.currentX !== undefined && this.drag.currentY !== undefined) {
+        this.root.style.position = 'fixed';
+        this.root.style.left = this.drag.currentX + 'px';
+        this.root.style.top = this.drag.currentY + 'px';
+        this.root.style.right = 'auto';
+        this.root.style.bottom = 'auto';
+      }
+    }
+
+    /**
+     * Snap widget to nearest edge (left or right)
+     */
+    snapToEdge() {
+      const rect = this.root.getBoundingClientRect();
+      const windowWidth = window.innerWidth;
+      const centerX = rect.left + (rect.width / 2);
+
+      // Determine which edge is closer
+      const snapToRight = centerX > windowWidth / 2;
+
+      // Calculate final position
+      const edgePadding = 16; // Padding from edge
+      let finalLeft;
+
+      if (snapToRight) {
+        finalLeft = windowWidth - rect.width - edgePadding;
+      } else {
+        finalLeft = edgePadding;
+      }
+
+      // Keep vertical position but constrain to viewport
+      let finalTop = rect.top;
+      const maxTop = window.innerHeight - rect.height - edgePadding;
+      finalTop = Math.max(edgePadding, Math.min(finalTop, maxTop));
+
+      // Animate to final position
+      this.root.style.transition = 'left 0.3s ease, top 0.3s ease';
+      this.root.style.left = finalLeft + 'px';
+      this.root.style.top = finalTop + 'px';
+
+      // Store the snapped position
+      this.drag.currentX = finalLeft;
+      this.drag.currentY = finalTop;
+      this.drag.snappedToRight = snapToRight;
+
+      // Remove transition after animation
+      setTimeout(() => {
+        this.root.style.transition = '';
+      }, 300);
+    }
+
+    /**
+     * Load saved position from localStorage
+     */
+    loadPosition() {
       try {
-        localStorage.setItem('rp-widget-closed', String(this.state.isClosed));
+        const stored = localStorage.getItem('rp-widget-position');
+        if (!stored) return;
+
+        const { top, snappedToRight } = JSON.parse(stored);
+
+        // Apply saved position
+        const rect = this.root.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+        const edgePadding = 16;
+
+        let left;
+        if (snappedToRight) {
+          left = windowWidth - rect.width - edgePadding;
+        } else {
+          left = edgePadding;
+        }
+
+        // Constrain top to viewport
+        const maxTop = window.innerHeight - rect.height - edgePadding;
+        const constrainedTop = Math.max(edgePadding, Math.min(top, maxTop));
+
+        this.root.style.position = 'fixed';
+        this.root.style.left = left + 'px';
+        this.root.style.top = constrainedTop + 'px';
+        this.root.style.right = 'auto';
+        this.root.style.bottom = 'auto';
+
+        this.drag.currentX = left;
+        this.drag.currentY = constrainedTop;
+        this.drag.snappedToRight = snappedToRight;
+
+        log.debug('Loaded saved position', { top: constrainedTop, snappedToRight });
+      } catch (error) {
+        log.error('Error loading position:', error.message);
+      }
+    }
+
+    /**
+     * Save position to localStorage
+     */
+    savePosition() {
+      try {
+        const position = {
+          top: this.drag.currentY,
+          snappedToRight: this.drag.snappedToRight
+        };
+        localStorage.setItem('rp-widget-position', JSON.stringify(position));
+        log.debug('Saved position');
       } catch (error) {
         // Silently fail if localStorage is not available
       }
     }
 
-    /**
-     * Close the widget
-     */
-    closeWidget() {
-      this.state.isClosed = true;
-      this.saveClosedState();
-      this.renderMinimized();
-    }
-
-    /**
-     * Open the widget (from minimized state)
-     */
-    openWidget() {
-      this.state.isClosed = false;
-      this.saveClosedState();
-      // Re-initialize the widget
-      this.initialize();
-    }
-
-    /**
-     * Render minimized state - small floating button to re-open widget
-     */
-    renderMinimized() {
-      this.root.innerHTML = `
-        <div class="rp-minimized">
-          <button class="rp-minimized__button" aria-label="Open rewards widget" title="Open rewards">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-            </svg>
-          </button>
-        </div>
-      `;
-
-      // Attach click handler to re-open widget
-      const button = this.root.querySelector('.rp-minimized__button');
-      if (button) {
-        button.addEventListener('click', () => {
-          this.openWidget();
-        });
-      }
-    }
   }
 
   /**
@@ -1185,7 +1451,7 @@
   function initWidget() {
     const root = document.getElementById('membership-widget-root');
     if (root && !root.dataset.initialized) {
-      console.log('[RewardsWidget] Initializing widget');
+      log.info('Widget init');
       new MembershipWidget(root);
     }
   }

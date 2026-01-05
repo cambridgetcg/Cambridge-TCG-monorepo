@@ -5,286 +5,288 @@
  * Theme Support:
  * Uses CSS custom properties for dynamic theming.
  * These values are set dynamically from API response.
+ *
+ * Design System: COAGULATION
+ * Crystallized design tokens for harmonic consistency.
  */
 
-/* Default CSS Custom Properties (Light Theme) */
-.membership-widget {
-  --rp-primary-color: #5C6AC4;
-  --rp-background-color: #FFFFFF;
-  --rp-text-color: #212B36;
-  --rp-accent-color: #008060;
-  --rp-border-radius: 12px;
-  --rp-font-family: inherit;
-  --rp-text-secondary: rgba(0, 0, 0, 0.6);
-  --rp-border-color: rgba(0, 0, 0, 0.1);
-  --rp-progress-bg: #E1E3E5;
+/* ============================================
+   🔮 CRYSTALLIZED DESIGN TOKENS
+   The Philosopher's Stone of UI Consistency
+   Phase: COAGULATION
+   ============================================ */
+
+:root {
+  /* ──────────────────────────────────────────
+     SPACING SCALE (4px base)
+     Harmonic ratio: 4, 8, 12, 16, 24, 32
+     ────────────────────────────────────────── */
+  --rp-space-xs: 4px;
+  --rp-space-sm: 8px;
+  --rp-space-md: 12px;
+  --rp-space-lg: 16px;
+  --rp-space-xl: 24px;
+  --rp-space-2xl: 32px;
+
+  /* ──────────────────────────────────────────
+     TYPOGRAPHY SCALE (Minor third ratio)
+     ────────────────────────────────────────── */
+  --rp-font-xs: 11px;
+  --rp-font-sm: 12px;
+  --rp-font-md: 14px;
+  --rp-font-lg: 16px;
+  --rp-font-xl: 20px;
+  --rp-font-2xl: 24px;
+
+  /* ──────────────────────────────────────────
+     BORDER RADIUS SCALE
+     ────────────────────────────────────────── */
+  --rp-radius-sm: 4px;
+  --rp-radius-md: 8px;
+  --rp-radius-lg: 12px;
+  --rp-radius-full: 999px;
+
+  /* ──────────────────────────────────────────
+     SHADOW SCALE (Elevation)
+     ────────────────────────────────────────── */
+  --rp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --rp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --rp-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --rp-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* ──────────────────────────────────────────
+     TRANSITION SCALE
+     ────────────────────────────────────────── */
+  --rp-duration-fast: 150ms;
+  --rp-duration-normal: 200ms;
+  --rp-duration-slow: 300ms;
+  --rp-easing: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.membership-widget {
-  position: fixed;
-  z-index: 999999;
-  font-family: var(--rp-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
-  font-size: 14px;
-  line-height: 1.5;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-radius: var(--rp-border-radius, 12px);
-  background: var(--rp-background-color, #ffffff);
-  color: var(--rp-text-color, #1a1a1a);
-  max-width: 280px;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  border: 1px solid var(--rp-border-color, #e0e0e0);
-}
+/* ============================================
+   🔵 CRYSTALLIZED MOLECULES
+   The Unified Patterns of UI Harmony
+   ============================================ */
 
-/* Widget position */
-.membership-widget--bottom-right {
-  bottom: 20px;
-  right: 20px;
-}
+/* ──────────────────────────────────────────
+   BUTTON MOLECULES
+   ────────────────────────────────────────── */
 
-/* Collapsed state */
-.membership-widget--collapsed {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.membership-widget--collapsed .membership-widget__content {
-  display: none;
-}
-
-.membership-widget--collapsed .membership-widget__toggle {
-  display: none;
-}
-
-/* Widget Header */
-.membership-widget__header {
-  display: flex;
+/* Primary Button - Gradient, prominent actions */
+.rp-btn-primary {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--rp-primary-color, #1a1a1a);
+  justify-content: center;
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-md) var(--rp-space-xl);
+  background: linear-gradient(135deg, var(--rp-primary-color, #3b82f6) 0%, color-mix(in srgb, var(--rp-primary-color, #3b82f6) 85%, black) 100%);
   color: #ffffff;
+  border: none;
+  border-radius: var(--rp-radius-md);
+  font-size: var(--rp-font-md);
+  font-weight: 600;
   cursor: pointer;
-  user-select: none;
-  transition: background 0.2s ease;
+  transition: all var(--rp-duration-normal) var(--rp-easing);
+  box-shadow: var(--rp-shadow-md);
+  text-decoration: none;
 }
 
-.membership-widget__header:hover {
-  background: var(--rp-primary-color, #2a2a2a);
+.rp-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--rp-shadow-lg);
   filter: brightness(1.1);
 }
 
-.membership-widget__header:focus {
-  outline: 2px solid #666666;
-  outline-offset: -2px;
+.rp-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: var(--rp-shadow-sm);
 }
 
-.membership-widget__tier {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.membership-widget__tier-name {
-  text-transform: capitalize;
-}
-
-/* Toggle button */
-.membership-widget__toggle {
-  background: none;
-  border: none;
-  color: #ffffff;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
+/* Secondary Button - Solid, standard actions */
+.rp-btn-secondary {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease;
-  border-radius: 4px;
-}
-
-.membership-widget__toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.membership-widget__toggle:focus {
-  outline: 2px solid #666666;
-  outline-offset: 2px;
-}
-
-.membership-widget__toggle-icon {
-  transition: transform 0.3s ease;
-}
-
-.membership-widget__toggle-icon--expanded {
-  transform: rotate(180deg);
-}
-
-/* Widget Content */
-.membership-widget__content {
-  padding: 16px;
-  background: #ffffff;
-  animation: slideDown 0.3s ease;
-}
-
-/* Unauthenticated state */
-.membership-widget--unauthenticated .membership-widget__header {
-  cursor: default;
-  pointer-events: none;
-}
-
-.membership-widget--unauthenticated .membership-widget__content {
-  animation: none;
-}
-
-.membership-widget__message {
-  font-size: 13px;
-  line-height: 1.5;
-  color: #666666;
-  margin-bottom: 12px;
-}
-
-.membership-widget__cta {
-  display: inline-block;
-  width: 100%;
-  padding: 10px 16px;
-  background: #1a1a1a;
-  color: #ffffff;
-  text-align: center;
-  text-decoration: none;
-  border-radius: 6px;
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-sm) var(--rp-space-lg);
+  background: var(--rp-background-color, #ffffff);
+  color: var(--rp-text-color, #212B36);
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-sm);
   font-weight: 600;
-  font-size: 14px;
-  transition: background 0.2s ease;
+  cursor: pointer;
+  transition: all var(--rp-duration-fast) var(--rp-easing);
+  text-decoration: none;
 }
 
-.membership-widget__cta:hover {
-  background: #2a2a2a;
+.rp-btn-secondary:hover {
+  background: color-mix(in srgb, var(--rp-background-color, #ffffff) 95%, var(--rp-text-color, #212B36));
+  border-color: var(--rp-primary-color, #5C6AC4);
 }
 
-.membership-widget__cta:focus {
-  outline: 2px solid #666666;
-  outline-offset: 2px;
-}
+/* ──────────────────────────────────────────
+   CARD MOLECULES
+   ────────────────────────────────────────── */
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.membership-widget__balance {
+/* Stat Card - Label + Value pair */
+.rp-card-stat {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--rp-space-md);
+  background: var(--rp-background-color, #ffffff);
+  border-radius: var(--rp-radius-md);
 }
 
-.membership-widget__label {
-  font-size: 12px;
-  color: #666666;
+.rp-card-stat__label {
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
 }
 
-.membership-widget__amount {
-  font-size: 24px;
+.rp-card-stat__value {
+  font-size: var(--rp-font-xl);
   font-weight: 700;
-  color: #1a1a1a;
-  letter-spacing: -0.5px;
+  color: var(--rp-text-color, #212B36);
 }
 
-/* Mobile responsiveness - Always show widget */
-@media (max-width: 768px) {
-  .membership-widget {
-    max-width: calc(100vw - 40px);
-    font-size: 13px;
-    left: 20px;
-    right: 20px;
-    bottom: 20px;
-  }
-
-  .membership-widget__amount {
-    font-size: 20px;
-  }
-
-  .membership-widget__header {
-    padding: 10px 14px;
-  }
-
-  .membership-widget__content {
-    padding: 14px;
-  }
-
-  .membership-widget__tier {
-    font-size: 14px;
-  }
+.rp-card-stat__value--accent {
+  color: var(--rp-accent-color, #008060);
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .membership-widget {
-    background: #1a1a1a;
-    color: #ffffff;
-    border: 1px solid #333333;
-  }
+/* ──────────────────────────────────────────
+   HEADER MOLECULES
+   ────────────────────────────────────────── */
 
-  .membership-widget__header {
-    background: #0a0a0a;
-  }
-
-  .membership-widget__header:hover {
-    background: #1a1a1a;
-  }
-
-  .membership-widget__content {
-    background: #1a1a1a;
-  }
-
-  .membership-widget__amount {
-    color: #ffffff;
-  }
-
-  .membership-widget__message {
-    color: #cccccc;
-  }
-
-  .membership-widget__cta {
-    background: #ffffff;
-    color: #1a1a1a;
-  }
-
-  .membership-widget__cta:hover {
-    background: #eeeeee;
-  }
+/* Expandable Header */
+.rp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--rp-space-md) var(--rp-space-lg);
+  background: var(--rp-primary-color, #5C6AC4);
+  color: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: filter var(--rp-duration-fast) var(--rp-easing);
 }
 
-/* Accessibility: Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .membership-widget,
-  .membership-widget__toggle-icon,
-  .membership-widget__content {
-    transition: none;
-    animation: none;
-  }
+.rp-header:hover {
+  filter: brightness(1.1);
 }
 
-/* Print styles */
-@media print {
-  .membership-widget {
-    display: none;
-  }
+.rp-header__title {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-sm);
+  font-weight: 600;
+  font-size: var(--rp-font-lg);
 }
+
+.rp-header__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rp-space-xs);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--rp-radius-sm);
+  color: inherit;
+  cursor: pointer;
+  transition: background var(--rp-duration-fast);
+}
+
+.rp-header__toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ──────────────────────────────────────────
+   BADGE MOLECULES
+   ────────────────────────────────────────── */
+
+/* Pill Badge - Small status indicators */
+.rp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rp-space-xs);
+  padding: var(--rp-space-xs) var(--rp-space-sm);
+  background: var(--rp-background-color, #ffffff);
+  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: var(--rp-radius-full);
+  font-size: var(--rp-font-xs);
+  font-weight: 500;
+}
+
+.rp-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Tier Badge - Prominent tier indicator */
+.rp-badge-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rp-space-xs);
+  padding: var(--rp-space-xs) var(--rp-space-md);
+  background: var(--rp-accent-color, #008060);
+  color: #ffffff;
+  border-radius: var(--rp-radius-sm);
+  font-size: var(--rp-font-sm);
+  font-weight: 600;
+}
+
+/* ──────────────────────────────────────────
+   PROGRESS MOLECULES
+   ────────────────────────────────────────── */
+
+/* Progress Bar */
+.rp-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--rp-progress-bg, #E1E3E5);
+  border-radius: var(--rp-radius-full);
+  overflow: hidden;
+}
+
+.rp-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rp-accent-color, #008060) 0%, var(--rp-primary-color, #5C6AC4) 100%);
+  border-radius: var(--rp-radius-full);
+  transition: width var(--rp-duration-slow) var(--rp-easing);
+}
+
+.rp-progress__labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--rp-space-xs);
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+/* ──────────────────────────────────────────
+   UTILITY CLASSES
+   ────────────────────────────────────────── */
+
+.rp-text-muted {
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.rp-text-accent {
+  color: var(--rp-accent-color, #008060);
+}
+
+.rp-mt-xs { margin-top: var(--rp-space-xs); }
+.rp-mt-sm { margin-top: var(--rp-space-sm); }
+.rp-mt-md { margin-top: var(--rp-space-md); }
+.rp-mb-xs { margin-bottom: var(--rp-space-xs); }
+.rp-mb-sm { margin-bottom: var(--rp-space-sm); }
+.rp-mb-md { margin-bottom: var(--rp-space-md); }
 
 /* ========================================
-   Dynamic Widget Styles (New Implementation)
+   Dynamic Widget Styles (Active Implementation)
    ======================================== */
 
 /* Root container */
@@ -716,14 +718,7 @@
   animation: rp-spin 1s linear infinite;
 }
 
-@keyframes rp-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* NOTE: @keyframes rp-spin defined earlier in file (line ~378) */
 
 /* Refresh feedback message */
 .rp-widget__refresh-feedback {
@@ -1471,468 +1466,6 @@
   }
 }
 
-/* ============================================
-   LAYOUT PREVIEW STYLES
-   ============================================ */
-
-.rp-widget__layout-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.rp-layout-option {
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 16px;
-  background: #fafafa;
-}
-
-.rp-layout-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #666;
-  margin-bottom: 12px;
-  letter-spacing: 0.5px;
-  text-align: center;
-}
-
-/* ============================================
-   OPTION A: VERTICAL STACK WITH CIRCLE
-   ============================================ */
-
-.rp-layout-a {
-  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-  border-radius: 12px;
-  padding: 24px;
-  color: #ffffff;
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-layout-a::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.rp-layout-a__tier-section {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-a__tier-label {
-  font-size: 10px;
-  font-weight: 600;
-  opacity: 0.7;
-  letter-spacing: 1px;
-  margin-bottom: 4px;
-}
-
-.rp-layout-a__tier-name {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 4px;
-  letter-spacing: -0.5px;
-}
-
-.rp-layout-a__tier-rewards {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.rp-layout-a__progress-center {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 24px 0;
-  z-index: 1;
-}
-
-.rp-layout-a__progress-text {
-  position: absolute;
-  text-align: center;
-}
-
-.rp-layout-a__progress-percent {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.rp-layout-a__progress-label {
-  font-size: 11px;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.rp-layout-a__progress-stats {
-  font-size: 12px;
-  opacity: 0.9;
-  font-weight: 600;
-}
-
-.rp-layout-a__credit-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  padding: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-a__credit-label {
-  font-size: 11px;
-  opacity: 0.8;
-  margin-bottom: 8px;
-}
-
-.rp-layout-a__credit-amount {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -1px;
-}
-
-/* ============================================
-   OPTION B: HORIZONTAL BAR PROGRESS
-   ============================================ */
-
-.rp-layout-b {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  padding: 24px;
-  color: #ffffff;
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-layout-b::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="80" cy="20" r="30" fill="rgba(255,255,255,0.05)"/><circle cx="20" cy="80" r="25" fill="rgba(255,255,255,0.03)"/></svg>');
-  background-size: cover;
-  pointer-events: none;
-}
-
-.rp-layout-b__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-b__tier-badge {
-  flex: 1;
-}
-
-.rp-layout-b__tier-name {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  margin-bottom: 2px;
-}
-
-.rp-layout-b__tier-label {
-  font-size: 11px;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.rp-layout-b__cashback-badge {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  padding: 10px 16px;
-  text-align: center;
-}
-
-.rp-layout-b__cashback-value {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.rp-layout-b__cashback-label {
-  font-size: 10px;
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-}
-
-.rp-layout-b__balance-section {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-b__balance-label {
-  font-size: 11px;
-  opacity: 0.8;
-  margin-bottom: 8px;
-}
-
-.rp-layout-b__balance-amount {
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -1px;
-}
-
-.rp-layout-b__progress-section {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-b__progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.rp-layout-b__progress-title {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.rp-layout-b__progress-percent {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.rp-layout-b__progress-bar {
-  height: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 10px;
-  position: relative;
-}
-
-.rp-layout-b__progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
-  border-radius: 6px;
-  transition: width 0.5s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-layout-b__progress-shine {
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-  animation: shine 2s infinite;
-}
-
-@keyframes shine {
-  0% { left: -100%; }
-  100% { left: 100%; }
-}
-
-.rp-layout-b__progress-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  opacity: 0.9;
-}
-
-/* ============================================
-   OPTION C: COMPACT CARDS LAYOUT
-   ============================================ */
-
-.rp-layout-c {
-  background: var(--rp-background-color, #ffffff);
-  border-radius: var(--rp-border-radius, 12px);
-  padding: 20px;
-  margin: 16px;
-  color: var(--rp-text-color, #212B36);
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-layout-c::before {
-  content: '';
-  position: absolute;
-  top: -30%;
-  left: -30%;
-  width: 160%;
-  height: 160%;
-  background: radial-gradient(circle, var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-.rp-layout-c__top-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-c__tier-card,
-.rp-layout-c__cashback-card {
-  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
-  border-radius: 8px;
-  padding: 14px;
-  transition: all 0.3s ease;
-}
-
-.rp-layout-c__tier-card:hover,
-.rp-layout-c__cashback-card:hover {
-  background: var(--rp-card-hover-bg, rgba(0, 0, 0, 0.08));
-  border-color: var(--rp-border-color, rgba(0, 0, 0, 0.15));
-  transform: translateY(-2px);
-}
-
-.rp-layout-c__card-content {
-  width: 100%;
-}
-
-.rp-layout-c__card-label {
-  font-size: 10px;
-  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 2px;
-}
-
-.rp-layout-c__card-value {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-}
-
-.rp-layout-c__balance-card {
-  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-c__balance-label {
-  font-size: 11px;
-  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-
-.rp-layout-c__balance-amount {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -1px;
-}
-
-.rp-layout-c__progress-card {
-  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
-  border-radius: 10px;
-  padding: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-layout-c__progress-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
-  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
-}
-
-.rp-layout-c__progress-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.rp-layout-c__progress-track {
-  flex: 1;
-  height: 10px;
-  background: var(--rp-progress-bg, #E1E3E5);
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.rp-layout-c__progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-  border-radius: 5px;
-  transition: width 0.5s ease;
-}
-
-.rp-layout-c__progress-percent {
-  font-size: 16px;
-  font-weight: 700;
-  min-width: 45px;
-  text-align: right;
-}
-
-.rp-layout-c__progress-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
-}
-
-.rp-layout-c__progress-remaining {
-  color: var(--rp-primary-color, #5C6AC4);
-  font-weight: 600;
-}
-
-/* ============================================
-   END LAYOUT PREVIEW STYLES
-   ============================================ */
 
 /* ============================================
    AUTHENTICATED STATE - FRAME & HEADER
@@ -2061,232 +1594,6 @@
   font-size: 12px;
   color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
   margin: 0;
-}
-
-/* Remove margin/padding from inner layout since frame provides it */
-.rp-auth .rp-layout-c {
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
-}
-
-.rp-auth .rp-layout-c::before {
-  display: none;
-}
-
-/* ============================================
-   AUTHENTICATED STATE VARIATIONS
-   ============================================ */
-
-/* Variations Container */
-.rp-auth-variations {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 16px;
-  padding: 0 16px 16px;
-}
-
-.rp-auth-variation-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-  text-align: center;
-}
-
-/* ----------------------------------------
-   Variation A: Horizontal Stats Bar
-   ---------------------------------------- */
-.rp-auth-a {
-  background: var(--rp-background-color, #ffffff);
-  border-radius: var(--rp-border-radius, 12px);
-  padding: 16px;
-  color: var(--rp-text-color, #212B36);
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-auth-a::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.rp-auth-a__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-auth-a__tier-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.rp-auth-a__tier-badge svg {
-  width: 14px;
-  height: 14px;
-}
-
-.rp-auth-a__cashback {
-  font-size: 13px;
-  color: #4ade80;
-  font-weight: 600;
-}
-
-.rp-auth-a__stats {
-  display: flex;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-auth-a__stat {
-  flex: 1;
-  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
-  border-radius: 10px;
-  padding: 12px;
-  text-align: center;
-}
-
-.rp-auth-a__stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.rp-auth-a__stat-value--highlight {
-  color: #60a5fa;
-}
-
-.rp-auth-a__stat-label {
-  font-size: 10px;
-  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* ----------------------------------------
-   Variation B: Compact Single Row
-   ---------------------------------------- */
-.rp-auth-b {
-  background: var(--rp-background-color, #ffffff);
-  border-radius: var(--rp-border-radius, 12px);
-  padding: 16px;
-  color: var(--rp-text-color, #212B36);
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-auth-b::before {
-  content: '';
-  position: absolute;
-  bottom: -50%;
-  left: -20%;
-  width: 140%;
-  height: 140%;
-  background: radial-gradient(circle, var(--rp-primary-color-alpha, rgba(92, 106, 196, 0.08)) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-.rp-auth-b__row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-auth-b__avatar {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.rp-auth-b__avatar svg {
-  width: 24px;
-  height: 24px;
-  color: #ffffff;
-}
-
-.rp-auth-b__info {
-  flex: 1;
-  min-width: 0;
-}
-
-.rp-auth-b__tier {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-
-.rp-auth-b__progress-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rp-auth-b__progress-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--rp-progress-bg, rgba(255, 255, 255, 0.15));
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.rp-auth-b__progress-fill {
-  height: 100%;
-  background: var(--rp-primary-color, #4ade80);
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-.rp-auth-b__progress-text {
-  font-size: 11px;
-  color: var(--rp-text-secondary, rgba(255, 255, 255, 0.7));
-  white-space: nowrap;
-}
-
-.rp-auth-b__balance {
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.rp-auth-b__balance-amount {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--rp-accent-color, #4ade80);
-}
-
-.rp-auth-b__balance-label {
-  font-size: 10px;
-  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* ----------------------------------------
@@ -2430,113 +1737,12 @@
 }
 
 /* ============================================
-   GUEST/SIGN-IN VARIATIONS
+   GUEST/SIGN-IN STATE
+   Using Variation B: Minimal Modern Card
+   (Variations A & C removed - unused)
    ============================================ */
 
-/* Variation A: Gradient Card with Icon */
-.rp-guest-a {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
-  padding: 24px;
-  color: #ffffff;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-}
-
-.rp-guest-a::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-  pointer-events: none;
-}
-
-.rp-guest-a__icon {
-  width: 56px;
-  height: 56px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-a__icon svg {
-  width: 28px;
-  height: 28px;
-  color: #ffffff;
-}
-
-.rp-guest-a__title {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-a__subtitle {
-  font-size: 13px;
-  opacity: 0.9;
-  margin: 0 0 20px 0;
-  line-height: 1.5;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-a__benefits {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-a__benefit {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.rp-guest-a__benefit svg {
-  width: 14px;
-  height: 14px;
-  color: #4ade80;
-}
-
-.rp-guest-a__cta {
-  display: inline-block;
-  background: #ffffff;
-  color: #667eea;
-  padding: 14px 32px;
-  border-radius: 50px;
-  font-weight: 700;
-  font-size: 14px;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.rp-guest-a__cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-/* Variation B: Minimal Modern Card (matches logged-in state) */
+/* Guest State: Minimal Modern Card (matches logged-in state) */
 .rp-guest-b {
   background: var(--rp-background-color, #ffffff);
   border-radius: var(--rp-border-radius, 12px);
@@ -2718,143 +1924,6 @@
   transform: translateX(4px);
 }
 
-/* Variation C: Dark Premium Card */
-.rp-guest-c {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border-radius: 16px;
-  padding: 24px;
-  color: #ffffff;
-  position: relative;
-  overflow: hidden;
-}
-
-.rp-guest-c::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 150px;
-  height: 150px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.rp-guest-c__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #60a5fa;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-c__badge svg {
-  width: 14px;
-  height: 14px;
-}
-
-.rp-guest-c__title {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-c__subtitle {
-  font-size: 13px;
-  color: #94a3b8;
-  margin: 0 0 20px 0;
-  line-height: 1.5;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-c__stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.rp-guest-c__stat {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 12px;
-  text-align: center;
-}
-
-.rp-guest-c__stat-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 2px;
-}
-
-.rp-guest-c__stat-label {
-  font-size: 10px;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.rp-guest-c__cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: #ffffff;
-  padding: 14px 24px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-}
-
-.rp-guest-c__cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-}
-
-.rp-guest-c__cta svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Guest Variations Container */
-.rp-guest-variations {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.rp-guest-variation-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-  text-align: center;
-}
-
 /* ============================================
    UNAVAILABLE STATE STYLES
    Shows when API fails and no cache exists
@@ -2911,9 +1980,7 @@
   .rp-widget__toggle svg,
   .rp-widget__body,
   .rp-widget__spinner,
-  .rp-guest-a__cta,
   .rp-guest-b__cta,
-  .rp-guest-c__cta,
   .rp-unavailable__retry {
     transition: none !important;
     animation: none !important;
@@ -2942,131 +2009,6 @@
   margin-left: auto;
 }
 
-/* Close button base styles */
-.rp-auth__close,
-.rp-guest-b__close,
-.rp-widget__close {
-  background: none;
-  border: none;
-  color: var(--rp-text-color, #212B36);
-  opacity: 0.6;
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.rp-auth__close:hover,
-.rp-guest-b__close:hover,
-.rp-widget__close:hover {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.1);
-}
-
-.rp-theme-dark .rp-auth__close:hover,
-.rp-theme-dark .rp-guest-b__close:hover,
-.rp-theme-dark .rp-widget__close:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.rp-auth__close:focus,
-.rp-guest-b__close:focus,
-.rp-widget__close:focus {
-  outline: 2px solid var(--rp-primary-color, #5C6AC4);
-  outline-offset: 2px;
-  opacity: 1;
-}
-
-.rp-auth__close svg,
-.rp-guest-b__close svg,
-.rp-widget__close svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.5;
-}
-
-/* ============================================
-   MINIMIZED STATE STYLES
-   Small floating button to re-open widget
-   ============================================ */
-
-.rp-minimized {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 999999;
-}
-
-.rp-minimized__button {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--rp-primary-color, #5C6AC4) 0%, #4c5ab8 100%);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(92, 106, 196, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  color: #ffffff;
-}
-
-.rp-minimized__button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(92, 106, 196, 0.5), 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.rp-minimized__button:active {
-  transform: scale(1.05);
-}
-
-.rp-minimized__button:focus {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
-}
-
-.rp-minimized__button svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
-  stroke: currentColor;
-}
-
-/* Pulse animation to attract attention */
-.rp-minimized__button::before {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: inherit;
-  animation: rp-pulse 2s ease-out infinite;
-  z-index: -1;
-}
-
-@keyframes rp-pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1.5);
-    opacity: 0;
-  }
-}
-
-/* Reduced motion - disable pulse */
-@media (prefers-reduced-motion: reduce) {
-  .rp-minimized__button::before {
-    animation: none;
-  }
-}
-
 /* ============================================
    NOT FOUND STATE HEADER STYLES
    ============================================ */
@@ -3085,22 +2027,44 @@
   color: var(--rp-text-color, #212B36);
 }
 
-/* Mobile responsiveness for minimized button */
-@media (max-width: 480px) {
-  .rp-minimized {
-    bottom: 16px;
-    right: 16px;
-  }
+/* ============================================
+   DRAG FUNCTIONALITY STYLES
+   ============================================ */
 
-  .rp-minimized__button {
-    width: 44px;
-    height: 44px;
-  }
+/* Draggable header cursor */
+.rp-auth__header,
+.rp-guest-b__header,
+.rp-widget__not-found-header {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
 
-  .rp-minimized__button svg {
-    width: 20px;
-    height: 20px;
-  }
+.rp-auth__header:active,
+.rp-guest-b__header:active,
+.rp-widget__not-found-header:active {
+  cursor: grabbing;
+}
+
+/* Visual feedback while dragging */
+.rp-widget--dragging {
+  opacity: 0.95;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  transform: scale(1.02);
+  z-index: 1000001 !important;
+}
+
+/* Smooth transitions for snap animation */
+.rp-widget-root {
+  will-change: left, top;
+}
+
+/* Ensure buttons remain clickable during drag */
+.rp-auth__toggle,
+.rp-guest-b__toggle,
+.rp-auth__actions button,
+.rp-guest-b__actions button {
+  cursor: pointer !important;
 }
 
 /* ============================================
@@ -3122,6 +2086,7 @@
   /* ==========================================
      MOBILE COLLAPSED STATE - ICON ONLY
      Compact rectangular button with just the icon
+     Uses theme color scheme from CSS variables
      ========================================== */
 
   .rp-auth--collapsed {
@@ -3131,7 +2096,7 @@
     min-width: 44px;
     min-height: 44px;
     padding: 0 !important;
-    border-radius: 8px !important;
+    border-radius: var(--rp-border-radius, 8px) !important;
 
     /* Position in corner */
     position: fixed;
@@ -3139,11 +2104,14 @@
     bottom: 16px;
     left: auto !important;
 
-    /* Gradient background */
-    background: linear-gradient(135deg, var(--rp-primary-color, #5C6AC4) 0%, #4c5ab8 100%) !important;
+    /* Theme-aware background */
+    background: var(--rp-background-color, #FFFFFF) !important;
 
-    /* Shadow for depth */
-    box-shadow: 0 4px 12px rgba(92, 106, 196, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    /* Theme-aware border */
+    border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1)) !important;
+
+    /* Theme-aware shadow */
+    box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)) !important;
 
     /* Smooth transition */
     transition: all 0.3s ease;
@@ -3151,7 +2119,7 @@
 
   .rp-auth--collapsed:hover {
     transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(92, 106, 196, 0.5), 0 3px 6px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08);
   }
 
   .rp-auth--collapsed:active {
@@ -3180,7 +2148,7 @@
     height: 100%;
     background: transparent !important;
     border: none !important;
-    border-radius: 8px;
+    border-radius: var(--rp-border-radius, 8px);
     margin: 0;
     padding: 10px;
     display: flex;
@@ -3191,7 +2159,7 @@
   .rp-auth--collapsed .rp-auth__icon svg {
     width: 24px;
     height: 24px;
-    color: #ffffff;
+    color: var(--rp-primary-color, #5C6AC4);
   }
 
   /* Hide the radial gradient overlay in collapsed */
@@ -3206,19 +2174,20 @@
     min-width: 44px;
     min-height: 44px;
     padding: 0 !important;
-    border-radius: 8px !important;
+    border-radius: var(--rp-border-radius, 8px) !important;
     position: fixed;
     right: 16px;
     bottom: 16px;
     left: auto !important;
-    background: linear-gradient(135deg, var(--rp-primary-color, #5C6AC4) 0%, #4c5ab8 100%) !important;
-    box-shadow: 0 4px 12px rgba(92, 106, 196, 0.4), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    background: var(--rp-background-color, #FFFFFF) !important;
+    border: 1px solid var(--rp-frame-border, rgba(0, 0, 0, 0.1)) !important;
+    box-shadow: var(--rp-frame-shadow, 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)) !important;
     transition: all 0.3s ease;
   }
 
   .rp-guest-b--collapsed:hover {
     transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(92, 106, 196, 0.5), 0 3px 6px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.08);
   }
 
   .rp-guest-b--collapsed:active {
@@ -3244,7 +2213,7 @@
     height: 100%;
     background: transparent !important;
     border: none !important;
-    border-radius: 8px;
+    border-radius: var(--rp-border-radius, 8px);
     margin: 0;
     padding: 10px;
     display: flex;
@@ -3255,7 +2224,7 @@
   .rp-guest-b--collapsed .rp-guest-b__icon svg {
     width: 24px;
     height: 24px;
-    color: #ffffff;
+    color: var(--rp-primary-color, #5C6AC4);
   }
 
   .rp-guest-b--collapsed::before {
