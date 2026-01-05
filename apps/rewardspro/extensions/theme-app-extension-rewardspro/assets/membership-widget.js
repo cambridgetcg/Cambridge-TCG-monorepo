@@ -20,8 +20,6 @@
     API_MAX_RETRIES: 3,           // Max retry attempts for failed requests
     API_RETRY_BASE_MS: 1000,      // Base delay for exponential backoff (1s)
     API_RETRY_MAX_MS: 10000,      // Max retry delay (10s)
-    TAP_DEBOUNCE_MS: 300,         // Debounce for tap/click detection
-    DRAG_THRESHOLD_PX: 10,        // Min pixels moved to count as drag
     DEFAULT_CACHE_DURATION_S: 120, // Default cache TTL (2 minutes)
     CACHE_VERSION: 1              // Cache schema version for invalidation
   };
@@ -110,30 +108,11 @@
         dataSource: null // 'fresh', 'cache', 'fallback'
       };
 
-      // Drag state
-      this.drag = {
-        isDragging: false,
-        hasMoved: false, // Track if user actually dragged vs just tapped
-        startX: 0,
-        startY: 0,
-        currentX: 0,
-        currentY: 0,
-        initialLeft: 0,
-        initialTop: 0,
-        dragThreshold: CONFIG.DRAG_THRESHOLD_PX
-      };
-
       // Prevent double initialization
       if (this.root.dataset.initialized === 'true') {
         return;
       }
       this.root.dataset.initialized = 'true';
-
-      // Load saved position and apply it
-      this.loadPosition();
-
-      // Initialize drag functionality
-      this.initDrag();
 
       // Initialize based on authentication state
       this.initialize();
@@ -564,13 +543,9 @@
         e.preventDefault();
         e.stopPropagation();
 
-        // Skip if tap was just handled by drag system (prevents double-toggle)
-        if (this.wasTapRecentlyHandled()) return;
-
         this.state.isExpanded = !this.state.isExpanded;
         this.saveExpandedState();
         this.renderUnavailable();
-        this.reapplyPosition();
       };
 
       if (header) {
@@ -679,13 +654,9 @@
         e.preventDefault();
         e.stopPropagation();
 
-        // Skip if tap was just handled by drag system (prevents double-toggle)
-        if (this.wasTapRecentlyHandled()) return;
-
         this.state.isExpanded = !this.state.isExpanded;
         this.saveExpandedState();
         this.renderGuest();
-        this.reapplyPosition();
       };
 
       if (header) {
@@ -884,13 +855,9 @@
         e.preventDefault();
         e.stopPropagation();
 
-        // Skip if tap was just handled by drag system (prevents double-toggle)
-        if (this.wasTapRecentlyHandled()) return;
-
         this.state.isExpanded = !this.state.isExpanded;
         this.saveExpandedState();
         this.renderAuthenticated();
-        this.reapplyPosition();
       };
 
       if (header) {
@@ -1156,288 +1123,6 @@
     saveExpandedState() {
       try {
         localStorage.setItem('rp-widget-expanded', String(this.state.isExpanded));
-      } catch (error) {
-        // Silently fail if localStorage is not available
-      }
-    }
-
-    // ============================================
-    // DRAG FUNCTIONALITY
-    // ============================================
-
-    /**
-     * Initialize drag functionality
-     */
-    initDrag() {
-      // Bind event handlers to preserve 'this' context
-      this.handleDragStart = this.handleDragStart.bind(this);
-      this.handleDragMove = this.handleDragMove.bind(this);
-      this.handleDragEnd = this.handleDragEnd.bind(this);
-
-      // Mouse events
-      this.root.addEventListener('mousedown', this.handleDragStart);
-      document.addEventListener('mousemove', this.handleDragMove);
-      document.addEventListener('mouseup', this.handleDragEnd);
-
-      // Touch events
-      this.root.addEventListener('touchstart', this.handleDragStart, { passive: false });
-      document.addEventListener('touchmove', this.handleDragMove, { passive: false });
-      document.addEventListener('touchend', this.handleDragEnd);
-
-      // Add draggable cursor style
-      this.root.style.cursor = 'grab';
-    }
-
-    /**
-     * Handle drag start (mousedown/touchstart)
-     */
-    handleDragStart(e) {
-      // Don't start drag on buttons, links, or interactive elements
-      const target = e.target;
-      if (target.closest('button, a, input, [data-retry]')) {
-        return;
-      }
-
-      // Only allow drag from header area or icon (for collapsed mobile)
-      const header = target.closest('.rp-auth__header, .rp-guest-b__header, .rp-widget__not-found-header, .rp-auth__icon, .rp-guest-b__icon');
-      if (!header) {
-        return;
-      }
-
-      const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-      const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-
-      const rect = this.root.getBoundingClientRect();
-
-      this.drag.isDragging = true;
-      this.drag.hasMoved = false; // Reset - will be set true if user actually drags
-      this.drag.startX = clientX;
-      this.drag.startY = clientY;
-      this.drag.initialLeft = rect.left;
-      this.drag.initialTop = rect.top;
-
-      // Don't apply dragging styles immediately - wait until actual movement
-      // This allows taps to feel responsive
-
-      // Switch to fixed positioning during drag
-      this.root.style.position = 'fixed';
-      this.root.style.left = rect.left + 'px';
-      this.root.style.top = rect.top + 'px';
-      this.root.style.right = 'auto';
-      this.root.style.bottom = 'auto';
-    }
-
-    /**
-     * Handle drag move (mousemove/touchmove)
-     */
-    handleDragMove(e) {
-      if (!this.drag.isDragging) return;
-
-      const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-      const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-      const deltaX = clientX - this.drag.startX;
-      const deltaY = clientY - this.drag.startY;
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-      // Check if movement exceeds threshold (distinguishes drag from tap)
-      if (!this.drag.hasMoved && distance > this.drag.dragThreshold) {
-        this.drag.hasMoved = true;
-        // Now apply dragging styles since user is actually dragging
-        this.root.classList.add('rp-widget--dragging');
-        this.root.style.cursor = 'grabbing';
-      }
-
-      // Only move if user has exceeded the drag threshold
-      if (!this.drag.hasMoved) return;
-
-      e.preventDefault();
-
-      let newLeft = this.drag.initialLeft + deltaX;
-      let newTop = this.drag.initialTop + deltaY;
-
-      // Constrain to viewport
-      const rect = this.root.getBoundingClientRect();
-      const maxLeft = window.innerWidth - rect.width;
-      const maxTop = window.innerHeight - rect.height;
-
-      newLeft = Math.max(0, Math.min(newLeft, maxLeft));
-      newTop = Math.max(0, Math.min(newTop, maxTop));
-
-      this.drag.currentX = newLeft;
-      this.drag.currentY = newTop;
-
-      this.root.style.left = newLeft + 'px';
-      this.root.style.top = newTop + 'px';
-    }
-
-    /**
-     * Handle drag end (mouseup/touchend)
-     */
-    handleDragEnd(e) {
-      if (!this.drag.isDragging) return;
-
-      const wasDragged = this.drag.hasMoved;
-
-      this.drag.isDragging = false;
-      this.root.classList.remove('rp-widget--dragging');
-      this.root.style.cursor = 'grab';
-
-      if (wasDragged) {
-        // User actually dragged - snap to edge and save position
-        this.snapToEdge();
-        this.savePosition();
-      } else {
-        // User just tapped - toggle expanded state
-        this.handleTap();
-      }
-    }
-
-    /**
-     * Handle tap (when user taps without dragging)
-     * Toggles expanded/collapsed state
-     */
-    handleTap() {
-      // Set flag to prevent click handlers from double-toggling
-      this.drag.tapHandledAt = Date.now();
-
-      this.state.isExpanded = !this.state.isExpanded;
-      this.saveExpandedState();
-
-      // Re-render based on current state
-      if (this.config.isAuthenticated) {
-        if (this.state.data) {
-          this.renderAuthenticated();
-        } else if (this.state.dataSource === 'unavailable') {
-          this.renderUnavailable();
-        } else if (this.state.dataSource === 'not_found') {
-          this.renderNotFound();
-        }
-      } else {
-        this.renderGuest();
-      }
-
-      // Re-apply saved position after re-render
-      this.reapplyPosition();
-    }
-
-    /**
-     * Check if a tap was recently handled by the drag system
-     * Used to prevent double-toggling from click events
-     */
-    wasTapRecentlyHandled() {
-      if (!this.drag.tapHandledAt) return false;
-      return (Date.now() - this.drag.tapHandledAt) < CONFIG.TAP_DEBOUNCE_MS;
-    }
-
-    /**
-     * Re-apply saved position after re-render
-     */
-    reapplyPosition() {
-      if (this.drag.currentX !== undefined && this.drag.currentY !== undefined) {
-        this.root.style.position = 'fixed';
-        this.root.style.left = this.drag.currentX + 'px';
-        this.root.style.top = this.drag.currentY + 'px';
-        this.root.style.right = 'auto';
-        this.root.style.bottom = 'auto';
-      }
-    }
-
-    /**
-     * Snap widget to nearest edge (left or right)
-     */
-    snapToEdge() {
-      const rect = this.root.getBoundingClientRect();
-      const windowWidth = window.innerWidth;
-      const centerX = rect.left + (rect.width / 2);
-
-      // Determine which edge is closer
-      const snapToRight = centerX > windowWidth / 2;
-
-      // Calculate final position
-      const edgePadding = 16; // Padding from edge
-      let finalLeft;
-
-      if (snapToRight) {
-        finalLeft = windowWidth - rect.width - edgePadding;
-      } else {
-        finalLeft = edgePadding;
-      }
-
-      // Keep vertical position but constrain to viewport
-      let finalTop = rect.top;
-      const maxTop = window.innerHeight - rect.height - edgePadding;
-      finalTop = Math.max(edgePadding, Math.min(finalTop, maxTop));
-
-      // Animate to final position
-      this.root.style.transition = 'left 0.3s ease, top 0.3s ease';
-      this.root.style.left = finalLeft + 'px';
-      this.root.style.top = finalTop + 'px';
-
-      // Store the snapped position
-      this.drag.currentX = finalLeft;
-      this.drag.currentY = finalTop;
-      this.drag.snappedToRight = snapToRight;
-
-      // Remove transition after animation
-      setTimeout(() => {
-        this.root.style.transition = '';
-      }, 300);
-    }
-
-    /**
-     * Load saved position from localStorage
-     */
-    loadPosition() {
-      try {
-        const stored = localStorage.getItem('rp-widget-position');
-        if (!stored) return;
-
-        const { top, snappedToRight } = JSON.parse(stored);
-
-        // Apply saved position
-        const rect = this.root.getBoundingClientRect();
-        const windowWidth = window.innerWidth;
-        const edgePadding = 16;
-
-        let left;
-        if (snappedToRight) {
-          left = windowWidth - rect.width - edgePadding;
-        } else {
-          left = edgePadding;
-        }
-
-        // Constrain top to viewport
-        const maxTop = window.innerHeight - rect.height - edgePadding;
-        const constrainedTop = Math.max(edgePadding, Math.min(top, maxTop));
-
-        this.root.style.position = 'fixed';
-        this.root.style.left = left + 'px';
-        this.root.style.top = constrainedTop + 'px';
-        this.root.style.right = 'auto';
-        this.root.style.bottom = 'auto';
-
-        this.drag.currentX = left;
-        this.drag.currentY = constrainedTop;
-        this.drag.snappedToRight = snappedToRight;
-
-        log.debug('Loaded saved position', { top: constrainedTop, snappedToRight });
-      } catch (error) {
-        log.error('Error loading position:', error.message);
-      }
-    }
-
-    /**
-     * Save position to localStorage
-     */
-    savePosition() {
-      try {
-        const position = {
-          top: this.drag.currentY,
-          snappedToRight: this.drag.snappedToRight
-        };
-        localStorage.setItem('rp-widget-position', JSON.stringify(position));
-        log.debug('Saved position');
       } catch (error) {
         // Silently fail if localStorage is not available
       }

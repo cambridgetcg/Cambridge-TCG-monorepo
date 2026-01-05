@@ -2028,46 +2028,6 @@
 }
 
 /* ============================================
-   DRAG FUNCTIONALITY STYLES
-   ============================================ */
-
-/* Draggable header cursor */
-.rp-auth__header,
-.rp-guest-b__header,
-.rp-widget__not-found-header {
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.rp-auth__header:active,
-.rp-guest-b__header:active,
-.rp-widget__not-found-header:active {
-  cursor: grabbing;
-}
-
-/* Visual feedback while dragging */
-.rp-widget--dragging {
-  opacity: 0.95;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-  transform: scale(1.02);
-  z-index: 1000001 !important;
-}
-
-/* Smooth transitions for snap animation */
-.rp-widget-root {
-  will-change: left, top;
-}
-
-/* Ensure buttons remain clickable during drag */
-.rp-auth__toggle,
-.rp-guest-b__toggle,
-.rp-auth__actions button,
-.rp-guest-b__actions button {
-  cursor: pointer !important;
-}
-
-/* ============================================
    RESPONSIVE LAYOUTS
    Mobile: Simplified (balance + tier only)
    Tablet: Compact (balance + key stats)
