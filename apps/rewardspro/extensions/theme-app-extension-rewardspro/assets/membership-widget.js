@@ -746,6 +746,7 @@
       let nextTierName = '';
       let isMaxTier = false;
       let progressStats = '';
+      let amountRemaining = 0;
 
       try {
         if (tierProgress) {
@@ -754,6 +755,7 @@
           const nextTierTarget = tierProgress.nextTierTarget || 0;
           nextTierName = tierProgress.nextTierName || '';
           isMaxTier = tierProgress.isMaxTier || false;
+          amountRemaining = tierProgress.amountRemaining || 0;
 
           // Format progress stats for display
           const currentSpendingFormatted = this.formatCurrency(currentSpending);
