@@ -28,6 +28,7 @@ import {
   generateBillingIdempotencyKey,
 } from "../services/subscription/subscription-deduplication.server";
 import { SUBSCRIPTION_NEURAL_CONFIG, calculateNextBillingDate } from "../services/subscription/subscription-neural-config.server";
+import { markTierTrialConverted } from "../services/subscription/tier-trial-eligibility.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { topic, shop, payload } = await authenticate.webhook(request);
@@ -224,6 +225,39 @@ async function handleSuccessfulBilling(
       triggeredBy: "subscription_billing_success",
       subscriptionId: subscription.id,
     });
+  }
+
+  // ============================================
+  // TRIAL CONVERSION TRACKING
+  // ============================================
+  // If this subscription had a trial period and we just successfully billed,
+  // mark the trial as converted (customer became paying)
+  if (subscription.trialEndsAt && subscription.tierId) {
+    const trialEndDate = new Date(subscription.trialEndsAt);
+    const billingDate = new Date(billingAttempt.billing_date);
+
+    // If billing date is at or after trial end date, this is a conversion
+    if (billingDate >= trialEndDate) {
+      try {
+        await markTierTrialConverted(
+          shop,
+          subscription.customerId,
+          subscription.tierId,
+          subscription.id
+        );
+        subscriptionLogger.info("Trial converted to paid subscription", {
+          subscriptionId: subscription.id,
+          customerId: subscription.customerId,
+          tierId: subscription.tierId,
+        });
+      } catch (conversionError) {
+        // Don't fail billing success for conversion tracking failure
+        subscriptionLogger.warn("Failed to mark trial as converted", {
+          error: conversionError,
+          subscriptionId: subscription.id,
+        });
+      }
+    }
   }
 
   subscriptionLogger.info(

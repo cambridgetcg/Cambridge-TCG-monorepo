@@ -12,6 +12,12 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { updateCustomerToEffectiveTier } from "../tier-resolution.server";
+import {
+  checkTierTrialEligibility,
+  markTierTrialUsed,
+  logTierTrialAttempt,
+  TIER_TRIAL_CONFIG,
+} from "../subscription/tier-trial-eligibility.server";
 import type {
   Customer,
   TierProduct,
@@ -19,6 +25,21 @@ import type {
   BillingInterval,
   SubscriptionStatus,
 } from "@prisma/client";
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Get the currency for a shop from shop settings
+ * Falls back to USD if not configured
+ */
+async function getShopCurrency(shop: string): Promise<string> {
+  const settings = await db.shopSettings.findFirst({
+    where: { shop },
+  });
+  return settings?.storeCurrency ?? 'USD';
+}
 
 // ============================================
 // TYPE DEFINITIONS
@@ -32,6 +53,10 @@ interface CreateContractInput {
   billingInterval: BillingInterval;
   paymentMethodId?: string;
   startDate?: Date;
+  // Trial abuse prevention fields
+  includesTrial?: boolean;
+  trialDays?: number;
+  requestSource?: string;
 }
 
 interface ContractResult {
@@ -120,6 +145,76 @@ export class SubscriptionContractHandler {
         console.log(`[ContractHandler] Previous subscription ${existingActiveSubscription.id} cancelled`);
       }
 
+      // ============================================
+      // TRIAL ABUSE PREVENTION CHECK
+      // ============================================
+      // If this subscription includes a trial, verify customer eligibility
+      // This prevents customers from abusing trials by repeatedly cancelling and resubscribing
+
+      let trialEligibilityResult: Awaited<ReturnType<typeof checkTierTrialEligibility>> | null = null;
+      let tierName = 'Unknown Tier';
+
+      // Get tier name for audit logging
+      const tier = await db.tier.findFirst({
+        where: { id: input.tierProduct.tierId },
+      });
+      if (tier) {
+        tierName = tier.name;
+      }
+
+      if (input.includesTrial) {
+        const trialDays = input.trialDays || TIER_TRIAL_CONFIG.defaultTrialDays;
+
+        console.log(`[ContractHandler] Checking trial eligibility for customer ${input.customer.id}, tier ${input.tierProduct.tierId}`);
+
+        trialEligibilityResult = await checkTierTrialEligibility(
+          input.shop,
+          input.customer.id,
+          input.tierProduct.tierId,
+          trialDays
+        );
+
+        // Log the trial attempt (whether granted or blocked)
+        await logTierTrialAttempt({
+          shop: input.shop,
+          customerId: input.customer.id,
+          tierId: input.tierProduct.tierId,
+          tierName,
+          wasBlocked: !trialEligibilityResult.eligible,
+          blockReason: trialEligibilityResult.reason,
+          trialDaysRequested: trialDays,
+          trialDaysGranted: trialEligibilityResult.eligible ? trialEligibilityResult.trialDaysAvailable : 0,
+          previousTierId: trialEligibilityResult.customerTrialStats.hasUsedTierTrial
+            ? trialEligibilityResult.previousTrials[trialEligibilityResult.previousTrials.length - 1]?.tierId
+            : undefined,
+          previousTierName: trialEligibilityResult.customerTrialStats.hasUsedTierTrial
+            ? trialEligibilityResult.previousTrials[trialEligibilityResult.previousTrials.length - 1]?.tierName
+            : undefined,
+          requestSource: input.requestSource || 'subscription_creation',
+          metadata: {
+            billingInterval: input.billingInterval,
+            sellingPlanId: input.sellingPlanId,
+            tierProductId: input.tierProduct.id,
+          },
+        });
+
+        // If not eligible, block the subscription creation
+        if (!trialEligibilityResult.eligible) {
+          console.warn(
+            `[ContractHandler] Trial blocked for customer ${input.customer.id}: ${trialEligibilityResult.reason}`
+          );
+
+          return {
+            success: false,
+            error: `Trial not available: ${trialEligibilityResult.reasonMessage || trialEligibilityResult.reason}`,
+          };
+        }
+
+        console.log(
+          `[ContractHandler] Trial approved for customer ${input.customer.id}: ${trialEligibilityResult.trialDaysAvailable} days`
+        );
+      }
+
       // Get selling plan details
       const sellingPlan = await db.sellingPlan.findFirst({
         where: { shopifyPlanId: input.sellingPlanId },
@@ -143,6 +238,7 @@ export class SubscriptionContractHandler {
 
       // Create subscription draft in Shopify
       const draftResult = await this.createSubscriptionDraft(admin, {
+        shop: input.shop,
         customerId: `gid://shopify/Customer/${input.customer.shopifyCustomerId}`,
         productVariantId: input.tierProduct.shopifyVariantId,
         sellingPlanId: input.sellingPlanId,
@@ -162,6 +258,16 @@ export class SubscriptionContractHandler {
       // Commit the draft to activate it
       const contractId = await this.commitDraft(admin, draftResult.draftId);
 
+      // Calculate trial end date if applicable
+      const subscriptionStartDate = input.startDate || new Date();
+      let trialEndsAt: Date | undefined;
+
+      if (input.includesTrial && trialEligibilityResult?.eligible) {
+        const trialDays = trialEligibilityResult.trialDaysAvailable;
+        trialEndsAt = new Date(subscriptionStartDate);
+        trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+      }
+
       // Create subscription record in database
       const subscription = await db.tierSubscription.create({
         data: {
@@ -173,13 +279,15 @@ export class SubscriptionContractHandler {
           sellingPlanId: input.sellingPlanId,
           status: "ACTIVE",
           billingInterval: input.billingInterval,
-          startDate: input.startDate || new Date(),
+          startDate: subscriptionStartDate,
           nextBillingDate: this.calculateNextBillingDate(
-            input.startDate || new Date(),
+            subscriptionStartDate,
             input.billingInterval,
             sellingPlan.intervalCount
           ),
           currentPrice: discountedPrice,
+          // Set trial end date if this subscription includes a trial
+          trialEndsAt,
           metadata: {
             tierProductId: input.tierProduct.id,
             productTitle: `Tier ${input.tierProduct.tierId} Membership`,
@@ -187,6 +295,14 @@ export class SubscriptionContractHandler {
             basePrice,
             discountType: sellingPlan.discountType,
             discountValue: sellingPlan.discountValue,
+            // Include trial info in metadata for audit purposes
+            ...(trialEndsAt && {
+              trialInfo: {
+                trialDays: trialEligibilityResult?.trialDaysAvailable,
+                trialStartDate: subscriptionStartDate.toISOString(),
+                trialEndDate: trialEndsAt.toISOString(),
+              },
+            }),
           },
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -199,6 +315,27 @@ export class SubscriptionContractHandler {
         triggeredBy: 'subscription_contract_created',
         subscriptionId: subscription.id
       });
+
+      // ============================================
+      // MARK TRIAL AS USED (if applicable)
+      // ============================================
+      // This must happen AFTER successful subscription creation
+      // to prevent marking trial used for failed subscription attempts
+      if (input.includesTrial && trialEligibilityResult?.eligible) {
+        await markTierTrialUsed({
+          shop: input.shop,
+          customerId: input.customer.id,
+          tierId: input.tierProduct.tierId,
+          tierName,
+          trialDays: trialEligibilityResult.trialDaysAvailable,
+          subscriptionId: subscription.id,
+          requestSource: input.requestSource || 'subscription_creation',
+        });
+
+        console.log(
+          `[ContractHandler] Trial marked as used for customer ${input.customer.id}: ${trialEligibilityResult.trialDaysAvailable} days`
+        );
+      }
 
       console.log(`[ContractHandler] Successfully created contract ${contractId}`);
 
@@ -227,9 +364,8 @@ export class SubscriptionContractHandler {
       console.log(`[ContractHandler] Processing billing for subscription ${subscriptionId}`);
 
       // Get subscription details
-      const subscription = await db.tierSubscription.findUnique({
+      const subscription = await db.tierSubscription.findFirst({
         where: { id: subscriptionId },
-        include: { customer: true },
       });
 
       if (!subscription) {
@@ -298,6 +434,7 @@ export class SubscriptionContractHandler {
 
       // Record successful billing
       const idempotencyKey = `${subscriptionId}-${new Date().toISOString()}`;
+      const shopCurrency = await getShopCurrency(subscription.shop);
       await db.subscriptionBillingAttempt.create({
         data: {
           id: uuidv4(),
@@ -305,7 +442,7 @@ export class SubscriptionContractHandler {
           idempotencyKey,
           status: "SUCCESS",
           amount: subscription.currentPrice,
-          currency: "USD", // TODO: Get from shop settings
+          currency: shopCurrency,
           billingDate: new Date(),
           shopifyChargeId: billingAttempt.id,
           attemptNumber: 1,
@@ -584,6 +721,7 @@ export class SubscriptionContractHandler {
   private static async createSubscriptionDraft(
     admin: AdminApiContext,
     params: {
+      shop: string;
       customerId: string;
       productVariantId: string;
       sellingPlanId: string;
@@ -593,6 +731,9 @@ export class SubscriptionContractHandler {
       startDate: Date;
     }
   ): Promise<{ success: boolean; draftId?: string; error?: string }> {
+    // Get shop currency
+    const currencyCode = await getShopCurrency(params.shop);
+
     const mutation = `
       mutation CreateSubscriptionContract($input: SubscriptionContractCreateInput!) {
         subscriptionContractCreate(input: $input) {
@@ -615,7 +756,7 @@ export class SubscriptionContractHandler {
           params.billingInterval,
           params.intervalCount
         ).toISOString(),
-        currencyCode: "USD", // TODO: Get from shop settings
+        currencyCode,
         contract: {
           status: "ACTIVE",
           billingPolicy: {
@@ -736,12 +877,6 @@ export class SubscriptionContractHandler {
         break;
       case "MONTHLY":
         date.setMonth(date.getMonth() + intervalCount);
-        break;
-      case "QUARTERLY":
-        date.setMonth(date.getMonth() + 3 * intervalCount);
-        break;
-      case "SEMIANNUAL":
-        date.setMonth(date.getMonth() + 6 * intervalCount);
         break;
       case "ANNUAL":
         date.setFullYear(date.getFullYear() + intervalCount);

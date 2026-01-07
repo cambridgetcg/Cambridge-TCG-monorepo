@@ -378,6 +378,13 @@ model Customer {
   hasActiveSubscription Boolean      @default(false)  // Quick check for active subscription
   subscriptionTier      String?                        // Current subscription tier name
 
+  // Tier Trial Abuse Prevention (mirrors AppSubscription trial fields)
+  hasUsedTierTrial        Boolean   @default(false)   // Has customer ever used a tier trial
+  firstTierTrialStartedAt DateTime?                   // When first tier trial was activated
+  totalTierTrialDaysUsed  Int       @default(0)       // Accumulated trial days across all tiers
+  lastTierTrialTierId     String?                     // Last tier that granted a trial
+  tierTrialHistory        Json?                       // Array of {tierId, tierName, daysUsed, startedAt}
+
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -392,6 +399,9 @@ model Customer {
   
   // Single source of truth for tier state (new unified system)
   tierState         CustomerTierState? @relation("TierState")
+
+  // Tier trial audit logs
+  tierTrialAuditLogs TierTrialAuditLog[]
 
   @@unique([shop, shopifyCustomerId])  // Prevent duplicate customers per shop
   @@index([shop])                      // Speed up queries by shop
@@ -851,6 +861,57 @@ model TrialAuditLog {
   createdAt         DateTime  @default(now())
 
   @@index([shop])
+  @@index([shop, createdAt])
+  @@index([wasBlocked])
+  @@index([createdAt])
+}
+
+// ============================================
+// TIER TRIAL AUDIT LOG
+// ============================================
+// Tracks all tier subscription trial attempts (granted and blocked)
+// Used for abuse prevention and analytics on tier trials
+
+model TierTrialAuditLog {
+  id                  String    @id @default(uuid())
+  shop                String
+
+  // Customer & Tier Details
+  customerId          String
+  customer            Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tierId              String
+  tierName            String                        // Denormalized for quick access
+
+  // Action & Result
+  action              String                        // TRIAL_GRANTED, TRIAL_BLOCKED, TRIAL_EXPIRED, TRIAL_CONVERTED
+  wasBlocked          Boolean   @default(false)
+  blockReason         String?                       // ALREADY_USED, ACTIVE_TRIAL, SAME_TIER, MAX_DAYS_EXCEEDED
+
+  // Trial Details
+  trialDaysRequested  Int                           // Trial days that were requested
+  trialDaysGranted    Int       @default(0)         // Trial days actually granted (0 if blocked)
+
+  // Previous State (for plan switches)
+  previousTierId      String?
+  previousTierName    String?
+  wasInTrial          Boolean   @default(false)     // Was customer in trial before this request
+
+  // Subscription Context
+  subscriptionId      String?                       // The subscription that triggered this
+
+  // Request Context
+  requestSource       String?                       // "webhook", "api", "storefront", "admin"
+  ipAddress           String?                       // For abuse detection
+  userAgent           String?
+
+  // Additional Data
+  metadata            Json?                         // Full eligibility check result, etc.
+
+  createdAt           DateTime  @default(now())
+
+  @@index([shop])
+  @@index([shop, customerId])
+  @@index([customerId, tierId])
   @@index([shop, createdAt])
   @@index([wasBlocked])
   @@index([createdAt])

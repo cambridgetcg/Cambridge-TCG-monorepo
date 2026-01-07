@@ -1250,6 +1250,9 @@ export function createDataAPIPrismaClient() {
           storeCreditSyncJob: new DataAPIModelProxy("StoreCreditSyncJob", txAuroraClient),
           orderSyncJob: new DataAPIModelProxy("OrderSyncJob", txAuroraClient),
 
+          // Trial abuse prevention
+          tierTrialAuditLog: new DataAPIModelProxy("TierTrialAuditLog", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1433,6 +1436,9 @@ export function createDataAPIPrismaClient() {
     customerSyncJob: new DataAPIModelProxy("CustomerSyncJob", client),
     storeCreditSyncJob: new DataAPIModelProxy("StoreCreditSyncJob", client),
     orderSyncJob: new DataAPIModelProxy("OrderSyncJob", client),
+
+    // Trial abuse prevention
+    tierTrialAuditLog: new DataAPIModelProxy("TierTrialAuditLog", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {
