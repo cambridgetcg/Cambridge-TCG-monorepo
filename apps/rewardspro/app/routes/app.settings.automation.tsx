@@ -69,6 +69,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 // ============= ACTION =============
 
+/**
+ * SECURITY: Whitelist of allowed automation field names
+ * This prevents property injection attacks where attackers could
+ * modify arbitrary database fields by sending malicious field names.
+ */
+const ALLOWED_AUTOMATION_FIELDS = [
+  'autoCashbackProcessingEnabled',
+  'tierRecalculationEnabled',
+  'emailMarketingEnabled',
+] as const;
+
+type AllowedAutomationField = typeof ALLOWED_AUTOMATION_FIELDS[number];
+
+function isAllowedAutomationField(field: string): field is AllowedAutomationField {
+  return ALLOWED_AUTOMATION_FIELDS.includes(field as AllowedAutomationField);
+}
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
@@ -77,13 +94,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const field = formData.get("field") as string;
   const enabled = formData.get("enabled") === "true";
 
+  // SECURITY: Validate field is in allowed list (prevents property injection)
+  if (!field || !isAllowedAutomationField(field)) {
+    console.error(`[Automation Manager] SECURITY: Rejected invalid field name: "${field}"`);
+    return json({
+      success: false,
+      error: `Invalid automation field: ${field}. Allowed fields: ${ALLOWED_AUTOMATION_FIELDS.join(', ')}`
+    }, { status: 400 });
+  }
+
   try {
-    // Update the specific automation setting
+    // Get current value for audit logging
+    const currentSettings = await db.shopSettings.findUnique({
+      where: { shop },
+      select: { [field]: true }
+    });
+
+    // Update the specific automation setting (field is now validated)
     await db.shopSettings.update({
       where: { shop },
       data: {
         [field]: enabled,
       },
+    });
+
+    // Log the change for audit trail
+    console.log(`[Automation Manager] Setting changed:`, {
+      shop,
+      field,
+      previousValue: currentSettings?.[field as keyof typeof currentSettings],
+      newValue: enabled,
+      timestamp: new Date().toISOString()
     });
 
     return json({ success: true, field, enabled });

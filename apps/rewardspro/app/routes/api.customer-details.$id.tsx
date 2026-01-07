@@ -39,6 +39,30 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         }
       });
     }
+
+    // Fetch ALL tiers for this shop to determine next tier and progression
+    const allTiers = await db.tier.findMany({
+      where: { shop: session.shop },
+      orderBy: { minSpend: 'asc' }
+    });
+
+    // Determine next tier and max tier status
+    let nextTier = null;
+    let isMaxTier = false;
+
+    if (tier && allTiers.length > 0) {
+      const currentTierIndex = allTiers.findIndex(t => t.id === tier!.id);
+      if (currentTierIndex >= 0 && currentTierIndex < allTiers.length - 1) {
+        // There's a next tier
+        nextTier = allTiers[currentTierIndex + 1];
+      } else if (currentTierIndex === allTiers.length - 1) {
+        // Customer is at highest tier
+        isMaxTier = true;
+      }
+    } else if (!tier && allTiers.length > 0) {
+      // Customer has no tier, next tier is the first one
+      nextTier = allTiers[0];
+    }
     
     // Fetch credit ledger history
     const creditHistory = await db.storeCreditLedger.findMany({
@@ -201,7 +225,22 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType
-      } : null
+      } : null,
+      // Tier progression data - fixes hardcoded threshold bug
+      nextTier: nextTier ? {
+        id: nextTier.id,
+        name: nextTier.name,
+        minSpend: nextTier.minSpend,
+        cashbackPercent: nextTier.cashbackPercent
+      } : null,
+      allTiers: allTiers.map(t => ({
+        id: t.id,
+        name: t.name,
+        minSpend: t.minSpend,
+        cashbackPercent: t.cashbackPercent,
+        isCurrentTier: tier?.id === t.id
+      })),
+      isMaxTier
     });
     
   } catch (error) {

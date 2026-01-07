@@ -5,6 +5,18 @@ import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 
 /**
+ * Get the currency for a shop from shop settings
+ * Falls back to USD if not configured
+ */
+async function getShopCurrency(shop: string): Promise<string> {
+  const settings = await db.shopSettings.findUnique({
+    where: { shop },
+    select: { storeCurrency: true }
+  });
+  return settings?.storeCurrency ?? 'USD';
+}
+
+/**
  * API Route for creating usage-based billing charges
  * 
  * This route handles usage billing for:
@@ -76,18 +88,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     // Create the usage charge via Shopify Billing API
     try {
+      // Get shop currency for multi-currency support
+      const shopCurrency = await getShopCurrency(shop);
+
       const usageResult = await billing.createUsageRecord({
         description: data.description,
         price: {
           amount: data.amount,
-          currencyCode: "USD", // TODO: Support multi-currency
+          currencyCode: shopCurrency,
         },
         idempotencyKey,
         isTest: process.env.NODE_ENV === 'development',
       });
-      
+
       console.log("[Usage Billing] Shopify usage record created:", usageResult);
-      
+
       // Store the usage record in our database for tracking
       const dbRecord = await db.usageRecord.create({
         data: {
@@ -96,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           shopifyUsageRecordId: usageResult.id,
           description: data.description,
           amount: data.amount,
-          currencyCode: "USD",
+          currencyCode: shopCurrency,
           idempotencyKey,
           processedAt: new Date(),
           metadata: data.metadata || {},

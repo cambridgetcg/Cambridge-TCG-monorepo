@@ -43,13 +43,17 @@ export type FeatureKey =
 // Limit keys that map to ShopEntitlements columns
 export type LimitKey = 'maxTiers' | 'maxOrders' | 'maxEmails';
 
-// Plan names with their canonical order limits (source of truth)
+// Plan names with their canonical order limits
+// IMPORTANT: These values MUST match app/constants/plan-limits.ts
+// This is kept for backward compatibility but plan-limits.ts is the source of truth
+import { getOrderLimit, getTierLimit } from '~/constants/plan-limits';
+
 export const PLAN_ORDER_LIMITS: Record<string, number> = {
-  [FREE_PLAN]: 50,
-  [STARTER_PLAN]: 500, // Legacy - same as Pro
+  [FREE_PLAN]: 100,       // Updated to match plan-limits.ts
+  [STARTER_PLAN]: 500,    // Legacy - same as Pro
   [PRO_PLAN]: 500,
-  [GROWTH_PLAN]: 5000, // Legacy - same as Max
-  [MAX_PLAN]: 5000,
+  [GROWTH_PLAN]: 2000,    // Updated: Legacy - same as Max
+  [MAX_PLAN]: 2000,       // Updated to match plan-limits.ts
   [ULTRA_PLAN]: Infinity,
   [ENTERPRISE_PLAN]: Infinity,
 };

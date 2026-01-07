@@ -6,6 +6,9 @@
  */
 
 import { formatForShopify, roundDownToHundredths } from '../utils/transaction-analyzer';
+import { createLogger } from '~/services/logger.server';
+
+const logger = createLogger('StoreCreditService');
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -216,7 +219,7 @@ export class ShopifyStoreCreditService {
   ): Promise<StoreCreditResult> {
     const formattedAmount = formatForShopify(amount);
 
-    console.log(`[StoreCreditService] Issuing ${formattedAmount} ${currency} to customer ${customerId}`);
+    logger.info('Issuing store credit', { amount: formattedAmount, currency, customerId });
 
     try {
       const response = await this.admin.graphql(ISSUE_STORE_CREDIT_MUTATION, {
@@ -235,7 +238,7 @@ export class ShopifyStoreCreditService {
 
       // Check for GraphQL errors
       if (result.errors) {
-        console.error("[StoreCreditService] GraphQL errors:", result.errors);
+        logger.error('GraphQL errors', { errors: result.errors });
         return {
           success: false,
           error: result.errors[0]?.message || 'GraphQL error'
@@ -246,7 +249,7 @@ export class ShopifyStoreCreditService {
       const userErrors = result.data?.storeCreditAccountCredit?.userErrors;
       if (userErrors && userErrors.length > 0) {
         const errorMessages = userErrors.map((e: any) => e.message).join(', ');
-        console.error("[StoreCreditService] User errors:", userErrors);
+        logger.error('User errors', { userErrors });
         return {
           success: false,
           error: errorMessages
@@ -257,9 +260,7 @@ export class ShopifyStoreCreditService {
       const transaction = result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
       if (transaction) {
         const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
-        console.log(`[StoreCreditService] ✅ Credit issued successfully`);
-        console.log(`[StoreCreditService]    Transaction ID: ${transaction.id}`);
-        console.log(`[StoreCreditService]    New balance: ${newBalance} ${currency}`);
+        logger.info('Credit issued successfully', { transactionId: transaction.id, newBalance, currency });
 
         return {
           success: true,
@@ -274,7 +275,7 @@ export class ShopifyStoreCreditService {
       };
 
     } catch (error) {
-      console.error("[StoreCreditService] API error:", error);
+      logger.error('API error', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
@@ -302,7 +303,7 @@ export class ShopifyStoreCreditService {
       const result = await response.json();
 
       if (result.errors) {
-        console.error("[StoreCreditService] Failed to query balance:", result.errors);
+        logger.error('Failed to query balance', { errors: result.errors });
         return {
           success: false,
           error: result.errors[0]?.message || 'Failed to query balance'
@@ -318,34 +319,48 @@ export class ShopifyStoreCreditService {
       }
 
       // Calculate total from all store credit accounts
+      // IMPORTANT: Group balances by currency to avoid mixing different currencies
       const accounts = customer.storeCreditAccounts?.edges || [];
-      let totalBalance = 0;
-      let currency = 'USD';
-
+      const balancesByCurrency = new Map<string, number>();
       const processedAccounts: StoreCreditAccount[] = [];
 
       for (const edge of accounts) {
         const account = edge.node;
         const balance = parseFloat(account.balance.amount || "0");
-        currency = account.balance.currencyCode;
+        const accountCurrency = account.balance.currencyCode;
 
         if (!isNaN(balance) && isFinite(balance) && balance >= 0) {
-          totalBalance += balance;
+          const existing = balancesByCurrency.get(accountCurrency) || 0;
+          balancesByCurrency.set(accountCurrency, existing + balance);
           processedAccounts.push(account);
         }
       }
 
-      console.log(`[StoreCreditService] Customer ${customerId} has ${totalBalance} ${currency} in store credit`);
+      // Return the primary currency (first one found) or USD default
+      // Convert map to array for logging and return most common currency balance
+      const currencies = Array.from(balancesByCurrency.entries());
+      const primaryCurrency = currencies.length > 0 ? currencies[0][0] : 'USD';
+      const primaryBalance = currencies.length > 0 ? currencies[0][1] : 0;
+
+      // Log warning if multiple currencies detected - this could cause issues
+      if (currencies.length > 1) {
+        logger.warn('Customer has store credit in multiple currencies', {
+          customerId,
+          currencies: currencies.map(([curr, bal]) => ({ currency: curr, balance: bal }))
+        });
+      }
+
+      logger.debug('Customer store credit balance', { customerId, totalBalance: primaryBalance, currency: primaryCurrency });
 
       return {
         success: true,
-        balance: roundDownToHundredths(totalBalance),
-        currency,
+        balance: roundDownToHundredths(primaryBalance),
+        currency: primaryCurrency,
         accounts: processedAccounts
       };
 
     } catch (error) {
-      console.error("[StoreCreditService] Query error:", error);
+      logger.error('Query error', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
@@ -364,7 +379,7 @@ export class ShopifyStoreCreditService {
   ): Promise<StoreCreditResult> {
     const formattedAmount = formatForShopify(amount);
 
-    console.log(`[StoreCreditService] Debiting ${formattedAmount} ${currency} from customer ${customerId}`);
+    logger.info('Debiting store credit', { amount: formattedAmount, currency, customerId });
 
     try {
       const response = await this.admin.graphql(DEBIT_STORE_CREDIT_MUTATION, {
@@ -401,7 +416,7 @@ export class ShopifyStoreCreditService {
       const transaction = result.data?.storeCreditAccountDebit?.storeCreditAccountTransaction;
       if (transaction) {
         const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
-        console.log(`[StoreCreditService] ✅ Debit successful, new balance: ${newBalance} ${currency}`);
+        logger.info('Debit successful', { newBalance, currency });
 
         return {
           success: true,
@@ -416,7 +431,7 @@ export class ShopifyStoreCreditService {
       };
 
     } catch (error) {
-      console.error("[StoreCreditService] Debit error:", error);
+      logger.error('Debit error', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
@@ -450,11 +465,7 @@ export class ShopifyStoreCreditService {
     // Consider balances synced if difference is less than 1 cent
     const needsSync = difference > 0.01;
 
-    console.log(`[StoreCreditService] Balance sync check:`);
-    console.log(`[StoreCreditService]    Shopify: ${shopifyBalance}`);
-    console.log(`[StoreCreditService]    Local: ${localBalance}`);
-    console.log(`[StoreCreditService]    Difference: ${difference}`);
-    console.log(`[StoreCreditService]    Needs sync: ${needsSync}`);
+    logger.debug('Balance sync check', { shopifyBalance, localBalance, difference, needsSync });
 
     return {
       success: true,
@@ -487,7 +498,7 @@ export class ShopifyStoreCreditService {
       const result = await response.json();
 
       if (result.errors) {
-        console.error("[StoreCreditService] Failed to query order:", result.errors);
+        logger.error('Failed to query order', { errors: result.errors });
         return {
           success: false,
           error: result.errors[0]?.message || 'Failed to query order'
@@ -529,7 +540,7 @@ export class ShopifyStoreCreditService {
       };
 
     } catch (error) {
-      console.error("[StoreCreditService] Query order error:", error);
+      logger.error('Query order error', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
@@ -556,8 +567,7 @@ export class ShopifyStoreCreditService {
   ): Promise<RefundToStoreCreditResult> {
     const formattedAmount = formatForShopify(amount);
 
-    console.log(`[StoreCreditService] Creating refund to store credit for order ${orderId}`);
-    console.log(`[StoreCreditService]    Amount: ${formattedAmount} ${currency}`);
+    logger.info('Creating refund to store credit', { orderId, amount: formattedAmount, currency });
 
     try {
       // Ensure orderId is in GID format
@@ -585,7 +595,7 @@ export class ShopifyStoreCreditService {
       const orderData = await orderResponse.json();
 
       if (orderData.errors) {
-        console.error("[StoreCreditService] Failed to get order:", orderData.errors);
+        logger.error('Failed to get order', { errors: orderData.errors });
         return {
           success: false,
           error: 'Failed to get order details'
@@ -602,7 +612,7 @@ export class ShopifyStoreCreditService {
         };
       }
 
-      console.log(`[StoreCreditService] Found customer ${customerId} for order ${orderName}`);
+      logger.debug('Found customer for order', { customerId, orderName });
 
       // Step 2: Create the refund on the order using "store-credit" gateway
       // This marks the order as refunded in Shopify
@@ -630,7 +640,7 @@ export class ShopifyStoreCreditService {
 
       // Check for GraphQL errors
       if (refundResult.errors) {
-        console.error("[StoreCreditService] Refund GraphQL errors:", refundResult.errors);
+        logger.error('Refund GraphQL errors', { errors: refundResult.errors });
         return {
           success: false,
           error: refundResult.errors[0]?.message || 'Failed to create refund'
@@ -641,7 +651,7 @@ export class ShopifyStoreCreditService {
       const refundUserErrors = refundResult.data?.refundCreate?.userErrors;
       if (refundUserErrors && refundUserErrors.length > 0) {
         const errorMessages = refundUserErrors.map((e: any) => e.message).join(', ');
-        console.error("[StoreCreditService] Refund user errors:", refundUserErrors);
+        logger.error('Refund user errors', { userErrors: refundUserErrors });
         return {
           success: false,
           error: errorMessages
@@ -658,9 +668,7 @@ export class ShopifyStoreCreditService {
         };
       }
 
-      console.log(`[StoreCreditService] ✅ Refund created on order`);
-      console.log(`[StoreCreditService]    Refund ID: ${refund.id}`);
-      console.log(`[StoreCreditService]    Order status: ${updatedOrder?.displayFinancialStatus}`);
+      logger.info('Refund created on order', { refundId: refund.id, orderStatus: updatedOrder?.displayFinancialStatus });
 
       // Step 3: Issue store credit to the customer's account
       const creditResponse = await this.admin.graphql(ISSUE_STORE_CREDIT_MUTATION, {
@@ -678,40 +686,43 @@ export class ShopifyStoreCreditService {
       const creditResult = await creditResponse.json();
 
       // Check for store credit errors
+      // IMPORTANT: Return success: false if store credit fails - the operation is incomplete
+      // The refundId is still included so caller can handle the partial state
       if (creditResult.errors) {
-        console.error("[StoreCreditService] Store credit error:", creditResult.errors);
-        // Refund was created but store credit failed - this is a partial success
+        logger.error('Store credit error', { errors: creditResult.errors });
+        // Refund was created but store credit failed - this is a FAILURE state
+        // Customer has order refunded but no store credit - needs manual intervention
         return {
-          success: true, // Refund was created
-          refundId: refund.id,
+          success: false, // Operation failed - store credit not issued
+          refundId: refund.id, // Include refund ID for debugging/recovery
           orderName: orderName,
           refundedAmount: parseFloat(formattedAmount),
           currency: currency,
-          error: `Refund created but failed to issue store credit: ${creditResult.errors[0]?.message}`
+          error: `CRITICAL: Refund created but store credit failed: ${creditResult.errors[0]?.message}. Manual intervention required.`
         };
       }
 
       const creditUserErrors = creditResult.data?.storeCreditAccountCredit?.userErrors;
       if (creditUserErrors && creditUserErrors.length > 0) {
         const errorMessages = creditUserErrors.map((e: any) => e.message).join(', ');
-        console.error("[StoreCreditService] Store credit user errors:", creditUserErrors);
+        logger.error('Store credit user errors', { userErrors: creditUserErrors });
         return {
-          success: true, // Refund was created
-          refundId: refund.id,
+          success: false, // Operation failed - store credit not issued
+          refundId: refund.id, // Include refund ID for debugging/recovery
           orderName: orderName,
           refundedAmount: parseFloat(formattedAmount),
           currency: currency,
-          error: `Refund created but failed to issue store credit: ${errorMessages}`
+          error: `CRITICAL: Refund created but store credit failed: ${errorMessages}. Manual intervention required.`
         };
       }
 
       const transaction = creditResult.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
 
-      console.log(`[StoreCreditService] ✅ Store credit issued to customer`);
-      if (transaction) {
-        console.log(`[StoreCreditService]    Credit Transaction ID: ${transaction.id}`);
-        console.log(`[StoreCreditService]    New Balance: ${transaction.balanceAfterTransaction?.amount} ${currency}`);
-      }
+      logger.info('Store credit issued to customer', {
+        transactionId: transaction?.id,
+        newBalance: transaction?.balanceAfterTransaction?.amount,
+        currency
+      });
 
       return {
         success: true,
@@ -722,7 +733,7 @@ export class ShopifyStoreCreditService {
       };
 
     } catch (error) {
-      console.error("[StoreCreditService] Refund to store credit error:", error);
+      logger.error('Refund to store credit error', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"

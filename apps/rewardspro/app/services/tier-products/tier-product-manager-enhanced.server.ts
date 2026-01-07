@@ -678,10 +678,10 @@ export class TierProductManagerEnhanced {
         where: { id: tierProduct.tierId }
       });
 
-      if (!tierProduct) {
+      if (!tier) {
         return {
           success: false,
-          error: "Tier product not found"
+          error: "Associated tier not found"
         };
       }
 

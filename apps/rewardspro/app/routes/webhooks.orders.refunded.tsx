@@ -56,18 +56,34 @@ interface ShopifyOrder {
 }
 
 // HMAC Verification
+// SECURITY FIX: Use SHOPIFY_WEBHOOK_SECRET, not SHOPIFY_API_SECRET
+// These are different secrets with different purposes:
+// - SHOPIFY_WEBHOOK_SECRET: For verifying webhook authenticity
+// - SHOPIFY_API_SECRET: For OAuth and session management
 function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   const hmacHeader = request.headers.get("x-shopify-hmac-sha256");
-  if (!hmacHeader) return false;
+  if (!hmacHeader) {
+    console.error('[OrderRefunded] Missing HMAC header');
+    return false;
+  }
+
+  // CRITICAL: Use webhook secret, NOT API secret
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error('[OrderRefunded] SHOPIFY_WEBHOOK_SECRET not configured');
+    return false;
+  }
 
   const hash = crypto
-    .createHmac("sha256", process.env.SHOPIFY_API_SECRET!)
+    .createHmac("sha256", webhookSecret)
     .update(rawBody, "utf8")
     .digest("base64");
 
   try {
     return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
   } catch {
+    console.error('[OrderRefunded] HMAC comparison failed');
     return false;
   }
 }
@@ -255,7 +271,7 @@ export async function action({ request }: ActionFunctionArgs) {
         refundId: refund.id,
         orderId: refund.order_id,
         refundAmount: refundAmount.toString(),
-        cashbackRemoved: cashbackToRemove.toString(),
+        cashbackClawback: clawbackResult.clawbackAmount,
         tierProductRefunded,
         customerId: customer.id
       });

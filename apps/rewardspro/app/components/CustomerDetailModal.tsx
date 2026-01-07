@@ -122,6 +122,21 @@ interface CustomerDetails {
     storeCurrency: string;
     currencyDisplayType: string;
   } | null;
+  // Tier progression data from API
+  nextTier: {
+    id: string;
+    name: string;
+    minSpend: number;
+    cashbackPercent: number;
+  } | null;
+  allTiers: Array<{
+    id: string;
+    name: string;
+    minSpend: number;
+    cashbackPercent: number;
+    isCurrentTier: boolean;
+  }>;
+  isMaxTier: boolean;
 }
 
 interface CustomerDetailModalProps {
@@ -233,31 +248,13 @@ export function CustomerDetailModal({
     return formatDateShort(dateString);
   };
 
-  // Helper functions for tier progress
+  // Helper function for tier progress - calculates total spending from orders
   const calculateTotalSpending = (data: CustomerDetails): number => {
     return data.orders.reduce((sum, order) => sum + parseFloat(order.total.amount), 0);
   };
 
-  const getNextTierName = (data: CustomerDetails): string | null => {
-    // This would ideally come from the API with all tiers
-    // For now, return null to show max tier behavior
-    return null;
-  };
-
-  const getNextTierThreshold = (data: CustomerDetails): number => {
-    // This would ideally come from the API with next tier threshold
-    // For now, use the current tier's min spend + a reasonable increment
-    if (data.tier) {
-      return data.tier.minSpend + 500;
-    }
-    return 0;
-  };
-
-  const isMaxTier = (data: CustomerDetails): boolean => {
-    // This would ideally come from the API
-    // For now, assume not max tier to show progress
-    return false;
-  };
+  // Note: getNextTierName, getNextTierThreshold, and isMaxTier are now provided by the API
+  // See: api.customer-details.$id.tsx - returns nextTier, allTiers, and isMaxTier
 
   const getLedgerTypeBadge = (type: string) => {
     const toneMap: Record<string, 'success' | 'info' | 'warning' | 'critical'> = {
@@ -378,14 +375,14 @@ export function CustomerDetailModal({
                       }
                     />
 
-                    {/* Tier Progress */}
+                    {/* Tier Progress - uses API data for accurate thresholds */}
                     {details.tier && (
                       <TierProgressBar
                         currentTierName={details.tier.name}
-                        nextTierName={getNextTierName(details)}
+                        nextTierName={details.nextTier?.name || null}
                         currentSpending={calculateTotalSpending(details)}
-                        nextTierThreshold={getNextTierThreshold(details)}
-                        isMaxTier={isMaxTier(details)}
+                        nextTierThreshold={details.nextTier?.minSpend || 0}
+                        isMaxTier={details.isMaxTier}
                         formatAmount={formatAmount}
                       />
                     )}

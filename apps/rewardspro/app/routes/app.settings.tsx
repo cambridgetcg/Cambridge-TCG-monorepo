@@ -282,7 +282,29 @@ const calculateProjectedOrders = (currentOrders: number, daysRemaining: number):
 };
 
 // ============= RATE LIMITING =============
-const rateLimitMap = new Map<string, number[]>();
+// Self-cleaning rate limiter to prevent memory leaks
+// Entries are cleaned up every 5 minutes or when they expire
+const rateLimitMap = new Map<string, { timestamps: number[], lastCleanup: number }>();
+const MAX_ENTRIES = 1000; // Maximum shops to track
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+const cleanupRateLimitMap = (now: number) => {
+  const windowMs = 60000;
+  let entriesRemoved = 0;
+
+  for (const [key, data] of rateLimitMap.entries()) {
+    // Remove entries with no recent timestamps
+    const validTimestamps = data.timestamps.filter(t => now - t < windowMs);
+    if (validTimestamps.length === 0) {
+      rateLimitMap.delete(key);
+      entriesRemoved++;
+    } else {
+      data.timestamps = validTimestamps;
+    }
+  }
+
+  return entriesRemoved;
+};
 
 const checkRateLimit = (shop: string) => {
   const now = Date.now();
@@ -290,16 +312,22 @@ const checkRateLimit = (shop: string) => {
   const maxRequests = 10; // 10 requests per minute for settings
 
   const key = `settings:${shop}`;
-  const timestamps = rateLimitMap.get(key) || [];
-  
-  const recentTimestamps = timestamps.filter(t => now - t < windowMs);
-  
+  const data = rateLimitMap.get(key) || { timestamps: [], lastCleanup: now };
+
+  // Periodic cleanup to prevent memory leak
+  if (now - data.lastCleanup > CLEANUP_INTERVAL || rateLimitMap.size > MAX_ENTRIES) {
+    cleanupRateLimitMap(now);
+    data.lastCleanup = now;
+  }
+
+  const recentTimestamps = data.timestamps.filter(t => now - t < windowMs);
+
   if (recentTimestamps.length >= maxRequests) {
     throw new Response("Too many requests. Please wait a moment.", { status: 429 });
   }
-  
+
   recentTimestamps.push(now);
-  rateLimitMap.set(key, recentTimestamps);
+  rateLimitMap.set(key, { timestamps: recentTimestamps, lastCleanup: data.lastCleanup });
 };
 
 // ============= LOADER =============
@@ -972,11 +1000,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const defaultBaseTierId = defaultBaseTierIdRaw === "" || defaultBaseTierIdRaw === "auto" ? null : defaultBaseTierIdRaw;
     // Widget theme settings
     const widgetThemeMode = formData.get("widgetThemeMode") as "LIGHT" | "DARK" | "CUSTOM";
-    const widgetPrimaryColor = formData.get("widgetPrimaryColor") as string;
-    const widgetBackgroundColor = formData.get("widgetBackgroundColor") as string;
-    const widgetTextColor = formData.get("widgetTextColor") as string;
-    const widgetAccentColor = formData.get("widgetAccentColor") as string;
-    const widgetBorderRadius = parseInt(formData.get("widgetBorderRadius") as string) || 12;
+
+    // SECURITY: Validate color inputs to prevent XSS/CSS injection
+    const { sanitizeColor, DEFAULT_WIDGET_COLORS } = await import('~/utils/color-validation.server');
+
+    const widgetPrimaryColor = sanitizeColor(
+      formData.get("widgetPrimaryColor") as string,
+      DEFAULT_WIDGET_COLORS.primary
+    );
+    const widgetBackgroundColor = sanitizeColor(
+      formData.get("widgetBackgroundColor") as string,
+      DEFAULT_WIDGET_COLORS.background
+    );
+    const widgetTextColor = sanitizeColor(
+      formData.get("widgetTextColor") as string,
+      DEFAULT_WIDGET_COLORS.text
+    );
+    const widgetAccentColor = sanitizeColor(
+      formData.get("widgetAccentColor") as string,
+      DEFAULT_WIDGET_COLORS.accent
+    );
+
+    // Validate border radius bounds
+    const widgetBorderRadiusRaw = parseInt(formData.get("widgetBorderRadius") as string);
+    const widgetBorderRadius = (!isNaN(widgetBorderRadiusRaw) && widgetBorderRadiusRaw >= 0 && widgetBorderRadiusRaw <= 50)
+      ? widgetBorderRadiusRaw
+      : 12;
     const widgetFontFamily = formData.get("widgetFontFamily") as string;
 
     // DEBUG: Log widget theme settings being saved

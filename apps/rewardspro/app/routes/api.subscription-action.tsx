@@ -9,7 +9,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "~/db.server";
 import { authenticate } from "~/shopify.server";
-import { pauseCustomerSubscription, resumeCustomerSubscription, cancelCustomerSubscription } from "~/services/subscription-contract.server";
+import { pauseCustomerSubscription, resumeCustomerSubscription, cancelCustomerSubscription } from "~/services/subscription/subscription-contract.server";
 import { TierSubscriptionBridgeV2 } from "~/services/subscription/tier-subscription-bridge.server";
 
 export async function action({ request }: ActionFunctionArgs) {

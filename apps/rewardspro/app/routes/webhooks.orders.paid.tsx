@@ -26,9 +26,13 @@ import {
   trackTierUpgraded,
   trackCashbackEarned,
 } from "../services/klaviyo-events.server";
+import { createLogger } from "../services/logger.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
+
+// Create scoped logger for this webhook
+const webhookLogger = createLogger('OrderPaid');
 
 const uuidv4 = () => crypto.randomUUID();
 
@@ -54,6 +58,55 @@ function verifyWebhookHMAC(request: Request, rawBody: string): boolean {
   );
 }
 
+/**
+ * Extract store credit used from order
+ *
+ * Checks Shopify's discount_applications for store credit type discounts.
+ * Store credit in Shopify appears as a discount application with:
+ * - type: "store_credit" or
+ * - title containing "store credit"
+ */
+function extractStoreCreditUsed(order: any): number {
+  if (!order.discount_applications || !Array.isArray(order.discount_applications)) {
+    return 0;
+  }
+
+  let storeCreditUsed = 0;
+
+  for (const discount of order.discount_applications) {
+    // Check for native Shopify Store Credit
+    if (discount.type === 'store_credit' || discount.value_type === 'store_credit') {
+      const value = parseFloat(discount.value || '0');
+      if (!isNaN(value)) {
+        storeCreditUsed += value;
+      }
+    }
+    // Check for store credit applied via discount code or manual discount
+    // Some merchants use naming conventions like "Store Credit" or "cashback"
+    else if (
+      discount.title?.toLowerCase().includes('store credit') ||
+      discount.title?.toLowerCase().includes('cashback') ||
+      discount.description?.toLowerCase().includes('store credit')
+    ) {
+      const value = parseFloat(discount.value || '0');
+      if (!isNaN(value)) {
+        storeCreditUsed += value;
+      }
+    }
+  }
+
+  // Also check if store credit was used as a payment method
+  // This appears in payment_gateway_names
+  if (order.payment_gateway_names?.includes('store_credit')) {
+    // For payment gateway store credit, we need to calculate from the order's payment details
+    // This is a fallback - typically the discount_applications should cover it
+    // The exact amount would need to come from order.transactions which requires a separate API call
+    // For now, we just note that it was used
+  }
+
+  return storeCreditUsed;
+}
+
 export const action = async ({ request }: ActionFunctionArgs) => {
   let shop: string | undefined;
   let topic: string | undefined;
@@ -68,24 +121,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     order = webhookData.payload;
     admin = webhookData.admin; // Get admin API access for GraphQL
 
-    console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
-    console.log('║  ORDERS/PAID WEBHOOK RECEIVED                                     ║');
-    console.log('╚═══════════════════════════════════════════════════════════════════╝');
-    console.log(`[OrderPaid] Webhook Details:`);
-    console.log(`  - Order ID: ${order.id}`);
-    console.log(`  - Order Name: ${order.name}`);
-    console.log(`  - Shop: ${shop}`);
-    console.log(`  - Topic: ${topic}`);
-    console.log(`  - Webhook ID: ${request.headers.get('X-Shopify-Webhook-Id') || 'N/A'}`);
-    console.log(`  - Order Updated At: ${order.updated_at}`);
-    console.log(`  - Customer: ${order.customer?.email || 'Guest'}`);
-    // Log both shop and presentment currency for multi-currency visibility
+    // Log webhook received with structured data
     const shopMoney = order.total_price_set?.shop_money;
     const presentmentMoney = order.total_price_set?.presentment_money;
-    console.log(`  - Shop Currency Total: ${shopMoney?.amount || order.total_price} ${shopMoney?.currency_code || 'N/A'}`);
-    console.log(`  - Presentment Total: ${presentmentMoney?.amount || order.total_price} ${presentmentMoney?.currency_code || order.currency}`);
-    console.log(`  - Is Multi-Currency: ${shopMoney?.currency_code !== presentmentMoney?.currency_code ? 'YES' : 'NO'}`);
-    console.log('─────────────────────────────────────────────────────────────────────\n');
+    const isMultiCurrency = shopMoney?.currency_code !== presentmentMoney?.currency_code;
+
+    const logger = webhookLogger.withContext({
+      shop,
+      orderId: order.id,
+      orderName: order.name,
+      customerEmail: order.customer?.email || 'Guest'
+    });
+
+    logger.info('Webhook received', {
+      topic,
+      webhookId: request.headers.get('X-Shopify-Webhook-Id') || 'N/A',
+      orderUpdatedAt: order.updated_at,
+      shopTotal: `${shopMoney?.amount || order.total_price} ${shopMoney?.currency_code || 'N/A'}`,
+      presentmentTotal: `${presentmentMoney?.amount || order.total_price} ${presentmentMoney?.currency_code || order.currency}`,
+      isMultiCurrency
+    });
 
     // Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
@@ -98,12 +153,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       if (existingProcess) {
-        console.log(`[OrderPaid] Already processed order ${order.id}`);
+        logger.info('Order already processed, skipping');
         return json({ success: true, message: "Already processed" });
       }
     } catch (e) {
       // webhookProcessed table might not exist, continue processing
-      console.log(`[OrderPaid] Could not check idempotency (table may not exist)`);
+      logger.debug('Idempotency check skipped (table may not exist)');
     }
 
     // Process with retry logic - OPTIMIZED VERSION
@@ -461,11 +516,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     );
     
-    console.log(`[OrderPaid] Successfully processed order ${order.id}`);
+    webhookLogger.info('Order processed successfully', { orderId: order.id, shop });
     return json({ success: true, data: result });
-    
+
   } catch (error) {
-    console.error(`[OrderPaid] Error processing order ${order?.id || 'unknown'}:`, error);
+    const errorLogger = webhookLogger.withContext({ shop, orderId: order?.id || 'unknown' });
+    errorLogger.error('Order processing failed', error);
 
     // Log error for monitoring (if model exists and we have required data)
     if (db.webhookError && shop && order) {
@@ -479,7 +535,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           payload: order,
           createdAt: new Date(),
         }
-      }).catch(console.error);
+      }).catch(e => errorLogger.error('Failed to log webhook error', e));
     }
     
     // Return success to prevent Shopify retries for non-recoverable errors
@@ -1365,7 +1421,7 @@ async function processCashback(tx: any, params: {
           orderNumber: order.name,
           totalPrice: eligibleAmount,
           cashbackEarned: cashbackAmount,
-          cashbackUsed: 0, // TODO: calculate from store credit usage
+          cashbackUsed: extractStoreCreditUsed(order),
           currency: currency,
           lineItems: order.line_items?.map((item: any) => ({
             productId: item.product_id?.toString(),

@@ -16,6 +16,9 @@ import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { hasManualOverride } from "./manual-tier-assignment.server";
 import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
+import { createLogger } from "./logger.server";
+
+const logger = createLogger('TierCalculation');
 
 // ============================================
 // TYPE DEFINITIONS
@@ -68,21 +71,21 @@ export async function calculateCustomerTierFromDB(
     skipUpdate?: boolean;         // Skip DB updates - return calculation result only (for tier resolution)
   }
 ): Promise<TierCalculationResult> {
+  const calcLogger = logger.withContext({ shop, customerId, orderId: context?.orderId });
+
   try {
-    console.log(`[TierCalc-DB] ========== Starting Tier Calculation ==========`);
-    console.log(`[TierCalc-DB] Customer ID: ${customerId}`);
-    console.log(`[TierCalc-DB] Shop: ${shop}`);
-    if (context?.orderId) {
-      console.log(`[TierCalc-DB] Triggered by Order: ${context.orderId}`);
-    }
-    console.log(`[TierCalc-DB] Using LOCAL DATABASE for calculation`);
+    calcLogger.info('Starting tier calculation', {
+      triggerType: context?.triggerType,
+      skipOverrideCheck: context?.skipOverrideCheck,
+      skipUpdate: context?.skipUpdate
+    });
 
     // Check if customer has a manual override (unless explicitly skipped)
     if (!context?.skipOverrideCheck) {
       const hasOverride = await hasManualOverride(customerId);
 
       if (hasOverride) {
-        console.log(`[TierCalc-DB] Customer ${customerId} has manual tier override - skipping calculation`);
+        calcLogger.info('Customer has manual tier override - skipping calculation');
 
         // Get current tier info for response
         const customer = await db.customer.findFirst({
@@ -120,11 +123,11 @@ export async function calculateCustomerTierFromDB(
       }
     });
 
-    console.log(`[TierCalc-DB] Customer found: ${customer ? 'YES' : 'NO'}`);
-    if (customer) {
-      console.log(`[TierCalc-DB] Current tier ID: ${customer.currentTierId || 'none'}`);
-      console.log(`[TierCalc-DB] Shopify Customer ID: ${customer.shopifyCustomerId}`);
-    }
+    calcLogger.debug('Customer lookup result', {
+      found: !!customer,
+      currentTierId: customer?.currentTierId || 'none',
+      shopifyCustomerId: customer?.shopifyCustomerId
+    });
 
     // Get current tier separately if exists
     let currentTier = null;
@@ -132,11 +135,11 @@ export async function calculateCustomerTierFromDB(
       currentTier = await db.tier.findUnique({
         where: { id: customer.currentTierId }
       });
-      console.log(`[TierCalc-DB] Current tier name: ${currentTier?.name || 'not found'}`);
+      calcLogger.debug('Current tier', { tierName: currentTier?.name || 'not found' });
     }
 
     if (!customer) {
-      console.error(`[TierCalc-DB] ERROR: Customer ${customerId} not found in database`);
+      calcLogger.error('Customer not found in database');
       throw new Error(`Customer ${customerId} not found`);
     }
 

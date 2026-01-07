@@ -2,6 +2,9 @@ import { v4 as uuidv4 } from "uuid";
 import db from "../db.server";
 import type { Tier, Customer } from "@prisma/client";
 import { updateCustomerToEffectiveTier, resolveEffectiveTier } from "./tier-resolution.server";
+import { recalculateTiersOptimized } from "./tier-recalculation-optimized.server";
+import { recalculateTiersNeural } from "./tier-recalculation-neural.server";
+import { recalculateTiersAnatomical } from "./tier-recalculation-neural-v3.server";
 
 /**
  * Ensures a base tier exists for the shop
@@ -317,5 +320,189 @@ export async function recalculateTiersForAllCustomers(shop: string): Promise<{
     downgraded,
     unchanged,
     bySource
+  };
+}
+
+/**
+ * Smart tier recalculation with intelligent engine selection
+ *
+ * Engine Selection (Auto by customer count):
+ * - LEGACY: Original per-customer resolution (< 100 customers)
+ * - OPTIMIZED: Three-layer neural architecture (100-499 customers)
+ * - NEURAL_V2: CNS/PNS partitioned clustering (500-2499 customers)
+ * - NEURAL_V3: Anatomical CNS with multi-level clustering (2500+ customers)
+ *
+ * Performance Characteristics:
+ * - LEGACY: 15 queries/customer, reliable for small shops
+ * - OPTIMIZED: ~10 total queries, 100x faster than legacy
+ * - NEURAL_V2: ~10 queries with parallel streams, source clustering
+ * - NEURAL_V3: ~10 queries with anatomical regions, 4-level clustering, synaptic weights
+ *
+ * @param shop - Shop domain
+ * @param options.forceAnatomical - Force v3 anatomical CNS engine
+ * @param options.forceNeural - Force v2 CNS/PNS neural engine
+ * @param options.forceOptimized - Force three-layer optimized engine
+ * @param options.forceLegacy - Force legacy per-customer engine
+ */
+export async function recalculateTiersSmart(
+  shop: string,
+  options?: {
+    forceAnatomical?: boolean;
+    forceNeural?: boolean;
+    forceOptimized?: boolean;
+    forceLegacy?: boolean;
+  }
+): Promise<{
+  processed: number;
+  upgraded: number;
+  downgraded: number;
+  unchanged: number;
+  bySource: {
+    manualOverride: number;
+    tierSubscription: number;
+    tierPurchase: number;
+    spendingBased: number;
+    none: number;
+  };
+  timing?: {
+    contextLoadMs?: number;
+    afferentMs?: number;
+    crystallizationMs?: number;
+    processingMs?: number;
+    cortexMs?: number;
+    gangliaMs?: number;
+    cerebellumMs?: number;
+    updatesMs?: number;
+    efferentMs?: number;
+    thalamusMs?: number;
+    totalMs: number;
+  };
+  clustering?: {
+    l1Sources: number;
+    l2Changes: number;
+    l3Values: number;
+    l4Priorities: number;
+    totalWeight: number;
+  };
+  engine: 'LEGACY' | 'OPTIMIZED' | 'NEURAL_V2' | 'NEURAL_V3';
+  optimizedPath: boolean;
+}> {
+  // Check customer count for engine selection
+  const customerCount = await db.customer.count({ where: { shop } });
+
+  // Engine selection logic
+  let engine: 'LEGACY' | 'OPTIMIZED' | 'NEURAL_V2' | 'NEURAL_V3';
+
+  if (options?.forceLegacy) {
+    engine = 'LEGACY';
+  } else if (options?.forceAnatomical) {
+    engine = 'NEURAL_V3';
+  } else if (options?.forceNeural) {
+    engine = 'NEURAL_V2';
+  } else if (options?.forceOptimized) {
+    engine = 'OPTIMIZED';
+  } else if (customerCount >= 2500) {
+    engine = 'NEURAL_V3';  // Anatomical CNS for very large shops
+  } else if (customerCount >= 500) {
+    engine = 'NEURAL_V2';  // CNS/PNS for large shops
+  } else if (customerCount >= 100) {
+    engine = 'OPTIMIZED';  // Three-layer for medium shops
+  } else {
+    engine = 'LEGACY';     // Original for small shops
+  }
+
+  console.log(`[Tier Management] Smart recalculation for ${shop}`);
+  console.log(`[Tier Management] Customer count: ${customerCount}`);
+  console.log(`[Tier Management] Engine selected: ${engine}`);
+
+  // Execute with selected engine
+  if (engine === 'NEURAL_V3') {
+    const result = await recalculateTiersAnatomical(shop);
+
+    return {
+      processed: result.processed,
+      upgraded: result.upgraded,
+      downgraded: result.downgraded,
+      unchanged: result.unchanged,
+      bySource: {
+        manualOverride: result.bySource.MANUAL_OVERRIDE,
+        tierSubscription: result.bySource.TIER_SUBSCRIPTION,
+        tierPurchase: result.bySource.TIER_PURCHASE,
+        spendingBased: result.bySource.SPENDING_BASED,
+        none: result.bySource.NONE + result.bySource.DEFAULT_BASE_TIER,
+      },
+      timing: {
+        thalamusMs: result.timing.thalamusMs,
+        cortexMs: result.timing.cortexMs,
+        gangliaMs: result.timing.gangliaMs,
+        cerebellumMs: result.timing.cerebellumMs,
+        totalMs: result.timing.totalMs,
+      },
+      clustering: result.clustering,
+      engine: 'NEURAL_V3',
+      optimizedPath: true,
+    };
+  }
+
+  if (engine === 'NEURAL_V2') {
+    const result = await recalculateTiersNeural(shop);
+
+    return {
+      processed: result.processed,
+      upgraded: result.upgraded,
+      downgraded: result.downgraded,
+      unchanged: result.unchanged,
+      bySource: {
+        manualOverride: result.bySource.MANUAL_OVERRIDE,
+        tierSubscription: result.bySource.TIER_SUBSCRIPTION,
+        tierPurchase: result.bySource.TIER_PURCHASE,
+        spendingBased: result.bySource.SPENDING_BASED,
+        none: result.bySource.NONE + result.bySource.DEFAULT_BASE_TIER,
+      },
+      timing: {
+        afferentMs: result.timing.afferentMs,
+        crystallizationMs: result.timing.crystallizationMs,
+        cortexMs: result.timing.cortexMs,
+        efferentMs: result.timing.efferentMs,
+        totalMs: result.timing.totalMs,
+      },
+      engine: 'NEURAL_V2',
+      optimizedPath: true,
+    };
+  }
+
+  if (engine === 'OPTIMIZED') {
+    const result = await recalculateTiersOptimized(shop);
+
+    return {
+      processed: result.processed,
+      upgraded: result.upgraded,
+      downgraded: result.downgraded,
+      unchanged: result.unchanged,
+      bySource: {
+        manualOverride: result.bySource.manualOverride,
+        tierSubscription: result.bySource.tierSubscription,
+        tierPurchase: result.bySource.tierPurchase,
+        spendingBased: result.bySource.spendingBased,
+        none: result.bySource.none + result.bySource.defaultBaseTier,
+      },
+      timing: {
+        contextLoadMs: result.timing.contextLoadMs,
+        processingMs: result.timing.processingMs,
+        updatesMs: result.timing.updatesMs,
+        totalMs: result.timing.totalMs,
+      },
+      engine: 'OPTIMIZED',
+      optimizedPath: true,
+    };
+  }
+
+  // Legacy path for small shops
+  const result = await recalculateTiersForAllCustomers(shop);
+
+  return {
+    ...result,
+    engine: 'LEGACY',
+    optimizedPath: false,
   };
 }

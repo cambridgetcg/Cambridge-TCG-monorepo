@@ -100,49 +100,79 @@ export class SubscriptionContractHandler {
     try {
       console.log(`[ContractHandler] Creating contract for customer ${input.customer.id}`);
 
-      // CHECK FOR DUPLICATE ACTIVE SUBSCRIPTIONS
-      // A customer should only have one ACTIVE tier subscription at a time
-      const existingActiveSubscription = await db.tierSubscription.findFirst({
-        where: {
-          customerId: input.customer.id,
-          shop: input.shop,
-          status: 'ACTIVE'
-        },
-        include: { tier: true }
-      });
-
-      if (existingActiveSubscription) {
-        console.warn(
-          `[ContractHandler] Customer ${input.customer.id} already has active subscription ${existingActiveSubscription.id} ` +
-          `(tier: ${existingActiveSubscription.tier?.name || existingActiveSubscription.tierId})`
-        );
-
-        // Option 1: Return error - customer must cancel existing first
-        // Uncomment below to block duplicate subscriptions:
-        // return {
-        //   success: false,
-        //   error: `Customer already has an active subscription for tier ${existingActiveSubscription.tier?.name || 'unknown'}`
-        // };
-
-        // Option 2: Auto-cancel old subscription (upgrade/downgrade flow)
-        // This is the current behavior - new subscription replaces old one
-        console.log(`[ContractHandler] Cancelling existing subscription ${existingActiveSubscription.id} to replace with new one`);
-
-        await db.tierSubscription.update({
-          where: { id: existingActiveSubscription.id },
-          data: {
-            status: 'CANCELLED',
-            endDate: new Date(),
-            metadata: {
-              ...existingActiveSubscription.metadata as object,
-              cancelledReason: 'replaced_by_new_subscription',
-              replacedBySubscriptionCreatedAt: new Date().toISOString()
-            },
-            updatedAt: new Date()
-          }
+      // ATOMICALLY CHECK AND CANCEL DUPLICATE SUBSCRIPTIONS
+      // Uses Serializable isolation to prevent race conditions where
+      // two concurrent requests could both create active subscriptions.
+      // A customer should only have one ACTIVE tier subscription at a time.
+      const deduplicationResult = await db.$transaction(async (tx) => {
+        // Lock the customer row to prevent concurrent subscription creation
+        // This ensures only one subscription creation can proceed at a time
+        const customer = await tx.customer.findUnique({
+          where: { id: input.customer.id },
+          select: { id: true }
         });
 
-        console.log(`[ContractHandler] Previous subscription ${existingActiveSubscription.id} cancelled`);
+        if (!customer) {
+          return { error: `Customer ${input.customer.id} not found` };
+        }
+
+        // Find ALL existing active subscriptions (should be 0 or 1, but handle edge cases)
+        const existingActiveSubscriptions = await tx.tierSubscription.findMany({
+          where: {
+            customerId: input.customer.id,
+            shop: input.shop,
+            status: 'ACTIVE'
+          },
+          include: { tier: true }
+        });
+
+        const cancelledIds: string[] = [];
+
+        // Cancel all existing active subscriptions (prevents multiple active subs)
+        for (const existing of existingActiveSubscriptions) {
+          console.warn(
+            `[ContractHandler] Customer ${input.customer.id} has active subscription ${existing.id} ` +
+            `(tier: ${existing.tier?.name || existing.tierId}) - will be cancelled`
+          );
+
+          await tx.tierSubscription.update({
+            where: { id: existing.id },
+            data: {
+              status: 'CANCELLED',
+              endDate: new Date(),
+              metadata: {
+                ...(existing.metadata as object || {}),
+                cancelledReason: 'replaced_by_new_subscription',
+                replacedBySubscriptionCreatedAt: new Date().toISOString()
+              },
+              updatedAt: new Date()
+            }
+          });
+
+          cancelledIds.push(existing.id);
+          console.log(`[ContractHandler] Previous subscription ${existing.id} cancelled atomically`);
+        }
+
+        return {
+          success: true,
+          cancelledSubscriptions: cancelledIds,
+          hadExisting: existingActiveSubscriptions.length > 0
+        };
+      }, {
+        isolationLevel: 'Serializable',
+        timeout: 10000 // 10 second timeout
+      });
+
+      // Check for deduplication errors
+      if ('error' in deduplicationResult) {
+        return {
+          success: false,
+          error: deduplicationResult.error
+        };
+      }
+
+      if (deduplicationResult.hadExisting) {
+        console.log(`[ContractHandler] Cancelled ${deduplicationResult.cancelledSubscriptions.length} existing subscription(s)`);
       }
 
       // ============================================

@@ -21,6 +21,9 @@ import { getManualOverride } from "./manual-tier-assignment.server";
 import { calculateCustomerTierFromDB } from "./tier-calculation.server";
 import { getBaseTier, getBaseTierConfig } from "./base-tier.server";
 import { calculateProgress } from "./customer-tier-state-update.server";
+import { createLogger } from "~/services/logger.server";
+
+const logger = createLogger('TierResolution');
 
 // Transaction client type for Prisma
 type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -115,10 +118,8 @@ export async function resolveEffectiveTier(
   // Use transaction client if provided, otherwise use default db client
   const prisma = options?.tx || db;
 
-  console.log(`[TierResolution] ========== Resolving Effective Tier ==========`);
-  console.log(`[TierResolution] Customer ID: ${customerId}`);
-  console.log(`[TierResolution] Shop: ${shop}`);
-  console.log(`[TierResolution] Using transaction: ${options?.tx ? 'YES' : 'NO'}`);
+  const resolutionLogger = logger.withContext({ shop, customerId });
+  resolutionLogger.info('Resolving effective tier', { useTransaction: !!options?.tx });
 
   // Get customer data
   const customer = await prisma.customer.findFirst({
@@ -127,7 +128,7 @@ export async function resolveEffectiveTier(
   });
 
   if (!customer) {
-    console.log(`[TierResolution] Customer not found`);
+    resolutionLogger.warn('Customer not found');
     return {
       effectiveTierId: null,
       effectiveTierName: null,
@@ -149,7 +150,7 @@ export async function resolveEffectiveTier(
     const overrideInfo = await getManualOverride(customerId, prisma, { clearIfExpired: true });
 
     if (overrideInfo.hasOverride && overrideInfo.tierId) {
-      console.log(`[TierResolution] ✓ Manual override detected: tier=${overrideInfo.tierName} (${overrideInfo.tierId})`);
+      resolutionLogger.debug('Manual override detected', { tierName: overrideInfo.tierName, tierId: overrideInfo.tierId });
 
       // Get tier details if not already included
       let tierMinSpend = 0;
@@ -174,7 +175,7 @@ export async function resolveEffectiveTier(
         }
       });
     } else {
-      console.log(`[TierResolution] ✗ No manual override`);
+      resolutionLogger.debug('No manual override');
     }
   }
 
@@ -198,7 +199,7 @@ export async function resolveEffectiveTier(
 
   if (validSubscriptions.length !== activeTierSubscriptions.length) {
     const invalidCount = activeTierSubscriptions.length - validSubscriptions.length;
-    console.warn(`[TierResolution] ⚠️ Found ${invalidCount} tier subscription(s) with missing tier records - skipping`);
+    resolutionLogger.warn('Found tier subscriptions with missing tier records', { invalidCount });
   }
 
   // Sort by tier minSpend in memory (highest first)
@@ -207,7 +208,7 @@ export async function resolveEffectiveTier(
   )[0];
 
   if (activeTierSubscription && activeTierSubscription.tier) {
-    console.log(`[TierResolution] ✓ Active tier subscription found: ${activeTierSubscription.tier.name}`);
+    resolutionLogger.debug('Active tier subscription found', { tierName: activeTierSubscription.tier.name });
 
     sources.push({
       source: 'TIER_SUBSCRIPTION',
@@ -221,9 +222,9 @@ export async function resolveEffectiveTier(
       }
     });
   } else if (activeTierSubscription && !activeTierSubscription.tier) {
-    console.warn(`[TierResolution] ⚠️ Active tier subscription ${activeTierSubscription.id} has missing tier - skipping`);
+    resolutionLogger.warn('Active tier subscription has missing tier', { subscriptionId: activeTierSubscription.id });
   } else {
-    console.log(`[TierResolution] ✗ No active tier subscription`);
+    resolutionLogger.debug('No active tier subscription');
   }
 
   // ============================================
@@ -262,11 +263,11 @@ export async function resolveEffectiveTier(
     const invalidCount = activeTierPurchases.length - validPurchases.length;
     const invalidPurchases = activeTierPurchases.filter((p) => p.tier == null);
 
-    console.warn(`[TierResolution] ⚠️ Found ${invalidCount} tier purchase(s) with missing tier records!`);
-    console.warn(`[TierResolution] Invalid purchase IDs: ${invalidPurchases.map(p => p.id).join(', ')}`);
-    console.warn(`[TierResolution] Invalid tier IDs: ${invalidPurchases.map(p => p.tierId).join(', ')}`);
-    console.warn(`[TierResolution] These purchases reference non-existent tiers and will be skipped.`);
-    console.warn(`[TierResolution] Action required: Run cleanup script to fix orphaned tier products.`);
+    resolutionLogger.warn('Found tier purchases with missing tier records - cleanup required', {
+      invalidCount,
+      invalidPurchaseIds: invalidPurchases.map(p => p.id),
+      invalidTierIds: invalidPurchases.map(p => p.tierId)
+    });
   }
 
   // Sort by tier minSpend in memory (highest first) with null-safe access
@@ -278,9 +279,9 @@ export async function resolveEffectiveTier(
     const isExpired = activeTierPurchase.endDate && activeTierPurchase.endDate < now;
 
     if (isExpired && !options?.includeExpired) {
-      console.log(`[TierResolution] ✗ Tier purchase found but expired: ${activeTierPurchase.tier.name}`);
+      resolutionLogger.debug('Tier purchase found but expired', { tierName: activeTierPurchase.tier.name });
     } else {
-      console.log(`[TierResolution] ✓ Active tier purchase found: ${activeTierPurchase.tier.name}`);
+      resolutionLogger.debug('Active tier purchase found', { tierName: activeTierPurchase.tier.name });
 
       sources.push({
         source: 'TIER_PURCHASE',
@@ -296,9 +297,9 @@ export async function resolveEffectiveTier(
       });
     }
   } else if (activeTierPurchase && !activeTierPurchase.tier) {
-    console.warn(`[TierResolution] ⚠️ Active tier purchase ${activeTierPurchase.id} has missing tier - skipping`);
+    resolutionLogger.warn('Active tier purchase has missing tier', { purchaseId: activeTierPurchase.id });
   } else {
-    console.log(`[TierResolution] ✗ No active tier purchase`);
+    resolutionLogger.debug('No active tier purchase');
   }
 
   // ============================================
@@ -313,7 +314,7 @@ export async function resolveEffectiveTier(
       });
 
       if (spendingTierResult.newTierId) {
-        console.log(`[TierResolution] ✓ Spending-based tier: ${spendingTierResult.newTierName}`);
+        resolutionLogger.debug('Spending-based tier calculated', { tierName: spendingTierResult.newTierName });
 
         // Get tier details for minSpend (with shop validation for cross-shop isolation)
         const tier = await prisma.tier.findFirst({
@@ -334,10 +335,10 @@ export async function resolveEffectiveTier(
           }
         });
       } else {
-        console.log(`[TierResolution] ✗ No spending-based tier qualifies`);
+        resolutionLogger.debug('No spending-based tier qualifies');
       }
     } catch (error) {
-      console.error(`[TierResolution] Error calculating spending-based tier:`, error);
+      resolutionLogger.error('Error calculating spending-based tier', error);
     }
   }
 
@@ -354,7 +355,7 @@ export async function resolveEffectiveTier(
         const baseTier = await getBaseTier(shop);
 
         if (baseTier) {
-          console.log(`[TierResolution] ✓ Default base tier available: ${baseTier.name}`);
+          resolutionLogger.debug('Default base tier available', { tierName: baseTier.name });
 
           sources.push({
             source: 'DEFAULT_BASE_TIER',
@@ -368,13 +369,13 @@ export async function resolveEffectiveTier(
             }
           });
         } else {
-          console.log(`[TierResolution] ✗ Base tier enabled but no tier available`);
+          resolutionLogger.debug('Base tier enabled but no tier available');
         }
       } else {
-        console.log(`[TierResolution] ✗ Base tier assignment disabled for shop`);
+        resolutionLogger.debug('Base tier assignment disabled for shop');
       }
     } catch (error) {
-      console.error(`[TierResolution] Error checking base tier:`, error);
+      resolutionLogger.error('Error checking base tier', error);
     }
   }
 
@@ -383,7 +384,7 @@ export async function resolveEffectiveTier(
   // ============================================
 
   if (sources.length === 0) {
-    console.log(`[TierResolution] No tier sources found - customer has no tier`);
+    resolutionLogger.info('No tier sources found - customer has no tier');
     return {
       effectiveTierId: null,
       effectiveTierName: null,
@@ -408,18 +409,19 @@ export async function resolveEffectiveTier(
   const winningSource = sources[0];
   const hasConflict = sources.length > 1;
 
-  console.log(`[TierResolution] ========== Resolution Complete ==========`);
-  console.log(`[TierResolution] Winning Source: ${winningSource.source}`);
-  console.log(`[TierResolution] Effective Tier: ${winningSource.tierName} (ID: ${winningSource.tierId})`);
-  console.log(`[TierResolution] Conflict Resolved: ${hasConflict ? 'YES' : 'NO'}`);
-
-  if (hasConflict) {
-    console.log(`[TierResolution] Other sources considered:`, sources.slice(1).map(s => ({
-      source: s.source,
-      tier: s.tierName,
-      priority: s.priority
-    })));
-  }
+  resolutionLogger.info('Resolution complete', {
+    winningSource: winningSource.source,
+    effectiveTier: winningSource.tierName,
+    effectiveTierId: winningSource.tierId,
+    conflictResolved: hasConflict,
+    ...(hasConflict && {
+      otherSources: sources.slice(1).map(s => ({
+        source: s.source,
+        tier: s.tierName,
+        priority: s.priority
+      }))
+    })
+  });
 
   return {
     effectiveTierId: winningSource.tierId,
@@ -464,8 +466,8 @@ export async function updateCustomerToEffectiveTier(
   source: TierSource;
   error?: string;
 }> {
-  console.log(`[TierResolution] Updating customer to effective tier`);
-  console.log(`[TierResolution] Triggered by: ${context?.triggeredBy || 'unknown'}`);
+  const updateLogger = logger.withContext({ shop, customerId, triggeredBy: context?.triggeredBy || 'unknown' });
+  updateLogger.info('Updating customer to effective tier');
 
   try {
     // Wrap ALL reads and writes in a transaction to prevent race conditions
@@ -502,7 +504,7 @@ export async function updateCustomerToEffectiveTier(
       const changed = previousTierId !== newTierId;
 
       if (!changed) {
-        console.log(`[TierResolution] No tier change needed - customer already has effective tier`);
+        updateLogger.debug('No tier change needed - customer already has effective tier');
 
         // Still update CustomerTierState with progress (may have changed)
         const allTiers = await tx.tier.findMany({
@@ -561,7 +563,7 @@ export async function updateCustomerToEffectiveTier(
           }
         });
 
-        console.log(`[TierResolution] CustomerTierState progress updated: ${progress.progressPercent}%`);
+        updateLogger.debug('CustomerTierState progress updated', { progressPercent: progress.progressPercent });
 
         return {
           success: true,
@@ -581,7 +583,7 @@ export async function updateCustomerToEffectiveTier(
         }
       });
 
-      console.log(`[TierResolution] Customer tier updated: ${previousTierName || 'none'} → ${newTierName || 'none'}`);
+      updateLogger.info('Customer tier updated', { previousTier: previousTierName || 'none', newTier: newTierName || 'none' });
 
       // Log tier change within the same transaction
       const changeType = !previousTierId && newTierId ? 'INITIAL_ASSIGNMENT'
@@ -683,7 +685,7 @@ export async function updateCustomerToEffectiveTier(
         }
       });
 
-      console.log(`[TierResolution] CustomerTierState updated with progress: ${progress.progressPercent}% to ${progress.nextTierName || 'MAX'}`);
+      updateLogger.debug('CustomerTierState updated with progress', { progressPercent: progress.progressPercent, nextTier: progress.nextTierName || 'MAX' });
 
       return {
         success: true,
@@ -701,7 +703,7 @@ export async function updateCustomerToEffectiveTier(
     return result;
 
   } catch (error) {
-    console.error(`[TierResolution] Error updating customer to effective tier:`, error);
+    updateLogger.error('Error updating customer to effective tier', error);
     return {
       success: false,
       previousTierId: null,

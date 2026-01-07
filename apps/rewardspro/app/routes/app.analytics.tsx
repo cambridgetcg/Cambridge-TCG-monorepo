@@ -73,6 +73,7 @@ import {
   ArrowDownIcon,
 } from "~/utils/polaris-icons";
 import { TierBadge, TierIndicator, TierProgress } from "../components/TierBadge";
+import { TierPerformanceChart } from "../components/analytics/TierPerformanceChart";
 import { getTierStyle, sortTiersByPriority, formatTierName } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -2397,177 +2398,12 @@ export default function AnalyticsPage() {
 
                     <Divider />
 
-                    {/* Tier Performance - Radar Chart */}
+                    {/* Tier Performance - Optimized Radar Chart */}
                     {data.tierPerformance.length > 0 && (
-                      <BlockStack gap="400">
-                        <Card>
-                          <Box padding="400">
-                            <BlockStack gap="400">
-                              <BlockStack gap="200">
-                                <Text variant="headingMd" as="h2">Tier Performance</Text>
-                                <Text variant="bodySm" tone="subdued" as="p">
-                                  Compare multiple performance dimensions across tiers simultaneously
-                                </Text>
-                              </BlockStack>
-
-                              {/* Chart.js Radar Chart */}
-                              <div style={{ height: '400px', padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
-                                <Radar
-                                  data={(() => {
-                                    // Calculate dynamic max values from actual data (with 20% buffer for readability)
-                                    const maxOrderFreq = Math.max(...data.tierPerformance.map(t => t.monthlyOrderFrequency), 1) * 1.2;
-                                    const maxAOV = Math.max(...data.tierPerformance.map(t => t.averageOrderValue), 1) * 1.2;
-                                    const maxLTV = Math.max(...data.tierPerformance.map(t => t.lifetimeValue), 1) * 1.2;
-                                    const maxRevenue = Math.max(...data.tierPerformance.map(t => t.revenuePerOrder), 1) * 1.2;
-                                    const maxCashback = Math.max(...data.tierPerformance.map(t => t.totalCashbackEarned), 1) * 1.2;
-
-                                    return {
-                                      labels: [
-                                        'Order Frequency',
-                                        'Avg Order Value',
-                                        'Customer LTV',
-                                        'Retention Rate',
-                                        'Revenue/Order',
-                                        'Cashback Earned'
-                                      ],
-                                      datasets: data.tierPerformance.map((tier, tierIndex) => {
-                                        const colors = [
-                                          { border: '#5C6AC4', bg: 'rgba(92, 106, 196, 0.2)' },
-                                          { border: '#006FBB', bg: 'rgba(0, 111, 187, 0.2)' },
-                                          { border: '#00848E', bg: 'rgba(0, 132, 142, 0.2)' },
-                                          { border: '#47C1BF', bg: 'rgba(71, 193, 191, 0.2)' },
-                                        ];
-                                        const color = colors[tierIndex] || colors[0];
-
-                                        // Normalize values to 0-100 scale using dynamic max values
-                                        const normalizeValue = (value: number, max: number) => {
-                                          return max > 0 ? Math.min((value / max) * 100, 100) : 0;
-                                        };
-
-                                        return {
-                                          label: tier.name,
-                                          data: [
-                                            normalizeValue(tier.monthlyOrderFrequency, maxOrderFreq),
-                                            normalizeValue(tier.averageOrderValue, maxAOV),
-                                            normalizeValue(tier.lifetimeValue, maxLTV),
-                                            tier.retentionRate > 0 ? Math.min(tier.retentionRate, 100) : 0, // Already percentage (0-100)
-                                            normalizeValue(tier.revenuePerOrder, maxRevenue),
-                                            normalizeValue(tier.totalCashbackEarned, maxCashback),
-                                          ],
-                                          borderColor: color.border,
-                                          backgroundColor: color.bg,
-                                          borderWidth: 2,
-                                          pointBackgroundColor: color.border,
-                                          pointBorderColor: '#fff',
-                                          pointHoverBackgroundColor: '#fff',
-                                          pointHoverBorderColor: color.border,
-                                        };
-                                      }),
-                                    };
-                                  })()}
-                                  options={{
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    scales: {
-                                      r: {
-                                        angleLines: {
-                                          display: true,
-                                          color: 'rgba(0, 0, 0, 0.1)'
-                                        },
-                                        suggestedMin: 0,
-                                        suggestedMax: 100,
-                                        ticks: {
-                                          stepSize: 20,
-                                          callback: function(value) {
-                                            return value + '%';
-                                          }
-                                        },
-                                        pointLabels: {
-                                          font: { size: 11 }
-                                        }
-                                      }
-                                    },
-                                    plugins: {
-                                      legend: {
-                                        display: true,
-                                        position: 'top',
-                                        labels: { boxWidth: 12, padding: 10 }
-                                      },
-                                      tooltip: {
-                                        callbacks: {
-                                          label: function(context) {
-                                            const tierIndex = context.datasetIndex;
-                                            const metricIndex = context.dataIndex;
-                                            const tier = data.tierPerformance[tierIndex];
-
-                                            if (!tier) return '';
-
-                                            // Get the actual value based on metric index
-                                            let actualValue: string;
-                                            switch (metricIndex) {
-                                              case 0: // Order Frequency
-                                                actualValue = `${tier.monthlyOrderFrequency.toFixed(2)} orders/customer`;
-                                                break;
-                                              case 1: // Avg Order Value
-                                                actualValue = formatAmount(tier.averageOrderValue);
-                                                break;
-                                              case 2: // Customer LTV
-                                                actualValue = formatAmount(tier.lifetimeValue);
-                                                break;
-                                              case 3: // Retention Rate
-                                                actualValue = `${tier.retentionRate.toFixed(1)}%`;
-                                                break;
-                                              case 4: // Revenue/Order
-                                                actualValue = formatAmount(tier.revenuePerOrder);
-                                                break;
-                                              case 5: // Cashback Earned
-                                                actualValue = `${formatAmount(tier.totalCashbackEarned)}/customer`;
-                                                break;
-                                              default:
-                                                actualValue = context.parsed.r.toFixed(1) + '%';
-                                            }
-
-                                            return `${tier.name}: ${actualValue}`;
-                                          }
-                                        }
-                                      }
-                                    }
-                                  }}
-                                />
-                              </div>
-
-                              {/* Legend */}
-                              <InlineStack gap="400" blockAlign="center" wrap={true}>
-                                {data.tierPerformance.map((tier, index) => {
-                                  const colors = ['#5C6AC4', '#006FBB', '#00848E', '#47C1BF'];
-                                  return (
-                                    <InlineStack key={tier.id} gap="200" blockAlign="center">
-                                      <div style={{
-                                        width: '12px',
-                                        height: '12px',
-                                        backgroundColor: colors[index] || '#5C6AC4',
-                                        borderRadius: '50%',
-                                        border: '2px solid white',
-                                        boxShadow: '0 0 0 1px ' + (colors[index] || '#5C6AC4')
-                                      }} />
-                                      <TierBadge
-                                        tierName={tier.name}
-                                        size="small"
-                                        showIcon={false}
-                                        cashbackPercent={tier.cashbackPercent}
-                                      />
-                                    </InlineStack>
-                                  );
-                                })}
-                              </InlineStack>
-
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Each axis shows relative performance across tiers. Values are automatically scaled to 0-100% based on your actual data for easy comparison.
-                              </Text>
-                            </BlockStack>
-                          </Box>
-                        </Card>
-                      </BlockStack>
+                      <TierPerformanceChart
+                        tiers={data.tierPerformance}
+                        formatAmount={formatAmount}
+                      />
                     )}
 
                     <Divider />

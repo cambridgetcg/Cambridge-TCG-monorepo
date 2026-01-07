@@ -501,9 +501,11 @@ export class IncrementalOrderSync {
         const presentmentAmount = parseFloat(orderData.currentTotalPriceSet?.presentmentMoney?.amount || '0');
         const isMultiCurrency = shopCurrencyCode && presentmentCurrencyCode && shopCurrencyCode !== presentmentCurrencyCode;
 
-        // Calculate exchange rate: presentment / shop (e.g., €100 / £86.21 = 1.16)
-        const exchangeRate = isMultiCurrency && shopAmount > 0
-          ? presentmentAmount / shopAmount
+        // Calculate exchange rate: shop / presentment to convert presentment→shop
+        // e.g., €100 presentment → £86.21 shop gives rate = 86.21/100 = 0.8621
+        // Usage: presentmentAmount * exchangeRate = shopAmount
+        const exchangeRate = isMultiCurrency && presentmentAmount > 0
+          ? shopAmount / presentmentAmount
           : null;
 
         if (isMultiCurrency) {

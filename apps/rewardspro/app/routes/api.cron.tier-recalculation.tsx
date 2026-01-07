@@ -14,7 +14,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "../db.server";
-import { recalculateTiersForAllCustomers } from "../services/tier-management.server";
+import { recalculateTiersSmart } from "../services/tier-management.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "crypto";
 
@@ -155,8 +155,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         log('info', `Processing ${shopSettings.shop}`);
 
         if (!isDryRun) {
-          // 5. Run tier recalculation for this shop
-          const recalcResult = await recalculateTiersForAllCustomers(shopSettings.shop);
+          // 5. Run tier recalculation for this shop (uses optimized path for 100+ customers)
+          const recalcResult = await recalculateTiersSmart(shopSettings.shop);
 
           // 6. Update last run timestamp
           await db.shopSettings.update({
@@ -188,13 +188,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
             upgraded: recalcResult.upgraded,
             downgraded: recalcResult.downgraded,
             unchanged: recalcResult.unchanged,
-            bySource: recalcResult.bySource
+            bySource: recalcResult.bySource,
+            engine: recalcResult.engine,
+            optimizedPath: recalcResult.optimizedPath,
+            timing: recalcResult.timing
           });
 
           log('info', `Completed ${shopSettings.shop}`, {
             processed: recalcResult.processed,
             upgraded: recalcResult.upgraded,
-            downgraded: recalcResult.downgraded
+            downgraded: recalcResult.downgraded,
+            engine: recalcResult.engine,
+            ...(recalcResult.timing && { totalMs: recalcResult.timing.totalMs })
           });
         } else {
           // Dry run - just log what would happen

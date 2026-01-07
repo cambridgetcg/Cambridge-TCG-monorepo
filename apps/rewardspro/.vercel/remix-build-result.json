@@ -23,6 +23,8 @@
       "routes/api.cron.subscription-expiry": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.setup-customer-metafield": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.subscription-diagnostics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.subscription-sync-verify": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-recalculation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-subscriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -232,6 +234,24 @@
         "parentId": "root",
         "file": "app/routes/api.setup-customer-metafield.tsx",
         "path": "api/setup-customer-metafield",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.subscription-diagnostics": {
+        "id": "routes/api.subscription-diagnostics",
+        "parentId": "root",
+        "file": "app/routes/api.subscription-diagnostics.tsx",
+        "path": "api/subscription-diagnostics",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.subscription-sync-verify": {
+        "id": "routes/api.subscription-sync-verify",
+        "parentId": "root",
+        "file": "app/routes/api.subscription-sync-verify.tsx",
+        "path": "api/subscription-sync-verify",
         "config": {
           "runtime": "nodejs"
         }
@@ -1140,6 +1160,18 @@
         "parentId": "root",
         "file": "routes/api.setup-customer-metafield.tsx",
         "path": "api/setup-customer-metafield"
+      },
+      "routes/api.subscription-diagnostics": {
+        "id": "routes/api.subscription-diagnostics",
+        "parentId": "root",
+        "file": "routes/api.subscription-diagnostics.tsx",
+        "path": "api/subscription-diagnostics"
+      },
+      "routes/api.subscription-sync-verify": {
+        "id": "routes/api.subscription-sync-verify",
+        "parentId": "root",
+        "file": "routes/api.subscription-sync-verify.tsx",
+        "path": "api/subscription-sync-verify"
       },
       "routes/api.cron.tier-recalculation": {
         "id": "routes/api.cron.tier-recalculation",

@@ -520,3 +520,79 @@ export class SubscriptionContractService {
     }
   }
 }
+
+// ============================================================================
+// HELPER FUNCTIONS (for backward compatibility)
+// These wrapper functions provide a simpler API for common operations
+// ============================================================================
+
+/**
+ * Pause a customer's subscription
+ * Wrapper for backward compatibility with simpler API
+ */
+export async function pauseCustomerSubscription(
+  admin: AdminApiContext,
+  shop: string,
+  contractId: string
+): Promise<{ success: boolean; errors: string[] }> {
+  try {
+    await SubscriptionContractService.pauseSubscription({
+      shop,
+      admin,
+      subscriptionId: contractId,
+    });
+    return { success: true, errors: [] };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SubscriptionContract] Pause failed:', errorMessage);
+    return { success: false, errors: [errorMessage] };
+  }
+}
+
+/**
+ * Resume a customer's paused subscription
+ * Wrapper for backward compatibility with simpler API
+ */
+export async function resumeCustomerSubscription(
+  admin: AdminApiContext,
+  shop: string,
+  contractId: string
+): Promise<{ success: boolean; errors: string[] }> {
+  try {
+    await SubscriptionContractService.resumeSubscription({
+      shop,
+      admin,
+      subscriptionId: contractId,
+    });
+    return { success: true, errors: [] };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SubscriptionContract] Resume failed:', errorMessage);
+    return { success: false, errors: [errorMessage] };
+  }
+}
+
+/**
+ * Cancel a customer's subscription
+ * Wrapper for backward compatibility with simpler API
+ */
+export async function cancelCustomerSubscription(
+  admin: AdminApiContext,
+  shop: string,
+  contractId: string,
+  reason?: string
+): Promise<{ success: boolean; errors: string[] }> {
+  try {
+    await SubscriptionContractService.cancelSubscription({
+      shop,
+      admin,
+      subscriptionId: contractId,
+      reason,
+    });
+    return { success: true, errors: [] };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[SubscriptionContract] Cancel failed:', errorMessage);
+    return { success: false, errors: [errorMessage] };
+  }
+}
