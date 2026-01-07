@@ -11,11 +11,16 @@ import { json } from "@remix-run/node";
 import { detectDevice } from "./utils/device-detection.server";
 import responsiveStyles from "./styles/responsive.css?url";
 import designSystemStyles from "./styles/design-system.css?url";
+import renaissanceTokens from "./styles/design-tokens.css?url";
+import renaissanceComponents from "./styles/renaissance-components.css?url";
 import crypto from "crypto";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: responsiveStyles },
   { rel: "stylesheet", href: designSystemStyles },
+  // Renaissance Design System
+  { rel: "stylesheet", href: renaissanceTokens },
+  { rel: "stylesheet", href: renaissanceComponents },
   // Preload critical fonts
   { rel: "preload", href: "https://cdn.shopify.com/static/fonts/inter/v4/styles.css", as: "style" },
 ];
