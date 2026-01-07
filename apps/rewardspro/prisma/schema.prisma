@@ -1496,6 +1496,19 @@ model SubscriptionEvent {
   @@index([customerId, eventType])
 }
 
+// Distributed lock for webhook deduplication
+model SubscriptionProcessingLock {
+  id            String    @id @default(uuid())
+  lockKey       String    @unique  // Unique identifier for the operation being locked
+  operation     String              // Type of operation (e.g., "webhook:CONTRACT_CREATE")
+  acquiredAt    DateTime  @default(now())
+  expiresAt     DateTime            // When the lock should auto-expire
+  metadata      Json?               // Additional context about the lock
+
+  @@index([expiresAt])              // For cleanup queries
+  @@index([operation, acquiredAt])  // For monitoring
+}
+
 // ============================================
 // ORDER TRACKING MODELS
 // ============================================
