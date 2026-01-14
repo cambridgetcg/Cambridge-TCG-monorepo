@@ -156,9 +156,6 @@ export class OrderProcessingQueue {
         case 'orders/paid':
           await this.processOrderPaid(item);
           break;
-        case 'orders/updated':
-          await this.processOrderUpdated(item);
-          break;
         case 'orders/cancelled':
           await this.processOrderCancelled(item);
           break;
@@ -223,16 +220,6 @@ export class OrderProcessingQueue {
     // - Calculate and award cashback
     // - Update spending totals
     // - Check tier progression
-  }
-
-  /**
-   * Process order updated webhook
-   */
-  private static async processOrderUpdated(item: OrderQueueItem): Promise<void> {
-    const order = item.payload;
-    console.log(`[Queue] Processing order ${order.name} update`);
-
-    // Handle order edits, amount changes, etc.
   }
 
   /**

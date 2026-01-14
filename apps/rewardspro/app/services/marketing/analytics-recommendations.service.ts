@@ -15,7 +15,100 @@ export interface MarketingRecommendation {
   metadata?: any;
 }
 
+// Industry benchmark conversion rates (used as fallback)
+const BENCHMARK_RATES = {
+  inactive_reengagement: 0.15,
+  tier_upgrade: 0.30,
+  reward_expiry: 0.50,
+  vip_retention: 0.25,
+  birthday: 0.35,
+  low_balance: 0.20,
+} as const;
+
 export class AnalyticsRecommendationsService {
+  /**
+   * Calculate historical conversion rate from past campaigns
+   */
+  private static async getHistoricalConversionRate(
+    shop: string,
+    campaignType: keyof typeof BENCHMARK_RATES
+  ): Promise<{ rate: number; isHistorical: boolean; sampleSize: number }> {
+    try {
+      // Get completed campaigns with metrics
+      const campaigns = await db.emailCampaign.findMany({
+        where: {
+          shop,
+          status: 'sent',
+          metrics: { not: null },
+        },
+        select: {
+          metrics: true,
+        },
+        take: 50, // Last 50 campaigns
+      });
+
+      if (campaigns.length < 3) {
+        // Not enough data, use benchmark
+        return { rate: BENCHMARK_RATES[campaignType], isHistorical: false, sampleSize: 0 };
+      }
+
+      // Calculate weighted average conversion rate
+      let totalSent = 0;
+      let totalConverted = 0;
+
+      for (const campaign of campaigns) {
+        const metrics = campaign.metrics as { sent?: number; clicked?: number; orders?: number } | null;
+        if (metrics?.sent && metrics.sent > 0) {
+          totalSent += metrics.sent;
+          // Use orders if available, otherwise use clicks as proxy
+          totalConverted += metrics.orders || Math.round((metrics.clicked || 0) * 0.1);
+        }
+      }
+
+      if (totalSent < 100) {
+        // Not enough volume, use benchmark
+        return { rate: BENCHMARK_RATES[campaignType], isHistorical: false, sampleSize: totalSent };
+      }
+
+      const historicalRate = totalConverted / totalSent;
+      // Clamp between reasonable bounds and apply campaign-type adjustment
+      const adjustedRate = Math.max(0.05, Math.min(0.70, historicalRate));
+
+      return { rate: adjustedRate, isHistorical: true, sampleSize: totalSent };
+    } catch {
+      return { rate: BENCHMARK_RATES[campaignType], isHistorical: false, sampleSize: 0 };
+    }
+  }
+
+  /**
+   * Get average order value for revenue calculations
+   */
+  private static async getAverageOrderValue(shop: string): Promise<number> {
+    try {
+      const customers = await db.customer.findMany({
+        where: {
+          shop,
+          orderCount: { gt: 0 },
+          totalSpent: { gt: 0 },
+        },
+        select: {
+          totalSpent: true,
+          orderCount: true,
+        },
+        take: 1000,
+      });
+
+      if (customers.length === 0) return 50; // Fallback
+
+      const totalSpent = customers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0);
+      const totalOrders = customers.reduce((sum, c) => sum + (c.orderCount || 0), 0);
+
+      return totalOrders > 0 ? totalSpent / totalOrders : 50;
+    } catch {
+      return 50; // Fallback
+    }
+  }
+
   /**
    * Get all marketing recommendations for a shop
    */
@@ -81,8 +174,14 @@ export class AnalyticsRecommendationsService {
 
     if (inactiveCustomers.length === 0) return null;
 
-    // Calculate potential revenue (assume 23% response rate, avg $50 order)
-    const potentialRevenue = inactiveCustomers.length * 0.23 * 50;
+    // Get historical conversion rate and average order value
+    const [conversionData, avgOrderValue] = await Promise.all([
+      this.getHistoricalConversionRate(shop, 'inactive_reengagement'),
+      this.getAverageOrderValue(shop),
+    ]);
+
+    const avgLifetimeValue = inactiveCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / inactiveCustomers.length;
+    const potentialRevenue = inactiveCustomers.length * conversionData.rate * avgOrderValue;
 
     return {
       id: 'inactive_reengagement',
@@ -93,14 +192,17 @@ export class AnalyticsRecommendationsService {
       description: 'Target customers who haven\'t made a purchase in 60+ days with personalized incentives',
       affectedCustomers: inactiveCustomers.length,
       potentialRevenue: Math.round(potentialRevenue),
-      expectedResponseRate: 23,
+      expectedResponseRate: Math.round(conversionData.rate * 100),
       segmentRules: {
         daysSinceLastOrder: { operator: 'greater_than', value: 60 },
         lifetimeValue: { operator: 'greater_than', value: 100 }
       },
       customerIds: inactiveCustomers.map(c => c.shopifyCustomerId).filter(Boolean) as string[],
       metadata: {
-        averageLifetimeValue: inactiveCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / inactiveCustomers.length
+        averageLifetimeValue: Math.round(avgLifetimeValue),
+        avgOrderValue: Math.round(avgOrderValue),
+        conversionRateSource: conversionData.isHistorical ? 'historical' : 'benchmark',
+        historicalSampleSize: conversionData.sampleSize,
       }
     };
   }
@@ -158,6 +260,10 @@ export class AnalyticsRecommendationsService {
 
     const avgGap = totalGap / upgradeCandidates.length;
 
+    // Get historical conversion rate
+    const conversionData = await this.getHistoricalConversionRate(shop, 'tier_upgrade');
+    const potentialRevenue = totalGap * conversionData.rate;
+
     return {
       id: 'tier_upgrade',
       type: 'tier_upgrade',
@@ -166,14 +272,16 @@ export class AnalyticsRecommendationsService {
       title: 'Tier Upgrade Promotion',
       description: 'Encourage customers within 20% of the next tier with targeted incentives',
       affectedCustomers: upgradeCandidates.length,
-      potentialRevenue: Math.round(totalGap * 0.41), // 41% conversion
-      expectedResponseRate: 41,
+      potentialRevenue: Math.round(potentialRevenue),
+      expectedResponseRate: Math.round(conversionData.rate * 100),
       segmentRules: {
         gapToNextTier: { operator: 'percentage', value: 20 }
       },
       customerIds: upgradeCandidates.map(c => c.shopifyCustomerId).filter(Boolean) as string[],
       metadata: {
-        averageGap: Math.round(avgGap)
+        averageGap: Math.round(avgGap),
+        totalGapValue: Math.round(totalGap),
+        conversionRateSource: conversionData.isHistorical ? 'historical' : 'benchmark',
       }
     };
   }
@@ -217,6 +325,16 @@ export class AnalyticsRecommendationsService {
     const totalAtRisk = customersWithBalance.reduce((sum, r) => sum + Number(r.customer.storeCredit || 0), 0);
     const uniqueCustomers = new Set(customersWithBalance.map(r => r.customer.shopifyCustomerId));
 
+    // Get historical conversion rate and average order value
+    const [conversionData, avgOrderValue] = await Promise.all([
+      this.getHistoricalConversionRate(shop, 'reward_expiry'),
+      this.getAverageOrderValue(shop),
+    ]);
+
+    // Revenue = redeemed credits + additional spend (customers typically spend more than credit value)
+    const multiplier = avgOrderValue > totalAtRisk / uniqueCustomers.size ? 1.5 : 1.2;
+    const potentialRevenue = totalAtRisk * conversionData.rate * multiplier;
+
     return {
       id: 'reward_expiry',
       type: 'reward_expiry',
@@ -225,15 +343,17 @@ export class AnalyticsRecommendationsService {
       title: 'Reward Expiry Reminders',
       description: 'Notify customers with rewards expiring within 14 days to drive immediate action',
       affectedCustomers: uniqueCustomers.size,
-      potentialRevenue: Math.round(totalAtRisk * 0.6), // 60% usage rate
-      expectedResponseRate: 60,
+      potentialRevenue: Math.round(potentialRevenue),
+      expectedResponseRate: Math.round(conversionData.rate * 100),
       segmentRules: {
         rewardExpiryDays: { operator: 'less_than', value: 14 },
         hasUnusedRewards: true
       },
       customerIds: Array.from(uniqueCustomers).filter(Boolean) as string[],
       metadata: {
-        totalRewardsAtRisk: totalAtRisk
+        totalRewardsAtRisk: Math.round(totalAtRisk),
+        avgRewardBalance: Math.round(totalAtRisk / uniqueCustomers.size),
+        conversionRateSource: conversionData.isHistorical ? 'historical' : 'benchmark',
       }
     };
   }
@@ -273,9 +393,18 @@ export class AnalyticsRecommendationsService {
 
     if (vipCustomers.length === 0) return null;
 
-    // Calculate annual value at risk
-    const avgMonthlyValue = vipCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / vipCustomers.length / 12;
-    const annualValueAtRisk = avgMonthlyValue * 12 * vipCustomers.length;
+    // Get historical conversion rate
+    const conversionData = await this.getHistoricalConversionRate(shop, 'vip_retention');
+
+    // Calculate value at risk based on actual spending patterns
+    const totalLTV = vipCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0);
+    const avgLTV = totalLTV / vipCustomers.length;
+
+    // Estimate annual value: if customer spent avgLTV over their lifetime,
+    // estimate annual value as a portion (assume 2-3 year customer lifespan)
+    const estimatedAnnualValue = avgLTV / 2.5;
+    const totalAnnualValueAtRisk = estimatedAnnualValue * vipCustomers.length;
+    const potentialRevenue = totalAnnualValueAtRisk * conversionData.rate;
 
     return {
       id: 'vip_retention',
@@ -285,8 +414,8 @@ export class AnalyticsRecommendationsService {
       title: 'VIP Customer Retention',
       description: 'Re-engage high-value customers who haven\'t purchased in 30+ days',
       affectedCustomers: vipCustomers.length,
-      potentialRevenue: Math.round(annualValueAtRisk * 0.67), // 67% recovery rate
-      expectedResponseRate: 67,
+      potentialRevenue: Math.round(potentialRevenue),
+      expectedResponseRate: Math.round(conversionData.rate * 100),
       segmentRules: {
         tierLevel: 'highest',
         daysSinceLastOrder: { operator: 'greater_than', value: 30 },
@@ -294,7 +423,10 @@ export class AnalyticsRecommendationsService {
       },
       customerIds: vipCustomers.map(c => c.shopifyCustomerId).filter(Boolean) as string[],
       metadata: {
-        annualValueAtRisk: Math.round(annualValueAtRisk)
+        annualValueAtRisk: Math.round(totalAnnualValueAtRisk),
+        avgCustomerLTV: Math.round(avgLTV),
+        topTierName: topTier.name,
+        conversionRateSource: conversionData.isHistorical ? 'historical' : 'benchmark',
       }
     };
   }
@@ -303,28 +435,80 @@ export class AnalyticsRecommendationsService {
    * Get upcoming birthdays
    */
   private static async getBirthdayRecommendation(shop: string): Promise<MarketingRecommendation | null> {
-    // Note: This assumes you have birthday data in customer metafields
-    // For now, return a mock recommendation
+    const now = new Date();
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    // This would need to query customer metafields for birthday data
-    // For now, return null or mock data
+    // Query customers with birthdays set
+    const customersWithBirthday = await db.customer.findMany({
+      where: {
+        shop,
+        birthday: { not: null },
+      },
+      select: {
+        id: true,
+        shopifyCustomerId: true,
+        birthday: true,
+        totalSpent: true,
+      }
+    });
+
+    if (customersWithBirthday.length === 0) return null;
+
+    // Filter to birthdays in the next 30 days (comparing month/day across year boundary)
+    const currentYear = now.getFullYear();
+    const upcomingBirthdays = customersWithBirthday.filter(customer => {
+      if (!customer.birthday) return false;
+
+      const birthday = new Date(customer.birthday);
+      const birthdayMonth = birthday.getMonth();
+      const birthdayDay = birthday.getDate();
+
+      // Create date for this year's birthday
+      let thisYearBirthday = new Date(currentYear, birthdayMonth, birthdayDay);
+
+      // If birthday already passed this year, check next year
+      if (thisYearBirthday < now) {
+        thisYearBirthday = new Date(currentYear + 1, birthdayMonth, birthdayDay);
+      }
+
+      // Check if within next 30 days
+      return thisYearBirthday >= now && thisYearBirthday <= thirtyDaysFromNow;
+    });
+
+    if (upcomingBirthdays.length === 0) return null;
+
+    // Get historical conversion rate and average order value
+    const [conversionData, avgOrderValue] = await Promise.all([
+      this.getHistoricalConversionRate(shop, 'birthday'),
+      this.getAverageOrderValue(shop),
+    ]);
+
+    const avgCustomerSpent = upcomingBirthdays.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / upcomingBirthdays.length;
+    const potentialRevenue = upcomingBirthdays.length * conversionData.rate * avgOrderValue;
+
+    // Count how many customers have birthday data overall (for metadata)
+    const totalWithBirthday = customersWithBirthday.length;
+
     return {
       id: 'birthday',
       type: 'birthday',
       priority: 'medium',
       category: 'engagement',
-      title: 'Birthday & Anniversary Campaign',
-      description: 'Send special offers to customers celebrating birthdays in the next 30 days',
-      affectedCustomers: 56, // Mock number
-      potentialRevenue: 2240,
-      expectedResponseRate: 40,
+      title: 'Birthday Campaign',
+      description: `Send special offers to ${upcomingBirthdays.length} customers celebrating birthdays in the next 30 days`,
+      affectedCustomers: upcomingBirthdays.length,
+      potentialRevenue: Math.round(potentialRevenue),
+      expectedResponseRate: Math.round(conversionData.rate * 100),
       segmentRules: {
         birthdayInDays: { operator: 'less_than', value: 30 }
       },
+      customerIds: upcomingBirthdays.map(c => c.shopifyCustomerId).filter(Boolean) as string[],
       metadata: {
-        upcomingCount: 56
+        upcomingCount: upcomingBirthdays.length,
+        totalCustomersWithBirthday: totalWithBirthday,
+        avgCustomerLTV: Math.round(avgCustomerSpent),
+        conversionRateSource: conversionData.isHistorical ? 'historical' : 'benchmark',
       }
     };
   }
@@ -350,7 +534,19 @@ export class AnalyticsRecommendationsService {
 
     if (customers.length === 0) return null;
 
+    // Get historical conversion rate and average order value
+    const [conversionData, avgOrderValue] = await Promise.all([
+      this.getHistoricalConversionRate(shop, 'low_balance'),
+      this.getAverageOrderValue(shop),
+    ]);
+
     const totalDormant = customers.reduce((sum, c) => sum + Number(c.storeCredit || 0), 0);
+    const avgBalance = totalDormant / customers.length;
+
+    // Revenue = customers who convert * (their credit balance + additional spend)
+    // People with small balances typically spend more than the balance value
+    const avgSpendMultiplier = avgOrderValue / avgBalance;
+    const potentialRevenue = customers.length * conversionData.rate * (avgBalance + avgOrderValue);
 
     return {
       id: 'low_balance',
@@ -360,14 +556,17 @@ export class AnalyticsRecommendationsService {
       title: 'Low Balance Activation',
       description: 'Remind customers with small reward balances to use them before expiry',
       affectedCustomers: customers.length,
-      potentialRevenue: Math.round(totalDormant * 0.31 * 3), // 31% activation, avg $3x order
-      expectedResponseRate: 31,
+      potentialRevenue: Math.round(potentialRevenue),
+      expectedResponseRate: Math.round(conversionData.rate * 100),
       segmentRules: {
         rewardBalance: { operator: 'between', value: [1, 50] }
       },
       customerIds: customers.map(c => c.shopifyCustomerId).filter(Boolean) as string[],
       metadata: {
-        dormantRewards: totalDormant
+        dormantRewards: Math.round(totalDormant),
+        avgBalance: Math.round(avgBalance),
+        avgOrderValue: Math.round(avgOrderValue),
+        conversionRateSource: conversionData.isHistorical ? 'historical' : 'benchmark',
       }
     };
   }

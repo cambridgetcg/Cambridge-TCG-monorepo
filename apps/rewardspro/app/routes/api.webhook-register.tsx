@@ -20,7 +20,6 @@ const TOPIC_MAPPING: Record<string, string> = {
   'customers/update': 'CUSTOMERS_UPDATE',
   'customers/delete': 'CUSTOMERS_DELETE',
   'orders/create': 'ORDERS_CREATE',
-  'orders/updated': 'ORDERS_UPDATED',
   'orders/paid': 'ORDERS_PAID',
   'orders/cancelled': 'ORDERS_CANCELLED',
   'orders/fulfilled': 'ORDERS_FULFILLED',
