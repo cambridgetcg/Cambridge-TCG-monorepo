@@ -408,6 +408,8 @@ model Customer {
   @@index([email])                     // Speed up queries by email
   @@index([shop, shopifyCustomerMetafieldId])  // Speed up storefront widget queries
   @@index([shop, currentTierId, createdAt(sort: Desc)])  // Optimize paginated tier-filtered queries
+  @@index([shop, createdAt, orderCount])  // Analytics: cohort queries (customers created in time range with orders)
+  @@index([shop, lastOrderDate])          // Analytics: RFM recency queries (active/dormant customer counts)
 }
 
 // ============================================
