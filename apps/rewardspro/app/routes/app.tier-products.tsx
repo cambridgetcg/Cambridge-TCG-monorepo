@@ -380,7 +380,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const sellingPlanGroupId = product.sellingPlanGroups?.edges?.[0]?.node?.id || dbProduct?.sellingPlanGroupId;
 
           tierProducts.push({
-            id: product.id,
+            // IMPORTANT: Use database UUID when available for deletion/update operations
+            // Fall back to Shopify GID only for products not yet in our database
+            id: dbProduct?.id || product.id,
             // IMPORTANT: Database tierId takes priority over title-based matching
             // because db stores the authoritative tier association
             tierId: resolvedTierId,

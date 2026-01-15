@@ -98,8 +98,9 @@ export async function validateTierProductDeletion(
 
   console.log(`[TierProductDeletion] Validating deletion for product: ${tierProductId}`);
 
-  // 1. Find tier product
-  const product = await db.tierProduct.findFirst({
+  // 1. Find tier product - try by ID first, then by shopifyProductId as fallback
+  // This handles both database UUIDs and Shopify GIDs
+  let product = await db.tierProduct.findFirst({
     where: {
       id: tierProductId,
       shop,
@@ -109,11 +110,30 @@ export async function validateTierProductDeletion(
     include: { tier: true }
   });
 
+  // Fallback: try looking up by shopifyProductId (for Shopify GID format)
+  if (!product && tierProductId.includes('gid://shopify')) {
+    console.log(`[TierProductDeletion] ID looks like Shopify GID, trying shopifyProductId lookup`);
+    product = await db.tierProduct.findFirst({
+      where: {
+        shopifyProductId: tierProductId,
+        shop,
+        ...(includeDeleted ? {} : { deletedAt: null })
+      },
+      include: { tier: true }
+    });
+  }
+
   // Check if already soft-deleted
   if (!product) {
-    // Check if it exists but is soft-deleted
+    // Check if it exists but is soft-deleted (try both ID and shopifyProductId)
     const softDeletedProduct = await db.tierProduct.findFirst({
-      where: { id: tierProductId, shop, deletedAt: { not: null } },
+      where: {
+        OR: [
+          { id: tierProductId, shop },
+          { shopifyProductId: tierProductId, shop }
+        ],
+        deletedAt: { not: null }
+      },
       include: { tier: true }
     });
 
@@ -542,8 +562,8 @@ export async function restoreTierProduct(
   console.log(`[TierProductDeletion] Starting restore for product: ${tierProductId}`);
 
   try {
-    // Find the soft-deleted product
-    const product = await db.tierProduct.findFirst({
+    // Find the soft-deleted product - try by ID first, then by shopifyProductId
+    let product = await db.tierProduct.findFirst({
       where: {
         id: tierProductId,
         shop,
@@ -551,6 +571,18 @@ export async function restoreTierProduct(
       },
       include: { tier: true }
     });
+
+    // Fallback: try by shopifyProductId if it looks like a Shopify GID
+    if (!product && tierProductId.includes('gid://shopify')) {
+      product = await db.tierProduct.findFirst({
+        where: {
+          shopifyProductId: tierProductId,
+          shop,
+          deletedAt: { not: null }
+        },
+        include: { tier: true }
+      });
+    }
 
     if (!product) {
       console.log(`[TierProductDeletion] Product not found or not deleted: ${tierProductId}`);
@@ -646,8 +678,8 @@ export async function permanentlyDeleteTierProduct(
   console.log(`[TierProductDeletion] Starting permanent deletion for product: ${tierProductId}`);
 
   try {
-    // Find the soft-deleted product
-    const product = await db.tierProduct.findFirst({
+    // Find the soft-deleted product - try by ID first, then by shopifyProductId
+    let product = await db.tierProduct.findFirst({
       where: {
         id: tierProductId,
         shop,
@@ -655,6 +687,18 @@ export async function permanentlyDeleteTierProduct(
       },
       include: { tier: true }
     });
+
+    // Fallback: try by shopifyProductId if it looks like a Shopify GID
+    if (!product && tierProductId.includes('gid://shopify')) {
+      product = await db.tierProduct.findFirst({
+        where: {
+          shopifyProductId: tierProductId,
+          shop,
+          deletedAt: { not: null }
+        },
+        include: { tier: true }
+      });
+    }
 
     if (!product) {
       console.log(`[TierProductDeletion] Product not found or not soft-deleted: ${tierProductId}`);
