@@ -138,7 +138,7 @@ export function SystemMonitorPlanCard({
 
               <InlineGrid columns={2} gap="400">
                 <BlockStack gap="050">
-                  <Text variant="bodySm" tone="subdued">
+                  <Text variant="bodySm" as="span" tone="subdued">
                     Plan Rate
                   </Text>
                   <Text variant="headingLg" as="p">
@@ -147,7 +147,7 @@ export function SystemMonitorPlanCard({
                 </BlockStack>
 
                 <BlockStack gap="050" inlineAlign="end">
-                  <Text variant="bodySm" tone="subdued">
+                  <Text variant="bodySm" as="span" tone="subdued">
                     Billing
                   </Text>
                   <Text variant="headingLg" as="p">
@@ -166,24 +166,24 @@ export function SystemMonitorPlanCard({
           >
             <BlockStack gap="300">
               <InlineStack align="space-between" blockAlign="center">
-                <Text variant="bodySm" fontWeight="semibold">
+                <Text variant="bodySm" as="span" fontWeight="semibold">
                   Resource Utilization
                 </Text>
-                <Text variant="bodySm" tone="subdued">
+                <Text variant="bodySm" as="span" tone="subdued">
                   {utilization.toFixed(2)}%
                 </Text>
               </InlineStack>
 
               <ProgressBar
                 progress={utilization}
-                tone={utilization > 90 ? 'critical' : utilization > 75 ? 'warning' : 'success'}
+                tone={utilization > 90 ? 'critical' : utilization > 75 ? 'highlight' : 'primary'}
               />
 
               <InlineStack align="space-between" blockAlign="center">
                 <Text variant="headingLg" as="p">
                   {usageMetrics.currentUsage.toLocaleString()}
                 </Text>
-                <Text variant="bodySm" tone="subdued">
+                <Text variant="bodySm" as="span" tone="subdued">
                   of {usageMetrics.planLimit.toLocaleString()}
                 </Text>
               </InlineStack>
@@ -198,10 +198,10 @@ export function SystemMonitorPlanCard({
           >
             <BlockStack gap="200">
               <InlineStack align="space-between" blockAlign="center">
-                <Text variant="bodySm" tone="subdued">
+                <Text variant="bodySm" as="span" tone="subdued">
                   Current Period
                 </Text>
-                <Text variant="bodyMd" fontWeight="medium">
+                <Text variant="bodyMd" as="span" fontWeight="medium">
                   {daysRemaining} days remaining
                 </Text>
               </InlineStack>
@@ -210,10 +210,10 @@ export function SystemMonitorPlanCard({
                 <>
                   <Divider />
                   <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       Estimated to reach limit
                     </Text>
-                    <Text variant="bodyMd" fontWeight="medium" tone={
+                    <Text variant="bodyMd" as="span" fontWeight="medium" tone={
                       daysToLimitTone === 'critical' ? 'critical' :
                       daysToLimitTone === 'warning' ? 'caution' : undefined
                     }>
@@ -227,10 +227,10 @@ export function SystemMonitorPlanCard({
                 <>
                   <Divider />
                   <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       Projected overage
                     </Text>
-                    <Text variant="bodyMd" fontWeight="medium" tone="critical">
+                    <Text variant="bodyMd" as="span" fontWeight="medium" tone="critical">
                       {(monthlyOrderUsage.projectedOrders - monthlyOrderUsage.planLimit).toLocaleString()} orders
                     </Text>
                   </InlineStack>
@@ -242,23 +242,23 @@ export function SystemMonitorPlanCard({
           {/* Next Billing */}
           <Box
             padding="300"
-            background={projectedUtilization > 100 ? "bg-surface-critical-subdued" : "bg-surface"}
+            background={projectedUtilization > 100 ? "bg-surface-critical" : "bg-surface"}
             borderRadius="200"
           >
             <BlockStack gap="100">
               <InlineStack align="space-between" blockAlign="center">
-                <Text variant="bodySm" fontWeight="semibold">
+                <Text variant="bodySm" as="span" fontWeight="semibold">
                   Next Billing Event
                 </Text>
                 {projectedUtilization > 100 && (
                   <Badge tone="critical">Alert</Badge>
                 )}
               </InlineStack>
-              <Text variant="bodySm" tone="subdued">
+              <Text variant="bodySm" as="span" tone="subdued">
                 {renewalDate} • ${planDetails.price}
               </Text>
               {projectedUtilization > 100 && monthlyOrderUsage && (
-                <Text variant="bodySm" tone="critical">
+                <Text variant="bodySm" as="span" tone="critical">
                   Estimated overage: +${((monthlyOrderUsage.projectedOrders - monthlyOrderUsage.planLimit) * (planDetails.overageRate || 0.05)).toFixed(2)}
                 </Text>
               )}

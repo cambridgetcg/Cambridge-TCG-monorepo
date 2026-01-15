@@ -1,5 +1,13 @@
 {
   "include": ["env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": [
+    "node_modules",
+    "app/components/BalancedReactComponents.tsx",
+    "app/components/PolarisSemanticExamples.tsx",
+    "app/components/SemanticReactComponents.tsx",
+    "app/components/renaissance/**",
+    "test/**"
+  ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "strict": true,

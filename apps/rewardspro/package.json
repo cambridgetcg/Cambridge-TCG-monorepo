@@ -89,6 +89,7 @@
     "chartjs-chart-matrix": "^3.0.0",
     "chartjs-node-canvas": "^5.0.0",
     "dd-trace": "^5.0.0",
+    "framer-motion": "^12.26.2",
     "graphql": "^16.8.1",
     "hot-shots": "^10.0.0",
     "isbot": "^5.1.0",
