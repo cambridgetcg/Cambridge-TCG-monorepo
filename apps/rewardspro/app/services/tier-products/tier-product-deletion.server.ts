@@ -387,6 +387,10 @@ export async function deleteTierProduct(
   };
 
   try {
+    // Helper: Ensure Shopify Product ID is in GID format
+    const ensureProductGID = (id: string) =>
+      id.includes('gid://shopify') ? id : `gid://shopify/Product/${id}`;
+
     // 2. Remove from selling plan group (if has one)
     let sellingPlanGroupUpdated = false;
 
@@ -407,7 +411,7 @@ export async function deleteTierProduct(
         `, {
           variables: {
             id: product.shopifySellingPlanGroupId,
-            productIds: [product.shopifyProductId]
+            productIds: [ensureProductGID(product.shopifyProductId)]
           }
         });
 
@@ -436,7 +440,8 @@ export async function deleteTierProduct(
     }
 
     // 3. Delete product from Shopify
-    console.log(`[TierProductDeletion] Deleting Shopify product: ${product.shopifyProductId}`);
+    const shopifyProductGID = ensureProductGID(product.shopifyProductId);
+    console.log(`[TierProductDeletion] Deleting Shopify product: ${shopifyProductGID}`);
 
     const deleteResult = await admin.graphql(`
       mutation DeleteProduct($id: ID!) {
@@ -449,7 +454,7 @@ export async function deleteTierProduct(
         }
       }
     `, {
-      variables: { id: product.shopifyProductId }
+      variables: { id: shopifyProductGID }
     });
 
     const deleteData = await deleteResult.json() as {
