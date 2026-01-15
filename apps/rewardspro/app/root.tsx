@@ -15,6 +15,44 @@ import renaissanceTokens from "./styles/design-tokens.css?url";
 import renaissanceComponents from "./styles/renaissance-components.css?url";
 import crypto from "crypto";
 
+/**
+ * VERCEL ANALYTICS & SPEED INSIGHTS
+ *
+ * WHAT IS VERCEL ANALYTICS?
+ * =========================
+ * Real User Monitoring (RUM) that tracks actual visitor experiences:
+ * - Page views and unique visitors
+ * - Traffic sources and referrers
+ * - Geographic distribution
+ * - Device and browser breakdown
+ * - Custom events (optional)
+ *
+ * WHAT IS SPEED INSIGHTS?
+ * =======================
+ * Core Web Vitals monitoring for real users:
+ * - LCP (Largest Contentful Paint) - Loading performance
+ * - FID (First Input Delay) - Interactivity
+ * - CLS (Cumulative Layout Shift) - Visual stability
+ * - TTFB (Time to First Byte) - Server response time
+ * - FCP (First Contentful Paint) - Initial render
+ *
+ * WHY USE THEM?
+ * =============
+ * - Understand real merchant experience (not synthetic tests)
+ * - Identify slow pages for optimization
+ * - Track performance trends over time
+ * - No sampling - every page view is tracked
+ * - Zero configuration after adding components
+ *
+ * PRIVACY:
+ * ========
+ * - No cookies required
+ * - GDPR/CCPA compliant by design
+ * - Only collects performance metrics, not PII
+ */
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: responsiveStyles },
   { rel: "stylesheet", href: designSystemStyles },
@@ -36,13 +74,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const headers = new Headers();
   
   // Content Security Policy with nonce for Shopify embedded apps
+  // Updated to allow Vercel Analytics and Speed Insights
   const cspDirectives = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' https://cdn.shopify.com https://cdn.shopifycdn.net`,
+    `script-src 'self' 'nonce-${nonce}' https://cdn.shopify.com https://cdn.shopifycdn.net https://va.vercel-scripts.com`,
     `style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://cdn.shopifycdn.net`,
     `img-src 'self' data: https: blob:`,
     `font-src 'self' data: https://cdn.shopify.com`,
-    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com`,
+    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com`,
     `frame-ancestors https://*.myshopify.com https://admin.shopify.com`,
     `form-action 'self'`,
     `base-uri 'self'`,
@@ -102,6 +141,10 @@ export default function App() {
         <Outlet />
         <ScrollRestoration />
         <Scripts />
+        {/* Vercel Analytics - Real User Monitoring */}
+        <Analytics />
+        {/* Vercel Speed Insights - Core Web Vitals */}
+        <SpeedInsights />
       </body>
     </html>
   );

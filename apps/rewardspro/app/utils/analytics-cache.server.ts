@@ -1,150 +1,184 @@
 /**
  * Analytics Cache Manager
- * In-memory cache for analytics metrics with configurable TTL
- * Optimized for serverless environments
+ *
+ * UPGRADED TO VERCEL KV
+ * ====================
+ * This cache now uses Vercel KV (Redis) when available, providing:
+ * - Persistent cache across serverless cold starts
+ * - Shared cache across all function instances
+ * - Sub-millisecond read latency
+ * - Cache survives deployments
+ *
+ * Falls back to in-memory cache when KV is not configured (local dev).
+ *
+ * CACHE KEY PREFIXES:
+ * - metrics:* - Overview metrics per shop/period
+ * - customer-behaviour:* - RFM segmentation data
+ * - cohort-analysis:* - Cohort analysis data
+ * - tier-performance:* - Tier performance metrics
+ * - program-impact:* - Program impact metrics
  */
 
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
-}
+import {
+  kvGetOrCompute,
+  kvGet,
+  kvSet,
+  kvDelete,
+  kvDeletePattern,
+  getCacheBackend,
+  getCacheStats as getKVStats,
+} from './vercel-kv-cache.server';
 
+// Default TTL values (in milliseconds)
+const DEFAULT_TTL = 60000; // 1 minute
+const ANALYTICS_TTL = 300000; // 5 minutes for analytics data
+
+/**
+ * Legacy cache manager class for backwards compatibility
+ * Now proxies to Vercel KV functions
+ */
 class AnalyticsCacheManager {
-  private cache: Map<string, CacheEntry<any>>;
-  private defaultTTL: number = 60000; // 60 seconds
-
-  constructor() {
-    this.cache = new Map();
-  }
+  private defaultTTL: number = DEFAULT_TTL;
 
   /**
    * Get cached data if available and fresh
+   * Note: This is now async internally but returns sync for backwards compat
+   * Use getCachedOrCompute for new code
    */
   get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-
-    if (!entry) {
-      return null;
-    }
-
-    const now = Date.now();
-    const age = now - entry.timestamp;
-
-    // Check if cache is still valid
-    if (age < entry.ttl) {
-      console.log(`[Analytics Cache] HIT: ${key} (age: ${age}ms)`);
-      return entry.data as T;
-    }
-
-    // Cache expired, remove it
-    console.log(`[Analytics Cache] EXPIRED: ${key} (age: ${age}ms > ${entry.ttl}ms)`);
-    this.cache.delete(key);
-    return null;
+    // For backwards compatibility, we can't make this async
+    // New code should use kvGet directly
+    console.warn(
+      `[Analytics Cache] Sync get() called for ${key}. ` +
+      `Consider using getCachedOrCompute() for better KV support.`
+    );
+    return null; // Force recompute - sync access can't use KV
   }
 
   /**
    * Store data in cache with optional custom TTL
+   * Note: This is fire-and-forget for backwards compat
    */
   set<T>(key: string, data: T, ttl?: number): void {
-    const entry: CacheEntry<T> = {
-      data,
-      timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL,
-    };
-
-    this.cache.set(key, entry);
-    console.log(`[Analytics Cache] SET: ${key} (TTL: ${entry.ttl}ms)`);
+    // Fire and forget - don't await
+    kvSet(key, data, ttl || this.defaultTTL).catch(err => {
+      console.error(`[Analytics Cache] Error setting ${key}:`, err);
+    });
   }
 
   /**
    * Invalidate specific cache entry
    */
   invalidate(key: string): void {
-    const deleted = this.cache.delete(key);
-    if (deleted) {
-      console.log(`[Analytics Cache] INVALIDATED: ${key}`);
-    }
+    kvDelete(key).catch(err => {
+      console.error(`[Analytics Cache] Error invalidating ${key}:`, err);
+    });
+  }
+
+  /**
+   * Clear all cache entries for a shop
+   */
+  clearShop(shop: string): void {
+    kvDeletePattern(`*:${shop}:*`).catch(err => {
+      console.error(`[Analytics Cache] Error clearing shop ${shop}:`, err);
+    });
   }
 
   /**
    * Clear all cache entries
    */
   clear(): void {
-    const size = this.cache.size;
-    this.cache.clear();
-    console.log(`[Analytics Cache] CLEARED: ${size} entries removed`);
+    kvDeletePattern('*').catch(err => {
+      console.error(`[Analytics Cache] Error clearing all:`, err);
+    });
   }
 
   /**
    * Get cache statistics
    */
-  getStats() {
-    const now = Date.now();
-    const entries = Array.from(this.cache.entries());
-
-    return {
-      totalEntries: entries.length,
-      validEntries: entries.filter(([_, entry]) => {
-        const age = now - entry.timestamp;
-        return age < entry.ttl;
-      }).length,
-      invalidEntries: entries.filter(([_, entry]) => {
-        const age = now - entry.timestamp;
-        return age >= entry.ttl;
-      }).length,
-    };
-  }
-
-  /**
-   * Clean up expired entries (optional maintenance)
-   */
-  cleanup(): void {
-    const now = Date.now();
-    let removed = 0;
-
-    for (const [key, entry] of this.cache.entries()) {
-      const age = now - entry.timestamp;
-      if (age >= entry.ttl) {
-        this.cache.delete(key);
-        removed++;
-      }
-    }
-
-    if (removed > 0) {
-      console.log(`[Analytics Cache] CLEANUP: ${removed} expired entries removed`);
-    }
+  async getStats() {
+    return getKVStats();
   }
 }
 
-// Singleton instance
+// Singleton instance for backwards compatibility
 const analyticsCache = new AnalyticsCacheManager();
 
-// Export cache instance and helper functions
+// Export cache instance
 export { analyticsCache };
 
 /**
- * Helper function to get or compute cached data
+ * Primary caching function - GET OR COMPUTE
+ *
+ * This is the main function you should use for caching expensive operations.
+ * It automatically:
+ * 1. Checks if data exists in cache (KV or memory)
+ * 2. Returns cached data if fresh
+ * 3. Computes new data if cache miss
+ * 4. Stores computed data in cache
+ *
+ * @param key - Unique cache key (e.g., "cohort-analysis:shop.myshopify.com")
+ * @param computeFn - Async function that computes the data
+ * @param ttl - Time-to-live in milliseconds (default: 5 minutes)
+ *
+ * @example
+ * const data = await getCachedOrCompute(
+ *   `metrics:${shop}`,
+ *   () => fetchExpensiveMetrics(shop),
+ *   300000 // 5 minutes
+ * );
  */
 export async function getCachedOrCompute<T>(
   key: string,
   computeFn: () => Promise<T>,
-  ttl?: number
+  ttl: number = ANALYTICS_TTL
 ): Promise<T> {
-  // Try to get from cache
-  const cached = analyticsCache.get<T>(key);
-  if (cached !== null) {
-    return cached;
+  return kvGetOrCompute(key, computeFn, ttl);
+}
+
+/**
+ * Get value from cache (async version)
+ * Returns null if not found or expired
+ */
+export async function getCached<T>(key: string): Promise<T | null> {
+  return kvGet<T>(key);
+}
+
+/**
+ * Set value in cache
+ */
+export async function setCache<T>(key: string, data: T, ttl: number = ANALYTICS_TTL): Promise<void> {
+  return kvSet(key, data, ttl);
+}
+
+/**
+ * Invalidate cache entry
+ */
+export async function invalidateCache(key: string): Promise<void> {
+  return kvDelete(key);
+}
+
+/**
+ * Invalidate all cache entries for a shop
+ * Useful when shop data changes significantly
+ */
+export async function invalidateShopCache(shop: string): Promise<number> {
+  // Invalidate all analytics-related keys for this shop
+  const patterns = [
+    `metrics:${shop}:*`,
+    `customer-behaviour:${shop}`,
+    `cohort-analysis:${shop}`,
+    `tier-performance:${shop}`,
+    `program-impact:${shop}`,
+  ];
+
+  let totalDeleted = 0;
+  for (const pattern of patterns) {
+    totalDeleted += await kvDeletePattern(pattern);
   }
 
-  // Not in cache, compute it
-  console.log(`[Analytics Cache] MISS: ${key} - Computing...`);
-  const data = await computeFn();
-
-  // Store in cache
-  analyticsCache.set(key, data, ttl);
-
-  return data;
+  console.log(`[Analytics Cache] Invalidated ${totalDeleted} entries for shop: ${shop}`);
+  return totalDeleted;
 }
 
 /**
@@ -156,3 +190,34 @@ export function getMetricsCacheKey(shop: string, period: 'current' | 'previous')
   const month = period === 'current' ? date.getMonth() + 1 : date.getMonth();
   return `metrics:${shop}:${year}-${month}`;
 }
+
+/**
+ * Get information about which cache backend is being used
+ */
+export function getCacheBackendInfo(): {
+  backend: 'vercel-kv' | 'memory';
+  description: string;
+} {
+  const backend = getCacheBackend();
+  return {
+    backend,
+    description: backend === 'vercel-kv'
+      ? 'Using Vercel KV (Redis) - persistent, shared across instances'
+      : 'Using in-memory cache - resets on cold start, not shared',
+  };
+}
+
+/**
+ * Get cache statistics
+ */
+export async function getCacheStats() {
+  return getKVStats();
+}
+
+// Export TTL constants for consistency
+export const CACHE_TTL = {
+  SHORT: 60000,      // 1 minute - for frequently changing data
+  MEDIUM: 300000,    // 5 minutes - default for analytics
+  LONG: 600000,      // 10 minutes - for stable data
+  VERY_LONG: 3600000, // 1 hour - for rarely changing data
+} as const;

@@ -3,6 +3,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { getAuroraClient } from "../utils/aurora-data-api";
 import { DatadogService } from "../services/monitoring/datadog.service";
 import { Logger } from "../services/logger.service";
+import { getCacheBackendInfo, getCacheStats } from "../utils/analytics-cache.server";
 
 /**
  * Health check endpoint to verify Data API connection and system health
@@ -40,6 +41,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
       sentry: "unknown",
       logging: "operational",
     },
+    cache: {
+      backend: "checking",
+      description: "",
+      kvConfigured: false,
+    } as any,
     aurora: {
       resourceArn: process.env.AURORA_RESOURCE_ARN ? "✅ Set" : "❌ Missing",
       secretArn: process.env.AURORA_SECRET_ARN ? "✅ Set" : "❌ Missing",
@@ -75,6 +81,27 @@ export async function loader({ request }: LoaderFunctionArgs) {
       DatadogService.metrics.gauge('health.memory.heap_usage_percent',
         (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100
       );
+    }
+  }
+
+  // Cache backend check (Vercel KV or memory fallback)
+  if (!specificChecks.length || specificChecks.includes('cache')) {
+    try {
+      const cacheInfo = getCacheBackendInfo();
+      const cacheStats = await getCacheStats();
+      results.cache = {
+        backend: cacheInfo.backend,
+        description: cacheInfo.description,
+        kvConfigured: cacheStats.isKVConfigured,
+        status: cacheInfo.backend === 'vercel-kv' ? '✅ Vercel KV (persistent)' : '⚠️ Memory (not persistent)',
+        ...(cacheStats.memoryEntries !== undefined && { memoryEntries: cacheStats.memoryEntries }),
+      };
+    } catch (error) {
+      results.cache = {
+        backend: 'error',
+        description: 'Failed to check cache status',
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
