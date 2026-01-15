@@ -3464,16 +3464,14 @@ export default function TierProducts() {
                       This product has active purchases or subscriptions that must be resolved first.
                     </Text>
                   </Banner>
-                  <BlockStack gap="200">
+                  <ul style={{ margin: 0, paddingLeft: '0', listStyle: 'none' }}>
                     {deleteValidation.blockers.map((blocker, index) => (
-                      <InlineStack key={index} gap="200" blockAlign="start">
-                        <Icon source={AlertTriangleIcon} tone="critical" />
-                        <Text as="p" variant="bodyMd" tone="critical">
-                          {blocker.message}
-                        </Text>
-                      </InlineStack>
+                      <li key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{ flexShrink: 0 }}><Icon source={AlertTriangleIcon} tone="critical" /></span>
+                        <Text as="span" variant="bodyMd" tone="critical">{blocker.message}</Text>
+                      </li>
                     ))}
-                  </BlockStack>
+                  </ul>
                   <Text as="p" variant="bodySm" tone="subdued">
                     Cancel or expire active subscriptions and wait for purchases to expire before deleting.
                   </Text>
