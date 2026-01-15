@@ -1,26 +1,50 @@
 -- AlterTable BillingPlan
-ALTER TABLE "BillingPlan" 
+ALTER TABLE "BillingPlan"
 DROP COLUMN IF EXISTS "currentPeriodStart",
 DROP COLUMN IF EXISTS "ordersUsed",
 DROP COLUMN IF EXISTS "ordersLimit",
 DROP COLUMN IF EXISTS "overageRate",
 DROP COLUMN IF EXISTS "shopifyChargeId",
-ADD COLUMN IF NOT EXISTS "monthlyPrice" DECIMAL(10,2),
 ADD COLUMN IF NOT EXISTS "usageCap" DECIMAL(10,2),
 ADD COLUMN IF NOT EXISTS "cap80AlertSent" BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS "cap90AlertSent" BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS "lastCapAlert" TIMESTAMP(3),
-ADD COLUMN IF NOT EXISTS "metadata" JSONB,
-ALTER COLUMN "currentPeriodEnd" DROP NOT NULL,
-ALTER COLUMN "priceMonthly" DROP NOT NULL;
+ADD COLUMN IF NOT EXISTS "metadata" JSONB;
 
--- Rename priceMonthly to monthlyPrice if it exists
-DO $$ 
+-- Handle monthlyPrice column: either rename from priceMonthly or add new
+-- This handles both fresh databases and existing databases
+DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns 
-             WHERE table_name = 'BillingPlan' 
-             AND column_name = 'priceMonthly') THEN
+  -- If monthlyPrice already exists, just make priceMonthly nullable if it exists
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'BillingPlan'
+             AND column_name = 'monthlyPrice') THEN
+    RAISE NOTICE 'monthlyPrice column already exists, skipping column creation';
+    -- Still need to make priceMonthly nullable if it exists
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'BillingPlan'
+               AND column_name = 'priceMonthly') THEN
+      ALTER TABLE "BillingPlan" ALTER COLUMN "priceMonthly" DROP NOT NULL;
+    END IF;
+  -- If priceMonthly exists but monthlyPrice doesn't, rename it
+  ELSIF EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'BillingPlan'
+                AND column_name = 'priceMonthly') THEN
+    ALTER TABLE "BillingPlan" ALTER COLUMN "priceMonthly" DROP NOT NULL;
     ALTER TABLE "BillingPlan" RENAME COLUMN "priceMonthly" TO "monthlyPrice";
+  -- Neither exists (edge case), add monthlyPrice
+  ELSE
+    ALTER TABLE "BillingPlan" ADD COLUMN "monthlyPrice" DECIMAL(10,2);
+  END IF;
+END $$;
+
+-- Make currentPeriodEnd nullable if it exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'BillingPlan'
+             AND column_name = 'currentPeriodEnd') THEN
+    ALTER TABLE "BillingPlan" ALTER COLUMN "currentPeriodEnd" DROP NOT NULL;
   END IF;
 END $$;
 
