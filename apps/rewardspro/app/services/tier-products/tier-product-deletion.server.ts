@@ -123,11 +123,17 @@ export async function validateTierProductDeletion(
 
   // Fallback: try looking up by shopifyProductId (for Shopify GID format)
   if (!product && isShopifyGID) {
-    console.log(`[TierProductDeletion:Validate] ID is Shopify GID, trying shopifyProductId lookup...`);
+    // Extract numeric ID from GID format: gid://shopify/Product/15449718325513 -> 15449718325513
+    const numericId = tierProductId.split('/').pop() || tierProductId;
+    console.log(`[TierProductDeletion:Validate] ID is Shopify GID, trying shopifyProductId lookup with numeric ID: ${numericId}`);
+
+    // Try both the full GID and just the numeric ID
     product = await db.tierProduct.findFirst({
       where: {
-        shopifyProductId: tierProductId,
-        shop,
+        OR: [
+          { shopifyProductId: tierProductId, shop },
+          { shopifyProductId: numericId, shop }
+        ],
         ...(includeDeleted ? {} : { deletedAt: null })
       },
       include: { tier: true }
@@ -148,12 +154,16 @@ export async function validateTierProductDeletion(
 
   // Check if already soft-deleted
   if (!product) {
-    // Check if it exists but is soft-deleted (try both ID and shopifyProductId)
+    // Extract numeric ID if it's a GID
+    const numericIdForSoftDelete = isShopifyGID ? (tierProductId.split('/').pop() || tierProductId) : tierProductId;
+
+    // Check if it exists but is soft-deleted (try ID, full GID, and numeric ID)
     const softDeletedProduct = await db.tierProduct.findFirst({
       where: {
         OR: [
           { id: tierProductId, shop },
-          { shopifyProductId: tierProductId, shop }
+          { shopifyProductId: tierProductId, shop },
+          { shopifyProductId: numericIdForSoftDelete, shop }
         ],
         deletedAt: { not: null }
       },
@@ -585,27 +595,22 @@ export async function restoreTierProduct(
   console.log(`[TierProductDeletion] Starting restore for product: ${tierProductId}`);
 
   try {
-    // Find the soft-deleted product - try by ID first, then by shopifyProductId
+    // Detect if input is a Shopify GID
+    const isShopifyGID = tierProductId.includes('gid://shopify');
+    const numericId = isShopifyGID ? (tierProductId.split('/').pop() || tierProductId) : tierProductId;
+
+    // Find the soft-deleted product - try by ID first, then by shopifyProductId (both formats)
     let product = await db.tierProduct.findFirst({
       where: {
-        id: tierProductId,
-        shop,
+        OR: [
+          { id: tierProductId, shop },
+          { shopifyProductId: tierProductId, shop },
+          { shopifyProductId: numericId, shop }
+        ],
         deletedAt: { not: null }
       },
       include: { tier: true }
     });
-
-    // Fallback: try by shopifyProductId if it looks like a Shopify GID
-    if (!product && tierProductId.includes('gid://shopify')) {
-      product = await db.tierProduct.findFirst({
-        where: {
-          shopifyProductId: tierProductId,
-          shop,
-          deletedAt: { not: null }
-        },
-        include: { tier: true }
-      });
-    }
 
     if (!product) {
       console.log(`[TierProductDeletion] Product not found or not deleted: ${tierProductId}`);
@@ -701,27 +706,22 @@ export async function permanentlyDeleteTierProduct(
   console.log(`[TierProductDeletion] Starting permanent deletion for product: ${tierProductId}`);
 
   try {
-    // Find the soft-deleted product - try by ID first, then by shopifyProductId
-    let product = await db.tierProduct.findFirst({
+    // Detect if input is a Shopify GID
+    const isShopifyGID = tierProductId.includes('gid://shopify');
+    const numericId = isShopifyGID ? (tierProductId.split('/').pop() || tierProductId) : tierProductId;
+
+    // Find the soft-deleted product - try by ID, full GID, and numeric ID
+    const product = await db.tierProduct.findFirst({
       where: {
-        id: tierProductId,
-        shop,
+        OR: [
+          { id: tierProductId, shop },
+          { shopifyProductId: tierProductId, shop },
+          { shopifyProductId: numericId, shop }
+        ],
         deletedAt: { not: null }
       },
       include: { tier: true }
     });
-
-    // Fallback: try by shopifyProductId if it looks like a Shopify GID
-    if (!product && tierProductId.includes('gid://shopify')) {
-      product = await db.tierProduct.findFirst({
-        where: {
-          shopifyProductId: tierProductId,
-          shop,
-          deletedAt: { not: null }
-        },
-        include: { tier: true }
-      });
-    }
 
     if (!product) {
       console.log(`[TierProductDeletion] Product not found or not soft-deleted: ${tierProductId}`);
