@@ -5,6 +5,9 @@
  * Used by order status page extension
  *
  * Authentication: Session token from customer account extension
+ *
+ * SECURITY: Order ownership verification added to prevent cross-customer data access.
+ * See CUSTOMER_SECURITY_AUDIT.md for vulnerability details.
  */
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
@@ -14,7 +17,7 @@ import db from "../db.server";
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
     // Authenticate the request (validates session token)
-    const { session } = await authenticate.public.customerAccount(request);
+    const { session, sessionToken } = await authenticate.public.customerAccount(request);
 
     if (!session) {
       return json(
@@ -24,6 +27,40 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }
 
     const shop = session.shop;
+
+    // SECURITY: Extract authenticated customer ID from JWT token
+    // Format: gid://shopify/Customer/123456
+    const shopifyCustomerGid = sessionToken?.sub;
+    const shopifyCustomerId = shopifyCustomerGid?.split('/').pop();
+
+    if (!shopifyCustomerId) {
+      console.warn('[OrderPoints] Missing customer ID in session token');
+      return json(
+        { error: "Customer authentication failed" },
+        { status: 401 }
+      );
+    }
+
+    // SECURITY: Look up the authenticated customer in our database
+    const authenticatedCustomer = await db.customer.findFirst({
+      where: {
+        shop,
+        shopifyCustomerId,
+      },
+      select: { id: true }
+    });
+
+    if (!authenticatedCustomer) {
+      // Customer not enrolled in loyalty program
+      return json({
+        orderId: null,
+        pointsEarned: 0,
+        cashbackPercent: 0,
+        orderTotal: 0,
+        message: "Customer not enrolled in loyalty program"
+      });
+    }
+
     const url = new URL(request.url);
     const orderId = url.searchParams.get("orderId");
 
@@ -40,12 +77,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const orderIdMatch = orderId.match(/\/Order\/(\d+)$/);
     const numericOrderId = orderIdMatch ? orderIdMatch[1] : orderId;
 
-    // Find order in our database
+    // SECURITY: Find order in our database with OWNERSHIP VERIFICATION
+    // Only return data if the order belongs to the authenticated customer
     const ledgerEntry = await db.storeCreditLedger.findFirst({
       where: {
         shop,
         shopifyOrderId: numericOrderId,
-        type: 'CASHBACK_EARNED'
+        type: 'CASHBACK_EARNED',
+        // SECURITY: Verify order belongs to authenticated customer
+        customerId: authenticatedCustomer.id,
       },
       select: {
         amount: true,

@@ -8,12 +8,77 @@
  * - The customers/create webhook hasn't arrived yet (race condition)
  * - The webhook was missed or failed
  * - The customer existed before the app was installed
+ *
+ * SECURITY: Rate limiting added to prevent abuse (see CUSTOMER_SECURITY_AUDIT.md)
+ * - Limits syncs per shop per minute to prevent API abuse
+ * - Uses database-backed tracking for multi-instance deployments
  */
 
 import { unauthenticated } from "~/shopify.server";
 import db from "~/db.server";
 import { handleCustomerCreate, type ShopifyCustomerWebhook } from "./webhook-customer-sync.server";
 import { setCustomerMetafield } from "./customer-metafield.server";
+
+// SECURITY: Rate limiting configuration for on-demand syncs
+const SYNC_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+const MAX_SYNCS_PER_WINDOW = 20; // Max 20 new customer syncs per shop per minute
+const MAX_SYNCS_PER_DAY = 500; // Max 500 new customer syncs per shop per day
+
+/**
+ * SECURITY: Check if on-demand sync is rate limited for this shop
+ * Uses database tracking for accurate cross-instance rate limiting
+ */
+async function checkSyncRateLimit(shop: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  retryAfterSeconds?: number;
+}> {
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - SYNC_RATE_LIMIT_WINDOW_MS);
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  try {
+    // Count recent syncs (new customers created in the last minute)
+    const recentSyncs = await db.customer.count({
+      where: {
+        shop,
+        createdAt: { gte: windowStart },
+      },
+    });
+
+    if (recentSyncs >= MAX_SYNCS_PER_WINDOW) {
+      console.warn(`[OnDemandSync] Rate limit exceeded for ${shop}: ${recentSyncs} syncs in last minute`);
+      return {
+        allowed: false,
+        reason: `Rate limit exceeded. Maximum ${MAX_SYNCS_PER_WINDOW} customer syncs per minute.`,
+        retryAfterSeconds: 60,
+      };
+    }
+
+    // Count daily syncs
+    const dailySyncs = await db.customer.count({
+      where: {
+        shop,
+        createdAt: { gte: dayStart },
+      },
+    });
+
+    if (dailySyncs >= MAX_SYNCS_PER_DAY) {
+      console.warn(`[OnDemandSync] Daily limit exceeded for ${shop}: ${dailySyncs} syncs today`);
+      return {
+        allowed: false,
+        reason: `Daily sync limit exceeded. Maximum ${MAX_SYNCS_PER_DAY} customer syncs per day.`,
+        retryAfterSeconds: 3600, // Check again in an hour
+      };
+    }
+
+    return { allowed: true };
+  } catch (error) {
+    // If rate limit check fails, allow the request but log the error
+    console.error('[OnDemandSync] Rate limit check failed:', error);
+    return { allowed: true };
+  }
+}
 
 /**
  * GraphQL query to fetch a single customer by ID
@@ -79,6 +144,17 @@ export async function fetchAndSyncCustomerFromShopify(
         success: true,
         customerId: existingCustomer.id,
         action: "existing",
+      };
+    }
+
+    // SECURITY: Check rate limit before creating a new customer
+    // Only applied for new customer creation, not for existing customers
+    const rateLimitCheck = await checkSyncRateLimit(shop);
+    if (!rateLimitCheck.allowed) {
+      console.warn(`[OnDemandSync] Rate limited for ${shop}: ${rateLimitCheck.reason}`);
+      return {
+        success: false,
+        error: rateLimitCheck.reason,
       };
     }
 

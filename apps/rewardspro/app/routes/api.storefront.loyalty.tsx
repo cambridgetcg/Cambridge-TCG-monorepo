@@ -1,6 +1,8 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import db from "../db.server";
-import { fetchAndSyncCustomerFromShopify } from "../services/on-demand-customer-sync.server";
+// NOTE: db and fetchAndSyncCustomerFromShopify are no longer used since endpoint is deprecated
+// Kept imports commented for reference when removing this file entirely
+// import db from "../db.server";
+// import { fetchAndSyncCustomerFromShopify } from "../services/on-demand-customer-sync.server";
 
 /**
  * DEPRECATED: Storefront API endpoint for loyalty widget
@@ -62,309 +64,71 @@ export async function options({ request }: LoaderFunctionArgs) {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  /**
+   * SECURITY: This endpoint is DEPRECATED and DISABLED due to critical security vulnerability.
+   *
+   * This endpoint had NO authentication, allowing anyone to enumerate customer data
+   * by guessing customer IDs or Shopify customer IDs.
+   *
+   * All integrations MUST migrate to the authenticated app proxy route:
+   * - App Proxy: /apps/proxy/loyalty (HMAC-authenticated by Shopify)
+   * - Customer Account: /api/customer-account/loyalty (JWT-authenticated)
+   *
+   * See: CUSTOMER_SECURITY_AUDIT.md for full vulnerability details.
+   */
+
+  // Log the deprecated access attempt for monitoring
   const url = new URL(request.url);
-  const customerIdFromMetafield = url.searchParams.get("customerId");
   const shopDomain = url.searchParams.get("shop");
-  // shopifyCustomerId is used for on-demand sync when customer isn't in database yet
-  const shopifyCustomerId = url.searchParams.get("shopifyCustomerId");
+  console.warn('[SECURITY:DEPRECATED] Blocked access to deprecated storefront loyalty endpoint', {
+    shop: shopDomain,
+    timestamp: new Date().toISOString(),
+    userAgent: request.headers.get('user-agent'),
+    origin: request.headers.get('origin'),
+  });
 
-  // Validate required parameters - need either customerId OR shopifyCustomerId
-  if ((!customerIdFromMetafield && !shopifyCustomerId) || !shopDomain) {
-    return json(
-      { error: "Missing required parameters: (customerId or shopifyCustomerId) and shop" },
-      {
-        status: 400,
-        headers: getCorsHeaders(request)
+  return json(
+    {
+      error: "This endpoint is deprecated and disabled for security reasons.",
+      code: "ENDPOINT_DEPRECATED",
+      message: "Please migrate to the authenticated app proxy endpoint: /apps/proxy/loyalty",
+      migration: {
+        appProxy: "/apps/proxy/loyalty",
+        customerAccount: "/api/customer-account/loyalty",
+        documentation: "https://help.shopify.com/en/manual/apps/app-types/public-app/app-proxy"
       }
-    );
-  }
-
-  // Normalize shop domain (remove protocol, trailing slash)
-  const normalizedShop = shopDomain
-    .replace(/^https?:\/\//, "")
-    .replace(/\/$/, "");
-
-  // Ensure .myshopify.com domain
-  const shopWithDomain = normalizedShop.endsWith(".myshopify.com")
-    ? normalizedShop
-    : `${normalizedShop}.myshopify.com`;
-
-  try {
-    // Verify shop exists (use ShopSettings, not Shop)
-    const shopSettings = await db.shopSettings.findUnique({
-      where: { shop: shopWithDomain },
-      select: { id: true, shop: true, storeCurrency: true }
-    });
-
-    if (!shopSettings) {
-      return json(
-        { error: "Shop not found" },
-        {
-          status: 404,
-          headers: getCorsHeaders(request)
-        }
-      );
+    },
+    {
+      status: 410, // HTTP 410 Gone - resource is permanently unavailable
+      headers: getCorsHeaders(request)
     }
-
-    // Try to find customer by internal ID (from metafield value) first
-    let customer = customerIdFromMetafield
-      ? await db.customer.findFirst({
-          where: {
-            id: customerIdFromMetafield,
-            shop: shopWithDomain
-          },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            pointsBalance: true,
-            lifetimePoints: true,
-            currentTierId: true,
-            currentTier: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                color: true,
-                minSpend: true,
-                threshold: true
-              }
-            }
-          }
-        })
-      : null;
-
-    // If not found by internal ID, try by Shopify customer ID
-    if (!customer && shopifyCustomerId) {
-      customer = await db.customer.findFirst({
-        where: {
-          shopifyCustomerId: shopifyCustomerId,
-          shop: shopWithDomain
-        },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          pointsBalance: true,
-          lifetimePoints: true,
-          currentTierId: true,
-          currentTier: {
-            select: {
-              id: true,
-              name: true,
-              icon: true,
-              color: true,
-              minSpend: true,
-              threshold: true
-            }
-          }
-        }
-      });
-    }
-
-    // If still not found and we have shopifyCustomerId, try on-demand sync
-    if (!customer && shopifyCustomerId) {
-      console.log(`[Loyalty] Customer not found, attempting on-demand sync for ${shopifyCustomerId}`);
-
-      const syncResult = await fetchAndSyncCustomerFromShopify(shopWithDomain, shopifyCustomerId);
-
-      if (!syncResult.success) {
-        console.error(`[Loyalty] On-demand sync failed: ${syncResult.error}`);
-        return json(
-          { error: syncResult.error || "Failed to sync customer" },
-          {
-            status: 404,
-            headers: getCorsHeaders(request)
-          }
-        );
-      }
-
-      // Fetch the newly synced customer
-      customer = await db.customer.findFirst({
-        where: {
-          id: syncResult.customerId,
-          shop: shopWithDomain
-        },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          pointsBalance: true,
-          lifetimePoints: true,
-          currentTierId: true,
-          currentTier: {
-            select: {
-              id: true,
-              name: true,
-              icon: true,
-              color: true,
-              minSpend: true,
-              threshold: true
-            }
-          }
-        }
-      });
-
-      console.log(`[Loyalty] On-demand sync successful, customer: ${syncResult.customerId}`);
-    }
-
-    if (!customer) {
-      return json(
-        { error: "Customer not found" },
-        {
-          status: 404,
-          headers: getCorsHeaders(request)
-        }
-      );
-    }
-
-    // Convert Decimal to number
-    const pointsBalance = typeof customer.pointsBalance === 'object' && 'toNumber' in customer.pointsBalance
-      ? (customer.pointsBalance as any).toNumber()
-      : Number(customer.pointsBalance);
-
-    const lifetimePoints = typeof customer.lifetimePoints === 'object' && 'toNumber' in customer.lifetimePoints
-      ? (customer.lifetimePoints as any).toNumber()
-      : Number(customer.lifetimePoints);
-
-    // Get next tier for progress calculation
-    const currentTierThreshold = customer.currentTier
-      ? (customer.currentTier.threshold || customer.currentTier.minSpend)
-      : 0;
-
-    const nextTier = await db.tier.findFirst({
-      where: {
-        shop: shopWithDomain,
-        minSpend: {
-          gt: currentTierThreshold
-        }
-      },
-      orderBy: {
-        minSpend: "asc"
-      },
-      select: {
-        id: true,
-        name: true,
-        minSpend: true,
-        threshold: true
-      }
-    });
-
-    // Calculate expiring points (points expiring in next 30 days)
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    const expiringPointsData = await db.storeCreditLedger.aggregate({
-      where: {
-        customerId: customer.id,
-        shop: shopWithDomain,
-        amount: {
-          gt: 0
-        },
-        expiresAt: {
-          lte: thirtyDaysFromNow,
-          gt: new Date()
-        }
-      },
-      _sum: {
-        amount: true
-      }
-    });
-
-    // Get earliest expiration date
-    const earliestExpiration = await db.storeCreditLedger.findFirst({
-      where: {
-        customerId: customer.id,
-        shop: shopWithDomain,
-        amount: {
-          gt: 0
-        },
-        expiresAt: {
-          lte: thirtyDaysFromNow,
-          gt: new Date()
-        }
-      },
-      orderBy: {
-        expiresAt: "asc"
-      },
-      select: {
-        expiresAt: true
-      }
-    });
-
-    // Convert expiring points sum
-    const expiringSum = expiringPointsData._sum.amount
-      ? (typeof expiringPointsData._sum.amount === 'object' && 'toNumber' in expiringPointsData._sum.amount
-          ? (expiringPointsData._sum.amount as any).toNumber()
-          : Number(expiringPointsData._sum.amount))
-      : 0;
-
-    // Build response
-    const loyaltyData: LoyaltyData = {
-      balance: pointsBalance,
-      tier: customer.currentTier ? {
-        id: customer.currentTier.id,
-        name: customer.currentTier.name,
-        icon: customer.currentTier.icon || "⭐",
-        color: customer.currentTier.color || "#FFD700"
-      } : null,
-      progress: nextTier ? {
-        current: lifetimePoints,
-        next: nextTier.threshold || nextTier.minSpend,
-        percentage: Math.min(100, Math.round((lifetimePoints / (nextTier.threshold || nextTier.minSpend)) * 100))
-      } : null,
-      expiringPoints: expiringSum > 0 && earliestExpiration ? {
-        amount: expiringSum,
-        date: earliestExpiration.expiresAt!.toISOString()
-      } : null
-    };
-
-    // Return with CORS headers for storefront access
-    return json(loyaltyData, {
-      headers: {
-        ...getCorsHeaders(request),
-        "Cache-Control": "private, max-age=30", // 30 second cache
-        "Vary": "Origin"
-      }
-    });
-
-  } catch (error) {
-    console.error("Error fetching loyalty data:", error);
-    return json(
-      { error: "Internal server error" },
-      {
-        status: 500,
-        headers: getCorsHeaders(request)
-      }
-    );
-  }
+  );
 }
 
-// CORS headers helper
+// SECURITY: Restricted CORS headers for deprecated endpoint
+// Only allows Shopify domains to receive the deprecation notice
 function getCorsHeaders(request: Request) {
   const requestOrigin = request.headers.get("origin");
-  let allowOrigin = "*"; // Default to all origins for development
+  let allowOrigin = "null"; // Deny by default
 
   if (requestOrigin) {
     try {
       const originUrl = new URL(requestOrigin);
       const originHost = originUrl.hostname;
 
-      // Allow *.myshopify.com domains
+      // SECURITY: Only allow *.myshopify.com domains
+      // This ensures only legitimate Shopify stores receive the response
       if (originHost.endsWith(".myshopify.com")) {
         allowOrigin = requestOrigin;
       }
-      // Allow custom domains (check against shop's storeUrl if needed)
-      // This is a simplified version - enhance as needed
+      // Reject all other origins
       else {
-        // For now, allow all origins (tighten in production)
-        allowOrigin = requestOrigin;
+        console.warn('[SECURITY:CORS] Rejected non-Shopify origin:', originHost);
+        allowOrigin = "null";
       }
     } catch (error) {
-      // Invalid origin URL, keep default
+      // Invalid origin URL, deny access
+      allowOrigin = "null";
     }
   }
 
@@ -372,6 +136,6 @@ function getCorsHeaders(request: Request) {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Accept",
-    "Access-Control-Max-Age": "86400" // 24 hours
+    "Access-Control-Max-Age": "3600" // 1 hour (reduced from 24 hours for deprecated endpoint)
   };
 }
