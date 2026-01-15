@@ -90,14 +90,29 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }, { status: 401 });
   }
 
-  // CORS headers for all responses with caching
+  // SECURITY: Validate and restrict CORS to legitimate Shopify origins
+  // App Proxy requests come from shop storefronts, so we validate the origin
+  const origin = request.headers.get('origin') || '';
+  const isValidShopifyOrigin = /^https:\/\/[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(origin) ||
+                                /^https:\/\/admin\.shopify\.com$/.test(origin) ||
+                                origin === ''; // Same-origin requests have no Origin header
+
+  // Use specific origin instead of wildcard, or reject if invalid
+  const allowedOrigin = isValidShopifyOrigin && origin ? origin :
+                        session?.shop ? `https://${session.shop}` :
+                        'https://admin.shopify.com';
+
   const headers = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Credentials": "true",
     "Content-Type": "application/json",
     // Cache for 60 seconds, serve stale content while revalidating for up to 30 more seconds
-    "Cache-Control": "private, max-age=60, stale-while-revalidate=30"
+    "Cache-Control": "private, max-age=60, stale-while-revalidate=30",
+    // Additional security headers
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY"
   };
   
   // Test endpoint
@@ -445,18 +460,27 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }, { status: 404, headers });
 }
 
-// Handle OPTIONS requests for CORS
+// Handle OPTIONS requests for CORS preflight
 export async function action({ request }: LoaderFunctionArgs) {
   if (request.method === "OPTIONS") {
+    // SECURITY: Validate origin for preflight requests too
+    const origin = request.headers.get('origin') || '';
+    const isValidShopifyOrigin = /^https:\/\/[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(origin) ||
+                                  /^https:\/\/admin\.shopify\.com$/.test(origin);
+
+    const allowedOrigin = isValidShopifyOrigin ? origin : 'https://admin.shopify.com';
+
     return new Response(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
       },
     });
   }
-  
+
   return json({ error: "Method not allowed" }, { status: 405 });
 }

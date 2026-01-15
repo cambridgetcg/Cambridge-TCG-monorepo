@@ -456,7 +456,7 @@ export async function processNextBatch(
           });
 
           batchCreated++;
-          console.log(`[Sync Job] Created customer ${shopifyId} (${shopifyCustomer.email}) - resolved via tier system`);
+          console.log(`[Sync Job] Created customer ${shopifyId} - resolved via tier system`);
         } else {
           // Update existing customer - only update spending data, NOT tier
           await db.customer.update({

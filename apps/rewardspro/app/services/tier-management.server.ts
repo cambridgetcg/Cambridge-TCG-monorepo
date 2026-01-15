@@ -76,14 +76,14 @@ export async function assignDefaultTierToCustomer(
 
   // Only run if customer doesn't have a tier yet
   if (!customer.currentTierId) {
-    console.log(`[Tier Management] Assigning tier to customer ${customer.email} via Tier Resolution System`);
+    console.log(`[Tier Management] Assigning tier to customer ${customerId} via Tier Resolution System`);
 
     // Use the Tier Resolution System which properly considers all tier sources
     const result = await updateCustomerToEffectiveTier(shop, customerId, {
       triggeredBy: 'initial_assignment'
     });
 
-    console.log(`[Tier Management] Successfully assigned tier to ${customer.email} (source: ${result.source})`);
+    console.log(`[Tier Management] Successfully assigned tier to customer ${customerId} (source: ${result.source})`);
   }
 }
 

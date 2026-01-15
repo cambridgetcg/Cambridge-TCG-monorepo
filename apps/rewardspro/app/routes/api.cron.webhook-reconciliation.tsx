@@ -40,11 +40,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const url = new URL(request.url);
-  const shop = url.searchParams.get('shop') || process.env.DEFAULT_SHOP;
-  const hoursBack = parseInt(url.searchParams.get('hours') || RECONCILIATION_WINDOW_HOURS.toString());
 
-  if (!shop) {
+  // SECURITY: Validate shop domain format
+  const rawShop = url.searchParams.get('shop');
+  if (!rawShop) {
     return json({ error: "Shop parameter required" }, { status: 400 });
+  }
+
+  const isValidShop = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(rawShop);
+  if (!isValidShop) {
+    return json({ error: "Invalid shop domain format" }, { status: 400 });
+  }
+  const shop = rawShop.toLowerCase();
+
+  // SECURITY: Validate and sanitize hours parameter
+  const rawHours = url.searchParams.get('hours');
+  let hoursBack = RECONCILIATION_WINDOW_HOURS;
+  if (rawHours) {
+    const parsed = parseInt(rawHours, 10);
+    if (isNaN(parsed) || parsed < 1 || parsed > 168) { // Max 1 week
+      return json({ error: "Invalid hours parameter (must be 1-168)" }, { status: 400 });
+    }
+    hoursBack = parsed;
   }
 
   console.log(`[WebhookReconciliation] Starting reconciliation for ${shop}, looking back ${hoursBack} hours`);

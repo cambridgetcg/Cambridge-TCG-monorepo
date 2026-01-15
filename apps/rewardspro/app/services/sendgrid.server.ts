@@ -168,7 +168,7 @@ export async function sendEmail(
   shop: string,
   params: SendEmailParams
 ): Promise<SendGridResponse> {
-  console.log("[SendGrid] Sending email to:", params.to);
+  console.log("[SendGrid] Sending email to recipient (address redacted)");
 
   try {
     // Get email settings for the shop

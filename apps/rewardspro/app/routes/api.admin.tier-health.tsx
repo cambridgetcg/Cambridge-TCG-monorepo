@@ -15,6 +15,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import { Prisma } from "@prisma/client";
 import db from "~/db.server";
 
 interface TierHealthReport {
@@ -51,10 +52,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  // 2. Parse optional shop filter
+  // 2. Parse optional shop filter with validation
   const url = new URL(request.url);
-  const shopFilter = url.searchParams.get('shop');
+  const rawShopFilter = url.searchParams.get('shop');
   const includeDetails = url.searchParams.get('details') === 'true';
+
+  // SECURITY: Validate shop domain format if provided
+  const shopFilter = rawShopFilter && /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(rawShopFilter)
+    ? rawShopFilter.toLowerCase()
+    : null;
+
+  if (rawShopFilter && !shopFilter) {
+    return json({ error: 'Invalid shop domain format' }, { status: 400 });
+  }
 
   try {
     // Build where clause
@@ -83,30 +93,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // 5. Count customers with currentTierId pointing to non-existent tier
     // This uses a raw query since Prisma can't easily express "foreign key but no matching record"
-    const customersWithOrphanedTier = await db.$queryRaw<
-      Array<{ id: string; shop: string; currentTierId: string }>
-    >`
+    // SECURITY: Use Prisma.sql for safe parameterized query building
+    const shopCondition = shopFilter
+      ? Prisma.sql`AND c.shop = ${shopFilter}`
+      : Prisma.empty;
+
+    const customersWithOrphanedTier = await db.$queryRaw(Prisma.sql`
       SELECT c.id, c.shop, c."currentTierId"
       FROM "Customer" c
       LEFT JOIN "Tier" t ON c."currentTierId" = t.id
       WHERE c."currentTierId" IS NOT NULL
         AND t.id IS NULL
-        ${shopFilter ? db.$queryRaw`AND c.shop = ${shopFilter}` : db.$queryRaw``}
+        ${shopCondition}
       LIMIT 100
-    `;
+    `) as Array<{ id: string; shop: string; currentTierId: string }>;
 
     // 6. Find duplicate active subscriptions (same customer with multiple ACTIVE)
-    const duplicateActiveSubscriptions = await db.$queryRaw<
-      Array<{ customerId: string; shop: string; count: bigint }>
-    >`
+    const subscriptionShopCondition = shopFilter
+      ? Prisma.sql`AND shop = ${shopFilter}`
+      : Prisma.empty;
+
+    const duplicateActiveSubscriptions = await db.$queryRaw(Prisma.sql`
       SELECT "customerId", shop, COUNT(*) as count
       FROM "TierSubscription"
       WHERE status = 'ACTIVE'
-        ${shopFilter ? db.$queryRaw`AND shop = ${shopFilter}` : db.$queryRaw``}
+        ${subscriptionShopCondition}
       GROUP BY "customerId", shop
       HAVING COUNT(*) > 1
       LIMIT 100
-    `;
+    `) as Array<{ customerId: string; shop: string; count: bigint }>;
 
     // 7. Get total counts for context
     const totalActiveSubscriptions = await db.tierSubscription.count({

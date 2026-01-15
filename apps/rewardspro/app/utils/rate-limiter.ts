@@ -1,8 +1,29 @@
 /**
  * Rate Limiting Utility for API Endpoints
- * 
+ *
  * Implements token bucket algorithm with memory storage
- * For production, consider using Redis for distributed rate limiting
+ *
+ * ⚠️ SECURITY WARNING: In-Memory Rate Limiting Limitation
+ * ────────────────────────────────────────────────────────
+ * This implementation uses in-memory storage which does NOT work correctly
+ * in distributed/serverless environments (Vercel, AWS Lambda, etc.).
+ *
+ * Each serverless function instance has its own memory, so:
+ * - An attacker can make N requests per instance, not N total
+ * - With 10 instances, rate limits are effectively 10x higher
+ * - Rate limits reset when new instances are spawned
+ *
+ * TODO: Migrate to Redis/Upstash for production rate limiting
+ * See: https://upstash.com/docs/redis/sdks/ratelimit-ts/overview
+ *
+ * Example migration:
+ *   import { Ratelimit } from "@upstash/ratelimit";
+ *   import { Redis } from "@upstash/redis";
+ *
+ *   const ratelimit = new Ratelimit({
+ *     redis: Redis.fromEnv(),
+ *     limiter: Ratelimit.slidingWindow(10, "10 s"),
+ *   });
  */
 
 import { json } from "@remix-run/node";

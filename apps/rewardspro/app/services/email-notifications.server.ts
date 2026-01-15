@@ -105,7 +105,7 @@ export async function sendWelcomeEmailNotification(
   customer: CustomerInfo,
   tier?: TierInfo | null
 ): Promise<EmailNotificationResult> {
-  console.log(`[EmailNotifications] Attempting to send welcome email to ${customer.email}`);
+  console.log(`[EmailNotifications] Attempting to send welcome email to customer ${customer.id}`);
 
   // Skip if no email address
   if (!customer.email) {
@@ -136,7 +136,7 @@ export async function sendWelcomeEmailNotification(
     );
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Welcome email sent to ${customer.email}`);
+      console.log(`[EmailNotifications] ✅ Welcome email sent to customer ${customer.id}`);
 
       // Log email event (optional - for analytics)
       try {
@@ -185,7 +185,7 @@ export async function sendTierUpgradeEmailNotification(
   previousTier: TierInfo | null,
   newTier: TierInfo
 ): Promise<EmailNotificationResult> {
-  console.log(`[EmailNotifications] Attempting to send tier upgrade email to ${customer.email}`);
+  console.log(`[EmailNotifications] Attempting to send tier upgrade email to customer ${customer.id}`);
 
   // Skip if no email address
   if (!customer.email) {
@@ -222,7 +222,7 @@ export async function sendTierUpgradeEmailNotification(
     );
 
     if (result.success) {
-      console.log(`[EmailNotifications] ✅ Tier upgrade email sent to ${customer.email}`);
+      console.log(`[EmailNotifications] ✅ Tier upgrade email sent to customer ${customer.id}`);
 
       // Log email event
       try {

@@ -130,7 +130,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       shop,
       orderId: order.id,
       orderName: order.name,
-      customerEmail: order.customer?.email || 'Guest'
+      hasCustomer: !!order.customer?.email
     });
 
     logger.info('Webhook received', {
@@ -189,7 +189,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.log(`[OrderPaid] Order ID: ${order.id}`);
         console.log(`[OrderPaid] Order Name: ${order.name}`);
         console.log(`[OrderPaid] Shop: ${shop}`);
-        console.log(`[OrderPaid] Customer: ${order.customer?.email || 'Guest'}`);
+        console.log(`[OrderPaid] Customer ID: ${order.customer?.id || 'Guest'}`);
         console.log(`[OrderPaid] Total Line Items: ${order.line_items?.length || 0}`);
         console.log('----------------------------------------');
 
@@ -980,7 +980,7 @@ async function processOneTimeTierPurchase(tx: any, params: {
   // Get or create customer
   console.log('[TIER PURCHASE CREATION] Step 2: Get or Create Customer');
   console.log(`  - Shopify Customer ID: ${order.customer?.id}`);
-  console.log(`  - Email: ${order.customer?.email || order.email}`);
+  console.log(`  - Has Email: ${!!(order.customer?.email || order.email)}`);
 
   const customer = await tx.customer.upsert({
     where: {
@@ -1008,7 +1008,7 @@ async function processOneTimeTierPurchase(tx: any, params: {
     }
   });
 
-  console.log(`[TIER PURCHASE CREATION] ✅ Customer: ${customer.id} (${customer.email})`);
+  console.log(`[TIER PURCHASE CREATION] ✅ Customer: ${customer.id}`);
 
   // Validate that the tier exists before creating TierPurchase
   console.log('[TIER PURCHASE CREATION] Step 3: Validate Tier & TierProduct Status');
@@ -1738,7 +1738,7 @@ async function checkTierProgression(_dbOrTx: any, params: {
           const isUpgrade = !previousTier || (newTier.minSpend > previousTier.minSpend);
 
           if (isUpgrade) {
-            console.log(`[OrderPaid] Sending tier upgrade email to ${customer.email}`);
+            console.log(`[OrderPaid] Sending tier upgrade email to customer ${customer.id}`);
             await sendTierUpgradeEmailNotification(
               shop,
               {

@@ -324,15 +324,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // This detects when the two sources of truth have gotten out of sync
     let consistencyRepairs = 0;
     try {
-      const desyncedCustomers = await db.$queryRaw<
-        Array<{ id: string; shop: string; currentTierId: string | null; effectiveTierId: string | null }>
-      >`
+      const desyncedCustomers = await db.$queryRaw`
         SELECT c.id, c.shop, c."currentTierId", cts."effectiveTierId"
         FROM "Customer" c
         JOIN "CustomerTierState" cts ON c.id = cts."customerId"
         WHERE c."currentTierId" IS DISTINCT FROM cts."effectiveTierId"
         LIMIT 100
-      `;
+      ` as Array<{ id: string; shop: string; currentTierId: string | null; effectiveTierId: string | null }>;
 
       if (desyncedCustomers.length > 0) {
         log('warn', `Found ${desyncedCustomers.length} customers with tier state desync`);
@@ -386,7 +384,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
 
   } catch (error: any) {
-    log('error', 'Tier maintenance job failed', { error: error.message, stack: error.stack });
+    log('error', 'Tier maintenance job failed', { error: error.message });
     return json({
       success: false,
       correlationId,

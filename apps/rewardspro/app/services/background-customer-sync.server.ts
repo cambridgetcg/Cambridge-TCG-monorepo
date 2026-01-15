@@ -104,7 +104,7 @@ export async function syncCustomersInBackground(
             });
 
             totalImported++;
-            console.log(`[Background Sync] Imported customer ${shopifyId} (${shopifyCustomer.email})`);
+            console.log(`[Background Sync] Imported customer ${shopifyId}`);
           } else {
             // Update existing customer only if email has changed
             if (shopifyCustomer.email && shopifyCustomer.email !== existingCustomer.email) {

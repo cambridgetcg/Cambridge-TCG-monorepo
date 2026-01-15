@@ -245,7 +245,7 @@ export async function processPendingCashback(shop: string) {
     processed++;
     totalCredited += Number(order.cashbackAmount);
 
-    console.log(`[Cashback Processing] Credited ${order.cashbackAmount} to customer ${order.customer.email} for order ${order.shopifyOrderName}`);
+    console.log(`[Cashback Processing] Credited ${order.cashbackAmount} to customer ${order.customer.id} for order ${order.shopifyOrderName}`);
   }
 
   console.log(`[Cashback Processing] Complete. Processed ${processed} orders, total credited: ${totalCredited}`);
