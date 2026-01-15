@@ -225,6 +225,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
       });
 
+      // DIAGNOSTIC: Log all database tier products
+      console.log(`[TierProducts:Loader] Database tier products found:`,
+        dbTierProducts.map((p: any) => ({
+          dbId: p.id,
+          shopifyProductId: p.shopifyProductId,
+          sku: p.sku,
+          tierName: p.tier?.name,
+        }))
+      );
+
       // Also fetch soft-deleted products for "Recently Deleted" section
       const now = new Date();
       const softDeleted = await (db as any).tierProduct.findMany({
@@ -379,10 +389,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const hasSubscription = product.sellingPlanGroups?.edges?.length > 0 || dbProduct?.hasSubscription;
           const sellingPlanGroupId = product.sellingPlanGroups?.edges?.[0]?.node?.id || dbProduct?.sellingPlanGroupId;
 
+          // DIAGNOSTIC: Log ID resolution for every product
+          const resolvedId = dbProduct?.id || product.id;
+          console.log(`[TierProducts:IDResolution] Product "${product.title}":`, {
+            shopifyGID: product.id,
+            dbProductExists: !!dbProduct,
+            dbProductId: dbProduct?.id,
+            dbProductShopifyId: dbProduct?.shopifyProductId,
+            resolvedId,
+            isUUID: resolvedId && !resolvedId.includes('gid://'),
+          });
+
           tierProducts.push({
             // IMPORTANT: Use database UUID when available for deletion/update operations
             // Fall back to Shopify GID only for products not yet in our database
-            id: dbProduct?.id || product.id,
+            id: resolvedId,
             // IMPORTANT: Database tierId takes priority over title-based matching
             // because db stores the authoritative tier association
             tierId: resolvedTierId,
@@ -1620,7 +1641,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400 });
       }
 
-      console.log(`[TierProducts] Delete request for tier product: ${tierProductId}`);
+      // DIAGNOSTIC: Detailed logging for delete request
+      console.log(`[TierProducts:DeleteRequest] Received delete request:`, {
+        tierProductId,
+        isShopifyGID: tierProductId.includes('gid://shopify'),
+        isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tierProductId),
+        shop,
+      });
 
       // 1. Validate deletion (unless skipped for force-delete scenarios)
       if (!skipValidation) {

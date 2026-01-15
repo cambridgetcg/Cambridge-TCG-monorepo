@@ -96,10 +96,20 @@ export async function validateTierProductDeletion(
   const blockers: DeletionBlocker[] = [];
   const warnings: DeletionWarning[] = [];
 
-  console.log(`[TierProductDeletion] Validating deletion for product: ${tierProductId}`);
+  // DIAGNOSTIC: Log input analysis
+  const isShopifyGID = tierProductId.includes('gid://shopify');
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tierProductId);
+  console.log(`[TierProductDeletion:Validate] Input analysis:`, {
+    tierProductId,
+    shop,
+    isShopifyGID,
+    isUUID,
+    includeDeleted,
+  });
 
   // 1. Find tier product - try by ID first, then by shopifyProductId as fallback
   // This handles both database UUIDs and Shopify GIDs
+  console.log(`[TierProductDeletion:Validate] Attempting lookup by id field...`);
   let product = await db.tierProduct.findFirst({
     where: {
       id: tierProductId,
@@ -109,10 +119,11 @@ export async function validateTierProductDeletion(
     },
     include: { tier: true }
   });
+  console.log(`[TierProductDeletion:Validate] Lookup by id result:`, product ? `Found: ${product.id}` : 'Not found');
 
   // Fallback: try looking up by shopifyProductId (for Shopify GID format)
-  if (!product && tierProductId.includes('gid://shopify')) {
-    console.log(`[TierProductDeletion] ID looks like Shopify GID, trying shopifyProductId lookup`);
+  if (!product && isShopifyGID) {
+    console.log(`[TierProductDeletion:Validate] ID is Shopify GID, trying shopifyProductId lookup...`);
     product = await db.tierProduct.findFirst({
       where: {
         shopifyProductId: tierProductId,
@@ -121,6 +132,18 @@ export async function validateTierProductDeletion(
       },
       include: { tier: true }
     });
+    console.log(`[TierProductDeletion:Validate] Lookup by shopifyProductId result:`, product ? `Found: ${product.id}` : 'Not found');
+  }
+
+  // DIAGNOSTIC: If still not found, list all tier products for this shop
+  if (!product) {
+    const allProducts = await db.tierProduct.findMany({
+      where: { shop, deletedAt: null },
+      select: { id: true, shopifyProductId: true, sku: true }
+    });
+    console.log(`[TierProductDeletion:Validate] Product not found. All tier products for shop:`,
+      allProducts.map(p => ({ id: p.id, shopifyProductId: p.shopifyProductId, sku: p.sku }))
+    );
   }
 
   // Check if already soft-deleted
