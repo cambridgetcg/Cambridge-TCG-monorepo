@@ -3499,32 +3499,36 @@ export default function TierProducts() {
                     </>
                   )}
 
-                  <Text as="p" variant="bodyMd">
-                    Are you sure you want to delete this tier product? This will:
-                  </Text>
+                  <div style={{ textAlign: 'left' }}>
+                    <Text as="p" variant="bodyMd">
+                      Are you sure you want to delete this tier product? This will:
+                    </Text>
+                  </div>
                   <BlockStack gap="200">
-                    <InlineStack gap="200" blockAlign="start">
+                    <InlineStack gap="200" blockAlign="start" align="start">
                       <Icon source={AlertTriangleIcon} tone="critical" />
                       <Text as="p" variant="bodyMd">
                         Remove the product from your Shopify store
                       </Text>
                     </InlineStack>
-                    <InlineStack gap="200" blockAlign="start">
+                    <InlineStack gap="200" blockAlign="start" align="start">
                       <Icon source={AlertTriangleIcon} tone="critical" />
                       <Text as="p" variant="bodyMd">
                         Delete the tier product record from the database
                       </Text>
                     </InlineStack>
-                    <InlineStack gap="200" blockAlign="start">
+                    <InlineStack gap="200" blockAlign="start" align="start">
                       <Icon source={AlertTriangleIcon} tone="critical" />
                       <Text as="p" variant="bodyMd">
                         Remove any expired purchase records
                       </Text>
                     </InlineStack>
                   </BlockStack>
-                  <Text as="p" variant="bodyMd" tone="subdued">
-                    You can restore deleted products within 30 days from the "Recently Deleted" section.
-                  </Text>
+                  <div style={{ textAlign: 'left' }}>
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      You can restore deleted products within 30 days from the "Recently Deleted" section.
+                    </Text>
+                  </div>
                 </>
               )}
             </BlockStack>
