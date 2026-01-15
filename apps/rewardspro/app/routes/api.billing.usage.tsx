@@ -48,12 +48,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     
     const shop = session.shop;
     const data = await request.json() as UsageRecordInput;
-    
+
+    // SECURITY: Maximum amount per charge to prevent accidental over-billing
+    const MAX_SINGLE_CHARGE = 1000; // $1,000 max per single usage charge
+    const MAX_DAILY_TOTAL = 5000;   // $5,000 max per day
+
     // Validate input
     if (!data.description || typeof data.amount !== 'number' || data.amount <= 0) {
-      return json({ 
-        error: "Invalid input. Description and positive amount are required." 
+      return json({
+        error: "Invalid input. Description and positive amount are required."
       }, { status: 400 });
+    }
+
+    // SECURITY: Enforce maximum single charge limit
+    if (data.amount > MAX_SINGLE_CHARGE) {
+      console.warn(`[Usage Billing] Rejected charge exceeding max: ${data.amount} > ${MAX_SINGLE_CHARGE}`);
+      return json({
+        error: `Amount exceeds maximum allowed per charge ($${MAX_SINGLE_CHARGE})`,
+        code: "AMOUNT_EXCEEDS_LIMIT",
+        maxAllowed: MAX_SINGLE_CHARGE,
+      }, { status: 400 });
+    }
+
+    // SECURITY: Check daily total to prevent rapid accumulation
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const dailyTotal = await db.usageRecord.aggregate({
+      where: {
+        shop,
+        processedAt: { gte: todayStart },
+      },
+      _sum: { amount: true },
+    });
+
+    const currentDailyTotal = dailyTotal._sum.amount || 0;
+    if (currentDailyTotal + data.amount > MAX_DAILY_TOTAL) {
+      console.warn(`[Usage Billing] Rejected: daily total would exceed max: ${currentDailyTotal} + ${data.amount} > ${MAX_DAILY_TOTAL}`);
+      return json({
+        error: `Daily usage limit reached ($${MAX_DAILY_TOTAL}). Please contact support if you need higher limits.`,
+        code: "DAILY_LIMIT_REACHED",
+        currentDailyTotal,
+        maxDailyTotal: MAX_DAILY_TOTAL,
+      }, { status: 429 });
     }
     
     // Generate idempotency key if not provided

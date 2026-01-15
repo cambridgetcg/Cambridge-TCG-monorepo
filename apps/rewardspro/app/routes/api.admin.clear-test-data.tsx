@@ -1,5 +1,6 @@
 // app/routes/api.admin.clear-test-data.tsx
 // Admin endpoint to clear test data - accessible via /api/admin/clear-test-data
+// SECURITY: Requires CRON_SECRET or ADMIN_API_TOKEN authentication
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import prisma from "../db.server";
@@ -9,6 +10,28 @@ const CONFIG = {
 };
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  // SECURITY: Require authentication via CRON_SECRET or ADMIN_API_TOKEN
+  const auth = request.headers.get('authorization');
+  const cronSecret = request.headers.get('X-Cron-Secret');
+  const adminToken = process.env.ADMIN_API_TOKEN;
+  const expectedCronSecret = process.env.CRON_SECRET;
+
+  const isAuthorized =
+    (expectedCronSecret && cronSecret === expectedCronSecret) ||
+    (expectedCronSecret && auth === `Bearer ${expectedCronSecret}`) ||
+    (adminToken && auth === `Bearer ${adminToken}`);
+
+  if (!isAuthorized) {
+    console.warn('[AdminClearTestData] Unauthorized access attempt');
+    return json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // SECURITY: Only allow in development/test environments
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_TEST_ENDPOINTS) {
+    console.warn('[AdminClearTestData] Blocked in production environment');
+    return json({ error: 'Not available in production' }, { status: 403 });
+  }
+
   const logs: string[] = [];
 
   try {

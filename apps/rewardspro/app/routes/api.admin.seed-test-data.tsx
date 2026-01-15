@@ -1,5 +1,6 @@
 // app/routes/api.admin.seed-test-data.tsx
 // Admin endpoint to seed test data - accessible via /api/admin/seed-test-data
+// SECURITY: Requires CRON_SECRET or ADMIN_API_TOKEN authentication
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import prisma from "../db.server";
@@ -17,6 +18,20 @@ const CONFIG = {
     { name: "Platinum", minSpend: 3000, cashbackPercent: 5, targetPercentage: 10 }
   ]
 };
+
+// SECURITY: Authentication check function
+function isAuthorizedRequest(request: Request): boolean {
+  const auth = request.headers.get('authorization');
+  const cronSecret = request.headers.get('X-Cron-Secret');
+  const adminToken = process.env.ADMIN_API_TOKEN;
+  const expectedCronSecret = process.env.CRON_SECRET;
+
+  return !!(
+    (expectedCronSecret && cronSecret === expectedCronSecret) ||
+    (expectedCronSecret && auth === `Bearer ${expectedCronSecret}`) ||
+    (adminToken && auth === `Bearer ${adminToken}`)
+  );
+}
 
 // Helper functions
 function randomInt(min: number, max: number): number {
@@ -301,6 +316,18 @@ function generateStats(customers: any[], orders: any[], logs: string[]) {
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  // SECURITY: Require authentication
+  if (!isAuthorizedRequest(request)) {
+    console.warn('[AdminSeedTestData] Unauthorized access attempt');
+    return json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // SECURITY: Only allow in development/test environments
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_TEST_ENDPOINTS) {
+    console.warn('[AdminSeedTestData] Blocked in production environment');
+    return json({ error: 'Not available in production' }, { status: 403 });
+  }
+
   const logs: string[] = [];
 
   try {
