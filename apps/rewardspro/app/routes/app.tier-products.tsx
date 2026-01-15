@@ -3499,36 +3499,26 @@ export default function TierProducts() {
                     </>
                   )}
 
-                  <div style={{ textAlign: 'left' }}>
-                    <Text as="p" variant="bodyMd">
-                      Are you sure you want to delete this tier product? This will:
-                    </Text>
-                  </div>
-                  <BlockStack gap="200">
-                    <InlineStack gap="200" blockAlign="start" align="start">
-                      <Icon source={AlertTriangleIcon} tone="critical" />
-                      <Text as="p" variant="bodyMd">
-                        Remove the product from your Shopify store
-                      </Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="start" align="start">
-                      <Icon source={AlertTriangleIcon} tone="critical" />
-                      <Text as="p" variant="bodyMd">
-                        Delete the tier product record from the database
-                      </Text>
-                    </InlineStack>
-                    <InlineStack gap="200" blockAlign="start" align="start">
-                      <Icon source={AlertTriangleIcon} tone="critical" />
-                      <Text as="p" variant="bodyMd">
-                        Remove any expired purchase records
-                      </Text>
-                    </InlineStack>
-                  </BlockStack>
-                  <div style={{ textAlign: 'left' }}>
-                    <Text as="p" variant="bodyMd" tone="subdued">
-                      You can restore deleted products within 30 days from the "Recently Deleted" section.
-                    </Text>
-                  </div>
+                  <Text as="p" variant="bodyMd">
+                    Are you sure you want to delete this tier product? This will:
+                  </Text>
+                  <ul style={{ margin: 0, paddingLeft: '0', listStyle: 'none' }}>
+                    <li style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ flexShrink: 0 }}><Icon source={AlertTriangleIcon} tone="critical" /></span>
+                      <Text as="span" variant="bodyMd">Remove the product from your Shopify store</Text>
+                    </li>
+                    <li style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ flexShrink: 0 }}><Icon source={AlertTriangleIcon} tone="critical" /></span>
+                      <Text as="span" variant="bodyMd">Delete the tier product record from the database</Text>
+                    </li>
+                    <li style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <span style={{ flexShrink: 0 }}><Icon source={AlertTriangleIcon} tone="critical" /></span>
+                      <Text as="span" variant="bodyMd">Remove any expired purchase records</Text>
+                    </li>
+                  </ul>
+                  <Text as="p" variant="bodyMd" tone="subdued">
+                    You can restore deleted products within 30 days from the "Recently Deleted" section.
+                  </Text>
                 </>
               )}
             </BlockStack>
