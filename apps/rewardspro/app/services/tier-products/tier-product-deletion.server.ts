@@ -198,17 +198,27 @@ export async function validateTierProductDeletion(
   }
 
   // 2. Check active purchases (BLOCKER)
+  // Split into two queries to avoid OR clause (Aurora Data API limitation)
   const now = new Date();
-  const activePurchases = await db.tierPurchase.count({
+  const productDbId = product.id; // Use the found product's actual ID
+
+  const lifetimePurchases = await db.tierPurchase.count({
     where: {
-      tierProductId,
+      tierProductId: productDbId,
       status: 'ACTIVE',
-      OR: [
-        { endDate: null }, // Lifetime purchases
-        { endDate: { gte: now } } // Not expired
-      ]
+      endDate: null // Lifetime purchases
     }
   });
+
+  const unexpiredPurchases = await db.tierPurchase.count({
+    where: {
+      tierProductId: productDbId,
+      status: 'ACTIVE',
+      endDate: { gte: now } // Not expired
+    }
+  });
+
+  const activePurchases = lifetimePurchases + unexpiredPurchases;
 
   if (activePurchases > 0) {
     blockers.push({
@@ -219,12 +229,22 @@ export async function validateTierProductDeletion(
   }
 
   // 3. Check active subscriptions (BLOCKER)
-  const activeSubscriptions = await db.tierSubscription.count({
+  // Split into two queries to avoid IN clause (Aurora Data API limitation)
+  const activeSubCount = await db.tierSubscription.count({
     where: {
-      tierProductId,
-      status: { in: ['ACTIVE', 'PENDING'] }
+      tierProductId: productDbId,
+      status: 'ACTIVE'
     }
   });
+
+  const pendingSubCount = await db.tierSubscription.count({
+    where: {
+      tierProductId: productDbId,
+      status: 'PENDING'
+    }
+  });
+
+  const activeSubscriptions = activeSubCount + pendingSubCount;
 
   if (activeSubscriptions > 0) {
     blockers.push({
@@ -235,20 +255,23 @@ export async function validateTierProductDeletion(
   }
 
   // 4. Check inactive/expired purchases (WARNING)
-  const inactivePurchases = await db.tierPurchase.count({
+  // Split queries to avoid OR clause (Aurora Data API limitation)
+  const nonActivePurchases = await db.tierPurchase.count({
     where: {
-      tierProductId,
-      OR: [
-        { status: { not: 'ACTIVE' } },
-        {
-          AND: [
-            { endDate: { not: null } },
-            { endDate: { lt: now } }
-          ]
-        }
-      ]
+      tierProductId: productDbId,
+      status: { not: 'ACTIVE' }
     }
   });
+
+  const expiredPurchases = await db.tierPurchase.count({
+    where: {
+      tierProductId: productDbId,
+      endDate: { lt: now }
+    }
+  });
+
+  // Use max to avoid double-counting (some may be both non-active AND expired)
+  const inactivePurchases = Math.max(nonActivePurchases, expiredPurchases);
 
   if (inactivePurchases > 0) {
     warnings.push({
@@ -259,12 +282,18 @@ export async function validateTierProductDeletion(
   }
 
   // 5. Check cancelled/expired subscriptions (WARNING)
-  const cancelledSubscriptions = await db.tierSubscription.count({
-    where: {
-      tierProductId,
-      status: { in: ['CANCELLED', 'EXPIRED', 'FAILED'] }
-    }
+  // Split queries to avoid IN clause (Aurora Data API limitation)
+  const cancelledSubs = await db.tierSubscription.count({
+    where: { tierProductId: productDbId, status: 'CANCELLED' }
   });
+  const expiredSubs = await db.tierSubscription.count({
+    where: { tierProductId: productDbId, status: 'EXPIRED' }
+  });
+  const failedSubs = await db.tierSubscription.count({
+    where: { tierProductId: productDbId, status: 'FAILED' }
+  });
+
+  const cancelledSubscriptions = cancelledSubs + expiredSubs + failedSubs;
 
   if (cancelledSubscriptions > 0) {
     warnings.push({
