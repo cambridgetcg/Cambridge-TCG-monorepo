@@ -336,6 +336,7 @@ export class DataAPIModelProxy<T = any> {
    */
   async findUnique(args: {
     where: Record<string, any>;
+    select?: Record<string, any>;
   }): Promise<T | null> {
     // Handle composite unique constraints
     // Prisma may pass composite keys as "field1_field2" with a combined value
@@ -476,11 +477,13 @@ export class DataAPIModelProxy<T = any> {
     where?: Record<string, any>;
     orderBy?: Record<string, "asc" | "desc">;
     include?: Record<string, any>;
+    select?: Record<string, any>;
   }): Promise<T | null> {
     const results = await this.findMany({
       where: args?.where,
       orderBy: args?.orderBy,
       include: args?.include,
+      select: args?.select,
       take: 1,
     });
     return results[0] || null;
@@ -583,6 +586,8 @@ export class DataAPIModelProxy<T = any> {
       CustomerSyncJob: ['status'],
       StoreCreditSyncJob: ['status'],
       OrderSyncJob: ['status'],
+      PointsConfig: ['roundingMode'],
+      PointsLedger: ['type'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -592,6 +597,11 @@ export class DataAPIModelProxy<T = any> {
    * Get the PostgreSQL enum type name for a field
    */
   private getEnumType(field: string): string {
+    // Handle table-specific enum mappings first
+    if (field === 'type') {
+      return this.getTypeEnumForTable();
+    }
+
     // Map field names to PostgreSQL enum type names
     const enumTypes: Record<string, string> = {
       evaluationPeriod: '"EvaluationPeriod"',
@@ -600,7 +610,6 @@ export class DataAPIModelProxy<T = any> {
       currencyDisplayType: '"CurrencyDisplayType"',
       tierRecalculationFrequency: '"RecalculationFrequency"',
       widgetThemeMode: '"WidgetThemeMode"',
-      type: '"LedgerEntryType"',
       changeType: '"TierChangeType"',
       triggerType: '"TierTriggerType"',
       tierSource: '"TierSource"',
@@ -614,9 +623,22 @@ export class DataAPIModelProxy<T = any> {
       lastPaymentStatus: '"PaymentStatus"',
       discountType: '"DiscountType"',
       eventType: '"SubscriptionEventType"',
+      roundingMode: '"PointsRoundingMode"',
     };
 
     return enumTypes[field] || field;
+  }
+
+  /**
+   * Get the appropriate type enum based on table name
+   */
+  private getTypeEnumForTable(): string {
+    const typeEnumMap: Record<string, string> = {
+      StoreCreditLedger: '"LedgerEntryType"',
+      PointsLedger: '"PointsLedgerType"',
+    };
+
+    return typeEnumMap[this.tableName] || '"LedgerEntryType"';
   }
 
   /**
@@ -1086,6 +1108,133 @@ export class DataAPIModelProxy<T = any> {
   }
 
   /**
+   * Group by operation with aggregation
+   */
+  async groupBy(args: {
+    by: string[];
+    where?: Record<string, any>;
+    _sum?: Record<string, boolean>;
+    _count?: boolean | Record<string, boolean>;
+    _avg?: Record<string, boolean>;
+    _min?: Record<string, boolean>;
+    _max?: Record<string, boolean>;
+  }): Promise<any[]> {
+    const groupByFields = args.by.map(f => `"${f}"`).join(', ');
+    const selectFields: string[] = [...args.by.map(f => `"${f}"`)];
+
+    // Add aggregations
+    if (args._sum) {
+      Object.keys(args._sum).forEach(field => {
+        selectFields.push(`SUM("${field}") as "_sum_${field}"`);
+      });
+    }
+    if (args._count) {
+      if (typeof args._count === 'boolean') {
+        selectFields.push('COUNT(*) as "_count"');
+      } else {
+        Object.keys(args._count).forEach(field => {
+          selectFields.push(`COUNT("${field}") as "_count_${field}"`);
+        });
+      }
+    }
+    if (args._avg) {
+      Object.keys(args._avg).forEach(field => {
+        selectFields.push(`AVG("${field}") as "_avg_${field}"`);
+      });
+    }
+    if (args._min) {
+      Object.keys(args._min).forEach(field => {
+        selectFields.push(`MIN("${field}") as "_min_${field}"`);
+      });
+    }
+    if (args._max) {
+      Object.keys(args._max).forEach(field => {
+        selectFields.push(`MAX("${field}") as "_max_${field}"`);
+      });
+    }
+
+    let sql = `SELECT ${selectFields.join(', ')} FROM "${this.tableName}"`;
+    const params: SqlParameter[] = [];
+    const conditions: string[] = [];
+
+    // Build WHERE clause
+    if (args.where) {
+      Object.entries(args.where).forEach(([key, value], index) => {
+        if (value === null) {
+          conditions.push(`"${key}" IS NULL`);
+        } else if (value !== undefined) {
+          conditions.push(`"${key}" = :param${index}`);
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
+        }
+      });
+
+      if (conditions.length > 0) {
+        sql += ` WHERE ${conditions.join(' AND ')}`;
+      }
+    }
+
+    sql += ` GROUP BY ${groupByFields}`;
+
+    try {
+      const result = await this.client.executeStatement(sql, params);
+
+      // Format the response to match Prisma's structure
+      return result.records.map((record: any) => {
+        const formatted: any = {};
+
+        // Add group by fields
+        args.by.forEach(field => {
+          formatted[field] = record[field];
+        });
+
+        // Add aggregations
+        if (args._sum) {
+          formatted._sum = {};
+          Object.keys(args._sum).forEach(field => {
+            const value = record[`_sum_${field}`];
+            formatted._sum[field] = value !== null ? Number(value) : null;
+          });
+        }
+        if (args._count) {
+          if (typeof args._count === 'boolean') {
+            formatted._count = parseInt(record._count || '0');
+          } else {
+            formatted._count = {};
+            Object.keys(args._count).forEach(field => {
+              formatted._count[field] = parseInt(record[`_count_${field}`] || '0');
+            });
+          }
+        }
+        if (args._avg) {
+          formatted._avg = {};
+          Object.keys(args._avg).forEach(field => {
+            const value = record[`_avg_${field}`];
+            formatted._avg[field] = value !== null ? parseFloat(value) : null;
+          });
+        }
+        if (args._min) {
+          formatted._min = {};
+          Object.keys(args._min).forEach(field => {
+            formatted._min[field] = record[`_min_${field}`];
+          });
+        }
+        if (args._max) {
+          formatted._max = {};
+          Object.keys(args._max).forEach(field => {
+            formatted._max[field] = record[`_max_${field}`];
+          });
+        }
+
+        return formatted;
+      });
+    } catch (error: any) {
+      console.error(`[DataAPI] Error in groupBy for ${this.tableName}:`, error);
+      console.error(`[DataAPI] SQL: ${sql}`);
+      throw new Error(`Failed to groupBy ${this.tableName}: ${error.message}`);
+    }
+  }
+
+  /**
    * Upsert operation - insert or update
    */
   async upsert(args: {
@@ -1252,6 +1401,10 @@ export function createDataAPIPrismaClient() {
 
           // Trial abuse prevention
           tierTrialAuditLog: new DataAPIModelProxy("TierTrialAuditLog", txAuroraClient),
+
+          // Points Engagement System
+          pointsConfig: new DataAPIModelProxy("PointsConfig", txAuroraClient),
+          pointsLedger: new DataAPIModelProxy("PointsLedger", txAuroraClient),
 
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
@@ -1439,6 +1592,10 @@ export function createDataAPIPrismaClient() {
 
     // Trial abuse prevention
     tierTrialAuditLog: new DataAPIModelProxy("TierTrialAuditLog", client),
+
+    // Points Engagement System
+    pointsConfig: new DataAPIModelProxy("PointsConfig", client),
+    pointsLedger: new DataAPIModelProxy("PointsLedger", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {
