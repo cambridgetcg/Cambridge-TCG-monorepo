@@ -16,6 +16,7 @@
 
 import crypto from "crypto";
 import db from "~/db.server";
+import { encrypt, decrypt } from "~/utils/encryption";
 
 // ============================================
 // CONFIGURATION
@@ -249,6 +250,7 @@ export async function refreshAccessToken(
 
 /**
  * Store OAuth tokens for a shop
+ * Tokens are encrypted before storage for security
  */
 export async function storeOAuthTokens(
   shop: string,
@@ -256,21 +258,25 @@ export async function storeOAuthTokens(
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
+  // Encrypt tokens before storing
+  const encryptedAccessToken = encrypt(tokens.access_token);
+  const encryptedRefreshToken = encrypt(tokens.refresh_token);
+
   await db.emailSettings.upsert({
     where: { shop },
     create: {
       id: crypto.randomUUID(),
       shop,
       klaviyoEnabled: true,
-      klaviyoAccessToken: tokens.access_token,
-      klaviyoRefreshToken: tokens.refresh_token,
+      klaviyoAccessToken: encryptedAccessToken,
+      klaviyoRefreshToken: encryptedRefreshToken,
       klaviyoTokenExpiresAt: expiresAt,
       klaviyoOAuthConnected: true,
     },
     update: {
       klaviyoEnabled: true,
-      klaviyoAccessToken: tokens.access_token,
-      klaviyoRefreshToken: tokens.refresh_token,
+      klaviyoAccessToken: encryptedAccessToken,
+      klaviyoRefreshToken: encryptedRefreshToken,
       klaviyoTokenExpiresAt: expiresAt,
       klaviyoOAuthConnected: true,
       // Clear old API key if OAuth is now connected
@@ -278,11 +284,12 @@ export async function storeOAuthTokens(
     },
   });
 
-  console.log(`[Klaviyo OAuth] Tokens stored for shop: ${shop}`);
+  console.log(`[Klaviyo OAuth] Tokens stored (encrypted) for shop: ${shop}`);
 }
 
 /**
  * Get a valid access token for a shop, refreshing if necessary
+ * Tokens are decrypted before being returned
  */
 export async function getValidAccessToken(
   shop: string
@@ -309,7 +316,9 @@ export async function getValidAccessToken(
   if (isExpiringSoon && settings.klaviyoRefreshToken) {
     try {
       console.log(`[Klaviyo OAuth] Refreshing token for shop: ${shop}`);
-      const newTokens = await refreshAccessToken(settings.klaviyoRefreshToken);
+      // Decrypt refresh token before using it
+      const decryptedRefreshToken = decrypt(settings.klaviyoRefreshToken);
+      const newTokens = await refreshAccessToken(decryptedRefreshToken);
       await storeOAuthTokens(shop, newTokens);
       return newTokens.access_token;
     } catch (error) {
@@ -327,7 +336,13 @@ export async function getValidAccessToken(
     }
   }
 
-  return settings.klaviyoAccessToken;
+  // Decrypt access token before returning
+  try {
+    return decrypt(settings.klaviyoAccessToken);
+  } catch (error) {
+    console.error(`[Klaviyo OAuth] Failed to decrypt access token for ${shop}:`, error);
+    return null;
+  }
 }
 
 /**
