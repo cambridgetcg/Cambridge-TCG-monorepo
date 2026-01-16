@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Page,
   Layout,
@@ -13,14 +13,25 @@ import {
   Text,
   Badge,
   EmptyState,
-  Box,
   Toast,
   Frame,
   DataTable,
   Divider,
+  Modal,
+  FormLayout,
+  TextField,
+  Select,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
+import {
+  getMysteryBoxes,
+  getMysteryBoxStats,
+  createMysteryBox,
+  deleteMysteryBox,
+  transitionStatus,
+  type MysteryBoxStatus,
+} from "../services/mystery-box-management.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -53,6 +64,13 @@ interface LoaderData {
   };
 }
 
+interface ActionData {
+  success: boolean;
+  message?: string;
+  error?: string;
+  boxId?: string;
+}
+
 // ============================================
 // LOADER
 // ============================================
@@ -73,15 +91,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       getEnabledFeatures(shop),
     ]);
 
-    // TODO: Fetch actual mystery boxes when service layer is implemented
-    // For now, return empty state
-    const boxes: LoaderData["boxes"] = [];
-    const stats: LoaderData["stats"] = {
-      totalBoxes: 0,
-      activeBoxes: 0,
-      totalOpens: 0,
-      totalPointsSpent: 0,
-    };
+    // Fetch actual mystery boxes and stats
+    const [boxes, stats] = await Promise.all([
+      getMysteryBoxes(shop, { includeRewards: true }),
+      getMysteryBoxStats(shop),
+    ]);
 
     return json<LoaderData>({
       mysteryBoxesEnabled: features.mysteryBoxes,
@@ -90,7 +104,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         currencyIcon: config.currencyIcon,
         currencyPlural: config.currencyNamePlural,
       },
-      boxes,
+      boxes: boxes.map((box: any) => ({
+        id: box.id,
+        name: box.name,
+        status: box.status,
+        openCost: box.openCost,
+        totalOpens: box.totalOpens,
+        maxOpensTotal: box.maxOpensTotal,
+        uniqueOpeners: box.uniqueOpeners,
+        startsAt: box.startsAt.toISOString(),
+        endsAt: box.endsAt.toISOString(),
+        rewardCount: box.rewards?.length || box._count?.rewards || 0,
+      })),
       stats,
     });
   } catch (error) {
@@ -114,20 +139,60 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     if (intent === "enableFeature") {
       await updatePointsConfig(shop, { mysteryBoxesEnabled: true });
-      return json({ success: true, message: "Mystery Boxes enabled" });
+      return json<ActionData>({ success: true, message: "Mystery Boxes enabled" });
     }
 
     if (intent === "disableFeature") {
       await updatePointsConfig(shop, { mysteryBoxesEnabled: false });
-      return json({ success: true, message: "Mystery Boxes disabled" });
+      return json<ActionData>({ success: true, message: "Mystery Boxes disabled" });
     }
 
-    // TODO: Add create, update, delete actions when service layer is implemented
+    if (intent === "create") {
+      const name = formData.get("name") as string;
+      const openCost = parseInt(formData.get("openCost") as string) || 100;
+      const maxOpensPerCustomer = parseInt(formData.get("maxOpensPerCustomer") as string) || 5;
+      const maxOpensTotal = formData.get("maxOpensTotal") as string;
+      const startsAt = new Date(formData.get("startsAt") as string);
+      const endsAt = new Date(formData.get("endsAt") as string);
 
-    return json({ success: false, error: "Unknown action" }, { status: 400 });
+      if (!name) {
+        return json<ActionData>({ success: false, error: "Name is required" }, { status: 400 });
+      }
+
+      const box = await createMysteryBox({
+        shop,
+        name,
+        openCost,
+        maxOpensPerCustomer,
+        maxOpensTotal: maxOpensTotal ? parseInt(maxOpensTotal) : null,
+        startsAt,
+        endsAt,
+      });
+
+      return json<ActionData>({
+        success: true,
+        message: "Mystery box created",
+        boxId: box.id,
+      });
+    }
+
+    if (intent === "delete") {
+      const boxId = formData.get("boxId") as string;
+      await deleteMysteryBox(boxId, shop);
+      return json<ActionData>({ success: true, message: "Mystery box deleted" });
+    }
+
+    if (intent === "updateStatus") {
+      const boxId = formData.get("boxId") as string;
+      const newStatus = formData.get("status") as MysteryBoxStatus;
+      await transitionStatus(boxId, shop, newStatus);
+      return json<ActionData>({ success: true, message: `Status updated to ${newStatus}` });
+    }
+
+    return json<ActionData>({ success: false, error: "Unknown action" }, { status: 400 });
   } catch (error) {
     console.error(`${LOG_PREFIX} ACTION ERROR:`, error);
-    return json(
+    return json<ActionData>(
       { success: false, error: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
@@ -140,28 +205,72 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function MysteryBoxes() {
   const { mysteryBoxesEnabled, pointsConfig, boxes, stats } = useLoaderData<LoaderData>();
+  const actionData = useActionData<ActionData>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [toastError, setToastError] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Form state for create modal
+  const [formName, setFormName] = useState("");
+  const [formOpenCost, setFormOpenCost] = useState("100");
+  const [formMaxOpensPerCustomer, setFormMaxOpensPerCustomer] = useState("5");
+  const [formMaxOpensTotal, setFormMaxOpensTotal] = useState("");
+  const [formStartsAt, setFormStartsAt] = useState("");
+  const [formEndsAt, setFormEndsAt] = useState("");
+
+  // Show toast on action completion
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        setToastMessage(actionData.message || "Success");
+        setToastError(false);
+        setToastActive(true);
+        if (actionData.boxId) {
+          setCreateModalOpen(false);
+          // Reset form
+          setFormName("");
+          setFormOpenCost("100");
+          setFormMaxOpensPerCustomer("5");
+          setFormMaxOpensTotal("");
+          setFormStartsAt("");
+          setFormEndsAt("");
+        }
+      } else if (actionData.error) {
+        setToastMessage(actionData.error);
+        setToastError(true);
+        setToastActive(true);
+      }
+    }
+  }, [actionData]);
 
   const handleEnableFeature = useCallback(() => {
     const formData = new FormData();
     formData.append("intent", "enableFeature");
     submit(formData, { method: "post" });
-    setToastMessage("Mystery Boxes enabled");
-    setToastActive(true);
   }, [submit]);
 
   const handleDisableFeature = useCallback(() => {
     const formData = new FormData();
     formData.append("intent", "disableFeature");
     submit(formData, { method: "post" });
-    setToastMessage("Mystery Boxes disabled");
-    setToastActive(true);
   }, [submit]);
+
+  const handleCreateSubmit = useCallback(() => {
+    const formData = new FormData();
+    formData.append("intent", "create");
+    formData.append("name", formName);
+    formData.append("openCost", formOpenCost);
+    formData.append("maxOpensPerCustomer", formMaxOpensPerCustomer);
+    formData.append("maxOpensTotal", formMaxOpensTotal);
+    formData.append("startsAt", formStartsAt || new Date().toISOString());
+    formData.append("endsAt", formEndsAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
+    submit(formData, { method: "post" });
+  }, [submit, formName, formOpenCost, formMaxOpensPerCustomer, formMaxOpensTotal, formStartsAt, formEndsAt]);
 
   const dismissToast = useCallback(() => setToastActive(false), []);
 
@@ -185,6 +294,15 @@ export default function MysteryBoxes() {
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
     return num.toLocaleString();
   };
+
+  // Set default dates for form
+  const openCreateModal = useCallback(() => {
+    const now = new Date();
+    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    setFormStartsAt(now.toISOString().slice(0, 16));
+    setFormEndsAt(thirtyDaysLater.toISOString().slice(0, 16));
+    setCreateModalOpen(true);
+  }, []);
 
   // If feature not enabled, show setup prompt
   if (!mysteryBoxesEnabled) {
@@ -225,6 +343,9 @@ export default function MysteryBoxes() {
             </Layout.Section>
           </Layout>
         </Page>
+        {toastActive && (
+          <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
+        )}
       </Frame>
     );
   }
@@ -238,8 +359,7 @@ export default function MysteryBoxes() {
           backAction={{ content: "Points", url: "/app/points" }}
           primaryAction={{
             content: "Create Mystery Box",
-            url: "/app/points/mystery-boxes/new",
-            disabled: true, // TODO: Enable when create page is implemented
+            onAction: openCreateModal,
           }}
           secondaryActions={[
             {
@@ -268,8 +388,7 @@ export default function MysteryBoxes() {
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                   action={{
                     content: "Create Mystery Box",
-                    url: "/app/points/mystery-boxes/new",
-                    disabled: true, // TODO: Enable when create page is implemented
+                    onAction: openCreateModal,
                   }}
                 >
                   <BlockStack gap="200">
@@ -324,8 +443,77 @@ export default function MysteryBoxes() {
             </Layout.Section>
           </Layout>
 
+          {/* Create Modal */}
+          <Modal
+            open={createModalOpen}
+            onClose={() => setCreateModalOpen(false)}
+            title="Create Mystery Box"
+            primaryAction={{
+              content: "Create",
+              onAction: handleCreateSubmit,
+              loading: isSubmitting,
+              disabled: !formName,
+            }}
+            secondaryActions={[
+              {
+                content: "Cancel",
+                onAction: () => setCreateModalOpen(false),
+              },
+            ]}
+          >
+            <Modal.Section>
+              <FormLayout>
+                <TextField
+                  label="Box Name"
+                  value={formName}
+                  onChange={setFormName}
+                  autoComplete="off"
+                  placeholder="Golden Mystery Box"
+                />
+                <TextField
+                  label={`Cost (${pointsConfig.currencyPlural})`}
+                  type="number"
+                  value={formOpenCost}
+                  onChange={setFormOpenCost}
+                  autoComplete="off"
+                  helpText={`How many ${pointsConfig.currencyPlural.toLowerCase()} to open this box`}
+                />
+                <TextField
+                  label="Max Opens Per Customer"
+                  type="number"
+                  value={formMaxOpensPerCustomer}
+                  onChange={setFormMaxOpensPerCustomer}
+                  autoComplete="off"
+                />
+                <TextField
+                  label="Max Total Opens (optional)"
+                  type="number"
+                  value={formMaxOpensTotal}
+                  onChange={setFormMaxOpensTotal}
+                  autoComplete="off"
+                  placeholder="Unlimited"
+                  helpText="Leave empty for unlimited"
+                />
+                <TextField
+                  label="Start Date"
+                  type="datetime-local"
+                  value={formStartsAt}
+                  onChange={setFormStartsAt}
+                  autoComplete="off"
+                />
+                <TextField
+                  label="End Date"
+                  type="datetime-local"
+                  value={formEndsAt}
+                  onChange={setFormEndsAt}
+                  autoComplete="off"
+                />
+              </FormLayout>
+            </Modal.Section>
+          </Modal>
+
           {toastActive && (
-            <Toast content={toastMessage} onDismiss={dismissToast} />
+            <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
           )}
         </Page>
       </Frame>
@@ -352,8 +540,7 @@ export default function MysteryBoxes() {
         backAction={{ content: "Points", url: "/app/points" }}
         primaryAction={{
           content: "Create Mystery Box",
-          url: "/app/points/mystery-boxes/new",
-          disabled: true, // TODO: Enable when create page is implemented
+          onAction: openCreateModal,
         }}
         secondaryActions={[
           {
@@ -411,8 +598,77 @@ export default function MysteryBoxes() {
           </Layout.Section>
         </Layout>
 
+        {/* Create Modal */}
+        <Modal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          title="Create Mystery Box"
+          primaryAction={{
+            content: "Create",
+            onAction: handleCreateSubmit,
+            loading: isSubmitting,
+            disabled: !formName,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => setCreateModalOpen(false),
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              <TextField
+                label="Box Name"
+                value={formName}
+                onChange={setFormName}
+                autoComplete="off"
+                placeholder="Golden Mystery Box"
+              />
+              <TextField
+                label={`Cost (${pointsConfig.currencyPlural})`}
+                type="number"
+                value={formOpenCost}
+                onChange={setFormOpenCost}
+                autoComplete="off"
+                helpText={`How many ${pointsConfig.currencyPlural.toLowerCase()} to open this box`}
+              />
+              <TextField
+                label="Max Opens Per Customer"
+                type="number"
+                value={formMaxOpensPerCustomer}
+                onChange={setFormMaxOpensPerCustomer}
+                autoComplete="off"
+              />
+              <TextField
+                label="Max Total Opens (optional)"
+                type="number"
+                value={formMaxOpensTotal}
+                onChange={setFormMaxOpensTotal}
+                autoComplete="off"
+                placeholder="Unlimited"
+                helpText="Leave empty for unlimited"
+              />
+              <TextField
+                label="Start Date"
+                type="datetime-local"
+                value={formStartsAt}
+                onChange={setFormStartsAt}
+                autoComplete="off"
+              />
+              <TextField
+                label="End Date"
+                type="datetime-local"
+                value={formEndsAt}
+                onChange={setFormEndsAt}
+                autoComplete="off"
+              />
+            </FormLayout>
+          </Modal.Section>
+        </Modal>
+
         {toastActive && (
-          <Toast content={toastMessage} onDismiss={dismissToast} />
+          <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
         )}
       </Page>
     </Frame>

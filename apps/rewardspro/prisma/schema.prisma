@@ -415,6 +415,10 @@ model Customer {
   raffleEntries RaffleEntry[]  @relation("RaffleEntries")
   raffleWins    RaffleWinner[] @relation("RaffleWins")
 
+  // Mystery Boxes System
+  mysteryBoxOpens MysteryBoxOpen[]   @relation("MysteryBoxOpens")
+  mysteryBoxWins  MysteryBoxWinner[] @relation("MysteryBoxWins")
+
   @@unique([shop, shopifyCustomerId]) // Prevent duplicate customers per shop
   @@index([shop]) // Speed up queries by shop
   @@index([email]) // Speed up queries by email
@@ -2894,6 +2898,188 @@ enum RafflePrizeDeliveryStatus {
   DELIVERED // Successfully delivered
   FAILED // Delivery failed (needs retry)
   CLAIMED // Winner acknowledged receipt
+}
+
+// ============================================
+// MYSTERY BOXES SYSTEM MODELS
+// ============================================
+
+model MysteryBox {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String // "Golden Mystery Box", "Lucky Grab"
+  description String? @db.Text
+  imageUrl    String?
+
+  // Status & Timing
+  status   MysteryBoxStatus @default(DRAFT)
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Cost & Limits
+  openCost            Int  @default(100) // Points per open
+  maxOpensTotal       Int? // null = unlimited
+  maxOpensPerCustomer Int  @default(5)
+
+  // Access Control
+  tierRestrictions Json? // { "allowedTierIds": ["tier1", "tier2"] }
+  minimumTier      String?
+  isPublic         Boolean @default(true)
+
+  // Denormalized Statistics
+  totalOpens    Int @default(0)
+  uniqueOpeners Int @default(0)
+  totalSpent    Int @default(0)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  rewards MysteryBoxReward[]
+  opens   MysteryBoxOpen[]
+  winners MysteryBoxWinner[]
+
+  @@index([shop])
+  @@index([shop, status])
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+}
+
+model MysteryBoxReward {
+  id    String @id @default(uuid())
+  boxId String
+
+  // Reward Details
+  name        String
+  description String?
+  imageUrl    String?
+
+  // Type & Configuration
+  rewardType  MysteryBoxRewardType
+  rewardValue Json // Type-specific config
+
+  // Probability & Rarity
+  probability Decimal            @db.Decimal(5, 2) // 0.01 - 100.00
+  rarity      MysteryBoxRarity   @default(COMMON)
+
+  // Inventory (optional finite supply)
+  quantity    Int? // null = unlimited
+  quantityWon Int  @default(0)
+
+  // Display Order
+  position Int @default(0)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  box     MysteryBox         @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  winners MysteryBoxWinner[]
+
+  @@index([boxId])
+  @@index([boxId, rarity])
+}
+
+model MysteryBoxOpen {
+  id         String @id @default(uuid())
+  boxId      String
+  customerId String
+  shop       String
+
+  // Transaction Details
+  pointsSpent Int
+  openedAt    DateTime @default(now())
+
+  // Relations
+  box      MysteryBox        @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  customer Customer          @relation("MysteryBoxOpens", fields: [customerId], references: [id], onDelete: Cascade)
+  winner   MysteryBoxWinner? @relation("MysteryBoxOpenWinner")
+
+  @@index([boxId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([boxId, customerId])
+}
+
+model MysteryBoxWinner {
+  id         String @id @default(uuid())
+  boxId      String
+  openId     String @unique // 1:1 with MysteryBoxOpen
+  rewardId   String
+  customerId String
+  shop       String
+
+  // Delivery Tracking
+  deliveryStatus MysteryBoxDeliveryStatus @default(PENDING)
+  deliveredAt    DateTime?
+  deliveryNotes  String?                  @db.Text
+
+  // Reward-specific delivery details
+  discountCode   String?
+  storeCreditId  String?
+  pointsLedgerId String?
+
+  // Notification
+  notifiedAt     DateTime?
+  notifyAttempts Int       @default(0)
+  claimedAt      DateTime?
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  box      MysteryBox       @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  open     MysteryBoxOpen   @relation("MysteryBoxOpenWinner", fields: [openId], references: [id], onDelete: Cascade)
+  reward   MysteryBoxReward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  customer Customer         @relation("MysteryBoxWins", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([boxId])
+  @@index([customerId])
+  @@index([deliveryStatus])
+  @@index([shop, deliveryStatus])
+}
+
+// Mystery Box Status Lifecycle
+enum MysteryBoxStatus {
+  DRAFT // Being configured
+  SCHEDULED // Ready, waiting for start time
+  ACTIVE // Accepting opens
+  CLOSED // No new opens
+  COMPLETED // All processing done
+  CANCELLED // Cancelled
+}
+
+// Reward rarity tiers
+enum MysteryBoxRarity {
+  COMMON // ~60-70%
+  UNCOMMON // ~20-25%
+  RARE // ~8-12%
+  EPIC // ~2-5%
+  LEGENDARY // ~0.5-2%
+}
+
+// Types of rewards
+enum MysteryBoxRewardType {
+  POINTS // Bonus points
+  DISCOUNT // Discount code
+  STORE_CREDIT // Store credit
+  PRODUCT // Free product
+  CUSTOM // Manual fulfillment
+  NOTHING // "Better luck next time"
+}
+
+// Delivery status
+enum MysteryBoxDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  CLAIMED
 }
 
 // ============================================
