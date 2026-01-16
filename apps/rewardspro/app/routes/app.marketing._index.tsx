@@ -1,6 +1,6 @@
-import { json, LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { json, ActionFunctionArgs, LoaderFunctionArgs, redirect } from "@remix-run/node";
+import { useLoaderData, useNavigate, useFetcher } from "@remix-run/react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Page,
   Layout,
@@ -34,9 +34,13 @@ import {
   PlusIcon,
   SettingsIcon,
   ChartLineIcon,
+  ExternalIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { getMarketingModeInfo, setMarketingHubMode, markChoiceModalSeen } from "~/services/marketing-mode.server";
+import { MarketingChoiceModal } from "~/components/MarketingChoiceModal";
+import type { MarketingHubMode } from "@prisma/client";
 
 // ============================================
 // TYPES
@@ -84,6 +88,11 @@ interface Recommendation {
 interface LoaderData {
   shop: string;
   isConfigured: boolean;
+  // Marketing Hub Mode
+  marketingMode: MarketingHubMode;
+  showChoiceModal: boolean;
+  isKlaviyoConnected: boolean;
+  // Metrics
   metrics: {
     totalSent: number;
     totalOpened: number;
@@ -127,6 +136,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const isConfigured = !!emailSettings?.senderEmail;
+
+  // Get marketing mode info
+  const modeInfo = await getMarketingModeInfo(shop);
+  const showChoiceModal = modeInfo.mode === "UNCONFIGURED" && !modeInfo.hasSeenChoice;
 
   // Fetch email metrics from events (last 30 days)
   let totalSent = 0;
@@ -253,6 +266,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json<LoaderData>({
     shop,
     isConfigured,
+    // Marketing Hub Mode
+    marketingMode: modeInfo.mode,
+    showChoiceModal,
+    isKlaviyoConnected: modeInfo.isKlaviyoConnected,
+    // Metrics
     metrics: {
       totalSent,
       totalOpened,
@@ -272,6 +290,50 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     recommendations,
     customerStats,
   });
+};
+
+// ============================================
+// ACTION
+// ============================================
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  switch (intent) {
+    case "setMarketingMode": {
+      const mode = formData.get("mode") as MarketingHubMode;
+
+      // If selecting Klaviyo but not connected, redirect to connect page
+      if (mode === "KLAVIYO") {
+        const modeInfo = await getMarketingModeInfo(shop);
+        if (!modeInfo.isKlaviyoConnected) {
+          // Mark choice as seen but don't set mode yet
+          await markChoiceModalSeen(shop);
+          return redirect("/app/marketing/klaviyo?connect=true");
+        }
+      }
+
+      const result = await setMarketingHubMode(shop, mode);
+
+      if (!result.success) {
+        return json({ success: false, error: result.error }, { status: 400 });
+      }
+
+      return json({ success: true, mode: result.mode });
+    }
+
+    case "dismissChoiceModal": {
+      await markChoiceModalSeen(shop);
+      return json({ success: true });
+    }
+
+    default:
+      return json({ success: false, error: "Invalid intent" }, { status: 400 });
+  }
 };
 
 // ============================================
@@ -358,7 +420,9 @@ function AutomationTriggerBadge({ trigger }: { trigger: string }) {
 export default function MarketingHub() {
   const data = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const fetcher = useFetcher();
   const [dateRange, setDateRange] = useState("30");
+  const [choiceModalOpen, setChoiceModalOpen] = useState(data.showChoiceModal);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
@@ -378,29 +442,85 @@ export default function MarketingHub() {
     }).format(amount);
   };
 
+  // Handle mode selection
+  const handleModeSelect = useCallback((mode: "INHOUSE" | "KLAVIYO") => {
+    fetcher.submit(
+      { intent: "setMarketingMode", mode },
+      { method: "post" }
+    );
+    setChoiceModalOpen(false);
+  }, [fetcher]);
+
+  // Handle modal dismiss
+  const handleModalDismiss = useCallback(() => {
+    fetcher.submit(
+      { intent: "dismissChoiceModal" },
+      { method: "post" }
+    );
+    setChoiceModalOpen(false);
+  }, [fetcher]);
+
   // Show setup banner if not configured (but still show full hub)
-  const showSetupBanner = !data.isConfigured;
+  const showSetupBanner = !data.isConfigured && data.marketingMode !== "KLAVIYO";
+  const isKlaviyoMode = data.marketingMode === "KLAVIYO";
+  const isLoading = fetcher.state !== "idle";
+
+  // Dynamic page actions based on mode
+  const pageActions = isKlaviyoMode
+    ? {
+        primaryAction: {
+          content: "Open Klaviyo",
+          icon: ExternalIcon,
+          onAction: () => window.open("https://www.klaviyo.com/dashboard", "_blank"),
+        },
+        secondaryActions: [
+          {
+            content: "Event Settings",
+            onAction: () => navigate("/app/marketing/klaviyo"),
+          },
+          {
+            content: "Settings",
+            icon: SettingsIcon,
+            onAction: () => navigate("/app/marketing/settings"),
+          },
+        ],
+      }
+    : {
+        primaryAction: {
+          content: "Create Campaign",
+          icon: PlusIcon,
+          onAction: () => navigate("/app/marketing/campaigns/create"),
+        },
+        secondaryActions: [
+          {
+            content: "Templates",
+            onAction: () => navigate("/app/marketing/templates"),
+          },
+          {
+            content: "Settings",
+            icon: SettingsIcon,
+            onAction: () => navigate("/app/marketing/settings"),
+          },
+        ],
+      };
 
   return (
     <Page
       title="Marketing Hub"
-      subtitle="Email campaigns and automation for your loyalty program"
-      primaryAction={{
-        content: "Create Campaign",
-        icon: PlusIcon,
-        onAction: () => navigate("/app/marketing/campaigns/create"),
-      }}
-      secondaryActions={[
-        {
-          content: "Templates",
-          onAction: () => navigate("/app/marketing/templates"),
-        },
-        {
-          content: "Settings",
-          icon: SettingsIcon,
-          onAction: () => navigate("/app/marketing/settings"),
-        },
-      ]}
+      subtitle={
+        isKlaviyoMode
+          ? "Connected to Klaviyo for advanced marketing automation"
+          : "Email campaigns and automation for your loyalty program"
+      }
+      titleMetadata={
+        isKlaviyoMode ? (
+          <Badge tone="magic">Powered by Klaviyo</Badge>
+        ) : data.marketingMode === "INHOUSE" ? (
+          <Badge tone="success">In-House</Badge>
+        ) : null
+      }
+      primaryAction={pageActions.primaryAction}
+      secondaryActions={pageActions.secondaryActions}
     >
       <Layout>
         {/* Setup Banner - shown if email not configured */}
@@ -782,6 +902,15 @@ export default function MarketingHub() {
           </InlineGrid>
         </Layout.Section>
       </Layout>
+
+      {/* Marketing Choice Modal */}
+      <MarketingChoiceModal
+        open={choiceModalOpen}
+        isKlaviyoConnected={data.isKlaviyoConnected}
+        onSelect={handleModeSelect}
+        onDismiss={handleModalDismiss}
+        loading={isLoading}
+      />
     </Page>
   );
 }

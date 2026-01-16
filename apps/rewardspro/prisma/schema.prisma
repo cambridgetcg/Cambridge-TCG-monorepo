@@ -2184,6 +2184,14 @@ model EmailSettings {
   emailProvider           EmailProvider   @default(SENDGRID)  // Which provider to use
 
   // ═══════════════════════════════════════════════════════════════════════
+  // MARKETING HUB MODE
+  // Determines whether merchant uses in-house campaigns or Klaviyo
+  // ═══════════════════════════════════════════════════════════════════════
+  marketingHubMode        MarketingHubMode @default(UNCONFIGURED)  // Which marketing UI to show
+  marketingModeSetAt      DateTime?        // When merchant chose their mode
+  hasSeenMarketingChoice  Boolean          @default(false)         // Has seen the choice modal
+
+  // ═══════════════════════════════════════════════════════════════════════
   // KLAVIYO CONFIGURATION
   // ═══════════════════════════════════════════════════════════════════════
   klaviyoEnabled          Boolean         @default(false)      // Feature flag
@@ -2276,6 +2284,13 @@ enum EmailProvider {
   SENDGRID        // Current default provider
   KLAVIYO         // Klaviyo as primary provider
   HYBRID          // SendGrid for transactional, Klaviyo for marketing
+}
+
+// Marketing Hub Mode - determines which UI/features merchants see
+enum MarketingHubMode {
+  UNCONFIGURED    // Never made a choice - show choice modal
+  INHOUSE         // Using in-house SendGrid campaigns/templates
+  KLAVIYO         // Using Klaviyo for all marketing (simplified hub UI)
 }
 
 enum KlaviyoSyncStatus {
