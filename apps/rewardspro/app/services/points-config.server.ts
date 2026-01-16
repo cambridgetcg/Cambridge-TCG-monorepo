@@ -10,7 +10,7 @@
  * - Feature toggles (raffles, mystery boxes, etc.)
  */
 
-import db from "~/db.server";
+import db from "../db.server";
 import type { PointsConfig, PointsRoundingMode } from "@prisma/client";
 
 // ============================================
