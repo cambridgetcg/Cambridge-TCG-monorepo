@@ -33,6 +33,7 @@ import {
 import { useState, useCallback } from "react";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
 // TYPES
@@ -704,9 +705,10 @@ export default function AutomationDetail() {
                         }}
                       >
                         {currentTemplate.bodyHtml ? (
+                          // SECURITY: Sanitize HTML to prevent XSS attacks
                           <div
                             dangerouslySetInnerHTML={{
-                              __html: extractEmailContent(currentTemplate.bodyHtml),
+                              __html: sanitizeEmailHtml(extractEmailContent(currentTemplate.bodyHtml)),
                             }}
                           />
                         ) : (

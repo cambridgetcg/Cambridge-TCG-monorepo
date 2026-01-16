@@ -38,6 +38,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
 // TYPES
@@ -1016,7 +1017,8 @@ function BlockPreview({ block, styles }: { block: ContentBlock; styles: Template
       return <div style={{ height: `${block.content.height || 20}px` }} />;
     case "html":
       return block.content.html ? (
-        <div dangerouslySetInnerHTML={{ __html: block.content.html }} />
+        // SECURITY: Sanitize HTML to prevent XSS attacks
+        <div dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(block.content.html) }} />
       ) : (
         <Box padding="300" background="bg-surface-secondary" borderRadius="200">
           <Text as="p" tone="subdued" alignment="center" variant="bodySm">

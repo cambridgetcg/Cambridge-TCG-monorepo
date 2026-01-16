@@ -23,6 +23,7 @@ import db from "../db.server";
 import { v4 as uuidv4 } from 'uuid';
 import { incrementMonthlyOrderCount } from "~/utils/order-count-strategies";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
+import { logSafeCustomer } from "~/utils/pii-masker";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -73,7 +74,8 @@ export async function action({ request }: ActionFunctionArgs) {
     const order = payload as OrderWebhook;
     
     console.log(`[OrdersCreateWebhook] Processing order ${order.id} for shop ${shop}`);
-    console.log(`[OrdersCreateWebhook] Customer: ${order.customer?.email || 'Guest'}`);
+    // SECURITY: Use PII masker to avoid logging customer emails in production
+    console.log(`[OrdersCreateWebhook] Customer: ${order.customer ? logSafeCustomer(order.customer.id, order.customer.email) : 'Guest'}`);
 
     // Increment monthly order count for ALL orders (including guest orders)
     try {

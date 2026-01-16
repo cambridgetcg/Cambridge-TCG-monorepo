@@ -1,7 +1,8 @@
 /**
  * Rate Limiting Utility for API Endpoints
  *
- * Implements token bucket algorithm with memory storage
+ * @deprecated This in-memory rate limiter is DEPRECATED for security reasons.
+ * Use `rate-limiter-redis.ts` instead for proper distributed rate limiting.
  *
  * ⚠️ SECURITY WARNING: In-Memory Rate Limiting Limitation
  * ────────────────────────────────────────────────────────
@@ -13,17 +14,13 @@
  * - With 10 instances, rate limits are effectively 10x higher
  * - Rate limits reset when new instances are spawned
  *
- * TODO: Migrate to Redis/Upstash for production rate limiting
- * See: https://upstash.com/docs/redis/sdks/ratelimit-ts/overview
+ * MIGRATION COMPLETE:
+ * Import from rate-limiter-redis.ts instead:
  *
- * Example migration:
- *   import { Ratelimit } from "@upstash/ratelimit";
- *   import { Redis } from "@upstash/redis";
+ *   import { appProxyRateLimit } from "~/utils/rate-limiter-redis";
  *
- *   const ratelimit = new Ratelimit({
- *     redis: Redis.fromEnv(),
- *     limiter: Ratelimit.slidingWindow(10, "10 s"),
- *   });
+ * The Redis-backed rate limiter uses Vercel KV for distributed rate limiting
+ * that works correctly across all serverless instances.
  */
 
 import { json } from "@remix-run/node";

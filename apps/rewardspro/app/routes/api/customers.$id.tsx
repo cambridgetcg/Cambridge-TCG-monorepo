@@ -145,12 +145,19 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
     
     case "DELETE": {
-      await db.customer.delete({
+      // SECURITY: Use deleteMany with shop scope to prevent IDOR attacks
+      // A merchant should only be able to delete their own customers
+      const result = await db.customer.deleteMany({
         where: {
-          id: params.id
+          id: params.id,
+          shop: session.shop  // Enforce shop scope
         }
       });
-      
+
+      if (result.count === 0) {
+        throw new Response("Customer not found", { status: 404 });
+      }
+
       return json({ success: true });
     }
     

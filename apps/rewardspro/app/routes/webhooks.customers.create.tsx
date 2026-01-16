@@ -8,6 +8,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { handleCustomerCreate, type ShopifyCustomerWebhook } from "../services/webhook-customer-sync.server";
 import { verifyWebhookHMAC } from "../utils/webhook-validation.server";
+import { logSafeCustomer } from "~/utils/pii-masker";
 
 export async function action({ request }: ActionFunctionArgs) {
   console.log("[Webhook] Received customers/create webhook");
@@ -38,7 +39,8 @@ export async function action({ request }: ActionFunctionArgs) {
     
     console.log(`[Webhook] Processing customer create for shop: ${shopDomain}`);
     console.log(`[Webhook] Webhook ID: ${webhookId}, API Version: ${apiVersion}`);
-    console.log(`[Webhook] Customer: ${payload.email} (ID: ${payload.id})`);
+    // SECURITY: Use PII masker to avoid logging customer emails in production
+    console.log(`[Webhook] Customer: ${logSafeCustomer(payload.id, payload.email)}`);
     
     // Process the webhook using our sync service
     const result = await handleCustomerCreate(payload, shopDomain);

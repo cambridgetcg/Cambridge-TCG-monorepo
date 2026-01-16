@@ -16,7 +16,8 @@ import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { getAuroraClient } from "../utils/aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
-import { appProxyRateLimit } from "../utils/rate-limiter";
+// SECURITY: Use Redis-backed rate limiter for effective distributed rate limiting
+import { appProxyRateLimit } from "../utils/rate-limiter-redis";
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity

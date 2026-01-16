@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { gdprLogger } from "~/services/logger.server";
+import { maskEmail } from "~/utils/pii-masker";
 
 /**
  * Mandatory Compliance Webhooks Handler
@@ -102,9 +103,10 @@ async function handleCustomerDataRequest(
   shop: string
 ) {
   const logger = gdprLogger.withContext({ shop, shopifyCustomerId: String(payload.customer.id) });
+  // SECURITY: Mask email in logs to prevent PII exposure
   logger.gdpr('DATA_REQUEST_RECEIVED', {
     requestId: payload.data_request.id,
-    customerEmail: payload.customer.email,
+    customerEmail: maskEmail(payload.customer.email),
     ordersRequested: payload.orders_requested
   });
 
@@ -212,13 +214,26 @@ async function handleCustomerDataRequest(
       }
     });
 
-    // In a production system, you would:
-    // 1. Store this report for the merchant to access
-    // 2. Send notification to merchant that data is ready
-    // 3. Track the 30-day deadline
+    // SECURITY: Never log full customer data - only log metadata
+    // The actual data should be stored securely and sent to the merchant
+    // via a secure channel, not exposed in application logs
+    console.log('[GDPR Data Export] Generated', {
+      requestId: payload.data_request.id,
+      customerId: customer.id,
+      recordCounts: {
+        orders: customer.orders.length,
+        subscriptions: customer.tierSubscriptions.length,
+        tierChanges: customer.tierChangeLogs.length,
+        creditTransactions: customer.storeCreditLedger.length
+      },
+      generatedAt: new Date().toISOString()
+    });
 
-    // For now, log the full report (merchant can retrieve from logs)
-    console.log('[GDPR Data Export]', JSON.stringify(customerDataReport, null, 2));
+    // TODO: In production, store this report securely and notify merchant
+    // For GDPR compliance, the report should be:
+    // 1. Encrypted at rest
+    // 2. Accessible only to the merchant
+    // 3. Automatically deleted after the 30-day deadline
 
   } catch (error) {
     logger.error('Failed to process data request', error);
@@ -236,8 +251,9 @@ async function handleCustomerRedact(
   shop: string
 ) {
   const logger = gdprLogger.withContext({ shop, shopifyCustomerId: String(payload.customer.id) });
+  // SECURITY: Mask email in logs to prevent PII exposure
   logger.gdpr('CUSTOMER_REDACT_RECEIVED', {
-    customerEmail: payload.customer.email,
+    customerEmail: maskEmail(payload.customer.email),
     ordersToRedact: payload.orders_to_redact
   });
 

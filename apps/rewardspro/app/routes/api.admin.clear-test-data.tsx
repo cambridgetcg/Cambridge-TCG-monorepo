@@ -26,10 +26,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // SECURITY: Only allow in development/test environments
-  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_TEST_ENDPOINTS) {
-    console.warn('[AdminClearTestData] Blocked in production environment');
-    return json({ error: 'Not available in production' }, { status: 403 });
+  // SECURITY: NEVER allow in production, regardless of env vars
+  // This is a destructive admin endpoint that should only exist in development
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[SECURITY] Attempted access to admin clear-test-data endpoint in production');
+    return new Response("Not Found", { status: 404 });
   }
 
   const logs: string[] = [];
