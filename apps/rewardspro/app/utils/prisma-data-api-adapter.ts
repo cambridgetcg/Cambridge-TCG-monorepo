@@ -597,6 +597,10 @@ export class DataAPIModelProxy<T = any> {
       OrderSyncJob: ['status'],
       PointsConfig: ['roundingMode'],
       PointsLedger: ['type'],
+      // Raffles System
+      Raffle: ['status', 'drawType'],
+      RafflePrize: ['prizeType'],
+      RaffleWinner: ['deliveryStatus'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -651,6 +655,11 @@ export class DataAPIModelProxy<T = any> {
       // Points Engagement System
       'PointsConfig',
       'PointsLedger',
+      // Raffles System
+      'Raffle',
+      'RafflePrize',
+      'RaffleEntry',
+      'RaffleWinner',
     ];
     return tablesWithUuidId.includes(this.tableName);
   }
@@ -686,6 +695,10 @@ export class DataAPIModelProxy<T = any> {
       discountType: '"DiscountType"',
       eventType: '"SubscriptionEventType"',
       roundingMode: '"PointsRoundingMode"',
+      // Raffles System
+      drawType: '"RaffleDrawType"',
+      prizeType: '"RafflePrizeType"',
+      deliveryStatus: '"RafflePrizeDeliveryStatus"',
     };
 
     return enumTypes[field] || field;
@@ -719,6 +732,8 @@ export class DataAPIModelProxy<T = any> {
       CustomerSyncJob: '"SyncJobStatus"',
       StoreCreditSyncJob: '"SyncJobStatus"',
       OrderSyncJob: '"SyncJobStatus"',
+      // Raffles System
+      Raffle: '"RaffleStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
@@ -1473,6 +1488,12 @@ export function createDataAPIPrismaClient() {
           pointsConfig: new DataAPIModelProxy("PointsConfig", txAuroraClient),
           pointsLedger: new DataAPIModelProxy("PointsLedger", txAuroraClient),
 
+          // Raffles System
+          raffle: new DataAPIModelProxy("Raffle", txAuroraClient),
+          rafflePrize: new DataAPIModelProxy("RafflePrize", txAuroraClient),
+          raffleEntry: new DataAPIModelProxy("RaffleEntry", txAuroraClient),
+          raffleWinner: new DataAPIModelProxy("RaffleWinner", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1663,6 +1684,12 @@ export function createDataAPIPrismaClient() {
     // Points Engagement System
     pointsConfig: new DataAPIModelProxy("PointsConfig", client),
     pointsLedger: new DataAPIModelProxy("PointsLedger", client),
+
+    // Raffles System
+    raffle: new DataAPIModelProxy("Raffle", client),
+    rafflePrize: new DataAPIModelProxy("RafflePrize", client),
+    raffleEntry: new DataAPIModelProxy("RaffleEntry", client),
+    raffleWinner: new DataAPIModelProxy("RaffleWinner", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

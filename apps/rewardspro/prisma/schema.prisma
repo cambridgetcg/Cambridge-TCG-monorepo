@@ -411,6 +411,10 @@ model Customer {
   // Points Engagement System
   pointsLedger PointsLedger[] @relation("PointsLedgerEntries")
 
+  // Raffles System
+  raffleEntries RaffleEntry[]  @relation("RaffleEntries")
+  raffleWins    RaffleWinner[] @relation("RaffleWins")
+
   @@unique([shop, shopifyCustomerId]) // Prevent duplicate customers per shop
   @@index([shop]) // Speed up queries by shop
   @@index([email]) // Speed up queries by email
@@ -2645,9 +2649,11 @@ model PointsLedger {
   createdAt DateTime @default(now())
 
   // Relations
-  customer Customer @relation("PointsLedgerEntries", fields: [customerId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation("PointsLedgerEntries", fields: [customerId], references: [id], onDelete: Cascade)
+  raffleEntry RaffleEntry? @relation("RaffleEntryLedger", fields: [raffleEntryId], references: [id], onDelete: SetNull)
 
   @@index([shop, customerId])
+  @@index([raffleEntryId])
   @@index([customerId, createdAt(sort: Desc)])
   @@index([type])
   @@index([expiresAt, expired]) // For expiration cron job
@@ -2684,6 +2690,210 @@ enum PointsRoundingMode {
   FLOOR // Round down (10.9 -> 10)
   CEIL // Round up (10.1 -> 11)
   ROUND // Standard rounding (10.5 -> 11, 10.4 -> 10)
+}
+
+// ============================================
+// RAFFLES SYSTEM MODELS
+// ============================================
+// Raffles allow customers to spend points for a chance to win prizes.
+// Supports multiple prize tiers, various draw types, and guaranteed winners.
+
+model Raffle {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String // "Spring Giveaway", "Mystery Prize Draw"
+  description String? @db.Text // Rich description for customers
+  imageUrl    String? // Hero image for the raffle
+
+  // Status & Timing
+  status   RaffleStatus @default(DRAFT)
+  startsAt DateTime // When entries open
+  endsAt   DateTime // When entries close
+  drawAt   DateTime? // When winners are drawn (null = immediate after endsAt)
+  drawnAt  DateTime? // When draw actually occurred
+
+  // Entry Rules
+  entryCost             Int  @default(100) // Points per entry
+  maxEntriesTotal       Int? // Max entries per raffle (null = unlimited)
+  maxEntriesPerCustomer Int  @default(10) // Max entries per customer
+
+  // Draw Configuration
+  drawType     RaffleDrawType @default(RANDOM)
+  totalWinners Int            @default(1) // How many winners to select
+
+  // Entry Stats (denormalized for performance)
+  totalEntries   Int @default(0)
+  uniqueEntrants Int @default(0)
+  totalPrizePool Int @default(0) // Accumulated points value
+
+  // Visibility & Eligibility
+  isPublic         Boolean @default(true) // Show on storefront
+  tierRestrictions Json? // { "allowedTierIds": ["tier-1", "tier-2"] } or null for all
+  minimumTier      String? // Minimum tier required to enter (by tier ID)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  prizes  RafflePrize[]
+  entries RaffleEntry[]
+  winners RaffleWinner[]
+
+  @@index([shop])
+  @@index([shop, status])
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+}
+
+model RafflePrize {
+  id       String @id @default(uuid())
+  raffleId String
+
+  // Prize Details
+  name        String // "Grand Prize", "Runner-up Prize"
+  description String? // What the prize includes
+  imageUrl    String? // Prize image
+
+  // Prize Type & Value
+  prizeType  RafflePrizeType
+  prizeValue Json // Type-specific value configuration
+  // DISCOUNT: { "type": "percentage" | "fixed", "value": 20, "maxUses": 1 }
+  // STORE_CREDIT: { "amount": 5000 } (in cents)
+  // PRODUCT: { "productId": "gid://shopify/Product/123", "variantId": "...", "quantity": 1 }
+  // POINTS: { "amount": 1000 }
+  // CUSTOM: { "fulfillmentInstructions": "Contact customer to arrange..." }
+
+  // Distribution
+  quantity     Int @default(1) // How many of this prize available
+  quantityWon  Int @default(0) // How many have been won
+  displayOrder Int @default(0) // Order in prize list (lower = higher priority)
+
+  // Odds Configuration (for WEIGHTED draw type)
+  weight Int @default(100) // Relative weight for weighted draws
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle  Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  winners RaffleWinner[]
+
+  @@index([raffleId])
+  @@index([raffleId, displayOrder])
+}
+
+model RaffleEntry {
+  id         String @id @default(uuid())
+  raffleId   String
+  customerId String
+  shop       String
+
+  // Entry Details
+  entriesCount    Int     @default(1) // Number of entries in this batch
+  pointsSpent     Int // Total points spent for these entries
+  entryMultiplier Decimal @default(1.0) @db.Decimal(3, 2) // Tier bonus multiplier applied
+
+  // Tracking
+  isWinner Boolean @default(false) // Quick lookup for win status
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  raffle        Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  customer      Customer       @relation("RaffleEntries", fields: [customerId], references: [id], onDelete: Cascade)
+  winners       RaffleWinner[]
+  ledgerEntries PointsLedger[] @relation("RaffleEntryLedger")
+
+  @@unique([raffleId, customerId]) // One entry record per customer per raffle
+  @@index([raffleId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([raffleId, isWinner])
+}
+
+model RaffleWinner {
+  id            String @id @default(uuid())
+  raffleId      String
+  raffleEntryId String
+  rafflePrizeId String
+  customerId    String
+  shop          String
+
+  // Win Details
+  winPosition Int // 1st, 2nd, 3rd, etc.
+  selectedAt  DateTime @default(now()) // When this winner was drawn
+
+  // Prize Delivery
+  deliveryStatus RafflePrizeDeliveryStatus @default(PENDING)
+  deliveredAt    DateTime?
+  deliveryNotes  String?                   @db.Text // Admin notes about delivery
+
+  // Prize-specific delivery details
+  discountCode   String? // For DISCOUNT prizes
+  storeCreditId  String? // For STORE_CREDIT prizes (links to StoreCreditLedger)
+  pointsLedgerId String? // For POINTS prizes (links to PointsLedger)
+
+  // Notification Tracking
+  notifiedAt     DateTime? // When winner was notified
+  notifyAttempts Int       @default(0)
+  claimedAt      DateTime? // When winner acknowledged/claimed
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle   Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  entry    RaffleEntry @relation(fields: [raffleEntryId], references: [id], onDelete: Cascade)
+  prize    RafflePrize @relation(fields: [rafflePrizeId], references: [id], onDelete: Cascade)
+  customer Customer    @relation("RaffleWins", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([raffleId, winPosition]) // Only one winner per position
+  @@index([raffleId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([deliveryStatus])
+}
+
+// Raffle Status Lifecycle
+enum RaffleStatus {
+  DRAFT // Being configured, not visible
+  SCHEDULED // Visible, entries not yet open
+  ACTIVE // Entries are open
+  CLOSED // Entries closed, awaiting draw
+  DRAWING // Draw in progress
+  COMPLETED // Winners selected, prizes being delivered
+  CANCELLED // Raffle cancelled, entries refunded
+}
+
+// How winners are selected
+enum RaffleDrawType {
+  RANDOM // Pure random selection
+  WEIGHTED // Weighted by entry count (more entries = higher chance)
+  FIFO // First entries win (early bird advantage)
+}
+
+// Types of prizes that can be won
+enum RafflePrizeType {
+  DISCOUNT // Discount code (percentage or fixed)
+  STORE_CREDIT // Store credit added to account
+  PRODUCT // Free product
+  POINTS // Points added back to balance
+  CUSTOM // Custom prize requiring manual fulfillment
+}
+
+// Prize delivery status
+enum RafflePrizeDeliveryStatus {
+  PENDING // Not yet delivered
+  PROCESSING // Being processed (e.g., discount code being generated)
+  DELIVERED // Successfully delivered
+  FAILED // Delivery failed (needs retry)
+  CLAIMED // Winner acknowledged receipt
 }
 
 // ============================================
