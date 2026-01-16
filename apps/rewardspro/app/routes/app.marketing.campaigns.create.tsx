@@ -27,6 +27,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 // ============================================
 // TYPES
@@ -62,6 +63,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
     const shop = session.shop;
     console.log("[Create Campaign] Authenticated for shop:", shop);
+
+    // Guard: Redirect Klaviyo mode users to main Marketing Hub
+    const guardRedirect = await guardInHouseRoute(shop);
+    if (guardRedirect) return guardRedirect;
 
     // Fetch email templates
     let templates: Template[] = [];

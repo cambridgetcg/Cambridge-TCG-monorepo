@@ -101,6 +101,35 @@ export async function shouldShowKlaviyoMarketing(shop: string): Promise<boolean>
 }
 
 // ============================================
+// ROUTE GUARDS
+// ============================================
+
+/**
+ * Guard function for in-house marketing routes.
+ * Returns a redirect Response if the merchant is in Klaviyo mode.
+ * Should be called at the start of loaders for in-house only routes.
+ *
+ * @example
+ * export const loader = async ({ request }: LoaderFunctionArgs) => {
+ *   const { session } = await authenticate.admin(request);
+ *   const guardRedirect = await guardInHouseRoute(session.shop);
+ *   if (guardRedirect) return guardRedirect;
+ *   // ... rest of loader
+ * };
+ */
+export async function guardInHouseRoute(shop: string): Promise<Response | null> {
+  const mode = await getMarketingHubMode(shop);
+
+  if (mode === "KLAVIYO") {
+    // Import dynamically to avoid circular dependencies
+    const { redirect } = await import("@remix-run/node");
+    return redirect("/app/marketing?notice=klaviyo_mode");
+  }
+
+  return null;
+}
+
+// ============================================
 // MODE MANAGEMENT
 // ============================================
 

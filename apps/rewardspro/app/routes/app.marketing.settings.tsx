@@ -36,6 +36,8 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
+import type { MarketingHubMode } from "@prisma/client";
 
 // ============================================
 // TYPES
@@ -100,6 +102,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Check if SendGrid is configured
   const sendgridConfigured = !!process.env.SENDGRID_API_KEY;
 
+  // Get marketing mode info
+  const marketingModeInfo = await getMarketingModeInfo(shop);
+
   return json({
     shop,
     emailSettings,
@@ -107,6 +112,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     shopSettings,
     domains,
     sendgridConfigured,
+    marketingModeInfo,
   });
 };
 
@@ -174,6 +180,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
 
     return json({ success: true, message: "Settings saved successfully!" });
+  }
+
+  if (intent === "switchPlatform") {
+    const mode = formData.get("mode") as MarketingHubMode;
+
+    if (!mode || !["INHOUSE", "KLAVIYO"].includes(mode)) {
+      return json({ success: false, message: "Invalid platform" }, { status: 400 });
+    }
+
+    const result = await switchMarketingMode(shop, mode);
+
+    if (!result.success) {
+      return json({ success: false, message: result.error || "Failed to switch platform" }, { status: 400 });
+    }
+
+    return json({
+      success: true,
+      message: mode === "KLAVIYO"
+        ? "Switched to Klaviyo! Your in-house campaigns have been archived."
+        : "Switched to In-House Marketing!"
+    });
   }
 
   return json({ success: false, message: "Invalid request" }, { status: 400 });
@@ -355,12 +382,31 @@ export default function EmailSettings() {
     });
   };
 
+  const [switchPlatformModalOpen, setSwitchPlatformModalOpen] = useState(false);
+  const [platformToSwitch, setPlatformToSwitch] = useState<"INHOUSE" | "KLAVIYO" | null>(null);
+
   const isSaving = fetcher.state === "submitting";
   const isDomainLoading = domainFetcher.state !== "idle";
   const isTestEmailSending = testEmailFetcher.state !== "idle";
 
   const currentSendingMode = data.emailSettings?.sendingMode || "SHARED";
   const activeDomain = data.customDomain;
+  const currentMarketingMode = data.marketingModeInfo.mode;
+  const isKlaviyoConnected = data.marketingModeInfo.isKlaviyoConnected;
+
+  const handleSwitchPlatform = useCallback(() => {
+    if (!platformToSwitch) return;
+    const formData = new FormData();
+    formData.append("intent", "switchPlatform");
+    formData.append("mode", platformToSwitch);
+    fetcher.submit(formData, { method: "post" });
+    setSwitchPlatformModalOpen(false);
+  }, [platformToSwitch, fetcher]);
+
+  const openSwitchModal = useCallback((mode: "INHOUSE" | "KLAVIYO") => {
+    setPlatformToSwitch(mode);
+    setSwitchPlatformModalOpen(true);
+  }, []);
 
   const timezoneOptions = [
     { label: "Eastern Time (ET)", value: "America/New_York" },
@@ -416,6 +462,72 @@ export default function EmailSettings() {
               </Banner>
             </Layout.Section>
           )}
+
+          {/* Marketing Platform */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text variant="headingMd" as="h3">
+                    Marketing Platform
+                  </Text>
+                  {currentMarketingMode === "KLAVIYO" ? (
+                    <Badge tone="magic">Klaviyo</Badge>
+                  ) : currentMarketingMode === "INHOUSE" ? (
+                    <Badge tone="success">In-House</Badge>
+                  ) : (
+                    <Badge tone="info">Not Configured</Badge>
+                  )}
+                </InlineStack>
+
+                {currentMarketingMode === "KLAVIYO" ? (
+                  <Banner tone="info">
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodySm">
+                        You're using <strong>Klaviyo</strong> for marketing automation.
+                        RewardsPro syncs customer profiles and events to Klaviyo where you build flows and campaigns.
+                      </Text>
+                      <InlineStack gap="200">
+                        <Button
+                          size="slim"
+                          onClick={() => openSwitchModal("INHOUSE")}
+                        >
+                          Switch to In-House Marketing
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  </Banner>
+                ) : currentMarketingMode === "INHOUSE" ? (
+                  <Banner tone="success">
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodySm">
+                        You're using <strong>In-House Marketing</strong> powered by SendGrid.
+                        Create campaigns, templates, and automations directly in RewardsPro.
+                      </Text>
+                      {isKlaviyoConnected && (
+                        <InlineStack gap="200">
+                          <Button
+                            size="slim"
+                            onClick={() => openSwitchModal("KLAVIYO")}
+                          >
+                            Switch to Klaviyo
+                          </Button>
+                        </InlineStack>
+                      )}
+                    </BlockStack>
+                  </Banner>
+                ) : (
+                  <Banner tone="warning">
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodySm">
+                        You haven't chosen a marketing platform yet. Visit the Marketing Hub to get started.
+                      </Text>
+                    </BlockStack>
+                  </Banner>
+                )}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
 
           {/* Current Sending Mode */}
           <Layout.Section>
@@ -976,6 +1088,59 @@ export default function EmailSettings() {
                 domain provider. Verification usually takes 24-48 hours.
               </Text>
             </Banner>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+
+      {/* Switch Platform Modal */}
+      <Modal
+        open={switchPlatformModalOpen}
+        onClose={() => setSwitchPlatformModalOpen(false)}
+        title={platformToSwitch === "KLAVIYO" ? "Switch to Klaviyo?" : "Switch to In-House Marketing?"}
+        primaryAction={{
+          content: "Switch Platform",
+          onAction: handleSwitchPlatform,
+          loading: isSaving,
+          destructive: platformToSwitch === "KLAVIYO",
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setSwitchPlatformModalOpen(false),
+          },
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            {platformToSwitch === "KLAVIYO" ? (
+              <>
+                <Banner tone="warning">
+                  <Text as="p" variant="bodySm">
+                    Switching to Klaviyo will:
+                  </Text>
+                  <List type="bullet">
+                    <List.Item>Archive all draft and scheduled campaigns</List.Item>
+                    <List.Item>Disable all in-house automations</List.Item>
+                    <List.Item>Your sent campaigns and analytics will be preserved</List.Item>
+                  </List>
+                </Banner>
+                <Text as="p">
+                  You'll manage all email campaigns and flows directly in Klaviyo.
+                  RewardsPro will sync customer data and events to power your Klaviyo automations.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text as="p">
+                  You'll use RewardsPro's built-in email campaigns, templates, and automations
+                  powered by SendGrid.
+                </Text>
+                <Text as="p" tone="subdued">
+                  Your Klaviyo integration will remain connected for data sync,
+                  but you'll build campaigns here instead of in Klaviyo.
+                </Text>
+              </>
+            )}
           </BlockStack>
         </Modal.Section>
       </Modal>

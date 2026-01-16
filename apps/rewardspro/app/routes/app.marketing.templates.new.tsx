@@ -40,6 +40,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 // ============================================
 // TYPES
@@ -68,6 +69,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log("[Template New] Loader started");
   const { session } = await authenticate.admin(request);
   console.log("[Template New] Authenticated for shop:", session.shop);
+
+  // Guard: Redirect Klaviyo mode users to main Marketing Hub
+  const guardRedirect = await guardInHouseRoute(session.shop);
+  if (guardRedirect) return guardRedirect;
+
   return json({ shop: session.shop });
 };
 

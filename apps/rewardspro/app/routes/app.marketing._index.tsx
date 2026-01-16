@@ -40,6 +40,7 @@ import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { getMarketingModeInfo, setMarketingHubMode, markChoiceModalSeen } from "~/services/marketing-mode.server";
 import { MarketingChoiceModal } from "~/components/MarketingChoiceModal";
+import { KlaviyoMarketingDashboard } from "~/components/KlaviyoMarketingDashboard";
 import type { MarketingHubMode } from "@prisma/client";
 
 // ============================================
@@ -85,6 +86,33 @@ interface Recommendation {
   priority: number;
 }
 
+// Klaviyo-specific types
+interface KlaviyoSyncStatus {
+  isConnected: boolean;
+  connectionMethod: "oauth" | "api_key" | null;
+  lastSyncAt: string | null;
+  profilesSynced: number;
+  eventsSentToday: number;
+  syncStatus: "idle" | "syncing" | "error";
+  syncError: string | null;
+}
+
+interface EventToggle {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  eventCount: number;
+}
+
+interface RecentKlaviyoEvent {
+  id: string;
+  eventType: string;
+  customerEmail: string;
+  timestamp: string;
+  status: "sent" | "failed";
+}
+
 interface LoaderData {
   shop: string;
   isConfigured: boolean;
@@ -92,7 +120,7 @@ interface LoaderData {
   marketingMode: MarketingHubMode;
   showChoiceModal: boolean;
   isKlaviyoConnected: boolean;
-  // Metrics
+  // In-House Metrics (for INHOUSE mode)
   metrics: {
     totalSent: number;
     totalOpened: number;
@@ -101,7 +129,6 @@ interface LoaderData {
     clickRate: number;
     totalRevenue: number;
     totalOrders: number;
-    // Comparison to previous period
     sentChange: number;
     openRateChange: number;
     clickRateChange: number;
@@ -115,6 +142,12 @@ interface LoaderData {
     withEmail: number;
     subscribed: number;
   };
+  // Klaviyo-specific data (for KLAVIYO mode)
+  klaviyoData: {
+    syncStatus: KlaviyoSyncStatus;
+    eventToggles: EventToggle[];
+    recentEvents: RecentKlaviyoEvent[];
+  } | null;
 }
 
 // ============================================
@@ -263,6 +296,98 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Table might not exist
   }
 
+  // Fetch Klaviyo data if in Klaviyo mode
+  let klaviyoData: LoaderData["klaviyoData"] = null;
+  if (modeInfo.mode === "KLAVIYO") {
+    try {
+      // Get Klaviyo sync status from email settings
+      const syncStatus: KlaviyoSyncStatus = {
+        isConnected: modeInfo.isKlaviyoConnected,
+        connectionMethod: emailSettings?.klaviyoOAuthConnected ? "oauth" : emailSettings?.klaviyoApiKey ? "api_key" : null,
+        lastSyncAt: emailSettings?.klaviyoLastSyncAt?.toISOString() || null,
+        profilesSynced: customerStats.total, // Approximation
+        eventsSentToday: 0,
+        syncStatus: (emailSettings?.klaviyoSyncStatus as "idle" | "syncing" | "error") || "idle",
+        syncError: emailSettings?.klaviyoSyncError || null,
+      };
+
+      // Count events sent today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      try {
+        const eventsToday = await db.klaviyoEvent.count({
+          where: {
+            shop,
+            createdAt: { gte: today },
+            status: "SENT",
+          },
+        });
+        syncStatus.eventsSentToday = eventsToday;
+      } catch (e) {
+        // Table might not exist
+      }
+
+      // Get automation settings for event toggles
+      let automationSettings: any = null;
+      try {
+        automationSettings = await db.klaviyoAutomationSettings.findUnique({
+          where: { shop },
+        });
+      } catch (e) {
+        // Table might not exist
+      }
+
+      // Build event toggles
+      const eventToggles: EventToggle[] = [
+        { id: "customer_enrolled", name: "Customer Enrolled", description: "When a customer joins the loyalty program", enabled: automationSettings?.welcomeEnabled ?? true, eventCount: 0 },
+        { id: "tier_upgraded", name: "Tier Upgraded", description: "When a customer moves to a higher tier", enabled: automationSettings?.tierUpgradeEnabled ?? true, eventCount: 0 },
+        { id: "tier_downgraded", name: "Tier Downgraded", description: "When a customer moves to a lower tier", enabled: automationSettings?.tierDowngradeEnabled ?? true, eventCount: 0 },
+        { id: "order_placed", name: "Order Placed", description: "When a customer places an order", enabled: automationSettings?.orderEnabled ?? true, eventCount: 0 },
+        { id: "cashback_earned", name: "Cashback Earned", description: "When cashback is credited to account", enabled: automationSettings?.pointsEarnedEnabled ?? true, eventCount: 0 },
+        { id: "cashback_redeemed", name: "Cashback Redeemed", description: "When cashback is used on an order", enabled: automationSettings?.pointsRedeemedEnabled ?? true, eventCount: 0 },
+        { id: "points_expiring", name: "Points Expiring", description: "Reminder before points expire", enabled: automationSettings?.expiryReminderEnabled ?? true, eventCount: 0 },
+        { id: "win_back", name: "Win-Back Trigger", description: "When customer becomes at-risk", enabled: automationSettings?.winBackEnabled ?? true, eventCount: 0 },
+        { id: "birthday", name: "Birthday", description: "Customer birthday celebration", enabled: automationSettings?.birthdayEnabled ?? false, eventCount: 0 },
+        { id: "anniversary", name: "Membership Anniversary", description: "Annual loyalty anniversary", enabled: automationSettings?.anniversaryEnabled ?? false, eventCount: 0 },
+      ];
+
+      // Get recent Klaviyo events
+      let recentEvents: RecentKlaviyoEvent[] = [];
+      try {
+        const events = await db.klaviyoEvent.findMany({
+          where: { shop },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: {
+            id: true,
+            eventType: true,
+            customerEmail: true,
+            createdAt: true,
+            status: true,
+          },
+        });
+
+        recentEvents = events.map((e) => ({
+          id: e.id,
+          eventType: e.eventType,
+          customerEmail: e.customerEmail || "unknown@email.com",
+          timestamp: e.createdAt.toISOString(),
+          status: e.status === "SENT" ? "sent" : "failed",
+        }));
+      } catch (e) {
+        // Table might not exist
+      }
+
+      klaviyoData = {
+        syncStatus,
+        eventToggles,
+        recentEvents,
+      };
+    } catch (e) {
+      console.error("[Marketing Hub] Error fetching Klaviyo data:", e);
+    }
+  }
+
   return json<LoaderData>({
     shop,
     isConfigured,
@@ -289,6 +414,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     automations,
     recommendations,
     customerStats,
+    // Klaviyo-specific data
+    klaviyoData,
   });
 };
 
@@ -460,6 +587,29 @@ export default function MarketingHub() {
     setChoiceModalOpen(false);
   }, [fetcher]);
 
+  // Klaviyo dashboard handlers
+  const handleSyncNow = useCallback(() => {
+    fetcher.submit(
+      { intent: "syncKlaviyo" },
+      { method: "post" }
+    );
+  }, [fetcher]);
+
+  const handleToggleEvent = useCallback((eventId: string, enabled: boolean) => {
+    fetcher.submit(
+      { intent: "toggleEvent", eventId, enabled: enabled.toString() },
+      { method: "post" }
+    );
+  }, [fetcher]);
+
+  const handleOpenKlaviyo = useCallback(() => {
+    window.open("https://www.klaviyo.com/dashboard", "_blank");
+  }, []);
+
+  const handleManageSettings = useCallback(() => {
+    navigate("/app/marketing/settings");
+  }, [navigate]);
+
   // Show setup banner if not configured (but still show full hub)
   const showSetupBanner = !data.isConfigured && data.marketingMode !== "KLAVIYO";
   const isKlaviyoMode = data.marketingMode === "KLAVIYO";
@@ -545,6 +695,25 @@ export default function MarketingHub() {
           </Layout.Section>
         )}
 
+        {/* Klaviyo Mode Dashboard */}
+        {isKlaviyoMode && data.klaviyoData && (
+          <Layout.Section>
+            <KlaviyoMarketingDashboard
+              syncStatus={data.klaviyoData.syncStatus}
+              eventToggles={data.klaviyoData.eventToggles}
+              recentEvents={data.klaviyoData.recentEvents}
+              onSyncNow={handleSyncNow}
+              onToggleEvent={handleToggleEvent}
+              onOpenKlaviyo={handleOpenKlaviyo}
+              onManageSettings={handleManageSettings}
+              isSyncing={isLoading}
+            />
+          </Layout.Section>
+        )}
+
+        {/* In-House Mode Content */}
+        {!isKlaviyoMode && (
+          <>
         {/* Global Controls */}
         <Layout.Section>
           <InlineStack align="end">
@@ -901,6 +1070,8 @@ export default function MarketingHub() {
             </BlockStack>
           </InlineGrid>
         </Layout.Section>
+          </>
+        )}
       </Layout>
 
       {/* Marketing Choice Modal */}

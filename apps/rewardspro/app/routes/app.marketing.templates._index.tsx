@@ -14,6 +14,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log('[Marketing Templates] === Loader Started ===');
@@ -22,6 +23,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
     const shop = session.shop;
     console.log('[Marketing Templates] ✓ Authenticated for shop:', shop);
+
+    // Guard: Redirect Klaviyo mode users to main Marketing Hub
+    const guardRedirect = await guardInHouseRoute(shop);
+    if (guardRedirect) return guardRedirect;
 
     // Fetch email templates
     let templates: any[] = [];

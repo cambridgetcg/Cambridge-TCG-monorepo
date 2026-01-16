@@ -19,6 +19,7 @@ import { useState, useCallback } from "react";
 import { PlusIcon } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 interface Campaign {
   id: string;
@@ -40,6 +41,10 @@ interface Campaign {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Guard: Redirect Klaviyo mode users to main Marketing Hub
+  const guardRedirect = await guardInHouseRoute(shop);
+  if (guardRedirect) return guardRedirect;
 
   let campaigns: Campaign[] = [];
   try {

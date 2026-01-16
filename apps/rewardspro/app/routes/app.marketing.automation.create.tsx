@@ -23,6 +23,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import db from "~/db.server";
+import { guardInHouseRoute } from "~/services/marketing-mode.server";
 
 // ============================================
 // TYPES
@@ -48,6 +49,10 @@ type AutomationStep = 1 | 2 | 3 | 4;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Guard: Redirect Klaviyo mode users to main Marketing Hub
+  const guardRedirect = await guardInHouseRoute(shop);
+  if (guardRedirect) return guardRedirect;
 
   // Fetch tiers for the shop
   const tiers = await db.tier.findMany({

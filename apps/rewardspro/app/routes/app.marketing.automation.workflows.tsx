@@ -26,6 +26,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { useState, useCallback } from "react";
 
 // ============================================
@@ -114,6 +115,10 @@ const AUTOMATION_TEMPLATES = {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Guard: Redirect Klaviyo mode users to main Marketing Hub
+  const guardRedirect = await guardInHouseRoute(shop);
+  if (guardRedirect) return guardRedirect;
 
   // Get existing automations with stats
   let automations: any[] = [];
