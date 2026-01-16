@@ -352,3 +352,346 @@ export async function sendCampaignEmails(
     errors: result.errors,
   };
 }
+
+// ============================================
+// POINTS ENGAGEMENT EMAILS
+// ============================================
+
+/**
+ * Points earned notification
+ */
+interface PointsEarnedEmailData {
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  pointsEarned: number;
+  totalBalance: number;
+  orderNumber?: string;
+  tierMultiplier?: number;
+  bonusEvents?: string[];
+  currencyName: string;
+  currencyIcon: string;
+}
+
+/**
+ * Send email when customer earns points
+ */
+export async function sendPointsEarnedEmail(
+  shop: string,
+  data: PointsEarnedEmailData
+): Promise<EmailNotificationResult> {
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!data.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  try {
+    const storeName = await getShopName(shop);
+    const customerName = data.firstName || "Valued Customer";
+
+    // Build bonus info text
+    let bonusInfo = "";
+    if (data.tierMultiplier && data.tierMultiplier > 1) {
+      bonusInfo += `\n${data.currencyIcon} ${Math.round((data.tierMultiplier - 1) * 100)}% tier bonus applied!`;
+    }
+    if (data.bonusEvents && data.bonusEvents.length > 0) {
+      bonusInfo += `\n${data.currencyIcon} Active promotions: ${data.bonusEvents.join(", ")}`;
+    }
+
+    const subject = `You earned ${data.pointsEarned} ${data.currencyName}! ${data.currencyIcon}`;
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Great news, ${customerName}!</h2>
+        <p style="font-size: 16px; color: #666;">
+          You just earned <strong style="color: #2ecc71; font-size: 24px;">${data.pointsEarned} ${data.currencyName}</strong>
+          ${data.orderNumber ? `from your order #${data.orderNumber}` : ""}!
+        </p>
+        ${bonusInfo ? `<p style="color: #8e44ad; font-size: 14px;">${bonusInfo}</p>` : ""}
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 14px;">Your Current Balance</p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 32px; font-weight: bold;">
+            ${data.currencyIcon} ${data.totalBalance.toLocaleString()} ${data.currencyName}
+          </p>
+        </div>
+        <p style="color: #666;">Keep shopping to earn more ${data.currencyName.toLowerCase()} and unlock exclusive rewards!</p>
+        <p style="color: #999; font-size: 12px;">- The ${storeName} Team</p>
+      </div>
+    `;
+
+    const result = await sendgrid.sendTransactionalEmail(shop, {
+      to: data.email,
+      subject,
+      html: htmlContent,
+    });
+
+    if (result.success) {
+      console.log(`[EmailNotifications] ✅ Points earned email sent to ${data.email}`);
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending points earned email:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Points expiration warning notification
+ */
+interface PointsExpiringEmailData {
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  pointsExpiring: number;
+  daysUntilExpiry: number;
+  currencyName: string;
+  currencyIcon: string;
+}
+
+/**
+ * Send email warning about points expiring soon
+ */
+export async function sendPointsExpiringEmail(
+  shop: string,
+  data: PointsExpiringEmailData
+): Promise<EmailNotificationResult> {
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!data.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  try {
+    const storeName = await getShopName(shop);
+    const customerName = data.firstName || "Valued Customer";
+
+    const urgencyColor = data.daysUntilExpiry <= 7 ? "#e74c3c" : "#f39c12";
+    const subject = `Don't lose your ${data.pointsExpiring} ${data.currencyName}! Expires in ${data.daysUntilExpiry} days`;
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: ${urgencyColor};">Act now, ${customerName}!</h2>
+        <div style="background-color: ${urgencyColor}; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 14px;">Points Expiring Soon</p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 32px; font-weight: bold;">
+            ${data.currencyIcon} ${data.pointsExpiring.toLocaleString()} ${data.currencyName}
+          </p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">
+            in ${data.daysUntilExpiry} day${data.daysUntilExpiry !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <p style="font-size: 16px; color: #666;">
+          Your ${data.currencyName.toLowerCase()} are about to expire! Use them before they're gone to get
+          exclusive rewards and discounts.
+        </p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="#" style="background-color: ${urgencyColor}; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            Redeem My ${data.currencyName}
+          </a>
+        </div>
+        <p style="color: #999; font-size: 12px;">- The ${storeName} Team</p>
+      </div>
+    `;
+
+    const result = await sendgrid.sendTransactionalEmail(shop, {
+      to: data.email,
+      subject,
+      html: htmlContent,
+    });
+
+    if (result.success) {
+      console.log(`[EmailNotifications] ✅ Points expiring email sent to ${data.email}`);
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending points expiring email:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Points redemption confirmation
+ */
+interface PointsRedeemedEmailData {
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  pointsSpent: number;
+  remainingBalance: number;
+  discountCode: string;
+  discountValue: number;
+  discountType: "fixed" | "percentage" | "shipping";
+  expiresAt: Date;
+  currencyName: string;
+  currencyIcon: string;
+}
+
+/**
+ * Send email confirming points redemption with discount code
+ */
+export async function sendPointsRedeemedEmail(
+  shop: string,
+  data: PointsRedeemedEmailData
+): Promise<EmailNotificationResult> {
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!data.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  try {
+    const storeName = await getShopName(shop);
+    const customerName = data.firstName || "Valued Customer";
+
+    let discountText = "";
+    if (data.discountType === "fixed") {
+      discountText = `$${data.discountValue} OFF`;
+    } else if (data.discountType === "percentage") {
+      discountText = `${data.discountValue}% OFF`;
+    } else {
+      discountText = "FREE SHIPPING";
+    }
+
+    const expiryDate = data.expiresAt.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const subject = `Your ${discountText} discount code is ready! ${data.currencyIcon}`;
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Congratulations, ${customerName}! ${data.currencyIcon}</h2>
+        <p style="font-size: 16px; color: #666;">
+          You've successfully redeemed <strong>${data.pointsSpent.toLocaleString()} ${data.currencyName}</strong>
+          for an exclusive discount!
+        </p>
+        <div style="background-color: #2ecc71; padding: 30px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 14px;">Your Discount Code</p>
+          <p style="color: white; margin: 10px 0; font-size: 28px; font-weight: bold; letter-spacing: 3px; font-family: monospace;">
+            ${data.discountCode}
+          </p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: bold;">
+            ${discountText}
+          </p>
+        </div>
+        <p style="text-align: center; color: #e74c3c; font-size: 14px;">
+          ⏰ Valid until: ${expiryDate}
+        </p>
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #666;">
+            <strong>Remaining Balance:</strong> ${data.currencyIcon} ${data.remainingBalance.toLocaleString()} ${data.currencyName}
+          </p>
+        </div>
+        <p style="color: #999; font-size: 12px;">- The ${storeName} Team</p>
+      </div>
+    `;
+
+    const result = await sendgrid.sendTransactionalEmail(shop, {
+      to: data.email,
+      subject,
+      html: htmlContent,
+    });
+
+    if (result.success) {
+      console.log(`[EmailNotifications] ✅ Points redeemed email sent to ${data.email}`);
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending points redeemed email:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Streak milestone celebration
+ */
+interface StreakMilestoneEmailData {
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  streakDays: number;
+  bonusMultiplier: number;
+  currencyName: string;
+  currencyIcon: string;
+}
+
+/**
+ * Send email celebrating streak milestone
+ */
+export async function sendStreakMilestoneEmail(
+  shop: string,
+  data: StreakMilestoneEmailData
+): Promise<EmailNotificationResult> {
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!data.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  try {
+    const storeName = await getShopName(shop);
+    const customerName = data.firstName || "Valued Customer";
+    const bonusPercent = Math.round((data.bonusMultiplier - 1) * 100);
+
+    const subject = `${data.currencyIcon} ${data.streakDays}-Day Streak! You're on fire!`;
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #e67e22; text-align: center;">
+          🔥 Amazing Streak, ${customerName}! 🔥
+        </h2>
+        <div style="background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%); padding: 30px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 48px; font-weight: bold;">
+            ${data.streakDays} Days
+          </p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 18px;">
+            Consecutive Activity Streak
+          </p>
+        </div>
+        <div style="background-color: #27ae60; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 14px;">Your Current Bonus</p>
+          <p style="color: white; margin: 5px 0 0 0; font-size: 28px; font-weight: bold;">
+            +${bonusPercent}% Extra ${data.currencyName}
+          </p>
+          <p style="color: white; margin: 5px 0 0 0; font-size: 14px;">on every purchase!</p>
+        </div>
+        <p style="text-align: center; color: #666; font-size: 16px;">
+          Keep the streak alive! Shop today to maintain your bonus.
+        </p>
+        <p style="color: #999; font-size: 12px; text-align: center;">- The ${storeName} Team</p>
+      </div>
+    `;
+
+    const result = await sendgrid.sendTransactionalEmail(shop, {
+      to: data.email,
+      subject,
+      html: htmlContent,
+    });
+
+    if (result.success) {
+      console.log(`[EmailNotifications] ✅ Streak milestone email sent to ${data.email}`);
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending streak milestone email:`, error);
+    return { success: false, error: error.message };
+  }
+}

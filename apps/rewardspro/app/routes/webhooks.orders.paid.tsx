@@ -27,6 +27,8 @@ import {
   trackCashbackEarned,
 } from "../services/klaviyo-events.server";
 import { createLogger } from "../services/logger.server";
+import { isPointsEnabled } from "../services/points-config.server";
+import { awardOrderPoints } from "../services/points-ledger.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
@@ -430,12 +432,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         }
 
-        // Step 4: Process cashback and update customer (separate operations)
+        // Step 4: Process cashback, points earning, and update customer (separate operations)
         try {
           await processCashback(db, {
             shop: shop!,
             order,
             admin,
+          });
+
+          // Step 4.5: Award points (Points Engagement System)
+          await processPointsEarning(db, {
+            shop: shop!,
+            order,
           });
 
           await updateCustomerSpendingFromOrders(db, {
@@ -1811,5 +1819,106 @@ async function checkTierProgression(_dbOrTx: any, params: {
     console.error(`[OrderPaid] ❌ Error resolving tier for customer ${customerId}:`, error);
     console.error(`[OrderPaid] Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     // Don't throw - we don't want tier resolution errors to fail the webhook
+  }
+}
+
+/**
+ * Process points earning for an order (Points Engagement System)
+ *
+ * Awards points based on order amount, customer's tier multiplier,
+ * active bonus events, and streak bonuses.
+ * Points are only awarded if the Points system is enabled for the shop.
+ */
+async function processPointsEarning(_tx: any, params: {
+  shop: string;
+  order: any;
+}) {
+  const { shop, order } = params;
+
+  // Check if points system is enabled
+  const pointsEnabled = await isPointsEnabled(shop);
+  if (!pointsEnabled) {
+    console.log(`[OrderPaid] Points system not enabled for shop ${shop}, skipping points earning`);
+    return;
+  }
+
+  if (!order.customer?.id) {
+    console.log('[OrderPaid] No customer ID, skipping points earning');
+    return;
+  }
+
+  // Get customer with their current tier and tags
+  const customer = await db.customer.findFirst({
+    where: {
+      shop,
+      shopifyCustomerId: order.customer.id.toString(),
+    },
+    select: {
+      id: true,
+      currentTierId: true,
+      pointsBalance: true,
+      tags: true,
+    },
+  });
+
+  if (!customer) {
+    console.log('[OrderPaid] Customer not found, skipping points earning');
+    return;
+  }
+
+  // Calculate order amount (use subtotal minus discounts for points calculation)
+  const subtotal = parseFloat(order.subtotal_price || '0');
+  const discounts = parseFloat(order.total_discounts || '0');
+  const orderAmount = subtotal - discounts;
+
+  if (orderAmount <= 0) {
+    console.log('[OrderPaid] Order amount is zero or negative, skipping points earning');
+    return;
+  }
+
+  try {
+    // Get bonus event multiplier
+    const { getOrderBonusMultiplier } = await import("~/services/points-bonus-events.server");
+    const bonusResult = await getOrderBonusMultiplier(shop, {
+      tierId: customer.currentTierId ?? undefined,
+      orderAmount,
+      customerTags: customer.tags?.split(',').map(t => t.trim()) ?? [],
+    });
+
+    // Record streak activity (this updates the streak counter)
+    const { recordStreakActivity } = await import("~/services/points-maintenance.server");
+    const streakResult = await recordStreakActivity(shop, customer.id);
+
+    // Calculate combined bonus multiplier (bonus events * streak bonus)
+    const combinedBonusMultiplier = bonusResult.multiplier * streakResult.bonusMultiplier;
+
+    // Award points using the points ledger service
+    const result = await awardOrderPoints(
+      shop,
+      customer.id,
+      order.id.toString(),
+      orderAmount,
+      customer.currentTierId,
+      combinedBonusMultiplier
+    );
+
+    console.log(`[OrderPaid] Awarded ${result.calculation.totalPoints} points for order ${order.name}:`, {
+      orderAmount,
+      basePoints: result.calculation.basePoints,
+      tierMultiplier: result.calculation.tierMultiplier,
+      tierName: result.calculation.tierName,
+      bonusEventMultiplier: bonusResult.multiplier,
+      appliedEvents: bonusResult.appliedEvents,
+      streakBonus: streakResult.bonusMultiplier,
+      currentStreak: streakResult.newStreak,
+      totalPoints: result.calculation.totalPoints,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('already awarded')) {
+      console.log(`[OrderPaid] Points already awarded for order ${order.name}`);
+    } else {
+      console.error(`[OrderPaid] Failed to award points for order ${order.name}:`, error);
+      // Don't fail the webhook - points are not critical
+    }
   }
 }
