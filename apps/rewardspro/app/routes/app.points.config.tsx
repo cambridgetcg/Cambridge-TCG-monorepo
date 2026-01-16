@@ -66,35 +66,55 @@ interface LoaderData {
 // LOADER
 // ============================================
 
+const LOG_PREFIX = "[app.points.config]";
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
+  const startTime = Date.now();
+  console.log(`${LOG_PREFIX} Loader starting...`);
 
-  const [config, tiers] = await Promise.all([
-    getPointsConfig(shop),
-    db.tier.findMany({
-      where: { shop },
-      orderBy: { minSpend: "asc" },
-      select: {
-        id: true,
-        name: true,
-        pointsMultiplier: true,
-        pointsLuckBonus: true,
-        raffleEntryMultiplier: true,
-      },
-    }),
-  ]);
+  try {
+    const { session } = await authenticate.admin(request);
+    const shop = session.shop;
+    console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
-  return json<LoaderData>({
-    config,
-    tiers: tiers.map((t) => ({
-      id: t.id,
-      name: t.name,
-      pointsMultiplier: t.pointsMultiplier ? Number(t.pointsMultiplier) : null,
-      pointsLuckBonus: t.pointsLuckBonus ? Number(t.pointsLuckBonus) : null,
-      raffleEntryMultiplier: t.raffleEntryMultiplier ? Number(t.raffleEntryMultiplier) : null,
-    })),
-  });
+    // Verify db models exist
+    console.log(`${LOG_PREFIX} db exists: ${!!db}, db.tier exists: ${!!db?.tier}`);
+
+    console.log(`${LOG_PREFIX} Fetching config and tiers in parallel...`);
+    const [config, tiers] = await Promise.all([
+      getPointsConfig(shop),
+      db.tier.findMany({
+        where: { shop },
+        orderBy: { minSpend: "asc" },
+        select: {
+          id: true,
+          name: true,
+          pointsMultiplier: true,
+          pointsLuckBonus: true,
+          raffleEntryMultiplier: true,
+        },
+      }),
+    ]);
+
+    console.log(`${LOG_PREFIX} Data fetched in ${Date.now() - startTime}ms`);
+    console.log(`${LOG_PREFIX} Config loaded, tiers count: ${tiers.length}`);
+
+    return json<LoaderData>({
+      config,
+      tiers: tiers.map((t) => ({
+        id: t.id,
+        name: t.name,
+        pointsMultiplier: t.pointsMultiplier ? Number(t.pointsMultiplier) : null,
+        pointsLuckBonus: t.pointsLuckBonus ? Number(t.pointsLuckBonus) : null,
+        raffleEntryMultiplier: t.raffleEntryMultiplier ? Number(t.raffleEntryMultiplier) : null,
+      })),
+    });
+  } catch (error) {
+    console.error(`${LOG_PREFIX} LOADER ERROR:`, error);
+    console.error(`${LOG_PREFIX} Error message:`, error instanceof Error ? error.message : String(error));
+    console.error(`${LOG_PREFIX} Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    throw error;
+  }
 };
 
 // ============================================
