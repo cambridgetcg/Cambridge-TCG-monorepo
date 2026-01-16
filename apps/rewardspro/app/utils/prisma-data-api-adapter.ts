@@ -1333,9 +1333,14 @@ export class DataAPIModelProxy<T = any> {
  * Creates a Prisma-compatible client using Data API
  */
 export function createDataAPIPrismaClient() {
-  const client = getAuroraClient();
+  console.log("[prisma-data-api-adapter] Creating Data API Prisma client...");
 
-  return {
+  const client = getAuroraClient();
+  console.log("[prisma-data-api-adapter] Aurora client obtained");
+
+  console.log("[prisma-data-api-adapter] Building model proxies including Points models...");
+
+  const dbClient = {
     // Transaction support
     $transaction: async <T>(fn: (tx: any) => Promise<T>): Promise<T> => {
       return client.executeTransaction(async (execute) => {
@@ -1602,4 +1607,12 @@ export function createDataAPIPrismaClient() {
       console.log("Data API client disconnected (no-op)");
     },
   };
+
+  // Log confirmation of Points models
+  console.log("[prisma-data-api-adapter] Client built. Verifying Points models...");
+  console.log("[prisma-data-api-adapter] dbClient.pointsConfig exists:", !!dbClient.pointsConfig);
+  console.log("[prisma-data-api-adapter] dbClient.pointsLedger exists:", !!dbClient.pointsLedger);
+  console.log("[prisma-data-api-adapter] Total models registered:", Object.keys(dbClient).length);
+
+  return dbClient;
 }

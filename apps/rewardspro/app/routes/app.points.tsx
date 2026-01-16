@@ -85,81 +85,125 @@ interface LoaderData {
 // LOADER
 // ============================================
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  const shop = session.shop;
+const LOG_PREFIX = "[app.points]";
 
-  // Fetch all data in parallel
-  const [config, stats, features, recentActivity, topEarners] = await Promise.all([
-    getPointsConfig(shop),
-    getPointsStats(shop),
-    getEnabledFeatures(shop),
-    // Get recent activity (last 10 transactions)
-    db.pointsLedger.findMany({
-      where: { shop },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        type: true,
-        amount: true,
-        description: true,
-        createdAt: true,
-        customer: {
-          select: {
-            email: true,
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const startTime = Date.now();
+  console.log(`${LOG_PREFIX} Loader starting...`);
+
+  try {
+    const { session } = await authenticate.admin(request);
+    const shop = session.shop;
+    console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
+
+    // Verify db models exist before querying
+    console.log(`${LOG_PREFIX} Checking db models...`);
+    console.log(`${LOG_PREFIX} db exists: ${!!db}`);
+    console.log(`${LOG_PREFIX} db.pointsConfig exists: ${!!db?.pointsConfig}`);
+    console.log(`${LOG_PREFIX} db.pointsLedger exists: ${!!db?.pointsLedger}`);
+    console.log(`${LOG_PREFIX} db.customer exists: ${!!db?.customer}`);
+
+    if (!db) {
+      console.error(`${LOG_PREFIX} CRITICAL: db is undefined!`);
+      throw new Error("Database client not initialized");
+    }
+
+    if (!db.pointsConfig) {
+      console.error(`${LOG_PREFIX} CRITICAL: db.pointsConfig is undefined!`);
+      console.error(`${LOG_PREFIX} Available db keys: ${Object.keys(db).join(', ')}`);
+      throw new Error("pointsConfig model not registered in database client");
+    }
+
+    if (!db.pointsLedger) {
+      console.error(`${LOG_PREFIX} CRITICAL: db.pointsLedger is undefined!`);
+      throw new Error("pointsLedger model not registered in database client");
+    }
+
+    console.log(`${LOG_PREFIX} Fetching data in parallel...`);
+
+    // Fetch all data in parallel
+    const [config, stats, features, recentActivity, topEarners] = await Promise.all([
+      getPointsConfig(shop),
+      getPointsStats(shop),
+      getEnabledFeatures(shop),
+      // Get recent activity (last 10 transactions)
+      db.pointsLedger.findMany({
+        where: { shop },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          description: true,
+          createdAt: true,
+          customer: {
+            select: {
+              email: true,
+            },
           },
         },
-      },
-    }),
-    // Get top earners
-    db.customer.findMany({
-      where: {
-        shop,
-        lifetimePoints: { gt: 0 },
-      },
-      orderBy: { lifetimePoints: "desc" },
-      take: 5,
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        pointsBalance: true,
-        lifetimePoints: true,
-      },
-    }),
-  ]);
+      }),
+      // Get top earners
+      db.customer.findMany({
+        where: {
+          shop,
+          lifetimePoints: { gt: 0 },
+        },
+        orderBy: { lifetimePoints: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          pointsBalance: true,
+          lifetimePoints: true,
+        },
+      }),
+    ]);
 
-  return json<LoaderData>({
-    config: {
-      isEnabled: config.isEnabled,
-      currencyName: config.currencyName,
-      currencyNamePlural: config.currencyNamePlural,
-      currencyIcon: config.currencyIcon,
-      pointsPerDollar: config.pointsPerDollar,
-      pointsExpire: config.pointsExpire,
-      expirationDays: config.expirationDays,
-    },
-    stats,
-    features,
-    recentActivity: recentActivity.map((a: { id: string; type: string; amount: number; description: string | null; createdAt: Date; customer: { email: string } | null }) => ({
-      id: a.id,
-      type: a.type,
-      amount: a.amount,
-      description: a.description,
-      createdAt: a.createdAt.toISOString(),
-      customerEmail: a.customer?.email ?? "Unknown",
-    })),
-    topEarners: topEarners.map((c: { id: string; email: string; firstName: string | null; lastName: string | null; pointsBalance: unknown; lifetimePoints: unknown }) => ({
-      id: c.id,
-      email: c.email,
-      firstName: c.firstName,
-      lastName: c.lastName,
-      pointsBalance: Number(c.pointsBalance),
-      lifetimePoints: Number(c.lifetimePoints),
-    })),
-  });
+    console.log(`${LOG_PREFIX} All data fetched in ${Date.now() - startTime}ms`);
+    console.log(`${LOG_PREFIX} Config isEnabled: ${config.isEnabled}, pointsPerDollar: ${config.pointsPerDollar}`);
+    console.log(`${LOG_PREFIX} Stats: issued=${stats.totalPointsIssued}, redeemed=${stats.totalPointsRedeemed}`);
+    console.log(`${LOG_PREFIX} Recent activity count: ${recentActivity.length}, top earners count: ${topEarners.length}`);
+
+    return json<LoaderData>({
+      config: {
+        isEnabled: config.isEnabled,
+        currencyName: config.currencyName,
+        currencyNamePlural: config.currencyNamePlural,
+        currencyIcon: config.currencyIcon,
+        pointsPerDollar: config.pointsPerDollar,
+        pointsExpire: config.pointsExpire,
+        expirationDays: config.expirationDays,
+      },
+      stats,
+      features,
+      recentActivity: recentActivity.map((a: { id: string; type: string; amount: number; description: string | null; createdAt: Date; customer: { email: string } | null }) => ({
+        id: a.id,
+        type: a.type,
+        amount: a.amount,
+        description: a.description,
+        createdAt: a.createdAt.toISOString(),
+        customerEmail: a.customer?.email ?? "Unknown",
+      })),
+      topEarners: topEarners.map((c: { id: string; email: string; firstName: string | null; lastName: string | null; pointsBalance: unknown; lifetimePoints: unknown }) => ({
+        id: c.id,
+        email: c.email,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        pointsBalance: Number(c.pointsBalance),
+        lifetimePoints: Number(c.lifetimePoints),
+      })),
+    });
+  } catch (error) {
+    console.error(`${LOG_PREFIX} LOADER ERROR:`, error);
+    console.error(`${LOG_PREFIX} Error name: ${error instanceof Error ? error.name : 'Unknown'}`);
+    console.error(`${LOG_PREFIX} Error message: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`${LOG_PREFIX} Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    throw error;
+  }
 };
 
 // ============================================

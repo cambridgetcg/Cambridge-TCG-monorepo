@@ -14,6 +14,40 @@ import db from "../db.server";
 import type { PointsConfig, PointsRoundingMode } from "@prisma/client";
 
 // ============================================
+// DEBUG LOGGING - Trace db object state
+// ============================================
+
+const LOG_PREFIX = "[PointsConfig]";
+
+function logDbState(context: string) {
+  console.log(`${LOG_PREFIX} [${context}] Checking db state...`);
+  console.log(`${LOG_PREFIX} [${context}] db exists: ${!!db}`);
+  console.log(`${LOG_PREFIX} [${context}] db type: ${typeof db}`);
+
+  if (db) {
+    const dbKeys = Object.keys(db);
+    console.log(`${LOG_PREFIX} [${context}] db keys count: ${dbKeys.length}`);
+    console.log(`${LOG_PREFIX} [${context}] db has pointsConfig: ${!!db.pointsConfig}`);
+    console.log(`${LOG_PREFIX} [${context}] db has pointsLedger: ${!!db.pointsLedger}`);
+    console.log(`${LOG_PREFIX} [${context}] db has customer: ${!!db.customer}`);
+
+    if (db.pointsConfig) {
+      console.log(`${LOG_PREFIX} [${context}] pointsConfig type: ${typeof db.pointsConfig}`);
+      console.log(`${LOG_PREFIX} [${context}] pointsConfig has findUnique: ${typeof db.pointsConfig.findUnique}`);
+    } else {
+      console.error(`${LOG_PREFIX} [${context}] ERROR: db.pointsConfig is undefined!`);
+      console.log(`${LOG_PREFIX} [${context}] Available db keys: ${dbKeys.slice(0, 20).join(', ')}...`);
+    }
+  } else {
+    console.error(`${LOG_PREFIX} [${context}] ERROR: db is undefined!`);
+  }
+}
+
+// Run diagnostic on module load
+console.log(`${LOG_PREFIX} Module loading...`);
+logDbState("MODULE_INIT");
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -101,36 +135,69 @@ const DEFAULT_CONFIG: PointsConfigData = {
  * @returns Points configuration (with defaults if not configured)
  */
 export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
-  const config = await db.pointsConfig.findUnique({
-    where: { shop },
-  });
+  const startTime = Date.now();
+  console.log(`${LOG_PREFIX} getPointsConfig called for shop: ${shop}`);
+  logDbState("getPointsConfig");
 
-  if (!config) {
-    return DEFAULT_CONFIG;
+  try {
+    // Defensive check before accessing db.pointsConfig
+    if (!db) {
+      console.error(`${LOG_PREFIX} CRITICAL: db is null/undefined in getPointsConfig`);
+      throw new Error("Database client is not initialized");
+    }
+
+    if (!db.pointsConfig) {
+      console.error(`${LOG_PREFIX} CRITICAL: db.pointsConfig is undefined`);
+      console.error(`${LOG_PREFIX} db object keys: ${Object.keys(db).join(', ')}`);
+      throw new Error("pointsConfig model is not registered in database client");
+    }
+
+    if (typeof db.pointsConfig.findUnique !== 'function') {
+      console.error(`${LOG_PREFIX} CRITICAL: db.pointsConfig.findUnique is not a function`);
+      console.error(`${LOG_PREFIX} pointsConfig type: ${typeof db.pointsConfig}`);
+      console.error(`${LOG_PREFIX} pointsConfig keys: ${Object.keys(db.pointsConfig).join(', ')}`);
+      throw new Error("pointsConfig.findUnique is not available");
+    }
+
+    console.log(`${LOG_PREFIX} Calling db.pointsConfig.findUnique for shop: ${shop}`);
+    const config = await db.pointsConfig.findUnique({
+      where: { shop },
+    });
+    console.log(`${LOG_PREFIX} findUnique completed in ${Date.now() - startTime}ms, config found: ${!!config}`);
+
+    if (!config) {
+      console.log(`${LOG_PREFIX} No config found, returning defaults for shop: ${shop}`);
+      return DEFAULT_CONFIG;
+    }
+
+    console.log(`${LOG_PREFIX} Successfully retrieved config for shop: ${shop}`);
+    return {
+      isEnabled: config.isEnabled,
+      currencyName: config.currencyName,
+      currencyNamePlural: config.currencyNamePlural,
+      currencyIcon: config.currencyIcon,
+      pointsPerDollar: config.pointsPerDollar,
+      roundingMode: config.roundingMode,
+      pointsExpire: config.pointsExpire,
+      expirationDays: config.expirationDays,
+      expirationWarningDays: config.expirationWarningDays,
+      rafflesEnabled: config.rafflesEnabled,
+      mysteryBoxesEnabled: config.mysteryBoxesEnabled,
+      spinWheelEnabled: config.spinWheelEnabled,
+      challengesEnabled: config.challengesEnabled,
+      scratchCardsEnabled: config.scratchCardsEnabled,
+      givebackPoolsEnabled: config.givebackPoolsEnabled,
+      dailySpinEnabled: config.dailySpinEnabled,
+      dailySpinResetHour: config.dailySpinResetHour,
+      premiumSpinCost: config.premiumSpinCost,
+      streakBonusEnabled: config.streakBonusEnabled,
+      streakBonusMultiplier: Number(config.streakBonusMultiplier),
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} ERROR in getPointsConfig for shop ${shop}:`, error);
+    console.error(`${LOG_PREFIX} Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    throw error;
   }
-
-  return {
-    isEnabled: config.isEnabled,
-    currencyName: config.currencyName,
-    currencyNamePlural: config.currencyNamePlural,
-    currencyIcon: config.currencyIcon,
-    pointsPerDollar: config.pointsPerDollar,
-    roundingMode: config.roundingMode,
-    pointsExpire: config.pointsExpire,
-    expirationDays: config.expirationDays,
-    expirationWarningDays: config.expirationWarningDays,
-    rafflesEnabled: config.rafflesEnabled,
-    mysteryBoxesEnabled: config.mysteryBoxesEnabled,
-    spinWheelEnabled: config.spinWheelEnabled,
-    challengesEnabled: config.challengesEnabled,
-    scratchCardsEnabled: config.scratchCardsEnabled,
-    givebackPoolsEnabled: config.givebackPoolsEnabled,
-    dailySpinEnabled: config.dailySpinEnabled,
-    dailySpinResetHour: config.dailySpinResetHour,
-    premiumSpinCost: config.premiumSpinCost,
-    streakBonusEnabled: config.streakBonusEnabled,
-    streakBonusMultiplier: Number(config.streakBonusMultiplier),
-  };
 }
 
 /**
@@ -140,12 +207,26 @@ export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
  * @returns Whether the points system is enabled
  */
 export async function isPointsEnabled(shop: string): Promise<boolean> {
-  const config = await db.pointsConfig.findUnique({
-    where: { shop },
-    select: { isEnabled: true },
-  });
+  console.log(`${LOG_PREFIX} isPointsEnabled called for shop: ${shop}`);
 
-  return config?.isEnabled ?? false;
+  try {
+    if (!db?.pointsConfig) {
+      console.error(`${LOG_PREFIX} isPointsEnabled: db.pointsConfig is undefined`);
+      return false;
+    }
+
+    const config = await db.pointsConfig.findUnique({
+      where: { shop },
+      select: { isEnabled: true },
+    });
+
+    const result = config?.isEnabled ?? false;
+    console.log(`${LOG_PREFIX} isPointsEnabled result for ${shop}: ${result}`);
+    return result;
+  } catch (error) {
+    console.error(`${LOG_PREFIX} isPointsEnabled error for ${shop}:`, error);
+    return false;
+  }
 }
 
 /**
@@ -328,34 +409,53 @@ export async function getEnabledFeatures(shop: string): Promise<{
   dailySpin: boolean;
   streakBonus: boolean;
 }> {
-  const config = await db.pointsConfig.findUnique({
-    where: { shop },
-    select: {
-      isEnabled: true,
-      rafflesEnabled: true,
-      mysteryBoxesEnabled: true,
-      spinWheelEnabled: true,
-      challengesEnabled: true,
-      scratchCardsEnabled: true,
-      givebackPoolsEnabled: true,
-      dailySpinEnabled: true,
-      streakBonusEnabled: true,
-    },
-  });
+  console.log(`${LOG_PREFIX} getEnabledFeatures called for shop: ${shop}`);
 
-  const isEnabled = config?.isEnabled ?? false;
+  try {
+    if (!db?.pointsConfig) {
+      console.error(`${LOG_PREFIX} getEnabledFeatures: db.pointsConfig is undefined`);
+      return {
+        pointsSystem: false, raffles: false, mysteryBoxes: false, spinWheel: false,
+        challenges: false, scratchCards: false, givebackPools: false, dailySpin: false, streakBonus: false,
+      };
+    }
 
-  return {
-    pointsSystem: isEnabled,
-    raffles: isEnabled && (config?.rafflesEnabled ?? false),
-    mysteryBoxes: isEnabled && (config?.mysteryBoxesEnabled ?? false),
-    spinWheel: isEnabled && (config?.spinWheelEnabled ?? false),
-    challenges: isEnabled && (config?.challengesEnabled ?? false),
-    scratchCards: isEnabled && (config?.scratchCardsEnabled ?? false),
-    givebackPools: isEnabled && (config?.givebackPoolsEnabled ?? false),
-    dailySpin: isEnabled && (config?.dailySpinEnabled ?? false),
-    streakBonus: isEnabled && (config?.streakBonusEnabled ?? false),
-  };
+    const config = await db.pointsConfig.findUnique({
+      where: { shop },
+      select: {
+        isEnabled: true,
+        rafflesEnabled: true,
+        mysteryBoxesEnabled: true,
+        spinWheelEnabled: true,
+        challengesEnabled: true,
+        scratchCardsEnabled: true,
+        givebackPoolsEnabled: true,
+        dailySpinEnabled: true,
+        streakBonusEnabled: true,
+      },
+    });
+
+    const isEnabled = config?.isEnabled ?? false;
+    console.log(`${LOG_PREFIX} getEnabledFeatures for ${shop}: pointsSystem=${isEnabled}`);
+
+    return {
+      pointsSystem: isEnabled,
+      raffles: isEnabled && (config?.rafflesEnabled ?? false),
+      mysteryBoxes: isEnabled && (config?.mysteryBoxesEnabled ?? false),
+      spinWheel: isEnabled && (config?.spinWheelEnabled ?? false),
+      challenges: isEnabled && (config?.challengesEnabled ?? false),
+      scratchCards: isEnabled && (config?.scratchCardsEnabled ?? false),
+      givebackPools: isEnabled && (config?.givebackPoolsEnabled ?? false),
+      dailySpin: isEnabled && (config?.dailySpinEnabled ?? false),
+      streakBonus: isEnabled && (config?.streakBonusEnabled ?? false),
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} getEnabledFeatures error for ${shop}:`, error);
+    return {
+      pointsSystem: false, raffles: false, mysteryBoxes: false, spinWheel: false,
+      challenges: false, scratchCards: false, givebackPools: false, dailySpin: false, streakBonus: false,
+    };
+  }
 }
 
 // ============================================
@@ -425,77 +525,108 @@ export async function getPointsStats(shop: string): Promise<{
   activePointsBalance: number;
   customersWithPoints: number;
 }> {
-  const [config, stats] = await Promise.all([
-    db.pointsConfig.findUnique({
-      where: { shop },
-      select: { isEnabled: true },
-    }),
-    // Get aggregated stats from ledger
-    db.pointsLedger.groupBy({
-      by: ['type'],
-      where: { shop },
-      _sum: { amount: true },
-    }),
-  ]);
+  const startTime = Date.now();
+  console.log(`${LOG_PREFIX} getPointsStats called for shop: ${shop}`);
 
-  // Calculate totals from grouped stats
-  let totalPointsIssued = 0;
-  let totalPointsRedeemed = 0;
-  let totalPointsExpired = 0;
-
-  const earningTypes = [
-    'ORDER_EARNED',
-    'CHALLENGE_COMPLETED',
-    'SPIN_WHEEL_WIN',
-    'SCRATCH_CARD_WIN',
-    'MYSTERY_BOX_WIN',
-    'BONUS_EVENT',
-    'REFERRAL_BONUS',
-    'MANUAL_CREDIT',
-    'STREAK_BONUS',
-  ];
-
-  const spendingTypes = [
-    'RAFFLE_ENTRY',
-    'MYSTERY_BOX_OPEN',
-    'PREMIUM_SPIN',
-    'GIVEBACK_DONATION',
-    'MANUAL_DEBIT',
-  ];
-
-  for (const stat of stats) {
-    const amount = stat._sum.amount ?? 0;
-    if (earningTypes.includes(stat.type)) {
-      totalPointsIssued += amount;
-    } else if (spendingTypes.includes(stat.type)) {
-      totalPointsRedeemed += Math.abs(amount);
-    } else if (stat.type === 'EXPIRATION') {
-      totalPointsExpired += Math.abs(amount);
+  try {
+    // Validate db models exist
+    if (!db) {
+      console.error(`${LOG_PREFIX} getPointsStats: db is undefined`);
+      throw new Error("Database client not initialized");
     }
+
+    console.log(`${LOG_PREFIX} getPointsStats checking models - pointsConfig: ${!!db.pointsConfig}, pointsLedger: ${!!db.pointsLedger}, customer: ${!!db.customer}`);
+
+    if (!db.pointsConfig) {
+      console.error(`${LOG_PREFIX} getPointsStats: db.pointsConfig is undefined`);
+      throw new Error("pointsConfig model not registered");
+    }
+    if (!db.pointsLedger) {
+      console.error(`${LOG_PREFIX} getPointsStats: db.pointsLedger is undefined`);
+      throw new Error("pointsLedger model not registered");
+    }
+
+    console.log(`${LOG_PREFIX} getPointsStats: Starting parallel queries...`);
+    const [config, stats] = await Promise.all([
+      db.pointsConfig.findUnique({
+        where: { shop },
+        select: { isEnabled: true },
+      }),
+      // Get aggregated stats from ledger
+      db.pointsLedger.groupBy({
+        by: ['type'],
+        where: { shop },
+        _sum: { amount: true },
+      }),
+    ]);
+    console.log(`${LOG_PREFIX} getPointsStats: Parallel queries completed in ${Date.now() - startTime}ms`);
+
+    // Calculate totals from grouped stats
+    let totalPointsIssued = 0;
+    let totalPointsRedeemed = 0;
+    let totalPointsExpired = 0;
+
+    const earningTypes = [
+      'ORDER_EARNED',
+      'CHALLENGE_COMPLETED',
+      'SPIN_WHEEL_WIN',
+      'SCRATCH_CARD_WIN',
+      'MYSTERY_BOX_WIN',
+      'BONUS_EVENT',
+      'REFERRAL_BONUS',
+      'MANUAL_CREDIT',
+      'STREAK_BONUS',
+    ];
+
+    const spendingTypes = [
+      'RAFFLE_ENTRY',
+      'MYSTERY_BOX_OPEN',
+      'PREMIUM_SPIN',
+      'GIVEBACK_DONATION',
+      'MANUAL_DEBIT',
+    ];
+
+    for (const stat of stats) {
+      const amount = stat._sum.amount ?? 0;
+      if (earningTypes.includes(stat.type)) {
+        totalPointsIssued += amount;
+      } else if (spendingTypes.includes(stat.type)) {
+        totalPointsRedeemed += Math.abs(amount);
+      } else if (stat.type === 'EXPIRATION') {
+        totalPointsExpired += Math.abs(amount);
+      }
+    }
+
+    // Get count of customers with points
+    console.log(`${LOG_PREFIX} getPointsStats: Fetching customer counts...`);
+    const customersWithPoints = await db.customer.count({
+      where: {
+        shop,
+        pointsBalance: { gt: 0 },
+      },
+    });
+
+    // Get active points balance (sum of all customer balances)
+    const balanceResult = await db.customer.aggregate({
+      where: { shop },
+      _sum: { pointsBalance: true },
+    });
+
+    const activePointsBalance = Number(balanceResult._sum.pointsBalance ?? 0);
+
+    console.log(`${LOG_PREFIX} getPointsStats completed in ${Date.now() - startTime}ms - issued: ${totalPointsIssued}, redeemed: ${totalPointsRedeemed}, balance: ${activePointsBalance}`);
+
+    return {
+      isEnabled: config?.isEnabled ?? false,
+      totalPointsIssued,
+      totalPointsRedeemed,
+      totalPointsExpired,
+      activePointsBalance,
+      customersWithPoints,
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} getPointsStats ERROR for shop ${shop}:`, error);
+    console.error(`${LOG_PREFIX} getPointsStats stack:`, error instanceof Error ? error.stack : 'No stack');
+    throw error;
   }
-
-  // Get count of customers with points
-  const customersWithPoints = await db.customer.count({
-    where: {
-      shop,
-      pointsBalance: { gt: 0 },
-    },
-  });
-
-  // Get active points balance (sum of all customer balances)
-  const balanceResult = await db.customer.aggregate({
-    where: { shop },
-    _sum: { pointsBalance: true },
-  });
-
-  const activePointsBalance = Number(balanceResult._sum.pointsBalance ?? 0);
-
-  return {
-    isEnabled: config?.isEnabled ?? false,
-    totalPointsIssued,
-    totalPointsRedeemed,
-    totalPointsExpired,
-    activePointsBalance,
-    customersWithPoints,
-  };
 }
