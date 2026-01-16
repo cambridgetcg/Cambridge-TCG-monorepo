@@ -257,6 +257,7 @@ export default function App() {
           </Link>
           <Link to="/app/analytics">Analytics</Link>
           <Link to="/app/marketing">Marketing</Link>
+          <Link to="/app/points">Points</Link>
           <Link to="/app/customers">Customers</Link>
           <Link to="/app/orders">Orders</Link>
           <Link to="/app/tier-products">Tier Products</Link>

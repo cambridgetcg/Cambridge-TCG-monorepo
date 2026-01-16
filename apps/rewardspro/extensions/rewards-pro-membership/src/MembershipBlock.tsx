@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   reactExtension,
   Banner,
@@ -20,6 +20,7 @@ import { useApiClient } from './hooks/useApiClient';
 import { useAuthenticatedCustomer } from './hooks/useAuthenticatedCustomer';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
+import { PointsSection, type PointsData, type RedemptionResult } from './components';
 import {
   safeBalance,
   safeCustomer,
@@ -187,6 +188,8 @@ interface LoyaltyData {
   // Data freshness metadata
   lastUpdated?: string;
   dataFreshness?: DataFreshnessInfo;
+  // Points system data
+  points?: PointsData | null;
   // Legacy fields for backward compatibility
   totalEarned?: number;
   progressToNextTier?: number;
@@ -315,7 +318,45 @@ function getMockData(): LoyaltyData {
     totalEarned: 125.50,
     progressToNextTier: 65,
     amountToNextTier: 350,
-    nextTier: { name: 'Platinum Member', cashbackPercent: 10, minSpend: 1000 }
+    nextTier: { name: 'Platinum Member', cashbackPercent: 10, minSpend: 1000 },
+    // Mock points data
+    points: {
+      enabled: true,
+      balance: {
+        available: 1250,
+        lifetime: 3500,
+        expiringSoon: { amount: 200, expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() },
+      },
+      currency: {
+        name: 'Star',
+        plural: 'Stars',
+        icon: '',
+      },
+      config: {
+        pointsPerDollar: 10,
+        tierMultiplier: 1.5,
+      },
+      activeBonus: {
+        hasBonus: true,
+        multiplier: 2,
+        eventNames: ['Double Stars Weekend'],
+        endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      streak: {
+        current: 5,
+        bonusMultiplier: 1.25,
+      },
+      redemptionOptions: [
+        { id: 'tier-1', name: '$5 Off', pointsCost: 500, discountValue: 5, discountType: 'fixed', available: true },
+        { id: 'tier-2', name: '$10 Off', pointsCost: 1000, discountValue: 10, discountType: 'fixed', available: true },
+        { id: 'tier-3', name: '$25 Off', pointsCost: 2500, discountValue: 25, discountType: 'fixed', available: true },
+      ],
+      recentTransactions: [
+        { id: 'pt-1', type: 'ORDER_POINTS', amount: 150, date: new Date().toISOString(), description: 'Order #1234' },
+        { id: 'pt-2', type: 'STREAK_BONUS', amount: 50, date: new Date(Date.now() - 86400000).toISOString(), description: '5-day streak bonus' },
+        { id: 'pt-3', type: 'REDEMPTION', amount: -500, date: new Date(Date.now() - 172800000).toISOString(), description: 'Redeemed $5 discount' },
+      ],
+    }
   };
 }
 
@@ -1559,6 +1600,50 @@ function MembershipBlock() {
     }
   }, [isRefreshing, fetchLoyaltyData]);
 
+  // Points redemption API client (separate base URL for points endpoint)
+  const pointsApiClient = useApiClient({
+    baseUrl: '/api/customer-account/points/redeem',
+    shopDomain: shopDomain,
+  });
+
+  // Handle points redemption
+  const handleRedeemPoints = useCallback(async (tierId: string): Promise<RedemptionResult> => {
+    if (!sessionToken) {
+      return { success: false, error: translate('points.redemption.error') };
+    }
+
+    // In preview mode, return mock success
+    if (isInEditor) {
+      return {
+        success: true,
+        discountCode: 'PREVIEW-DISCOUNT',
+        discountValue: 10,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        pointsSpent: 1000,
+        remainingBalance: 250,
+      };
+    }
+
+    try {
+      const response = await pointsApiClient.post<RedemptionResult>(sessionToken, '', { tierId });
+
+      if (response.success && response.data) {
+        // Refresh loyalty data to update points balance
+        fetchLoyaltyData(true);
+        return response.data;
+      }
+
+      return {
+        success: false,
+        error: response.error || translate('points.redemption.error'),
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : translate('points.redemption.error');
+      logger.error('Points redemption error:', errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, [sessionToken, pointsApiClient, isInEditor, translate, fetchLoyaltyData]);
+
   // ============================================================================
   // Render States
   // ============================================================================
@@ -1711,6 +1796,17 @@ function MembershipBlock() {
         translate={translate}
         pendingCashback={loyaltyData.pendingCashback}
       />
+
+      {/* Points Section - Reward Points engagement system */}
+      {loyaltyData.points?.enabled && (
+        <PointsSection
+          points={loyaltyData.points}
+          shopCurrency={loyaltyData.currency}
+          locale={locale}
+          translate={translate}
+          onRedeem={handleRedeemPoints}
+        />
+      )}
 
       {/* Tier Progress - Different displays based on tier status and source */}
       {progress.isMaxTier && loyaltyData.tier ? (

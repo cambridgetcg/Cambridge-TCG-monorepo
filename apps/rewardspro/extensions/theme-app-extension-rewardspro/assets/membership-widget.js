@@ -839,11 +839,14 @@
               </div>
             </div>
 
+            ${this.renderPointsSection()}
+
           </div>
         </div>
       `;
 
       this.attachAuthEventListeners();
+      this.attachPointsEventListeners();
     }
 
     /**
@@ -873,6 +876,413 @@
 
       if (toggle) {
         toggle.addEventListener('click', handleToggle);
+      }
+    }
+
+    /**
+     * Render the Points Engagement section
+     * Shows points balance, active bonuses, streak, and redemption options
+     */
+    renderPointsSection() {
+      const points = this.state.data?.points;
+
+      // If points not enabled or no data, return empty string
+      if (!points?.enabled) {
+        return '';
+      }
+
+      const { balance, currency, activeBonus, streak, redemptionOptions, config } = points;
+
+      // Format points balance
+      const pointsBalance = balance?.available || 0;
+      const lifetimePoints = balance?.lifetime || 0;
+      const currencyIcon = this.escapeHtml(currency?.icon || '⭐');
+      const currencyName = this.escapeHtml(currency?.name || 'Points');
+
+      // Build active bonus badge
+      let bonusBadgeHtml = '';
+      if (activeBonus?.hasBonus) {
+        const multiplier = activeBonus.multiplier || 1;
+        const eventName = activeBonus.eventNames?.[0] || 'Bonus Event';
+        bonusBadgeHtml = `
+          <div class="rp-points__bonus-badge">
+            <span class="rp-points__bonus-icon">🔥</span>
+            <span class="rp-points__bonus-text">${multiplier}x ${this.escapeHtml(eventName)}</span>
+          </div>
+        `;
+      }
+
+      // Build streak display
+      let streakHtml = '';
+      if (streak && streak.current > 0) {
+        const streakDays = streak.current;
+        const streakBonus = Math.round((streak.bonusMultiplier - 1) * 100);
+        streakHtml = `
+          <div class="rp-points__streak">
+            <span class="rp-points__streak-icon">🔥</span>
+            <span class="rp-points__streak-days">${streakDays} day streak</span>
+            ${streakBonus > 0 ? `<span class="rp-points__streak-bonus">+${streakBonus}% bonus</span>` : ''}
+          </div>
+        `;
+      }
+
+      // Build redemption options
+      let redemptionHtml = '';
+      if (redemptionOptions && redemptionOptions.length > 0) {
+        const availableOptions = redemptionOptions.filter(opt => opt.available);
+        const nextOption = redemptionOptions.find(opt => !opt.available);
+
+        if (availableOptions.length > 0) {
+          redemptionHtml = `
+            <div class="rp-points__redemption">
+              <button class="rp-points__redeem-btn rp-btn-primary" data-points-redeem="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Redeem ${currencyName}
+              </button>
+            </div>
+          `;
+        } else if (nextOption) {
+          const pointsNeeded = nextOption.pointsCost - pointsBalance;
+          redemptionHtml = `
+            <div class="rp-points__next-reward">
+              <span class="rp-points__next-reward-text">
+                Earn ${pointsNeeded} more for ${this.escapeHtml(nextOption.name)}
+              </span>
+            </div>
+          `;
+        }
+      }
+
+      // Earning rate display
+      const pointsPerDollar = config?.pointsPerDollar || 10;
+      const tierMultiplier = config?.tierMultiplier || 1;
+      const effectiveRate = Math.round(pointsPerDollar * tierMultiplier);
+
+      return `
+        <div class="rp-points-section">
+          <div class="rp-points__divider"></div>
+          ${bonusBadgeHtml}
+          <div class="rp-points__header">
+            <span class="rp-points__label">${currencyName} Balance</span>
+            <span class="rp-points__earn-rate">Earn ${effectiveRate} ${currencyIcon} per $1</span>
+          </div>
+          <div class="rp-points__balance">
+            <span class="rp-points__balance-icon">${currencyIcon}</span>
+            <span class="rp-points__balance-value">${pointsBalance.toLocaleString()}</span>
+          </div>
+          <div class="rp-points__lifetime">
+            Lifetime: ${lifetimePoints.toLocaleString()} ${currencyIcon}
+          </div>
+          ${streakHtml}
+          ${redemptionHtml}
+        </div>
+      `;
+    }
+
+    /**
+     * Attach event listeners for points section
+     */
+    attachPointsEventListeners() {
+      const redeemBtn = this.root.querySelector('[data-points-redeem]');
+
+      if (redeemBtn) {
+        redeemBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.openRedemptionModal();
+        });
+      }
+    }
+
+    /**
+     * Open the points redemption modal
+     */
+    openRedemptionModal() {
+      const points = this.state.data?.points;
+      if (!points?.enabled) return;
+
+      const { balance, currency, redemptionOptions } = points;
+      const pointsBalance = balance?.available || 0;
+      const currencyIcon = this.escapeHtml(currency?.icon || '⭐');
+      const currencyName = this.escapeHtml(currency?.name || 'Points');
+
+      // Build redemption tier options
+      const tiersHtml = redemptionOptions
+        .filter(opt => opt.isActive !== false)
+        .map(opt => {
+          const isAvailable = pointsBalance >= opt.pointsCost;
+          const discountDisplay = opt.discountType === 'free_shipping'
+            ? 'Free Shipping'
+            : `$${opt.discountValue} Off`;
+
+          return `
+            <div class="rp-redeem-tier ${isAvailable ? '' : 'rp-redeem-tier--disabled'}"
+                 data-tier-id="${this.escapeHtml(opt.id)}"
+                 ${isAvailable ? 'role="button" tabindex="0"' : ''}>
+              <div class="rp-redeem-tier__info">
+                <span class="rp-redeem-tier__name">${this.escapeHtml(opt.name)}</span>
+                <span class="rp-redeem-tier__discount">${discountDisplay}</span>
+              </div>
+              <div class="rp-redeem-tier__cost">
+                <span class="rp-redeem-tier__points">${opt.pointsCost.toLocaleString()} ${currencyIcon}</span>
+                ${isAvailable
+                  ? '<span class="rp-redeem-tier__status rp-redeem-tier__status--available">Available</span>'
+                  : `<span class="rp-redeem-tier__status rp-redeem-tier__status--locked">${(opt.pointsCost - pointsBalance).toLocaleString()} more needed</span>`
+                }
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      // Create modal overlay
+      const modalHtml = `
+        <div class="rp-modal-overlay" data-points-modal="true">
+          <div class="rp-modal">
+            <div class="rp-modal__header">
+              <h3 class="rp-modal__title">Redeem ${currencyName}</h3>
+              <button class="rp-modal__close" data-modal-close="true" aria-label="Close modal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div class="rp-modal__balance">
+              <span class="rp-modal__balance-label">Your Balance</span>
+              <span class="rp-modal__balance-value">${pointsBalance.toLocaleString()} ${currencyIcon}</span>
+            </div>
+            <div class="rp-modal__tiers">
+              ${tiersHtml}
+            </div>
+            <div class="rp-modal__footer">
+              <p class="rp-modal__note">Select a reward to redeem your ${currencyName.toLowerCase()}</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Append modal to body
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+      // Attach modal event listeners
+      this.attachModalEventListeners();
+    }
+
+    /**
+     * Attach event listeners for redemption modal
+     */
+    attachModalEventListeners() {
+      const modal = document.querySelector('[data-points-modal]');
+      if (!modal) return;
+
+      // Close button
+      const closeBtn = modal.querySelector('[data-modal-close]');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => this.closeRedemptionModal());
+      }
+
+      // Click outside to close
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          this.closeRedemptionModal();
+        }
+      });
+
+      // Escape key to close
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          this.closeRedemptionModal();
+          document.removeEventListener('keydown', handleEscape);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+
+      // Tier selection
+      const tiers = modal.querySelectorAll('.rp-redeem-tier:not(.rp-redeem-tier--disabled)');
+      tiers.forEach(tier => {
+        const handleSelect = () => {
+          const tierId = tier.dataset.tierId;
+          this.redeemPoints(tierId);
+        };
+
+        tier.addEventListener('click', handleSelect);
+        tier.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleSelect();
+          }
+        });
+      });
+    }
+
+    /**
+     * Close the redemption modal
+     */
+    closeRedemptionModal() {
+      const modal = document.querySelector('[data-points-modal]');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    /**
+     * Redeem points for a specific tier
+     */
+    async redeemPoints(tierId) {
+      const modal = document.querySelector('[data-points-modal]');
+      if (!modal) return;
+
+      // Show loading state
+      const tier = modal.querySelector(`[data-tier-id="${tierId}"]`);
+      if (tier) {
+        tier.classList.add('rp-redeem-tier--loading');
+      }
+
+      try {
+        // Call redemption API
+        const response = await fetch('/api/customer-account/points/redeem', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ tierId }),
+          credentials: 'same-origin',
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Show success state with discount code
+          this.showRedemptionSuccess(result);
+        } else {
+          // Show error
+          this.showRedemptionError(result.error || 'Redemption failed');
+        }
+      } catch (error) {
+        log.error('Redemption error:', error);
+        this.showRedemptionError('An unexpected error occurred');
+      }
+    }
+
+    /**
+     * Show redemption success with discount code
+     */
+    showRedemptionSuccess(result) {
+      const modal = document.querySelector('.rp-modal');
+      if (!modal) return;
+
+      const discountCode = result.discountCode || '';
+      const discountValue = result.discountValue || 0;
+      const remainingBalance = result.remainingBalance || 0;
+      const currency = this.state.data?.points?.currency;
+      const currencyIcon = this.escapeHtml(currency?.icon || '⭐');
+
+      modal.innerHTML = `
+        <div class="rp-modal__header">
+          <h3 class="rp-modal__title">Success!</h3>
+          <button class="rp-modal__close" data-modal-close="true" aria-label="Close modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="rp-modal__success">
+          <div class="rp-modal__success-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <p class="rp-modal__success-text">Your discount code is ready!</p>
+          <div class="rp-modal__code-container">
+            <code class="rp-modal__code">${this.escapeHtml(discountCode)}</code>
+            <button class="rp-modal__copy-btn" data-copy-code="${this.escapeHtml(discountCode)}" aria-label="Copy code">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+          <p class="rp-modal__discount-value">$${discountValue} off your next order</p>
+          <p class="rp-modal__new-balance">New balance: ${remainingBalance.toLocaleString()} ${currencyIcon}</p>
+        </div>
+        <div class="rp-modal__footer">
+          <button class="rp-modal__done-btn rp-btn-primary" data-modal-close="true">Done</button>
+        </div>
+      `;
+
+      // Re-attach close listener
+      const closeBtn = modal.querySelector('[data-modal-close]');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          this.closeRedemptionModal();
+          // Refresh data to update balance
+          this.clearCache();
+          this.fetchCustomerData();
+        });
+      }
+
+      // Copy code functionality
+      const copyBtn = modal.querySelector('[data-copy-code]');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          const code = copyBtn.dataset.copyCode;
+          navigator.clipboard.writeText(code).then(() => {
+            copyBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            `;
+            setTimeout(() => {
+              copyBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              `;
+            }, 2000);
+          });
+        });
+      }
+    }
+
+    /**
+     * Show redemption error
+     */
+    showRedemptionError(message) {
+      const modal = document.querySelector('.rp-modal');
+      if (!modal) return;
+
+      // Update modal to show error
+      const errorHtml = `
+        <div class="rp-modal__error">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>${this.escapeHtml(message)}</p>
+          <button class="rp-btn-secondary" data-retry-redeem="true">Try Again</button>
+        </div>
+      `;
+
+      const tiersContainer = modal.querySelector('.rp-modal__tiers');
+      if (tiersContainer) {
+        tiersContainer.innerHTML = errorHtml;
+
+        const retryBtn = tiersContainer.querySelector('[data-retry-redeem]');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => {
+            this.closeRedemptionModal();
+            this.openRedemptionModal();
+          });
+        }
       }
     }
 

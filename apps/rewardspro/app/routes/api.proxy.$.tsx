@@ -18,6 +18,9 @@ import { getAuroraClient } from "../utils/aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
 // SECURITY: Use Redis-backed rate limiter for effective distributed rate limiting
 import { appProxyRateLimit } from "../utils/rate-limiter-redis";
+// Points system imports
+import { getActiveEvents } from "../services/points-bonus-events.server";
+import { getRedemptionTiers } from "../services/points-redemption.server";
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity
@@ -222,6 +225,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           c."orderCount",
           c."createdAt",
           c."updatedAt",
+          c.metadata as "customerMetadata",
+
+          -- Points balance (from Customer table)
+          c."pointsBalance",
+          c."lifetimePoints",
 
           -- Pre-computed tier state (source of truth for widget)
           cts."effectiveTierId",
@@ -237,6 +245,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           t.name as "tier_name",
           t."minSpend" as "tier_minSpend",
           t."cashbackPercent" as "tier_cashbackPercent",
+          t."pointsMultiplier" as "tier_pointsMultiplier",
 
           -- Shop settings for theme
           ss."storeCurrency",
@@ -246,12 +255,24 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           ss."widgetTextColor",
           ss."widgetAccentColor",
           ss."widgetBorderRadius",
-          ss."widgetFontFamily"
+          ss."widgetFontFamily",
+
+          -- Points configuration
+          pc."isEnabled" as "points_enabled",
+          pc."currencyName" as "points_currencyName",
+          pc."currencyNamePlural" as "points_currencyPlural",
+          pc."currencyIcon" as "points_currencyIcon",
+          pc."pointsPerDollar" as "points_perDollar",
+          pc."pointsExpire" as "points_expire",
+          pc."expirationDays" as "points_expirationDays",
+          pc."streakBonusEnabled" as "points_streakEnabled",
+          pc."streakBonusMultiplier" as "points_streakMultiplier"
 
         FROM "Customer" c
         LEFT JOIN "CustomerTierState" cts ON cts."customerId" = c.id
         LEFT JOIN "Tier" t ON t.id = cts."effectiveTierId"
         LEFT JOIN "ShopSettings" ss ON ss.shop = c.shop
+        LEFT JOIN "PointsConfig" pc ON pc.shop = c.shop
         WHERE c.shop = :shopDomain
           AND c."shopifyCustomerId" = :shopifyCustomerId
         LIMIT 1
@@ -333,6 +354,102 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         hasNetSpent: 'netSpent' in (row || {})
       });
 
+      // ═══════════════════════════════════════════════════════════════════════
+      // POINTS DATA - Fetch bonus events and redemption tiers if points enabled
+      // ═══════════════════════════════════════════════════════════════════════
+      const pointsEnabled = row.points_enabled === true;
+      let pointsData = null;
+
+      if (pointsEnabled) {
+        log.debug('=== STEP 3.5: Fetching points data ===');
+
+        try {
+          // Fetch bonus events and redemption tiers in parallel
+          const [bonusResult, redemptionTiers] = await Promise.all([
+            getActiveEvents(shop, {
+              tierId: row.tier_id || undefined,
+              orderAmount: 0, // Will be calculated at checkout
+            }),
+            getRedemptionTiers(shop),
+          ]);
+
+          // Extract streak info from customer metadata
+          const customerMetadata = row.customerMetadata as Record<string, any> | null;
+          const streakInfo = customerMetadata?.streak as {
+            currentStreak?: number;
+            longestStreak?: number;
+            lastActivityDate?: string;
+          } | null;
+
+          // Calculate streak bonus multiplier
+          const streakBonusEnabled = row.points_streakEnabled === true;
+          const streakMultiplierRate = Number(row.points_streakMultiplier || 0.1);
+          const currentStreak = streakInfo?.currentStreak || 0;
+          const streakBonusMultiplier = streakBonusEnabled && currentStreak > 0
+            ? 1 + Math.min(currentStreak * streakMultiplierRate, 0.5) // Cap at 50% bonus
+            : 1;
+
+          // Calculate which redemption tiers are available based on balance
+          const pointsBalance = Number(row.pointsBalance || 0);
+          const redemptionOptions = redemptionTiers
+            .filter((tier) => tier.isActive)
+            .map((tier) => ({
+              id: tier.id,
+              name: tier.name,
+              pointsCost: tier.pointsCost,
+              discountValue: tier.value,
+              discountType: tier.type.toLowerCase().replace('_discount', ''),
+              available: pointsBalance >= tier.pointsCost,
+            }));
+
+          pointsData = {
+            enabled: true,
+            balance: {
+              available: pointsBalance,
+              lifetime: Number(row.lifetimePoints || 0),
+              expiringSoon: 0, // Will be calculated by separate lightweight query if needed
+            },
+            currency: {
+              name: row.points_currencyName || 'Points',
+              plural: row.points_currencyPlural || 'Points',
+              icon: row.points_currencyIcon || '⭐',
+            },
+            config: {
+              pointsPerDollar: Number(row.points_perDollar || 10),
+              tierMultiplier: Number(row.tier_pointsMultiplier || 1),
+              pointsExpire: row.points_expire === true,
+              expirationDays: row.points_expirationDays || 365,
+            },
+            activeBonus: {
+              hasBonus: bonusResult.hasActiveEvent,
+              multiplier: bonusResult.combinedMultiplier,
+              eventNames: bonusResult.eventNames,
+              endsAt: bonusResult.events[0]?.endsAt?.toISOString() || null,
+            },
+            streak: streakBonusEnabled ? {
+              current: currentStreak,
+              longest: streakInfo?.longestStreak || 0,
+              bonusMultiplier: streakBonusMultiplier,
+              lastActivity: streakInfo?.lastActivityDate || null,
+            } : null,
+            redemptionOptions,
+          };
+
+          log.debug('=== STEP 3.5 SUCCESS: Points data loaded ===', {
+            balance: pointsData.balance.available,
+            hasBonus: pointsData.activeBonus.hasBonus,
+            redemptionCount: redemptionOptions.length,
+            streakEnabled: streakBonusEnabled,
+          });
+        } catch (pointsError: any) {
+          log.warn('=== STEP 3.5 WARNING: Points data fetch failed ===', {
+            error: pointsError.message,
+          });
+          // Points data is optional - continue without it
+          pointsData = { enabled: false, error: 'Failed to load points data' };
+        }
+      }
+
       log.debug('=== STEP 4: Building response object ===');
 
       // Build response directly from query result - no additional calculations!
@@ -391,6 +508,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         settings: {
           currency: row.storeCurrency || 'USD',
         },
+        // Points Engagement System data
+        points: pointsData,
         query: {
           shopDomain: shop,
           shopifyCustomerId: customerId,

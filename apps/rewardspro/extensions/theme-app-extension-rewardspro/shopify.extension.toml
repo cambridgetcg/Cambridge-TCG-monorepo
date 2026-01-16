@@ -14,3 +14,7 @@ module = "./blocks/star_rating.liquid"
 [[extensions.targeting]]
 target = "body"
 module = "./blocks/membership_widget.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/points_earning_preview.liquid"

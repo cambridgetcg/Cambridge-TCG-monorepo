@@ -1,4 +1,42 @@
 {
+  "points": {
+    "title": "Reward Points",
+    "bonus": {
+      "default": "Bonus Event",
+      "active": "{{multiplier}}x {{eventName}} Active!"
+    },
+    "streak": {
+      "current": "{{count}}-day streak",
+      "bonus": "{{multiplier}}x bonus"
+    },
+    "expiration": {
+      "title": "Points Expiring Soon",
+      "message": "{{amount}} {{currencyName}} will expire on {{date}}. Use them before they expire!"
+    },
+    "balance": {
+      "available": "Available Points",
+      "lifetime": "Lifetime Earned"
+    },
+    "transactions": {
+      "title": "Points Activity",
+      "empty": "No points activity yet"
+    },
+    "redemption": {
+      "title": "Redeem Points",
+      "redeemButton": "Redeem",
+      "redeemAccess": "Redeem {{tierName}}",
+      "success": "Redemption Successful!",
+      "discountCode": "Your discount code",
+      "discountAmount": "Worth {{amount}} off your next order",
+      "remainingBalance": "Remaining balance: {{balance}} points",
+      "copy": "Copy",
+      "copied": "Copied!",
+      "redeemAnother": "Redeem more points",
+      "noTiers": "No redemption options available",
+      "balance": "Available: {{balance}} {{currencyName}}",
+      "error": "Unable to redeem points. Please try again."
+    }
+  },
   "membership": {
     "title": "My Membership",
     "refresh": "Refresh",

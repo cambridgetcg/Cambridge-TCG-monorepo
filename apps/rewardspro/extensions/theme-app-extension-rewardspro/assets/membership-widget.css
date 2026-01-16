@@ -2478,3 +2478,487 @@
     font-size: 10px;
   }
 }
+
+/* =====================================================
+   POINTS ENGAGEMENT SECTION
+   Displays points balance, bonuses, streaks, redemption
+   ===================================================== */
+
+.rp-points-section {
+  margin-top: 16px;
+}
+
+.rp-points__divider {
+  height: 1px;
+  background: var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  margin-bottom: 16px;
+}
+
+.rp-points__bonus-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #ff6b35, #f7931e);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  animation: rp-pulse 2s ease-in-out infinite;
+}
+
+@keyframes rp-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.rp-points__bonus-icon {
+  font-size: 14px;
+}
+
+.rp-points__bonus-text {
+  white-space: nowrap;
+}
+
+.rp-points__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.rp-points__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-points__earn-rate {
+  font-size: 11px;
+  color: var(--rp-accent-color, #008060);
+  font-weight: 500;
+}
+
+.rp-points__balance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rp-points__balance-icon {
+  font-size: 28px;
+}
+
+.rp-points__balance-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  line-height: 1;
+}
+
+.rp-points__lifetime {
+  font-size: 12px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin-bottom: 12px;
+}
+
+/* Streak Display */
+.rp-points__streak {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.rp-points__streak-icon {
+  font-size: 16px;
+}
+
+.rp-points__streak-days {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-points__streak-bonus {
+  font-size: 11px;
+  color: var(--rp-accent-color, #008060);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Redemption Section */
+.rp-points__redemption {
+  margin-top: 12px;
+}
+
+.rp-points__redeem-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--rp-primary-color, #5C6AC4);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rp-points__redeem-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.rp-points__redeem-btn:active {
+  transform: translateY(0);
+}
+
+.rp-points__next-reward {
+  text-align: center;
+  padding: 12px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  border-radius: 8px;
+}
+
+.rp-points__next-reward-text {
+  font-size: 12px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+/* =====================================================
+   REDEMPTION MODAL
+   Full-screen modal for selecting redemption tiers
+   ===================================================== */
+
+.rp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 20px;
+  animation: rp-fadeIn 0.2s ease;
+}
+
+@keyframes rp-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rp-modal {
+  background: var(--rp-background-color, #fff);
+  border-radius: 16px;
+  max-width: 400px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: rp-slideUp 0.3s ease;
+}
+
+@keyframes rp-slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.rp-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-modal__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+  margin: 0;
+}
+
+.rp-modal__close {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.rp-modal__close:hover {
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+}
+
+.rp-modal__balance-label {
+  font-size: 13px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+}
+
+.rp-modal__balance-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__tiers {
+  padding: 16px 20px;
+}
+
+/* Redemption Tier Cards */
+.rp-redeem-tier {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--rp-background-color, #fff);
+  border: 2px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rp-redeem-tier:last-child {
+  margin-bottom: 0;
+}
+
+.rp-redeem-tier:hover:not(.rp-redeem-tier--disabled) {
+  border-color: var(--rp-primary-color, #5C6AC4);
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.02));
+}
+
+.rp-redeem-tier--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rp-redeem-tier--loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.rp-redeem-tier--loading::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--rp-border-color);
+  border-top-color: var(--rp-primary-color);
+  border-radius: 50%;
+  animation: rp-spin 0.8s linear infinite;
+}
+
+@keyframes rp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rp-redeem-tier__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-redeem-tier__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-redeem-tier__discount {
+  font-size: 13px;
+  color: var(--rp-accent-color, #008060);
+  font-weight: 500;
+}
+
+.rp-redeem-tier__cost {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rp-redeem-tier__points {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-redeem-tier__status {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rp-redeem-tier__status--available {
+  color: var(--rp-accent-color, #008060);
+}
+
+.rp-redeem-tier__status--locked {
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.5));
+}
+
+.rp-modal__footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.1));
+}
+
+.rp-modal__note {
+  font-size: 12px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  text-align: center;
+  margin: 0;
+}
+
+/* Success State */
+.rp-modal__success {
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.rp-modal__success-icon {
+  color: var(--rp-accent-color, #008060);
+  margin-bottom: 16px;
+}
+
+.rp-modal__success-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rp-text-color, #212B36);
+  margin: 0 0 20px;
+}
+
+.rp-modal__code-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--rp-card-bg, rgba(0, 0, 0, 0.04));
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.rp-modal__code {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--rp-primary-color, #5C6AC4);
+  letter-spacing: 2px;
+}
+
+.rp-modal__copy-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.rp-modal__copy-btn:hover {
+  background: var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__discount-value {
+  font-size: 14px;
+  color: var(--rp-accent-color, #008060);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.rp-modal__new-balance {
+  font-size: 13px;
+  color: var(--rp-text-secondary, rgba(0, 0, 0, 0.6));
+  margin: 0;
+}
+
+.rp-modal__done-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--rp-primary-color, #5C6AC4);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rp-modal__done-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Error State */
+.rp-modal__error {
+  text-align: center;
+  padding: 24px;
+  color: var(--rp-text-color, #212B36);
+}
+
+.rp-modal__error svg {
+  color: #dc2626;
+  margin-bottom: 12px;
+}
+
+.rp-modal__error p {
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+
+/* Mobile Adjustments for Points */
+@media (max-width: 380px) {
+  .rp-points__balance-value {
+    font-size: 28px;
+  }
+
+  .rp-points__balance-icon {
+    font-size: 24px;
+  }
+
+  .rp-modal {
+    max-width: 100%;
+    margin: 10px;
+  }
+
+  .rp-redeem-tier {
+    padding: 12px;
+  }
+
+  .rp-redeem-tier__name {
+    font-size: 14px;
+  }
+
+  .rp-modal__code {
+    font-size: 16px;
+  }
+}

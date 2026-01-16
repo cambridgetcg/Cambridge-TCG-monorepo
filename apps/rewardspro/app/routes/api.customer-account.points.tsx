@@ -1,0 +1,339 @@
+/**
+ * Customer Account Points API
+ *
+ * Provides points data for the storefront customer account extension.
+ * This endpoint is called by the Shopify Customer Account UI Extension.
+ *
+ * Features:
+ * - Points balance and lifetime stats
+ * - Transaction history with pagination
+ * - Expiring points warnings
+ * - Tier multiplier information
+ * - Available redemption options
+ */
+
+import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import db from "~/db.server";
+import {
+  getPointsBalance,
+  getTransactionHistory,
+  getExpiringPoints,
+} from "~/services/points-ledger.server";
+import {
+  getPointsConfig,
+  getCurrencyBranding,
+  isPointsEnabled,
+} from "~/services/points-config.server";
+
+// ============================================
+// TYPES
+// ============================================
+
+interface PointsAPIResponse {
+  success: boolean;
+  data?: {
+    enabled: boolean;
+    currency: {
+      name: string;
+      plural: string;
+      icon: string;
+    };
+    balance: {
+      available: number;
+      lifetime: number;
+      expiringSoon: number;
+      expiringWithin30Days: number;
+    };
+    tier: {
+      name: string | null;
+      multiplier: number;
+      luckBonus: number;
+    };
+    config: {
+      pointsPerDollar: number;
+      pointsExpire: boolean;
+      expirationDays: number;
+    };
+    transactions: Array<{
+      id: string;
+      amount: number;
+      balance: number;
+      type: string;
+      description: string | null;
+      createdAt: string;
+      expiresAt: string | null;
+    }>;
+    transactionsPagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
+    expiringPoints: {
+      totalExpiring: number;
+      entries: Array<{
+        amount: number;
+        expiresAt: string;
+        daysUntilExpiry: number;
+      }>;
+    };
+    redemptionOptions: Array<{
+      id: string;
+      name: string;
+      pointsCost: number;
+      discountValue: number;
+      discountType: "fixed" | "percentage";
+      available: boolean;
+    }>;
+    streakInfo: {
+      currentStreak: number;
+      longestStreak: number;
+      lastActivity: string | null;
+      bonusMultiplier: number;
+    } | null;
+  };
+  error?: string;
+}
+
+// ============================================
+// LOADER
+// ============================================
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  try {
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
+    const customerId = url.searchParams.get("customerId");
+    const shopifyCustomerId = url.searchParams.get("shopifyCustomerId");
+    const limit = parseInt(url.searchParams.get("limit") || "10");
+    const offset = parseInt(url.searchParams.get("offset") || "0");
+
+    // Validate required parameters
+    if (!shop) {
+      return json<PointsAPIResponse>(
+        { success: false, error: "Missing shop parameter" },
+        { status: 400 }
+      );
+    }
+
+    if (!customerId && !shopifyCustomerId) {
+      return json<PointsAPIResponse>(
+        { success: false, error: "Missing customerId or shopifyCustomerId parameter" },
+        { status: 400 }
+      );
+    }
+
+    // Check if points system is enabled
+    const enabled = await isPointsEnabled(shop);
+    if (!enabled) {
+      return json<PointsAPIResponse>({
+        success: true,
+        data: {
+          enabled: false,
+          currency: { name: "Points", plural: "Points", icon: "⭐" },
+          balance: { available: 0, lifetime: 0, expiringSoon: 0, expiringWithin30Days: 0 },
+          tier: { name: null, multiplier: 1, luckBonus: 0 },
+          config: { pointsPerDollar: 10, pointsExpire: false, expirationDays: 365 },
+          transactions: [],
+          transactionsPagination: { total: 0, limit, offset, hasMore: false },
+          expiringPoints: { totalExpiring: 0, entries: [] },
+          redemptionOptions: [],
+          streakInfo: null,
+        },
+      });
+    }
+
+    // Find customer
+    let customer;
+    if (customerId) {
+      customer = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        include: {
+          currentTier: {
+            select: {
+              id: true,
+              name: true,
+              pointsMultiplier: true,
+              pointsLuckBonus: true,
+            },
+          },
+        },
+      });
+    } else if (shopifyCustomerId) {
+      customer = await db.customer.findFirst({
+        where: { shopifyCustomerId, shop },
+        include: {
+          currentTier: {
+            select: {
+              id: true,
+              name: true,
+              pointsMultiplier: true,
+              pointsLuckBonus: true,
+            },
+          },
+        },
+      });
+    }
+
+    if (!customer) {
+      return json<PointsAPIResponse>(
+        { success: false, error: "Customer not found" },
+        { status: 404 }
+      );
+    }
+
+    // Fetch all data in parallel
+    const [config, currency, balance, historyResult, expiringPoints] = await Promise.all([
+      getPointsConfig(shop),
+      getCurrencyBranding(shop),
+      getPointsBalance(customer.id, shop),
+      getTransactionHistory(customer.id, shop, { limit, offset }),
+      getExpiringPoints(customer.id, shop, 30),
+    ]);
+
+    // Get tier info
+    const tierInfo = {
+      name: customer.currentTier?.name ?? null,
+      multiplier: customer.currentTier?.pointsMultiplier
+        ? Number(customer.currentTier.pointsMultiplier)
+        : 1,
+      luckBonus: customer.currentTier?.pointsLuckBonus
+        ? Number(customer.currentTier.pointsLuckBonus)
+        : 0,
+    };
+
+    // Build redemption options (static for now, will be dynamic later)
+    const redemptionOptions = buildRedemptionOptions(balance.available, config.pointsPerDollar);
+
+    // Get streak info if enabled
+    let streakInfo = null;
+    if (config.streakBonusEnabled) {
+      streakInfo = await getCustomerStreakInfo(customer.id, shop, config.streakBonusMultiplier);
+    }
+
+    return json<PointsAPIResponse>({
+      success: true,
+      data: {
+        enabled: true,
+        currency: {
+          name: currency.name,
+          plural: currency.plural,
+          icon: currency.icon,
+        },
+        balance,
+        tier: tierInfo,
+        config: {
+          pointsPerDollar: config.pointsPerDollar,
+          pointsExpire: config.pointsExpire,
+          expirationDays: config.expirationDays,
+        },
+        transactions: historyResult.transactions.map((t) => ({
+          id: t.id,
+          amount: t.amount,
+          balance: t.balance,
+          type: t.type,
+          description: t.description,
+          createdAt: t.createdAt.toISOString(),
+          expiresAt: t.expiresAt?.toISOString() ?? null,
+        })),
+        transactionsPagination: {
+          total: historyResult.total,
+          limit,
+          offset,
+          hasMore: offset + limit < historyResult.total,
+        },
+        expiringPoints: {
+          totalExpiring: expiringPoints.totalExpiring,
+          entries: expiringPoints.entries.map((e) => ({
+            amount: e.amount,
+            expiresAt: e.expiresAt.toISOString(),
+            daysUntilExpiry: e.daysUntilExpiry,
+          })),
+        },
+        redemptionOptions,
+        streakInfo,
+      },
+    });
+  } catch (error) {
+    console.error("[Points API] Error:", error);
+    return json<PointsAPIResponse>(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Build redemption options based on available balance
+ */
+function buildRedemptionOptions(
+  availablePoints: number,
+  pointsPerDollar: number
+): PointsAPIResponse["data"]["redemptionOptions"] {
+  // Standard redemption tiers
+  const tiers = [
+    { points: 500, discount: 5, type: "fixed" as const },
+    { points: 1000, discount: 10, type: "fixed" as const },
+    { points: 2500, discount: 25, type: "fixed" as const },
+    { points: 5000, discount: 50, type: "fixed" as const },
+    { points: 10000, discount: 100, type: "fixed" as const },
+  ];
+
+  return tiers.map((tier) => ({
+    id: `redeem-${tier.points}`,
+    name: `$${tier.discount} Off`,
+    pointsCost: tier.points,
+    discountValue: tier.discount,
+    discountType: tier.type,
+    available: availablePoints >= tier.points,
+  }));
+}
+
+/**
+ * Get customer streak information
+ */
+async function getCustomerStreakInfo(
+  customerId: string,
+  shop: string,
+  streakMultiplier: number
+): Promise<{
+  currentStreak: number;
+  longestStreak: number;
+  lastActivity: string | null;
+  bonusMultiplier: number;
+}> {
+  // Get customer's recent activity
+  const customer = await db.customer.findFirst({
+    where: { id: customerId, shop },
+    select: {
+      lastOrderDate: true,
+      metadata: true,
+    },
+  });
+
+  // Extract streak data from metadata (will be managed by streak service)
+  const metadata = customer?.metadata as Record<string, unknown> | null;
+  const streakData = metadata?.pointsStreak as {
+    current: number;
+    longest: number;
+    lastDate: string;
+  } | undefined;
+
+  const currentStreak = streakData?.current ?? 0;
+  const longestStreak = streakData?.longest ?? 0;
+  const lastActivity = streakData?.lastDate ?? customer?.lastOrderDate?.toISOString() ?? null;
+
+  // Calculate bonus multiplier based on streak (capped at 7 days = 70% bonus with 0.1 multiplier)
+  const bonusMultiplier = 1 + Math.min(currentStreak, 7) * streakMultiplier;
+
+  return {
+    currentStreak,
+    longestStreak,
+    lastActivity,
+    bonusMultiplier,
+  };
+}
