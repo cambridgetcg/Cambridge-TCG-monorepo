@@ -7,6 +7,7 @@
 
 import { AuroraDataAPI, getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
+import * as crypto from "crypto";
 
 /**
  * Base model proxy that provides Prisma-like methods using Data API
@@ -495,12 +496,20 @@ export class DataAPIModelProxy<T = any> {
   async create(args: {
     data: Record<string, any>;
   }): Promise<T> {
-    const fields = Object.keys(args.data);
+    // Auto-generate UUID for id field if not provided
+    // This mimics Prisma's @default(uuid()) behavior
+    const dataWithId = { ...args.data };
+    if (!dataWithId.id && this.requiresUuidId()) {
+      dataWithId.id = crypto.randomUUID();
+      console.log(`[DataAPI] Auto-generated UUID for ${this.tableName}: ${dataWithId.id}`);
+    }
+
+    const fields = Object.keys(dataWithId);
     const params: SqlParameter[] = [];
 
     // Build values with proper type casting for enums, timestamps, and JSON
     const values = fields.map((field, i) => {
-      const value = args.data[field];
+      const value = dataWithId[field];
 
       // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
       // Aurora Data API doesn't support array parameters directly
@@ -591,6 +600,59 @@ export class DataAPIModelProxy<T = any> {
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
+  }
+
+  /**
+   * Check if this table requires auto-generated UUID for id field
+   * Tables with @id @default(uuid()) in Prisma schema
+   */
+  private requiresUuidId(): boolean {
+    const tablesWithUuidId = [
+      // Core models
+      'Session',
+      'ShopSettings',
+      'Tier',
+      'TierProduct',
+      'Customer',
+      'StoreCreditLedger',
+      'TierChangeLog',
+      'UsageRecord',
+      'BillingHistory',
+      'Notification',
+      'MonthlyOrderUsage',
+      'Order',
+      'OrderLineItem',
+      'OrderRefund',
+      'OrderRefundLineItem',
+      'TierSubscription',
+      'SubscriptionBillingAttempt',
+      'SellingPlanGroup',
+      'SellingPlan',
+      'TierPurchase',
+      'TierPurchaseItem',
+      'CustomerTierState',
+      'ShopEntitlements',
+      'CronLock',
+      'SyncStatus',
+      // Email models
+      'EmailTemplate',
+      'EmailCampaign',
+      'EmailAutomation',
+      'EmailSettings',
+      'EmailEvent',
+      'SendGridDomain',
+      'AnalyticsRecommendation',
+      // Sync Job models
+      'CustomerSyncJob',
+      'StoreCreditSyncJob',
+      'OrderSyncJob',
+      // Trial abuse prevention
+      'TierTrialAuditLog',
+      // Points Engagement System
+      'PointsConfig',
+      'PointsLedger',
+    ];
+    return tablesWithUuidId.includes(this.tableName);
   }
 
   /**
