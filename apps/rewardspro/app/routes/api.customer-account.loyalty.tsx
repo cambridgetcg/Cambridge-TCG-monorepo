@@ -47,28 +47,10 @@ const log = {
 };
 
 // ============================================================================
-// Types
+// Rate Limiting - Redis-backed for serverless environments
 // ============================================================================
 
-// Rate limiting (simple in-memory, consider Redis for production)
-const requestCounts = new Map<string, { count: number; resetTime: number }>();
-
-function checkRateLimit(key: string, limit = 100): boolean {
-  const now = Date.now();
-  const entry = requestCounts.get(key);
-
-  if (!entry || entry.resetTime < now) {
-    requestCounts.set(key, { count: 1, resetTime: now + 60000 });
-    return true;
-  }
-
-  if (entry.count >= limit) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
+import { customerActionRateLimit } from "~/utils/rate-limiter-redis";
 
 function getTransactionDescription(transaction: any): string {
   const metadata = transaction.metadata as any;
@@ -263,20 +245,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
       );
     }
 
-    // Step 3: Rate limiting per customer
-    const rateLimitKey = `customer-account:${shop}:${customerGid}`;
-    if (!checkRateLimit(rateLimitKey, 100)) {
+    // Step 3: Rate limiting per customer - using Redis-backed rate limiter
+    const rateLimitResponse = await customerActionRateLimit(request, customerGid);
+    if (rateLimitResponse) {
       log.warn(`[${requestId}] Rate limit exceeded for ${customerGid}`);
-      return json(
-        { error: "Too many requests", message: "Please try again in a minute" },
-        {
-          status: 429,
-          headers: {
-            ...getCorsHeaders(origin),
-            "Retry-After": "60"
-          }
-        }
-      );
+      // Add CORS headers to the rate limit response
+      const headers = new Headers(rateLimitResponse.headers);
+      Object.entries(getCorsHeaders(origin)).forEach(([key, value]) => {
+        headers.set(key, value);
+      });
+      return new Response(rateLimitResponse.body, {
+        status: rateLimitResponse.status,
+        statusText: rateLimitResponse.statusText,
+        headers
+      });
     }
 
     // Step 4: Extract numeric customer ID from GID

@@ -27,10 +27,15 @@ function getEncryptionKey(): Buffer {
   }
 
   // Derive a key from the secret using PBKDF2
-  const salt = process.env.ENCRYPTION_SALT 
-    ? Buffer.from(process.env.ENCRYPTION_SALT, 'hex')
-    : crypto.createHash('sha256').update('shopify-app-salt').digest();
-    
+  // SECURITY: Require explicit salt configuration - no hardcoded fallback
+  if (!process.env.ENCRYPTION_SALT) {
+    throw new Error(
+      'ENCRYPTION_SALT environment variable is required. ' +
+      'Generate with: openssl rand -hex 32'
+    );
+  }
+
+  const salt = Buffer.from(process.env.ENCRYPTION_SALT, 'hex');
   return crypto.pbkdf2Sync(secret, salt, ITERATIONS, KEY_LENGTH, 'sha256');
 }
 

@@ -50,9 +50,12 @@ export async function verifyWebhookHMAC(
     const isValid = crypto.timingSafeEqual(hmacBuffer, hashBuffer);
     
     if (!isValid) {
-      console.error('[WebhookValidation] HMAC verification failed');
-      console.error('Expected:', hash);
-      console.error('Received:', hmacHeader);
+      // SECURITY: Only log truncated HMAC values to prevent credential exposure in logs
+      console.error('[WebhookValidation] HMAC verification failed', {
+        expectedPrefix: hash.substring(0, 8) + '...',
+        receivedPrefix: hmacHeader?.substring(0, 8) + '...',
+        shop: request.headers.get('x-shopify-shop-domain')
+      });
     }
     
     return isValid;

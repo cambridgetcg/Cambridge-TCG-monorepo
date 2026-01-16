@@ -53,10 +53,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const MAX_SINGLE_CHARGE = 1000; // $1,000 max per single usage charge
     const MAX_DAILY_TOTAL = 5000;   // $5,000 max per day
 
-    // Validate input
-    if (!data.description || typeof data.amount !== 'number' || data.amount <= 0) {
+    // Validate input - SECURITY: Check for Infinity, NaN, and -0
+    if (!data.description ||
+        typeof data.amount !== 'number' ||
+        data.amount <= 0 ||
+        !Number.isFinite(data.amount)) {
       return json({
-        error: "Invalid input. Description and positive amount are required."
+        error: "Invalid input. Description and positive finite amount are required.",
+        code: "INVALID_INPUT"
       }, { status: 400 });
     }
 
@@ -190,10 +194,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     
   } catch (error: any) {
+    // SECURITY: Log full error server-side, return sanitized error to client
     console.error("[Usage Billing] Error:", error);
-    return json({ 
+    return json({
       error: "Failed to create usage charge",
-      details: error.message,
+      code: "USAGE_CHARGE_FAILED"
+      // SECURITY: Don't leak internal error details to clients
     }, { status: 500 });
   }
 };
@@ -320,10 +326,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
     
   } catch (error: any) {
+    // SECURITY: Log full error server-side, return sanitized error to client
     console.error("[Usage Billing] Loader error:", error);
-    return json({ 
+    return json({
       error: "Failed to retrieve usage history",
-      details: error.message,
+      code: "USAGE_HISTORY_FAILED"
+      // SECURITY: Don't leak internal error details to clients
     }, { status: 500 });
   }
 };

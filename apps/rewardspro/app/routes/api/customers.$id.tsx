@@ -36,9 +36,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
   
   // Fetch related data separately (Data API doesn't support includes)
+  // SECURITY: Tier lookup scoped to shop to prevent cross-shop data access
   const [currentTier, creditLedger] = await Promise.all([
-    customer.currentTierId ? db.tier.findUnique({
-      where: { id: customer.currentTierId }
+    customer.currentTierId ? db.tier.findFirst({
+      where: {
+        id: customer.currentTierId,
+        shop: session.shop  // Enforce shop scope
+      }
     }) : Promise.resolve(null),
     db.storeCreditLedger.findMany({
       where: { customerId: customer.id },
