@@ -25,7 +25,10 @@
       "routes/api.setup-customer-metafield": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-diagnostics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-sync-verify": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.points-maintenance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-recalculation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.points": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.points.redeem": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-subscriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.admin.clear-test-data": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -59,6 +62,7 @@
       "routes/api.billing.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.klaviyo.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.points-analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -76,6 +80,7 @@
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -112,6 +117,7 @@
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.locked": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0"
     },
     "routes": {
@@ -256,6 +262,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.points-maintenance": {
+        "id": "routes/api.cron.points-maintenance",
+        "parentId": "root",
+        "file": "app/routes/api.cron.points-maintenance.tsx",
+        "path": "api/cron/points-maintenance",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.cron.tier-recalculation": {
         "id": "routes/api.cron.tier-recalculation",
         "parentId": "root",
@@ -264,6 +279,22 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/api.customer-account.points": {
+        "id": "routes/api.customer-account.points",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.points.tsx",
+        "path": "api/customer-account/points",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-account.points.redeem": {
+        "id": "routes/api.customer-account.points.redeem",
+        "parentId": "routes/api.customer-account.points",
+        "file": "app/routes/api.customer-account.points.redeem.tsx",
+        "path": "redeem",
+        "config": {}
       },
       "routes/api.customer-subscriptions": {
         "id": "routes/api.customer-subscriptions",
@@ -562,6 +593,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.points-analytics": {
+        "id": "routes/api.points-analytics",
+        "parentId": "root",
+        "file": "app/routes/api.points-analytics.tsx",
+        "path": "api/points-analytics",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.webhook-register": {
         "id": "routes/api.webhook-register",
         "parentId": "root",
@@ -718,6 +758,15 @@
         "parentId": "routes/app",
         "file": "app/routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.points_.config": {
+        "id": "routes/app.points_.config",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points_.config.tsx",
+        "path": "points/config",
         "config": {
           "runtime": "nodejs"
         }
@@ -1051,6 +1100,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.points": {
+        "id": "routes/app.points",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points.tsx",
+        "path": "points",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.tiers": {
         "id": "routes/app.tiers",
         "parentId": "routes/app",
@@ -1063,9 +1121,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/Users/alex/rewards-pro/app",
+    "appDirectory": "/Users/yu/Desktop/rewardspro-production/app",
     "basename": "/",
-    "buildDirectory": "/Users/alex/rewards-pro/build",
+    "buildDirectory": "/Users/yu/Desktop/rewardspro-production/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,
@@ -1173,11 +1231,29 @@
         "file": "routes/api.subscription-sync-verify.tsx",
         "path": "api/subscription-sync-verify"
       },
+      "routes/api.cron.points-maintenance": {
+        "id": "routes/api.cron.points-maintenance",
+        "parentId": "root",
+        "file": "routes/api.cron.points-maintenance.tsx",
+        "path": "api/cron/points-maintenance"
+      },
       "routes/api.cron.tier-recalculation": {
         "id": "routes/api.cron.tier-recalculation",
         "parentId": "root",
         "file": "routes/api.cron.tier-recalculation.tsx",
         "path": "api/cron/tier-recalculation"
+      },
+      "routes/api.customer-account.points": {
+        "id": "routes/api.customer-account.points",
+        "parentId": "root",
+        "file": "routes/api.customer-account.points.tsx",
+        "path": "api/customer-account/points"
+      },
+      "routes/api.customer-account.points.redeem": {
+        "id": "routes/api.customer-account.points.redeem",
+        "parentId": "routes/api.customer-account.points",
+        "file": "routes/api.customer-account.points.redeem.tsx",
+        "path": "redeem"
       },
       "routes/api.customer-subscriptions": {
         "id": "routes/api.customer-subscriptions",
@@ -1377,6 +1453,12 @@
         "file": "routes/api.order-sync.start.tsx",
         "path": "api/order-sync/start"
       },
+      "routes/api.points-analytics": {
+        "id": "routes/api.points-analytics",
+        "parentId": "root",
+        "file": "routes/api.points-analytics.tsx",
+        "path": "api/points-analytics"
+      },
       "routes/api.webhook-register": {
         "id": "routes/api.webhook-register",
         "parentId": "root",
@@ -1484,6 +1566,12 @@
         "parentId": "routes/app",
         "file": "routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback"
+      },
+      "routes/app.points_.config": {
+        "id": "routes/app.points_.config",
+        "parentId": "routes/app",
+        "file": "routes/app.points_.config.tsx",
+        "path": "points/config"
       },
       "routes/app.tier-products": {
         "id": "routes/app.tier-products",
@@ -1718,6 +1806,12 @@
         "parentId": "routes/app",
         "file": "routes/app.orders.tsx",
         "path": "orders"
+      },
+      "routes/app.points": {
+        "id": "routes/app.points",
+        "parentId": "routes/app",
+        "file": "routes/app.points.tsx",
+        "path": "points"
       },
       "routes/app.tiers": {
         "id": "routes/app.tiers",
