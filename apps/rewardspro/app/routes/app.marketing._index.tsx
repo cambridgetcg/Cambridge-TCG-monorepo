@@ -17,9 +17,7 @@ import {
   Banner,
   ProgressBar,
   Select,
-  EmptyState,
   Tooltip,
-  Tabs,
 } from "@shopify/polaris";
 import {
   EmailIcon,
@@ -380,38 +378,8 @@ export default function MarketingHub() {
     }).format(amount);
   };
 
-  // If not configured, show setup prompt
-  if (!data.isConfigured) {
-    return (
-      <Page title="Marketing Hub">
-        <Layout>
-          <Layout.Section>
-            <Card>
-              <EmptyState
-                heading="Set up email marketing"
-                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                action={{
-                  content: "Configure Email Settings",
-                  onAction: () => navigate("/app/marketing/settings"),
-                }}
-                secondaryAction={{
-                  content: "Learn more",
-                  url: "https://docs.rewardspro.io/features/email-marketing",
-                  target: "_blank",
-                }}
-              >
-                <p>
-                  Connect your email provider to start sending targeted campaigns
-                  to your loyalty program members. Automate tier notifications,
-                  reward reminders, and win-back campaigns.
-                </p>
-              </EmptyState>
-            </Card>
-          </Layout.Section>
-        </Layout>
-      </Page>
-    );
-  }
+  // Show setup banner if not configured (but still show full hub)
+  const showSetupBanner = !data.isConfigured;
 
   return (
     <Page
@@ -435,6 +403,28 @@ export default function MarketingHub() {
       ]}
     >
       <Layout>
+        {/* Setup Banner - shown if email not configured */}
+        {showSetupBanner && (
+          <Layout.Section>
+            <Banner
+              title="Complete your email setup"
+              tone="warning"
+              action={{
+                content: "Configure Email Settings",
+                onAction: () => navigate("/app/marketing/settings"),
+              }}
+              secondaryAction={{
+                content: "Connect Klaviyo",
+                onAction: () => navigate("/app/marketing/klaviyo"),
+              }}
+            >
+              <p>
+                Set up your email provider to start sending campaigns. You can use SendGrid for direct sending or connect Klaviyo for advanced marketing automation.
+              </p>
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Global Controls */}
         <Layout.Section>
           <InlineStack align="end">
