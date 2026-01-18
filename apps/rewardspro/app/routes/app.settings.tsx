@@ -70,6 +70,10 @@ type ShopSettings = {
   // Base Tier Settings
   autoAssignBaseTier: boolean;
   defaultBaseTierId: string | null;
+  // Tier Trial Abuse Prevention Settings
+  maxLifetimeTrialDays: number;
+  minDaysBetweenTrials: number;
+  allowMultipleTierTrials: boolean;
   // Widget Theme Settings
   widgetThemeMode: WidgetThemeMode;
   widgetPrimaryColor: string | null;
@@ -998,6 +1002,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const autoAssignBaseTier = formData.get("autoAssignBaseTier") === "true";
     const defaultBaseTierIdRaw = formData.get("defaultBaseTierId") as string;
     const defaultBaseTierId = defaultBaseTierIdRaw === "" || defaultBaseTierIdRaw === "auto" ? null : defaultBaseTierIdRaw;
+    // Trial abuse prevention settings
+    const maxLifetimeTrialDaysRaw = parseInt(formData.get("maxLifetimeTrialDays") as string);
+    const maxLifetimeTrialDays = (!isNaN(maxLifetimeTrialDaysRaw) && maxLifetimeTrialDaysRaw >= 7 && maxLifetimeTrialDaysRaw <= 90)
+      ? maxLifetimeTrialDaysRaw
+      : 30;
+    const minDaysBetweenTrialsRaw = parseInt(formData.get("minDaysBetweenTrials") as string);
+    const minDaysBetweenTrials = (!isNaN(minDaysBetweenTrialsRaw) && minDaysBetweenTrialsRaw >= 7 && minDaysBetweenTrialsRaw <= 365)
+      ? minDaysBetweenTrialsRaw
+      : 30;
+    const allowMultipleTierTrials = formData.get("allowMultipleTierTrials") === "true";
     // Widget theme settings
     const widgetThemeMode = formData.get("widgetThemeMode") as "LIGHT" | "DARK" | "CUSTOM";
 
@@ -1091,6 +1105,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Base tier settings
         autoAssignBaseTier,
         defaultBaseTierId,
+        // Trial abuse prevention settings
+        maxLifetimeTrialDays,
+        minDaysBetweenTrials,
+        allowMultipleTierTrials,
         // Widget theme settings
         widgetThemeMode,
         widgetPrimaryColor,
@@ -1184,6 +1202,11 @@ export default function SettingsPage() {
   // Base tier settings state
   const [autoAssignBaseTier, setAutoAssignBaseTier] = useState(settings.autoAssignBaseTier ?? true);
   const [defaultBaseTierId, setDefaultBaseTierId] = useState<string>(settings.defaultBaseTierId || "");
+
+  // Tier trial abuse prevention settings state
+  const [maxLifetimeTrialDays, setMaxLifetimeTrialDays] = useState<string>(String(settings.maxLifetimeTrialDays ?? 30));
+  const [minDaysBetweenTrials, setMinDaysBetweenTrials] = useState<string>(String(settings.minDaysBetweenTrials ?? 30));
+  const [allowMultipleTierTrials, setAllowMultipleTierTrials] = useState(settings.allowMultipleTierTrials ?? false);
 
   // Credit sync state
   interface CreditSyncJob {
@@ -1306,6 +1329,11 @@ export default function SettingsPage() {
       tierRecalculationFrequency !== settings.tierRecalculationFrequency ||
       autoAssignBaseTier !== (settings.autoAssignBaseTier ?? true) ||
       defaultBaseTierId !== (settings.defaultBaseTierId || "") ||
+      // Trial abuse prevention settings
+      maxLifetimeTrialDays !== String(settings.maxLifetimeTrialDays ?? 30) ||
+      minDaysBetweenTrials !== String(settings.minDaysBetweenTrials ?? 30) ||
+      allowMultipleTierTrials !== (settings.allowMultipleTierTrials ?? false) ||
+      // Widget theme settings
       widgetThemeMode !== (settings.widgetThemeMode || "LIGHT") ||
       widgetPrimaryColor !== (settings.widgetPrimaryColor || "#5C6AC4") ||
       widgetBackgroundColor !== (settings.widgetBackgroundColor || "#FFFFFF") ||
@@ -1320,7 +1348,7 @@ export default function SettingsPage() {
       targetRoiPercent !== (settings.targetRoiPercent?.toString() || "");
 
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
 
   // Handle currency fetch response
   useEffect(() => {
@@ -1387,6 +1415,10 @@ export default function SettingsPage() {
     // Base tier settings
     formData.append("autoAssignBaseTier", String(autoAssignBaseTier));
     formData.append("defaultBaseTierId", defaultBaseTierId || "");
+    // Trial abuse prevention settings
+    formData.append("maxLifetimeTrialDays", maxLifetimeTrialDays);
+    formData.append("minDaysBetweenTrials", minDaysBetweenTrials);
+    formData.append("allowMultipleTierTrials", String(allowMultipleTierTrials));
     // Widget theme settings
     formData.append("widgetThemeMode", widgetThemeMode);
     formData.append("widgetPrimaryColor", widgetPrimaryColor);
@@ -1404,7 +1436,7 @@ export default function SettingsPage() {
     // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -1417,6 +1449,10 @@ export default function SettingsPage() {
     // Base tier settings reset
     setAutoAssignBaseTier(settings.autoAssignBaseTier ?? true);
     setDefaultBaseTierId(settings.defaultBaseTierId || "");
+    // Trial abuse prevention settings reset
+    setMaxLifetimeTrialDays(String(settings.maxLifetimeTrialDays ?? 30));
+    setMinDaysBetweenTrials(String(settings.minDaysBetweenTrials ?? 30));
+    setAllowMultipleTierTrials(settings.allowMultipleTierTrials ?? false);
     // Widget theme reset
     setWidgetThemeMode(settings.widgetThemeMode || "LIGHT");
     setWidgetPrimaryColor(settings.widgetPrimaryColor || "#5C6AC4");
@@ -1809,6 +1845,11 @@ export default function SettingsPage() {
       id: 'widget-theme',
       content: 'Widget Theme',
       panelID: 'widget-theme-panel',
+    },
+    {
+      id: 'integrations',
+      content: 'Integrations',
+      panelID: 'integrations-panel',
     },
   ];
 
@@ -2483,6 +2524,69 @@ export default function SettingsPage() {
                         </Banner>
                       )}
 
+                      <Divider />
+
+                      {/* Trial Abuse Prevention Section */}
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Trial Abuse Prevention</Text>
+                          <Badge tone="info">Protection</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Control how tier subscription trials are granted to prevent abuse
+                        </Text>
+                      </BlockStack>
+
+                      <FormLayout>
+                        <Checkbox
+                          label="Allow multiple tier trials"
+                          checked={allowMultipleTierTrials}
+                          onChange={setAllowMultipleTierTrials}
+                          helpText="When enabled, customers can trial different tiers (one trial per tier). When disabled, customers get only one trial ever."
+                        />
+
+                        <FormLayout.Group>
+                          <TextField
+                            label="Maximum lifetime trial days"
+                            type="number"
+                            value={maxLifetimeTrialDays}
+                            onChange={setMaxLifetimeTrialDays}
+                            helpText="Total trial days a customer can accumulate across all tiers"
+                            min={7}
+                            max={90}
+                            suffix="days"
+                          />
+
+                          <TextField
+                            label="Minimum days between trials"
+                            type="number"
+                            value={minDaysBetweenTrials}
+                            onChange={setMinDaysBetweenTrials}
+                            helpText="Cooldown period before starting another tier trial"
+                            min={7}
+                            max={365}
+                            suffix="days"
+                          />
+                        </FormLayout.Group>
+                      </FormLayout>
+
+                      <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                        <BlockStack gap="200">
+                          <Text as="span" variant="bodySm" fontWeight="semibold">
+                            How Trial Protection Works:
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            • Customers are tracked for total trial days used across all tiers
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            • The cooldown period prevents rapid trial switching between tiers
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            • Trial grants are logged for audit and compliance purposes
+                          </Text>
+                        </BlockStack>
+                      </Box>
+
                       {/* Recalculate Confirmation Modal */}
                       <Modal
                         open={showRecalculateModal}
@@ -2823,6 +2927,132 @@ export default function SettingsPage() {
                           </div>
                         </BlockStack>
                       </Box>
+                    </BlockStack>
+                  )}
+
+                  {/* Integrations Tab */}
+                  {selectedTab === 5 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Integrations</Text>
+                          <Badge tone="info">Third-Party</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Connect external services to extend your loyalty program
+                        </Text>
+                      </BlockStack>
+
+                      {/* Marketing Hub Mode */}
+                      <Card>
+                        <BlockStack gap="400">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingMd">Marketing Hub</Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Choose how you want to handle email marketing and automations
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+
+                          <BlockStack gap="300">
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                              borderWidth="025"
+                              borderColor="border"
+                            >
+                              <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                                <BlockStack gap="100">
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                      In-House Email
+                                    </Text>
+                                    <Badge tone="success">Built-in</Badge>
+                                  </InlineStack>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    Use our built-in email campaigns and automations with no additional setup
+                                  </Text>
+                                </BlockStack>
+                                <Button
+                                  size="slim"
+                                  variant="primary"
+                                  onClick={() => navigate("/app/marketing")}
+                                >
+                                  Open Marketing Hub
+                                </Button>
+                              </InlineStack>
+                            </Box>
+
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                              borderWidth="025"
+                              borderColor="border"
+                            >
+                              <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                                <BlockStack gap="100">
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                      Klaviyo Integration
+                                    </Text>
+                                    <Badge tone="magic">Advanced</Badge>
+                                  </InlineStack>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    Connect Klaviyo for powerful segmentation and marketing automation
+                                  </Text>
+                                </BlockStack>
+                                <Button
+                                  size="slim"
+                                  onClick={() => navigate("/app/marketing/klaviyo")}
+                                >
+                                  Configure Klaviyo
+                                </Button>
+                              </InlineStack>
+                            </Box>
+                          </BlockStack>
+                        </BlockStack>
+                      </Card>
+
+                      {/* Future Integrations */}
+                      <Card>
+                        <BlockStack gap="300">
+                          <Text as="h3" variant="headingMd">Coming Soon</Text>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            More integrations are on the way to help you connect your favorite tools
+                          </Text>
+
+                          <InlineStack gap="300" wrap>
+                            <Box padding="300" background="bg-surface-disabled" borderRadius="200">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodySm" tone="subdued">Zapier</Text>
+                                <Badge>Soon</Badge>
+                              </InlineStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-disabled" borderRadius="200">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodySm" tone="subdued">Slack</Text>
+                                <Badge>Soon</Badge>
+                              </InlineStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-disabled" borderRadius="200">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodySm" tone="subdued">Google Analytics</Text>
+                                <Badge>Soon</Badge>
+                              </InlineStack>
+                            </Box>
+                          </InlineStack>
+                        </BlockStack>
+                      </Card>
+
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          <Text as="span" fontWeight="semibold">Need a specific integration?</Text>{" "}
+                          Let us know at support@rewardspro.app and we'll prioritize it.
+                        </Text>
+                      </Banner>
                     </BlockStack>
                   )}
                 </Box>

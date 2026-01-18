@@ -139,6 +139,11 @@ model ShopSettings {
   widgetBorderRadius    Int?            @default(12) // Border radius in pixels
   widgetFontFamily      String?         @default("inherit") // Font family
 
+  // Tier Trial Abuse Prevention Settings
+  maxLifetimeTrialDays    Int     @default(30) // Maximum total trial days a customer can use
+  minDaysBetweenTrials    Int     @default(30) // Minimum days between trial attempts
+  allowMultipleTierTrials Boolean @default(false) // Whether to allow trials on different tiers
+
   // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
