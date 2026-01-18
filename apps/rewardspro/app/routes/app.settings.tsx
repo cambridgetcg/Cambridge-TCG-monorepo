@@ -1764,6 +1764,24 @@ export default function SettingsPage() {
   }, [fetcher.data, showSuccess, showError]);
 
   // Tab definitions - consolidated for better UX
+  // Calculate tab status badges
+  const isCurrencyMismatch = shopifyCurrencyResult && shopifyCurrencyResult.shopifyCurrency !== shopifyCurrencyResult.currentCurrency;
+  const dataSyncHealth = (() => {
+    const hasPendingCustomerSync = !customerSyncStats.customersInitialSynced;
+    const hasNoOrders = orderSyncStats.totalOrders === 0;
+    if (hasPendingCustomerSync || hasNoOrders) return 'setup';
+    return 'healthy';
+  })();
+  const tierAutomationStatus = tierRecalculationEnabled ? 'active' : 'inactive';
+  const metricsCompleteness = (() => {
+    const hasMetrics = settings.averageProfitMargin || settings.averageCogsPercent || settings.averageOrderValue;
+    const hasAllMetrics = settings.averageProfitMargin && settings.averageCogsPercent && settings.averageOrderValue;
+    if (hasAllMetrics) return 'complete';
+    if (hasMetrics) return 'partial';
+    return 'empty';
+  })();
+  const widgetThemeStatus = widgetThemeMode;
+
   const tabs = [
     {
       id: 'general',
@@ -1774,6 +1792,7 @@ export default function SettingsPage() {
       id: 'data-sync',
       content: 'Data & Sync',
       panelID: 'data-sync-panel',
+      badge: dataSyncHealth === 'setup' ? 'Setup' : undefined,
     },
     {
       id: 'tier-automation',
@@ -1784,6 +1803,7 @@ export default function SettingsPage() {
       id: 'store-metrics',
       content: 'Store Metrics',
       panelID: 'store-metrics-panel',
+      badge: metricsCompleteness === 'empty' ? 'Configure' : undefined,
     },
     {
       id: 'widget-theme',
@@ -1843,7 +1863,13 @@ export default function SettingsPage() {
                     <BlockStack gap="500">
                       {/* Store Information Section */}
                       <BlockStack gap="300">
-                        <Text as="h2" variant="headingMd">Store Information</Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Store Information</Text>
+                          <Badge tone="success">Configured</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Basic store details synced from Shopify
+                        </Text>
                         <FormLayout>
                           <FormLayout.Group>
                             <TextField
@@ -1885,7 +1911,17 @@ export default function SettingsPage() {
 
                       {/* Currency Section */}
                       <BlockStack gap="300">
-                        <Text as="h2" variant="headingMd">Currency</Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Currency</Text>
+                          {isCurrencyMismatch ? (
+                            <Badge tone="warning">Mismatch</Badge>
+                          ) : (
+                            <Badge tone="success">Synced</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Currency display format for loyalty rewards
+                        </Text>
                         <FormLayout>
                           <FormLayout.Group>
                             <Select
@@ -1978,11 +2014,53 @@ export default function SettingsPage() {
                   {selectedTab === 1 && (
                     <BlockStack gap="500">
                       <BlockStack gap="200">
-                        <Text variant="headingMd" as="h2">Data Synchronization</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Sync customers, orders, and store credit from Shopify
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text variant="headingMd" as="h2">Data Synchronization</Text>
+                          {dataSyncHealth === 'setup' ? (
+                            <Badge tone="warning">Initial Setup</Badge>
+                          ) : (
+                            <Badge tone="success">Healthy</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {dataSyncHealth === 'setup'
+                            ? "Complete the initial sync to import your customers and orders into the loyalty program"
+                            : "Your customer and order data is synced. Run manual syncs to import recent changes."}
                         </Text>
                       </BlockStack>
+
+                      {/* First-time setup guidance */}
+                      {dataSyncHealth === 'setup' && (
+                        <Banner tone="info">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Welcome! Complete these steps to set up your loyalty program:
+                            </Text>
+                            <BlockStack gap="100">
+                              <InlineStack gap="200" blockAlign="center">
+                                {customerSyncStats.customersInitialSynced ? (
+                                  <Badge tone="success">✓</Badge>
+                                ) : (
+                                  <Badge tone="attention">1</Badge>
+                                )}
+                                <Text as="span" variant="bodySm">
+                                  Sync customers to import your existing customer base
+                                </Text>
+                              </InlineStack>
+                              <InlineStack gap="200" blockAlign="center">
+                                {orderSyncStats.totalOrders > 0 ? (
+                                  <Badge tone="success">✓</Badge>
+                                ) : (
+                                  <Badge tone="attention">2</Badge>
+                                )}
+                                <Text as="span" variant="bodySm">
+                                  Sync orders to calculate historical spending for tier assignment
+                                </Text>
+                              </InlineStack>
+                            </BlockStack>
+                          </BlockStack>
+                        </Banner>
+                      )}
 
                       {/* Stats Summary Grid */}
                       <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
@@ -2253,11 +2331,37 @@ export default function SettingsPage() {
                   {selectedTab === 2 && (
                     <BlockStack gap="500">
                       <BlockStack gap="200">
-                        <Text as="h2" variant="headingMd">Automatic Tier Recalculation</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Automatically recalculate customer tiers based on their spending to ensure accurate tier assignments.
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Automatic Tier Recalculation</Text>
+                          {tierAutomationStatus === 'active' ? (
+                            <Badge tone="success">Active</Badge>
+                          ) : (
+                            <Badge tone="info">Disabled</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {tierAutomationStatus === 'active'
+                            ? `Running ${tierRecalculationFrequency.toLowerCase()} to keep tier assignments accurate`
+                            : "Enable to automatically adjust customer tiers based on their spending"}
                         </Text>
                       </BlockStack>
+
+                      {/* Setup guidance when disabled and no tiers exist */}
+                      {!tierRecalculationEnabled && tiers.length === 0 && (
+                        <Banner tone="warning">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Create tiers first
+                            </Text>
+                            <Text as="p" variant="bodySm">
+                              Before enabling automatic recalculation, you need to set up your loyalty tiers. Go to Settings → Loyalty Tiers to create your tier structure.
+                            </Text>
+                            <Button size="slim" onClick={() => navigate("/app/tiers")}>
+                              Set Up Tiers
+                            </Button>
+                          </BlockStack>
+                        </Banner>
+                      )}
 
                       <FormLayout>
                         <Checkbox
@@ -2315,10 +2419,18 @@ export default function SettingsPage() {
 
                       {/* Default Base Tier Section */}
                       <BlockStack gap="200">
-                        <Text as="h2" variant="headingMd">Default Customer Tier</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Automatically assign a base tier to new customers who don't qualify for any other tier.
-                          This ensures all customers participate in the loyalty program from day one.
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Default Customer Tier</Text>
+                          {autoAssignBaseTier ? (
+                            <Badge tone="success">Enabled</Badge>
+                          ) : (
+                            <Badge tone="info">Disabled</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {autoAssignBaseTier
+                            ? "New customers are automatically enrolled in your loyalty program"
+                            : "Enable to automatically assign a base tier to new customers from day one"}
                         </Text>
                       </BlockStack>
 
@@ -2406,11 +2518,38 @@ export default function SettingsPage() {
                   {selectedTab === 3 && (
                     <BlockStack gap="500">
                       <BlockStack gap="200">
-                        <Text as="h2" variant="headingMd">Store Business Metrics</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Configure your store's financial metrics to enable accurate ROI and profitability calculations in analytics.
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Store Business Metrics</Text>
+                          {metricsCompleteness === 'complete' ? (
+                            <Badge tone="success">Complete</Badge>
+                          ) : metricsCompleteness === 'partial' ? (
+                            <Badge tone="warning">Partial</Badge>
+                          ) : (
+                            <Badge tone="new">Configure</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {metricsCompleteness === 'complete'
+                            ? "Your metrics are configured for accurate ROI calculations"
+                            : metricsCompleteness === 'partial'
+                              ? "Add more metrics for better analytics accuracy"
+                              : "Configure your financial metrics to unlock ROI and profitability insights"}
                         </Text>
                       </BlockStack>
+
+                      {/* Setup guidance when empty */}
+                      {metricsCompleteness === 'empty' && (
+                        <Banner tone="info">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Why configure these metrics?
+                            </Text>
+                            <Text as="p" variant="bodySm">
+                              Your business metrics help calculate the true ROI of your loyalty program. By knowing your profit margins and average order value, we can show you exactly how much revenue your tiers and cashback are generating.
+                            </Text>
+                          </BlockStack>
+                        </Banner>
+                      )}
 
                       <FormLayout>
                         <FormLayout.Group>
@@ -2526,9 +2665,18 @@ export default function SettingsPage() {
                   {selectedTab === 4 && (
                     <BlockStack gap="500">
                       <BlockStack gap="200">
-                        <Text as="h2" variant="headingMd">Widget Theme</Text>
-                        <Text as="p" variant="bodyMd" tone="subdued">
-                          Customize the appearance of the customer loyalty widget on your storefront.
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Widget Theme</Text>
+                          <Badge tone={widgetThemeStatus === 'CUSTOM' ? 'magic' : widgetThemeStatus === 'DARK' ? 'info' : 'success'}>
+                            {widgetThemeStatus === 'CUSTOM' ? 'Custom' : widgetThemeStatus === 'DARK' ? 'Dark Mode' : 'Light Mode'}
+                          </Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {widgetThemeStatus === 'CUSTOM'
+                            ? "Using your custom brand colors for the loyalty widget"
+                            : widgetThemeStatus === 'DARK'
+                              ? "Dark theme for stores with dark backgrounds"
+                              : "Light theme for stores with light backgrounds"}
                         </Text>
                       </BlockStack>
 
