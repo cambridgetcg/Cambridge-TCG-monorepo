@@ -188,7 +188,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const hasPurchasableTiers = entitlements.featurePurchasableTiers;
 
     // Fetch tiers, shop settings, and tier distribution
-    const [tiers, shopSettings, customers] = await Promise.all([
+    // OPTIMIZED: Use groupBy aggregation instead of fetching all customers
+    const [tiers, shopSettings, tierDistributionResult] = await Promise.all([
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
@@ -196,34 +197,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.shopSettings.findUnique({
         where: { shop },
       }),
-      db.customer.findMany({
+      // Use aggregation - much faster than fetching all customer records
+      db.customer.groupBy({
+        by: ['currentTierId'],
         where: { shop },
-        select: { currentTierId: true },
+        _count: {
+          currentTierId: true
+        }
       }),
     ]);
 
-    // Calculate tier distribution
+    // Transform groupBy result to distribution map
     const tierDistribution: Record<string, number> = {};
-    customers.forEach((customer) => {
-      if (customer.currentTierId) {
-        tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
+    for (const group of tierDistributionResult) {
+      if (group.currentTierId) {
+        tierDistribution[group.currentTierId] = group._count.currentTierId;
       }
-    });
+    }
     
     // Try to fetch tier products from database (if table exists)
     let dbTierProducts: any[] = [];
     let deletedTierProducts: any[] = [];
     try {
-      // Filter out soft-deleted products from main list
-      dbTierProducts = await (db as any).tierProduct.findMany({
-        where: {
-          shop,
-          deletedAt: null // Exclude soft-deleted products
-        },
-        include: {
-          tier: true,
-        }
+      // OPTIMIZED: Single query for all tier products, then filter in memory
+      // This reduces database round trips from 2 to 1
+      const allTierProducts = await (db as any).tierProduct.findMany({
+        where: { shop },
+        include: { tier: true },
+        orderBy: { deletedAt: 'desc' } // Deleted products first for sorting
       });
+
+      // Split into active and soft-deleted in memory (much faster than 2 DB queries)
+      dbTierProducts = allTierProducts.filter((p: any) => !p.deletedAt);
+      const softDeleted = allTierProducts.filter((p: any) => p.deletedAt);
 
       // DIAGNOSTIC: Log all database tier products
       console.log(`[TierProducts:Loader] Database tier products found:`,
@@ -235,18 +241,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }))
       );
 
-      // Also fetch soft-deleted products for "Recently Deleted" section
+      // Calculate recovery info for soft-deleted products
       const now = new Date();
-      const softDeleted = await (db as any).tierProduct.findMany({
-        where: {
-          shop,
-          deletedAt: { not: null } // Only soft-deleted products
-        },
-        include: {
-          tier: true,
-        },
-        orderBy: { deletedAt: 'desc' }
-      });
 
       // Calculate recovery info for each deleted product
       const SOFT_DELETE_RETENTION_DAYS = 30;
@@ -310,52 +306,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     );
     
     const productsResult = await productsResponse.json();
-    
+
     // Transform Shopify products to our TierProduct format
     const tierProducts: TierProduct[] = [];
-    
+
+    // OPTIMIZED: Build tier lookup maps ONCE before the loop
+    // This changes O(n) lookups per product to O(1)
+    const tierByNameLower = new Map(tiers.map(t => [t.name.toLowerCase(), t]));
+    const tiersByLengthDesc = [...tiers].sort((a, b) => b.name.length - a.name.length);
+
+    // OPTIMIZED: Build dbProduct lookup map by normalized ID
+    const dbProductByNumericId = new Map(
+      dbTierProducts.map(p => [extractNumericId(p.shopifyProductId), p])
+    );
+
     if (productsResult.data?.products?.edges) {
       for (const edge of productsResult.data.products.edges) {
         const product = edge.node;
         const variant = product.variants.edges[0]?.node;
-        
+
         if (variant) {
           // Extract tier name and duration from tags or title
           const tags = product.tags || [];
           let duration = 'MONTHLY' as TierProduct['duration'];
-          
+
           // Check tags for duration
           if (tags.includes('monthly')) duration = 'MONTHLY';
           else if (tags.includes('annual')) duration = 'ANNUAL';
           else if (tags.includes('lifetime')) duration = 'LIFETIME';
-          
+
           // Extract tier name from title (assuming format: "TierName Tier Membership - Duration")
           const tierNameMatch = product.title.match(/^(.+?)\s+Tier\s+Membership/);
           const tierName = tierNameMatch ? tierNameMatch[1] : product.title;
 
-          // Find matching tier - prefer exact match on extracted tier name
-          // then fall back to longest substring match to avoid matching
-          // "Gold" when tier is actually "Gold Premium"
-          let matchingTier = tiers.find(t =>
-            t.name.toLowerCase() === tierName.toLowerCase()
-          );
+          // OPTIMIZED: O(1) lookup instead of O(n) find
+          let matchingTier = tierByNameLower.get(tierName.toLowerCase());
           if (!matchingTier) {
-            // Fall back to substring matching, but prioritize longer matches
-            // to avoid "Gold" matching before "Gold Premium"
-            const sortedTiers = [...tiers].sort((a, b) => b.name.length - a.name.length);
-            matchingTier = sortedTiers.find(t =>
-              product.title.toLowerCase().includes(t.name.toLowerCase())
+            // Fall back to substring matching using pre-sorted array
+            const titleLower = product.title.toLowerCase();
+            matchingTier = tiersByLengthDesc.find(t =>
+              titleLower.includes(t.name.toLowerCase())
             );
           }
-          
-          // Check if this product exists in database
-          // Use normalized ID comparison to handle both formats:
-          // - Database may store full GraphQL ID: gid://shopify/Product/123
-          // - Or just numeric ID: 123
+
+          // OPTIMIZED: O(1) lookup using pre-built map instead of O(n) find
+          // Handles both full GraphQL ID (gid://shopify/Product/123) and numeric ID (123)
           const productNumericId = extractNumericId(product.id);
-          const dbProduct = dbTierProducts.find(p =>
-            extractNumericId(p.shopifyProductId) === productNumericId
-          );
+          const dbProduct = dbProductByNumericId.get(productNumericId);
 
           // Debug logging for tier product resolution
           const resolvedSku = variant.sku || dbProduct?.sku || '';
