@@ -151,109 +151,58 @@ interface LoaderData {
 /**
  * Update customer spending totals from Order table (source of truth)
  * This ensures totalSpent, netSpent, totalRefunded are accurate
+ * OPTIMIZED: Removed redundant findMany queries used only for logging,
+ * consolidated to 2 parallel aggregations + 1 update
  */
 async function updateCustomerSpendingTotals(customerId: string, shop: string) {
   console.log(`[Orders] Starting spending totals update for customer ${customerId}`);
-
-  // First, check ALL orders for this customer (no filter)
-  const allOrders = await db.order.findMany({
-    where: {
-      shop,
-      customerId
-    },
-    select: {
-      id: true,
-      shopifyOrderName: true,
-      financialStatus: true,
-      totalPrice: true,
-      totalRefunded: true
-    }
-  });
-
-  console.log(`[Orders] Found ${allOrders.length} total orders for customer ${customerId}`);
-  allOrders.forEach(o => {
-    console.log(`  - Order ${o.shopifyOrderName}: status=${o.financialStatus}, price=${o.totalPrice}`);
-  });
-
-  // Aggregate all-time spending (PAID/PARTIALLY_REFUNDED)
-  const orderStats = await db.order.aggregate({
-    where: {
-      shop,
-      customerId,
-      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
-    },
-    _sum: {
-      totalPrice: true,
-      totalRefunded: true,
-      cashbackAmount: true
-    },
-    _count: {
-      id: true
-    },
-    _max: {
-      shopifyCreatedAt: true
-    }
-  });
-
-  console.log(`[Orders] Aggregation results (PAID/PARTIALLY_REFUNDED only):`, {
-    count: orderStats._count.id,
-    totalPrice: orderStats._sum.totalPrice,
-    totalRefunded: orderStats._sum.totalRefunded
-  });
-
-  const totalSpent = orderStats._sum.totalPrice || 0;
-  const totalRefunded = orderStats._sum.totalRefunded || 0;
-  const netSpent = totalSpent - totalRefunded;
 
   // Calculate annual spending (last 12 months) for tier calculations
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-  console.log(`[Orders] 📅 Calculating annual spending from ${twelveMonthsAgo.toISOString()} to now`);
+  // OPTIMIZED: Run both aggregations in parallel instead of sequentially
+  const [orderStats, annualOrderStats] = await Promise.all([
+    // All-time spending (PAID/PARTIALLY_REFUNDED)
+    db.order.aggregate({
+      where: {
+        shop,
+        customerId,
+        financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+      },
+      _sum: {
+        totalPrice: true,
+        totalRefunded: true,
+        cashbackAmount: true
+      },
+      _count: {
+        id: true
+      },
+      _max: {
+        shopifyCreatedAt: true
+      }
+    }),
+    // Annual spending (last 12 months)
+    db.order.aggregate({
+      where: {
+        shop,
+        customerId,
+        shopifyCreatedAt: { gte: twelveMonthsAgo },
+        financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
+      },
+      _sum: {
+        totalPrice: true,
+        totalRefunded: true
+      }
+    })
+  ]);
 
-  // First, get the list of orders included in annual calculation for logging
-  const annualOrders = await db.order.findMany({
-    where: {
-      shop,
-      customerId,
-      shopifyCreatedAt: { gte: twelveMonthsAgo },
-      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
-    },
-    select: {
-      shopifyOrderName: true,
-      shopifyCreatedAt: true,
-      totalPrice: true,
-      totalRefunded: true,
-      financialStatus: true
-    },
-    orderBy: {
-      shopifyCreatedAt: 'desc'
-    }
-  });
-
-  console.log(`[Orders] 📦 Found ${annualOrders.length} orders in last 12 months for annualSpent calculation:`);
-  annualOrders.forEach(order => {
-    const netAmount = Number(order.totalPrice) - Number(order.totalRefunded);
-    console.log(`  - ${order.shopifyOrderName} (${order.shopifyCreatedAt.toISOString().split('T')[0]}): ${order.totalPrice} - ${order.totalRefunded} = ${netAmount} [${order.financialStatus}]`);
-  });
-
-  // Now do the aggregation
-  const annualOrderStats = await db.order.aggregate({
-    where: {
-      shop,
-      customerId,
-      shopifyCreatedAt: { gte: twelveMonthsAgo },
-      financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
-    },
-    _sum: {
-      totalPrice: true,
-      totalRefunded: true
-    }
-  });
-
+  const totalSpent = orderStats._sum.totalPrice || 0;
+  const totalRefunded = orderStats._sum.totalRefunded || 0;
+  const netSpent = totalSpent - totalRefunded;
   const annualSpent = (annualOrderStats._sum.totalPrice || 0) - (annualOrderStats._sum.totalRefunded || 0);
 
-  console.log(`[Orders] 💰 Annual spending calculation: ${annualOrderStats._sum.totalPrice} - ${annualOrderStats._sum.totalRefunded} = ${annualSpent}`);
+  console.log(`[Orders] Aggregation results - orders: ${orderStats._count.id}, totalSpent: ${totalSpent}, annualSpent: ${annualSpent}`);
 
   await db.customer.update({
     where: { id: customerId },
@@ -269,12 +218,7 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
     }
   });
 
-  console.log(`[Orders] ✅ Updated customer ${customerId}:`);
-  console.log(`[Orders]    - totalSpent (all-time): ${totalSpent}`);
-  console.log(`[Orders]    - annualSpent (12 months): ${annualSpent}`);
-  console.log(`[Orders]    - netSpent: ${netSpent}`);
-  console.log(`[Orders]    - totalRefunded: ${totalRefunded}`);
-  console.log(`[Orders]    - orderCount: ${orderStats._count.id}`);
+  console.log(`[Orders] ✅ Updated customer ${customerId}: totalSpent=${totalSpent}, annualSpent=${annualSpent}, netSpent=${netSpent}, orders=${orderStats._count.id}`);
 }
 
 // ============================================
@@ -417,33 +361,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Orders Loader] - totalCount:', totalCount);
     console.log('[Orders Loader] - shopSettings:', shopSettings ? 'found' : 'null');
 
-    // Calculate stats
-    console.log('[Orders Loader] Calculating stats for all orders...');
-    const allOrders = await db.order.findMany({
-      where: { shop },
-      select: {
-        cashbackAmount: true,
-        cashbackProcessed: true,
-        totalRefunded: true,
-      },
-    });
-
-    console.log('[Orders Loader] Stats calculation - total orders in DB:', allOrders.length);
+    // OPTIMIZED: Calculate stats using aggregation instead of fetching all orders
+    console.log('[Orders Loader] Calculating stats using aggregation...');
+    const [orderCount, totalCashbackAgg, pendingCashbackAgg, processedCashbackAgg, totalRefundedAgg] = await Promise.all([
+      db.order.count({ where: { shop } }),
+      db.order.aggregate({
+        where: { shop },
+        _sum: { cashbackAmount: true }
+      }),
+      db.order.aggregate({
+        where: { shop, cashbackProcessed: false, cashbackAmount: { not: null } },
+        _sum: { cashbackAmount: true }
+      }),
+      db.order.aggregate({
+        where: { shop, cashbackProcessed: true, cashbackAmount: { not: null } },
+        _sum: { cashbackAmount: true }
+      }),
+      db.order.aggregate({
+        where: { shop },
+        _sum: { totalRefunded: true }
+      }),
+    ]);
 
     const stats = {
-      totalOrders: allOrders.length,
-      totalCashback: allOrders.reduce((sum, o) =>
-        sum + (o.cashbackAmount ? Number(o.cashbackAmount) : 0), 0
-      ),
-      pendingCashback: allOrders
-        .filter(o => o.cashbackAmount && !o.cashbackProcessed)
-        .reduce((sum, o) => sum + Number(o.cashbackAmount), 0),
-      processedCashback: allOrders
-        .filter(o => o.cashbackAmount && o.cashbackProcessed)
-        .reduce((sum, o) => sum + Number(o.cashbackAmount), 0),
-      totalRefunded: allOrders.reduce((sum, o) =>
-        sum + Number(o.totalRefunded), 0
-      ),
+      totalOrders: orderCount,
+      totalCashback: Number(totalCashbackAgg._sum.cashbackAmount || 0),
+      pendingCashback: Number(pendingCashbackAgg._sum.cashbackAmount || 0),
+      processedCashback: Number(processedCashbackAgg._sum.cashbackAmount || 0),
+      totalRefunded: Number(totalRefundedAgg._sum.totalRefunded || 0),
     };
 
     console.log('[Orders Loader] Stats calculated:', stats);
@@ -650,21 +595,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const amount = parseFloat(formData.get("amount") as string);
         const reason = formData.get("reason") as string;
 
-        // Fetch order with customer
+        // OPTIMIZED: Fetch order with customer in single query
         const order = await db.order.findFirst({
           where: { id: orderId, shop },
+          include: { customer: true }
         });
 
         if (!order) {
           throw new Error("Order not found");
         }
 
-        // Fetch customer separately
-        const customer = order.customerId !== "unknown"
-          ? await db.customer.findUnique({
-              where: { id: order.customerId }
-            })
-          : null;
+        const customer = order.customer;
 
         if (!customer || !customer.shopifyCustomerId) {
           throw new Error("Customer not found or missing Shopify ID");
@@ -784,21 +725,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       case "process-cashback-old": {
         const orderId = formData.get("orderId") as string;
 
-        // Fetch order with customer
+        // OPTIMIZED: Fetch order with customer in single query
         const order = await db.order.findFirst({
           where: { id: orderId, shop },
+          include: { customer: true }
         });
 
         if (!order) {
           throw new Error("Order not found");
         }
 
-        // Fetch customer separately
-        const customer = order.customerId !== "unknown"
-          ? await db.customer.findUnique({
-              where: { id: order.customerId }
-            })
-          : null;
+        const customer = order.customer;
 
         if (!customer || !customer.shopifyCustomerId) {
           throw new Error("Customer not found or missing Shopify ID");
@@ -1168,14 +1105,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // If no order data passed, fall back to fetching from DB
-        if (ordersToProcess.length === 0) {
-          for (const orderId of orderIds) {
-            const order = await db.order.findFirst({
-              where: { id: orderId, shop },
-              include: { customer: true }
-            });
-            if (order) ordersToProcess.push(order);
-          }
+        // OPTIMIZED: Use single findMany with IN clause instead of N individual queries
+        if (ordersToProcess.length === 0 && orderIds.length > 0) {
+          const fetchedOrders = await db.order.findMany({
+            where: { id: { in: orderIds }, shop },
+            include: { customer: true }
+          });
+          ordersToProcess.push(...fetchedOrders);
         }
 
         // Process each order
