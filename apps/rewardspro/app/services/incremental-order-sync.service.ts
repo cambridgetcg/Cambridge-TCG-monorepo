@@ -749,12 +749,15 @@ export class IncrementalOrderSync {
 
         if (unknownCustomer) return unknownCustomer.id;
 
+        // Create system placeholder for orders without customer data (POS, guest checkout)
+        // Email uses shop domain to clearly indicate this is not a real customer
+        const placeholderEmail = `unknown-customer@${shop.replace('.myshopify.com', '')}.internal`;
         const newUnknownCustomer = await tx.customer.create({
           data: {
             id: uuidv4(),
             shop,
             shopifyCustomerId: 'unknown',
-            email: 'unknown@example.com',
+            email: placeholderEmail,
             firstName: 'Unknown',
             lastName: 'Customer',
             storeCredit: 0,

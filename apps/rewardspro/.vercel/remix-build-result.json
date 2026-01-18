@@ -32,13 +32,11 @@
       "routes/api.customer-account.points.redeem": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-subscriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.admin.clear-test-data": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-maintenance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.dismiss-widget-banner": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.admin.seed-test-data": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-cleanup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -59,7 +57,6 @@
       "routes/api.credit-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.gitbook-assistant": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-billing-mode": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.klaviyo.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -69,7 +66,6 @@
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.usage": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/api.test-data-api": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.email.domain": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.set-currency": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -89,11 +85,9 @@
       "routes/app.points_.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.points_.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.additional": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.monitoring": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.proxy-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics.export.csv": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics.realtime": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -340,15 +334,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/api.admin.clear-test-data": {
-        "id": "routes/api.admin.clear-test-data",
-        "parentId": "root",
-        "file": "app/routes/api.admin.clear-test-data.tsx",
-        "path": "api/admin/clear-test-data",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/api.cron.tier-maintenance": {
         "id": "routes/api.cron.tier-maintenance",
         "parentId": "root",
@@ -390,15 +375,6 @@
         "parentId": "root",
         "file": "app/routes/webhooks.customers.update.tsx",
         "path": "webhooks/customers/update",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.admin.seed-test-data": {
-        "id": "routes/api.admin.seed-test-data",
-        "parentId": "root",
-        "file": "app/routes/api.admin.seed-test-data.tsx",
-        "path": "api/admin/seed-test-data",
         "config": {
           "runtime": "nodejs"
         }
@@ -583,15 +559,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/api.test-billing-mode": {
-        "id": "routes/api.test-billing-mode",
-        "parentId": "root",
-        "file": "app/routes/api.test-billing-mode.tsx",
-        "path": "api/test-billing-mode",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/api.billing.callback": {
         "id": "routes/api.billing.callback",
         "parentId": "root",
@@ -669,15 +636,6 @@
         "parentId": "root",
         "file": "app/routes/api.billing.usage.tsx",
         "path": "api/billing/usage",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/api.test-data-api": {
-        "id": "routes/api.test-data-api",
-        "parentId": "root",
-        "file": "app/routes/api.test-data-api.tsx",
-        "path": "api/test-data-api",
         "config": {
           "runtime": "nodejs"
         }
@@ -856,15 +814,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.graphql-test": {
-        "id": "routes/app.graphql-test",
-        "parentId": "routes/app",
-        "file": "app/routes/app.graphql-test.tsx",
-        "path": "graphql-test",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
       "routes/app.orders-sync": {
         "id": "routes/app.orders-sync",
         "parentId": "routes/app",
@@ -888,15 +837,6 @@
         "parentId": "routes/app",
         "file": "app/routes/app.monitoring.tsx",
         "path": "monitoring",
-        "config": {
-          "runtime": "nodejs"
-        }
-      },
-      "routes/app.proxy-test": {
-        "id": "routes/app.proxy-test",
-        "parentId": "routes/app",
-        "file": "app/routes/app.proxy-test.tsx",
-        "path": "proxy-test",
         "config": {
           "runtime": "nodejs"
         }
@@ -1457,12 +1397,6 @@
         "file": "routes/webhooks.app.scopes_update.tsx",
         "path": "webhooks/app/scopes_update"
       },
-      "routes/api.admin.clear-test-data": {
-        "id": "routes/api.admin.clear-test-data",
-        "parentId": "root",
-        "file": "routes/api.admin.clear-test-data.tsx",
-        "path": "api/admin/clear-test-data"
-      },
       "routes/api.cron.tier-maintenance": {
         "id": "routes/api.cron.tier-maintenance",
         "parentId": "root",
@@ -1492,12 +1426,6 @@
         "parentId": "root",
         "file": "routes/webhooks.customers.update.tsx",
         "path": "webhooks/customers/update"
-      },
-      "routes/api.admin.seed-test-data": {
-        "id": "routes/api.admin.seed-test-data",
-        "parentId": "root",
-        "file": "routes/api.admin.seed-test-data.tsx",
-        "path": "api/admin/seed-test-data"
       },
       "routes/api.cron.webhook-cleanup": {
         "id": "routes/api.cron.webhook-cleanup",
@@ -1619,12 +1547,6 @@
         "file": "routes/api.order-sync.status.tsx",
         "path": "api/order-sync/status"
       },
-      "routes/api.test-billing-mode": {
-        "id": "routes/api.test-billing-mode",
-        "parentId": "root",
-        "file": "routes/api.test-billing-mode.tsx",
-        "path": "api/test-billing-mode"
-      },
       "routes/api.billing.callback": {
         "id": "routes/api.billing.callback",
         "parentId": "root",
@@ -1678,12 +1600,6 @@
         "parentId": "root",
         "file": "routes/api.billing.usage.tsx",
         "path": "api/billing/usage"
-      },
-      "routes/api.test-data-api": {
-        "id": "routes/api.test-data-api",
-        "parentId": "root",
-        "file": "routes/api.test-data-api.tsx",
-        "path": "api/test-data-api"
       },
       "routes/api.cron.metrics": {
         "id": "routes/api.cron.metrics",
@@ -1805,12 +1721,6 @@
         "file": "routes/app.tier-products.tsx",
         "path": "tier-products"
       },
-      "routes/app.graphql-test": {
-        "id": "routes/app.graphql-test",
-        "parentId": "routes/app",
-        "file": "routes/app.graphql-test.tsx",
-        "path": "graphql-test"
-      },
       "routes/app.orders-sync": {
         "id": "routes/app.orders-sync",
         "parentId": "routes/app",
@@ -1828,12 +1738,6 @@
         "parentId": "routes/app",
         "file": "routes/app.monitoring.tsx",
         "path": "monitoring"
-      },
-      "routes/app.proxy-test": {
-        "id": "routes/app.proxy-test",
-        "parentId": "routes/app",
-        "file": "routes/app.proxy-test.tsx",
-        "path": "proxy-test"
       },
       "routes/app.analytics": {
         "id": "routes/app.analytics",

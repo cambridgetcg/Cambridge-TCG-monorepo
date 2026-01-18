@@ -9,6 +9,15 @@ import { authenticate } from "~/shopify.server";
 import sendgrid from "~/services/sendgrid.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
+  // SECURITY: Only allow in non-production or with explicit flag
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_EMAIL_TEST) {
+    console.warn('[Email Test] Blocked in production environment');
+    return json(
+      { success: false, error: "Email testing is disabled in production" },
+      { status: 403 }
+    );
+  }
+
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 

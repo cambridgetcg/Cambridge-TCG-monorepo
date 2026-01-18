@@ -113,7 +113,6 @@ export function shouldMonitorRoute(pathname: string): boolean {
   // Skip monitoring for development-only routes
   const skipRoutes = [
     '/app/webhook-test',
-    '/app/graphql-test',
     '/app/performance-monitor',
     '/auth',
   ];

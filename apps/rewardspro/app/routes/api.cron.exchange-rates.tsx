@@ -29,9 +29,9 @@ function verifyCronAuth(request: Request): boolean {
     return true;
   }
 
-  // Development environment bypass
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[ExchangeRate] Cron auth bypassed in development');
+  // Development environment - require explicit bypass flag for safety
+  if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_CRON_BYPASS === 'true') {
+    console.warn('[ExchangeRate] Cron auth bypassed in development (ALLOW_DEV_CRON_BYPASS=true)');
     return true;
   }
 

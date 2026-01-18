@@ -50,8 +50,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const data = await request.json() as UsageRecordInput;
 
     // SECURITY: Maximum amount per charge to prevent accidental over-billing
-    const MAX_SINGLE_CHARGE = 1000; // $1,000 max per single usage charge
-    const MAX_DAILY_TOTAL = 5000;   // $5,000 max per day
+    // These limits can be configured via environment variables
+    const MAX_SINGLE_CHARGE = Number(process.env.BILLING_MAX_SINGLE_CHARGE) || 1000; // Default $1,000
+    const MAX_DAILY_TOTAL = Number(process.env.BILLING_MAX_DAILY_TOTAL) || 5000;     // Default $5,000
 
     // Validate input - SECURITY: Check for Infinity, NaN, and -0
     if (!data.description ||

@@ -7,6 +7,20 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { countOrdersDirectDataAPI, countOrdersWithFallback } from "../utils/order-count-strategies";
+import db from "../db.server";
+
+// Plan order limits (monthly)
+const PLAN_ORDER_LIMITS: Record<string, number> = {
+  free: 100,
+  starter: 500,
+  pro: 500,
+  proAnnual: 500,
+  max: 2000,
+  maxAnnual: 2000,
+  ultra: 999999, // Unlimited
+  ultraAnnual: 999999,
+};
+const DEFAULT_PLAN_LIMIT = 500;
 
 // Helper to get current month name
 const getCurrentMonthName = () => {
@@ -79,8 +93,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Calculate projected orders
     const projectedOrders = calculateProjectedOrders(orderCount);
 
-    // Determine plan limit (you may want to fetch this from database)
-    const planLimit = 1000; // Default, adjust based on actual plan
+    // Fetch plan limit from database based on shop's subscription
+    let planLimit = DEFAULT_PLAN_LIMIT;
+    let currentPlan = 'free';
+    try {
+      const subscription = await db.billingSubscription.findUnique({
+        where: { shop },
+        select: { planName: true, status: true }
+      });
+      if (subscription?.status === 'ACTIVE' && subscription.planName) {
+        currentPlan = subscription.planName;
+        planLimit = PLAN_ORDER_LIMITS[subscription.planName] ?? DEFAULT_PLAN_LIMIT;
+      }
+    } catch (error) {
+      console.warn('[API OrderCount] Failed to fetch plan, using default limit');
+    }
 
     return json({
       success: true,
