@@ -1,7 +1,8 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
+import { useAuthenticatedFetch } from "../components/AuthenticatedFetch";
 import {
   Page,
   Layout,
@@ -25,6 +26,8 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getPointsConfig, updatePointsConfig } from "../services/points-config.server";
 import type { PointsRoundingMode } from "@prisma/client";
+import type { CurrencyIconType } from "../services/points-config.server";
+import { IconPicker, type IconPickerValue } from "../components/IconPicker";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -36,6 +39,11 @@ interface LoaderData {
     currencyName: string;
     currencyNamePlural: string;
     currencyIcon: string;
+    // Enhanced icon system fields
+    currencyIconType: CurrencyIconType;
+    currencyIconUrl: string | null;
+    currencyIconId: string | null;
+    currencyIconColor: string | null;
     pointsPerDollar: number;
     roundingMode: PointsRoundingMode;
     pointsExpire: boolean;
@@ -134,6 +142,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const currencyName = formData.get("currencyName") as string;
       const currencyNamePlural = formData.get("currencyNamePlural") as string;
       const currencyIcon = formData.get("currencyIcon") as string;
+
+      // Enhanced icon system fields
+      const currencyIconType = (formData.get("currencyIconType") as CurrencyIconType) || "emoji";
+      const currencyIconUrl = formData.get("currencyIconUrl") as string | null;
+      const currencyIconId = formData.get("currencyIconId") as string | null;
+      const currencyIconColor = formData.get("currencyIconColor") as string | null;
+
       const pointsPerDollar = parseInt(formData.get("pointsPerDollar") as string, 10);
       const roundingMode = formData.get("roundingMode") as PointsRoundingMode;
       const pointsExpire = formData.get("pointsExpire") === "true";
@@ -172,6 +187,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         currencyName,
         currencyNamePlural,
         currencyIcon,
+        currencyIconType,
+        currencyIconUrl: currencyIconUrl || null,
+        currencyIconId: currencyIconId || null,
+        currencyIconColor: currencyIconColor || null,
         pointsPerDollar,
         roundingMode,
         pointsExpire,
@@ -238,7 +257,16 @@ export default function PointsConfiguration() {
   const [isEnabled, setIsEnabled] = useState(config.isEnabled);
   const [currencyName, setCurrencyName] = useState(config.currencyName);
   const [currencyNamePlural, setCurrencyNamePlural] = useState(config.currencyNamePlural);
-  const [currencyIcon, setCurrencyIcon] = useState(config.currencyIcon);
+
+  // Enhanced icon state
+  const [iconValue, setIconValue] = useState<IconPickerValue>({
+    iconType: config.currencyIconType,
+    iconEmoji: config.currencyIcon,
+    iconUrl: config.currencyIconUrl,
+    iconId: config.currencyIconId,
+    iconColor: config.currencyIconColor,
+  });
+
   const [pointsPerDollar, setPointsPerDollar] = useState(config.pointsPerDollar.toString());
   const [roundingMode, setRoundingMode] = useState(config.roundingMode);
   const [pointsExpire, setPointsExpire] = useState(config.pointsExpire);
@@ -267,6 +295,37 @@ export default function PointsConfiguration() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastError, setToastError] = useState(false);
 
+  // File upload
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const authFetch = useAuthenticatedFetch();
+
+  const handleIconUpload = useCallback(async (file: File): Promise<string | null> => {
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await authFetch("/api/upload-icon", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        setUploadError(result.error || "Upload failed");
+        return null;
+      }
+
+      return result.url;
+    } catch (error: any) {
+      console.error("[PointsConfig] Upload error:", error);
+      setUploadError(error.message || "Failed to upload file");
+      return null;
+    }
+  }, [authFetch]);
+
   useEffect(() => {
     if (actionData) {
       setToastMessage(actionData.message || actionData.error || "");
@@ -281,7 +340,14 @@ export default function PointsConfiguration() {
     formData.append("isEnabled", isEnabled.toString());
     formData.append("currencyName", currencyName);
     formData.append("currencyNamePlural", currencyNamePlural);
-    formData.append("currencyIcon", currencyIcon);
+
+    // Enhanced icon system
+    formData.append("currencyIcon", iconValue.iconEmoji);
+    formData.append("currencyIconType", iconValue.iconType);
+    if (iconValue.iconUrl) formData.append("currencyIconUrl", iconValue.iconUrl);
+    if (iconValue.iconId) formData.append("currencyIconId", iconValue.iconId);
+    if (iconValue.iconColor) formData.append("currencyIconColor", iconValue.iconColor);
+
     formData.append("pointsPerDollar", pointsPerDollar);
     formData.append("roundingMode", roundingMode);
     formData.append("pointsExpire", pointsExpire.toString());
@@ -301,7 +367,7 @@ export default function PointsConfiguration() {
 
     submit(formData, { method: "post" });
   }, [
-    isEnabled, currencyName, currencyNamePlural, currencyIcon, pointsPerDollar,
+    isEnabled, currencyName, currencyNamePlural, iconValue, pointsPerDollar,
     roundingMode, pointsExpire, expirationDays, expirationWarningDays,
     rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled,
     scratchCardsEnabled, givebackPoolsEnabled, dailySpinEnabled, dailySpinResetHour,
@@ -320,8 +386,6 @@ export default function PointsConfiguration() {
     label: `${i.toString().padStart(2, "0")}:00`,
     value: i.toString(),
   }));
-
-  const iconOptions = ["⭐", "💎", "🌟", "🪙", "💰", "🎁", "✨", "🏆"];
 
   return (
     <Frame>
@@ -383,23 +447,19 @@ export default function PointsConfiguration() {
                       autoComplete="off"
                     />
                   </FormLayout.Group>
-                  <BlockStack gap="200">
-                    <Text variant="bodyMd" as="p">Currency Icon</Text>
-                    <InlineStack gap="200">
-                      {iconOptions.map((icon) => (
-                        <Button
-                          key={icon}
-                          variant={currencyIcon === icon ? "primary" : "secondary"}
-                          onClick={() => setCurrencyIcon(icon)}
-                        >
-                          {icon}
-                        </Button>
-                      ))}
-                    </InlineStack>
-                  </BlockStack>
                 </FormLayout>
               </BlockStack>
             </Card>
+          </Layout.Section>
+
+          {/* Currency Icon - Enhanced IconPicker */}
+          <Layout.Section>
+            <IconPicker
+              value={iconValue}
+              onChange={setIconValue}
+              onUpload={handleIconUpload}
+              uploadError={uploadError}
+            />
           </Layout.Section>
 
           {/* Earning Rules */}

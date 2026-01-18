@@ -2590,6 +2590,12 @@ model PointsConfig {
   currencyNamePlural String @default("Points") // Plural form
   currencyIcon       String @default("⭐") // Emoji or icon identifier
 
+  // Enhanced Icon System (Phase 2-3)
+  currencyIconType  String  @default("emoji") // "emoji" | "upload" | "library"
+  currencyIconUrl   String? // URL for uploaded custom icon (SVG/PNG)
+  currencyIconId    String? // ID for icon library selection (e.g., "lucide:star")
+  currencyIconColor String? // Hex color for library icons (e.g., "#5C6AC4")
+
   // Earning Rules
   pointsPerDollar Int                @default(10) // Base points earned per $1 spent
   roundingMode    PointsRoundingMode @default(FLOOR) // How to round fractional points

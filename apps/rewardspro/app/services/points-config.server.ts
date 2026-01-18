@@ -51,11 +51,20 @@ logDbState("MODULE_INIT");
 // TYPES
 // ============================================
 
+// Icon type for enhanced icon system
+export type CurrencyIconType = "emoji" | "upload" | "library";
+
 export interface PointsConfigData {
   isEnabled: boolean;
   currencyName: string;
   currencyNamePlural: string;
   currencyIcon: string;
+  // Enhanced Icon System
+  currencyIconType: CurrencyIconType;
+  currencyIconUrl: string | null;
+  currencyIconId: string | null;
+  currencyIconColor: string | null;
+  // Earning and other settings
   pointsPerDollar: number;
   roundingMode: PointsRoundingMode;
   pointsExpire: boolean;
@@ -79,6 +88,12 @@ export interface UpdatePointsConfigInput {
   currencyName?: string;
   currencyNamePlural?: string;
   currencyIcon?: string;
+  // Enhanced Icon System
+  currencyIconType?: CurrencyIconType;
+  currencyIconUrl?: string | null;
+  currencyIconId?: string | null;
+  currencyIconColor?: string | null;
+  // Other settings
   pointsPerDollar?: number;
   roundingMode?: PointsRoundingMode;
   pointsExpire?: boolean;
@@ -106,6 +121,12 @@ const DEFAULT_CONFIG: PointsConfigData = {
   currencyName: "Points",
   currencyNamePlural: "Points",
   currencyIcon: "⭐",
+  // Enhanced Icon System defaults
+  currencyIconType: "emoji",
+  currencyIconUrl: null,
+  currencyIconId: null,
+  currencyIconColor: null,
+  // Other defaults
   pointsPerDollar: 10,
   roundingMode: "FLOOR",
   pointsExpire: false,
@@ -176,6 +197,12 @@ export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
       currencyName: config.currencyName,
       currencyNamePlural: config.currencyNamePlural,
       currencyIcon: config.currencyIcon,
+      // Enhanced Icon System
+      currencyIconType: (config.currencyIconType as CurrencyIconType) || "emoji",
+      currencyIconUrl: config.currencyIconUrl || null,
+      currencyIconId: config.currencyIconId || null,
+      currencyIconColor: config.currencyIconColor || null,
+      // Other settings
       pointsPerDollar: config.pointsPerDollar,
       roundingMode: config.roundingMode,
       pointsExpire: config.pointsExpire,
@@ -248,12 +275,16 @@ export async function getPointsPerDollar(shop: string): Promise<number> {
  * Get the currency branding for a shop
  *
  * @param shop - Shop domain
- * @returns Currency branding (name, plural, icon)
+ * @returns Currency branding (name, plural, icon with enhanced system)
  */
 export async function getCurrencyBranding(shop: string): Promise<{
   name: string;
   plural: string;
   icon: string;
+  iconType: CurrencyIconType;
+  iconUrl: string | null;
+  iconId: string | null;
+  iconColor: string | null;
 }> {
   const config = await db.pointsConfig.findUnique({
     where: { shop },
@@ -261,6 +292,10 @@ export async function getCurrencyBranding(shop: string): Promise<{
       currencyName: true,
       currencyNamePlural: true,
       currencyIcon: true,
+      currencyIconType: true,
+      currencyIconUrl: true,
+      currencyIconId: true,
+      currencyIconColor: true,
     },
   });
 
@@ -268,6 +303,10 @@ export async function getCurrencyBranding(shop: string): Promise<{
     name: config?.currencyName ?? DEFAULT_CONFIG.currencyName,
     plural: config?.currencyNamePlural ?? DEFAULT_CONFIG.currencyNamePlural,
     icon: config?.currencyIcon ?? DEFAULT_CONFIG.currencyIcon,
+    iconType: (config?.currencyIconType as CurrencyIconType) ?? DEFAULT_CONFIG.currencyIconType,
+    iconUrl: config?.currencyIconUrl ?? DEFAULT_CONFIG.currencyIconUrl,
+    iconId: config?.currencyIconId ?? DEFAULT_CONFIG.currencyIconId,
+    iconColor: config?.currencyIconColor ?? DEFAULT_CONFIG.currencyIconColor,
   };
 }
 
@@ -295,6 +334,12 @@ export async function updatePointsConfig(
   if (input.currencyName !== undefined) updateData.currencyName = input.currencyName;
   if (input.currencyNamePlural !== undefined) updateData.currencyNamePlural = input.currencyNamePlural;
   if (input.currencyIcon !== undefined) updateData.currencyIcon = input.currencyIcon;
+  // Enhanced Icon System fields
+  if (input.currencyIconType !== undefined) updateData.currencyIconType = input.currencyIconType;
+  if (input.currencyIconUrl !== undefined) updateData.currencyIconUrl = input.currencyIconUrl;
+  if (input.currencyIconId !== undefined) updateData.currencyIconId = input.currencyIconId;
+  if (input.currencyIconColor !== undefined) updateData.currencyIconColor = input.currencyIconColor;
+  // Other settings
   if (input.pointsPerDollar !== undefined) updateData.pointsPerDollar = input.pointsPerDollar;
   if (input.roundingMode !== undefined) updateData.roundingMode = input.roundingMode;
   if (input.pointsExpire !== undefined) updateData.pointsExpire = input.pointsExpire;
