@@ -22,6 +22,7 @@
       "routes/api.cron.webhook-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.subscription-expiry": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.raffles": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.setup-customer-metafield": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-diagnostics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-sync-verify": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -73,13 +74,19 @@
       "routes/api.email.domain": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.set-currency": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.upload-icon": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.email.test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.proxy.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.health": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.mystery-boxes": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.mystery-boxes.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.raffles": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.points_.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.graphql-test": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -231,6 +238,15 @@
         "parentId": "root",
         "file": "app/routes/api.customer-account.loyalty.tsx",
         "path": "api/customer-account/loyalty",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-account.raffles": {
+        "id": "routes/api.customer-account.raffles",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.raffles.tsx",
+        "path": "api/customer-account/raffles",
         "config": {
           "runtime": "nodejs"
         }
@@ -692,6 +708,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.upload-icon": {
+        "id": "routes/api.upload-icon",
+        "parentId": "root",
+        "file": "app/routes/api.upload-icon.tsx",
+        "path": "api/upload-icon",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.email.test": {
         "id": "routes/api.email.test",
         "parentId": "root",
@@ -753,6 +778,22 @@
         "path": "app",
         "config": {}
       },
+      "routes/app.points_.mystery-boxes": {
+        "id": "routes/app.points_.mystery-boxes",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points_.mystery-boxes.tsx",
+        "path": "points/mystery-boxes",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.points_.mystery-boxes.$id": {
+        "id": "routes/app.points_.mystery-boxes.$id",
+        "parentId": "routes/app.points_.mystery-boxes",
+        "file": "app/routes/app.points_.mystery-boxes.$id.tsx",
+        "path": ":id",
+        "config": {}
+      },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
         "parentId": "routes/app",
@@ -761,6 +802,31 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/app.points_.challenges": {
+        "id": "routes/app.points_.challenges",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points_.challenges.tsx",
+        "path": "points/challenges",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.points_.raffles": {
+        "id": "routes/app.points_.raffles",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points_.raffles.tsx",
+        "path": "points/raffles",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.points_.raffles.$id": {
+        "id": "routes/app.points_.raffles.$id",
+        "parentId": "routes/app.points_.raffles",
+        "file": "app/routes/app.points_.raffles.$id.tsx",
+        "path": ":id",
+        "config": {}
       },
       "routes/app.points_.config": {
         "id": "routes/app.points_.config",
@@ -1213,6 +1279,12 @@
         "file": "routes/api.customer-account.loyalty.tsx",
         "path": "api/customer-account/loyalty"
       },
+      "routes/api.customer-account.raffles": {
+        "id": "routes/api.customer-account.raffles",
+        "parentId": "root",
+        "file": "routes/api.customer-account.raffles.tsx",
+        "path": "api/customer-account/raffles"
+      },
       "routes/api.setup-customer-metafield": {
         "id": "routes/api.setup-customer-metafield",
         "parentId": "root",
@@ -1519,6 +1591,12 @@
         "file": "routes/api.order-count.tsx",
         "path": "api/order-count"
       },
+      "routes/api.upload-icon": {
+        "id": "routes/api.upload-icon",
+        "parentId": "root",
+        "file": "routes/api.upload-icon.tsx",
+        "path": "api/upload-icon"
+      },
       "routes/api.email.test": {
         "id": "routes/api.email.test",
         "parentId": "root",
@@ -1561,11 +1639,41 @@
         "file": "routes/app.tsx",
         "path": "app"
       },
+      "routes/app.points_.mystery-boxes": {
+        "id": "routes/app.points_.mystery-boxes",
+        "parentId": "routes/app",
+        "file": "routes/app.points_.mystery-boxes.tsx",
+        "path": "points/mystery-boxes"
+      },
+      "routes/app.points_.mystery-boxes.$id": {
+        "id": "routes/app.points_.mystery-boxes.$id",
+        "parentId": "routes/app.points_.mystery-boxes",
+        "file": "routes/app.points_.mystery-boxes.$id.tsx",
+        "path": ":id"
+      },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
         "parentId": "routes/app",
         "file": "routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback"
+      },
+      "routes/app.points_.challenges": {
+        "id": "routes/app.points_.challenges",
+        "parentId": "routes/app",
+        "file": "routes/app.points_.challenges.tsx",
+        "path": "points/challenges"
+      },
+      "routes/app.points_.raffles": {
+        "id": "routes/app.points_.raffles",
+        "parentId": "routes/app",
+        "file": "routes/app.points_.raffles.tsx",
+        "path": "points/raffles"
+      },
+      "routes/app.points_.raffles.$id": {
+        "id": "routes/app.points_.raffles.$id",
+        "parentId": "routes/app.points_.raffles",
+        "file": "routes/app.points_.raffles.$id.tsx",
+        "path": ":id"
       },
       "routes/app.points_.config": {
         "id": "routes/app.points_.config",

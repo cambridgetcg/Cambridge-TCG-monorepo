@@ -26,6 +26,8 @@ import {
   StarIcon,
   ChartVerticalFilledIcon,
   GiftCardIcon,
+  EmailIcon,
+  AutomationIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -876,6 +878,140 @@ export default function PointsOverview() {
                 ) : (
                   <Text tone="subdued" as="p">No activity yet</Text>
                 )}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          {/* Marketing Integration Bridge */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <BlockStack gap="100">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Text variant="headingMd" as="h3">Marketing Integration</Text>
+                      <Badge tone="info">Drive Engagement</Badge>
+                    </InlineStack>
+                    <Text variant="bodySm" tone="subdued" as="p">
+                      Promote your {config.currencyNamePlural.toLowerCase()} program via email campaigns
+                    </Text>
+                  </BlockStack>
+                  <Button variant="plain" url="/app/marketing">
+                    Open Marketing Hub
+                  </Button>
+                </InlineStack>
+
+                <Divider />
+
+                <Grid>
+                  {/* Promote Active Raffles */}
+                  <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <div style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '8px',
+                            backgroundColor: features.raffles && moduleStats.raffles.activeRaffles > 0 ? '#e3f1df' : '#f1f1f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <Icon source={GiftCardIcon} tone={features.raffles && moduleStats.raffles.activeRaffles > 0 ? 'success' : 'subdued'} />
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="span">
+                            Raffle Announcements
+                          </Text>
+                        </InlineStack>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          {features.raffles && moduleStats.raffles.activeRaffles > 0
+                            ? `You have ${moduleStats.raffles.activeRaffles} active raffle${moduleStats.raffles.activeRaffles > 1 ? 's' : ''} to promote`
+                            : 'Create a raffle first to promote it via email'}
+                        </Text>
+                        {features.raffles && moduleStats.raffles.activeRaffles > 0 && (
+                          <Button size="slim" url="/app/marketing/campaigns/create?preset=raffle">
+                            Create Campaign
+                          </Button>
+                        )}
+                      </BlockStack>
+                    </Box>
+                  </Grid.Cell>
+
+                  {/* Mystery Box Teasers */}
+                  <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <div style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '8px',
+                            backgroundColor: features.mysteryBoxes && moduleStats.mysteryBoxes.activeBoxes > 0 ? '#e3f1df' : '#f1f1f1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <Icon source={StarIcon} tone={features.mysteryBoxes && moduleStats.mysteryBoxes.activeBoxes > 0 ? 'success' : 'subdued'} />
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="span">
+                            Mystery Box Teasers
+                          </Text>
+                        </InlineStack>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          {features.mysteryBoxes && moduleStats.mysteryBoxes.activeBoxes > 0
+                            ? `${moduleStats.mysteryBoxes.activeBoxes} mystery box${moduleStats.mysteryBoxes.activeBoxes > 1 ? 'es' : ''} ready to promote`
+                            : 'Set up mystery boxes to create excitement'}
+                        </Text>
+                        {features.mysteryBoxes && moduleStats.mysteryBoxes.activeBoxes > 0 && (
+                          <Button size="slim" url="/app/marketing/campaigns/create?preset=mystery-box">
+                            Create Campaign
+                          </Button>
+                        )}
+                      </BlockStack>
+                    </Box>
+                  </Grid.Cell>
+
+                  {/* Automated Engagement */}
+                  <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <div style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '8px',
+                            backgroundColor: '#fef3cd',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <Icon source={AutomationIcon} tone="warning" />
+                          </div>
+                          <Text variant="bodyMd" fontWeight="semibold" as="span">
+                            Automated Emails
+                          </Text>
+                        </InlineStack>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Set up automated emails for {config.currencyNamePlural.toLowerCase()} events like earning, expiry warnings
+                        </Text>
+                        <Button size="slim" url="/app/marketing/automation/workflows">
+                          Set Up Automations
+                        </Button>
+                      </BlockStack>
+                    </Box>
+                  </Grid.Cell>
+                </Grid>
+
+                {/* Summary tip */}
+                <Box padding="300" background="bg-surface-info" borderRadius="200">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Icon source={EmailIcon} tone="info" />
+                    <Text variant="bodySm" as="p">
+                      <Text as="span" fontWeight="semibold">Tip:</Text> Email campaigns announcing bonus {config.currencyNamePlural.toLowerCase()} events see 2-3x higher engagement
+                    </Text>
+                  </InlineStack>
+                </Box>
               </BlockStack>
             </Card>
           </Layout.Section>
