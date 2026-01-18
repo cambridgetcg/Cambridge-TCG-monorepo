@@ -453,148 +453,305 @@ export default function PointsOverview() {
           {/* Engagement Modules */}
           <Layout.Section>
             <BlockStack gap="400">
-              <Text variant="headingMd" as="h2">Engagement Modules</Text>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text variant="headingMd" as="h2">Engagement Modules</Text>
+                <Text variant="bodySm" tone="subdued" as="span">
+                  Drive customer engagement with gamified experiences
+                </Text>
+              </InlineStack>
               <Grid>
                 {/* Raffles Module */}
                 <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
-                  <Card>
+                  <Card background={!features.raffles ? "bg-surface-secondary" : undefined}>
                     <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text variant="headingMd" as="h3">Raffles</Text>
-                          <Badge tone={features.raffles ? "success" : undefined}>
-                            {features.raffles ? "Active" : "Inactive"}
-                          </Badge>
-                        </InlineStack>
-                        <Button variant="plain" url="/app/points/raffles" disabled={!features.raffles}>
-                          Manage
-                        </Button>
-                      </InlineStack>
-                      <Divider />
-                      <Grid>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Total</Text>
-                            <Text variant="headingLg" as="p">{moduleStats.raffles.totalRaffles}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Active</Text>
-                            <Text variant="headingLg" as="p" tone={moduleStats.raffles.activeRaffles > 0 ? "success" : undefined}>
-                              {moduleStats.raffles.activeRaffles}
+                      {/* Header */}
+                      <BlockStack gap="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text variant="headingMd" as="h3" tone={!features.raffles ? "subdued" : undefined}>
+                              Raffles
                             </Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Entries</Text>
-                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.raffles.totalEntries)}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Prize Pool</Text>
-                            <Text variant="headingLg" as="p">{config.currencyIcon}{formatNumber(moduleStats.raffles.totalPrizePoolValue)}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                      </Grid>
+                            {features.raffles ? (
+                              moduleStats.raffles.activeRaffles > 0 ? (
+                                <Badge tone="success">{moduleStats.raffles.activeRaffles} Live</Badge>
+                              ) : (
+                                <Badge tone="attention">No Active</Badge>
+                              )
+                            ) : (
+                              <Badge>Disabled</Badge>
+                            )}
+                          </InlineStack>
+                        </InlineStack>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Customers spend {config.currencyNamePlural.toLowerCase()} for a chance to win prizes
+                        </Text>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Content based on state */}
+                      {!features.raffles ? (
+                        /* Disabled State */
+                        <BlockStack gap="300">
+                          <Text tone="subdued" as="p" variant="bodySm">
+                            Enable raffles to create excitement and drive repeat engagement with prize drawings.
+                          </Text>
+                          <Button url="/app/points/config" size="slim">
+                            Enable Raffles
+                          </Button>
+                        </BlockStack>
+                      ) : moduleStats.raffles.totalRaffles === 0 ? (
+                        /* Empty State */
+                        <BlockStack gap="300">
+                          <Text tone="subdued" as="p" variant="bodySm">
+                            Create your first raffle to give customers an exciting way to use their {config.currencyNamePlural.toLowerCase()}.
+                          </Text>
+                          <Button url="/app/points/raffles" size="slim" variant="primary">
+                            Create First Raffle
+                          </Button>
+                        </BlockStack>
+                      ) : (
+                        /* Stats State */
+                        <BlockStack gap="300">
+                          <Grid>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Total Raffles</Text>
+                                <Text variant="headingLg" as="p">{moduleStats.raffles.totalRaffles}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Total Entries</Text>
+                                <Text variant="headingLg" as="p">{formatNumber(moduleStats.raffles.totalEntries)}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Prize Pool</Text>
+                                <Text variant="headingLg" as="p">{config.currencyIcon}{formatNumber(moduleStats.raffles.totalPrizePoolValue)}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Active Now</Text>
+                                <Text variant="headingLg" as="p" tone={moduleStats.raffles.activeRaffles > 0 ? "success" : "caution"}>
+                                  {moduleStats.raffles.activeRaffles}
+                                </Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                          </Grid>
+                          <InlineStack gap="200">
+                            <Button url="/app/points/raffles" size="slim">
+                              Manage Raffles
+                            </Button>
+                            {moduleStats.raffles.activeRaffles === 0 && (
+                              <Button url="/app/points/raffles" size="slim" variant="primary">
+                                Create Raffle
+                              </Button>
+                            )}
+                          </InlineStack>
+                        </BlockStack>
+                      )}
                     </BlockStack>
                   </Card>
                 </Grid.Cell>
 
                 {/* Mystery Boxes Module */}
                 <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
-                  <Card>
+                  <Card background={!features.mysteryBoxes ? "bg-surface-secondary" : undefined}>
                     <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text variant="headingMd" as="h3">Mystery Boxes</Text>
-                          <Badge tone={features.mysteryBoxes ? "success" : undefined}>
-                            {features.mysteryBoxes ? "Active" : "Inactive"}
-                          </Badge>
-                        </InlineStack>
-                        <Button variant="plain" url="/app/points/mystery-boxes" disabled={!features.mysteryBoxes}>
-                          Manage
-                        </Button>
-                      </InlineStack>
-                      <Divider />
-                      <Grid>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Total</Text>
-                            <Text variant="headingLg" as="p">{moduleStats.mysteryBoxes.totalBoxes}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Active</Text>
-                            <Text variant="headingLg" as="p" tone={moduleStats.mysteryBoxes.activeBoxes > 0 ? "success" : undefined}>
-                              {moduleStats.mysteryBoxes.activeBoxes}
+                      {/* Header */}
+                      <BlockStack gap="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text variant="headingMd" as="h3" tone={!features.mysteryBoxes ? "subdued" : undefined}>
+                              Mystery Boxes
                             </Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Opens</Text>
-                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.mysteryBoxes.totalOpens)}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Spent</Text>
-                            <Text variant="headingLg" as="p">{config.currencyIcon}{formatNumber(moduleStats.mysteryBoxes.totalPointsSpent)}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                      </Grid>
+                            {features.mysteryBoxes ? (
+                              moduleStats.mysteryBoxes.activeBoxes > 0 ? (
+                                <Badge tone="success">{moduleStats.mysteryBoxes.activeBoxes} Live</Badge>
+                              ) : (
+                                <Badge tone="attention">No Active</Badge>
+                              )
+                            ) : (
+                              <Badge>Disabled</Badge>
+                            )}
+                          </InlineStack>
+                        </InlineStack>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Surprise rewards with probability-based outcomes
+                        </Text>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Content based on state */}
+                      {!features.mysteryBoxes ? (
+                        /* Disabled State */
+                        <BlockStack gap="300">
+                          <Text tone="subdued" as="p" variant="bodySm">
+                            Enable mystery boxes to add an element of surprise and delight to your rewards program.
+                          </Text>
+                          <Button url="/app/points/config" size="slim">
+                            Enable Mystery Boxes
+                          </Button>
+                        </BlockStack>
+                      ) : moduleStats.mysteryBoxes.totalBoxes === 0 ? (
+                        /* Empty State */
+                        <BlockStack gap="300">
+                          <Text tone="subdued" as="p" variant="bodySm">
+                            Create mystery boxes with tiered rewards to keep customers coming back for more.
+                          </Text>
+                          <Button url="/app/points/mystery-boxes" size="slim" variant="primary">
+                            Create First Box
+                          </Button>
+                        </BlockStack>
+                      ) : (
+                        /* Stats State */
+                        <BlockStack gap="300">
+                          <Grid>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Total Boxes</Text>
+                                <Text variant="headingLg" as="p">{moduleStats.mysteryBoxes.totalBoxes}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Total Opens</Text>
+                                <Text variant="headingLg" as="p">{formatNumber(moduleStats.mysteryBoxes.totalOpens)}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">{config.currencyNamePlural} Spent</Text>
+                                <Text variant="headingLg" as="p">{formatNumber(moduleStats.mysteryBoxes.totalPointsSpent)}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Active Now</Text>
+                                <Text variant="headingLg" as="p" tone={moduleStats.mysteryBoxes.activeBoxes > 0 ? "success" : "caution"}>
+                                  {moduleStats.mysteryBoxes.activeBoxes}
+                                </Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                          </Grid>
+                          <InlineStack gap="200">
+                            <Button url="/app/points/mystery-boxes" size="slim">
+                              Manage Boxes
+                            </Button>
+                            {moduleStats.mysteryBoxes.activeBoxes === 0 && (
+                              <Button url="/app/points/mystery-boxes" size="slim" variant="primary">
+                                Create Box
+                              </Button>
+                            )}
+                          </InlineStack>
+                        </BlockStack>
+                      )}
                     </BlockStack>
                   </Card>
                 </Grid.Cell>
 
                 {/* Challenges Module */}
                 <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
-                  <Card>
+                  <Card background={!features.challenges ? "bg-surface-secondary" : undefined}>
                     <BlockStack gap="400">
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="200" blockAlign="center">
-                          <Text variant="headingMd" as="h3">Challenges</Text>
-                          <Badge tone={features.challenges ? "success" : undefined}>
-                            {features.challenges ? "Active" : "Inactive"}
-                          </Badge>
-                        </InlineStack>
-                        <Button variant="plain" url="/app/points/challenges" disabled={!features.challenges}>
-                          Manage
-                        </Button>
-                      </InlineStack>
-                      <Divider />
-                      <Grid>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Total</Text>
-                            <Text variant="headingLg" as="p">{moduleStats.challenges.totalChallenges}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Active</Text>
-                            <Text variant="headingLg" as="p" tone={moduleStats.challenges.activeChallenges > 0 ? "success" : undefined}>
-                              {moduleStats.challenges.activeChallenges}
+                      {/* Header */}
+                      <BlockStack gap="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text variant="headingMd" as="h3" tone={!features.challenges ? "subdued" : undefined}>
+                              Challenges
                             </Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Participants</Text>
-                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.challenges.totalParticipants)}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
-                          <BlockStack gap="100">
-                            <Text variant="headingSm" as="h4" tone="subdued">Completions</Text>
-                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.challenges.totalCompletions)}</Text>
-                          </BlockStack>
-                        </Grid.Cell>
-                      </Grid>
+                            {features.challenges ? (
+                              moduleStats.challenges.activeChallenges > 0 ? (
+                                <Badge tone="success">{moduleStats.challenges.activeChallenges} Live</Badge>
+                              ) : (
+                                <Badge tone="info">Coming Soon</Badge>
+                              )
+                            ) : (
+                              <Badge>Disabled</Badge>
+                            )}
+                          </InlineStack>
+                        </InlineStack>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Goal-based activities that reward customer achievements
+                        </Text>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Content based on state */}
+                      {!features.challenges ? (
+                        /* Disabled State */
+                        <BlockStack gap="300">
+                          <Text tone="subdued" as="p" variant="bodySm">
+                            Enable challenges to motivate customers with spending goals, purchase milestones, and more.
+                          </Text>
+                          <Button url="/app/points/config" size="slim">
+                            Enable Challenges
+                          </Button>
+                        </BlockStack>
+                      ) : moduleStats.challenges.totalChallenges === 0 ? (
+                        /* Empty/Coming Soon State */
+                        <BlockStack gap="300">
+                          <Text tone="subdued" as="p" variant="bodySm">
+                            Challenge types include spending goals, purchase counts, collection challenges, and streaks.
+                          </Text>
+                          <InlineStack gap="200" wrap>
+                            <Badge size="small">Spending Goals</Badge>
+                            <Badge size="small">Purchase Counts</Badge>
+                            <Badge size="small">Streaks</Badge>
+                          </InlineStack>
+                          <Button url="/app/points/challenges" size="slim">
+                            View Challenges
+                          </Button>
+                        </BlockStack>
+                      ) : (
+                        /* Stats State */
+                        <BlockStack gap="300">
+                          <Grid>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Total</Text>
+                                <Text variant="headingLg" as="p">{moduleStats.challenges.totalChallenges}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Participants</Text>
+                                <Text variant="headingLg" as="p">{formatNumber(moduleStats.challenges.totalParticipants)}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Completions</Text>
+                                <Text variant="headingLg" as="p">{formatNumber(moduleStats.challenges.totalCompletions)}</Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                            <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                              <BlockStack gap="100">
+                                <Text variant="bodySm" as="h4" tone="subdued">Active Now</Text>
+                                <Text variant="headingLg" as="p" tone={moduleStats.challenges.activeChallenges > 0 ? "success" : "caution"}>
+                                  {moduleStats.challenges.activeChallenges}
+                                </Text>
+                              </BlockStack>
+                            </Grid.Cell>
+                          </Grid>
+                          <InlineStack gap="200">
+                            <Button url="/app/points/challenges" size="slim">
+                              Manage Challenges
+                            </Button>
+                            {moduleStats.challenges.activeChallenges === 0 && (
+                              <Button url="/app/points/challenges" size="slim" variant="primary">
+                                Create Challenge
+                              </Button>
+                            )}
+                          </InlineStack>
+                        </BlockStack>
+                      )}
                     </BlockStack>
                   </Card>
                 </Grid.Cell>
