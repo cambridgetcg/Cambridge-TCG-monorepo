@@ -2401,7 +2401,7 @@ export default function SettingsPage() {
                             <Text as="p" variant="bodySm">
                               Before enabling automatic recalculation, you need to set up your loyalty tiers. Go to Settings → Loyalty Tiers to create your tier structure.
                             </Text>
-                            <Button size="slim" onClick={() => navigate("/app/tiers")}>
+                            <Button size="slim" onClick={() => navigate("/app/members/tiers")}>
                               Set Up Tiers
                             </Button>
                           </BlockStack>

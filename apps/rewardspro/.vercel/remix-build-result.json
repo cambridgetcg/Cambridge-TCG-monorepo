@@ -99,7 +99,6 @@
       "routes/app.analytics.realtime": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.customers.sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.automation.workflows": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.automation.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.recommendations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -121,6 +120,17 @@
       "routes/app.settings.store-metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.automation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.members.products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.members._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.members.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.members.sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.mystery-boxes._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.mystery-boxes.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.raffles._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.locked": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -930,13 +940,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.customers.sync": {
-        "id": "routes/app.customers.sync",
-        "parentId": "routes/app.customers",
-        "file": "app/routes/app.customers.sync.tsx",
-        "path": "sync",
-        "config": {}
-      },
       "routes/app.marketing": {
         "id": "routes/app.marketing",
         "parentId": "routes/app",
@@ -1135,6 +1138,121 @@
         "parentId": "routes/app",
         "file": "app/routes/app.billing.tsx",
         "path": "billing",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.members": {
+        "id": "routes/app.members",
+        "parentId": "routes/app",
+        "file": "app/routes/app.members.tsx",
+        "path": "members",
+        "config": {}
+      },
+      "routes/app.members.products": {
+        "id": "routes/app.members.products",
+        "parentId": "routes/app.members",
+        "file": "app/routes/app.members.products.tsx",
+        "path": "products",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.members._index": {
+        "id": "routes/app.members._index",
+        "parentId": "routes/app.members",
+        "file": "app/routes/app.members._index.tsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.members.tiers": {
+        "id": "routes/app.members.tiers",
+        "parentId": "routes/app.members",
+        "file": "app/routes/app.members.tiers.tsx",
+        "path": "tiers",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.members.sync": {
+        "id": "routes/app.members.sync",
+        "parentId": "routes/app.members",
+        "file": "app/routes/app.members.sync.tsx",
+        "path": "sync",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards": {
+        "id": "routes/app.rewards",
+        "parentId": "routes/app",
+        "file": "app/routes/app.rewards.tsx",
+        "path": "rewards",
+        "config": {}
+      },
+      "routes/app.rewards.mystery-boxes._index": {
+        "id": "routes/app.rewards.mystery-boxes._index",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.mystery-boxes._index.tsx",
+        "path": "mystery-boxes",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards.mystery-boxes.$id": {
+        "id": "routes/app.rewards.mystery-boxes.$id",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.mystery-boxes.$id.tsx",
+        "path": "mystery-boxes/:id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards.raffles._index": {
+        "id": "routes/app.rewards.raffles._index",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.raffles._index.tsx",
+        "path": "raffles",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards.raffles.$id": {
+        "id": "routes/app.rewards.raffles.$id",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.raffles.$id.tsx",
+        "path": "raffles/:id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards.challenges": {
+        "id": "routes/app.rewards.challenges",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.challenges.tsx",
+        "path": "challenges",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards._index": {
+        "id": "routes/app.rewards._index",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards._index.tsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards.config": {
+        "id": "routes/app.rewards.config",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.config.tsx",
+        "path": "config",
         "config": {
           "runtime": "nodejs"
         }
@@ -1747,12 +1865,6 @@
         "file": "routes/app.customers.tsx",
         "path": "customers"
       },
-      "routes/app.customers.sync": {
-        "id": "routes/app.customers.sync",
-        "parentId": "routes/app.customers",
-        "file": "routes/app.customers.sync.tsx",
-        "path": "sync"
-      },
       "routes/app.marketing": {
         "id": "routes/app.marketing",
         "parentId": "routes/app",
@@ -1896,6 +2008,86 @@
         "parentId": "routes/app",
         "file": "routes/app.billing.tsx",
         "path": "billing"
+      },
+      "routes/app.members": {
+        "id": "routes/app.members",
+        "parentId": "routes/app",
+        "file": "routes/app.members.tsx",
+        "path": "members"
+      },
+      "routes/app.members.products": {
+        "id": "routes/app.members.products",
+        "parentId": "routes/app.members",
+        "file": "routes/app.members.products.tsx",
+        "path": "products"
+      },
+      "routes/app.members._index": {
+        "id": "routes/app.members._index",
+        "parentId": "routes/app.members",
+        "file": "routes/app.members._index.tsx",
+        "index": true
+      },
+      "routes/app.members.tiers": {
+        "id": "routes/app.members.tiers",
+        "parentId": "routes/app.members",
+        "file": "routes/app.members.tiers.tsx",
+        "path": "tiers"
+      },
+      "routes/app.members.sync": {
+        "id": "routes/app.members.sync",
+        "parentId": "routes/app.members",
+        "file": "routes/app.members.sync.tsx",
+        "path": "sync"
+      },
+      "routes/app.rewards": {
+        "id": "routes/app.rewards",
+        "parentId": "routes/app",
+        "file": "routes/app.rewards.tsx",
+        "path": "rewards"
+      },
+      "routes/app.rewards.mystery-boxes._index": {
+        "id": "routes/app.rewards.mystery-boxes._index",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.mystery-boxes._index.tsx",
+        "path": "mystery-boxes",
+        "index": true
+      },
+      "routes/app.rewards.mystery-boxes.$id": {
+        "id": "routes/app.rewards.mystery-boxes.$id",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.mystery-boxes.$id.tsx",
+        "path": "mystery-boxes/:id"
+      },
+      "routes/app.rewards.raffles._index": {
+        "id": "routes/app.rewards.raffles._index",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.raffles._index.tsx",
+        "path": "raffles",
+        "index": true
+      },
+      "routes/app.rewards.raffles.$id": {
+        "id": "routes/app.rewards.raffles.$id",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.raffles.$id.tsx",
+        "path": "raffles/:id"
+      },
+      "routes/app.rewards.challenges": {
+        "id": "routes/app.rewards.challenges",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.challenges.tsx",
+        "path": "challenges"
+      },
+      "routes/app.rewards._index": {
+        "id": "routes/app.rewards._index",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards._index.tsx",
+        "index": true
+      },
+      "routes/app.rewards.config": {
+        "id": "routes/app.rewards.config",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.config.tsx",
+        "path": "config"
       },
       "routes/app._index": {
         "id": "routes/app._index",

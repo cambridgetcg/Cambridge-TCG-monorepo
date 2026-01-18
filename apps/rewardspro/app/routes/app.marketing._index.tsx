@@ -1023,7 +1023,7 @@ export default function MarketingHub() {
                     </BlockStack>
                     <Button
                       variant="plain"
-                      onClick={() => navigate("/app/points")}
+                      onClick={() => navigate("/app/rewards")}
                     >
                       View Points Hub
                     </Button>
@@ -1173,7 +1173,7 @@ export default function MarketingHub() {
                         <Text as="p" tone="subdued" alignment="center" variant="bodySm">
                           No customers enrolled yet. Customers will appear here as they join your loyalty program.
                         </Text>
-                        <Button size="slim" onClick={() => navigate("/app/customers")}>
+                        <Button size="slim" onClick={() => navigate("/app/members")}>
                           View Customers
                         </Button>
                       </BlockStack>

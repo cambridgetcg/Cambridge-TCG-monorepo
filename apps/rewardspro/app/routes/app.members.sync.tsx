@@ -340,7 +340,7 @@ export default function CustomersSyncPage() {
       <Page
         title="Customer Sync"
         subtitle="Import and update customer data from Shopify"
-        backAction={{ url: "/app/customers" }}
+        backAction={{ url: "/app/members" }}
         primaryAction={canResume ? {
           content: "Resume Sync",
           onAction: handleResumeSync,

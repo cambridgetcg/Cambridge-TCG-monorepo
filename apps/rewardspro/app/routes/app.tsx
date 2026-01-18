@@ -254,14 +254,12 @@ export default function App() {
           <Link to="/app" rel="home">
             Home
           </Link>
-          <Link to="/app/analytics">Analytics</Link>
+          <Link to="/app/members">Members</Link>
+          <Link to="/app/rewards">Rewards</Link>
           <Link to="/app/marketing">Marketing</Link>
-          <Link to="/app/points">Points</Link>
-          <Link to="/app/customers">Customers</Link>
+          <Link to="/app/analytics">Analytics</Link>
           <Link to="/app/orders">Orders</Link>
-          <Link to="/app/tier-products">Tier Products</Link>
           <Link to="/app/settings">Settings</Link>
-          <Link to="/app/billing">Billing</Link>
         </NavMenu>
         <Outlet />
 
