@@ -419,43 +419,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   /**
-   * OPTIMIZED: Calculate tier distribution using SQL GROUP BY
-   * Instead of fetching all customers and counting in JS, use database aggregation
-   * This reduces data transfer from potentially 10,000+ records to just ~5-10 rows
+   * OPTIMIZED: Calculate tier distribution using database groupBy aggregation
+   * Replaces N+1 pattern (1 + N count queries) with single groupBy query
+   * For a shop with 10 tiers, reduces from 11 queries to 2 queries
    */
   async function calculateTierDistributionData(shop: string) {
-    // Use parallel queries for total count and tier distribution
-    const [totalCustomers, tierCounts] = await Promise.all([
-      // Single COUNT query for total
+    // OPTIMIZED: Use parallel queries - count + groupBy instead of N separate counts
+    const [totalCustomers, tierDistributionResult] = await Promise.all([
       db.customer.count({ where: { shop } }),
-
-      // For tier distribution, we need to group by currentTierId
-      // The Data API adapter doesn't have native groupBy, so we use aggregate per tier
-      // This is still more efficient than fetching all records
-      db.tier.findMany({
+      // Single groupBy query instead of N separate count queries
+      db.customer.groupBy({
+        by: ['currentTierId'],
         where: { shop },
-        select: { id: true },
-      }).then(async (tiers) => {
-        // Count customers for each tier in parallel
-        const counts = await Promise.all(
-          tiers.map(async (tier) => ({
-            tierId: tier.id,
-            count: await db.customer.count({
-              where: { shop, currentTierId: tier.id },
-            }),
-          }))
-        );
-        return counts;
-      }),
+        _count: { currentTierId: true }
+      })
     ]);
 
-    // Build tier distribution object
+    // Transform groupBy result to distribution map
     const tierDistribution: Record<string, number> = {};
-    tierCounts.forEach(({ tierId, count }) => {
-      if (count > 0) {
-        tierDistribution[tierId] = count;
+    for (const group of tierDistributionResult) {
+      if (group.currentTierId && group._count.currentTierId > 0) {
+        tierDistribution[group.currentTierId] = group._count.currentTierId;
       }
-    });
+    }
 
     return {
       tierDistribution,
@@ -885,12 +871,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       try {
-        // Fetch customer from database
+        // OPTIMIZED: Fetch customer with tier in single query to avoid separate tier fetch for Klaviyo
         const customer = await db.customer.findFirst({
           where: {
             id: customerId,
             shop: session.shop
-          }
+          },
+          include: { currentTier: true }
         });
 
         if (!customer || !customer.shopifyCustomerId) {
@@ -964,12 +951,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Track Klaviyo event for cashback adjustment
+          // OPTIMIZED: Use customer.currentTier from included relation instead of separate query
           try {
-            const customerTier = customer.currentTierId
-              ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
-              : null;
-
-            await trackCashbackAdjusted(session.shop, { ...customer, currentTier: customerTier }, {
+            await trackCashbackAdjusted(session.shop, customer, {
               amount,
               type: "ADDITION",
               reason,
@@ -1058,12 +1042,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
 
           // Track Klaviyo event for cashback removal
+          // OPTIMIZED: Use customer.currentTier from included relation instead of separate query
           try {
-            const customerTier = customer.currentTierId
-              ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
-              : null;
-
-            await trackCashbackAdjusted(session.shop, { ...customer, currentTier: customerTier }, {
+            await trackCashbackAdjusted(session.shop, customer, {
               amount,
               type: "REMOVAL",
               reason,
@@ -1488,18 +1469,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
       console.log("========================================");
 
-      // Get tier names for the message
+      // OPTIMIZED: Batch tier name lookups into single query instead of 2 separate queries
       let previousTierName = 'None';
       let newTierName = 'None';
 
-      if (result.previousTierId) {
-        const prevTier = await db.tier.findUnique({ where: { id: result.previousTierId } });
-        previousTierName = prevTier?.name || 'None';
-      }
-
-      if (result.newTierId) {
-        const newTier = await db.tier.findUnique({ where: { id: result.newTierId } });
-        newTierName = newTier?.name || 'None';
+      const tierIds = [result.previousTierId, result.newTierId].filter((id): id is string => !!id);
+      if (tierIds.length > 0) {
+        const tiers = await db.tier.findMany({
+          where: { id: { in: tierIds } },
+          select: { id: true, name: true }
+        });
+        const tierMap = new Map(tiers.map(t => [t.id, t.name]));
+        previousTierName = result.previousTierId ? tierMap.get(result.previousTierId) || 'None' : 'None';
+        newTierName = result.newTierId ? tierMap.get(result.newTierId) || 'None' : 'None';
       }
 
       return json({
@@ -1517,9 +1499,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[RECALCULATE ALL] Shop:", shop);
       console.log("========================================");
 
-      // Get all customers for this shop
+      // OPTIMIZED: Get all customers with their current tier in single query
+      // This eliminates N separate tier lookups during processing
       const allCustomers = await db.customer.findMany({
         where: { shop },
+        include: { currentTier: true },
         orderBy: { email: 'asc' }
       });
 
@@ -1538,22 +1522,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           changed: boolean;
           previousTier: string | null;
           newTier: string | null;
+          newTierId: string | null;
           source: string;
           error?: string;
         }>
       };
 
-      // Process each customer
+      // Process each customer - collect newTierIds for batch lookup later
       for (const customer of allCustomers) {
         try {
           console.log(`[RECALCULATE ALL] Processing customer ${results.processed + 1}/${allCustomers.length}: ${customer.email}`);
 
-          // Get current tier before recalculation
-          const customerBefore = await db.customer.findFirst({
-            where: { id: customer.id, shop },
-            include: { currentTier: true }
-          });
-          const previousTierName = customerBefore?.currentTier?.name || null;
+          // OPTIMIZED: Use tier from included relation instead of separate query
+          const previousTierName = customer.currentTier?.name || null;
 
           // Run tier resolution
           const result = await updateCustomerToEffectiveTier(shop, customer.id, {
@@ -1561,29 +1542,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             orderId: undefined
           });
 
-          // Get tier name after resolution
-          let newTierName = null;
-          if (result.newTierId) {
-            const newTier = await db.tier.findUnique({ where: { id: result.newTierId } });
-            newTierName = newTier?.name || null;
-          }
-
           results.processed++;
           if (result.changed) {
             results.changed++;
-            console.log(`  ✅ Changed: ${previousTierName || 'None'} → ${newTierName || 'None'} (${result.source})`);
           } else {
             results.unchanged++;
-            console.log(`  ⚪ Unchanged: ${newTierName || 'None'} (${result.source})`);
           }
 
+          // Store newTierId for batch lookup later instead of individual queries
           results.details.push({
             customerId: customer.id,
             email: customer.email,
             success: result.success,
             changed: result.changed,
             previousTier: previousTierName,
-            newTier: newTierName,
+            newTier: null, // Will be filled in batch lookup
+            newTierId: result.newTierId || null,
             source: result.source
           });
 
@@ -1599,9 +1573,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             changed: false,
             previousTier: null,
             newTier: null,
+            newTierId: null,
             source: 'ERROR',
             error: error instanceof Error ? error.message : 'Unknown error'
           });
+        }
+      }
+
+      // OPTIMIZED: Batch fetch all tier names at once instead of N individual queries
+      const allNewTierIds = [...new Set(results.details.map(d => d.newTierId).filter((id): id is string => !!id))];
+      const tierNameMap = new Map<string, string>();
+      if (allNewTierIds.length > 0) {
+        const tiers = await db.tier.findMany({
+          where: { id: { in: allNewTierIds } },
+          select: { id: true, name: true }
+        });
+        tiers.forEach(t => tierNameMap.set(t.id, t.name));
+      }
+
+      // Fill in tier names and log results
+      for (const detail of results.details) {
+        detail.newTier = detail.newTierId ? tierNameMap.get(detail.newTierId) || null : null;
+        if (detail.success) {
+          if (detail.changed) {
+            console.log(`  ✅ Changed: ${detail.previousTier || 'None'} → ${detail.newTier || 'None'} (${detail.source})`);
+          } else {
+            console.log(`  ⚪ Unchanged: ${detail.newTier || 'None'} (${detail.source})`);
+          }
         }
       }
 
