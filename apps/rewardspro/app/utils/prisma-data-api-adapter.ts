@@ -601,6 +601,9 @@ export class DataAPIModelProxy<T = any> {
       Raffle: ['status', 'drawType'],
       RafflePrize: ['prizeType'],
       RaffleWinner: ['deliveryStatus'],
+      // Mystery Box System
+      MysteryBox: ['status'],
+      MysteryBoxReward: ['rewardType', 'rarity'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -660,6 +663,11 @@ export class DataAPIModelProxy<T = any> {
       'RafflePrize',
       'RaffleEntry',
       'RaffleWinner',
+      // Mystery Box System
+      'MysteryBox',
+      'MysteryBoxReward',
+      'MysteryBoxOpen',
+      'MysteryBoxWinner',
     ];
     return tablesWithUuidId.includes(this.tableName);
   }
@@ -699,6 +707,9 @@ export class DataAPIModelProxy<T = any> {
       drawType: '"RaffleDrawType"',
       prizeType: '"RafflePrizeType"',
       deliveryStatus: '"RafflePrizeDeliveryStatus"',
+      // Mystery Box System
+      rewardType: '"MysteryBoxRewardType"',
+      rarity: '"MysteryBoxRarity"',
     };
 
     return enumTypes[field] || field;
@@ -734,6 +745,8 @@ export class DataAPIModelProxy<T = any> {
       OrderSyncJob: '"SyncJobStatus"',
       // Raffles System
       Raffle: '"RaffleStatus"',
+      // Mystery Box System
+      MysteryBox: '"MysteryBoxStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
@@ -1494,6 +1507,12 @@ export function createDataAPIPrismaClient() {
           raffleEntry: new DataAPIModelProxy("RaffleEntry", txAuroraClient),
           raffleWinner: new DataAPIModelProxy("RaffleWinner", txAuroraClient),
 
+          // Mystery Box System
+          mysteryBox: new DataAPIModelProxy("MysteryBox", txAuroraClient),
+          mysteryBoxReward: new DataAPIModelProxy("MysteryBoxReward", txAuroraClient),
+          mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", txAuroraClient),
+          mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1690,6 +1709,12 @@ export function createDataAPIPrismaClient() {
     rafflePrize: new DataAPIModelProxy("RafflePrize", client),
     raffleEntry: new DataAPIModelProxy("RaffleEntry", client),
     raffleWinner: new DataAPIModelProxy("RaffleWinner", client),
+
+    // Mystery Box System
+    mysteryBox: new DataAPIModelProxy("MysteryBox", client),
+    mysteryBoxReward: new DataAPIModelProxy("MysteryBoxReward", client),
+    mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", client),
+    mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {
