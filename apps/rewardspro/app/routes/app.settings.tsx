@@ -32,6 +32,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { invalidateShopSettings } from "../services/shop-data-provider.server";
 import { useNavigate } from "@remix-run/react";
 import { getCreditSyncStats } from "../services/credit-sync-job.server";
 import { getCustomerSyncStats } from "../services/customer-sync-job.server";
@@ -1131,9 +1132,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    return json({ 
-      success: true, 
-      settings: updatedSettings 
+    // Invalidate cached shop settings
+    await invalidateShopSettings(shop);
+
+    return json({
+      success: true,
+      settings: updatedSettings
     });
   } catch (error) {
     console.error("Settings action error:", error);

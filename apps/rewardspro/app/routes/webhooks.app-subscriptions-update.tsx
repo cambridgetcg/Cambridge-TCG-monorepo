@@ -5,6 +5,7 @@ import db from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { refreshEntitlements } from "~/services/entitlements.server";
 import { markTrialUsed } from "~/services/billing/trial-eligibility.server";
+import { invalidateShopSettings, invalidateShopBilling, invalidateShopEntitlements } from "~/services/shop-data-provider.server";
 import {
   checkWebhookIdempotency,
   markWebhookCompleted,
@@ -254,6 +255,19 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     console.log(`[APP_SUBSCRIPTIONS_UPDATE] Transaction completed for ${shopDomain}`);
+
+    // 7.5 Invalidate caches (non-critical, outside transaction)
+    try {
+      await Promise.all([
+        invalidateShopSettings(shopDomain),
+        invalidateShopBilling(shopDomain),
+        invalidateShopEntitlements(shopDomain),
+      ]);
+      console.log(`[APP_SUBSCRIPTIONS_UPDATE] Invalidated caches for ${shopDomain}`);
+    } catch (cacheError) {
+      console.error("[APP_SUBSCRIPTIONS_UPDATE] Failed to invalidate caches:", cacheError);
+      // Non-critical - don't fail webhook
+    }
 
     // 8. Handle trial tracking (non-critical, outside transaction)
     if (subscription.status === "ACTIVE" && subscription.trial_days > 0) {

@@ -62,6 +62,7 @@ import {
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
 
@@ -349,11 +350,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     console.log('[Orders Loader] Fetching shop settings...');
-    // Fetch shop settings
+    // Fetch shop settings (CACHED via shop-data-provider)
     const [orders, totalCount, shopSettings] = await Promise.all([
       Promise.resolve(ordersQuery),
       Promise.resolve(filteredTotalCount),
-      db.shopSettings.findUnique({ where: { shop } }),
+      getShopSettings(shop), // CACHED
     ]);
 
     console.log('[Orders Loader] Promise.all resolved:');

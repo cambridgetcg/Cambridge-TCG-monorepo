@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { invalidateShopSettings } from "../services/shop-data-provider.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   console.log("\n" + "=".repeat(60));
@@ -47,12 +48,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = new Date();
-        
+
         await db.shopSettings.update({
           where: { id: shopSettings.id },
           data: updates
         });
-        
+
+        // Invalidate cached shop settings
+        await invalidateShopSettings(shop);
+
         console.log(`[Shop Update] Updated shop settings for ${shop}`);
       }
     }

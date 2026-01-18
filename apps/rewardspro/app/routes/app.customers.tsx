@@ -88,6 +88,7 @@ import {
   getTierTextColor
 } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
+import { getShopSettings, getShopTiers } from "../services/shop-data-provider.server";
 import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
 
 // ============================================
@@ -477,15 +478,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Customers Loader] Search:', searchQuery, 'Tier:', tierFilter);
     console.log('[Customers Loader] Page:', page, 'PageSize:', pageSize);
 
-    // Fetch shell data and paginated customers in parallel
+    // Fetch shell data and paginated customers in parallel (CACHED via shop-data-provider)
     const [tiers, shopSettings, entitlements, paginatedResult] = await Promise.all([
-      db.tier.findMany({
-        where: { shop },
-        orderBy: { minSpend: 'asc' },
-      }),
-      db.shopSettings.findUnique({
-        where: { shop },
-      }),
+      getShopTiers(shop), // CACHED
+      getShopSettings(shop), // CACHED
       getEntitlements(shop),
       // NEW: Database-level pagination - only fetches customers for current page!
       fetchPaginatedCustomers(shop, {

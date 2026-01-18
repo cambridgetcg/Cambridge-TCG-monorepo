@@ -13,6 +13,7 @@ import { HelpAssistant } from "../components/HelpAssistant";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
+import { getShopSettings } from "../services/shop-data-provider.server";
 import type { ShopEntitlements } from "@prisma/client";
 
 // Type for loader data - exported for child routes
@@ -154,13 +155,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.error("[App Loader] Error loading entitlements:", entitlementsError);
     }
 
-    // Fetch shop settings to check feature flags
+    // Fetch shop settings to check feature flags (CACHED via shop-data-provider)
     let emailMarketingEnabled = false;
     let currentPlanName = entitlements?.effectivePlan || '';
     try {
-      const shopSettings = await db.shopSettings.findUnique({
-        where: { shop: session.shop },
-      });
+      const shopSettings = await getShopSettings(session.shop);
 
       if (shopSettings) {
         emailMarketingEnabled = (shopSettings as any).emailMarketingEnabled || false;

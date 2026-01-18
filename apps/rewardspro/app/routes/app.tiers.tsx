@@ -34,6 +34,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { TierBadge } from "../components/TierBadge";
 import { getTierStyle } from "../utils/tier-styles";
+import { getShopSettings, invalidateShopTiers } from "../services/shop-data-provider.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -87,11 +88,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     orderBy: { sortOrder: "asc" },
   });
 
-  // Fetch shop settings for currency
-  const shopSettings = await db.shopSettings.findUnique({
-    where: { shop },
-    select: { storeCurrency: true },
-  });
+  // Fetch shop settings for currency (CACHED via shop-data-provider)
+  const cachedSettings = await getShopSettings(shop);
+  const shopSettings = cachedSettings ? { storeCurrency: cachedSettings.storeCurrency } : null;
 
   return json<LoaderData>({
     tiers: tiers.map((tier) => ({
@@ -153,6 +152,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
+    // Invalidate tiers cache
+    await invalidateShopTiers(shop);
+
     return json({ success: true, message: "Tier created successfully", tier });
   }
 
@@ -179,6 +181,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         isActive,
       },
     });
+
+    // Invalidate tiers cache
+    await invalidateShopTiers(shop);
 
     return json({ success: true, message: "Tier updated successfully", tier });
   }
@@ -213,6 +218,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     await db.tier.delete({
       where: { id: tierId },
     });
+
+    // Invalidate tiers cache
+    await invalidateShopTiers(shop);
 
     return json({ success: true, message: "Tier deleted successfully" });
   }
