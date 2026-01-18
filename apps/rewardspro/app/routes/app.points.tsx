@@ -30,6 +30,8 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getPointsConfig, getPointsStats, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
+import { getRaffleStats } from "../services/raffle-management.server";
+import { getMysteryBoxStats } from "../services/mystery-box-management.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -62,6 +64,26 @@ interface LoaderData {
     givebackPools: boolean;
     dailySpin: boolean;
     streakBonus: boolean;
+  };
+  moduleStats: {
+    raffles: {
+      totalRaffles: number;
+      activeRaffles: number;
+      totalEntries: number;
+      totalPrizePoolValue: number;
+    };
+    mysteryBoxes: {
+      totalBoxes: number;
+      activeBoxes: number;
+      totalOpens: number;
+      totalPointsSpent: number;
+    };
+    challenges: {
+      totalChallenges: number;
+      activeChallenges: number;
+      totalParticipants: number;
+      totalCompletions: number;
+    };
   };
   recentActivity: Array<{
     id: string;
@@ -122,7 +144,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log(`${LOG_PREFIX} Fetching data in parallel...`);
 
     // Fetch all data in parallel
-    const [config, stats, features, recentActivity, topEarners] = await Promise.all([
+    const [config, stats, features, recentActivity, topEarners, raffleStats, mysteryBoxStatsData] = await Promise.all([
       getPointsConfig(shop),
       getPointsStats(shop),
       getEnabledFeatures(shop),
@@ -161,6 +183,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           lifetimePoints: true,
         },
       }),
+      // Get module stats
+      getRaffleStats(shop),
+      getMysteryBoxStats(shop),
     ]);
 
     console.log(`${LOG_PREFIX} All data fetched in ${Date.now() - startTime}ms`);
@@ -180,6 +205,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
       stats,
       features,
+      moduleStats: {
+        raffles: raffleStats,
+        mysteryBoxes: mysteryBoxStatsData,
+        challenges: {
+          // Placeholder until challenge services are implemented
+          totalChallenges: 0,
+          activeChallenges: 0,
+          totalParticipants: 0,
+          totalCompletions: 0,
+        },
+      },
       recentActivity: recentActivity.map((a: { id: string; type: string; amount: number; description: string | null; createdAt: Date; customer: { email: string } | null }) => ({
         id: a.id,
         type: a.type,
@@ -236,7 +272,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function PointsOverview() {
-  const { config, stats, features, recentActivity, topEarners } = useLoaderData<LoaderData>();
+  const { config, stats, features, moduleStats, recentActivity, topEarners } = useLoaderData<LoaderData>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -414,42 +450,176 @@ export default function PointsOverview() {
             </Grid>
           </Layout.Section>
 
+          {/* Engagement Modules */}
+          <Layout.Section>
+            <BlockStack gap="400">
+              <Text variant="headingMd" as="h2">Engagement Modules</Text>
+              <Grid>
+                {/* Raffles Module */}
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                  <Card>
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text variant="headingMd" as="h3">Raffles</Text>
+                          <Badge tone={features.raffles ? "success" : undefined}>
+                            {features.raffles ? "Active" : "Inactive"}
+                          </Badge>
+                        </InlineStack>
+                        <Button variant="plain" url="/app/points/raffles" disabled={!features.raffles}>
+                          Manage
+                        </Button>
+                      </InlineStack>
+                      <Divider />
+                      <Grid>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Total</Text>
+                            <Text variant="headingLg" as="p">{moduleStats.raffles.totalRaffles}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Active</Text>
+                            <Text variant="headingLg" as="p" tone={moduleStats.raffles.activeRaffles > 0 ? "success" : undefined}>
+                              {moduleStats.raffles.activeRaffles}
+                            </Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Entries</Text>
+                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.raffles.totalEntries)}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Prize Pool</Text>
+                            <Text variant="headingLg" as="p">{config.currencyIcon}{formatNumber(moduleStats.raffles.totalPrizePoolValue)}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                      </Grid>
+                    </BlockStack>
+                  </Card>
+                </Grid.Cell>
+
+                {/* Mystery Boxes Module */}
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                  <Card>
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text variant="headingMd" as="h3">Mystery Boxes</Text>
+                          <Badge tone={features.mysteryBoxes ? "success" : undefined}>
+                            {features.mysteryBoxes ? "Active" : "Inactive"}
+                          </Badge>
+                        </InlineStack>
+                        <Button variant="plain" url="/app/points/mystery-boxes" disabled={!features.mysteryBoxes}>
+                          Manage
+                        </Button>
+                      </InlineStack>
+                      <Divider />
+                      <Grid>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Total</Text>
+                            <Text variant="headingLg" as="p">{moduleStats.mysteryBoxes.totalBoxes}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Active</Text>
+                            <Text variant="headingLg" as="p" tone={moduleStats.mysteryBoxes.activeBoxes > 0 ? "success" : undefined}>
+                              {moduleStats.mysteryBoxes.activeBoxes}
+                            </Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Opens</Text>
+                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.mysteryBoxes.totalOpens)}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Spent</Text>
+                            <Text variant="headingLg" as="p">{config.currencyIcon}{formatNumber(moduleStats.mysteryBoxes.totalPointsSpent)}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                      </Grid>
+                    </BlockStack>
+                  </Card>
+                </Grid.Cell>
+
+                {/* Challenges Module */}
+                <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
+                  <Card>
+                    <BlockStack gap="400">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text variant="headingMd" as="h3">Challenges</Text>
+                          <Badge tone={features.challenges ? "success" : undefined}>
+                            {features.challenges ? "Active" : "Inactive"}
+                          </Badge>
+                        </InlineStack>
+                        <Button variant="plain" url="/app/points/challenges" disabled={!features.challenges}>
+                          Manage
+                        </Button>
+                      </InlineStack>
+                      <Divider />
+                      <Grid>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Total</Text>
+                            <Text variant="headingLg" as="p">{moduleStats.challenges.totalChallenges}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Active</Text>
+                            <Text variant="headingLg" as="p" tone={moduleStats.challenges.activeChallenges > 0 ? "success" : undefined}>
+                              {moduleStats.challenges.activeChallenges}
+                            </Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Participants</Text>
+                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.challenges.totalParticipants)}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                        <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
+                          <BlockStack gap="100">
+                            <Text variant="headingSm" as="h4" tone="subdued">Completions</Text>
+                            <Text variant="headingLg" as="p">{formatNumber(moduleStats.challenges.totalCompletions)}</Text>
+                          </BlockStack>
+                        </Grid.Cell>
+                      </Grid>
+                    </BlockStack>
+                  </Card>
+                </Grid.Cell>
+              </Grid>
+            </BlockStack>
+          </Layout.Section>
+
           {/* Features & Activity */}
           <Layout.Section>
             <Grid>
-              {/* Enabled Features */}
+              {/* Other Features */}
               <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
                 <Card>
                   <BlockStack gap="400">
                     <InlineStack align="space-between">
-                      <Text variant="headingMd" as="h3">Enabled Features</Text>
+                      <Text variant="headingMd" as="h3">Other Features</Text>
                       <Button variant="plain" url="/app/points/config">Manage</Button>
                     </InlineStack>
                     <Divider />
                     <BlockStack gap="300">
                       <InlineStack gap="200" align="start">
-                        <Badge tone={features.raffles ? "success" : undefined}>
-                          {features.raffles ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Raffles</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.mysteryBoxes ? "success" : undefined}>
-                          {features.mysteryBoxes ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Mystery Boxes</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
                         <Badge tone={features.spinWheel ? "success" : undefined}>
                           {features.spinWheel ? "Active" : "Inactive"}
                         </Badge>
                         <Text as="span">Spin Wheel</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.challenges ? "success" : undefined}>
-                          {features.challenges ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Challenges</Text>
                       </InlineStack>
                       <InlineStack gap="200" align="start">
                         <Badge tone={features.dailySpin ? "success" : undefined}>
@@ -462,6 +632,18 @@ export default function PointsOverview() {
                           {features.streakBonus ? "Active" : "Inactive"}
                         </Badge>
                         <Text as="span">Streak Bonus</Text>
+                      </InlineStack>
+                      <InlineStack gap="200" align="start">
+                        <Badge tone={features.scratchCards ? "success" : undefined}>
+                          {features.scratchCards ? "Active" : "Inactive"}
+                        </Badge>
+                        <Text as="span">Scratch Cards</Text>
+                      </InlineStack>
+                      <InlineStack gap="200" align="start">
+                        <Badge tone={features.givebackPools ? "success" : undefined}>
+                          {features.givebackPools ? "Active" : "Inactive"}
+                        </Badge>
+                        <Text as="span">Giveback Pools</Text>
                       </InlineStack>
                     </BlockStack>
                   </BlockStack>
@@ -548,20 +730,14 @@ export default function PointsOverview() {
                 <Text variant="headingMd" as="h3">Quick Actions</Text>
                 <Divider />
                 <InlineStack gap="300" wrap>
-                  <Button url="/app/points/config">
+                  <Button url="/app/points/config" variant="primary">
                     Configure Points
-                  </Button>
-                  <Button url="/app/points/raffles" disabled={!features.raffles}>
-                    Manage Raffles
-                  </Button>
-                  <Button url="/app/points/mystery-boxes" disabled={!features.mysteryBoxes}>
-                    Mystery Boxes
-                  </Button>
-                  <Button url="/app/points/challenges" disabled={!features.challenges}>
-                    Challenges
                   </Button>
                   <Button url="/app/points/analytics">
                     View Analytics
+                  </Button>
+                  <Button url="/app/customers">
+                    Manage Customers
                   </Button>
                 </InlineStack>
               </BlockStack>
