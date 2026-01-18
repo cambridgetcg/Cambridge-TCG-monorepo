@@ -780,25 +780,65 @@ export default function MarketingHub() {
               <Card>
                 <BlockStack gap="400">
                   <InlineStack align="space-between" blockAlign="center">
-                    <Text as="h2" variant="headingMd">Recent Campaigns</Text>
-                    <Button
-                      variant="plain"
-                      onClick={() => navigate("/app/marketing/campaigns")}
-                    >
-                      View all
-                    </Button>
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text as="h2" variant="headingMd">Recent Campaigns</Text>
+                        {data.recentCampaigns.length > 0 ? (
+                          <Badge tone={data.recentCampaigns.some(c => c.status === 'sent') ? "success" : "info"}>
+                            {data.recentCampaigns.filter(c => c.status === 'sent').length > 0
+                              ? `${data.recentCampaigns.filter(c => c.status === 'sent').length} sent`
+                              : data.recentCampaigns.filter(c => c.status === 'scheduled').length > 0
+                                ? `${data.recentCampaigns.filter(c => c.status === 'scheduled').length} scheduled`
+                                : `${data.recentCampaigns.filter(c => c.status === 'draft').length} draft`}
+                          </Badge>
+                        ) : (
+                          <Badge tone="new">Get Started</Badge>
+                        )}
+                      </InlineStack>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Send targeted emails to engage loyalty members
+                      </Text>
+                    </BlockStack>
+                    {data.recentCampaigns.length > 0 && (
+                      <Button
+                        variant="plain"
+                        onClick={() => navigate("/app/marketing/campaigns")}
+                      >
+                        View all
+                      </Button>
+                    )}
                   </InlineStack>
 
                   {data.recentCampaigns.length === 0 ? (
-                    <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                      <BlockStack gap="200" inlineAlign="center">
-                        <Icon source={EmailIcon} tone="subdued" />
-                        <Text as="p" tone="subdued" alignment="center">
-                          No campaigns yet. Create your first campaign to engage your customers.
-                        </Text>
-                        <Button onClick={() => navigate("/app/marketing/campaigns/create")}>
-                          Create Campaign
-                        </Button>
+                    <Box padding="500" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="300" inlineAlign="center">
+                        <div style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--p-color-bg-fill-info-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <Icon source={EmailIcon} tone="info" />
+                        </div>
+                        <BlockStack gap="100" inlineAlign="center">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="center">
+                            Launch your first campaign
+                          </Text>
+                          <Text as="p" tone="subdued" alignment="center" variant="bodySm">
+                            Email campaigns help you announce promotions, share tier benefits, and re-engage inactive members. Start with a welcome announcement or a tier-exclusive offer.
+                          </Text>
+                        </BlockStack>
+                        <InlineStack gap="200">
+                          <Button variant="primary" onClick={() => navigate("/app/marketing/campaigns/create")}>
+                            Create Campaign
+                          </Button>
+                          <Button variant="plain" onClick={() => navigate("/app/marketing/templates")}>
+                            Browse Templates
+                          </Button>
+                        </InlineStack>
                       </BlockStack>
                     </Box>
                   ) : (
@@ -862,30 +902,63 @@ export default function MarketingHub() {
               <Card>
                 <BlockStack gap="400">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Text as="h2" variant="headingMd">Automations</Text>
-                      <Badge tone="info">
-                        {data.automations.filter(a => a.isEnabled).length} active
-                      </Badge>
-                    </InlineStack>
-                    <Button
-                      variant="plain"
-                      onClick={() => navigate("/app/marketing/automation/workflows")}
-                    >
-                      Manage
-                    </Button>
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text as="h2" variant="headingMd">Automations</Text>
+                        {data.automations.length === 0 ? (
+                          <Badge tone="new">Set Up</Badge>
+                        ) : data.automations.filter(a => a.isEnabled).length === 0 ? (
+                          <Badge tone="warning">All Paused</Badge>
+                        ) : (
+                          <Badge tone="success">
+                            {data.automations.filter(a => a.isEnabled).length} Running
+                          </Badge>
+                        )}
+                      </InlineStack>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Triggered emails that run automatically on events
+                      </Text>
+                    </BlockStack>
+                    {data.automations.length > 0 && (
+                      <Button
+                        variant="plain"
+                        onClick={() => navigate("/app/marketing/automation/workflows")}
+                      >
+                        Manage
+                      </Button>
+                    )}
                   </InlineStack>
 
                   {data.automations.length === 0 ? (
-                    <Box padding="400" background="bg-surface-secondary" borderRadius="200">
-                      <BlockStack gap="200" inlineAlign="center">
-                        <Icon source={AutomationIcon} tone="subdued" />
-                        <Text as="p" tone="subdued" alignment="center">
-                          Set up automated emails for tier changes, welcome messages, and more.
-                        </Text>
-                        <Button onClick={() => navigate("/app/marketing/automation/create")}>
-                          Create Automation
-                        </Button>
+                    <Box padding="500" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="300" inlineAlign="center">
+                        <div style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--p-color-bg-fill-success-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <Icon source={AutomationIcon} tone="success" />
+                        </div>
+                        <BlockStack gap="100" inlineAlign="center">
+                          <Text as="p" variant="bodyMd" fontWeight="semibold" alignment="center">
+                            Set up automated engagement
+                          </Text>
+                          <Text as="p" tone="subdued" alignment="center" variant="bodySm">
+                            Automations send timely emails when customers join, upgrade tiers, or become inactive. Start with a welcome email to greet new loyalty members.
+                          </Text>
+                        </BlockStack>
+                        <InlineStack gap="200">
+                          <Button variant="primary" onClick={() => navigate("/app/marketing/automation/create")}>
+                            Create Automation
+                          </Button>
+                          <Button variant="plain" onClick={() => navigate("/app/marketing/automation/workflows")}>
+                            View Templates
+                          </Button>
+                        </InlineStack>
                       </BlockStack>
                     </Box>
                   ) : (
@@ -938,35 +1011,90 @@ export default function MarketingHub() {
               {/* Audience Overview */}
               <Card>
                 <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">Audience</Text>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">Total Customers</Text>
-                      <Text as="span" variant="bodyMd" fontWeight="semibold">
-                        {data.customerStats.total.toLocaleString()}
-                      </Text>
+                  <BlockStack gap="100">
+                    <InlineStack gap="200" blockAlign="center">
+                      <Text as="h2" variant="headingMd">Audience</Text>
+                      {data.customerStats.total === 0 ? (
+                        <Badge tone="new">Build Audience</Badge>
+                      ) : data.customerStats.withEmail / data.customerStats.total < 0.5 ? (
+                        <Badge tone="warning">Low Coverage</Badge>
+                      ) : data.customerStats.withEmail / data.customerStats.total >= 0.8 ? (
+                        <Badge tone="success">Strong</Badge>
+                      ) : (
+                        <Badge tone="info">{data.customerStats.total} members</Badge>
+                      )}
                     </InlineStack>
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">With Email</Text>
-                      <Text as="span" variant="bodyMd" fontWeight="semibold">
-                        {data.customerStats.withEmail.toLocaleString()}
-                      </Text>
-                    </InlineStack>
-                    <Divider />
-                    <InlineStack align="space-between">
-                      <Text as="span" variant="bodyMd">Reachable</Text>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text as="span" variant="bodyMd" fontWeight="semibold">
-                          {data.customerStats.subscribed.toLocaleString()}
-                        </Text>
-                        <Badge tone="success">
-                          {data.customerStats.total > 0
-                            ? `${((data.customerStats.subscribed / data.customerStats.total) * 100).toFixed(0)}%`
-                            : "0%"}
-                        </Badge>
-                      </InlineStack>
-                    </InlineStack>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Your reachable loyalty program members
+                    </Text>
                   </BlockStack>
+
+                  {data.customerStats.total === 0 ? (
+                    <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="200" inlineAlign="center">
+                        <Icon source={PersonIcon} tone="subdued" />
+                        <Text as="p" tone="subdued" alignment="center" variant="bodySm">
+                          No customers enrolled yet. Customers will appear here as they join your loyalty program.
+                        </Text>
+                        <Button size="slim" onClick={() => navigate("/app/customers")}>
+                          View Customers
+                        </Button>
+                      </BlockStack>
+                    </Box>
+                  ) : (
+                    <BlockStack gap="300">
+                      <InlineStack align="space-between">
+                        <Text as="span" variant="bodyMd">Total Customers</Text>
+                        <Text as="span" variant="bodyMd" fontWeight="semibold">
+                          {data.customerStats.total.toLocaleString()}
+                        </Text>
+                      </InlineStack>
+                      <InlineStack align="space-between">
+                        <Text as="span" variant="bodyMd">With Email</Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="span" variant="bodyMd" fontWeight="semibold">
+                            {data.customerStats.withEmail.toLocaleString()}
+                          </Text>
+                          {data.customerStats.withEmail / data.customerStats.total < 0.5 && (
+                            <Tooltip content="Less than 50% of customers have email addresses">
+                              <Icon source={AlertCircleIcon} tone="warning" />
+                            </Tooltip>
+                          )}
+                        </InlineStack>
+                      </InlineStack>
+                      <Divider />
+                      <InlineStack align="space-between">
+                        <Text as="span" variant="bodyMd">Reachable</Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="span" variant="bodyMd" fontWeight="semibold">
+                            {data.customerStats.subscribed.toLocaleString()}
+                          </Text>
+                          <Badge tone={
+                            data.customerStats.total > 0 &&
+                            (data.customerStats.subscribed / data.customerStats.total) >= 0.7
+                              ? "success"
+                              : "info"
+                          }>
+                            {data.customerStats.total > 0
+                              ? `${((data.customerStats.subscribed / data.customerStats.total) * 100).toFixed(0)}%`
+                              : "0%"}
+                          </Badge>
+                        </InlineStack>
+                      </InlineStack>
+
+                      {/* Actionable insight based on coverage */}
+                      {data.customerStats.withEmail / data.customerStats.total < 0.5 && data.customerStats.total >= 10 && (
+                        <Box padding="300" background="bg-surface-warning" borderRadius="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={AlertCircleIcon} tone="warning" />
+                            <Text as="p" variant="bodySm">
+                              Encourage email sign-ups to reach more members with campaigns
+                            </Text>
+                          </InlineStack>
+                        </Box>
+                      )}
+                    </BlockStack>
+                  )}
                 </BlockStack>
               </Card>
 
@@ -974,28 +1102,52 @@ export default function MarketingHub() {
               <Card>
                 <BlockStack gap="400">
                   <InlineStack align="space-between" blockAlign="center">
-                    <InlineStack gap="200" blockAlign="center">
-                      <Text as="h2" variant="headingMd">Recommendations</Text>
-                      {data.recommendations.length > 0 && (
-                        <Badge tone="attention">{data.recommendations.length}</Badge>
-                      )}
-                    </InlineStack>
-                    <Button
-                      variant="plain"
-                      onClick={() => navigate("/app/marketing/recommendations")}
-                    >
-                      View all
-                    </Button>
+                    <BlockStack gap="100">
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text as="h2" variant="headingMd">Recommendations</Text>
+                        {data.recommendations.length > 0 ? (
+                          <Badge tone="attention">{data.recommendations.length} new</Badge>
+                        ) : (
+                          <Badge tone="success">Up to date</Badge>
+                        )}
+                      </InlineStack>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        AI-powered campaign suggestions
+                      </Text>
+                    </BlockStack>
+                    {data.recommendations.length > 0 && (
+                      <Button
+                        variant="plain"
+                        onClick={() => navigate("/app/marketing/recommendations")}
+                      >
+                        View all
+                      </Button>
+                    )}
                   </InlineStack>
 
                   {data.recommendations.length === 0 ? (
-                    <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Icon source={CheckCircleIcon} tone="success" />
-                        <Text as="p" variant="bodySm" tone="subdued">
-                          No new recommendations. Check back later!
-                        </Text>
-                      </InlineStack>
+                    <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                      <BlockStack gap="200" inlineAlign="center">
+                        <div style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--p-color-bg-fill-success-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <Icon source={CheckCircleIcon} tone="success" />
+                        </div>
+                        <BlockStack gap="100" inlineAlign="center">
+                          <Text as="p" variant="bodySm" fontWeight="semibold" alignment="center">
+                            You're all caught up
+                          </Text>
+                          <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                            We analyze your customer data to suggest campaigns. New recommendations appear as opportunities arise.
+                          </Text>
+                        </BlockStack>
+                      </BlockStack>
                     </Box>
                   ) : (
                     <BlockStack gap="300">
@@ -1038,24 +1190,117 @@ export default function MarketingHub() {
               {/* Quick Actions */}
               <Card>
                 <BlockStack gap="300">
-                  <Text as="h2" variant="headingMd">Quick Actions</Text>
+                  <BlockStack gap="100">
+                    <Text as="h2" variant="headingMd">Quick Actions</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Common marketing tasks
+                    </Text>
+                  </BlockStack>
                   <BlockStack gap="200">
-                    <Button
-                      fullWidth
-                      textAlign="left"
-                      icon={EmailIcon}
-                      onClick={() => navigate("/app/marketing/campaigns/create")}
-                    >
-                      New Email Campaign
-                    </Button>
-                    <Button
-                      fullWidth
-                      textAlign="left"
-                      icon={AutomationIcon}
-                      onClick={() => navigate("/app/marketing/automation/create")}
-                    >
-                      New Automation
-                    </Button>
+                    {/* Highlight primary action based on state */}
+                    {data.recentCampaigns.length === 0 ? (
+                      <Box
+                        padding="300"
+                        background="bg-surface-info-hover"
+                        borderRadius="200"
+                      >
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={EmailIcon} tone="info" />
+                            <BlockStack gap="050">
+                              <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                Create First Campaign
+                              </Text>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Recommended to get started
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            variant="primary"
+                            size="slim"
+                            onClick={() => navigate("/app/marketing/campaigns/create")}
+                          >
+                            Create
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    ) : data.automations.length === 0 ? (
+                      <Box
+                        padding="300"
+                        background="bg-surface-success-hover"
+                        borderRadius="200"
+                      >
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={AutomationIcon} tone="success" />
+                            <BlockStack gap="050">
+                              <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                Set Up Automation
+                              </Text>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Recommended next step
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            variant="primary"
+                            size="slim"
+                            onClick={() => navigate("/app/marketing/automation/create")}
+                          >
+                            Create
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    ) : data.recommendations.length > 0 ? (
+                      <Box
+                        padding="300"
+                        background="bg-surface-warning"
+                        borderRadius="200"
+                      >
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Icon source={AlertCircleIcon} tone="warning" />
+                            <BlockStack gap="050">
+                              <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                {data.recommendations.length} Recommendation{data.recommendations.length > 1 ? 's' : ''}
+                              </Text>
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Action opportunities available
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            size="slim"
+                            onClick={() => navigate("/app/marketing/recommendations")}
+                          >
+                            View
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    ) : null}
+
+                    {/* Standard actions - de-emphasize the one already highlighted */}
+                    {data.recentCampaigns.length > 0 && (
+                      <Button
+                        fullWidth
+                        textAlign="left"
+                        icon={EmailIcon}
+                        onClick={() => navigate("/app/marketing/campaigns/create")}
+                      >
+                        New Email Campaign
+                      </Button>
+                    )}
+                    {data.automations.length > 0 && (
+                      <Button
+                        fullWidth
+                        textAlign="left"
+                        icon={AutomationIcon}
+                        onClick={() => navigate("/app/marketing/automation/create")}
+                      >
+                        New Automation
+                      </Button>
+                    )}
                     <Button
                       fullWidth
                       textAlign="left"
@@ -1063,6 +1308,14 @@ export default function MarketingHub() {
                       onClick={() => navigate("/app/marketing/analytics")}
                     >
                       View Analytics
+                    </Button>
+                    <Button
+                      fullWidth
+                      textAlign="left"
+                      icon={SettingsIcon}
+                      onClick={() => navigate("/app/marketing/settings")}
+                    >
+                      Email Settings
                     </Button>
                   </BlockStack>
                 </BlockStack>
