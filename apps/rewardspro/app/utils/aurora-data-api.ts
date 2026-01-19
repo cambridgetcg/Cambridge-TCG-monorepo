@@ -374,12 +374,30 @@ let auroraClient: AuroraDataAPI | null = null;
 export function getAuroraClient(): AuroraDataAPI {
   if (!auroraClient) {
     // Trim all env vars to handle accidental whitespace/newlines
+    const rawResourceArn = process.env.AURORA_RESOURCE_ARN || "";
+    const rawSecretArn = process.env.AURORA_SECRET_ARN || "";
+    const rawDatabase = process.env.AURORA_DATABASE_NAME || "rewardspro";
+    const rawRegion = process.env.AWS_REGION || "eu-north-1";
+
     const config: AuroraConfig = {
-      resourceArn: process.env.AURORA_RESOURCE_ARN?.trim() || "",
-      secretArn: process.env.AURORA_SECRET_ARN?.trim() || "",
-      database: (process.env.AURORA_DATABASE_NAME || "rewardspro").trim(),
-      region: (process.env.AWS_REGION || "eu-north-1").trim(),
+      resourceArn: rawResourceArn.trim(),
+      secretArn: rawSecretArn.trim(),
+      database: rawDatabase.trim(),
+      region: rawRegion.trim(),
     };
+
+    // Debug logging to verify trimming
+    console.log("[AuroraClient] Initializing with config:", {
+      resourceArnLength: { raw: rawResourceArn.length, trimmed: config.resourceArn.length },
+      secretArnLength: { raw: rawSecretArn.length, trimmed: config.secretArn.length },
+      regionLength: { raw: rawRegion.length, trimmed: config.region.length },
+      region: config.region,
+      hasNewlineInRaw: {
+        resourceArn: rawResourceArn.includes('\n'),
+        secretArn: rawSecretArn.includes('\n'),
+        region: rawRegion.includes('\n'),
+      }
+    });
 
     if (!config.resourceArn || !config.secretArn) {
       throw new Error(
