@@ -1,39 +1,28 @@
 /**
- * TierPerformanceChart - Neural-Crystalline Architecture
+ * TierPerformanceChart - Professional Analytics Module
  *
- * Optimized radar chart with:
- * - Memoized data transformation (single-pass neural computation)
- * - Crystalline design token system
- * - Zero-waste rendering pipeline
+ * Modern dashboard-style visualization with:
+ * - Tier summary cards with key KPIs
+ * - Grouped horizontal bar chart for metric comparison
+ * - Clean, professional design language
  */
 
-import { useMemo, memo } from 'react';
-import { Radar } from 'react-chartjs-2';
-import { Card, Box, BlockStack, InlineStack, Text } from '@shopify/polaris';
+import { useMemo, memo, useState } from 'react';
+import { Bar } from 'react-chartjs-2';
+import { Card, Box, BlockStack, InlineStack, Text, Icon, Divider, Tabs } from '@shopify/polaris';
 import { TierBadge } from '../TierBadge';
 import type { ChartOptions, ChartData } from 'chart.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CRYSTALLINE DESIGN TOKENS
+// PROFESSIONAL COLOR SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
-const CRYSTAL_PALETTE = {
-  amethyst: { border: '#5C6AC4', bg: 'rgba(92, 106, 196, 0.15)' },
-  sapphire: { border: '#006FBB', bg: 'rgba(0, 111, 187, 0.15)' },
-  emerald: { border: '#00848E', bg: 'rgba(0, 132, 142, 0.15)' },
-  aquamarine: { border: '#47C1BF', bg: 'rgba(71, 193, 191, 0.15)' },
-  topaz: { border: '#9C6ADE', bg: 'rgba(156, 106, 222, 0.15)' },
-} as const;
-
-const CRYSTAL_SEQUENCE = ['amethyst', 'sapphire', 'emerald', 'aquamarine', 'topaz'] as const;
-
-const METRIC_LABELS = [
-  'Order Frequency',
-  'Avg Order Value',
-  'Customer LTV',
-  'Retention Rate',
-  'Revenue/Order',
-  'Cashback Earned',
+const TIER_COLORS = [
+  { primary: '#6366F1', secondary: '#818CF8', bg: 'rgba(99, 102, 241, 0.08)', gradient: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' },
+  { primary: '#0EA5E9', secondary: '#38BDF8', bg: 'rgba(14, 165, 233, 0.08)', gradient: 'linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%)' },
+  { primary: '#10B981', secondary: '#34D399', bg: 'rgba(16, 185, 129, 0.08)', gradient: 'linear-gradient(135deg, #10B981 0%, #14B8A6 100%)' },
+  { primary: '#F59E0B', secondary: '#FBBF24', bg: 'rgba(245, 158, 11, 0.08)', gradient: 'linear-gradient(135deg, #F59E0B 0%, #F97316 100%)' },
+  { primary: '#EC4899', secondary: '#F472B6', bg: 'rgba(236, 72, 153, 0.08)', gradient: 'linear-gradient(135deg, #EC4899 0%, #DB2777 100%)' },
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -57,210 +46,379 @@ interface TierPerformanceChartProps {
   formatAmount: (value: number) => string;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// NEURAL TRANSFORMATION LAYER
-// Single-pass computation matrix for maximum efficiency
-// ═══════════════════════════════════════════════════════════════════════════
+type MetricKey = 'orderFrequency' | 'aov' | 'ltv' | 'retention' | 'revenue' | 'cashback';
 
-interface NeuralMetricState {
-  maxOrderFreq: number;
-  maxAOV: number;
-  maxLTV: number;
-  maxRevenue: number;
-  maxCashback: number;
+interface MetricConfig {
+  key: MetricKey;
+  label: string;
+  shortLabel: string;
+  getValue: (tier: TierMetric) => number;
+  format: (value: number, formatAmount: (v: number) => string) => string;
+  icon: string;
+  description: string;
 }
 
-/**
- * Neural single-pass aggregation - computes all max values in O(n)
- * Instead of 5 separate iterations, we traverse once
- */
-function computeNeuralState(tiers: TierMetric[]): NeuralMetricState {
-  return tiers.reduce(
-    (state, tier) => ({
-      maxOrderFreq: Math.max(state.maxOrderFreq, tier.monthlyOrderFrequency),
-      maxAOV: Math.max(state.maxAOV, tier.averageOrderValue),
-      maxLTV: Math.max(state.maxLTV, tier.lifetimeValue),
-      maxRevenue: Math.max(state.maxRevenue, tier.revenuePerOrder),
-      maxCashback: Math.max(state.maxCashback, tier.totalCashbackEarned),
-    }),
-    { maxOrderFreq: 1, maxAOV: 1, maxLTV: 1, maxRevenue: 1, maxCashback: 1 }
+const METRICS: MetricConfig[] = [
+  {
+    key: 'ltv',
+    label: 'Customer Lifetime Value',
+    shortLabel: 'LTV',
+    getValue: (tier) => tier.lifetimeValue,
+    format: (value, formatAmount) => formatAmount(value),
+    icon: '💎',
+    description: 'Total expected revenue per customer',
+  },
+  {
+    key: 'aov',
+    label: 'Average Order Value',
+    shortLabel: 'AOV',
+    getValue: (tier) => tier.averageOrderValue,
+    format: (value, formatAmount) => formatAmount(value),
+    icon: '🛒',
+    description: 'Average spend per transaction',
+  },
+  {
+    key: 'retention',
+    label: 'Retention Rate',
+    shortLabel: 'Retention',
+    getValue: (tier) => tier.retentionRate,
+    format: (value) => `${value.toFixed(1)}%`,
+    icon: '🔄',
+    description: 'Customers who return to purchase',
+  },
+  {
+    key: 'orderFrequency',
+    label: 'Monthly Order Frequency',
+    shortLabel: 'Frequency',
+    getValue: (tier) => tier.monthlyOrderFrequency,
+    format: (value) => `${value.toFixed(2)}/mo`,
+    icon: '📊',
+    description: 'Average orders per month per customer',
+  },
+  {
+    key: 'revenue',
+    label: 'Revenue per Order',
+    shortLabel: 'Rev/Order',
+    getValue: (tier) => tier.revenuePerOrder,
+    format: (value, formatAmount) => formatAmount(value),
+    icon: '💰',
+    description: 'Net revenue after cashback per order',
+  },
+  {
+    key: 'cashback',
+    label: 'Total Cashback Earned',
+    shortLabel: 'Cashback',
+    getValue: (tier) => tier.totalCashbackEarned,
+    format: (value, formatAmount) => formatAmount(value),
+    icon: '🎁',
+    description: 'Average cashback earned per customer',
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIER SUMMARY CARD
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface TierSummaryCardProps {
+  tier: TierMetric;
+  colorIndex: number;
+  formatAmount: (value: number) => string;
+  isHighlighted: boolean;
+  onHover: () => void;
+  onLeave: () => void;
+}
+
+const TierSummaryCard = memo(function TierSummaryCard({
+  tier,
+  colorIndex,
+  formatAmount,
+  isHighlighted,
+  onHover,
+  onLeave,
+}: TierSummaryCardProps) {
+  const color = TIER_COLORS[colorIndex % TIER_COLORS.length];
+
+  return (
+    <div
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      style={{
+        flex: '1 1 180px',
+        minWidth: 180,
+        maxWidth: 220,
+        padding: '16px',
+        borderRadius: '12px',
+        background: isHighlighted ? color.bg : '#FAFAFA',
+        border: `2px solid ${isHighlighted ? color.primary : 'transparent'}`,
+        transition: 'all 0.2s ease',
+        cursor: 'pointer',
+      }}
+    >
+      <BlockStack gap="300">
+        <InlineStack align="space-between" blockAlign="center">
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: color.gradient,
+              boxShadow: `0 2px 8px ${color.primary}40`,
+            }}
+          />
+          <Text variant="bodySm" tone="subdued" as="span">
+            {tier.cashbackPercent}% cashback
+          </Text>
+        </InlineStack>
+
+        <Text variant="headingSm" as="h3" fontWeight="semibold">
+          {tier.name}
+        </Text>
+
+        <div style={{ borderTop: `1px solid ${isHighlighted ? color.primary + '30' : '#E5E5E5'}`, paddingTop: 12 }}>
+          <BlockStack gap="200">
+            <InlineStack align="space-between">
+              <Text variant="bodySm" tone="subdued" as="span">LTV</Text>
+              <Text variant="bodyMd" fontWeight="semibold" as="span">
+                {formatAmount(tier.lifetimeValue)}
+              </Text>
+            </InlineStack>
+            <InlineStack align="space-between">
+              <Text variant="bodySm" tone="subdued" as="span">Retention</Text>
+              <Text variant="bodyMd" fontWeight="semibold" as="span">
+                {tier.retentionRate.toFixed(1)}%
+              </Text>
+            </InlineStack>
+          </BlockStack>
+        </div>
+      </BlockStack>
+    </div>
   );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// METRIC COMPARISON BAR
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface MetricComparisonProps {
+  metric: MetricConfig;
+  tiers: TierMetric[];
+  formatAmount: (value: number) => string;
+  highlightedTier: number | null;
 }
 
-/**
- * Crystalline normalization - transforms raw value to 0-100 scale
- * with 20% buffer for visual breathing room
- */
-const crystallize = (value: number, max: number): number => {
-  const bufferedMax = max * 1.2;
-  return bufferedMax > 0 ? Math.min((value / bufferedMax) * 100, 100) : 0;
-};
+const MetricComparison = memo(function MetricComparison({
+  metric,
+  tiers,
+  formatAmount,
+  highlightedTier,
+}: MetricComparisonProps) {
+  const maxValue = useMemo(() => {
+    return Math.max(...tiers.map(t => metric.getValue(t)), 1);
+  }, [tiers, metric]);
 
-/**
- * Transform tier into normalized radar data points
- */
-function transformTierToRadarPoints(tier: TierMetric, neuralState: NeuralMetricState): number[] {
-  return [
-    crystallize(tier.monthlyOrderFrequency, neuralState.maxOrderFreq),
-    crystallize(tier.averageOrderValue, neuralState.maxAOV),
-    crystallize(tier.lifetimeValue, neuralState.maxLTV),
-    Math.min(tier.retentionRate, 100), // Already 0-100
-    crystallize(tier.revenuePerOrder, neuralState.maxRevenue),
-    crystallize(tier.totalCashbackEarned, neuralState.maxCashback),
-  ];
+  return (
+    <Box paddingBlockStart="400" paddingBlockEnd="400">
+      <BlockStack gap="300">
+        <InlineStack align="space-between" blockAlign="center">
+          <InlineStack gap="200" blockAlign="center">
+            <span style={{ fontSize: 16 }}>{metric.icon}</span>
+            <Text variant="bodyMd" fontWeight="semibold" as="span">
+              {metric.label}
+            </Text>
+          </InlineStack>
+          <Text variant="bodySm" tone="subdued" as="span">
+            {metric.description}
+          </Text>
+        </InlineStack>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {tiers.map((tier, index) => {
+            const value = metric.getValue(tier);
+            const percentage = (value / maxValue) * 100;
+            const color = TIER_COLORS[index % TIER_COLORS.length];
+            const isHighlighted = highlightedTier === index;
+
+            return (
+              <div key={tier.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 80, flexShrink: 0 }}>
+                  <Text variant="bodySm" fontWeight={isHighlighted ? 'semibold' : 'regular'} as="span">
+                    {tier.name}
+                  </Text>
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 28,
+                    background: '#F3F4F6',
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: `${Math.max(percentage, 2)}%`,
+                      background: isHighlighted ? color.gradient : color.primary,
+                      borderRadius: 6,
+                      transition: 'all 0.3s ease',
+                      opacity: isHighlighted ? 1 : 0.75,
+                      boxShadow: isHighlighted ? `0 2px 8px ${color.primary}40` : 'none',
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: percentage > 70 ? 'white' : '#374151',
+                      textShadow: percentage > 70 ? '0 1px 2px rgba(0,0,0,0.2)' : 'none',
+                    }}
+                  >
+                    {metric.format(value, formatAmount)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </BlockStack>
+    </Box>
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GROUPED BAR CHART
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface GroupedBarChartProps {
+  tiers: TierMetric[];
+  formatAmount: (value: number) => string;
+  selectedMetrics: MetricKey[];
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// CHART DATA FACTORY
-// ═══════════════════════════════════════════════════════════════════════════
+const GroupedBarChart = memo(function GroupedBarChart({
+  tiers,
+  formatAmount,
+  selectedMetrics,
+}: GroupedBarChartProps) {
+  const activeMetrics = METRICS.filter(m => selectedMetrics.includes(m.key));
 
-function createChartData(tiers: TierMetric[]): ChartData<'radar'> {
-  const neuralState = computeNeuralState(tiers);
+  const chartData: ChartData<'bar'> = useMemo(() => {
+    return {
+      labels: tiers.map(t => t.name),
+      datasets: activeMetrics.map((metric, metricIndex) => {
+        // Normalize values to percentages for comparison
+        const values = tiers.map(t => metric.getValue(t));
+        const max = Math.max(...values, 1);
 
-  return {
-    labels: [...METRIC_LABELS],
-    datasets: tiers.map((tier, index) => {
-      const crystalKey = CRYSTAL_SEQUENCE[index % CRYSTAL_SEQUENCE.length];
-      const crystal = CRYSTAL_PALETTE[crystalKey];
+        return {
+          label: metric.shortLabel,
+          data: values.map(v => (v / max) * 100),
+          backgroundColor: tiers.map((_, tierIndex) => {
+            const color = TIER_COLORS[tierIndex % TIER_COLORS.length];
+            return `${color.primary}${metricIndex === 0 ? 'CC' : metricIndex === 1 ? '99' : '66'}`;
+          }),
+          borderColor: tiers.map((_, tierIndex) => TIER_COLORS[tierIndex % TIER_COLORS.length].primary),
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.8,
+          categoryPercentage: 0.85,
+        };
+      }),
+    };
+  }, [tiers, activeMetrics]);
 
-      return {
-        label: tier.name,
-        data: transformTierToRadarPoints(tier, neuralState),
-        borderColor: crystal.border,
-        backgroundColor: crystal.bg,
-        borderWidth: 2,
-        pointBackgroundColor: crystal.border,
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: crystal.border,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-      };
-    }),
-  };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CHART OPTIONS FACTORY
-// ═══════════════════════════════════════════════════════════════════════════
-
-function createChartOptions(
-  tiers: TierMetric[],
-  formatAmount: (value: number) => string
-): ChartOptions<'radar'> {
-  return {
+  const chartOptions: ChartOptions<'bar'> = useMemo(() => ({
+    indexAxis: 'y' as const,
     responsive: true,
     maintainAspectRatio: false,
     animation: {
-      duration: 400,
+      duration: 500,
       easing: 'easeOutQuart',
     },
     scales: {
-      r: {
-        angleLines: {
-          display: true,
-          color: 'rgba(0, 0, 0, 0.08)',
-        },
+      x: {
+        beginAtZero: true,
+        max: 100,
         grid: {
-          color: 'rgba(0, 0, 0, 0.06)',
+          color: 'rgba(0, 0, 0, 0.04)',
         },
-        suggestedMin: 0,
-        suggestedMax: 100,
         ticks: {
-          stepSize: 20,
           callback: (value) => `${value}%`,
-          font: { size: 10 },
-          color: 'rgba(0, 0, 0, 0.5)',
+          font: { size: 11 },
+          color: '#6B7280',
         },
-        pointLabels: {
+        title: {
+          display: true,
+          text: 'Relative Performance (%)',
           font: { size: 11, weight: 500 },
-          color: 'rgba(0, 0, 0, 0.7)',
+          color: '#9CA3AF',
+        },
+      },
+      y: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: { size: 12, weight: 500 },
+          color: '#374151',
         },
       },
     },
     plugins: {
       legend: {
         display: true,
-        position: 'top',
+        position: 'top' as const,
+        align: 'end' as const,
         labels: {
           boxWidth: 12,
+          boxHeight: 12,
           padding: 16,
           usePointStyle: true,
-          pointStyle: 'circle',
-          font: { size: 12 },
+          pointStyle: 'rectRounded',
+          font: { size: 11, weight: 500 },
+          color: '#6B7280',
         },
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backgroundColor: 'rgba(17, 24, 39, 0.95)',
         padding: 12,
         cornerRadius: 8,
         titleFont: { size: 13, weight: 600 },
         bodyFont: { size: 12 },
+        titleColor: '#F9FAFB',
+        bodyColor: '#D1D5DB',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
         callbacks: {
+          title: (items) => items[0]?.label || '',
           label: (context) => {
-            const tierIndex = context.datasetIndex;
-            const metricIndex = context.dataIndex;
+            const metricIndex = context.datasetIndex;
+            const tierIndex = context.dataIndex;
+            const metric = activeMetrics[metricIndex];
             const tier = tiers[tierIndex];
 
-            if (!tier) return '';
+            if (!metric || !tier) return '';
 
-            const formatters: Record<number, () => string> = {
-              0: () => `${tier.monthlyOrderFrequency.toFixed(2)} orders/customer`,
-              1: () => formatAmount(tier.averageOrderValue),
-              2: () => formatAmount(tier.lifetimeValue),
-              3: () => `${tier.retentionRate.toFixed(1)}%`,
-              4: () => formatAmount(tier.revenuePerOrder),
-              5: () => `${formatAmount(tier.totalCashbackEarned)}/customer`,
-            };
-
-            const formatter = formatters[metricIndex];
-            const actualValue = formatter ? formatter() : `${context.parsed.r.toFixed(1)}%`;
-
-            return `${tier.name}: ${actualValue}`;
+            const actualValue = metric.getValue(tier);
+            return `${metric.shortLabel}: ${metric.format(actualValue, formatAmount)}`;
           },
         },
       },
     },
-  };
-}
+  }), [tiers, activeMetrics, formatAmount]);
 
-// ═══════════════════════════════════════════════════════════════════════════
-// LEGEND COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface TierLegendProps {
-  tiers: TierMetric[];
-}
-
-const TierLegend = memo(function TierLegend({ tiers }: TierLegendProps) {
   return (
-    <InlineStack gap="400" blockAlign="center" wrap>
-      {tiers.map((tier, index) => {
-        const crystalKey = CRYSTAL_SEQUENCE[index % CRYSTAL_SEQUENCE.length];
-        const crystal = CRYSTAL_PALETTE[crystalKey];
-
-        return (
-          <InlineStack key={tier.id} gap="200" blockAlign="center">
-            <div
-              style={{
-                width: 12,
-                height: 12,
-                backgroundColor: crystal.border,
-                borderRadius: '50%',
-                border: '2px solid white',
-                boxShadow: `0 0 0 1px ${crystal.border}`,
-              }}
-            />
-            <TierBadge
-              tierName={tier.name}
-              size="small"
-              showIcon={false}
-              cashbackPercent={tier.cashbackPercent}
-            />
-          </InlineStack>
-        );
-      })}
-    </InlineStack>
+    <div style={{ height: Math.max(tiers.length * 60, 200), minHeight: 200 }}>
+      <Bar data={chartData} options={chartOptions} />
+    </div>
   );
 });
 
@@ -272,54 +430,123 @@ export const TierPerformanceChart = memo(function TierPerformanceChart({
   tiers,
   formatAmount,
 }: TierPerformanceChartProps) {
-  // Memoized chart data - only recomputes when tiers change
-  const chartData = useMemo(() => createChartData(tiers), [tiers]);
+  const [highlightedTier, setHighlightedTier] = useState<number | null>(null);
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedMetrics] = useState<MetricKey[]>(['ltv', 'aov', 'retention']);
 
-  // Memoized chart options - stable reference prevents re-renders
-  const chartOptions = useMemo(
-    () => createChartOptions(tiers, formatAmount),
-    [tiers, formatAmount]
-  );
+  const tabs = [
+    { id: 'detailed', content: 'Detailed View' },
+    { id: 'comparison', content: 'Quick Compare' },
+  ];
 
   if (tiers.length === 0) {
     return null;
   }
 
   return (
-    <BlockStack gap="400">
-      <Card>
-        <Box padding="400">
-          <BlockStack gap="400">
-            <BlockStack gap="200">
-              <Text variant="headingMd" as="h2">
-                Tier Performance
-              </Text>
-              <Text variant="bodySm" tone="subdued" as="p">
-                Compare multiple performance dimensions across tiers simultaneously
-              </Text>
-            </BlockStack>
-
-            <div
-              style={{
-                height: 400,
-                padding: '20px 0',
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-            >
-              <Radar data={chartData} options={chartOptions} />
-            </div>
-
-            <TierLegend tiers={tiers} />
-
-            <Text variant="bodySm" tone="subdued" as="p">
-              Each axis shows relative performance across tiers. Values are automatically
-              scaled to 0-100% based on your actual data for easy comparison.
-            </Text>
+    <Card>
+      <Box padding="500">
+        <BlockStack gap="500">
+          {/* Header */}
+          <BlockStack gap="200">
+            <InlineStack align="space-between" blockAlign="center">
+              <BlockStack gap="100">
+                <Text variant="headingMd" as="h2">
+                  Tier Performance Analysis
+                </Text>
+                <Text variant="bodySm" tone="subdued" as="p">
+                  Compare key metrics across your loyalty tiers
+                </Text>
+              </BlockStack>
+            </InlineStack>
           </BlockStack>
-        </Box>
-      </Card>
-    </BlockStack>
+
+          {/* Tier Summary Cards */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              flexWrap: 'wrap',
+              justifyContent: 'flex-start',
+            }}
+          >
+            {tiers.map((tier, index) => (
+              <TierSummaryCard
+                key={tier.id}
+                tier={tier}
+                colorIndex={index}
+                formatAmount={formatAmount}
+                isHighlighted={highlightedTier === index}
+                onHover={() => setHighlightedTier(index)}
+                onLeave={() => setHighlightedTier(null)}
+              />
+            ))}
+          </div>
+
+          <Divider />
+
+          {/* Tabs */}
+          <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+            <Box paddingBlockStart="400">
+              {selectedTab === 0 ? (
+                /* Detailed Metric Comparisons */
+                <BlockStack gap="100">
+                  {METRICS.slice(0, 4).map((metric) => (
+                    <div key={metric.key}>
+                      <MetricComparison
+                        metric={metric}
+                        tiers={tiers}
+                        formatAmount={formatAmount}
+                        highlightedTier={highlightedTier}
+                      />
+                      <Divider />
+                    </div>
+                  ))}
+                  {METRICS.slice(4).map((metric) => (
+                    <MetricComparison
+                      key={metric.key}
+                      metric={metric}
+                      tiers={tiers}
+                      formatAmount={formatAmount}
+                      highlightedTier={highlightedTier}
+                    />
+                  ))}
+                </BlockStack>
+              ) : (
+                /* Grouped Bar Chart */
+                <BlockStack gap="400">
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Normalized comparison showing relative performance across tiers
+                  </Text>
+                  <GroupedBarChart
+                    tiers={tiers}
+                    formatAmount={formatAmount}
+                    selectedMetrics={selectedMetrics}
+                  />
+                </BlockStack>
+              )}
+            </Box>
+          </Tabs>
+
+          {/* Footer Note */}
+          <Box paddingBlockStart="200">
+            <InlineStack gap="200" blockAlign="center">
+              <div
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: '#10B981',
+                }}
+              />
+              <Text variant="bodySm" tone="subdued" as="p">
+                Metrics are normalized for easy comparison. Hover over tiers to highlight their performance.
+              </Text>
+            </InlineStack>
+          </Box>
+        </BlockStack>
+      </Box>
+    </Card>
   );
 });
 

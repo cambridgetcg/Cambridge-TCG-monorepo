@@ -37,6 +37,7 @@
       "routes/api.dismiss-widget-banner": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.session-cleanup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-cleanup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -375,6 +376,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.customers.update.tsx",
         "path": "webhooks/customers/update",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.cron.session-cleanup": {
+        "id": "routes/api.cron.session-cleanup",
+        "parentId": "root",
+        "file": "app/routes/api.cron.session-cleanup.tsx",
+        "path": "api/cron/session-cleanup",
         "config": {
           "runtime": "nodejs"
         }
@@ -1426,6 +1436,12 @@
         "parentId": "root",
         "file": "routes/webhooks.customers.update.tsx",
         "path": "webhooks/customers/update"
+      },
+      "routes/api.cron.session-cleanup": {
+        "id": "routes/api.cron.session-cleanup",
+        "parentId": "root",
+        "file": "routes/api.cron.session-cleanup.tsx",
+        "path": "api/cron/session-cleanup"
       },
       "routes/api.cron.webhook-cleanup": {
         "id": "routes/api.cron.webhook-cleanup",
