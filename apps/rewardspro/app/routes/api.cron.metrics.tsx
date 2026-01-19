@@ -1,9 +1,14 @@
 import { json } from "@remix-run/node";
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { timingSafeEqual } from "crypto";
 import { MetricsService } from "~/services/monitoring/metrics.service";
 import { Logger, CorrelationId } from "~/services/logger.service";
 import { DatadogService } from "~/services/monitoring/datadog.service";
 import { db } from "~/db.server";
+import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+
+const JOB_NAME = "daily-metrics";
+const LOCK_TTL_MINUTES = 30;
 
 /**
  * Cron job endpoint for daily metrics reporting
@@ -20,16 +25,48 @@ import { db } from "~/db.server";
 export async function action({ request }: ActionFunctionArgs) {
   const correlationId = CorrelationId.generate();
   const startTime = Date.now();
+  let lockId: string | undefined;
 
-  // Verify authorization (Vercel adds this header for cron jobs)
+  // Verify authorization with timing-safe comparison
   const authHeader = request.headers.get('authorization');
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
+  const isAuthorized = (() => {
+    if (!process.env.CRON_SECRET || !authHeader) return false;
+    try {
+      const authBuffer = Buffer.from(authHeader);
+      const expectedBuffer = Buffer.from(expectedAuth);
+      if (authBuffer.length !== expectedBuffer.length) return false;
+      return timingSafeEqual(authBuffer, expectedBuffer);
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!isAuthorized) {
     Logger.security.suspiciousActivity('Unauthorized cron access attempt', {
       endpoint: '/api/cron/metrics',
       ip: request.headers.get('x-forwarded-for'),
     });
     return new Response("Unauthorized", { status: 401 });
   }
+
+  // Acquire distributed lock
+  await cleanupExpiredLocks();
+  const lock = await acquireCronLock(JOB_NAME, LOCK_TTL_MINUTES);
+
+  if (!lock.acquired) {
+    Logger.info('Metrics cron skipped - another instance running', {
+      correlationId,
+      existingLock: lock.existingLock,
+    });
+    return json({
+      status: 'skipped',
+      reason: 'Another instance is already running',
+      existingLock: lock.existingLock,
+    });
+  }
+
+  lockId = lock.lockId;
 
   try {
     return await CorrelationId.run(correlationId, async () => {
@@ -141,6 +178,11 @@ export async function action({ request }: ActionFunctionArgs) {
       },
       { status: 500 }
     );
+  } finally {
+    // Always release the lock
+    if (lockId) {
+      await releaseCronLock(lockId);
+    }
   }
 }
 

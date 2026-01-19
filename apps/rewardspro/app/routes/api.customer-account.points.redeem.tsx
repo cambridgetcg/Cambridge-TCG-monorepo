@@ -9,21 +9,76 @@
  * @security Requires authenticated customer account session
  */
 
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import { redeemPoints, getRedemptionTier } from "~/services/points-redemption.server";
 import db from "~/db.server";
 
-// CORS headers for customer account extension
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Content-Type": "application/json",
-};
+/**
+ * Validate and return the CORS origin if allowed.
+ * Only allows Shopify customer account domains and myshopify.com domains.
+ */
+function getAllowedCorsOrigin(request: Request): string | null {
+  const origin = request.headers.get("Origin");
+  if (!origin) return null;
+
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+
+    // Allow Shopify customer account domains
+    // Format: [shop-name].account.myshopify.com
+    if (hostname.endsWith(".account.myshopify.com")) {
+      return origin;
+    }
+
+    // Allow myshopify.com domains for theme extensions
+    // Format: [shop-name].myshopify.com
+    if (hostname.endsWith(".myshopify.com")) {
+      return origin;
+    }
+
+    // Allow Shopify admin for development/testing
+    if (hostname === "admin.shopify.com") {
+      return origin;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build CORS headers with validated origin
+ */
+function getCorsHeaders(request: Request): Record<string, string> {
+  const allowedOrigin = getAllowedCorsOrigin(request);
+
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin || "",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true",
+    "Content-Type": "application/json",
+    // Vary header is important for correct caching behavior
+    "Vary": "Origin",
+  };
+}
 
 export async function action({ request }: ActionFunctionArgs) {
+  const corsHeaders = getCorsHeaders(request);
+
+  // Reject requests from non-allowed origins
+  if (!getAllowedCorsOrigin(request) && request.headers.get("Origin")) {
+    console.warn("[PointsRedeem] Rejected request from disallowed origin:", request.headers.get("Origin"));
+    return json(
+      { success: false, error: "Origin not allowed" },
+      { status: 403, headers: corsHeaders }
+    );
+  }
+
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -160,7 +215,8 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 // Handle GET requests with an error
-export async function loader() {
+export async function loader({ request }: LoaderFunctionArgs) {
+  const corsHeaders = getCorsHeaders(request);
   return json(
     { success: false, error: "Use POST method to redeem points" },
     { status: 405, headers: corsHeaders }

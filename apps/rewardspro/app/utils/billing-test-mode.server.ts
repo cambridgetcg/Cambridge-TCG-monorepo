@@ -37,6 +37,49 @@ interface CacheEntry {
 // In-memory cache to avoid repeated GraphQL queries
 const testModeCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 1000; // Maximum number of cached shops to prevent memory leaks
+let lastCleanupTime = Date.now();
+const CLEANUP_INTERVAL = 60 * 1000; // Run cleanup at most once per minute
+
+/**
+ * Clean up expired entries from the cache
+ * This prevents memory leaks from accumulated stale entries
+ */
+function cleanupExpiredCacheEntries(): void {
+  const now = Date.now();
+
+  // Only run cleanup periodically to avoid performance overhead
+  if (now - lastCleanupTime < CLEANUP_INTERVAL) {
+    return;
+  }
+
+  lastCleanupTime = now;
+  let expiredCount = 0;
+
+  for (const [shop, entry] of testModeCache.entries()) {
+    if (now - entry.timestamp > CACHE_TTL) {
+      testModeCache.delete(shop);
+      expiredCount++;
+    }
+  }
+
+  if (expiredCount > 0) {
+    console.log(`[TestMode] 🧹 Cleaned up ${expiredCount} expired cache entries`);
+  }
+
+  // If still over max size after cleanup, evict oldest entries
+  if (testModeCache.size > MAX_CACHE_SIZE) {
+    const entries = Array.from(testModeCache.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+    const toEvict = entries.slice(0, testModeCache.size - MAX_CACHE_SIZE);
+    for (const [shop] of toEvict) {
+      testModeCache.delete(shop);
+    }
+
+    console.log(`[TestMode] 🧹 Evicted ${toEvict.length} oldest cache entries (over max size)`);
+  }
+}
 
 // ============================================
 // MAIN FUNCTIONS
@@ -69,6 +112,9 @@ export async function getTestMode(
   shop: string,
   admin?: AdminApiContext
 ): Promise<TestModeResult> {
+  // Run periodic cache cleanup to prevent memory leaks
+  cleanupExpiredCacheEntries();
+
   // Priority 1: Check for manual override via environment variable
   if (process.env.FORCE_TEST_MODE === 'true') {
     console.log(`[TestMode] 🔧 Using test mode (env override) for ${shop}`);

@@ -1,9 +1,14 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import * as crypto from "crypto";
+import { timingSafeEqual } from "crypto";
 import db from "../db.server";
 import { UsageRecordService } from "../services/billing/usage-record.service";
 import { shopifyApi, ApiVersion } from "@shopify/shopify-api";
-import * as crypto from "crypto";
+import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+
+const JOB_NAME = "usage-billing";
+const LOCK_TTL_MINUTES = 30;
 
 /**
  * Daily cron job for processing usage-based billing
@@ -19,6 +24,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
   const userAgent = request.headers.get('user-agent');
+  let lockId: string | undefined;
 
   // Structured logging helper
   const log = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
@@ -38,12 +44,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
     method: request.method,
   });
 
-  // 1. Verify authorization (use lowercase 'authorization' per Vercel docs)
+  // 1. Verify authorization with timing-safe comparison
   const auth = request.headers.get('authorization');
   const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
 
-  // No fallback - require dedicated CRON_SECRET
-  if (!process.env.CRON_SECRET || auth !== expectedAuth) {
+  const isAuthorized = (() => {
+    if (!process.env.CRON_SECRET || !auth) return false;
+    try {
+      const authBuffer = Buffer.from(auth);
+      const expectedBuffer = Buffer.from(expectedAuth);
+      if (authBuffer.length !== expectedBuffer.length) return false;
+      return timingSafeEqual(authBuffer, expectedBuffer);
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!isAuthorized) {
     log('error', 'Unauthorized cron attempt', {
       hasSecret: !!process.env.CRON_SECRET,
       userAgent,
@@ -62,6 +79,27 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   }
 
+  // 2.5. Acquire distributed lock
+  await cleanupExpiredLocks();
+  const lock = await acquireCronLock(JOB_NAME, LOCK_TTL_MINUTES);
+
+  if (!lock.acquired) {
+    log('warn', 'Skipping - another instance is running', {
+      existingLock: lock.existingLock
+    });
+    return json({
+      success: false,
+      skipped: true,
+      reason: 'Another instance is already running',
+      existingLock: lock.existingLock,
+      correlationId,
+    });
+  }
+
+  lockId = lock.lockId;
+  log('info', 'Acquired distributed lock', { lockId });
+
+  try {
   // 3. Parse query parameters
   const url = new URL(request.url);
   const isDryRun = url.searchParams.get('dry-run') === 'true';
@@ -296,6 +334,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     summary,
     details: isDryRun ? undefined : results.shops,
   });
+
+  } finally {
+    // Always release the lock
+    if (lockId) {
+      await releaseCronLock(lockId);
+      log('info', 'Released distributed lock', { lockId });
+    }
+  }
 }
 
 // Helper function to send alerts

@@ -6,8 +6,13 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import { timingSafeEqual } from "crypto";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
+import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+
+const JOB_NAME = "webhook-reconciliation";
+const LOCK_TTL_MINUTES = 30;
 
 // Configuration
 const RECONCILIATION_WINDOW_HOURS = 48; // Look back 48 hours
@@ -24,10 +29,23 @@ interface ReconciliationResult {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const startTime = Date.now();
+  let lockId: string | undefined;
 
-  // Check for cron secret or admin authentication
+  // Check for cron secret with timing-safe comparison or admin authentication
   const cronSecret = request.headers.get('X-Cron-Secret');
-  if (cronSecret !== process.env.CRON_SECRET) {
+  const isAuthorizedViaCronSecret = (() => {
+    if (!process.env.CRON_SECRET || !cronSecret) return false;
+    try {
+      const secretBuffer = Buffer.from(cronSecret);
+      const expectedBuffer = Buffer.from(process.env.CRON_SECRET);
+      if (secretBuffer.length !== expectedBuffer.length) return false;
+      return timingSafeEqual(secretBuffer, expectedBuffer);
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!isAuthorizedViaCronSecret) {
     // Fall back to admin auth
     try {
       const { session } = await authenticate.admin(request);
@@ -64,6 +82,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     hoursBack = parsed;
   }
 
+  // Acquire distributed lock (per-shop to allow parallel reconciliation of different shops)
+  await cleanupExpiredLocks();
+  const lockJobName = `${JOB_NAME}-${shop}`;
+  const lock = await acquireCronLock(lockJobName, LOCK_TTL_MINUTES);
+
+  if (!lock.acquired) {
+    console.log(`[WebhookReconciliation] Skipping ${shop} - another instance is running`);
+    return json({
+      success: false,
+      skipped: true,
+      shop,
+      reason: 'Another instance is already running for this shop',
+      existingLock: lock.existingLock,
+    });
+  }
+
+  lockId = lock.lockId;
   console.log(`[WebhookReconciliation] Starting reconciliation for ${shop}, looking back ${hoursBack} hours`);
 
   try {
@@ -89,6 +124,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       error: error.message,
       duration: Date.now() - startTime
     }, { status: 500 });
+  } finally {
+    // Always release the lock
+    if (lockId) {
+      await releaseCronLock(lockId);
+    }
   }
 };
 

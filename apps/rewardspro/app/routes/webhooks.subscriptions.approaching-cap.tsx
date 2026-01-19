@@ -31,14 +31,15 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Verify HMAC using timing-safe comparison
-  const apiSecret = process.env.SHOPIFY_API_SECRET;
-  if (!apiSecret) {
-    console.error("[APPROACHING_CAP] SHOPIFY_API_SECRET not configured");
+  // Use dedicated webhook secret if configured, fall back to API secret
+  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_API_SECRET;
+  if (!webhookSecret) {
+    console.error("[APPROACHING_CAP] Neither SHOPIFY_WEBHOOK_SECRET nor SHOPIFY_API_SECRET configured");
     return new Response("Server configuration error", { status: 500 });
   }
 
   const hash = crypto
-    .createHmac("sha256", apiSecret)
+    .createHmac("sha256", webhookSecret)
     .update(rawBody, "utf8")
     .digest("base64");
 
