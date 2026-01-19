@@ -10,6 +10,7 @@ import { authenticate, FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MO
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { HelpAssistant } from "../components/HelpAssistant";
+import { PageAnimationProvider, NavigationProgress, PageTransition } from "../components/PageAnimation";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
@@ -261,7 +262,17 @@ export default function App() {
           <Link to="/app/orders">Orders</Link>
           <Link to="/app/settings">Settings</Link>
         </NavMenu>
-        <Outlet />
+
+        {/* Page Animation Provider - Standardized page transitions */}
+        <PageAnimationProvider>
+          {/* Navigation Progress Bar - Shows loading indicator during page transitions */}
+          <NavigationProgress />
+
+          {/* Page content with animated transitions */}
+          <PageTransition variant="page">
+            <Outlet />
+          </PageTransition>
+        </PageAnimationProvider>
 
         {/* GitBook-powered Help Assistant */}
         <HelpAssistant docsUrl="https://docs.rewardspro.io" />

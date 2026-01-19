@@ -358,6 +358,92 @@
 }
 
 /* ============================================
+   PAGE TRANSITION ANIMATIONS
+   ============================================ */
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes progress-bar {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+/* Page transition utilities */
+.page-transition-enter {
+  animation: page-enter var(--duration-normal) var(--ease-out) forwards;
+}
+
+.page-transition-exit {
+  animation: page-exit var(--duration-quick) var(--ease-in) forwards;
+}
+
+/* Staggered children animation */
+.stagger-animate > * {
+  opacity: 0;
+  animation: stagger-fade-in var(--duration-normal) var(--ease-out) forwards;
+}
+
+.stagger-animate > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-animate > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-animate > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-animate > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-animate > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-animate > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-animate > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger-animate > *:nth-child(8) { animation-delay: 0.4s; }
+
+/* Navigation progress bar */
+.nav-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-ducal-gold), var(--color-amber-flame));
+  box-shadow: 0 0 10px rgba(var(--color-ducal-gold-rgb), 0.4);
+  z-index: var(--z-toast);
+  transform-origin: left;
+  animation: progress-bar 2s var(--ease-out) forwards;
+}
+
+/* ============================================
    DARK MODE TOKENS (Future)
    ============================================ */
 
