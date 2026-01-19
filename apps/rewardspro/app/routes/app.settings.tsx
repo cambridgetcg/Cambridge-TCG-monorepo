@@ -1677,7 +1677,7 @@ export default function SettingsPage() {
   // Handle start customer sync
   const handleStartCustomerSync = useCallback(async () => {
     setIsCustomerSyncStarting(true);
-    showInfo("Customer sync started...");
+    showInfo("Starting customer sync...");
 
     try {
       const response = await fetch('/api/customer-sync/start', {
@@ -1687,12 +1687,23 @@ export default function SettingsPage() {
       });
 
       const result = await response.json();
+      console.log('[Customer Sync] Start response:', result);
       setCustomerSyncJob(result);
 
-      if (result.success && result.hasMore) {
+      // Start polling if there's more to process
+      // Handle both new jobs (success: true) and resuming existing jobs (status: IN_PROGRESS)
+      if (result.hasMore && (result.success || result.status === 'IN_PROGRESS')) {
         setIsCustomerSyncPolling(true);
-      } else if (!result.success) {
+        if (result.success) {
+          showInfo("Customer sync started");
+        } else {
+          showInfo("Resuming existing sync...");
+        }
+      } else if (!result.success && result.status !== 'IN_PROGRESS') {
+        // Only show error if it's not an "already in progress" situation
         showError(result.error || "Failed to start customer sync");
+      } else if (!result.hasMore && result.status === 'COMPLETED') {
+        showSuccess("Customer sync already complete");
       }
     } catch (error) {
       console.error('Error starting customer sync:', error);
@@ -1700,7 +1711,7 @@ export default function SettingsPage() {
     } finally {
       setIsCustomerSyncStarting(false);
     }
-  }, [showInfo, showError]);
+  }, [showInfo, showError, showSuccess]);
 
   // Handle cancel customer sync
   const handleCancelCustomerSync = useCallback(async () => {
@@ -2198,11 +2209,11 @@ export default function SettingsPage() {
                                     onClick={handleStartCustomerSync}
                                     icon={RefreshIcon}
                                     disabled={isCustomerSyncing}
-                                    loading={isCustomerSyncStarting}
+                                    loading={isCustomerSyncing}
                                     size="slim"
                                     fullWidth
                                   >
-                                    Sync Customers
+                                    {isCustomerSyncing ? 'Syncing...' : 'Sync Customers'}
                                   </Button>
                                   {isCustomerSyncing && (
                                     <Button
@@ -2215,12 +2226,17 @@ export default function SettingsPage() {
                                     </Button>
                                   )}
                                 </InlineStack>
-                                {customerSyncJob && customerSyncJob.status === 'IN_PROGRESS' && (
+                                {/* Progress bar - show when syncing or when job is in progress */}
+                                {(isCustomerSyncing || (customerSyncJob && customerSyncJob.status === 'IN_PROGRESS')) && (
                                   <BlockStack gap="100">
-                                    <ProgressBar progress={customerSyncJob.progress.percentComplete} size="small" />
+                                    <ProgressBar
+                                      progress={customerSyncJob?.progress?.percentComplete || 0}
+                                      size="small"
+                                      tone={customerSyncJob?.progress?.percentComplete === 100 ? 'success' : 'primary'}
+                                    />
                                     <InlineStack align="space-between">
                                       <Text as="span" variant="bodySm" tone="subdued">
-                                        {customerSyncJob.progress.processedCount} / {customerSyncJob.progress.totalCustomers || '?'} customers
+                                        {customerSyncJob?.progress?.processedCount || 0} / {customerSyncJob?.progress?.totalCustomers || '?'} customers
                                       </Text>
                                       {getCustomerSyncETA() && (
                                         <Text as="span" variant="bodySm" tone="subdued">
