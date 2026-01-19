@@ -14,7 +14,17 @@ const resourceArn = process.env.AURORA_RESOURCE_ARN?.trim() || "";
 const secretArn = process.env.AURORA_SECRET_ARN?.trim() || "";
 const database = process.env.AURORA_DATABASE_NAME?.trim() || "";
 
-export const rds = new RDSDataClient({ region });
+// Trim AWS credentials to handle env vars with newlines
+const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
+const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
+
+// Build client config with trimmed credentials
+const clientConfig: any = { region };
+if (accessKeyId && secretAccessKey) {
+  clientConfig.credentials = { accessKeyId, secretAccessKey };
+}
+
+export const rds = new RDSDataClient(clientConfig);
 
 export async function query<T = any>(
   sql: string,

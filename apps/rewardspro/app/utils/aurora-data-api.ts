@@ -41,9 +41,29 @@ export class AuroraDataAPI {
       region,
     };
 
-    this.client = new RDSDataClient({
-      region,
-    });
+    // Build client config with trimmed credentials to handle env vars with newlines
+    const clientConfig: any = { region };
+
+    // Explicitly pass trimmed credentials if available
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
+
+    if (accessKeyId && secretAccessKey) {
+      clientConfig.credentials = {
+        accessKeyId,
+        secretAccessKey,
+      };
+      console.log("[AuroraDataAPI] Using explicit credentials", {
+        accessKeyIdLength: accessKeyId.length,
+        secretAccessKeyLength: secretAccessKey.length,
+        hasNewlineInRaw: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID?.includes('\n'),
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY?.includes('\n'),
+        }
+      });
+    }
+
+    this.client = new RDSDataClient(clientConfig);
   }
 
   /**
