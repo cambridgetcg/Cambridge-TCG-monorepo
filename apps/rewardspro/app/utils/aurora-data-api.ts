@@ -372,12 +372,21 @@ let auroraClient: AuroraDataAPI | null = null;
  * Get or create Aurora Data API client instance
  */
 export function getAuroraClient(): AuroraDataAPI {
+  // Always log env var status for debugging
+  const rawResourceArn = process.env.AURORA_RESOURCE_ARN || "";
+  const rawSecretArn = process.env.AURORA_SECRET_ARN || "";
+  const rawRegion = process.env.AWS_REGION || "eu-north-1";
+
+  console.log("[AuroraClient] getAuroraClient called. Env var lengths:", {
+    resourceArn: { raw: rawResourceArn.length, hasNewline: rawResourceArn.includes('\n') },
+    secretArn: { raw: rawSecretArn.length, hasNewline: rawSecretArn.includes('\n') },
+    region: { raw: rawRegion.length, trimmed: rawRegion.trim().length, hasNewline: rawRegion.includes('\n') },
+    alreadyInitialized: !!auroraClient
+  });
+
   if (!auroraClient) {
     // Trim all env vars to handle accidental whitespace/newlines
-    const rawResourceArn = process.env.AURORA_RESOURCE_ARN || "";
-    const rawSecretArn = process.env.AURORA_SECRET_ARN || "";
     const rawDatabase = process.env.AURORA_DATABASE_NAME || "rewardspro";
-    const rawRegion = process.env.AWS_REGION || "eu-north-1";
 
     const config: AuroraConfig = {
       resourceArn: rawResourceArn.trim(),
@@ -387,16 +396,11 @@ export function getAuroraClient(): AuroraDataAPI {
     };
 
     // Debug logging to verify trimming
-    console.log("[AuroraClient] Initializing with config:", {
+    console.log("[AuroraClient] Creating new client with trimmed config:", {
       resourceArnLength: { raw: rawResourceArn.length, trimmed: config.resourceArn.length },
       secretArnLength: { raw: rawSecretArn.length, trimmed: config.secretArn.length },
       regionLength: { raw: rawRegion.length, trimmed: config.region.length },
       region: config.region,
-      hasNewlineInRaw: {
-        resourceArn: rawResourceArn.includes('\n'),
-        secretArn: rawSecretArn.includes('\n'),
-        region: rawRegion.includes('\n'),
-      }
     });
 
     if (!config.resourceArn || !config.secretArn) {
