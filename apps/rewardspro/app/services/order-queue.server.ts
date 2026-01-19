@@ -2,10 +2,15 @@
  * Order Processing Queue Service
  * Handles high-volume order processing with async queue
  * Implements best practices for scalability and reliability
+ *
+ * NOTE: This in-memory implementation is used as a fallback when SQS is not available.
+ * For production, enable SQS by setting USE_SQS_QUEUE=true.
+ * See: app/services/sqs-order-queue.server.ts
  */
 
 import db from '../db.server';
 import { v4 as uuidv4 } from 'uuid';
+import { getAWSConfig } from '~/utils/aws-clients.server';
 
 export interface OrderQueueItem {
   id: string;
@@ -329,6 +334,9 @@ export class OrderProcessingQueue {
 /**
  * Webhook handler wrapper that uses the queue
  * Use this in webhook routes for async processing
+ *
+ * Automatically uses SQS if enabled (USE_SQS_QUEUE=true),
+ * falls back to in-memory queue otherwise.
  */
 export async function enqueueWebhook(
   request: Request,
@@ -338,8 +346,34 @@ export async function enqueueWebhook(
   const webhookId = request.headers.get('x-shopify-webhook-id') || undefined;
   const shop = request.headers.get('x-shopify-shop-domain') || 'unknown';
 
+  // Check if SQS is enabled
+  const awsConfig = getAWSConfig();
+  if (awsConfig.sqs.enabled) {
+    try {
+      const { SQSOrderQueueService } = await import('./sqs-order-queue.server');
+      const sqsQueue = SQSOrderQueueService.getInstance();
+
+      const result = await sqsQueue.enqueue({
+        webhookId,
+        shop,
+        topic,
+        payload,
+      });
+
+      if (result.success) {
+        console.log(`[Queue] Enqueued via SQS: ${topic} for ${shop}`);
+        return new Response('Accepted', { status: 202 });
+      }
+
+      // Fall through to in-memory if SQS failed
+      console.warn(`[Queue] SQS failed, falling back to in-memory queue`);
+    } catch (sqsError: any) {
+      console.error(`[Queue] SQS error, using fallback:`, sqsError.message);
+    }
+  }
+
+  // Fallback: Use in-memory queue
   try {
-    // Add to queue for async processing
     await OrderProcessingQueue.enqueue({
       webhookId,
       shop,

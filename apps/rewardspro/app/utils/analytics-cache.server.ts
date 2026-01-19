@@ -27,6 +27,7 @@ import {
   kvDeletePattern,
   getCacheBackend,
   getCacheStats as getKVStats,
+  createShopCacheKey,
 } from './vercel-kv-cache.server';
 
 // Default TTL values (in milliseconds)
@@ -77,8 +78,14 @@ class AnalyticsCacheManager {
 
   /**
    * Clear all cache entries for a shop
+   * SECURITY: Validates shop domain before clearing
    */
   clearShop(shop: string): void {
+    // SECURITY: Validate shop to prevent clearing all cache entries
+    if (!shop || typeof shop !== 'string' || !shop.includes('.myshopify.com')) {
+      console.error(`[Analytics Cache] Invalid shop domain for clearShop: ${shop}`);
+      return;
+    }
     kvDeletePattern(`*:${shop}:*`).catch(err => {
       console.error(`[Analytics Cache] Error clearing shop ${shop}:`, err);
     });
@@ -161,8 +168,19 @@ export async function invalidateCache(key: string): Promise<void> {
 /**
  * Invalidate all cache entries for a shop
  * Useful when shop data changes significantly
+ *
+ * SECURITY: Validates shop domain before invalidation to prevent
+ * accidentally clearing all cache entries (if shop is empty/null).
  */
 export async function invalidateShopCache(shop: string): Promise<number> {
+  // SECURITY: Validate shop domain before invalidation
+  if (!shop || typeof shop !== 'string' || !shop.includes('.myshopify.com')) {
+    throw new Error(
+      `[Analytics Cache] Invalid shop domain for cache invalidation: ${JSON.stringify(shop)}. ` +
+      `Shop must be a valid Shopify domain.`
+    );
+  }
+
   // Invalidate all analytics-related keys for this shop
   const patterns = [
     `metrics:${shop}:*`,
@@ -183,12 +201,15 @@ export async function invalidateShopCache(shop: string): Promise<number> {
 
 /**
  * Generate cache key for shop metrics
+ *
+ * SECURITY: Uses createShopCacheKey to validate shop domain
+ * and prevent null/undefined collisions.
  */
 export function getMetricsCacheKey(shop: string, period: 'current' | 'previous'): string {
   const date = new Date();
   const year = date.getFullYear();
   const month = period === 'current' ? date.getMonth() + 1 : date.getMonth();
-  return `metrics:${shop}:${year}-${month}`;
+  return createShopCacheKey('metrics', shop, `${year}-${month}`);
 }
 
 /**

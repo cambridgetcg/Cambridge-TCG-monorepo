@@ -4,6 +4,11 @@
  * Provides points data for the storefront customer account extension.
  * This endpoint is called by the Shopify Customer Account UI Extension.
  *
+ * AUTHENTICATION:
+ * - Uses Shopify session tokens via authenticate.public.customerAccount()
+ * - Shop and customer ID are extracted from the validated JWT token
+ * - All queries scoped to authenticated shop (multi-tenancy isolation)
+ *
  * Features:
  * - Points balance and lifetime stats
  * - Transaction history with pagination
@@ -13,6 +18,7 @@
  */
 
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import {
   getPointsBalance,
@@ -96,89 +102,167 @@ interface PointsAPIResponse {
 }
 
 // ============================================
+// CORS HEADERS
+// ============================================
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+// ============================================
 // LOADER
 // ============================================
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  const origin = request.headers.get("origin");
+
+  // Handle OPTIONS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: getCorsHeaders(origin),
+    });
+  }
+
   try {
     const url = new URL(request.url);
-    const shop = url.searchParams.get("shop");
-    const customerId = url.searchParams.get("customerId");
-    const shopifyCustomerId = url.searchParams.get("shopifyCustomerId");
     const limit = parseInt(url.searchParams.get("limit") || "10");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
-    // Validate required parameters
-    if (!shop) {
+    // ================================================================
+    // AUTHENTICATION: Validate session token from customer account extension
+    // ================================================================
+
+    // Check for preview mode (blank dest/sub claims in token)
+    const authHeader = request.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.substring(7);
+      try {
+        const [, payloadBase64] = token.split(".");
+        if (payloadBase64) {
+          const payload = JSON.parse(atob(payloadBase64));
+          if (!payload.dest || !payload.sub) {
+            // Preview mode - return empty state
+            return json<PointsAPIResponse>(
+              {
+                success: true,
+                data: {
+                  enabled: false,
+                  currency: { name: "Points", plural: "Points", icon: "⭐" },
+                  balance: { available: 0, lifetime: 0, expiringSoon: 0, expiringWithin30Days: 0 },
+                  tier: { name: null, multiplier: 1, luckBonus: 0 },
+                  config: { pointsPerDollar: 10, pointsExpire: false, expirationDays: 365 },
+                  transactions: [],
+                  transactionsPagination: { total: 0, limit, offset, hasMore: false },
+                  expiringPoints: { totalExpiring: 0, entries: [] },
+                  redemptionOptions: [],
+                  streakInfo: null,
+                },
+              },
+              { headers: getCorsHeaders(origin) }
+            );
+          }
+        }
+      } catch {
+        // Continue with normal auth if decode fails
+      }
+    }
+
+    // Authenticate the request using Shopify's customer account authentication
+    let authResult;
+    try {
+      authResult = await authenticate.public.customerAccount(request);
+    } catch (authError: any) {
+      console.error("[Points API] Authentication failed:", authError.message);
       return json<PointsAPIResponse>(
-        { success: false, error: "Missing shop parameter" },
-        { status: 400 }
+        { success: false, error: "Authentication failed" },
+        { status: 401, headers: getCorsHeaders(origin) }
       );
     }
 
-    if (!customerId && !shopifyCustomerId) {
+    const sessionToken = authResult?.sessionToken;
+    if (!sessionToken) {
       return json<PointsAPIResponse>(
-        { success: false, error: "Missing customerId or shopifyCustomerId parameter" },
-        { status: 400 }
+        { success: false, error: "Invalid session token" },
+        { status: 401, headers: getCorsHeaders(origin) }
       );
     }
+
+    // Extract shop and customer from AUTHENTICATED session token
+    // This ensures multi-tenancy isolation - shop cannot be manipulated
+    const shop = sessionToken.dest;
+    const customerGid = sessionToken.sub; // gid://shopify/Customer/123456
+
+    if (!shop || !customerGid) {
+      return json<PointsAPIResponse>(
+        { success: false, error: "Invalid session claims" },
+        { status: 401, headers: getCorsHeaders(origin) }
+      );
+    }
+
+    // Extract numeric customer ID from GID
+    const shopifyCustomerId = customerGid.split("/").pop();
+    if (!shopifyCustomerId) {
+      return json<PointsAPIResponse>(
+        { success: false, error: "Invalid customer ID format" },
+        { status: 400, headers: getCorsHeaders(origin) }
+      );
+    }
+
+    // ================================================================
+    // DATA FETCHING (shop is now from authenticated token, not URL)
+    // ================================================================
 
     // Check if points system is enabled
     const enabled = await isPointsEnabled(shop);
     if (!enabled) {
-      return json<PointsAPIResponse>({
-        success: true,
-        data: {
-          enabled: false,
-          currency: { name: "Points", plural: "Points", icon: "⭐" },
-          balance: { available: 0, lifetime: 0, expiringSoon: 0, expiringWithin30Days: 0 },
-          tier: { name: null, multiplier: 1, luckBonus: 0 },
-          config: { pointsPerDollar: 10, pointsExpire: false, expirationDays: 365 },
-          transactions: [],
-          transactionsPagination: { total: 0, limit, offset, hasMore: false },
-          expiringPoints: { totalExpiring: 0, entries: [] },
-          redemptionOptions: [],
-          streakInfo: null,
+      return json<PointsAPIResponse>(
+        {
+          success: true,
+          data: {
+            enabled: false,
+            currency: { name: "Points", plural: "Points", icon: "⭐" },
+            balance: { available: 0, lifetime: 0, expiringSoon: 0, expiringWithin30Days: 0 },
+            tier: { name: null, multiplier: 1, luckBonus: 0 },
+            config: { pointsPerDollar: 10, pointsExpire: false, expirationDays: 365 },
+            transactions: [],
+            transactionsPagination: { total: 0, limit, offset, hasMore: false },
+            expiringPoints: { totalExpiring: 0, entries: [] },
+            redemptionOptions: [],
+            streakInfo: null,
+          },
         },
-      });
+        { headers: getCorsHeaders(origin) }
+      );
     }
 
-    // Find customer
-    let customer;
-    if (customerId) {
-      customer = await db.customer.findFirst({
-        where: { id: customerId, shop },
-        include: {
-          currentTier: {
-            select: {
-              id: true,
-              name: true,
-              pointsMultiplier: true,
-              pointsLuckBonus: true,
-            },
+    // Find customer using authenticated shop (multi-tenancy isolation)
+    const customer = await db.customer.findFirst({
+      where: {
+        shopifyCustomerId,
+        shop, // CRITICAL: Always scope to authenticated shop!
+      },
+      include: {
+        currentTier: {
+          select: {
+            id: true,
+            name: true,
+            pointsMultiplier: true,
+            pointsLuckBonus: true,
           },
         },
-      });
-    } else if (shopifyCustomerId) {
-      customer = await db.customer.findFirst({
-        where: { shopifyCustomerId, shop },
-        include: {
-          currentTier: {
-            select: {
-              id: true,
-              name: true,
-              pointsMultiplier: true,
-              pointsLuckBonus: true,
-            },
-          },
-        },
-      });
-    }
+      },
+    });
 
     if (!customer) {
       return json<PointsAPIResponse>(
         { success: false, error: "Customer not found" },
-        { status: 404 }
+        { status: 404, headers: getCorsHeaders(origin) }
       );
     }
 
@@ -211,54 +295,57 @@ export async function loader({ request }: LoaderFunctionArgs) {
       streakInfo = await getCustomerStreakInfo(customer.id, shop, config.streakBonusMultiplier);
     }
 
-    return json<PointsAPIResponse>({
-      success: true,
-      data: {
-        enabled: true,
-        currency: {
-          name: currency.name,
-          plural: currency.plural,
-          icon: currency.icon,
-        },
-        balance,
-        tier: tierInfo,
-        config: {
-          pointsPerDollar: config.pointsPerDollar,
-          pointsExpire: config.pointsExpire,
-          expirationDays: config.expirationDays,
-        },
-        transactions: historyResult.transactions.map((t) => ({
-          id: t.id,
-          amount: t.amount,
-          balance: t.balance,
-          type: t.type,
-          description: t.description,
-          createdAt: t.createdAt.toISOString(),
-          expiresAt: t.expiresAt?.toISOString() ?? null,
-        })),
-        transactionsPagination: {
-          total: historyResult.total,
-          limit,
-          offset,
-          hasMore: offset + limit < historyResult.total,
-        },
-        expiringPoints: {
-          totalExpiring: expiringPoints.totalExpiring,
-          entries: expiringPoints.entries.map((e) => ({
-            amount: e.amount,
-            expiresAt: e.expiresAt.toISOString(),
-            daysUntilExpiry: e.daysUntilExpiry,
+    return json<PointsAPIResponse>(
+      {
+        success: true,
+        data: {
+          enabled: true,
+          currency: {
+            name: currency.name,
+            plural: currency.plural,
+            icon: currency.icon,
+          },
+          balance,
+          tier: tierInfo,
+          config: {
+            pointsPerDollar: config.pointsPerDollar,
+            pointsExpire: config.pointsExpire,
+            expirationDays: config.expirationDays,
+          },
+          transactions: historyResult.transactions.map((t) => ({
+            id: t.id,
+            amount: t.amount,
+            balance: t.balance,
+            type: t.type,
+            description: t.description,
+            createdAt: t.createdAt.toISOString(),
+            expiresAt: t.expiresAt?.toISOString() ?? null,
           })),
+          transactionsPagination: {
+            total: historyResult.total,
+            limit,
+            offset,
+            hasMore: offset + limit < historyResult.total,
+          },
+          expiringPoints: {
+            totalExpiring: expiringPoints.totalExpiring,
+            entries: expiringPoints.entries.map((e) => ({
+              amount: e.amount,
+              expiresAt: e.expiresAt.toISOString(),
+              daysUntilExpiry: e.daysUntilExpiry,
+            })),
+          },
+          redemptionOptions,
+          streakInfo,
         },
-        redemptionOptions,
-        streakInfo,
       },
-    });
+      { headers: getCorsHeaders(origin) }
+    );
   } catch (error) {
     console.error("[Points API] Error:", error);
     return json<PointsAPIResponse>(
       { success: false, error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers: getCorsHeaders(request.headers.get("origin")) }
     );
   }
 }
@@ -272,8 +359,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
  */
 function buildRedemptionOptions(
   availablePoints: number,
-  pointsPerDollar: number
-): PointsAPIResponse["data"]["redemptionOptions"] {
+  _pointsPerDollar: number
+): NonNullable<PointsAPIResponse["data"]>["redemptionOptions"] {
   // Standard redemption tiers
   const tiers = [
     { points: 500, discount: 5, type: "fixed" as const },

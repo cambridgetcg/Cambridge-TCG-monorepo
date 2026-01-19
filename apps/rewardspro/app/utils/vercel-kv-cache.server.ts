@@ -237,15 +237,106 @@ export async function kvClearAll(): Promise<void> {
 }
 
 // Export type for cache key generation
-export type CacheKeyParts = (string | number | boolean | null | undefined)[];
+export type CacheKeyParts = (string | number | boolean)[];
+export type CacheKeyPartsAllowNull = (string | number | boolean | null | undefined)[];
 
 /**
- * Generate a cache key from parts
- * Handles null/undefined gracefully
+ * Validate cache key parts to prevent null/undefined collisions
+ *
+ * SECURITY: If shop or other critical identifiers are null/undefined,
+ * cache keys could collide across different shops, causing:
+ * - Data leakage between shops
+ * - Incorrect data being returned
+ * - Silent bugs that are hard to diagnose
+ *
+ * Example of the problem:
+ *   createCacheKey('metrics', null, 'data') => 'metrics:_:data'
+ *   createCacheKey('metrics', undefined, 'data') => 'metrics:_:data'
+ *   // Both produce the same key - collision!
+ */
+function validateCacheKeyParts(prefix: string, parts: unknown[]): void {
+  // Validate prefix
+  if (!prefix || typeof prefix !== 'string') {
+    throw new Error(
+      `[Cache] Invalid cache key prefix: ${JSON.stringify(prefix)}. ` +
+      `Prefix must be a non-empty string.`
+    );
+  }
+
+  // Validate each part
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === null || part === undefined) {
+      throw new Error(
+        `[Cache] Invalid cache key part at index ${i}: ${JSON.stringify(part)}. ` +
+        `Null/undefined values can cause key collisions across shops. ` +
+        `Ensure you have a valid value or use createCacheKeyAllowEmpty() if intentional.`
+      );
+    }
+    if (part === '') {
+      throw new Error(
+        `[Cache] Empty string in cache key part at index ${i}. ` +
+        `Empty strings can cause key collisions. Ensure you have a valid value.`
+      );
+    }
+  }
+}
+
+/**
+ * Generate a cache key from parts (STRICT - recommended)
+ *
+ * SECURITY: This function validates that no parts are null/undefined/empty
+ * to prevent cache key collisions that could leak data between shops.
+ *
+ * Use this function for all shop-scoped cache keys.
+ *
+ * @throws Error if any part is null, undefined, or empty string
+ *
+ * @example
+ * createCacheKey('metrics', shop, period) // 'metrics:myshop.myshopify.com:current'
  */
 export function createCacheKey(prefix: string, ...parts: CacheKeyParts): string {
+  validateCacheKeyParts(prefix, parts);
+  const sanitizedParts = parts.map(p => String(p)).join(':');
+  return `${prefix}:${sanitizedParts}`;
+}
+
+/**
+ * Generate a cache key from parts (ALLOWS null/undefined)
+ *
+ * WARNING: Only use this when you explicitly intend to allow null/undefined values.
+ * This converts null/undefined to '_' which could cause collisions if misused.
+ *
+ * Prefer createCacheKey() for shop-scoped cache keys.
+ *
+ * @example
+ * createCacheKeyAllowEmpty('temp', maybeNull, 'data') // 'temp:_:data' if maybeNull is null
+ */
+export function createCacheKeyAllowEmpty(prefix: string, ...parts: CacheKeyPartsAllowNull): string {
+  if (!prefix || typeof prefix !== 'string') {
+    throw new Error(`[Cache] Invalid cache key prefix: ${JSON.stringify(prefix)}`);
+  }
   const sanitizedParts = parts
     .map(p => (p === null || p === undefined ? '_' : String(p)))
     .join(':');
   return `${prefix}:${sanitizedParts}`;
+}
+
+/**
+ * Generate a shop-scoped cache key with validation
+ *
+ * SECURITY: Ensures shop is always a valid string to prevent cross-shop data leakage.
+ *
+ * @example
+ * createShopCacheKey('metrics', shop, 'monthly') // 'metrics:myshop.myshopify.com:monthly'
+ */
+export function createShopCacheKey(prefix: string, shop: string, ...additionalParts: CacheKeyParts): string {
+  // Extra validation for shop specifically
+  if (!shop || typeof shop !== 'string' || !shop.includes('.myshopify.com')) {
+    throw new Error(
+      `[Cache] Invalid shop domain: ${JSON.stringify(shop)}. ` +
+      `Shop must be a valid Shopify domain (e.g., 'store.myshopify.com').`
+    );
+  }
+  return createCacheKey(prefix, shop, ...additionalParts);
 }

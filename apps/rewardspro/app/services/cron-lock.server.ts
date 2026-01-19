@@ -7,14 +7,20 @@
  * Uses database unique constraint on jobName to ensure only one
  * instance can hold the lock at a time.
  *
+ * NOTE: For production, enable DynamoDB locks by setting USE_DYNAMODB_LOCKS=true.
+ * DynamoDB provides true atomic conditional writes without race conditions.
+ * See: app/services/dynamodb-cron-lock.server.ts
+ *
  * Features:
  * - Automatic expiry for crashed instances
  * - Safe cleanup of expired locks
  * - Instance tracking for debugging
+ * - DynamoDB fallback for better reliability
  */
 
 import db from "~/db.server";
 import * as crypto from "crypto";
+import { getAWSConfig } from "~/utils/aws-clients.server";
 
 export interface CronLockResult {
   acquired: boolean;
@@ -259,4 +265,89 @@ export async function getLockStatus(
     console.error(`[CronLock] Error getting lock status for ${jobName}:`, error);
     return null;
   }
+}
+
+/**
+ * Smart lock acquisition that uses DynamoDB when available
+ *
+ * Automatically tries DynamoDB first (if enabled), then falls back to PostgreSQL.
+ * This provides the best of both worlds: DynamoDB's atomic operations when available,
+ * with PostgreSQL as a reliable fallback.
+ *
+ * @param jobName - Unique identifier for the cron job
+ * @param ttlMinutes - Time-to-live in minutes (default: 10)
+ * @returns Lock result with backend information
+ *
+ * @example
+ * const lock = await acquireCronLockSmart('tier-maintenance', 10);
+ * if (!lock.acquired) return;
+ * try {
+ *   // ... do work ...
+ * } finally {
+ *   await releaseCronLockSmart(jobName, lock.lockId!, lock.backend);
+ * }
+ */
+export async function acquireCronLockSmart(
+  jobName: string,
+  ttlMinutes: number = 10
+): Promise<CronLockResult & { backend: "dynamodb" | "postgres" }> {
+  const awsConfig = getAWSConfig();
+
+  // Try DynamoDB first if enabled
+  if (awsConfig.dynamodb.enabled) {
+    try {
+      const { DynamoDBCronLockService } = await import("./dynamodb-cron-lock.server");
+      const dynamoLock = DynamoDBCronLockService.getInstance();
+
+      if (dynamoLock.isEnabled()) {
+        const result = await dynamoLock.acquireLock(jobName, ttlMinutes);
+
+        if (result.acquired || result.existingLock) {
+          return {
+            acquired: result.acquired,
+            lockId: result.lockId,
+            existingLock: result.existingLock,
+            backend: "dynamodb",
+          };
+        }
+
+        // If there was an error (not a lock conflict), log and fall through
+        if (result.error) {
+          console.warn(`[CronLock] DynamoDB error, using PostgreSQL: ${result.error}`);
+        }
+      }
+    } catch (error: any) {
+      console.warn(`[CronLock] DynamoDB unavailable, using PostgreSQL: ${error.message}`);
+    }
+  }
+
+  // Fallback to PostgreSQL
+  const pgResult = await acquireCronLock(jobName, ttlMinutes);
+  return {
+    ...pgResult,
+    backend: "postgres",
+  };
+}
+
+/**
+ * Smart lock release that uses the appropriate backend
+ */
+export async function releaseCronLockSmart(
+  jobName: string,
+  lockId: string,
+  backend: "dynamodb" | "postgres"
+): Promise<void> {
+  if (backend === "dynamodb") {
+    try {
+      const { DynamoDBCronLockService } = await import("./dynamodb-cron-lock.server");
+      const dynamoLock = DynamoDBCronLockService.getInstance();
+      await dynamoLock.releaseLock(jobName, lockId);
+      return;
+    } catch (error) {
+      console.warn(`[CronLock] Failed to release DynamoDB lock, trying PostgreSQL`);
+    }
+  }
+
+  // PostgreSQL release
+  await releaseCronLock(lockId);
 }

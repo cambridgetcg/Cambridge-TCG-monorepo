@@ -53,13 +53,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       return json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const url = new URL(request.url);
-    const shop = url.searchParams.get("shop") || session.shop;
-
-    // Ensure shop matches session for security
-    if (shop !== session.shop) {
-      return json({ success: false, error: "Shop mismatch" }, { status: 403 });
-    }
+    // SECURITY: Always use authenticated shop from session, never from URL params
+    // This prevents any possibility of shop parameter manipulation
+    const shop = session.shop;
 
     // Get current month for filtering
     const now = new Date();

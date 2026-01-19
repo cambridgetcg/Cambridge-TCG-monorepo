@@ -46,6 +46,10 @@
     {
       "path": "/api/cron/webhook-cleanup",
       "schedule": "0 5 * * 0"
+    },
+    {
+      "path": "/api/cron/session-cleanup",
+      "schedule": "0 6 * * *"
     }
   ]
 }

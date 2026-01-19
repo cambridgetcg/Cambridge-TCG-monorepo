@@ -1,18 +1,55 @@
-# Lambda Functions for RewardsPro Webhooks
+# Lambda Functions for RewardsPro
 
-This directory contains AWS Lambda functions for processing Shopify webhooks delivered via EventBridge.
+This directory contains AWS Lambda functions for processing Shopify webhooks, SQS order queues, and EventBridge cron jobs.
 
 ## Architecture
 
 ```
-Shopify → EventBridge → Lambda → Aurora Database
+┌─────────────────────────────────────────────────────────────────┐
+│                     Lambda Functions                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  EventBridge Webhooks:                                          │
+│  Shopify → EventBridge → Lambda → Aurora Database               │
+│                                                                  │
+│  SQS Order Processing:                                          │
+│  Webhook → SQS Queue → Lambda → Aurora/Vercel API              │
+│                                                                  │
+│  Scheduled Cron Jobs:                                           │
+│  EventBridge Schedule → Lambda → Vercel Cron Endpoints          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Files
 
-- `process-customer-webhook.js` - Main Lambda handler for customer webhooks
+- `process-customer-webhook.js` - EventBridge handler for customer webhooks
+- `order-queue-processor.js` - SQS handler for order processing
+- `cron-dispatcher.js` - EventBridge handler for scheduled cron jobs
 - `package.json` - Lambda dependencies
 - `test-handler.js` - Local test script
+
+## Lambda Functions Overview
+
+### 1. Customer Webhook Processor
+- **Trigger**: EventBridge (Shopify partner events)
+- **Purpose**: Process customer create/update/delete webhooks
+- **Memory**: 256 MB
+- **Timeout**: 30 seconds
+
+### 2. Order Queue Processor
+- **Trigger**: SQS (rewardspro-order-queue)
+- **Purpose**: Process order webhooks from SQS queue
+- **Features**: Batch processing, partial failure reporting, DLQ support
+- **Memory**: 512 MB
+- **Timeout**: 300 seconds (5 minutes)
+
+### 3. Cron Dispatcher
+- **Trigger**: EventBridge scheduled rules
+- **Purpose**: Dispatch cron jobs to Vercel app endpoints
+- **Features**: Distributed locking via DynamoDB, 12 scheduled jobs
+- **Memory**: 256 MB
+- **Timeout**: 300 seconds (5 minutes)
 
 ## Deployment
 

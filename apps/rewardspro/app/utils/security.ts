@@ -126,30 +126,6 @@ export function verifyWebhookHMAC(request: Request, rawBody: string, secret: str
 }
 
 // ============================================================================
-// CSRF PROTECTION
-// ============================================================================
-
-/**
- * Generate CSRF token
- */
-export function generateCSRFToken(): string {
-  return crypto.randomBytes(32).toString('base64url');
-}
-
-/**
- * Verify CSRF token
- */
-export function verifyCSRFToken(token: string, storedToken: string): boolean {
-  if (!token || !storedToken) return false;
-  
-  // Use timing-safe comparison
-  return crypto.timingSafeEqual(
-    Buffer.from(token),
-    Buffer.from(storedToken)
-  );
-}
-
-// ============================================================================
 // RATE LIMITING
 // ============================================================================
 
@@ -385,8 +361,6 @@ export default {
   sanitizeNumber,
   verifyHMAC,
   verifyWebhookHMAC,
-  generateCSRFToken,
-  verifyCSRFToken,
   checkRateLimit,
   validateCustomerInput,
   validateTierInput,
