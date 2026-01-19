@@ -5,6 +5,11 @@
 
 import { RDSDataClient, ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
 
+// Trim env vars to handle accidental whitespace/newlines
+const AURORA_RESOURCE_ARN = process.env.AURORA_RESOURCE_ARN?.trim() || "";
+const AURORA_SECRET_ARN = process.env.AURORA_SECRET_ARN?.trim() || "";
+const AURORA_DATABASE_NAME = process.env.AURORA_DATABASE_NAME?.trim() || "";
+
 // Configuration for Aurora Serverless
 export const AURORA_CONFIG = {
   // Connection pool settings
@@ -40,9 +45,9 @@ export const AURORA_CONFIG = {
  */
 export async function keepAuroraWarm(client: RDSDataClient): Promise<void> {
   const warmupQuery = new ExecuteStatementCommand({
-    resourceArn: process.env.AURORA_RESOURCE_ARN!,
-    secretArn: process.env.AURORA_SECRET_ARN!,
-    database: process.env.AURORA_DATABASE_NAME!,
+    resourceArn: AURORA_RESOURCE_ARN,
+    secretArn: AURORA_SECRET_ARN,
+    database: AURORA_DATABASE_NAME,
     sql: "SELECT 1 as warmup",
   });
 
@@ -71,9 +76,9 @@ export async function checkAuroraHealth(client: RDSDataClient): Promise<{
   error?: string;
 }> {
   const healthQuery = new ExecuteStatementCommand({
-    resourceArn: process.env.AURORA_RESOURCE_ARN!,
-    secretArn: process.env.AURORA_SECRET_ARN!,
-    database: process.env.AURORA_DATABASE_NAME!,
+    resourceArn: AURORA_RESOURCE_ARN,
+    secretArn: AURORA_SECRET_ARN,
+    database: AURORA_DATABASE_NAME,
     sql: `
       SELECT
         current_database() as database,
@@ -126,9 +131,9 @@ export async function getConnectionPoolStatus(client: RDSDataClient): Promise<{
   waitingRequests: number;
 }> {
   const poolQuery = new ExecuteStatementCommand({
-    resourceArn: process.env.AURORA_RESOURCE_ARN!,
-    secretArn: process.env.AURORA_SECRET_ARN!,
-    database: process.env.AURORA_DATABASE_NAME!,
+    resourceArn: AURORA_RESOURCE_ARN,
+    secretArn: AURORA_SECRET_ARN,
+    database: AURORA_DATABASE_NAME,
     sql: `
       SELECT
         count(*) FILTER (WHERE state = 'active') as active,
@@ -175,9 +180,9 @@ export async function getSlowQueries(client: RDSDataClient, thresholdMs: number 
   state: string;
 }>> {
   const slowQueryCheck = new ExecuteStatementCommand({
-    resourceArn: process.env.AURORA_RESOURCE_ARN!,
-    secretArn: process.env.AURORA_SECRET_ARN!,
-    database: process.env.AURORA_DATABASE_NAME!,
+    resourceArn: AURORA_RESOURCE_ARN,
+    secretArn: AURORA_SECRET_ARN,
+    database: AURORA_DATABASE_NAME,
     sql: `
       SELECT
         query,
