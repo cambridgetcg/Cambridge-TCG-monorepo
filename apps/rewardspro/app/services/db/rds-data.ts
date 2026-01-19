@@ -10,7 +10,10 @@ import { marshal, unmarshalRows } from "./marshal";
 
 const { AWS_REGION, AURORA_RESOURCE_ARN, AURORA_SECRET_ARN, AURORA_DATABASE_NAME } = process.env;
 
-export const rds = new RDSDataClient({ region: AWS_REGION });
+// Trim region to handle accidental whitespace/newlines in env vars
+const region = AWS_REGION?.trim() || "eu-north-1";
+
+export const rds = new RDSDataClient({ region });
 
 export async function query<T = any>(
   sql: string,

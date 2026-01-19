@@ -33,13 +33,16 @@ export class AuroraDataAPI {
   private config: AuroraConfig;
 
   constructor(config: AuroraConfig) {
+    // Trim region to handle accidental whitespace/newlines in env vars
+    const region = (config.region || process.env.AWS_REGION || "eu-north-1").trim();
+
     this.config = {
       ...config,
-      region: config.region || "eu-north-1",
+      region,
     };
 
     this.client = new RDSDataClient({
-      region: this.config.region,
+      region,
     });
   }
 

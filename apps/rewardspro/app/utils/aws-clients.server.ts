@@ -17,8 +17,8 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { SESClient } from "@aws-sdk/client-ses";
 import { SNSClient } from "@aws-sdk/client-sns";
 
-// Environment configuration
-const AWS_REGION = process.env.AWS_REGION || "eu-north-1";
+// Environment configuration - trim to handle accidental whitespace/newlines
+const AWS_REGION = (process.env.AWS_REGION || "eu-north-1").trim();
 
 // Client instances (singletons)
 let sqsClient: SQSClient | null = null;
