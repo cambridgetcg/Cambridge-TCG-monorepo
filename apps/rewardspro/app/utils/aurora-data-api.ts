@@ -373,11 +373,12 @@ let auroraClient: AuroraDataAPI | null = null;
  */
 export function getAuroraClient(): AuroraDataAPI {
   if (!auroraClient) {
+    // Trim all env vars to handle accidental whitespace/newlines
     const config: AuroraConfig = {
-      resourceArn: process.env.AURORA_RESOURCE_ARN!,
-      secretArn: process.env.AURORA_SECRET_ARN!,
-      database: process.env.AURORA_DATABASE_NAME || "rewardspro",
-      region: process.env.AWS_REGION || "eu-north-1",
+      resourceArn: process.env.AURORA_RESOURCE_ARN?.trim() || "",
+      secretArn: process.env.AURORA_SECRET_ARN?.trim() || "",
+      database: (process.env.AURORA_DATABASE_NAME || "rewardspro").trim(),
+      region: (process.env.AWS_REGION || "eu-north-1").trim(),
     };
 
     if (!config.resourceArn || !config.secretArn) {

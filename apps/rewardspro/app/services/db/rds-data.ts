@@ -8,10 +8,11 @@ import {
 } from "@aws-sdk/client-rds-data";
 import { marshal, unmarshalRows } from "./marshal";
 
-const { AWS_REGION, AURORA_RESOURCE_ARN, AURORA_SECRET_ARN, AURORA_DATABASE_NAME } = process.env;
-
-// Trim region to handle accidental whitespace/newlines in env vars
-const region = AWS_REGION?.trim() || "eu-north-1";
+// Trim all env vars to handle accidental whitespace/newlines
+const region = (process.env.AWS_REGION || "eu-north-1").trim();
+const resourceArn = process.env.AURORA_RESOURCE_ARN?.trim() || "";
+const secretArn = process.env.AURORA_SECRET_ARN?.trim() || "";
+const database = process.env.AURORA_DATABASE_NAME?.trim() || "";
 
 export const rds = new RDSDataClient({ region });
 
@@ -27,9 +28,9 @@ export async function query<T = any>(
 
   const resp = await rds.send(
     new ExecuteStatementCommand({
-      resourceArn: AURORA_RESOURCE_ARN!,
-      secretArn: AURORA_SECRET_ARN!,
-      database: AURORA_DATABASE_NAME!,
+      resourceArn: resourceArn,
+      secretArn: secretArn,
+      database: database,
       sql,
       parameters: Parameters,
       includeResultMetadata: true,
@@ -44,9 +45,9 @@ export async function withTransaction<T>(
 ): Promise<T> {
   const begin = await rds.send(
     new BeginTransactionCommand({
-      resourceArn: AURORA_RESOURCE_ARN!,
-      secretArn: AURORA_SECRET_ARN!,
-      database: AURORA_DATABASE_NAME!,
+      resourceArn: resourceArn,
+      secretArn: secretArn,
+      database: database,
     })
   );
   const txId = begin.transactionId!;
@@ -54,8 +55,8 @@ export async function withTransaction<T>(
     const result = await fn(txId);
     await rds.send(
       new CommitTransactionCommand({
-        resourceArn: AURORA_RESOURCE_ARN!,
-        secretArn: AURORA_SECRET_ARN!,
+        resourceArn: resourceArn,
+        secretArn: secretArn,
         transactionId: txId,
       })
     );
@@ -63,8 +64,8 @@ export async function withTransaction<T>(
   } catch (e) {
     await rds.send(
       new RollbackTransactionCommand({
-        resourceArn: AURORA_RESOURCE_ARN!,
-        secretArn: AURORA_SECRET_ARN!,
+        resourceArn: resourceArn,
+        secretArn: secretArn,
         transactionId: txId,
       })
     );
