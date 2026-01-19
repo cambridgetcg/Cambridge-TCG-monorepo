@@ -44,6 +44,7 @@ import db from "~/db.server";
 import { getMarketingModeInfo, setMarketingHubMode, markChoiceModalSeen } from "~/services/marketing-mode.server";
 import { MarketingChoiceModal } from "~/components/MarketingChoiceModal";
 import { KlaviyoMarketingDashboard } from "~/components/KlaviyoMarketingDashboard";
+import { SubscriptionCard } from "~/components/Billing/UpgradePrompt";
 import type { MarketingHubMode } from "@prisma/client";
 
 // ============================================

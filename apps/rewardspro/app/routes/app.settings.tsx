@@ -28,7 +28,8 @@ import {
   ProgressBar,
   Spinner,
 } from "@shopify/polaris";
-import { RefreshIcon } from "~/utils/polaris-icons";
+import { RefreshIcon, CreditCardIcon } from "~/utils/polaris-icons";
+import { SubscriptionCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "../shopify.server";
@@ -1856,6 +1857,11 @@ export default function SettingsPage() {
       content: 'Integrations',
       panelID: 'integrations-panel',
     },
+    {
+      id: 'subscription',
+      content: 'Subscription',
+      panelID: 'subscription-panel',
+    },
   ];
 
   const handleTabChange = useCallback((selectedTabIndex: number) => {
@@ -3056,6 +3062,148 @@ export default function SettingsPage() {
                         <Text as="p" variant="bodyMd">
                           <Text as="span" fontWeight="semibold">Need a specific integration?</Text>{" "}
                           Let us know at support@rewardspro.app and we'll prioritize it.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  )}
+
+                  {/* Subscription Tab */}
+                  {selectedTab === 6 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Subscription & Billing</Text>
+                          <Badge tone={activeSubscription ? 'success' : 'info'}>
+                            {currentPlan?.planName || activeSubscription?.name || 'Free'}
+                          </Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Manage your subscription plan and billing details
+                        </Text>
+                      </BlockStack>
+
+                      {/* Current Plan Card */}
+                      <SubscriptionCard
+                        planName={currentPlan?.planName || activeSubscription?.name || 'RewardsPro Free'}
+                        status={activeSubscription?.status === 'ACTIVE' ? 'active' : currentPlan?.status === 'active' ? 'active' : 'active'}
+                        price={
+                          currentPlan?.planName?.includes('Pro') ? 39 :
+                          currentPlan?.planName?.includes('Max') ? 149 :
+                          currentPlan?.planName?.includes('Ultra') ? 499 : 0
+                        }
+                        interval={currentPlan?.planName?.includes('Annual') ? 'annual' : 'monthly'}
+                        periodEnd={currentPlan?.currentPeriodEnd || undefined}
+                        usage={monthlyOrderUsage ? {
+                          current: monthlyOrderUsage.orderCount,
+                          limit: monthlyOrderUsage.planLimit || 100,
+                          resource: 'orders',
+                        } : undefined}
+                        showManageButton={true}
+                      />
+
+                      {/* Usage Warning */}
+                      {monthlyOrderUsage && monthlyOrderUsage.orderCount >= (monthlyOrderUsage.planLimit || 100) * 0.8 && (
+                        <UsageUpgradePrompt
+                          current={monthlyOrderUsage.orderCount}
+                          limit={monthlyOrderUsage.planLimit || 100}
+                          resource="orders"
+                          title="Monthly Order Usage"
+                          warningThreshold={80}
+                        />
+                      )}
+
+                      {/* Plan Benefits */}
+                      <Card>
+                        <BlockStack gap="400">
+                          <Text as="h3" variant="headingMd">Plan Benefits</Text>
+                          <BlockStack gap="200">
+                            {(() => {
+                              const planName = currentPlan?.planName || activeSubscription?.name || 'Free';
+                              const benefits = planName.includes('Ultra') ? [
+                                { label: 'Unlimited orders per month', included: true },
+                                { label: 'Unlimited customers', included: true },
+                                { label: 'All premium features', included: true },
+                                { label: 'Dedicated support', included: true },
+                                { label: 'Custom integrations', included: true },
+                              ] : planName.includes('Max') ? [
+                                { label: '2,000 orders per month', included: true },
+                                { label: 'Unlimited customers', included: true },
+                                { label: 'Tier memberships', included: true },
+                                { label: 'Priority support', included: true },
+                                { label: 'Advanced analytics', included: true },
+                              ] : planName.includes('Pro') ? [
+                                { label: '500 orders per month', included: true },
+                                { label: '2,000 customers', included: true },
+                                { label: 'Batch operations', included: true },
+                                { label: 'Email support', included: true },
+                                { label: 'Tier memberships', included: false },
+                              ] : [
+                                { label: '100 orders per month', included: true },
+                                { label: '500 customers', included: true },
+                                { label: 'Basic features', included: true },
+                                { label: 'Community support', included: true },
+                                { label: 'Advanced features', included: false },
+                              ];
+
+                              return benefits.map((benefit, i) => (
+                                <InlineStack key={i} gap="200" blockAlign="center">
+                                  <div style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    backgroundColor: benefit.included ? '#e3f1df' : '#f3f4f6',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '12px',
+                                  }}>
+                                    {benefit.included ? '✓' : '–'}
+                                  </div>
+                                  <Text as="span" variant="bodySm" tone={benefit.included ? 'base' : 'subdued'}>
+                                    {benefit.label}
+                                  </Text>
+                                </InlineStack>
+                              ));
+                            })()}
+                          </BlockStack>
+                        </BlockStack>
+                      </Card>
+
+                      {/* Upgrade CTA for non-Ultra plans */}
+                      {!(currentPlan?.planName || activeSubscription?.name || '').includes('Ultra') && (
+                        <Card>
+                          <BlockStack gap="400">
+                            <InlineStack gap="300" blockAlign="center">
+                              <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #d69e2e20, #d69e2e40)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}>
+                                <Text as="span" variant="headingLg">⭐</Text>
+                              </div>
+                              <BlockStack gap="050">
+                                <Text as="h3" variant="headingMd">Unlock More Features</Text>
+                                <Text as="p" variant="bodySm" tone="subdued">
+                                  Upgrade your plan to access advanced features and higher limits
+                                </Text>
+                              </BlockStack>
+                            </InlineStack>
+                            <Button variant="primary" onClick={() => navigate('/app/billing')}>
+                              View All Plans
+                            </Button>
+                          </BlockStack>
+                        </Card>
+                      )}
+
+                      {/* Billing Support */}
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          <Text as="span" fontWeight="semibold">Need billing help?</Text>{" "}
+                          Contact us at support@rewardspro.app for any subscription or billing questions.
                         </Text>
                       </Banner>
                     </BlockStack>

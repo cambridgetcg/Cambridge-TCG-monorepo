@@ -20,6 +20,7 @@ import {
   Divider,
   ProgressBar,
   Banner,
+  Button,
 } from "@shopify/polaris";
 import {
   StatusActiveIcon,
@@ -787,9 +788,14 @@ export default function Dashboard() {
 
                     <Divider />
 
-                    <Text variant="bodySm" tone="subdued">
-                      Subscription plan and monthly order usage
-                    </Text>
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text variant="bodySm" tone="subdued">
+                        Subscription plan
+                      </Text>
+                      <Button size="slim" variant="plain" onClick={() => navigate('/app/billing')}>
+                        {data.activeSubscription?.name?.includes('Ultra') ? 'Manage' : 'Upgrade'}
+                      </Button>
+                    </InlineStack>
                   </BlockStack>
                 </Card>
 
