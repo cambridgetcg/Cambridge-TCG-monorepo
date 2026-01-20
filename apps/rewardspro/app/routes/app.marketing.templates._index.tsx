@@ -42,7 +42,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json({ shop, templates });
   } catch (error: any) {
-    console.error('[Marketing Templates] ❌ Fatal error:', error.message);
+    // If it's a Response (auth redirect), rethrow it
+    if (error instanceof Response) {
+      throw error;
+    }
+    console.error('[Marketing Templates] ❌ Fatal error:', error.message || error);
     return json({ shop: 'unknown', templates: [] }, { status: 500 });
   }
 };
