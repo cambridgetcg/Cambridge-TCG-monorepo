@@ -95,11 +95,14 @@ export const transitions = {
 
 /**
  * Page transition variants - used for full page enter/exit
+ *
+ * IMPORTANT: Keep animations subtle and fast to prevent "double flash" effect.
+ * The enter animation uses minimal y offset (4px) for smoothness.
  */
 export const pageVariants: Variants = {
   initial: {
     opacity: 0,
-    y: 8,
+    y: 4,
   },
   enter: {
     opacity: 1,
@@ -107,7 +110,6 @@ export const pageVariants: Variants = {
   },
   exit: {
     opacity: 0,
-    y: -8,
   },
 };
 
@@ -419,19 +421,26 @@ interface PageTransitionProps {
 
 /**
  * Wrapper component that applies consistent enter/exit animations to page content
+ *
+ * DESIGN DECISIONS:
+ * - No AnimatePresence mode: Using default (simultaneous) prevents "double flash"
+ *   as new content enters while old exits, creating smoother perceived transition
+ * - Always animate from 'initial': Consistent behavior regardless of load state
+ * - Fast transition (0.15s): Quick enough to feel responsive, slow enough to be visible
+ * - Minimal exit animation: Exit fades quickly to make room for new content
  */
 export function PageTransition({
   children,
   pageKey,
   variant = 'page',
   customVariants,
-  exitAnimation = true,
+  exitAnimation = false, // Default to false - exit animations cause flash
   onAnimationComplete,
   className,
   style,
 }: PageTransitionProps) {
   const location = useLocation();
-  const { reducedMotion, isInitialLoad } = usePageAnimationContext();
+  const { reducedMotion } = usePageAnimationContext();
   const key = pageKey || location.pathname;
 
   // Select variants based on type
@@ -453,14 +462,17 @@ export function PageTransition({
   };
 
   const variants = getVariantSet();
-  const transition = reducedMotion ? { duration: 0.1 } : transitions.normal;
+  // Use faster transition to prevent perception of "double display"
+  const transition = reducedMotion
+    ? { duration: 0.05 }
+    : { duration: durations.quick, ease: easings.easeOut };
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode={exitAnimation ? 'wait' : 'sync'}>
       <motion.div
         key={key}
         variants={variants}
-        initial={isInitialLoad ? false : 'initial'}
+        initial="initial"
         animate="enter"
         exit={exitAnimation ? 'exit' : undefined}
         transition={transition}

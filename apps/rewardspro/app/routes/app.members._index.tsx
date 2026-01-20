@@ -3554,27 +3554,7 @@ export default function Customers() {
       {/* Toast notifications */}
       {toastMarkup}
       
-      {/* CSS for animations */}
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @media (prefers-reduced-motion: reduce) {
-          * {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-          }
-        }
-      `}</style>
+      {/* Page animations handled by PageAnimation system - see app/components/PageAnimation */}
     </Frame>
   );
 }

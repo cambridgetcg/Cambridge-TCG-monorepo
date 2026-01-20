@@ -3653,29 +3653,7 @@ export default function AnalyticsPage() {
         </Layout.Section>
       </Layout>
 
-      <style>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
+      {/* Page animations handled by PageAnimation system - see app/components/PageAnimation */}
     </Page>
   );
 }

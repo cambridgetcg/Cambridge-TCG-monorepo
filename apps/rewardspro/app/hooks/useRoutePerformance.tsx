@@ -79,30 +79,24 @@ export function useRoutePerformance() {
   }, []);
   
   // Monitor navigation state changes
+  // NOTE: Visual loading indicators are handled by PageAnimation/NavigationProgress
+  // This hook only tracks performance metrics - no DOM manipulation
   useEffect(() => {
     // Skip monitoring for certain routes
     if (!shouldMonitorRoute(location.pathname)) {
       return;
     }
-    
+
     if (navigation.state === 'loading') {
       startTimeRef.current = performance.now();
       performance.mark('route-navigation-start');
-      
-      // Show loading indicator after 100ms
-      const timer = setTimeout(() => {
-        if (navigation.state === 'loading') {
-          showLoadingIndicator();
-        }
-      }, 100);
-      
-      return () => clearTimeout(timer);
+      return;
     }
-    
+
     if (navigation.state === 'idle' && startTimeRef.current > 0) {
       const duration = performance.now() - startTimeRef.current;
       performance.mark('route-navigation-end');
-      
+
       // Create performance measure
       const measureName = `route-${location.pathname.replace(/\//g, '-')}`;
       performance.measure(
@@ -110,8 +104,6 @@ export function useRoutePerformance() {
         'route-navigation-start',
         'route-navigation-end'
       );
-      
-      hideLoadingIndicator();
       
       // Get route-specific budget
       const budget = getRouteBudget(location.pathname);
@@ -126,7 +118,7 @@ export function useRoutePerformance() {
       
       storeMetric(metric);
       
-      // Log performance issues
+      // Log performance issues (console only - no visual UI to avoid conflicts)
       if (severity !== 'success' && process.env.NODE_ENV === 'development') {
         const icon = severity === 'error' ? '🔴' : severity === 'warning' ? '🟡' : '🔵';
         console[severity === 'error' ? 'error' : 'warn'](
@@ -136,11 +128,7 @@ export function useRoutePerformance() {
           `  Budget: ${budget}ms\n` +
           `  Exceeded by: ${(duration - budget).toFixed(0)}ms (${((duration / budget - 1) * 100).toFixed(0)}%)`
         );
-        
-        // Show visual warning in development
-        if (severity === 'error' || severity === 'warning') {
-          showPerformanceWarning(location.pathname, duration, budget, severity);
-        }
+        // Visual warnings removed - use PageAnimation/NavigationProgress instead
       }
       
       // Check for server timing headers
@@ -174,105 +162,11 @@ export function useRoutePerformance() {
   };
 }
 
-/**
- * Show loading indicator during navigation
- */
-function showLoadingIndicator() {
-  if (document.getElementById('route-loading-indicator')) return;
-  
-  const indicator = document.createElement('div');
-  indicator.id = 'route-loading-indicator';
-  indicator.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #005bd3 0%, #0073e6 50%, #005bd3 100%);
-    background-size: 200% 100%;
-    animation: routeLoadingShimmer 1.5s infinite;
-    z-index: 10001;
-  `;
-  
-  // Add animation keyframes if not already present
-  if (!document.getElementById('route-loading-styles')) {
-    const style = document.createElement('style');
-    style.id = 'route-loading-styles';
-    style.textContent = `
-      @keyframes routeLoadingShimmer {
-        0% { background-position: 200% center; }
-        100% { background-position: -200% center; }
-      }
-      
-      @keyframes performanceWarningSlide {
-        0% { transform: translateX(100%); opacity: 0; }
-        10% { transform: translateX(0); opacity: 1; }
-        90% { transform: translateX(0); opacity: 1; }
-        100% { transform: translateX(100%); opacity: 0; }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  
-  document.body.appendChild(indicator);
-}
-
-/**
- * Hide loading indicator
- */
-function hideLoadingIndicator() {
-  const indicator = document.getElementById('route-loading-indicator');
-  if (indicator) {
-    indicator.style.opacity = '0';
-    indicator.style.transition = 'opacity 200ms ease-out';
-    setTimeout(() => indicator.remove(), 200);
-  }
-}
-
-/**
- * Show performance warning toast
- */
-function showPerformanceWarning(
-  route: string,
-  duration: number,
-  budget: number,
-  severity: 'error' | 'warning' | 'info'
-) {
-  const warning = document.createElement('div');
-  warning.className = 'performance-warning';
-  warning.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${severity === 'error' ? '#ff4444' : severity === 'warning' ? '#ffaa00' : '#0066cc'};
-    color: white;
-    padding: 12px 16px;
-    border-radius: 6px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 13px;
-    line-height: 1.4;
-    max-width: 320px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 10000;
-    animation: performanceWarningSlide 3s ease-out forwards;
-    cursor: pointer;
-  `;
-  
-  warning.innerHTML = `
-    <div style="font-weight: 600; margin-bottom: 4px;">
-      ${severity === 'error' ? '⚠️ Slow' : '⏱️ Moderate'} Route Transition
-    </div>
-    <div style="opacity: 0.95;">
-      ${route} took ${duration.toFixed(0)}ms (budget: ${budget}ms)
-    </div>
-  `;
-  
-  warning.onclick = () => warning.remove();
-  document.body.appendChild(warning);
-  
-  // Auto-remove after animation
-  setTimeout(() => warning.remove(), 3000);
-}
+// NOTE: Visual loading indicators (showLoadingIndicator, hideLoadingIndicator, showPerformanceWarning)
+// have been removed. All visual navigation feedback is now handled centrally by:
+// - PageAnimation/NavigationProgress component (progress bar)
+// - PageAnimation/PageTransition component (page enter/exit animations)
+// This prevents duplicate/conflicting animations that caused the "double flash" issue.
 
 /**
  * Check for Server-Timing headers
