@@ -29,6 +29,7 @@ import {
   SemanticAnnouncement,
 } from './SemanticReactComponents';
 import type { Currency } from '@prisma/client';
+import { ANGEL_NUMBERS } from '~/utils/angel-numbers';
 
 // ============================================
 // CUSTOMER DASHBOARD EXAMPLE
@@ -37,17 +38,18 @@ import type { Currency } from '@prisma/client';
 export const CustomerDashboardExample: React.FC = () => {
   const [loading, setLoading] = useState(false);
   
+  // Using angel numbers for demo displays
   const mockCustomer = {
     name: 'Sarah Johnson',
     email: 'sarah.johnson@example.com',
-    tier: 'Gold',
+    tier: ANGEL_NUMBERS.TIER.GOLD.name.replace(' Member', ''),
     tierLevel: 3,
-    cashback: 5,
-    storeCredit: 125.50,
-    lifetimeSpent: 2450.00,
+    cashback: ANGEL_NUMBERS.TIER.GOLD.cashbackPercent,
+    storeCredit: ANGEL_NUMBERS.TIER.GOLD.credit,
+    lifetimeSpent: ANGEL_NUMBERS.CREDIT.LUCK * 10, // $7,777.70
     lastOrder: new Date('2024-01-15'),
     nextTier: 'Platinum',
-    progressToNext: 65,
+    progressToNext: ANGEL_NUMBERS.PERCENT.GOOD,
   };
   
   return (

@@ -45,6 +45,7 @@ import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-
 import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
+import { DEMO_VALUES } from "~/utils/angel-numbers";
 
 // ============= TYPES =============
 type Currency = 
@@ -2927,8 +2928,8 @@ export default function SettingsPage() {
                           >
                             <InlineStack align="space-between" blockAlign="center">
                               <BlockStack gap="100">
-                                <span style={{ color: widgetTextColor, fontWeight: 600, fontSize: "14px" }}>Gold Member</span>
-                                <span style={{ color: widgetAccentColor, fontWeight: 700, fontSize: "20px" }}>{formatCurrency(125.50, { storeCurrency, currencyDisplayType })}</span>
+                                <span style={{ color: widgetTextColor, fontWeight: 600, fontSize: "14px" }}>{DEMO_VALUES.WIDGET_PREVIEW.tierName}</span>
+                                <span style={{ color: widgetAccentColor, fontWeight: 700, fontSize: "20px" }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.credit, { storeCurrency, currencyDisplayType })}</span>
                               </BlockStack>
                               <div style={{
                                 backgroundColor: widgetPrimaryColor,
@@ -2938,7 +2939,7 @@ export default function SettingsPage() {
                                 fontSize: "11px",
                                 fontWeight: 600
                               }}>
-                                5% Cashback
+                                {DEMO_VALUES.WIDGET_PREVIEW.cashbackPercent}% Cashback
                               </div>
                             </InlineStack>
                             <div style={{ marginTop: "12px" }}>
@@ -2948,7 +2949,7 @@ export default function SettingsPage() {
                                 height: "6px",
                                 overflow: "hidden"
                               }}>
-                                <div style={{ backgroundColor: widgetPrimaryColor, width: "63%", height: "100%" }} />
+                                <div style={{ backgroundColor: widgetPrimaryColor, width: `${DEMO_VALUES.WIDGET_PREVIEW.progress}%`, height: "100%" }} />
                               </div>
                             </div>
                           </div>

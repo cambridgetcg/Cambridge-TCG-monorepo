@@ -34,6 +34,7 @@ import {
   SearchIcon,
   FilterIcon,
 } from '@shopify/polaris-icons';
+import { ANGEL_NUMBERS } from '~/utils/angel-numbers';
 
 /**
  * 1. SYMMETRICAL BALANCE EXAMPLE
@@ -76,10 +77,11 @@ export function SymmetricalHeroSection() {
  * Ideal for dashboards and data-heavy interfaces
  */
 export function AsymmetricalDashboard() {
+  // Using angel numbers for demo displays
   const tableData = [
-    ['John Doe', 'john@example.com', '$125.50', 'Gold'],
-    ['Jane Smith', 'jane@example.com', '$87.25', 'Silver'],
-    ['Bob Johnson', 'bob@example.com', '$45.00', 'Bronze'],
+    ['John Doe', 'john@example.com', `$${ANGEL_NUMBERS.CREDIT.ABUNDANCE}`, 'Gold'],
+    ['Jane Smith', 'jane@example.com', `$${ANGEL_NUMBERS.CREDIT.CHANGE}`, 'Silver'],
+    ['Bob Johnson', 'bob@example.com', `$${ANGEL_NUMBERS.CREDIT.GROWTH}`, 'Bronze'],
   ];
   
   return (
