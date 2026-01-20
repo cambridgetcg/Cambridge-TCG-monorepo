@@ -429,6 +429,7 @@ model Customer {
   @@index([email]) // Speed up queries by email
   @@index([shop, shopifyCustomerMetafieldId]) // Speed up storefront widget queries
   @@index([shop, currentTierId, createdAt(sort: Desc)]) // Optimize paginated tier-filtered queries
+  @@index([shop, storeCredit]) // Optimize credit range filter queries on members page
   @@index([shop, createdAt, orderCount]) // Analytics: cohort queries (customers created in time range with orders)
   @@index([shop, lastOrderDate]) // Analytics: RFM recency queries (active/dormant customer counts)
 }
@@ -3389,6 +3390,11 @@ enum IntegrationProvider {
   // P2 - Automation
   ZAPIER
   MAKE // formerly Integromat
+
+  // P2 - Team Notifications
+  SLACK
+  MICROSOFT_TEAMS
+  DISCORD
 
   // Custom
   CUSTOM_WEBHOOK

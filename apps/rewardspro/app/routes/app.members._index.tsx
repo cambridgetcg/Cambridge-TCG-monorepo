@@ -262,9 +262,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { searchQuery, tierFilter, page, pageSize, sortKey, sortDirection, creditMin, creditMax, hasOverride } = options;
     const offset = (page - 1) * pageSize;
 
-    // Build where clause for tier filter
+    // Build where clause for filters
     const whereClause: any = { shop };
 
+    // Tier filter
     if (tierFilter !== "all") {
       if (tierFilter === "none") {
         whereClause.currentTierId = null;
@@ -273,66 +274,55 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
-    // Add search filter at database level using ILIKE (case-insensitive)
+    // Search filter (case-insensitive)
     if (searchQuery) {
-      // Use contains with mode: insensitive for database-level search
       whereClause.email = {
         contains: searchQuery,
         mode: 'insensitive'
       };
     }
 
-    // Add credit range filter
+    // Credit range filter with validation
     if (creditMin || creditMax) {
-      whereClause.storeCredit = {};
-      if (creditMin) {
-        whereClause.storeCredit.gte = parseFloat(creditMin);
-      }
-      if (creditMax) {
-        whereClause.storeCredit.lte = parseFloat(creditMax);
+      const minVal = creditMin ? parseFloat(creditMin) : null;
+      const maxVal = creditMax ? parseFloat(creditMax) : null;
+
+      // Validate and swap if min > max
+      if (minVal !== null && maxVal !== null && minVal > maxVal) {
+        whereClause.storeCredit = { gte: maxVal, lte: minVal };
+      } else {
+        whereClause.storeCredit = {};
+        if (minVal !== null && !isNaN(minVal)) {
+          whereClause.storeCredit.gte = minVal;
+        }
+        if (maxVal !== null && !isNaN(maxVal)) {
+          whereClause.storeCredit.lte = maxVal;
+        }
       }
     }
 
-    // Execute query for customers
-    let customers = await db.customer.findMany({
-      where: whereClause,
-      include: { currentTier: true },
-      orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
-      take: hasOverride && hasOverride !== "all" ? undefined : pageSize,
-      skip: hasOverride && hasOverride !== "all" ? undefined : offset,
-    });
-
-    // Filter by manual override (requires CustomerTierState lookup)
+    // Manual override filter - uses tierState relation for single query
     if (hasOverride && hasOverride !== "all") {
-      const customerIds = customers.map(c => c.id);
-      const tierStates = await db.customerTierState.findMany({
-        where: {
-          customerId: { in: customerIds },
-        },
-        select: {
-          customerId: true,
-          hasManualOverride: true,
-        },
-      });
-
-      const overrideMap = new Map(tierStates.map(ts => [ts.customerId, ts.hasManualOverride]));
-
-      customers = customers.filter(c => {
-        const hasOverrideVal = overrideMap.get(c.id) || false;
-        return hasOverride === "yes" ? hasOverrideVal : !hasOverrideVal;
-      });
-
-      // Apply pagination after filtering
-      const totalFiltered = customers.length;
-      customers = customers.slice(offset, offset + pageSize);
-
-      return { customers, totalCount: totalFiltered };
+      whereClause.tierState = {
+        hasManualOverride: hasOverride === "yes"
+      };
     }
 
-    // Get total count for pagination (single COUNT query, not fetching all records)
-    const totalCount = await db.customer.count({
-      where: whereClause,
-    });
+    // Execute both queries in parallel for maximum efficiency
+    const [customers, totalCount] = await Promise.all([
+      // Fetch only the customers for current page (using take/skip)
+      db.customer.findMany({
+        where: whereClause,
+        include: { currentTier: true },
+        orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
+        take: pageSize,
+        skip: offset,
+      }),
+      // Get total count for pagination (single COUNT query)
+      db.customer.count({
+        where: whereClause,
+      }),
+    ]);
 
     return { customers, totalCount };
   }
@@ -501,6 +491,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   // ============================================
+  // INPUT VALIDATION CONSTANTS
+  // ============================================
+  const ALLOWED_SORT_KEYS = ['email', 'createdAt', 'storeCredit', 'currentTierId'] as const;
+  const MAX_PAGE_SIZE = 200;
+  const DEFAULT_PAGE_SIZE = 25;
+
+  // ============================================
   // LOADER LOGIC
   // ============================================
 
@@ -515,9 +512,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
     const searchQuery = url.searchParams.get("search") || "";
     const tierFilter = url.searchParams.get("tier") || "all";
-    const page = parseInt(url.searchParams.get("page") || "1");
-    const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
-    const sortKey = url.searchParams.get("sortKey") || "createdAt";
+
+    // Validated pagination with bounds checking
+    const rawPage = parseInt(url.searchParams.get("page") || "1");
+    const rawPageSize = parseInt(url.searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE));
+    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, isNaN(rawPageSize) ? DEFAULT_PAGE_SIZE : rawPageSize));
+
+    // Validated sort key (whitelist to prevent injection)
+    const rawSortKey = url.searchParams.get("sortKey") || "createdAt";
+    const sortKey = (ALLOWED_SORT_KEYS as readonly string[]).includes(rawSortKey) ? rawSortKey : "createdAt";
     const sortDirection = url.searchParams.get("sortDirection") || "desc";
     // Enhanced filter params
     const creditMin = url.searchParams.get("creditMin") || "";
@@ -1675,6 +1679,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Bulk tier assignment
     if (action === "bulk-tier-assignment") {
+      const MAX_BULK_OPERATION_SIZE = 500;
       const customerIds = JSON.parse(formData.get("customerIds") as string || "[]");
       const tierId = formData.get("tierId") as string;
 
@@ -1682,36 +1687,71 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ success: false, message: "No customers selected" }, { status: 400 });
       }
 
+      // Validate bulk operation size to prevent timeouts and resource exhaustion
+      if (customerIds.length > MAX_BULK_OPERATION_SIZE) {
+        return json({
+          success: false,
+          message: `Too many customers selected. Maximum is ${MAX_BULK_OPERATION_SIZE} per operation.`
+        }, { status: 400 });
+      }
+
       console.log(`[BULK TIER] Assigning tier ${tierId} to ${customerIds.length} customers`);
 
+      // BATCHED PROCESSING: Process in batches of 50 for better performance
+      const BATCH_SIZE = 50;
       let successCount = 0;
       let errorCount = 0;
+      const failedIds: string[] = [];
 
-      for (const customerId of customerIds) {
-        try {
-          await assignCustomerToTier(
-            shop,
-            customerId,
-            tierId === "none" ? null : tierId,
-            session.userId?.toString() || "admin",
-            "Bulk tier assignment",
-            { permanentOverride: false }
-          );
-          successCount++;
-        } catch (error) {
-          console.error(`[BULK TIER] Error assigning tier to ${customerId}:`, error);
-          errorCount++;
+      // Process customers in batches with parallel execution within each batch
+      for (let i = 0; i < customerIds.length; i += BATCH_SIZE) {
+        const batch = customerIds.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(customerIds.length / BATCH_SIZE);
+        console.log(`[BULK TIER] Processing batch ${batchNum}/${totalBatches} (${batch.length} customers)`);
+
+        // Execute batch in parallel
+        const results = await Promise.allSettled(
+          batch.map(async (customerId: string) => {
+            await assignCustomerToTier(
+              shop,
+              customerId,
+              tierId === "none" ? null : tierId,
+              session.userId?.toString() || "admin",
+              "Bulk tier assignment",
+              { permanentOverride: false }
+            );
+            return customerId;
+          })
+        );
+
+        // Tally results
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            successCount++;
+          } else {
+            errorCount++;
+            // Track failed IDs for error reporting
+            const failedId = batch[results.indexOf(result)];
+            failedIds.push(failedId);
+            console.error(`[BULK TIER] Error assigning tier to ${failedId}:`, result.reason);
+          }
         }
       }
 
+      console.log(`[BULK TIER] Complete: ${successCount} success, ${errorCount} failed`);
+
       return json({
-        success: true,
-        message: `Tier assigned to ${successCount} customers${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+        success: errorCount === 0,
+        message: `Tier assigned to ${successCount} customers${errorCount > 0 ? ` (${errorCount} failed)` : ""}`,
+        failedIds: failedIds.length > 0 ? failedIds : undefined
       });
     }
 
     // Bulk credit adjustment
     if (action === "bulk-credit-adjustment") {
+      const MAX_BULK_OPERATION_SIZE = 500;
+      const MAX_CREDIT_ADJUSTMENT = 10000; // $10,000 cap per adjustment
       const customerIds = JSON.parse(formData.get("customerIds") as string || "[]");
       const amount = parseFloat(formData.get("amount") as string || "0");
       const operation = formData.get("operation") as "add" | "subtract" | "set";
@@ -1720,82 +1760,109 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ success: false, message: "No customers selected" }, { status: 400 });
       }
 
+      // Validate bulk operation size to prevent timeouts and resource exhaustion
+      if (customerIds.length > MAX_BULK_OPERATION_SIZE) {
+        return json({
+          success: false,
+          message: `Too many customers selected. Maximum is ${MAX_BULK_OPERATION_SIZE} per operation.`
+        }, { status: 400 });
+      }
+
       if (isNaN(amount) || amount <= 0) {
         return json({ success: false, message: "Invalid amount" }, { status: 400 });
       }
 
+      // Cap credit adjustment amount to prevent accidental large adjustments
+      if (amount > MAX_CREDIT_ADJUSTMENT) {
+        return json({
+          success: false,
+          message: `Credit adjustment amount exceeds maximum of $${MAX_CREDIT_ADJUSTMENT.toLocaleString()}. Please contact support for larger adjustments.`
+        }, { status: 400 });
+      }
+
       console.log(`[BULK CREDIT] ${operation} ${amount} for ${customerIds.length} customers`);
 
+      // BATCHED PROCESSING: Process in batches of 25 (smaller due to API calls)
+      const BATCH_SIZE = 25;
       let successCount = 0;
       let errorCount = 0;
+      const failedIds: string[] = [];
 
-      // Get shop settings for currency
+      // Get shop settings for currency (single query, not per customer)
       const shopSettings = await db.shopSettings.findUnique({
         where: { shop }
       });
       const currency = shopSettings?.storeCurrency || "USD";
 
-      // Import the store credit service
+      // Import the store credit service once
       const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
       const storeCreditService = createStoreCreditService(admin, shop);
 
-      for (const customerId of customerIds) {
-        try {
-          const customer = await db.customer.findFirst({
-            where: { id: customerId, shop }
-          });
+      // Pre-fetch ALL customers in one batch query instead of N individual queries
+      const allCustomers = await db.customer.findMany({
+        where: {
+          id: { in: customerIds },
+          shop
+        }
+      });
+      const customerMap = new Map(allCustomers.map(c => [c.id, c]));
 
-          if (!customer || !customer.shopifyCustomerId) {
-            errorCount++;
-            continue;
-          }
+      // Process helper function for a single customer
+      async function processCustomerCredit(customerId: string): Promise<{ success: boolean; customerId: string }> {
+        const customer = customerMap.get(customerId);
 
-          const currentBalance = parseFloat(customer.storeCredit.toString());
-          let newBalance: number;
-          let adjustmentAmount: number;
+        if (!customer || !customer.shopifyCustomerId) {
+          return { success: false, customerId };
+        }
 
-          if (operation === "add") {
-            adjustmentAmount = amount;
-            newBalance = currentBalance + amount;
+        const currentBalance = parseFloat(customer.storeCredit.toString());
+        let newBalance: number;
+        let adjustmentAmount: number;
+
+        if (operation === "add") {
+          adjustmentAmount = amount;
+          newBalance = currentBalance + amount;
+          await storeCreditService.issueStoreCredit(
+            customer.shopifyCustomerId,
+            amount,
+            currency,
+            "Bulk credit addition"
+          );
+        } else if (operation === "subtract") {
+          adjustmentAmount = -amount;
+          newBalance = Math.max(0, currentBalance - amount);
+          await storeCreditService.debitStoreCredit(
+            customer.shopifyCustomerId,
+            Math.min(amount, currentBalance),
+            currency,
+            "Bulk credit subtraction"
+          );
+        } else {
+          // Set to exact amount
+          const diff = amount - currentBalance;
+          adjustmentAmount = diff;
+          newBalance = amount;
+          if (diff > 0) {
             await storeCreditService.issueStoreCredit(
               customer.shopifyCustomerId,
-              amount,
+              diff,
               currency,
-              "Bulk credit addition"
+              "Bulk credit adjustment (set)"
             );
-          } else if (operation === "subtract") {
-            adjustmentAmount = -amount;
-            newBalance = Math.max(0, currentBalance - amount);
+          } else if (diff < 0) {
             await storeCreditService.debitStoreCredit(
               customer.shopifyCustomerId,
-              Math.min(amount, currentBalance),
+              Math.min(-diff, currentBalance),
               currency,
-              "Bulk credit subtraction"
+              "Bulk credit adjustment (set)"
             );
-          } else {
-            // Set to exact amount
-            const diff = amount - currentBalance;
-            adjustmentAmount = diff;
-            newBalance = amount;
-            if (diff > 0) {
-              await storeCreditService.issueStoreCredit(
-                customer.shopifyCustomerId,
-                diff,
-                currency,
-                "Bulk credit adjustment (set)"
-              );
-            } else if (diff < 0) {
-              await storeCreditService.debitStoreCredit(
-                customer.shopifyCustomerId,
-                Math.min(-diff, currentBalance),
-                currency,
-                "Bulk credit adjustment (set)"
-              );
-            }
           }
+        }
 
-          // Update local database
-          await db.customer.update({
+        // ATOMIC: Update local database within transaction for data integrity
+        // Both customer update and ledger entry succeed or fail together
+        await db.$transaction(async (tx) => {
+          await tx.customer.update({
             where: { id: customerId },
             data: {
               storeCredit: newBalance,
@@ -1803,8 +1870,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             }
           });
 
-          // Create ledger entry
-          await db.storeCreditLedger.create({
+          await tx.storeCreditLedger.create({
             data: {
               id: uuidv4(),
               customerId,
@@ -1822,17 +1888,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               createdAt: new Date()
             }
           });
+        });
 
-          successCount++;
-        } catch (error) {
-          console.error(`[BULK CREDIT] Error adjusting credit for ${customerId}:`, error);
-          errorCount++;
+        return { success: true, customerId };
+      }
+
+      // Process customers in batches with parallel execution within each batch
+      for (let i = 0; i < customerIds.length; i += BATCH_SIZE) {
+        const batch = customerIds.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(customerIds.length / BATCH_SIZE);
+        console.log(`[BULK CREDIT] Processing batch ${batchNum}/${totalBatches} (${batch.length} customers)`);
+
+        // Execute batch in parallel
+        const results = await Promise.allSettled(
+          batch.map((customerId: string) => processCustomerCredit(customerId))
+        );
+
+        // Tally results
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
+          if (result.status === "fulfilled" && result.value.success) {
+            successCount++;
+          } else {
+            errorCount++;
+            failedIds.push(batch[j]);
+            if (result.status === "rejected") {
+              console.error(`[BULK CREDIT] Error adjusting credit for ${batch[j]}:`, result.reason);
+            }
+          }
         }
       }
 
+      console.log(`[BULK CREDIT] Complete: ${successCount} success, ${errorCount} failed`);
+
       return json({
-        success: true,
-        message: `Credit adjusted for ${successCount} customers${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+        success: errorCount === 0,
+        message: `Credit adjusted for ${successCount} customers${errorCount > 0 ? ` (${errorCount} failed)` : ""}`,
+        failedIds: failedIds.length > 0 ? failedIds : undefined
       });
     }
 
