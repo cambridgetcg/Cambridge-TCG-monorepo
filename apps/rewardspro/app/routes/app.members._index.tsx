@@ -2309,6 +2309,12 @@ export default function Customers() {
   // Get current page from URL params
   const currentPage = parseInt(searchParams.get("page") || "1");
 
+  // Use enhanced customers if loaded, otherwise fall back to base customers
+  // NOTE: Must be defined before callbacks that use it (handleSelectionChange)
+  const displayCustomers = enhancedDataLoaded
+    ? enhancedCustomers
+    : (data.customersData?.customers || []);
+
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
@@ -2750,11 +2756,6 @@ export default function Customers() {
         });
     }
   }, [data.statsData]);
-
-  // Use enhanced customers if loaded, otherwise fall back to base customers
-  const displayCustomers = enhancedDataLoaded
-    ? enhancedCustomers
-    : (data.customersData?.customers || []);
 
   // Customer count display helper (using deferred data pattern)
   const getCustomerCountText = (customersData: any) => {
