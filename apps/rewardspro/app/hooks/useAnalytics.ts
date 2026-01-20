@@ -9,12 +9,15 @@
  *   trackEvent({ name: 'tier_upgrade', params: { ... } });
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from '@remix-run/react';
 import { useRouteLoaderData } from '@remix-run/react';
 import type { AppLoaderData } from '~/routes/app';
 import type { GA4Event, RewardsProDimensions } from '~/services/analytics/ga4.types';
-import { ga4 } from '~/services/analytics/ga4.client';
+
+// SSR guard - only import ga4 on client
+const isServer = typeof window === 'undefined';
+const ga4 = isServer ? null : require('~/services/analytics/ga4.client').ga4;
 
 // ============================================
 // Hook Configuration
@@ -57,7 +60,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
   // ============================================
 
   useEffect(() => {
-    if (!autoTrackPageViews) return;
+    if (!autoTrackPageViews || !ga4) return;
 
     // Only track if path changed (not on initial mount with same path)
     if (location.pathname === prevPathRef.current) return;
@@ -78,6 +81,8 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
    */
   const trackEvent = useCallback(
     (event: GA4Event) => {
+      if (!ga4) return;
+
       // Merge base dimensions with event params
       const enrichedEvent = {
         ...event,
@@ -97,6 +102,8 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
    */
   const trackCustomEvent = useCallback(
     (eventName: string, params?: Record<string, string | number | boolean>) => {
+      if (!ga4) return;
+
       ga4.trackCustomEvent(eventName, {
         ...baseDimensions,
         ...params,
@@ -110,6 +117,8 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
    */
   const trackPageView = useCallback(
     (title?: string, path?: string) => {
+      if (!ga4) return;
+
       ga4.trackPageView(
         title || document.title,
         path || location.pathname,
@@ -181,7 +190,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
 
     // Context
     shopDomain: appData?.shop,
-    isReady: ga4.isReady(),
+    isReady: ga4?.isReady() ?? false,
   };
 }
 
