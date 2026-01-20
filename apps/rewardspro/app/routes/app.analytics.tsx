@@ -97,6 +97,30 @@ import { formatPercentageChange, getBadgeTone } from "~/utils/analytics-formatte
 import { getCohortAnalysis, type CohortAnalysis } from "~/services/cohort-analysis.server";
 import { getCustomerBehaviourData, type CustomerBehaviourData } from "~/services/rfm-segmentation.server";
 
+// New Analytics Improvements
+import {
+  createInsightEngine,
+  type AnalyticsInsight,
+  type HealthScore,
+} from "~/services/analytics/insight-engine.server";
+import {
+  createComparisonService,
+  type ComparisonResult,
+} from "~/services/analytics/comparison.server";
+import {
+  createNarrativeGenerator,
+  type ExecutiveSummary as ExecutiveSummaryType,
+} from "~/services/analytics/narrative-generator.server";
+
+// New Analytics UI Components
+import { ExecutiveSummary } from "~/components/analytics/ExecutiveSummary";
+import {
+  InsightWidget,
+  HealthScoreWidget,
+  ComparisonWidget,
+  type ComparisonData,
+} from "~/components/analytics/widgets";
+
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
@@ -153,11 +177,7 @@ interface AnalyticsData {
     credit: TrendData[];
   };
 
-  insights: {
-    opportunities: Insight[];
-    warnings: Insight[];
-    successes: Insight[];
-  };
+  // Legacy insights removed - use aiInsights instead
 
   financial: {
     directRevenue: number;
@@ -269,6 +289,12 @@ interface AnalyticsData {
     priority: number;
     status: string;
   }>;
+
+  // NEW: Insight Engine Data
+  aiInsights: AnalyticsInsight[];
+  healthScore: HealthScore | null;
+  executiveSummary: ExecutiveSummaryType | null;
+  keyComparisons: ComparisonResult[];
 
   // Cohort Analysis Data
   cohortAnalysis: {
@@ -406,6 +432,56 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       getCustomerBehaviourData(shop),  // NEW: Cached RFM + member stats
       getCohortAnalysis(shop),          // NEW: Cached cohort analysis
     ]);
+
+    // Generate insights using the new InsightEngine
+    let insights: AnalyticsInsight[] = [];
+    let healthScore: HealthScore | null = null;
+    let executiveSummary: ExecutiveSummaryType | null = null;
+    let keyComparisons: ComparisonResult[] = [];
+
+    try {
+      const insightEngine = createInsightEngine(shop);
+      const comparisonService = createComparisonService(shop);
+      const narrativeGenerator = createNarrativeGenerator();
+
+      // Fetch insights and health score in parallel
+      const [generatedInsights, generatedHealthScore] = await Promise.all([
+        insightEngine.generateInsights(),
+        insightEngine.calculateHealthScore(),
+      ]);
+
+      insights = generatedInsights;
+      healthScore = generatedHealthScore;
+
+      // Generate key metric comparisons
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+      const primaryPeriod = { start: thirtyDaysAgo, end: new Date() };
+      const comparisonPeriod = { start: sixtyDaysAgo, end: thirtyDaysAgo };
+
+      keyComparisons = await comparisonService.compareMultipleMetrics(
+        ['revenue', 'orders', 'new_members', 'redemption_rate'],
+        primaryPeriod,
+        comparisonPeriod
+      );
+
+      // Generate executive summary
+      executiveSummary = narrativeGenerator.generateExecutiveSummary(
+        generatedHealthScore,
+        generatedInsights,
+        keyComparisons,
+        'this month'
+      );
+
+      console.log('[Analytics] InsightEngine generated:', {
+        insightsCount: insights.length,
+        healthScore: healthScore?.overall,
+        comparisonsCount: keyComparisons.length,
+      });
+    } catch (error) {
+      console.error('[Analytics] Error generating insights:', error);
+      // Continue without insights if there's an error
+    }
 
     // Calculate auto-metrics for business metrics configuration
     // OPTIMIZED: Reuse totalCustomers from metricsComparison instead of duplicate query
@@ -572,12 +648,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         credit: [],
       },
 
-      // Placeholder insights
-      insights: {
-        opportunities: [],
-        warnings: [],
-        successes: [],
-      },
+      // Legacy insights removed - aiInsights is now the single source
 
       // Placeholder financial data
       financial: {
@@ -640,6 +711,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         priority: rec.priority,
         status: rec.status
       })),
+
+      // NEW: Insight Engine data
+      aiInsights: insights,
+      healthScore,
+      executiveSummary,
+      keyComparisons,
 
       // Cohort Analysis data
       cohortAnalysis,
@@ -1683,112 +1760,54 @@ export default function AnalyticsPage() {
               {selectedTab === 0 && (
                 <Box padding="400">
                   <BlockStack gap="500">
-                    {/* Store Performance */}
-                    <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">
-                        Store Performance
-                      </Text>
-                      <Text variant="bodyMd" tone="subdued" as="p">
-                        Overall financial metrics for your store this month
-                      </Text>
+                    {/* Executive Summary - NEW */}
+                    <ExecutiveSummary
+                      summary={data.executiveSummary}
+                      healthScore={data.healthScore?.overall || 0}
+                    />
 
-                      {/* Financial Metrics Grid */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '16px'
-                      }}>
-                        {/* Monthly Revenue */}
-                        <Card>
-                          <Box padding="400">
-                            <BlockStack gap="200">
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Total Revenue
-                              </Text>
-                              <Text variant="headingLg" as="h3">
-                                {formatAmount(data.overviewMetrics.totalRevenue)}
-                              </Text>
-                              <InlineStack gap="200" blockAlign="center">
-                                <Badge tone={getBadgeTone('revenue', data.metricsChanges.revenueChange)}>
-                                  {formatPercentageChange(data.metricsChanges.revenueChange)}
-                                </Badge>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  vs last month
-                                </Text>
-                              </InlineStack>
-                            </BlockStack>
-                          </Box>
-                        </Card>
+                    {/* AI Insights & Health Score Row - NEW */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                      gap: '16px'
+                    }}>
+                      {/* Health Score Widget */}
+                      <HealthScoreWidget
+                        id="program-health"
+                        healthScore={data.healthScore}
+                        size="medium"
+                      />
 
-                        {/* Total Orders */}
-                        <Card>
-                          <Box padding="400">
-                            <BlockStack gap="200">
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Total Orders
-                              </Text>
-                              <Text variant="headingLg" as="h3">
-                                {data.overviewMetrics.totalOrders.toLocaleString()}
-                              </Text>
-                              <InlineStack gap="200" blockAlign="center">
-                                <Badge tone={getBadgeTone('orders', data.metricsChanges.ordersChange)}>
-                                  {formatPercentageChange(data.metricsChanges.ordersChange)}
-                                </Badge>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  vs last month
-                                </Text>
-                              </InlineStack>
-                            </BlockStack>
-                          </Box>
-                        </Card>
+                      {/* Insights Widget */}
+                      <InsightWidget
+                        id="insights-feed"
+                        insights={data.aiInsights}
+                        maxItems={3}
+                        size="medium"
+                      />
+                    </div>
 
-                        {/* Average Order Value */}
-                        <Card>
-                          <Box padding="400">
-                            <BlockStack gap="200">
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Average Order Value
-                              </Text>
-                              <Text variant="headingLg" as="h3">
-                                {formatAmount(data.overviewMetrics.avgOrderValue)}
-                              </Text>
-                              <InlineStack gap="200" blockAlign="center">
-                                <Badge tone={getBadgeTone('other', data.metricsChanges.avgOrderValueChange)}>
-                                  {formatPercentageChange(data.metricsChanges.avgOrderValueChange)}
-                                </Badge>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  vs last month
-                                </Text>
-                              </InlineStack>
-                            </BlockStack>
-                          </Box>
-                        </Card>
-
-                        {/* Cashback Issued */}
-                        <Card>
-                          <Box padding="400">
-                            <BlockStack gap="200">
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Cashback Issued
-                              </Text>
-                              <Text variant="headingLg" as="h3">
-                                {formatAmount(data.overviewMetrics.cashbackIssued)}
-                              </Text>
-                              <InlineStack gap="200" blockAlign="center">
-                                <Badge tone={getBadgeTone('other', data.metricsChanges.cashbackChange)}>
-                                  {formatPercentageChange(data.metricsChanges.cashbackChange)}
-                                </Badge>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  vs last month
-                                </Text>
-                              </InlineStack>
-                            </BlockStack>
-                          </Box>
-                        </Card>
-                      </div>
-                    </BlockStack>
+                    {/* Key Metrics Comparison - NEW */}
+                    {data.keyComparisons.length > 0 && (
+                      <ComparisonWidget
+                        id="key-metrics-comparison"
+                        title="Key Metrics vs Last Month"
+                        data={data.keyComparisons.map((c) => ({
+                          metric: c.metric,
+                          label: c.metric.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+                          current: c.primary.value,
+                          previous: c.comparison.value,
+                          format: ['revenue', 'aov'].includes(c.metric) ? 'currency' :
+                                  ['redemption_rate'].includes(c.metric) ? 'percent' : 'number',
+                        } as ComparisonData))}
+                        size="full"
+                      />
+                    )}
 
                     <Divider />
+
+                    {/* Store Performance metrics now consolidated in ComparisonWidget above */}
 
                     {/* Tier Performance */}
                     <BlockStack gap="400">
@@ -2731,59 +2750,22 @@ export default function AnalyticsPage() {
               {selectedTab === 3 && (
                 <Box padding="400">
                   <BlockStack gap="600">
-                    {/* Header with Program Health Score */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '24px', alignItems: 'start' }}>
-                      <BlockStack gap="200">
-                        <Text variant="headingMd" as="h2">
-                          Customer Behaviour Intelligence
-                        </Text>
-                        <Text variant="bodyMd" tone="subdued" as="p">
-                          Understand your customers using RFM analysis, engagement metrics, and behavioral psychology insights
-                        </Text>
-                      </BlockStack>
-
-                      {/* Program Engagement Score */}
-                      <Card>
-                        <Box padding="400">
-                          <BlockStack gap="200" inlineAlign="center">
-                            <Text variant="bodySm" tone="subdued" as="p">Program Health</Text>
-                            <div style={{
-                              width: '80px',
-                              height: '80px',
-                              borderRadius: '50%',
-                              background: `conic-gradient(${
-                                data.customerBehaviourData.engagementMetrics.programEngagementScore >= 70 ? '#22c55e' :
-                                data.customerBehaviourData.engagementMetrics.programEngagementScore >= 40 ? '#f59e0b' : '#ef4444'
-                              } ${data.customerBehaviourData.engagementMetrics.programEngagementScore * 3.6}deg, #e5e7eb 0deg)`,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}>
-                              <div style={{
-                                width: '64px',
-                                height: '64px',
-                                borderRadius: '50%',
-                                backgroundColor: 'white',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}>
-                                <Text variant="headingLg" as="span" fontWeight="bold">
-                                  {data.customerBehaviourData.engagementMetrics.programEngagementScore}
-                                </Text>
-                              </div>
-                            </div>
-                            <Badge tone={
-                              data.customerBehaviourData.engagementMetrics.programEngagementScore >= 70 ? 'success' :
-                              data.customerBehaviourData.engagementMetrics.programEngagementScore >= 40 ? 'warning' : 'critical'
-                            }>
-                              {data.customerBehaviourData.engagementMetrics.programEngagementScore >= 70 ? 'Excellent' :
-                               data.customerBehaviourData.engagementMetrics.programEngagementScore >= 40 ? 'Good' : 'Needs Work'}
-                            </Badge>
-                          </BlockStack>
-                        </Box>
-                      </Card>
-                    </div>
+                    {/* Header - Health Score is shown in Overview tab */}
+                    <BlockStack gap="200">
+                      <InlineStack align="space-between" blockAlign="center">
+                        <BlockStack gap="100">
+                          <Text variant="headingMd" as="h2">
+                            Customer Behaviour Intelligence
+                          </Text>
+                          <Text variant="bodyMd" tone="subdued" as="p">
+                            Understand your customers using RFM analysis, engagement metrics, and behavioral psychology insights
+                          </Text>
+                        </BlockStack>
+                        <Badge tone="info">
+                          Health Score: {data.healthScore?.overall || data.customerBehaviourData.engagementMetrics.programEngagementScore}/100
+                        </Badge>
+                      </InlineStack>
+                    </BlockStack>
 
                     {/* Behavioral Psychology Insights - The "Why" Behind Numbers */}
                     <Card>
