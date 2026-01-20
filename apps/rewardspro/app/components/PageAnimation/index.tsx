@@ -422,12 +422,22 @@ interface PageTransitionProps {
 /**
  * Wrapper component that applies consistent enter/exit animations to page content
  *
+ * ⚠️  WARNING: DO NOT USE THIS WITH REMIX <Outlet />!
+ * ================================================
+ * AnimatePresence + Remix Outlet causes a "double display" bug because:
+ * 1. User navigates → AnimatePresence sees key change
+ * 2. Remix has ALREADY swapped the Outlet content imperatively
+ * 3. AnimatePresence tries to animate content that's already new
+ * 4. Result: New content appears → then animates in → DOUBLE DISPLAY
+ *
+ * CORRECT USAGE:
+ * - Use CSS transitions for page-level opacity changes (see app.tsx)
+ * - Use this component only for NON-Outlet content (modals, cards, etc.)
+ * - Keep NavigationProgress for visual loading feedback
+ *
  * DESIGN DECISIONS:
- * - No AnimatePresence mode: Using default (simultaneous) prevents "double flash"
- *   as new content enters while old exits, creating smoother perceived transition
- * - Always animate from 'initial': Consistent behavior regardless of load state
- * - Fast transition (0.15s): Quick enough to feel responsive, slow enough to be visible
- * - Minimal exit animation: Exit fades quickly to make room for new content
+ * - Fast transition (0.15s): Quick enough to feel responsive
+ * - Minimal exit animation: Exit fades quickly to avoid interference
  */
 export function PageTransition({
   children,

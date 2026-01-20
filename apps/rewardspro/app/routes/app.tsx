@@ -1,6 +1,6 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
+import { Link, Outlet, useLoaderData, useRouteError, useNavigation } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
@@ -10,7 +10,7 @@ import { authenticate, FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MO
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { HelpAssistant } from "../components/HelpAssistant";
-import { PageAnimationProvider, NavigationProgress, PageTransition } from "../components/PageAnimation";
+import { PageAnimationProvider, NavigationProgress } from "../components/PageAnimation";
 import { GA4Provider } from "../components/GA4Provider";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
@@ -235,6 +235,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { apiKey, shop, host, features, ga4MeasurementId } = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
+
+  // Determine if we're navigating (for CSS-based transition)
+  const isNavigating = navigation.state === "loading";
 
   // Log for debugging
   console.log("[App Component] Rendering with:", { apiKey: apiKey ? "present" : "missing", shop, host, features });
@@ -268,15 +272,27 @@ export default function App() {
           <Link to="/app/settings">Settings</Link>
         </NavMenu>
 
-        {/* Page Animation Provider - Standardized page transitions */}
+        {/* Page Animation Provider - For progress bar and context */}
         <PageAnimationProvider>
           {/* Navigation Progress Bar - Shows loading indicator during page transitions */}
           <NavigationProgress />
 
-          {/* Page content with animated transitions */}
-          <PageTransition variant="page">
+          {/*
+            Page content - NO AnimatePresence/motion wrapper!
+            Using CSS transitions instead to avoid double-display issue.
+            AnimatePresence + Remix Outlet causes content to flash because
+            Remix swaps content before AnimatePresence can animate.
+          */}
+          <div
+            className="page-content-wrapper"
+            style={{
+              opacity: isNavigating ? 0.7 : 1,
+              transition: 'opacity 150ms ease-out',
+              minHeight: '100vh',
+            }}
+          >
             <Outlet />
-          </PageTransition>
+          </div>
         </PageAnimationProvider>
 
         {/* GitBook-powered Help Assistant */}
