@@ -37,6 +37,13 @@ import {
   FormLayout,
   Checkbox,
   ChoiceList,
+  InlineGrid,
+  SkeletonThumbnail,
+  Popover,
+  ActionList,
+  LegacyFilters,
+  Tag,
+  RangeSlider,
 } from "@shopify/polaris";
 import {
   SearchIcon,
@@ -57,6 +64,8 @@ import {
   DeleteIcon,
   CalendarIcon,
   ImportIcon,
+  ExportIcon,
+  FilterIcon,
 } from "~/utils/polaris-icons";
 import {
   MetricCard,
@@ -245,9 +254,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       pageSize: number;
       sortKey: string;
       sortDirection: string;
+      creditMin?: string;
+      creditMax?: string;
+      hasOverride?: string;
     }
   ) {
-    const { searchQuery, tierFilter, page, pageSize, sortKey, sortDirection } = options;
+    const { searchQuery, tierFilter, page, pageSize, sortKey, sortDirection, creditMin, creditMax, hasOverride } = options;
     const offset = (page - 1) * pageSize;
 
     // Build where clause for tier filter
@@ -270,21 +282,57 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       };
     }
 
-    // Execute both queries in parallel for maximum efficiency
-    const [customers, totalCount] = await Promise.all([
-      // Fetch only the customers for current page (using take/skip)
-      db.customer.findMany({
-        where: whereClause,
-        include: { currentTier: true },
-        orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
-        take: pageSize,
-        skip: offset,
-      }),
-      // Get total count for pagination (single COUNT query, not fetching all records)
-      db.customer.count({
-        where: whereClause,
-      }),
-    ]);
+    // Add credit range filter
+    if (creditMin || creditMax) {
+      whereClause.storeCredit = {};
+      if (creditMin) {
+        whereClause.storeCredit.gte = parseFloat(creditMin);
+      }
+      if (creditMax) {
+        whereClause.storeCredit.lte = parseFloat(creditMax);
+      }
+    }
+
+    // Execute query for customers
+    let customers = await db.customer.findMany({
+      where: whereClause,
+      include: { currentTier: true },
+      orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
+      take: hasOverride && hasOverride !== "all" ? undefined : pageSize,
+      skip: hasOverride && hasOverride !== "all" ? undefined : offset,
+    });
+
+    // Filter by manual override (requires CustomerTierState lookup)
+    if (hasOverride && hasOverride !== "all") {
+      const customerIds = customers.map(c => c.id);
+      const tierStates = await db.customerTierState.findMany({
+        where: {
+          customerId: { in: customerIds },
+        },
+        select: {
+          customerId: true,
+          hasManualOverride: true,
+        },
+      });
+
+      const overrideMap = new Map(tierStates.map(ts => [ts.customerId, ts.hasManualOverride]));
+
+      customers = customers.filter(c => {
+        const hasOverrideVal = overrideMap.get(c.id) || false;
+        return hasOverride === "yes" ? hasOverrideVal : !hasOverrideVal;
+      });
+
+      // Apply pagination after filtering
+      const totalFiltered = customers.length;
+      customers = customers.slice(offset, offset + pageSize);
+
+      return { customers, totalCount: totalFiltered };
+    }
+
+    // Get total count for pagination (single COUNT query, not fetching all records)
+    const totalCount = await db.customer.count({
+      where: whereClause,
+    });
 
     return { customers, totalCount };
   }
@@ -471,6 +519,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const pageSize = parseInt(url.searchParams.get("pageSize") || "25");
     const sortKey = url.searchParams.get("sortKey") || "createdAt";
     const sortDirection = url.searchParams.get("sortDirection") || "desc";
+    // Enhanced filter params
+    const creditMin = url.searchParams.get("creditMin") || "";
+    const creditMax = url.searchParams.get("creditMax") || "";
+    const hasOverride = url.searchParams.get("hasOverride") || "all";
 
     // ============================================
     // OPTIMIZED: Parallel fetch with database-level pagination
@@ -479,6 +531,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Customers Loader] Shop:', shop);
     console.log('[Customers Loader] Search:', searchQuery, 'Tier:', tierFilter);
     console.log('[Customers Loader] Page:', page, 'PageSize:', pageSize);
+    console.log('[Customers Loader] Filters - CreditMin:', creditMin, 'CreditMax:', creditMax, 'HasOverride:', hasOverride);
 
     // Fetch shell data and paginated customers in parallel (CACHED via shop-data-provider)
     const [tiers, shopSettings, entitlements, paginatedResult] = await Promise.all([
@@ -493,6 +546,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         pageSize,
         sortKey,
         sortDirection,
+        creditMin,
+        creditMax,
+        hasOverride,
       }),
     ]);
 
@@ -1617,12 +1673,175 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
     }
 
+    // Bulk tier assignment
+    if (action === "bulk-tier-assignment") {
+      const customerIds = JSON.parse(formData.get("customerIds") as string || "[]");
+      const tierId = formData.get("tierId") as string;
+
+      if (!Array.isArray(customerIds) || customerIds.length === 0) {
+        return json({ success: false, message: "No customers selected" }, { status: 400 });
+      }
+
+      console.log(`[BULK TIER] Assigning tier ${tierId} to ${customerIds.length} customers`);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const customerId of customerIds) {
+        try {
+          await assignCustomerToTier(
+            shop,
+            customerId,
+            tierId === "none" ? null : tierId,
+            session.userId?.toString() || "admin",
+            "Bulk tier assignment",
+            { permanentOverride: false }
+          );
+          successCount++;
+        } catch (error) {
+          console.error(`[BULK TIER] Error assigning tier to ${customerId}:`, error);
+          errorCount++;
+        }
+      }
+
+      return json({
+        success: true,
+        message: `Tier assigned to ${successCount} customers${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+      });
+    }
+
+    // Bulk credit adjustment
+    if (action === "bulk-credit-adjustment") {
+      const customerIds = JSON.parse(formData.get("customerIds") as string || "[]");
+      const amount = parseFloat(formData.get("amount") as string || "0");
+      const operation = formData.get("operation") as "add" | "subtract" | "set";
+
+      if (!Array.isArray(customerIds) || customerIds.length === 0) {
+        return json({ success: false, message: "No customers selected" }, { status: 400 });
+      }
+
+      if (isNaN(amount) || amount <= 0) {
+        return json({ success: false, message: "Invalid amount" }, { status: 400 });
+      }
+
+      console.log(`[BULK CREDIT] ${operation} ${amount} for ${customerIds.length} customers`);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Get shop settings for currency
+      const shopSettings = await db.shopSettings.findUnique({
+        where: { shop }
+      });
+      const currency = shopSettings?.storeCurrency || "USD";
+
+      // Import the store credit service
+      const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+      const storeCreditService = createStoreCreditService(admin, shop);
+
+      for (const customerId of customerIds) {
+        try {
+          const customer = await db.customer.findFirst({
+            where: { id: customerId, shop }
+          });
+
+          if (!customer || !customer.shopifyCustomerId) {
+            errorCount++;
+            continue;
+          }
+
+          const currentBalance = parseFloat(customer.storeCredit.toString());
+          let newBalance: number;
+          let adjustmentAmount: number;
+
+          if (operation === "add") {
+            adjustmentAmount = amount;
+            newBalance = currentBalance + amount;
+            await storeCreditService.issueStoreCredit(
+              customer.shopifyCustomerId,
+              amount,
+              currency,
+              "Bulk credit addition"
+            );
+          } else if (operation === "subtract") {
+            adjustmentAmount = -amount;
+            newBalance = Math.max(0, currentBalance - amount);
+            await storeCreditService.debitStoreCredit(
+              customer.shopifyCustomerId,
+              Math.min(amount, currentBalance),
+              currency,
+              "Bulk credit subtraction"
+            );
+          } else {
+            // Set to exact amount
+            const diff = amount - currentBalance;
+            adjustmentAmount = diff;
+            newBalance = amount;
+            if (diff > 0) {
+              await storeCreditService.issueStoreCredit(
+                customer.shopifyCustomerId,
+                diff,
+                currency,
+                "Bulk credit adjustment (set)"
+              );
+            } else if (diff < 0) {
+              await storeCreditService.debitStoreCredit(
+                customer.shopifyCustomerId,
+                Math.min(-diff, currentBalance),
+                currency,
+                "Bulk credit adjustment (set)"
+              );
+            }
+          }
+
+          // Update local database
+          await db.customer.update({
+            where: { id: customerId },
+            data: {
+              storeCredit: newBalance,
+              updatedAt: new Date()
+            }
+          });
+
+          // Create ledger entry
+          await db.storeCreditLedger.create({
+            data: {
+              id: uuidv4(),
+              customerId,
+              shop,
+              amount: adjustmentAmount,
+              balance: newBalance,
+              type: "MANUAL_ADJUSTMENT",
+              metadata: {
+                reason: `Bulk ${operation} adjustment`,
+                adjustedBy: "admin",
+                bulkOperation: true,
+                syncStatus: 'SYNCED',
+                syncedAt: new Date().toISOString()
+              },
+              createdAt: new Date()
+            }
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error(`[BULK CREDIT] Error adjusting credit for ${customerId}:`, error);
+          errorCount++;
+        }
+      }
+
+      return json({
+        success: true,
+        message: `Credit adjusted for ${successCount} customers${errorCount > 0 ? ` (${errorCount} failed)` : ""}`
+      });
+    }
+
     return json({ success: false, message: "Invalid action" });
   } catch (error) {
     console.error("[Customers] Action error:", error);
-    return json({ 
-      success: false, 
-      message: error instanceof Error ? error.message : "Failed to calculate tiers" 
+    return json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to calculate tiers"
     });
   }
 };
@@ -1685,7 +1904,12 @@ function CustomersTableContent({
   calculatingCustomerId,
   handleViewCustomer,
   handleManualTierAssignment,
-  handleCalculateSingle
+  handleCalculateSingle,
+  selectedResources,
+  onSelectionChange,
+  onBulkTierAssignment,
+  onBulkCreditAdjustment,
+  onExportSelected,
 }: {
   customers: Customer[];
   pagination: any;
@@ -1696,6 +1920,11 @@ function CustomersTableContent({
   handleViewCustomer: (id: string, tabIndex?: number) => void;
   handleManualTierAssignment: (customer: Customer) => void;
   handleCalculateSingle: (customerId: string) => void;
+  selectedResources: string[];
+  onSelectionChange: (selectionType: "single" | "page" | "all", isSelecting: boolean, selection?: string) => void;
+  onBulkTierAssignment: () => void;
+  onBulkCreditAdjustment: () => void;
+  onExportSelected: () => void;
 }) {
   const navigation = useNavigation();
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
@@ -1746,6 +1975,7 @@ function CustomersTableContent({
         id={customer.id}
         key={customer.id}
         position={index}
+        selected={selectedResources.includes(customer.id)}
         onClick={() => handleViewCustomer(customer.id)}
       >
         <IndexTable.Cell>
@@ -1851,7 +2081,25 @@ function CustomersTableContent({
               { title: 'Actions', alignment: 'end' },
             ]}
             loading={isLoading}
-            selectable={false}
+            selectable={true}
+            selectedItemsCount={selectedResources.length}
+            onSelectionChange={(selectionType, isSelecting, selection) => {
+              onSelectionChange(selectionType, isSelecting, selection);
+            }}
+            bulkActions={[
+              {
+                content: 'Assign Tier',
+                onAction: onBulkTierAssignment,
+              },
+              {
+                content: 'Adjust Credit',
+                onAction: onBulkCreditAdjustment,
+              },
+              {
+                content: 'Export Selected',
+                onAction: onExportSelected,
+              },
+            ]}
           >
             {rowMarkup}
           </IndexTable>
@@ -1937,6 +2185,30 @@ export default function Customers() {
   const [enhancedCustomers, setEnhancedCustomers] = useState<Customer[]>([]);
   const [enhancedDataLoaded, setEnhancedDataLoaded] = useState(false);
 
+  // Stats data state (from deferred promise)
+  const [statsData, setStatsData] = useState<{
+    totalTiers: number;
+    totalCustomers: number;
+    tierDistribution: Record<string, number>;
+    totalStoreCredit?: number;
+  } | null>(null);
+  const [statsLoaded, setStatsLoaded] = useState(false);
+
+  // Bulk selection state
+  const [selectedResources, setSelectedResources] = useState<string[]>([]);
+  const [bulkTierModalActive, setBulkTierModalActive] = useState(false);
+  const [bulkCreditModalActive, setBulkCreditModalActive] = useState(false);
+  const [bulkTierSelection, setBulkTierSelection] = useState<string>("");
+  const [bulkCreditAmount, setBulkCreditAmount] = useState("");
+  const [bulkCreditOperation, setBulkCreditOperation] = useState<"add" | "subtract" | "set">("add");
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // Enhanced filter state
+  const [creditMinFilter, setCreditMinFilter] = useState(searchParams.get("creditMin") || "");
+  const [creditMaxFilter, setCreditMaxFilter] = useState(searchParams.get("creditMax") || "");
+  const [hasOverrideFilter, setHasOverrideFilter] = useState(searchParams.get("hasOverride") || "all");
+  const [showFilters, setShowFilters] = useState(false);
+
   // Animation refs
   const tableRef = useRef<HTMLDivElement>(null);
   const isFirstRender = useRef(true);
@@ -1988,11 +2260,56 @@ export default function Customers() {
   // Handle clear all filters
   const handleClearAll = useCallback(() => {
     setQueryValue("");
-    setTierFilter("all"); // Reset tier filter state
+    setTierFilter("all");
+    setCreditMinFilter("");
+    setCreditMaxFilter("");
+    setHasOverrideFilter("all");
     const newParams = new URLSearchParams();
     newParams.set("pageSize", String(pageSize));
     setSearchParams(newParams);
   }, [pageSize, setSearchParams]);
+
+  // Handle credit range filter
+  const handleCreditRangeChange = useCallback((min: string, max: string) => {
+    setCreditMinFilter(min);
+    setCreditMaxFilter(max);
+    const newParams = new URLSearchParams(searchParams);
+    if (min) {
+      newParams.set("creditMin", min);
+    } else {
+      newParams.delete("creditMin");
+    }
+    if (max) {
+      newParams.set("creditMax", max);
+    } else {
+      newParams.delete("creditMax");
+    }
+    newParams.set("page", "1");
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  // Handle override filter
+  const handleOverrideFilterChange = useCallback((value: string) => {
+    setHasOverrideFilter(value);
+    const newParams = new URLSearchParams(searchParams);
+    if (value !== "all") {
+      newParams.set("hasOverride", value);
+    } else {
+      newParams.delete("hasOverride");
+    }
+    newParams.set("page", "1");
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (tierFilter !== "all") count++;
+    if (creditMinFilter) count++;
+    if (creditMaxFilter) count++;
+    if (hasOverrideFilter !== "all") count++;
+    return count;
+  }, [tierFilter, creditMinFilter, creditMaxFilter, hasOverrideFilter]);
 
   // Handle page size change
   const handlePageSizeChange = useCallback((value: string) => {
@@ -2023,6 +2340,127 @@ export default function Customers() {
     formData.append("action", "sync-customers");
     submit(formData, { method: "post" });
   }, [submit, showInfo]);
+
+  // Export customers to CSV
+  const handleExportCSV = useCallback(() => {
+    // Build export URL with current filters
+    const exportParams = new URLSearchParams();
+    if (tierFilter !== "all") {
+      exportParams.set("tier", tierFilter);
+    }
+    if (queryValue) {
+      exportParams.set("search", queryValue);
+    }
+
+    const exportUrl = `/api/members/export?${exportParams.toString()}`;
+
+    // Trigger download
+    window.open(exportUrl, '_blank');
+    showSuccess("Export started. Your download should begin shortly.");
+  }, [tierFilter, queryValue, showSuccess]);
+
+  // Export selected customers to CSV
+  const handleExportSelected = useCallback(() => {
+    if (selectedResources.length === 0) {
+      showError("No customers selected");
+      return;
+    }
+    const exportUrl = `/api/members/export?ids=${selectedResources.join(",")}`;
+    window.open(exportUrl, '_blank');
+    showSuccess(`Exporting ${selectedResources.length} selected customers`);
+  }, [selectedResources, showSuccess, showError]);
+
+  // Handle bulk selection change
+  const handleSelectionChange = useCallback((
+    selectionType: "single" | "page" | "all",
+    isSelecting: boolean,
+    selection?: string
+  ) => {
+    if (selectionType === "single" && selection) {
+      setSelectedResources(prev =>
+        isSelecting
+          ? [...prev, selection]
+          : prev.filter(id => id !== selection)
+      );
+    } else if (selectionType === "page") {
+      const pageIds = displayCustomers.map((c: Customer) => c.id);
+      setSelectedResources(prev =>
+        isSelecting
+          ? [...new Set([...prev, ...pageIds])]
+          : prev.filter(id => !pageIds.includes(id))
+      );
+    } else if (selectionType === "all") {
+      // For "all" we only select current page since we don't have all IDs loaded
+      const pageIds = displayCustomers.map((c: Customer) => c.id);
+      setSelectedResources(isSelecting ? pageIds : []);
+    }
+  }, [displayCustomers]);
+
+  // Open bulk tier assignment modal
+  const handleBulkTierAssignment = useCallback(() => {
+    setBulkTierSelection("");
+    setBulkTierModalActive(true);
+  }, []);
+
+  // Submit bulk tier assignment
+  const handleSubmitBulkTier = useCallback(async () => {
+    if (!bulkTierSelection) {
+      showError("Please select a tier");
+      return;
+    }
+    if (selectedResources.length === 0) {
+      showError("No customers selected");
+      return;
+    }
+
+    setBulkProcessing(true);
+    const formData = new FormData();
+    formData.append("action", "bulk-tier-assignment");
+    formData.append("customerIds", JSON.stringify(selectedResources));
+    formData.append("tierId", bulkTierSelection);
+
+    submit(formData, { method: "post" });
+    setBulkTierModalActive(false);
+    setBulkProcessing(false);
+    setSelectedResources([]);
+  }, [bulkTierSelection, selectedResources, submit, showError]);
+
+  // Open bulk credit adjustment modal
+  const handleBulkCreditAdjustment = useCallback(() => {
+    setBulkCreditAmount("");
+    setBulkCreditOperation("add");
+    setBulkCreditModalActive(true);
+  }, []);
+
+  // Submit bulk credit adjustment
+  const handleSubmitBulkCredit = useCallback(async () => {
+    const amount = parseFloat(bulkCreditAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showError("Please enter a valid amount");
+      return;
+    }
+    if (selectedResources.length === 0) {
+      showError("No customers selected");
+      return;
+    }
+
+    setBulkProcessing(true);
+    const formData = new FormData();
+    formData.append("action", "bulk-credit-adjustment");
+    formData.append("customerIds", JSON.stringify(selectedResources));
+    formData.append("amount", bulkCreditAmount);
+    formData.append("operation", bulkCreditOperation);
+
+    submit(formData, { method: "post" });
+    setBulkCreditModalActive(false);
+    setBulkProcessing(false);
+    setSelectedResources([]);
+  }, [bulkCreditAmount, bulkCreditOperation, selectedResources, submit, showError]);
+
+  // Clear selection
+  const handleClearSelection = useCallback(() => {
+    setSelectedResources([]);
+  }, []);
 
   // Calculate single customer tier with inline feedback
   const handleCalculateSingle = useCallback((customerId: string) => {
@@ -2204,6 +2642,22 @@ export default function Customers() {
     }
   }, [data.customersData?.customers, data.enhancedMetadata]);
 
+  // Resolve deferred stats data
+  useEffect(() => {
+    if (data.statsData && typeof (data.statsData as any).then === 'function') {
+      setStatsLoaded(false);
+      (data.statsData as Promise<any>)
+        .then((result) => {
+          setStatsData(result);
+          setStatsLoaded(true);
+        })
+        .catch((error: Error) => {
+          console.error('Failed to load stats data:', error);
+          setStatsLoaded(true);
+        });
+    }
+  }, [data.statsData]);
+
   // Use enhanced customers if loaded, otherwise fall back to base customers
   const displayCustomers = enhancedDataLoaded
     ? enhancedCustomers
@@ -2235,12 +2689,192 @@ export default function Customers() {
         subtitle="Manage customer tiers and store credit"
         secondaryActions={[
           {
+            content: "Export CSV",
+            icon: ExportIcon,
+            onAction: handleExportCSV,
+          },
+          {
             content: "Sync Customers",
             icon: RefreshIcon,
             onAction: handleSyncCustomers,
           }
         ]}
       >
+        {/* Quick Stats Summary Cards */}
+        <Box paddingBlockEnd="400">
+          <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="400">
+            {/* Total Members Card */}
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="bodySm" tone="subdued" as="p">Total Members</Text>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--p-color-bg-fill-info)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Icon source={PersonIcon} tone="info" />
+                    </div>
+                  </InlineStack>
+                  {statsLoaded && statsData ? (
+                    <Text variant="headingLg" as="p" fontWeight="bold">
+                      {statsData.totalCustomers.toLocaleString()}
+                    </Text>
+                  ) : (
+                    <SkeletonDisplayText size="medium" />
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+
+            {/* Active Tiers Card */}
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="bodySm" tone="subdued" as="p">Active Tiers</Text>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--p-color-bg-fill-success)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Icon source={ChartVerticalIcon} tone="success" />
+                    </div>
+                  </InlineStack>
+                  <Text variant="headingLg" as="p" fontWeight="bold">
+                    {data.tiers.length}
+                  </Text>
+                  {statsLoaded && statsData && data.tiers.length > 0 && (
+                    <Box paddingBlockStart="100">
+                      <InlineStack gap="100" wrap={false}>
+                        {data.tiers.slice(0, 4).map((tier, index) => {
+                          const count = statsData.tierDistribution[tier.id] || 0;
+                          const percentage = statsData.totalCustomers > 0
+                            ? Math.round((count / statsData.totalCustomers) * 100)
+                            : 0;
+                          const style = getTierStyle(tier.name);
+                          return (
+                            <Tooltip key={tier.id} content={`${tier.name}: ${count} (${percentage}%)`}>
+                              <div style={{
+                                flex: Math.max(percentage, 5),
+                                height: '6px',
+                                borderRadius: '3px',
+                                background: style.badgeColor || style.borderColor,
+                                minWidth: '8px',
+                              }} />
+                            </Tooltip>
+                          );
+                        })}
+                      </InlineStack>
+                    </Box>
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+
+            {/* Tier Distribution Card */}
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="bodySm" tone="subdued" as="p">Top Tier Members</Text>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--p-color-bg-fill-warning)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Icon source={StarIcon} tone="warning" />
+                    </div>
+                  </InlineStack>
+                  {statsLoaded && statsData ? (
+                    <>
+                      {(() => {
+                        // Find top tier (highest minSpend with customers)
+                        const topTier = data.tiers
+                          .filter(t => (statsData.tierDistribution[t.id] || 0) > 0)
+                          .sort((a, b) => b.minSpend - a.minSpend)[0];
+                        const topTierCount = topTier ? statsData.tierDistribution[topTier.id] || 0 : 0;
+                        return (
+                          <>
+                            <Text variant="headingLg" as="p" fontWeight="bold">
+                              {topTierCount.toLocaleString()}
+                            </Text>
+                            {topTier && (
+                              <Text variant="bodySm" tone="subdued" as="p">
+                                in {topTier.name} tier
+                              </Text>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <SkeletonDisplayText size="medium" />
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+
+            {/* No Tier Members Card */}
+            <Card>
+              <Box padding="400">
+                <BlockStack gap="200">
+                  <InlineStack align="space-between" blockAlign="center">
+                    <Text variant="bodySm" tone="subdued" as="p">Without Tier</Text>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'var(--p-color-bg-fill-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Icon source={AlertTriangleIcon} tone="subdued" />
+                    </div>
+                  </InlineStack>
+                  {statsLoaded && statsData ? (
+                    <>
+                      {(() => {
+                        const tieredCount = Object.values(statsData.tierDistribution).reduce((a, b) => a + b, 0);
+                        const noTierCount = statsData.totalCustomers - tieredCount;
+                        const percentage = statsData.totalCustomers > 0
+                          ? Math.round((noTierCount / statsData.totalCustomers) * 100)
+                          : 0;
+                        return (
+                          <>
+                            <Text variant="headingLg" as="p" fontWeight="bold">
+                              {noTierCount.toLocaleString()}
+                            </Text>
+                            <Text variant="bodySm" tone="subdued" as="p">
+                              {percentage}% of members
+                            </Text>
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <SkeletonDisplayText size="medium" />
+                  )}
+                </BlockStack>
+              </Box>
+            </Card>
+          </InlineGrid>
+        </Box>
+
         <Card padding="0">
           <Box padding="400">
             <BlockStack gap="400">
@@ -2270,8 +2904,8 @@ export default function Customers() {
               </InlineStack>
 
               {/* Search and Filters */}
-              <InlineStack gap="300" align="start" blockAlign="center">
-                <Box width="100%">
+              <InlineStack gap="300" align="start" blockAlign="center" wrap={false}>
+                <Box minWidth="300px" maxWidth="400px">
                   <TextField
                     label=""
                     placeholder="Search by customer email or ID"
@@ -2296,12 +2930,121 @@ export default function Customers() {
                   value={tierFilter}
                   onChange={(value) => handleFiltersChange([value])}
                 />
-                {(queryValue || tierFilter !== "all") && (
+                <Popover
+                  active={showFilters}
+                  activator={
+                    <Button
+                      onClick={() => setShowFilters(!showFilters)}
+                      icon={FilterIcon}
+                      disclosure={showFilters ? "up" : "down"}
+                    >
+                      More Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+                    </Button>
+                  }
+                  onClose={() => setShowFilters(false)}
+                  sectioned
+                >
+                  <Box padding="300" minWidth="320px">
+                    <BlockStack gap="400">
+                      {/* Store Credit Range */}
+                      <BlockStack gap="200">
+                        <Text variant="headingSm" as="h3">Store Credit Range</Text>
+                        <InlineStack gap="200" blockAlign="center">
+                          <Box width="120px">
+                            <TextField
+                              label=""
+                              type="number"
+                              value={creditMinFilter}
+                              onChange={(value) => handleCreditRangeChange(value, creditMaxFilter)}
+                              placeholder="Min"
+                              prefix="$"
+                              autoComplete="off"
+                            />
+                          </Box>
+                          <Text as="span" tone="subdued">to</Text>
+                          <Box width="120px">
+                            <TextField
+                              label=""
+                              type="number"
+                              value={creditMaxFilter}
+                              onChange={(value) => handleCreditRangeChange(creditMinFilter, value)}
+                              placeholder="Max"
+                              prefix="$"
+                              autoComplete="off"
+                            />
+                          </Box>
+                        </InlineStack>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Manual Override Filter */}
+                      <BlockStack gap="200">
+                        <Text variant="headingSm" as="h3">Manual Override</Text>
+                        <ChoiceList
+                          title=""
+                          choices={[
+                            { label: "All customers", value: "all" },
+                            { label: "With manual override", value: "yes" },
+                            { label: "Without manual override", value: "no" },
+                          ]}
+                          selected={[hasOverrideFilter]}
+                          onChange={([value]) => handleOverrideFilterChange(value)}
+                        />
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Apply/Clear Buttons */}
+                      <InlineStack gap="200" align="end">
+                        <Button onClick={() => {
+                          setCreditMinFilter("");
+                          setCreditMaxFilter("");
+                          setHasOverrideFilter("all");
+                          handleCreditRangeChange("", "");
+                          handleOverrideFilterChange("all");
+                        }} variant="plain">
+                          Reset filters
+                        </Button>
+                        <Button onClick={() => setShowFilters(false)} variant="primary">
+                          Done
+                        </Button>
+                      </InlineStack>
+                    </BlockStack>
+                  </Box>
+                </Popover>
+                {(queryValue || activeFilterCount > 0) && (
                   <Button onClick={handleClearAll} variant="plain">
                     Clear all
                   </Button>
                 )}
               </InlineStack>
+
+              {/* Active Filter Tags */}
+              {activeFilterCount > 0 && (
+                <InlineStack gap="200" wrap>
+                  {tierFilter !== "all" && (
+                    <Tag onRemove={() => handleFiltersChange(["all"])}>
+                      Tier: {tierFilter === "none" ? "No Tier" : data.tiers.find(t => t.id === tierFilter)?.name || tierFilter}
+                    </Tag>
+                  )}
+                  {creditMinFilter && (
+                    <Tag onRemove={() => handleCreditRangeChange("", creditMaxFilter)}>
+                      Min Credit: ${creditMinFilter}
+                    </Tag>
+                  )}
+                  {creditMaxFilter && (
+                    <Tag onRemove={() => handleCreditRangeChange(creditMinFilter, "")}>
+                      Max Credit: ${creditMaxFilter}
+                    </Tag>
+                  )}
+                  {hasOverrideFilter !== "all" && (
+                    <Tag onRemove={() => handleOverrideFilterChange("all")}>
+                      Override: {hasOverrideFilter === "yes" ? "Has Override" : "No Override"}
+                    </Tag>
+                  )}
+                </InlineStack>
+              )}
             </BlockStack>
           </Box>
 
@@ -2316,6 +3059,11 @@ export default function Customers() {
           handleViewCustomer={handleViewCustomer}
           handleManualTierAssignment={handleManualTierAssignment}
           handleCalculateSingle={handleCalculateSingle}
+          selectedResources={selectedResources}
+          onSelectionChange={handleSelectionChange}
+          onBulkTierAssignment={handleBulkTierAssignment}
+          onBulkCreditAdjustment={handleBulkCreditAdjustment}
+          onExportSelected={handleExportSelected}
         />
       </Card>
 
@@ -2594,7 +3342,117 @@ export default function Customers() {
             </FormLayout>
           </Modal.Section>
         </Modal>
-        
+
+        {/* Bulk Tier Assignment Modal */}
+        <Modal
+          open={bulkTierModalActive}
+          onClose={() => {
+            setBulkTierModalActive(false);
+            setBulkTierSelection("");
+          }}
+          title={`Assign Tier to ${selectedResources.length} Customers`}
+          primaryAction={{
+            content: bulkProcessing ? "Assigning..." : "Assign Tier",
+            onAction: handleSubmitBulkTier,
+            disabled: !bulkTierSelection || bulkProcessing,
+            loading: bulkProcessing,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setBulkTierModalActive(false);
+                setBulkTierSelection("");
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              <Banner tone="info">
+                <Text as="p" variant="bodySm">
+                  This will assign the selected tier to {selectedResources.length} customers.
+                  Any existing manual overrides will be replaced.
+                </Text>
+              </Banner>
+              <Select
+                label="Select Tier"
+                options={[
+                  { label: "-- Select a tier --", value: "" },
+                  { label: "No tier (remove from program)", value: "none" },
+                  ...data.tiers.map(tier => ({
+                    label: `${tier.name} (${tier.cashbackPercent}% cashback)`,
+                    value: tier.id,
+                  })),
+                ]}
+                value={bulkTierSelection}
+                onChange={setBulkTierSelection}
+              />
+            </FormLayout>
+          </Modal.Section>
+        </Modal>
+
+        {/* Bulk Credit Adjustment Modal */}
+        <Modal
+          open={bulkCreditModalActive}
+          onClose={() => {
+            setBulkCreditModalActive(false);
+            setBulkCreditAmount("");
+            setBulkCreditOperation("add");
+          }}
+          title={`Adjust Credit for ${selectedResources.length} Customers`}
+          primaryAction={{
+            content: bulkProcessing ? "Processing..." : "Adjust Credit",
+            onAction: handleSubmitBulkCredit,
+            disabled: !bulkCreditAmount || parseFloat(bulkCreditAmount) <= 0 || bulkProcessing,
+            loading: bulkProcessing,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => {
+                setBulkCreditModalActive(false);
+                setBulkCreditAmount("");
+              },
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              <Banner tone="info">
+                <Text as="p" variant="bodySm">
+                  This will adjust the store credit for {selectedResources.length} customers.
+                </Text>
+              </Banner>
+              <Select
+                label="Operation"
+                options={[
+                  { label: "Add credit", value: "add" },
+                  { label: "Subtract credit", value: "subtract" },
+                  { label: "Set to exact amount", value: "set" },
+                ]}
+                value={bulkCreditOperation}
+                onChange={(value) => setBulkCreditOperation(value as "add" | "subtract" | "set")}
+              />
+              <TextField
+                label="Amount"
+                type="number"
+                value={bulkCreditAmount}
+                onChange={setBulkCreditAmount}
+                prefix="$"
+                autoComplete="off"
+                helpText={
+                  bulkCreditOperation === "add"
+                    ? "Amount to add to each customer's credit"
+                    : bulkCreditOperation === "subtract"
+                    ? "Amount to subtract from each customer's credit"
+                    : "Set each customer's credit to this exact amount"
+                }
+              />
+            </FormLayout>
+          </Modal.Section>
+        </Modal>
+
         {/* Bottom spacer to prevent content from touching the bottom */}
         <div style={{ height: '80px', width: '100%' }} aria-hidden="true" />
       </Page>
