@@ -3178,3 +3178,280 @@ model ReconciliationLog {
   @@index([action])
   @@index([mismatchCount])
 }
+
+// ============================================
+// THIRD-PARTY APP INTEGRATIONS
+// ============================================
+
+// Integration configuration and credentials
+model Integration {
+  id   String @id @default(cuid())
+  shop String // Foreign key to shop domain
+
+  // Integration identity
+  provider IntegrationProvider
+  name     String // Display name
+  status   IntegrationStatus @default(DISCONNECTED)
+
+  // Configuration (JSON)
+  config Json @default("{}")
+
+  // OAuth tokens (encrypted at rest)
+  accessToken    String? @db.Text // Encrypted
+  refreshToken   String? @db.Text // Encrypted
+  tokenExpiresAt DateTime?
+  scopes         String[] @default([])
+
+  // API credentials (encrypted at rest)
+  apiKey        String? @db.Text // Encrypted
+  apiSecret     String? @db.Text // Encrypted
+  webhookSecret String? // For verifying inbound webhooks
+
+  // Webhook configuration
+  webhookUrl           String? // Our endpoint for this integration
+  webhookSubscriptions Json    @default("[]")
+
+  // Feature flags
+  enabledFeatures String[] @default([])
+  pointsConfig    Json? // Integration-specific points rules
+
+  // Sync & error tracking
+  lastSyncAt   DateTime?
+  lastErrorAt  DateTime?
+  lastError    String?   @db.Text
+  metadata     Json      @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  events   IntegrationEvent[]
+  webhooks IntegrationWebhook[]
+
+  @@unique([shop, provider])
+  @@index([shop])
+  @@index([provider, status])
+}
+
+// Outbound loyalty events to integrations
+model IntegrationEvent {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  shop          String
+
+  // Event details
+  eventType LoyaltyEventType
+  payload   Json
+
+  // Delivery status
+  status        IntegrationEventStatus @default(PENDING)
+  attempts      Int                    @default(0)
+  lastAttemptAt DateTime?
+  deliveredAt   DateTime?
+  error         String?                @db.Text
+
+  // Reference data
+  customerId        String?
+  shopifyCustomerId String?
+  orderId           String?
+
+  createdAt DateTime @default(now())
+
+  @@index([integrationId, status])
+  @@index([shop, eventType])
+  @@index([status, createdAt])
+}
+
+// Inbound webhooks from integrations
+model IntegrationWebhook {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  shop          String
+
+  // Webhook identity
+  webhookId String @unique // External webhook ID for idempotency
+  topic     String // e.g., "review.created", "subscription.renewed"
+
+  // Payload
+  payload Json
+  headers Json @default("{}")
+
+  // Processing status
+  status      IntegrationWebhookStatus @default(RECEIVED)
+  processedAt DateTime?
+  error       String?                  @db.Text
+
+  // Actions taken
+  pointsAwarded Int?
+  actionsTaken  Json @default("[]")
+
+  createdAt DateTime @default(now())
+
+  @@index([integrationId, topic])
+  @@index([shop, status])
+  @@index([webhookId])
+}
+
+// OAuth state storage for PKCE flow
+model OAuthState {
+  id       String              @id @default(cuid())
+  shop     String
+  provider IntegrationProvider
+
+  // PKCE
+  state        String  @unique
+  codeVerifier String? @db.Text // Encrypted, optional for non-PKCE flows
+
+  // OAuth context
+  redirectUri String // Callback URL for token exchange
+  metadata    Json   @default("{}") // Additional data (returnUrl, etc.)
+
+  // Security
+  expiresAt DateTime
+  used      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([state])
+  @@index([expiresAt])
+}
+
+// Points rules for integration triggers
+model IntegrationPointsRule {
+  id       String              @id @default(cuid())
+  shop     String
+  provider IntegrationProvider
+
+  // Rule definition
+  triggerEvent String // e.g., "review.created", "subscription.renewed"
+  name         String // Display name
+  description  String?
+
+  // Points configuration
+  pointsType   IntegrationPointsType @default(FIXED)
+  pointsAmount Int                   @default(0) // Fixed amount
+  pointsPercent Float?                            // Percentage of order value
+  maxPoints    Int?                              // Cap for percentage-based
+
+  // Conditions (JSON)
+  conditions Json @default("{}")
+
+  // Status
+  enabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, provider, triggerEvent])
+  @@index([shop, provider])
+}
+
+// ============================================
+// INTEGRATION ENUMS
+// ============================================
+
+enum IntegrationProvider {
+  // P0 - Email Marketing
+  KLAVIYO
+  OMNISEND
+  MAILCHIMP
+
+  // P0 - Reviews
+  JUDGE_ME
+  LOOX
+  YOTPO_REVIEWS
+  STAMPED
+  OKENDO
+
+  // P1 - Subscriptions
+  RECHARGE
+  LOOP_SUBSCRIPTIONS
+  BOLD_SUBSCRIPTIONS
+  APPSTLE
+  SKIO
+
+  // P1 - Helpdesk
+  GORGIAS
+  ZENDESK
+  RICHPANEL
+
+  // P2 - SMS
+  POSTSCRIPT
+  ATTENTIVE
+
+  // P2 - Analytics
+  TRIPLE_WHALE
+  LIFETIMELY
+  POLAR_ANALYTICS
+
+  // P2 - Automation
+  ZAPIER
+  MAKE // formerly Integromat
+
+  // Custom
+  CUSTOM_WEBHOOK
+}
+
+enum IntegrationStatus {
+  DISCONNECTED // Not configured
+  PENDING_AUTH // OAuth in progress
+  CONNECTED    // Active and working
+  ERROR        // Connection error
+  RATE_LIMITED // Temporarily paused
+  DISABLED     // Manually disabled
+}
+
+enum LoyaltyEventType {
+  // Points events
+  POINTS_EARNED
+  POINTS_REDEEMED
+  POINTS_EXPIRED
+  POINTS_ADJUSTED
+
+  // Tier events
+  TIER_UPGRADED
+  TIER_DOWNGRADED
+  TIER_PURCHASED
+  TIER_SUBSCRIPTION_CREATED
+  TIER_SUBSCRIPTION_CANCELLED
+
+  // Reward events
+  REWARD_UNLOCKED
+  REWARD_REDEEMED
+
+  // Customer events
+  CUSTOMER_ENROLLED
+  CUSTOMER_PROFILE_UPDATED
+
+  // Referral events
+  REFERRAL_SENT
+  REFERRAL_COMPLETED
+
+  // Integration-triggered events
+  REVIEW_POINTS_AWARDED
+  SUBSCRIPTION_POINTS_AWARDED
+}
+
+enum IntegrationEventStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+enum IntegrationWebhookStatus {
+  RECEIVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  DUPLICATE
+}
+
+enum IntegrationPointsType {
+  FIXED      // Fixed points amount
+  PERCENTAGE // Percentage of order value
+  TIERED     // Based on conditions
+}

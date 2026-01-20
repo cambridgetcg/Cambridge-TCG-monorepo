@@ -1,9 +1,11 @@
 import { Link, useLocation } from "@remix-run/react";
-import { Box, InlineStack, Text } from "@shopify/polaris";
+import { Box, InlineStack, Text, Icon } from "@shopify/polaris";
+import type { IconSource } from "@shopify/polaris";
 
 interface NavItem {
   label: string;
   to: string;
+  icon?: IconSource;
 }
 
 interface SecondaryNavProps {
@@ -12,8 +14,8 @@ interface SecondaryNavProps {
 
 /**
  * Secondary navigation component for section layouts.
- * Uses Polaris styling to match Shopify admin aesthetic.
- * Highlights the active route based on current location.
+ * Modern pill/segmented control style that matches contemporary UI patterns.
+ * Highlights the active route with a distinct background.
  */
 export function SecondaryNav({ items }: SecondaryNavProps) {
   const location = useLocation();
@@ -36,13 +38,17 @@ export function SecondaryNav({ items }: SecondaryNavProps) {
   };
 
   return (
-    <Box
-      paddingBlockEnd="400"
-      paddingBlockStart="200"
-      borderBlockEndWidth="025"
-      borderColor="border"
-    >
-      <InlineStack gap="400">
+    <Box paddingBlockEnd="400" paddingBlockStart="200">
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '4px',
+          backgroundColor: 'var(--p-color-bg-surface-secondary)',
+          borderRadius: '10px',
+        }}
+      >
         {items.map((item) => {
           const active = isActive(item.to);
           return (
@@ -51,14 +57,39 @@ export function SecondaryNav({ items }: SecondaryNavProps) {
               to={item.to}
               style={{
                 textDecoration: 'none',
-                paddingBottom: '8px',
-                borderBottom: active ? '2px solid var(--p-color-border-interactive)' : '2px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                backgroundColor: active ? 'var(--p-color-bg-surface)' : 'transparent',
+                boxShadow: active ? '0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = 'var(--p-color-bg-surface-hover)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
+              {item.icon && (
+                <span style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: active ? 'var(--p-color-icon-emphasis)' : 'var(--p-color-icon-secondary)'
+                }}>
+                  <Icon source={item.icon} />
+                </span>
+              )}
               <Text
                 as="span"
-                variant="bodyMd"
-                fontWeight={active ? 'semibold' : 'regular'}
+                variant="bodySm"
+                fontWeight={active ? 'semibold' : 'medium'}
                 tone={active ? undefined : 'subdued'}
               >
                 {item.label}
@@ -66,7 +97,7 @@ export function SecondaryNav({ items }: SecondaryNavProps) {
             </Link>
           );
         })}
-      </InlineStack>
+      </div>
     </Box>
   );
 }

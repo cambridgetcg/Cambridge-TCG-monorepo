@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useFetcher, useNavigation } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import { StaggerChildren, PageLoader, usePageAnimation } from "../components/PageAnimation";
+import { useAnalytics } from "~/hooks/useAnalytics";
 
 import {
   Page,
@@ -620,6 +621,18 @@ export default function Dashboard() {
   const data = useLoaderData<typeof loader>() as DashboardData;
   const navigate = useNavigate();
   const fetcher = useFetcher();
+
+  // Analytics tracking
+  const { trackCustomEvent } = useAnalytics({ pageTitle: 'Dashboard' });
+
+  // Track dashboard view with metrics on mount
+  useEffect(() => {
+    trackCustomEvent('dashboard_view', {
+      active_customers_count: data.totalCustomers || 0,
+      total_cashback_paid: data.cashbackStats?.totalCashbackPaid || 0,
+      sync_status: data.recentSyncs?.length > 0 ? 'active' : 'inactive',
+    });
+  }, []); // Only track once on mount
 
   // Toast state for feature toggle feedback
   const [toastActive, setToastActive] = useState(false);

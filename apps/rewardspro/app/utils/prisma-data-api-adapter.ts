@@ -604,6 +604,12 @@ export class DataAPIModelProxy<T = any> {
       // Mystery Box System
       MysteryBox: ['status'],
       MysteryBoxReward: ['rewardType', 'rarity'],
+      // Third-Party Integration System
+      Integration: ['provider', 'status'],
+      IntegrationEvent: ['eventType', 'status'],
+      IntegrationWebhook: ['status'],
+      OAuthState: ['provider'],
+      IntegrationPointsRule: ['provider', 'pointsType'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -668,6 +674,12 @@ export class DataAPIModelProxy<T = any> {
       'MysteryBoxReward',
       'MysteryBoxOpen',
       'MysteryBoxWinner',
+      // Third-Party Integration System
+      'Integration',
+      'IntegrationEvent',
+      'IntegrationWebhook',
+      'OAuthState',
+      'IntegrationPointsRule',
     ];
     return tablesWithUuidId.includes(this.tableName);
   }
@@ -679,6 +691,21 @@ export class DataAPIModelProxy<T = any> {
     // Handle table-specific enum mappings first
     if (field === 'type') {
       return this.getTypeEnumForTable();
+    }
+
+    // Handle provider field for integration tables
+    if (field === 'provider') {
+      return '"IntegrationProvider"';
+    }
+
+    // Handle eventType field based on table
+    if (field === 'eventType') {
+      return this.getEventTypeEnumForTable();
+    }
+
+    // Handle pointsType for IntegrationPointsRule
+    if (field === 'pointsType') {
+      return '"IntegrationPointsType"';
     }
 
     // Map field names to PostgreSQL enum type names
@@ -701,7 +728,6 @@ export class DataAPIModelProxy<T = any> {
       financialStatus: '"OrderFinancialStatus"',
       lastPaymentStatus: '"PaymentStatus"',
       discountType: '"DiscountType"',
-      eventType: '"SubscriptionEventType"',
       roundingMode: '"PointsRoundingMode"',
       // Raffles System
       drawType: '"RaffleDrawType"',
@@ -713,6 +739,18 @@ export class DataAPIModelProxy<T = any> {
     };
 
     return enumTypes[field] || field;
+  }
+
+  /**
+   * Get the appropriate eventType enum based on table name
+   */
+  private getEventTypeEnumForTable(): string {
+    const eventTypeEnumMap: Record<string, string> = {
+      SubscriptionEvent: '"SubscriptionEventType"',
+      IntegrationEvent: '"LoyaltyEventType"',
+    };
+
+    return eventTypeEnumMap[this.tableName] || '"SubscriptionEventType"';
   }
 
   /**
@@ -747,6 +785,10 @@ export class DataAPIModelProxy<T = any> {
       Raffle: '"RaffleStatus"',
       // Mystery Box System
       MysteryBox: '"MysteryBoxStatus"',
+      // Third-Party Integration System
+      Integration: '"IntegrationStatus"',
+      IntegrationEvent: '"IntegrationEventStatus"',
+      IntegrationWebhook: '"IntegrationWebhookStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
@@ -1513,6 +1555,13 @@ export function createDataAPIPrismaClient() {
           mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", txAuroraClient),
           mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", txAuroraClient),
 
+          // Third-Party Integration System
+          integration: new DataAPIModelProxy("Integration", txAuroraClient),
+          integrationEvent: new DataAPIModelProxy("IntegrationEvent", txAuroraClient),
+          integrationWebhook: new DataAPIModelProxy("IntegrationWebhook", txAuroraClient),
+          oAuthState: new DataAPIModelProxy("OAuthState", txAuroraClient),
+          integrationPointsRule: new DataAPIModelProxy("IntegrationPointsRule", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1715,6 +1764,19 @@ export function createDataAPIPrismaClient() {
     mysteryBoxReward: new DataAPIModelProxy("MysteryBoxReward", client),
     mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", client),
     mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", client),
+
+    // Third-Party Integration System
+    integration: new DataAPIModelProxy("Integration", client),
+    integrationEvent: new DataAPIModelProxy("IntegrationEvent", client),
+    integrationWebhook: new DataAPIModelProxy("IntegrationWebhook", client),
+    oAuthState: new DataAPIModelProxy("OAuthState", client),
+    integrationPointsRule: new DataAPIModelProxy("IntegrationPointsRule", client),
+
+    // Cron Locks
+    cronLock: new DataAPIModelProxy("CronLock", client),
+
+    // Reconciliation
+    reconciliationLog: new DataAPIModelProxy("ReconciliationLog", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

@@ -1,5 +1,6 @@
 import { Outlet } from "@remix-run/react";
 import { SecondaryNav } from "~/components/SecondaryNav";
+import { PersonIcon, StarIcon, ProductIcon } from "@shopify/polaris-icons";
 
 /**
  * Members Section Layout
@@ -14,9 +15,9 @@ import { SecondaryNav } from "~/components/SecondaryNav";
  */
 export default function MembersLayout() {
   const navItems = [
-    { label: "Customers", to: "/app/members" },
-    { label: "Tiers", to: "/app/members/tiers" },
-    { label: "Tier Products", to: "/app/members/products" },
+    { label: "Customers", to: "/app/members", icon: PersonIcon },
+    { label: "Tiers", to: "/app/members/tiers", icon: StarIcon },
+    { label: "Tier Products", to: "/app/members/products", icon: ProductIcon },
   ];
 
   return (

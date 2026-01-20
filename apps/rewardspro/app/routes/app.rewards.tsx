@@ -1,5 +1,6 @@
 import { Outlet } from "@remix-run/react";
 import { SecondaryNav } from "~/components/SecondaryNav";
+import { ChartVerticalIcon, GiftCardIcon, PackageIcon, TargetIcon } from "@shopify/polaris-icons";
 
 /**
  * Rewards Section Layout
@@ -15,10 +16,10 @@ import { SecondaryNav } from "~/components/SecondaryNav";
  */
 export default function RewardsLayout() {
   const navItems = [
-    { label: "Overview", to: "/app/rewards" },
-    { label: "Raffles", to: "/app/rewards/raffles" },
-    { label: "Mystery Boxes", to: "/app/rewards/mystery-boxes" },
-    { label: "Challenges", to: "/app/rewards/challenges" },
+    { label: "Overview", to: "/app/rewards", icon: ChartVerticalIcon },
+    { label: "Raffles", to: "/app/rewards/raffles", icon: GiftCardIcon },
+    { label: "Mystery Boxes", to: "/app/rewards/mystery-boxes", icon: PackageIcon },
+    { label: "Challenges", to: "/app/rewards/challenges", icon: TargetIcon },
   ];
 
   return (

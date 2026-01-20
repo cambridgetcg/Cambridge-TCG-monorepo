@@ -11,6 +11,7 @@ import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { HelpAssistant } from "../components/HelpAssistant";
 import { PageAnimationProvider, NavigationProgress, PageTransition } from "../components/PageAnimation";
+import { GA4Provider } from "../components/GA4Provider";
 import { logRequest, logResponse, logError, logShopifyContext, checkAuthenticationIssues } from "../utils/request-logger";
 import db from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
@@ -27,6 +28,7 @@ export interface AppLoaderData {
     emailMarketing: boolean;
   };
   currentPlan: string;
+  ga4MeasurementId: string;
 }
 
 export const links = () => [
@@ -199,11 +201,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         apiKey: process.env.SHOPIFY_API_KEY || "",
         shop: session.shop,
         host: new URL(request.url).searchParams.get("host") || "",
-        entitlements, // NEW: Full entitlements object for child routes
+        entitlements, // Full entitlements object for child routes
         features: {
           emailMarketing: hasEmailMarketingAccess,
         },
         currentPlan: currentPlanName,
+        ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || "",
       },
       {
         headers: {
@@ -231,7 +234,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-  const { apiKey, shop, host, features } = useLoaderData<typeof loader>();
+  const { apiKey, shop, host, features, ga4MeasurementId } = useLoaderData<typeof loader>();
 
   // Log for debugging
   console.log("[App Component] Rendering with:", { apiKey: apiKey ? "present" : "missing", shop, host, features });
@@ -245,6 +248,8 @@ export default function App() {
     <AppProvider isEmbeddedApp apiKey={apiKey}>
       <AppBridgeInitializer />
       <AuthenticatedFetchProvider>
+        {/* GA4 Provider - Sets user context for analytics */}
+        <GA4Provider measurementId={ga4MeasurementId} debug={process.env.NODE_ENV === 'development'}>
         {/* Load Polaris web components for s-switch */}
         <script
           src="https://cdn.shopify.com/shopifycloud/app-home/latest/app-home.js"
@@ -315,6 +320,7 @@ export default function App() {
             margin-bottom: 0; /* Clear any margins that might interfere */
           }
         `}</style>
+        </GA4Provider>
       </AuthenticatedFetchProvider>
     </AppProvider>
   );

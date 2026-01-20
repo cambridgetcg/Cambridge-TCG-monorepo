@@ -52,6 +52,7 @@ import crypto from "crypto";
  */
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { GA4Script } from './components/GA4Provider';
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: responsiveStyles },
@@ -74,14 +75,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const headers = new Headers();
   
   // Content Security Policy with nonce for Shopify embedded apps
-  // Updated to allow Vercel Analytics and Speed Insights
+  // Updated to allow Vercel Analytics, Speed Insights, and Google Analytics 4
   const cspDirectives = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' https://cdn.shopify.com https://cdn.shopifycdn.net https://va.vercel-scripts.com`,
+    `script-src 'self' 'nonce-${nonce}' https://cdn.shopify.com https://cdn.shopifycdn.net https://va.vercel-scripts.com https://www.googletagmanager.com https://www.google-analytics.com`,
     `style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://cdn.shopifycdn.net`,
-    `img-src 'self' data: https: blob:`,
+    `img-src 'self' data: https: blob: https://www.google-analytics.com https://www.googletagmanager.com`,
     `font-src 'self' data: https://cdn.shopify.com`,
-    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com`,
+    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com`,
     `frame-ancestors https://*.myshopify.com https://admin.shopify.com`,
     `form-action 'self'`,
     `base-uri 'self'`,
@@ -102,18 +103,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   
-  // Pass the API key and device info to the client
+  // Pass the API key, device info, and analytics config to the client
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
     appUrl: process.env.SHOPIFY_APP_URL || "",
     deviceType: device.type,
     viewport: device.viewport,
     nonce,
+    // Google Analytics 4 Measurement ID (optional)
+    ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || "",
   }, { headers });
 };
 
 export default function App() {
-  const { apiKey, appUrl, nonce } = useLoaderData<typeof loader>();
+  const { apiKey, nonce, ga4MeasurementId } = useLoaderData<typeof loader>();
 
   return (
     <html>
@@ -121,6 +124,13 @@ export default function App() {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <link rel="preconnect" href="https://cdn.shopify.com/" />
+        {/* Preconnect to Google Analytics for faster loading */}
+        {ga4MeasurementId && (
+          <>
+            <link rel="preconnect" href="https://www.googletagmanager.com" />
+            <link rel="preconnect" href="https://www.google-analytics.com" />
+          </>
+        )}
         <link
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
@@ -133,6 +143,10 @@ export default function App() {
             nonce={nonce}
             defer
           />
+        )}
+        {/* Google Analytics 4 */}
+        {ga4MeasurementId && (
+          <GA4Script measurementId={ga4MeasurementId} nonce={nonce} />
         )}
         <Meta />
         <Links />
