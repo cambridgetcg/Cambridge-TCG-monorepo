@@ -254,6 +254,10 @@ model Tier {
   // Shop settings using this as default base tier
   shopsUsingAsDefault ShopSettings[] @relation("DefaultBaseTier")
 
+  // Gift card system relations
+  giftCardSettings TierGiftCardSettings?
+  giftCardBundles  GiftCardBundle[]
+
   // Constraints
   @@unique([shop, name]) // Combination must be unique
   @@index([shop]) // Speed up queries by shop
@@ -698,6 +702,135 @@ model StoreCreditLedger {
   @@index([type])
   @@index([createdAt])
   @@index([customerId, expiresAt]) // Speed up expiring points queries
+}
+
+// ============================================
+// GIFT CARD SYSTEM MODELS
+// ============================================
+
+// Shop-level gift card configuration
+model GiftCardConfig {
+  id   String @id @default(uuid())
+  shop String @unique
+
+  // Feature toggles
+  enableTierBranding    Boolean @default(true) // Use tier-specific templates
+  enableTierBonuses     Boolean @default(false) // Bonus value based on purchaser tier
+  enableMembershipGifts Boolean @default(true) // Allow gifting memberships
+
+  // Defaults
+  defaultTemplateSuffix String? // Fallback template if tier has none
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Tier-specific gift card settings
+model TierGiftCardSettings {
+  id     String @id @default(uuid())
+  shop   String
+  tierId String @unique // Each tier has at most one gift card setting
+  tier   Tier   @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  // Branding - templateSuffix maps to gift_card.[suffix].liquid
+  templateSuffix String? // e.g., "gold" → gift_card.gold.liquid
+
+  // Bonuses - extra value when this tier purchases gift cards
+  bonusPercent Decimal @default(0) @db.Decimal(5, 2) // e.g., 10 = 10% bonus
+
+  // Membership bundle settings
+  canBundleWithCard Boolean  @default(true) // Can this tier be gifted
+  bundlePrice       Decimal? @db.Decimal(10, 2) // Special price when bundled
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop])
+}
+
+// Track issued gift cards and their tier integration
+model IssuedGiftCard {
+  id   String @id @default(uuid())
+  shop String
+
+  // Shopify reference
+  shopifyGiftCardId String  @unique
+  lastFourDigits    String? // Last 4 chars of code (for display)
+
+  // Value
+  initialValue Decimal @db.Decimal(10, 2) // Base value
+  bonusValue   Decimal @default(0) @db.Decimal(10, 2) // From tier bonus
+  totalValue   Decimal @db.Decimal(10, 2) // initial + bonus
+
+  // Tier branding
+  templateSuffix    String? // Template used for this card
+  purchaserTierId   String? // Tier of person who bought (for tracking)
+  purchaserTierName String? // Denormalized for display
+
+  // Membership bundle (if this card grants tier access)
+  bundleType       GiftCardBundleType @default(VALUE_ONLY)
+  bundledTierId    String? // Tier to grant on redemption
+  bundledTierName  String? // Denormalized for display
+  bundledDuration  String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
+
+  // People
+  purchasedByCustomerId String? // Customer who bought
+  purchasedByEmail      String? // Email if no customer record
+  recipientCustomerId   String? // Recipient (if known)
+  recipientEmail        String? // Recipient email
+  recipientName         String? // Recipient display name
+  personalMessage       String? // Gift message
+
+  // Scheduling
+  scheduledSendAt DateTime? // When to send notification
+
+  // Status tracking
+  status          GiftCardStatus @default(ACTIVE)
+  redeemedAt      DateTime?
+  tierActivatedAt DateTime? // When bundled membership was activated
+
+  // Conversion tracking (if created from cashback)
+  convertedFromLedgerId String? // StoreCreditLedger entry ID
+
+  // Order reference (if purchased through checkout)
+  shopifyOrderId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, status])
+  @@index([recipientCustomerId])
+  @@index([purchasedByCustomerId])
+  @@index([shopifyOrderId])
+}
+
+// Pre-configured gift card bundles (merchant creates these)
+model GiftCardBundle {
+  id     String @id @default(uuid())
+  shop   String
+  tierId String? // Optional: tier to bundle with
+  tier   Tier?   @relation(fields: [tierId], references: [id], onDelete: SetNull)
+
+  // Display
+  name        String // e.g., "Gold Experience Gift"
+  description String? // Marketing description
+
+  // Value configuration
+  bundleType    GiftCardBundleType
+  giftCardValue Decimal            @db.Decimal(10, 2) // Monetary value included
+  price         Decimal            @db.Decimal(10, 2) // What customer pays
+
+  // Membership configuration (if bundleType includes membership)
+  membershipDuration String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
+
+  // Status
+  isActive Boolean @default(true)
+  sortOrder Int     @default(0) // Display order
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shop, isActive])
 }
 
 model TierChangeLog {
@@ -1827,6 +1960,7 @@ enum LedgerEntryType {
   REFUND_CLAWBACK
   MANUAL_ADJUSTMENT
   SHOPIFY_SYNC
+  CONVERTED_TO_GIFT_CARD // Store credit converted to gift card
 }
 
 enum TierChangeType {
@@ -3460,4 +3594,21 @@ enum IntegrationPointsType {
   FIXED      // Fixed points amount
   PERCENTAGE // Percentage of order value
   TIERED     // Based on conditions
+}
+
+// ============================================
+// GIFT CARD SYSTEM ENUMS
+// ============================================
+
+enum GiftCardStatus {
+  ACTIVE      // Gift card is active and can be used
+  REDEEMED    // Gift card has been fully redeemed
+  DEACTIVATED // Gift card was manually deactivated
+  EXPIRED     // Gift card has expired
+}
+
+enum GiftCardBundleType {
+  VALUE_ONLY      // Just monetary value
+  MEMBERSHIP_ONLY // Just tier membership
+  VALUE_PLUS_MEMBERSHIP // Both value and membership
 }

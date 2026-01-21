@@ -458,6 +458,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 admin: admin, // Pass the admin context from webhook
                 orderId: order.id?.toString() // Pass order ID for logging
               });
+
+              // =========================================================================
+              // GIFT CARD MEMBERSHIP ACTIVATION
+              // Check if order used gift card payment and activate any bundled memberships
+              // =========================================================================
+              try {
+                const { GiftCardRedemptionHandler } = await import('../services/gift-card');
+                const redemptionResult = await GiftCardRedemptionHandler.checkAndProcessRedemption(
+                  shop!,
+                  order.id.toString(),
+                  dbCustomer.id,
+                  {
+                    hasGiftCardPayment: false,
+                    paymentGateways: order.payment_gateway_names || [],
+                  }
+                );
+
+                if (redemptionResult.membershipActivated) {
+                  console.log(`[OrderPaid] Gift card membership activated for customer ${dbCustomer.id}:`, {
+                    tierName: redemptionResult.tierName,
+                    giftCardId: redemptionResult.giftCardId,
+                  });
+                } else if (redemptionResult.detected) {
+                  console.log(`[OrderPaid] Gift card payment detected but no membership to activate`);
+                }
+              } catch (giftCardError) {
+                // Non-fatal - log but don't fail the webhook
+                console.error(`[OrderPaid] Gift card redemption check failed (non-fatal):`, giftCardError);
+              }
             } else {
               console.log(`[OrderPaid] Customer not found in database for Shopify ID: ${order.customer.id}`);
               // Customer might not exist yet - let's create them
