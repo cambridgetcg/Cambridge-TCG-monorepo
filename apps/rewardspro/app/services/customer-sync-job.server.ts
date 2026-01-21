@@ -432,6 +432,9 @@ export async function processNextBatch(
         if (!existingCustomer) {
           // Create new customer WITHOUT tier assignment
           // Tier will be resolved by updateCustomerToEffectiveTier below
+          // NEUROSURGICAL FIX: Initialize netSpent and totalRefunded for new customers
+          const initialTotalSpent = Number(totalSpent);
+
           const newCustomer = await db.customer.create({
             data: {
               shop,
@@ -439,8 +442,10 @@ export async function processNextBatch(
               email: shopifyCustomer.email,
               firstName: shopifyCustomer.firstName || '',
               lastName: shopifyCustomer.lastName || '',
-              totalSpent: Number(totalSpent),
-              orderCount: Number(ordersCount), // Explicit cast for Data API adapter
+              totalSpent: initialTotalSpent,
+              netSpent: initialTotalSpent, // NEW: Initialize to totalSpent (no refunds assumed)
+              totalRefunded: 0, // NEW: Initialize to 0
+              orderCount: Number(ordersCount),
               storeCredit: 0,
               // Don't set currentTierId - let resolver handle it
               shopifyCreatedAt: new Date(shopifyCustomer.createdAt),
@@ -459,14 +464,19 @@ export async function processNextBatch(
           console.log(`[Sync Job] Created customer ${shopifyId} - resolved via tier system`);
         } else {
           // Update existing customer - only update spending data, NOT tier
+          // NEUROSURGICAL FIX: Also update netSpent to stay consistent
+          const updatedTotalSpent = Number(totalSpent);
+          const currentTotalRefunded = Number(existingCustomer.totalRefunded || 0);
+
           await db.customer.update({
             where: { id: existingCustomer.id },
             data: {
               email: shopifyCustomer.email,
               firstName: shopifyCustomer.firstName || existingCustomer.firstName,
               lastName: shopifyCustomer.lastName || existingCustomer.lastName,
-              totalSpent: Number(totalSpent),
-              orderCount: Number(ordersCount), // Explicit cast for Data API adapter
+              totalSpent: updatedTotalSpent,
+              netSpent: updatedTotalSpent - currentTotalRefunded, // NEW: Keep netSpent in sync
+              orderCount: Number(ordersCount),
               shopifyUpdatedAt: new Date(shopifyCustomer.updatedAt),
               updatedAt: new Date()
               // DO NOT update tier directly - tier resolution handles this

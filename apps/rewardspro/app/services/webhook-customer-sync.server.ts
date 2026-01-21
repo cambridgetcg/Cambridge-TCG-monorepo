@@ -225,6 +225,15 @@ async function updateCustomer(
   customerData: ReturnType<typeof parseCustomerPayload>,
   shopDomain: string
 ): Promise<{ action: string; customerId: string }> {
+  // NEUROSURGICAL FIX: Get existing customer to calculate netSpent properly
+  const existingCustomer = await db.customer.findUnique({
+    where: { id: customerId },
+    select: { totalRefunded: true }
+  });
+
+  const updatedTotalSpent = customerData.totalSpent;
+  const currentTotalRefunded = Number(existingCustomer?.totalRefunded || 0);
+
   const customer = await db.customer.update({
     where: {
       id: customerId,
@@ -235,7 +244,8 @@ async function updateCustomer(
       lastName: customerData.lastName,
       phone: customerData.phone,
       tags: customerData.tags,
-      totalSpent: customerData.totalSpent,
+      totalSpent: updatedTotalSpent,
+      netSpent: updatedTotalSpent - currentTotalRefunded, // NEW: Keep netSpent in sync
       orderCount: customerData.ordersCount,
       lastOrderDate: customerData.lastOrderDate,
       shopifyUpdatedAt: customerData.shopifyUpdatedAt,

@@ -210,6 +210,11 @@ export async function action({ request }: ActionFunctionArgs) {
       // Create new customer if doesn't exist
       console.log(`[OrdersCreateWebhook] Creating new customer in database`);
       
+      // NEUROSURGICAL FIX: Initialize netSpent and totalRefunded for new customers
+      // netSpent = totalSpent for new customers (assuming no refunds yet)
+      // orders/paid webhook will recalculate with accurate values from Order table
+      const initialTotalSpent = parseFloat(order.customer.total_spent || "0");
+
       dbCustomer = await db.customer.create({
         data: {
           id: uuidv4(),
@@ -220,8 +225,10 @@ export async function action({ request }: ActionFunctionArgs) {
           lastName: order.customer.last_name || shopifyCustomer.lastName || null,
           tags: order.customer.tags || '',
           storeCredit: totalStoreCredit,
-          totalSpent: parseFloat(order.customer.total_spent || "0"),
-          orderCount: order.customer.orders_count || 1,  // Fixed: orderCount not ordersCount
+          totalSpent: initialTotalSpent,
+          netSpent: initialTotalSpent, // NEW: Initialize to totalSpent (no refunds for new customer)
+          totalRefunded: 0, // NEW: Initialize to 0
+          orderCount: order.customer.orders_count || 1,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -287,11 +294,17 @@ export async function action({ request }: ActionFunctionArgs) {
         }
 
         // Always update customer balance (regardless of direction)
+        // NEUROSURGICAL FIX: Also update netSpent to stay consistent
+        // Note: Full recalculation happens in orders/paid webhook from Order table
+        const updatedTotalSpent = parseFloat(order.customer.total_spent || "0");
+        const currentTotalRefunded = Number(dbCustomer.totalRefunded || 0);
+
         await db.customer.update({
           where: { id: dbCustomer.id },
           data: {
             storeCredit: totalStoreCredit,
-            totalSpent: parseFloat(order.customer.total_spent || "0"),
+            totalSpent: updatedTotalSpent,
+            netSpent: updatedTotalSpent - currentTotalRefunded, // NEW: Keep netSpent in sync
             orderCount: order.customer.orders_count || dbCustomer.orderCount,
             updatedAt: new Date()
           }
@@ -300,10 +313,15 @@ export async function action({ request }: ActionFunctionArgs) {
         console.log(`[OrdersCreateWebhook] Synced customer credit from ${previousBalance} to ${totalStoreCredit}`);
       } else {
         // Just update order count and total spent
+        // NEUROSURGICAL FIX: Also update netSpent to stay consistent
+        const updatedTotalSpent = parseFloat(order.customer.total_spent || "0");
+        const currentTotalRefunded = Number(dbCustomer.totalRefunded || 0);
+
         await db.customer.update({
           where: { id: dbCustomer.id },
           data: {
-            totalSpent: parseFloat(order.customer.total_spent || "0"),
+            totalSpent: updatedTotalSpent,
+            netSpent: updatedTotalSpent - currentTotalRefunded, // NEW: Keep netSpent in sync
             orderCount: order.customer.orders_count || dbCustomer.orderCount,
             updatedAt: new Date()
           }
