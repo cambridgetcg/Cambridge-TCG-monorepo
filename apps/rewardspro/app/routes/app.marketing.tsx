@@ -1,12 +1,39 @@
 import { Outlet } from "@remix-run/react";
+import { SecondaryNav } from "~/components/SecondaryNav";
+import {
+  ChartVerticalIcon,
+  EmailIcon,
+  ThemeTemplateIcon,
+  AutomationIcon,
+  AppsIcon,
+} from "@shopify/polaris-icons";
 
 /**
- * Marketing layout wrapper
+ * Marketing Section Layout
  *
- * This layout is required for nested marketing routes to render.
- * Child routes like templates.new, campaigns.create, etc. will render
- * inside the Outlet component.
+ * Groups marketing-related functionality:
+ * - Overview (dashboard with metrics and quick actions)
+ * - Campaigns (email campaigns)
+ * - Templates (email templates)
+ * - Automations (triggered email workflows)
+ * - Klaviyo (integration with Klaviyo)
+ *
+ * Uses pathless layout pattern - this file renders the secondary nav
+ * and an Outlet for child routes.
  */
 export default function MarketingLayout() {
-  return <Outlet />;
+  const navItems = [
+    { label: "Overview", to: "/app/marketing", icon: ChartVerticalIcon },
+    { label: "Campaigns", to: "/app/marketing/campaigns", icon: EmailIcon },
+    { label: "Templates", to: "/app/marketing/templates", icon: ThemeTemplateIcon },
+    { label: "Automations", to: "/app/marketing/automation/workflows", icon: AutomationIcon },
+    { label: "Klaviyo", to: "/app/marketing/klaviyo", icon: AppsIcon },
+  ];
+
+  return (
+    <>
+      <SecondaryNav items={navItems} />
+      <Outlet />
+    </>
+  );
 }
