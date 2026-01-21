@@ -50,6 +50,10 @@ const PROVIDER_MAP: Record<string, IntegrationProvider> = {
   polar: "POLAR_ANALYTICS",
   zapier: "ZAPIER",
   make: "MAKE",
+  slack: "SLACK",
+  teams: "MICROSOFT_TEAMS",
+  "microsoft-teams": "MICROSOFT_TEAMS",
+  discord: "DISCORD",
 };
 
 /**
@@ -80,6 +84,9 @@ const SHOP_HEADER_MAP: Record<IntegrationProvider, string> = {
   POLAR_ANALYTICS: "X-Shop-Domain",
   ZAPIER: "X-Shop-Domain",
   MAKE: "X-Shop-Domain",
+  SLACK: "X-Shop-Domain",
+  MICROSOFT_TEAMS: "X-Shop-Domain",
+  DISCORD: "X-Shop-Domain",
   CUSTOM_WEBHOOK: "X-Shop-Domain",
 };
 
@@ -265,6 +272,9 @@ function extractTopic(
     POLAR_ANALYTICS: ["x-polar-topic"],
     ZAPIER: ["x-rewardspro-event"], // Zapier uses our custom header
     MAKE: ["x-rewardspro-event"],
+    SLACK: ["x-slack-request-timestamp"], // Slack uses signature-based verification
+    MICROSOFT_TEAMS: ["x-teams-topic"],
+    DISCORD: ["x-discord-topic"],
     CUSTOM_WEBHOOK: ["x-webhook-topic", "x-event-type"],
   };
 

@@ -16,5 +16,8 @@ export * from "./gorgias-adapter.server";
 // P2 - Automation Integrations
 export * from "./zapier-adapter.server";
 
+// P2 - Team Notification Integrations
+export * from "./slack-adapter.server";
+
 // Re-export adapter utilities
 export { getAdapter, hasAdapter, getAvailableIntegrations } from "../integration-manager.server";

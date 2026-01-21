@@ -342,12 +342,16 @@ async function awardWebhookPoints(
     return 0;
   }
 
+  // Get current balance
+  const currentBalance = Number(customer.pointsBalance);
+  const newBalance = currentBalance + points;
+
   // Award points to customer
   await db.customer.update({
     where: { id: customer.id },
     data: {
-      totalPointsEarned: { increment: points },
-      currentPoints: { increment: points },
+      lifetimePoints: { increment: points },
+      pointsBalance: newBalance,
     },
   });
 
@@ -356,10 +360,10 @@ async function awardWebhookPoints(
     data: {
       shop,
       customerId: customer.id,
-      type: "EARNED",
-      points,
-      source: "INTEGRATION",
-      reason: `${provider} - ${result.action}`,
+      type: "ORDER_EARNED", // Points earned from integration webhook
+      amount: points,
+      balance: newBalance,
+      description: `${provider} - ${result.action}`,
       metadata: {
         provider,
         action: result.action,

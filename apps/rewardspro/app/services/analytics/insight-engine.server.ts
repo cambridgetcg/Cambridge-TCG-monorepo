@@ -11,6 +11,15 @@
 import { db } from "~/db.server";
 import { analytics } from "./aggregator.service";
 
+// Helper to safely convert Decimal/number values (Data API returns plain numbers, Prisma returns Decimal objects)
+function toNumber(value: any): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return parseFloat(value) || 0;
+  if (typeof value.toNumber === 'function') return value.toNumber();
+  return Number(value) || 0;
+}
+
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
@@ -813,7 +822,7 @@ export class InsightEngine {
       },
       _sum: { totalPrice: true },
     });
-    return result._sum.totalPrice?.toNumber() || 0;
+    return toNumber(result._sum.totalPrice);
   }
 
   private async getRevenueStats(): Promise<{ monthlyRevenue: number }> {
@@ -881,7 +890,7 @@ export class InsightEngine {
     // Get VIP tier IDs
     const vipTiers = await db.tier.findMany({
       where: { shop: this.shop },
-      orderBy: { orderIndex: 'desc' },
+      orderBy: { sortOrder: 'desc' },
       take: 1,
     });
 
@@ -892,26 +901,26 @@ export class InsightEngine {
       vipTierId ? db.customer.count({
         where: {
           shop: this.shop,
-          tierId: vipTierId,
+          currentTierId: vipTierId,
           lastOrderDate: { lt: fortyFiveDaysAgo },
         },
       }) : 0,
       // Total customers
       db.customer.count({ where: { shop: this.shop } }),
       // Tier changes in last 30 days
-      db.tierEvent.count({
+      db.tierChangeLog.count({
         where: {
           shop: this.shop,
           createdAt: { gte: thirtyDaysAgo },
-          eventType: { in: ['UPGRADE', 'DOWNGRADE'] },
+          changeType: { in: ['UPGRADE', 'DOWNGRADE'] },
         },
       }),
       // Recent upgrades
-      db.tierEvent.count({
+      db.tierChangeLog.count({
         where: {
           shop: this.shop,
           createdAt: { gte: sevenDaysAgo },
-          eventType: 'UPGRADE',
+          changeType: 'UPGRADE',
         },
       }),
     ]);
@@ -924,39 +933,48 @@ export class InsightEngine {
   private async getCashbackStats(): Promise<{ earned: number; used: number; spent: number; influencedRevenue: number }> {
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
 
-    const [earned, used, influencedOrders] = await Promise.all([
-      db.cashbackLedger.aggregate({
-        where: {
-          shop: this.shop,
-          createdAt: { gte: sixtyDaysAgo },
-          type: 'EARN',
-        },
-        _sum: { amount: true },
-      }),
-      db.cashbackLedger.aggregate({
-        where: {
-          shop: this.shop,
-          createdAt: { gte: sixtyDaysAgo },
-          type: 'REDEEM',
-        },
-        _sum: { amount: true },
-      }),
-      db.order.aggregate({
-        where: {
-          shop: this.shop,
-          createdAt: { gte: sixtyDaysAgo },
-          cashbackUsed: { gt: 0 },
-        },
-        _sum: { totalPrice: true, cashbackUsed: true },
-      }),
-    ]);
+    try {
+      const [earned, used, influencedOrders] = await Promise.all([
+        // Cashback earned - stored in StoreCreditLedger with type CASHBACK_EARNED
+        db.storeCreditLedger.aggregate({
+          where: {
+            shop: this.shop,
+            createdAt: { gte: sixtyDaysAgo },
+            type: 'CASHBACK_EARNED',
+          },
+          _sum: { amount: true },
+        }),
+        // Credit used for orders - stored in StoreCreditLedger with type ORDER_PAYMENT (negative amounts)
+        db.storeCreditLedger.aggregate({
+          where: {
+            shop: this.shop,
+            createdAt: { gte: sixtyDaysAgo },
+            type: 'ORDER_PAYMENT',
+          },
+          _sum: { amount: true },
+        }),
+        // Orders that generated cashback (influenced orders)
+        db.order.aggregate({
+          where: {
+            shop: this.shop,
+            createdAt: { gte: sixtyDaysAgo },
+            cashbackProcessed: true,
+            cashbackAmount: { not: null },
+          },
+          _sum: { totalPrice: true, cashbackAmount: true },
+        }),
+      ]);
 
-    return {
-      earned: earned._sum.amount?.toNumber() || 0,
-      used: Math.abs(used._sum.amount?.toNumber() || 0),
-      spent: influencedOrders._sum.cashbackUsed?.toNumber() || 0,
-      influencedRevenue: influencedOrders._sum.totalPrice?.toNumber() || 0,
-    };
+      return {
+        earned: toNumber(earned._sum?.amount),
+        used: Math.abs(toNumber(used._sum?.amount)), // ORDER_PAYMENT amounts are negative
+        spent: toNumber(influencedOrders._sum?.cashbackAmount),
+        influencedRevenue: toNumber(influencedOrders._sum?.totalPrice),
+      };
+    } catch (error) {
+      console.error('[InsightEngine] Error in getCashbackStats:', error);
+      return { earned: 0, used: 0, spent: 0, influencedRevenue: 0 };
+    }
   }
 
   private async getEngagementStats(): Promise<{
