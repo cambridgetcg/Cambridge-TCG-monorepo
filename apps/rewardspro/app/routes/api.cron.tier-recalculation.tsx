@@ -14,7 +14,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import db from "../db.server";
-import { recalculateTiersSmart } from "../services/tier-management.server";
+import { recalculateTiersSmart, refreshAnnualSpending } from "../services/tier-management.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "crypto";
 
@@ -117,6 +117,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       spendingBased: 0,
       none: 0,
     },
+    // Track annual spending refresh stats
+    annualSpendingRefresh: {
+      customersProcessed: 0,
+      customersUpdated: 0,
+      errors: 0,
+      totalDurationMs: 0,
+    },
     details: [] as any[]
   };
 
@@ -155,7 +162,30 @@ export async function loader({ request }: LoaderFunctionArgs) {
         log('info', `Processing ${shopSettings.shop}`);
 
         if (!isDryRun) {
-          // 5. Run tier recalculation for this shop (uses optimized path for 100+ customers)
+          // 5a. CRITICAL: Refresh annual spending BEFORE tier recalculation
+          // This ensures spending-based tier calculations use up-to-date annual spending data
+          log('info', `Refreshing annual spending for ${shopSettings.shop}`);
+          try {
+            const spendingRefreshResult = await refreshAnnualSpending(shopSettings.shop);
+            results.annualSpendingRefresh.customersProcessed += spendingRefreshResult.processed;
+            results.annualSpendingRefresh.customersUpdated += spendingRefreshResult.updated;
+            results.annualSpendingRefresh.errors += spendingRefreshResult.errors;
+            results.annualSpendingRefresh.totalDurationMs += spendingRefreshResult.duration;
+
+            log('info', `Annual spending refresh complete for ${shopSettings.shop}`, {
+              processed: spendingRefreshResult.processed,
+              updated: spendingRefreshResult.updated,
+              errors: spendingRefreshResult.errors,
+              durationMs: spendingRefreshResult.duration
+            });
+          } catch (spendingError: any) {
+            log('error', `Annual spending refresh failed for ${shopSettings.shop}`, {
+              error: spendingError.message
+            });
+            // Continue with tier recalculation even if spending refresh fails
+          }
+
+          // 5b. Run tier recalculation for this shop (uses optimized path for 100+ customers)
           const recalcResult = await recalculateTiersSmart(shopSettings.shop);
 
           // 6. Update last run timestamp
@@ -231,6 +261,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
         tierPurchase: results.bySource.tierPurchase,
         spendingBased: results.bySource.spendingBased,
         noTier: results.bySource.none,
+      },
+      // Annual spending refresh statistics
+      annualSpendingRefresh: {
+        customersProcessed: results.annualSpendingRefresh.customersProcessed,
+        customersUpdated: results.annualSpendingRefresh.customersUpdated,
+        errors: results.annualSpendingRefresh.errors,
+        durationMs: results.annualSpendingRefresh.totalDurationMs,
       },
       errors: results.errors,
       duration: Date.now() - startTime,

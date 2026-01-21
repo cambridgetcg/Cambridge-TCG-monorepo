@@ -130,20 +130,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // 5. Process refund in transaction
+    // NOTE: Webhook idempotency record is created AFTER transaction succeeds
+    // This ensures Shopify can retry if processing fails mid-way
     await db.$transaction(async (tx) => {
-      // Record webhook as processed (without payload to avoid timeout)
-      if (webhookId) {
-        await tx.webhookProcessed.create({
-          data: {
-            id: uuidv4(),
-            shop: shopDomain,
-            topic: 'orders/refunded',
-            webhookId: webhookId || uuidv4(),
-            processedAt: new Date()
-          }
-        });
-      }
-
       // Find the original order in our system
       const orderRecord = await tx.order.findFirst({
         where: {
@@ -276,6 +265,26 @@ export async function action({ request }: ActionFunctionArgs) {
         customerId: customer.id
       });
     });
+
+    // CRITICAL FIX: Record webhook as processed AFTER all operations succeed
+    // This ensures Shopify can retry if processing fails mid-way
+    if (webhookId) {
+      try {
+        await db.webhookProcessed.create({
+          data: {
+            id: uuidv4(),
+            shop: shopDomain,
+            topic: 'orders/refunded',
+            webhookId,
+            processedAt: new Date()
+          }
+        });
+        console.log(`[OrderRefunded] Webhook ${webhookId} marked as processed`);
+      } catch (e) {
+        // Duplicate or table doesn't exist - safe to ignore
+        console.log(`[OrderRefunded] Could not mark webhook as processed (duplicate or table missing)`);
+      }
+    }
 
     return json({
       success: true,

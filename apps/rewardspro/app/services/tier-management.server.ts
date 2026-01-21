@@ -506,3 +506,119 @@ export async function recalculateTiersSmart(
     optimizedPath: false,
   };
 }
+
+/**
+ * Refresh annual spending for all customers in a shop
+ *
+ * This function recalculates the annualSpent field for all customers based on
+ * their orders from the last 12 months. This is critical for spending-based
+ * tier calculations that use annual spending thresholds.
+ *
+ * Should be run BEFORE tier recalculation to ensure accurate spending data.
+ *
+ * @param shop - Shop domain
+ * @returns Statistics about the refresh operation
+ */
+export async function refreshAnnualSpending(
+  shop: string
+): Promise<{
+  processed: number;
+  updated: number;
+  errors: number;
+  duration: number;
+}> {
+  const startTime = Date.now();
+  console.log(`[Tier Management] Starting annual spending refresh for ${shop}`);
+
+  // Get the date 12 months ago
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+  let processed = 0;
+  let updated = 0;
+  let errors = 0;
+
+  try {
+    // Get all customers for this shop
+    const customers = await db.customer.findMany({
+      where: { shop },
+      select: {
+        id: true,
+        annualSpent: true,
+      }
+    });
+
+    console.log(`[Tier Management] Found ${customers.length} customers to process`);
+
+    // Process in batches of 100
+    const batchSize = 100;
+
+    for (let i = 0; i < customers.length; i += batchSize) {
+      const batch = customers.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(customers.length / batchSize);
+
+      console.log(`[Tier Management] Processing batch ${batchNumber}/${totalBatches}`);
+
+      // For each customer in the batch, calculate their annual spending
+      const updatePromises = batch.map(async (customer) => {
+        try {
+          // Calculate annual spending from orders in the last 12 months
+          const orderStats = await db.order.aggregate({
+            where: {
+              shop,
+              customerId: customer.id,
+              financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] },
+              shopifyCreatedAt: { gte: twelveMonthsAgo }
+            },
+            _sum: {
+              totalPrice: true,
+              totalRefunded: true
+            }
+          });
+
+          const totalSpentAnnual = Number(orderStats._sum.totalPrice || 0);
+          const totalRefundedAnnual = Number(orderStats._sum.totalRefunded || 0);
+          const newAnnualSpent = totalSpentAnnual - totalRefundedAnnual;
+
+          // Only update if the value has changed
+          const currentAnnualSpent = Number(customer.annualSpent || 0);
+          if (Math.abs(newAnnualSpent - currentAnnualSpent) > 0.01) {
+            await db.customer.update({
+              where: { id: customer.id },
+              data: {
+                annualSpent: newAnnualSpent,
+                updatedAt: new Date()
+              }
+            });
+            return { updated: true };
+          }
+
+          return { updated: false };
+        } catch (error) {
+          console.error(`[Tier Management] Error refreshing annual spending for customer ${customer.id}:`, error);
+          return { error: true };
+        }
+      });
+
+      const results = await Promise.all(updatePromises);
+
+      processed += batch.length;
+      updated += results.filter(r => r.updated).length;
+      errors += results.filter(r => r.error).length;
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[Tier Management] Annual spending refresh complete:`, {
+      processed,
+      updated,
+      errors,
+      durationMs: duration
+    });
+
+    return { processed, updated, errors, duration };
+  } catch (error) {
+    console.error(`[Tier Management] Error in annual spending refresh:`, error);
+    throw error;
+  }
+}

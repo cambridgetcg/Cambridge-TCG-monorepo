@@ -1,9 +1,11 @@
 import { v4 as uuidv4 } from "uuid";
 import db from "../db.server";
 import type { Decimal } from "@prisma/client/runtime/library";
+import { clawbackPoints } from "./points-ledger.server";
+import { isPointsEnabled } from "./points-config.server";
 
 /**
- * Handle refund clawback for cashback rewards
+ * Handle refund clawback for cashback AND points rewards
  * Industry standard: Revoke rewards for refunded purchases
  */
 export async function handleRefundClawback(
@@ -15,6 +17,11 @@ export async function handleRefundClawback(
   success: boolean;
   clawbackAmount: number;
   newBalance: number;
+  pointsClawback?: {
+    clawedBack: boolean;
+    amount: number;
+    reason: string;
+  };
   message: string;
 }> {
   console.log(`[Refund Handler] Processing refund for order ${shopifyOrderId}, amount: ${refundAmount}, full: ${isFullRefund}`);
@@ -35,10 +42,12 @@ export async function handleRefundClawback(
       }
 
       if (!order.cashbackAmount || Number(order.cashbackAmount) === 0) {
+        // Still return customerId for points clawback attempt
         return {
           success: true,
           clawbackAmount: 0,
           newBalance: 0,
+          customerId: order.customerId,
           message: "No cashback to clawback for this order"
         };
       }
@@ -69,10 +78,12 @@ export async function handleRefundClawback(
           }
         });
 
+        // Still return customerId for points clawback attempt
         return {
           success: true,
           clawbackAmount,
           newBalance: 0,
+          customerId: order.customerId,
           message: "Pending cashback adjusted (not yet credited)"
         };
       }
@@ -88,12 +99,14 @@ export async function handleRefundClawback(
       });
 
       if (existingClawback) {
-        console.log(`[Refund Handler] Clawback already processed for order ${shopifyOrderId}`);
+        console.log(`[Refund Handler] Cashback clawback already processed for order ${shopifyOrderId}`);
+        // Still return customerId for points clawback attempt (might not have been done)
         return {
           success: true,
           clawbackAmount: Number(existingClawback.amount) * -1, // Convert back to positive
           newBalance: Number(existingClawback.balance),
-          message: "Clawback already processed for this refund"
+          customerId: order.customerId,
+          message: "Cashback clawback already processed for this refund"
         };
       }
 
@@ -176,17 +189,71 @@ export async function handleRefundClawback(
         }
       });
 
-      console.log(`[Refund Handler] Successfully processed clawback. New balance: ${newBalance}`);
+      console.log(`[Refund Handler] Successfully processed cashback clawback. New balance: ${newBalance}`);
 
       return {
         success: true,
         clawbackAmount,
         newBalance,
-        message: `Clawback of ${clawbackAmount} processed. New balance: ${newBalance}`
+        customerId: order.customerId,
+        message: `Cashback clawback of ${clawbackAmount} processed. New balance: ${newBalance}`
       };
     });
 
-    return result;
+    // CRITICAL: Also clawback points if points system is enabled
+    // This runs outside the main transaction because clawbackPoints has its own
+    let pointsClawbackResult: { clawedBack: boolean; amount: number; reason: string } | undefined;
+
+    if (result.success && result.customerId) {
+      try {
+        // Check if points system is enabled for this shop
+        const pointsEnabled = await isPointsEnabled(shop);
+
+        if (pointsEnabled) {
+          console.log(`[Refund Handler] Points system enabled - attempting points clawback`);
+
+          // Get the internal order ID from the database
+          const order = await db.order.findFirst({
+            where: { shop, shopifyOrderId },
+            select: { id: true }
+          });
+
+          if (order) {
+            pointsClawbackResult = await clawbackPoints(
+              shop,
+              result.customerId,
+              order.id,
+              refundAmount
+            );
+
+            console.log(`[Refund Handler] Points clawback result:`, pointsClawbackResult);
+          } else {
+            pointsClawbackResult = {
+              clawedBack: false,
+              amount: 0,
+              reason: "Order not found for points clawback"
+            };
+          }
+        } else {
+          console.log(`[Refund Handler] Points system not enabled, skipping points clawback`);
+        }
+      } catch (pointsError: any) {
+        console.error(`[Refund Handler] Error processing points clawback (non-fatal):`, pointsError);
+        pointsClawbackResult = {
+          clawedBack: false,
+          amount: 0,
+          reason: `Error: ${pointsError.message}`
+        };
+      }
+    }
+
+    return {
+      ...result,
+      pointsClawback: pointsClawbackResult,
+      message: pointsClawbackResult?.clawedBack
+        ? `${result.message} | Points clawback: ${pointsClawbackResult.amount} points`
+        : result.message
+    };
   } catch (error: any) {
     console.error(`[Refund Handler] Error processing refund clawback:`, error);
     return {

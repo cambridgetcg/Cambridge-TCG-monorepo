@@ -167,20 +167,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Break up the large transaction to avoid timeouts
     const result = await withRetry(
       async () => {
-        // Step 1: Record webhook as processed (outside transaction)
-        try {
-          await db.webhookProcessed.create({
-            data: {
-              id: uuidv4(),
-              shop,
-              topic: topic || 'orders/paid',
-              webhookId,
-              processedAt: new Date(),
-            }
-          });
-        } catch (e) {
-          console.log(`[OrderPaid] Could not record webhook processing (table may not exist)`);
-        }
+        // NOTE: Webhook idempotency record is created AFTER processing succeeds
+        // This prevents partial failures from blocking Shopify retries
 
         // ========================================
         // INSPECT LINE ITEMS BEFORE PROCESSING
@@ -515,7 +503,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         maxAttempts: 2,
         shouldRetry: (error) => {
           // Don't retry on business logic errors
-          if (error.message?.includes('Invalid') || 
+          if (error.message?.includes('Invalid') ||
               error.message?.includes('not found')) {
             return false;
           }
@@ -523,7 +511,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
     );
-    
+
+    // CRITICAL FIX: Record webhook as processed AFTER all operations succeed
+    // This ensures Shopify can retry if processing fails mid-way
+    try {
+      await db.webhookProcessed.create({
+        data: {
+          id: uuidv4(),
+          shop,
+          topic: topic || 'orders/paid',
+          webhookId,
+          processedAt: new Date(),
+        }
+      });
+      logger.debug('Webhook marked as processed after successful completion');
+    } catch (e) {
+      // Table might not exist, or duplicate (another process just completed)
+      logger.debug('Could not record webhook processing (table may not exist or duplicate)');
+    }
+
     webhookLogger.info('Order processed successfully', { orderId: order.id, shop });
     return json({ success: true, data: result });
 
