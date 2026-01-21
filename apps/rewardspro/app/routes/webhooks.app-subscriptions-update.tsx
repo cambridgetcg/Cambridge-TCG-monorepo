@@ -16,6 +16,28 @@ import {
 } from "~/services/billing/webhook-processing.server";
 
 /**
+ * Map AppSubscription plan names to BillingSubscription planType
+ * for consistency with subscription-persistence.server.ts
+ */
+function mapPlanNameToPlanType(planName: string): string {
+  const basePlan = planName.replace('RewardsPro ', '').toLowerCase();
+  if (basePlan.includes('free')) return 'free';
+  if (basePlan.includes('pro')) return 'pro';
+  if (basePlan.includes('max')) return 'max';
+  if (basePlan.includes('ultra')) return 'ultra';
+  return 'free';
+}
+
+/**
+ * Calculate trial end date from trial days and created_at
+ */
+function calculateTrialEndsAt(trialDays: number | null, createdAt: string | null): Date | null {
+  if (!trialDays || trialDays <= 0 || !createdAt) return null;
+  const created = new Date(createdAt);
+  return new Date(created.getTime() + trialDays * 24 * 60 * 60 * 1000);
+}
+
+/**
  * Webhook handler for APP_SUBSCRIPTIONS_UPDATE
  * Fired when a merchant's app subscription is updated (plan changes, cancellations, etc.)
  *
@@ -210,6 +232,20 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
       // Update BillingSubscription for usage tracking
+      // FIX: Now includes ALL fields to prevent stale data
+      const planType = mapPlanNameToPlanType(subscription.name || "Free");
+      const trialEndsAt = calculateTrialEndsAt(subscription.trial_days, subscription.created_at);
+      const currentPeriodEnd = subscription.current_period_end
+        ? new Date(subscription.current_period_end)
+        : null;
+
+      console.log(`[APP_SUBSCRIPTIONS_UPDATE] BillingSubscription sync:`, {
+        shop: shopDomain,
+        planType,
+        currentPeriodEnd: currentPeriodEnd?.toISOString(),
+        trialEndsAt: trialEndsAt?.toISOString(),
+      });
+
       await tx.billingSubscription.upsert({
         where: { shop: shopDomain },
         create: {
@@ -222,6 +258,13 @@ export async function action({ request }: ActionFunctionArgs) {
           usageCappedAmount: subscription.capped_amount?.amount
             ? parseFloat(subscription.capped_amount.amount)
             : null,
+          // NEW: Previously missing fields that caused stale data
+          planType,
+          currentPeriodEnd,
+          trialEndsAt,
+          billingVersion: "graphql",
+          currentPeriodOrders: 0,
+          currentPeriodUsageFee: 0,
         },
         update: {
           subscriptionId: subscription.admin_graphql_api_id,
@@ -231,6 +274,12 @@ export async function action({ request }: ActionFunctionArgs) {
           usageCappedAmount: subscription.capped_amount?.amount
             ? parseFloat(subscription.capped_amount.amount)
             : null,
+          // NEW: Previously missing fields that caused stale data
+          planType,
+          currentPeriodEnd,
+          trialEndsAt,
+          // Note: billingVersion, currentPeriodOrders, currentPeriodUsageFee
+          // are NOT updated here to preserve existing values
         },
       });
 

@@ -173,6 +173,28 @@ type OrderSyncStats = {
   } | null;
 };
 
+type SubscriptionInfo = {
+  id: string;
+  name: string;
+  status: string;
+  test: boolean;
+  trialDays: number;
+  createdAt: string;
+  currentPeriodEnd: string | null;
+  inTrialPeriod: boolean;
+  remainingTrialDays: number;
+  usagePercentage: number;
+  recurringCharge: {
+    interval: string | null;
+    amount: string | null;
+    currencyCode: string | null;
+  } | null;
+  usageCharge: {
+    balanceUsed: { amount: string; currencyCode: string } | null;
+    cappedAmount: { amount: string; currencyCode: string } | null;
+  } | null;
+};
+
 type LoaderData = {
   settings: ShopSettings;
   shop: string;
@@ -187,6 +209,7 @@ type LoaderData = {
   // Billing data
   currentPlan?: BillingPlan | null;
   activeSubscription?: any;
+  subscriptionInfo?: SubscriptionInfo | null; // Live subscription data from GraphQL
   monthlyOrderUsage?: {
     orderCount: number;
     planLimit: number;
@@ -494,7 +517,66 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
-    // Fetch billing subscription from database (new GraphQL billing)
+    // Fetch LIVE subscription details from Shopify GraphQL (same as billing page)
+    let subscriptionInfo = null;
+    try {
+      const {
+        getSubscriptionDetails,
+        getUsageLineItem,
+        getRecurringLineItem,
+        calculateUsagePercentage,
+        isInTrialPeriod,
+        getRemainingTrialDays,
+      } = await import("~/services/billing/subscription-details.server");
+
+      const subscriptionDetails = await getSubscriptionDetails(admin);
+      const detailedSubscription = subscriptionDetails?.currentAppInstallation.activeSubscriptions[0] || null;
+
+      if (detailedSubscription) {
+        const usageLineItem = getUsageLineItem(detailedSubscription);
+        const recurringLineItem = getRecurringLineItem(detailedSubscription);
+        const usagePercentage = calculateUsagePercentage(usageLineItem);
+        const inTrialPeriod = isInTrialPeriod(detailedSubscription);
+        const remainingTrialDays = getRemainingTrialDays(detailedSubscription);
+
+        subscriptionInfo = {
+          id: detailedSubscription.id,
+          name: detailedSubscription.name,
+          status: detailedSubscription.status,
+          test: detailedSubscription.test,
+          trialDays: detailedSubscription.trialDays,
+          createdAt: detailedSubscription.createdAt,
+          currentPeriodEnd: detailedSubscription.currentPeriodEnd,
+          inTrialPeriod,
+          remainingTrialDays,
+          usagePercentage,
+          recurringCharge: recurringLineItem ? {
+            interval: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+              ? recurringLineItem.plan.pricingDetails.interval
+              : null,
+            amount: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+              ? recurringLineItem.plan.pricingDetails.price.amount
+              : null,
+            currencyCode: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+              ? recurringLineItem.plan.pricingDetails.price.currencyCode
+              : null,
+          } : null,
+          usageCharge: usageLineItem ? {
+            balanceUsed: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+              ? usageLineItem.plan.pricingDetails.balanceUsed
+              : null,
+            cappedAmount: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+              ? usageLineItem.plan.pricingDetails.cappedAmount
+              : null,
+          } : null,
+        };
+        console.log('[Settings Page] Live subscription loaded:', subscriptionInfo.name, subscriptionInfo.status);
+      }
+    } catch (error) {
+      console.error("[Settings Page] Error fetching live subscription details:", error);
+    }
+
+    // Fetch billing subscription from database as fallback
     const billingSubscription = await db.billingSubscription.findUnique({
       where: { shop },
     }).catch(() => null); // Gracefully handle if table doesn't exist yet
@@ -659,6 +741,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Billing data
       currentPlan: serializedPlan,
       activeSubscription,
+      subscriptionInfo, // Live data from Shopify GraphQL (most accurate)
       monthlyOrderUsage,
       currentMonth: getCurrentMonthName(),
       daysRemaining,
@@ -1170,6 +1253,7 @@ export default function SettingsPage() {
     orderSyncStats,
     currentPlan,
     activeSubscription,
+    subscriptionInfo, // Live subscription data from GraphQL (most accurate)
     monthlyOrderUsage,
     currentMonth,
     daysRemaining
@@ -3090,8 +3174,8 @@ export default function SettingsPage() {
                       <BlockStack gap="200">
                         <InlineStack gap="200" blockAlign="center">
                           <Text as="h2" variant="headingMd">Subscription & Billing</Text>
-                          <Badge tone={activeSubscription ? 'success' : 'info'}>
-                            {currentPlan?.planName || activeSubscription?.name || 'Free'}
+                          <Badge tone={(subscriptionInfo?.status === 'ACTIVE' || activeSubscription) ? 'success' : 'info'}>
+                            {subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'Free'}
                           </Badge>
                         </InlineStack>
                         <Text as="p" variant="bodySm" tone="subdued">
@@ -3099,17 +3183,18 @@ export default function SettingsPage() {
                         </Text>
                       </BlockStack>
 
-                      {/* Current Plan Card */}
+                      {/* Current Plan Card - Uses live subscriptionInfo data when available */}
                       <SubscriptionCard
-                        planName={currentPlan?.planName || activeSubscription?.name || 'RewardsPro Free'}
-                        status={activeSubscription?.status === 'ACTIVE' ? 'active' : currentPlan?.status === 'active' ? 'active' : 'active'}
+                        planName={subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'RewardsPro Free'}
+                        status={subscriptionInfo?.inTrialPeriod ? 'trial' : subscriptionInfo?.status === 'ACTIVE' ? 'active' : activeSubscription?.status === 'ACTIVE' ? 'active' : currentPlan?.status === 'active' ? 'active' : 'active'}
                         price={
-                          currentPlan?.planName?.includes('Pro') ? 39 :
-                          currentPlan?.planName?.includes('Max') ? 149 :
-                          currentPlan?.planName?.includes('Ultra') ? 499 : 0
+                          subscriptionInfo?.recurringCharge?.amount ? parseFloat(subscriptionInfo.recurringCharge.amount) :
+                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Pro') ? 39 :
+                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Max') ? 149 :
+                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Ultra') ? 499 : 0
                         }
-                        interval={currentPlan?.planName?.includes('Annual') ? 'annual' : 'monthly'}
-                        periodEnd={currentPlan?.currentPeriodEnd || undefined}
+                        interval={(subscriptionInfo?.recurringCharge?.interval || subscriptionInfo?.name || currentPlan?.planName)?.toLowerCase().includes('annual') ? 'annual' : 'monthly'}
+                        periodEnd={subscriptionInfo?.currentPeriodEnd || currentPlan?.currentPeriodEnd || undefined}
                         usage={monthlyOrderUsage ? {
                           current: monthlyOrderUsage.orderCount,
                           limit: monthlyOrderUsage.planLimit || 100,
@@ -3135,7 +3220,7 @@ export default function SettingsPage() {
                           <Text as="h3" variant="headingMd">Plan Benefits</Text>
                           <BlockStack gap="200">
                             {(() => {
-                              const planName = currentPlan?.planName || activeSubscription?.name || 'Free';
+                              const planName = subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'Free';
                               const benefits = planName.includes('Ultra') ? [
                                 { label: 'Unlimited orders per month', included: true },
                                 { label: 'Unlimited customers', included: true },
@@ -3187,7 +3272,7 @@ export default function SettingsPage() {
                       </Card>
 
                       {/* Upgrade CTA for non-Ultra plans */}
-                      {!(currentPlan?.planName || activeSubscription?.name || '').includes('Ultra') && (
+                      {!(subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || '').includes('Ultra') && (
                         <Card>
                           <BlockStack gap="400">
                             <InlineStack gap="300" blockAlign="center">
