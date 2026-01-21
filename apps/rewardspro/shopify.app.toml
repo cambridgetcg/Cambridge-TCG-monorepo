@@ -45,6 +45,10 @@ api_version = "2026-01"
   topics = [ "customers/create" ]
   uri = "/webhooks/customers/create"
 
+  [[webhooks.subscriptions]]
+  topics = [ "products/update" ]
+  uri = "/webhooks/products/update"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_customers,write_customers,read_orders,write_orders,read_all_orders,write_store_credit_account_transactions,read_store_credit_accounts,write_app_proxy,write_products,read_products,write_purchase_options,read_purchase_options,read_publications,read_themes,write_publications,read_product_listings,read_reports"

@@ -148,7 +148,7 @@ export class PriceSyncService {
             }
 
             // Track price history
-            await PricingManager.trackPriceHistory({
+            await SubscriptionPricingManager.trackPriceHistory({
               shop,
               sellingPlanId: plan.shopifySellingPlanId,
               oldPrice: plan.currentPrice || 0,
