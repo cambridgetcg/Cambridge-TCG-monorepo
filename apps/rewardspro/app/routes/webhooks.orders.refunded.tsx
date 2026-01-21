@@ -129,10 +129,20 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     }
 
-    // 5. Process refund in transaction
-    // NOTE: Webhook idempotency record is created AFTER transaction succeeds
-    // This ensures Shopify can retry if processing fails mid-way
-    await db.$transaction(async (tx) => {
+    // =========================================================================
+    // RACE CONDITION FIX: Restructured to prevent nested transaction conflicts
+    //
+    // Previously: Everything was in one outer transaction, but handleRefundClawback
+    // and updateCustomerToEffectiveTier create their OWN transactions internally.
+    // Nested transactions don't respect outer transaction ACID properties.
+    //
+    // Now: Transaction ONLY handles membership cancellation (atomically).
+    // Clawback and tier recalculation happen OUTSIDE with their own transaction safety.
+    // =========================================================================
+
+    // 5. STEP 1: Process membership cancellation in transaction (atomic)
+    // NOTE: Webhook idempotency record is created AFTER ALL operations succeed
+    const transactionResult = await db.$transaction(async (tx) => {
       // Find the original order in our system
       const orderRecord = await tx.order.findFirst({
         where: {
@@ -146,7 +156,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       if (!orderRecord) {
         console.log(`[OrderRefunded] Order ${refund.order_id} not found in database`);
-        return;
+        return null;
       }
 
       // Get customer
@@ -157,7 +167,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
       if (!customer) {
         console.log('[OrderRefunded] Customer not found');
-        return;
+        return null;
       }
 
       // Calculate refund amount and proportions
@@ -223,47 +233,67 @@ export async function action({ request }: ActionFunctionArgs) {
         }
       }
 
-      // 7. Process cashback clawback using refund handler service
-      const { handleRefundClawback } = await import('../services/refund-handler.server');
+      // Return data needed for subsequent operations
+      return {
+        orderRecord,
+        customer,
+        refundAmount,
+        isFullRefund,
+        tierProductRefunded
+      };
+    });
 
-      const clawbackResult = await handleRefundClawback(
-        refund.order_id.toString(),
-        shopDomain,
-        Number(refundAmount),
-        isFullRefund
-      );
+    // Exit early if transaction returned null (order/customer not found)
+    if (!transactionResult) {
+      // Still return 200 to prevent Shopify from retrying for missing data
+      return json({ success: true, message: "Order or customer not found" });
+    }
 
-      if (!clawbackResult.success) {
-        console.error(`[OrderRefunded] Clawback failed: ${clawbackResult.message}`);
-        // Continue processing even if clawback fails - don't break the whole refund
-      } else {
-        console.log(`[OrderRefunded] Clawback successful: ${clawbackResult.message}`);
-      }
+    const { orderRecord, customer, refundAmount, isFullRefund, tierProductRefunded } = transactionResult;
 
-      // Customer spending totals and order updates are now handled by handleRefundClawback
+    // 7. STEP 2: Process cashback clawback (has its own transaction safety)
+    // CRITICAL: This runs OUTSIDE the main transaction because it creates its own
+    const { handleRefundClawback } = await import('../services/refund-handler.server');
 
-      // 10. Re-evaluate tier if membership was refunded or spending changed significantly
-      if (tierProductRefunded) {
-        await updateCustomerToEffectiveTier(shopDomain, customer.id, {
-          triggeredBy: 'order_refunded',
-          orderId: orderRecord.id
-        });
-        console.log(`[OrderRefunded] Re-evaluated tier for customer ${customer.id} after membership refund`);
-      }
+    const clawbackResult = await handleRefundClawback(
+      refund.order_id.toString(),
+      shopDomain,
+      Number(refundAmount),
+      isFullRefund
+    );
 
-      // Also recalculate tier based on new spending after refund
-      const { recalculateTierAfterRefund } = await import('../services/refund-handler.server');
-      await recalculateTierAfterRefund(customer.id, shopDomain);
+    if (!clawbackResult.success) {
+      console.error(`[OrderRefunded] Clawback failed: ${clawbackResult.message}`);
+      // Continue processing even if clawback fails - don't break the whole refund
+    } else {
+      console.log(`[OrderRefunded] Clawback successful: ${clawbackResult.message}`);
+    }
 
-      // Log the refund processing
-      console.log(`[OrderRefunded] Successfully processed ${isFullRefund ? 'full' : 'partial'} refund:`, {
-        refundId: refund.id,
-        orderId: refund.order_id,
-        refundAmount: refundAmount.toString(),
-        cashbackClawback: clawbackResult.clawbackAmount,
-        tierProductRefunded,
-        customerId: customer.id
-      });
+    // 8. STEP 3: Re-evaluate tier (has its own transaction safety)
+    // RACE CONDITION FIX: Use ONLY updateCustomerToEffectiveTier - it's comprehensive
+    // Previously we called BOTH updateCustomerToEffectiveTier AND recalculateTierAfterRefund
+    // which was redundant and could cause double-processing
+    //
+    // updateCustomerToEffectiveTier handles ALL tier sources:
+    // - Manual override
+    // - Tier subscription
+    // - Tier purchase (now cancelled if refunded)
+    // - Spending-based (recalculates with new netSpent)
+    // - Default base tier
+    await updateCustomerToEffectiveTier(shopDomain, customer.id, {
+      triggeredBy: 'order_refunded',
+      orderId: orderRecord.id
+    });
+    console.log(`[OrderRefunded] Re-evaluated tier for customer ${customer.id} after refund`);
+
+    // Log the refund processing
+    console.log(`[OrderRefunded] Successfully processed ${isFullRefund ? 'full' : 'partial'} refund:`, {
+      refundId: refund.id,
+      orderId: refund.order_id,
+      refundAmount: refundAmount.toString(),
+      cashbackClawback: clawbackResult.clawbackAmount,
+      tierProductRefunded,
+      customerId: customer.id
     });
 
     // CRITICAL FIX: Record webhook as processed AFTER all operations succeed

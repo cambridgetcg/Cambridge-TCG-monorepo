@@ -52,15 +52,74 @@ export async function handleRefundClawback(
         };
       }
 
+      // =========================================================================
+      // CUMULATIVE REFUND VALIDATION: Prevent over-refunding
+      // Validates that cumulative refunds don't exceed order total
+      // =========================================================================
+      const existingRefunded = Number(order.totalRefunded) || 0;
+      const cumulativeRefund = existingRefunded + refundAmount;
+      const orderTotal = Number(order.totalPrice);
+
+      if (cumulativeRefund > orderTotal) {
+        console.warn(`[Refund Handler] WARNING: Cumulative refund (${cumulativeRefund}) exceeds order total (${orderTotal})`);
+        console.warn(`[Refund Handler] Existing refunded: ${existingRefunded}, New refund: ${refundAmount}`);
+        // Cap the effective refund amount to prevent over-clawback
+        const cappedRefundAmount = Math.max(0, orderTotal - existingRefunded);
+        console.warn(`[Refund Handler] Capping refund amount to: ${cappedRefundAmount}`);
+        refundAmount = cappedRefundAmount;
+
+        if (refundAmount <= 0) {
+          return {
+            success: true,
+            clawbackAmount: 0,
+            newBalance: 0,
+            customerId: order.customerId,
+            message: "Order already fully refunded - no additional clawback needed"
+          };
+        }
+      }
+
       // 2. Calculate clawback amount
       let clawbackAmount: number;
       if (isFullRefund) {
-        // Full refund = full clawback
-        clawbackAmount = Number(order.cashbackAmount);
+        // Full refund = full clawback of REMAINING cashback (accounting for prior partial refunds)
+        // Check for existing clawback entries to calculate remaining
+        const existingClawbacks = await tx.storeCreditLedger.aggregate({
+          where: {
+            shop,
+            shopifyOrderId,
+            type: 'REFUND_CLAWBACK'
+          },
+          _sum: { amount: true }
+        });
+        const alreadyClawedBack = Math.abs(Number(existingClawbacks._sum.amount) || 0);
+        const remainingCashback = Number(order.cashbackAmount) - alreadyClawedBack;
+        clawbackAmount = Math.max(0, remainingCashback);
+
+        if (alreadyClawedBack > 0) {
+          console.log(`[Refund Handler] Prior clawbacks detected: ${alreadyClawedBack}, remaining: ${remainingCashback}`);
+        }
       } else {
-        // Partial refund = proportional clawback
-        const refundPercentage = refundAmount / Number(order.totalPrice);
+        // Partial refund = proportional clawback based on refund percentage
+        const refundPercentage = refundAmount / orderTotal;
         clawbackAmount = Number(order.cashbackAmount) * refundPercentage;
+
+        // Ensure we don't clawback more than remaining available
+        const existingClawbacks = await tx.storeCreditLedger.aggregate({
+          where: {
+            shop,
+            shopifyOrderId,
+            type: 'REFUND_CLAWBACK'
+          },
+          _sum: { amount: true }
+        });
+        const alreadyClawedBack = Math.abs(Number(existingClawbacks._sum.amount) || 0);
+        const remainingCashback = Number(order.cashbackAmount) - alreadyClawedBack;
+        clawbackAmount = Math.min(clawbackAmount, remainingCashback);
+
+        if (alreadyClawedBack > 0) {
+          console.log(`[Refund Handler] Prior clawbacks: ${alreadyClawedBack}, capping this clawback to: ${clawbackAmount}`);
+        }
       }
 
       console.log(`[Refund Handler] Calculated clawback: ${clawbackAmount} for order ${shopifyOrderId}`);

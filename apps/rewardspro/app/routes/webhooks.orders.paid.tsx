@@ -1296,11 +1296,64 @@ async function processCashback(tx: any, params: {
     storeCredit: breakdown?.storeCreditAmount || 0
   });
 
-  // Calculate cashback only on eligible amount (excluding store credit and gift cards)
-  const cashbackAmount = (eligibleAmount * currentTier.cashbackPercent) / 100;
+  // =========================================================================
+  // NEUROSURGICAL FIX: Exclude gift card PRODUCTS and tier PRODUCTS from cashback
+  // Transaction analyzer handles payment methods, but we also need to exclude
+  // certain PRODUCT types from earning cashback:
+  // 1. Gift card products - prevents abuse loop (buy gift card, use, earn cashback, repeat)
+  // 2. Tier products - membership purchases shouldn't earn cashback on themselves
+  // =========================================================================
+  let excludedProductAmount = 0;
+
+  // Calculate gift card product value from line items
+  if (order.line_items && Array.isArray(order.line_items)) {
+    for (const item of order.line_items) {
+      // Exclude gift card products
+      if (item.gift_card === true) {
+        const itemTotal = parseFloat(item.price || '0') * (item.quantity || 1);
+        excludedProductAmount += itemTotal;
+        console.log(`[OrderPaid] Excluding gift card product from cashback: ${item.title} (${itemTotal})`);
+      }
+    }
+  }
+
+  // Check for tier product purchases in this order
+  const orderLineItems = await tx.orderLineItem.findMany({
+    where: {
+      order: {
+        shop,
+        shopifyOrderId: order.id.toString()
+      },
+      isTierProduct: true
+    },
+    select: {
+      totalPrice: true,
+      title: true
+    }
+  });
+
+  for (const tierItem of orderLineItems) {
+    const itemTotal = Number(tierItem.totalPrice);
+    excludedProductAmount += itemTotal;
+    console.log(`[OrderPaid] Excluding tier product from cashback: ${tierItem.title} (${itemTotal})`);
+  }
+
+  // Adjust eligible amount by excluding ineligible products
+  const adjustedEligibleAmount = Math.max(0, eligibleAmount - excludedProductAmount);
+
+  if (excludedProductAmount > 0) {
+    console.log(`[OrderPaid] Product exclusions applied:`, {
+      originalEligible: eligibleAmount,
+      excludedProducts: excludedProductAmount,
+      adjustedEligible: adjustedEligibleAmount
+    });
+  }
+
+  // Calculate cashback only on adjusted eligible amount
+  const cashbackAmount = (adjustedEligibleAmount * currentTier.cashbackPercent) / 100;
 
   if (cashbackAmount <= 0) {
-    console.log('[OrderPaid] No cashback eligible amount after excluding store credit/gift cards');
+    console.log('[OrderPaid] No cashback eligible amount after exclusions (store credit, gift cards, tier products)');
     return;
   }
 
@@ -1317,7 +1370,7 @@ async function processCashback(tx: any, params: {
     return;
   }
 
-  // Check if cashback already exists
+  // Check if cashback already exists (idempotency guard)
   const existingEntry = await tx.storeCreditLedger.findFirst({
     where: {
       shop,
@@ -1331,11 +1384,49 @@ async function processCashback(tx: any, params: {
     const ledgerId = uuidv4();
     const currency = shopSettings?.storeCurrency || order.currency || 'USD';
 
+    // =========================================================================
+    // TRANSACTIONAL SAFETY FIX: Create ledger entry FIRST as idempotency lock
+    // This prevents double-crediting if Shopify succeeds but subsequent ops fail
+    // 1. Create ledger with PENDING status (acts as lock)
+    // 2. Attempt Shopify sync
+    // 3. Update ledger to SYNCED if successful
+    // On retry: ledger entry exists → skip processing (even if still PENDING)
+    // =========================================================================
+
+    // Step 1: Create ledger entry FIRST with PENDING status
+    await tx.storeCreditLedger.create({
+      data: {
+        id: ledgerId,
+        customerId: customer.id,
+        shop,
+        amount: cashbackAmount,
+        balance: customer.storeCredit + cashbackAmount, // Projected balance
+        type: 'CASHBACK_EARNED',
+        shopifyOrderId: order.id.toString(),
+        orderId: orderRecord.id,
+        metadata: {
+          orderId: order.id,
+          orderName: order.name,
+          orderTotal: eligibleAmount,
+          adjustedOrderTotal: adjustedEligibleAmount,
+          excludedProductAmount: excludedProductAmount,
+          cashbackPercent: currentTier.cashbackPercent,
+          tierName: currentTier.name,
+          description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
+          paymentBreakdown: breakdown,
+          syncStatus: 'PENDING',
+          autoProcessed: false
+        },
+        createdAt: now,
+      }
+    });
+
+    console.log(`[OrderPaid] Created PENDING ledger entry ${ledgerId} for ${cashbackAmount} ${currency} (idempotency lock)`);
+
     let actualBalance = customer.storeCredit;
     let isProcessed = false;
-    let syncStatus = 'PENDING';
 
-    // If auto-processing is enabled, issue store credit to Shopify immediately
+    // Step 2: If auto-processing enabled, attempt Shopify sync
     if (autoProcessingEnabled) {
       try {
         console.log(`[OrderPaid] Auto-processing enabled - issuing store credit to Shopify`);
@@ -1353,10 +1444,9 @@ async function processCashback(tx: any, params: {
         if (result.success) {
           actualBalance = result.balance || (customer.storeCredit + cashbackAmount);
           isProcessed = true;
-          syncStatus = 'SYNCED';
           console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
 
-          // Update customer balance in database
+          // Step 3: Update ledger and customer ONLY if Shopify succeeded
           await tx.customer.update({
             where: { id: customer.id },
             data: {
@@ -1364,51 +1454,43 @@ async function processCashback(tx: any, params: {
               updatedAt: now
             }
           });
+
+          // Update ledger entry to SYNCED
+          await tx.storeCreditLedger.update({
+            where: { id: ledgerId },
+            data: {
+              balance: actualBalance,
+              metadata: {
+                orderId: order.id,
+                orderName: order.name,
+                orderTotal: eligibleAmount,
+                adjustedOrderTotal: adjustedEligibleAmount,
+                excludedProductAmount: excludedProductAmount,
+                cashbackPercent: currentTier.cashbackPercent,
+                tierName: currentTier.name,
+                description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
+                paymentBreakdown: breakdown,
+                syncStatus: 'SYNCED',
+                autoProcessed: true,
+                syncedAt: now.toISOString()
+              }
+            }
+          });
+
+          console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
         } else {
           console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
-          // Fall back to pending
-          actualBalance = customer.storeCredit; // Don't update balance
-          syncStatus = 'PENDING';
+          // Ledger remains PENDING - will be retried by reconciliation or manual process
         }
       } catch (error) {
         console.error(`[OrderPaid] Error issuing store credit:`, error);
-        // Fall back to pending
-        actualBalance = customer.storeCredit; // Don't update balance
-        syncStatus = 'PENDING';
+        // Ledger remains PENDING - Shopify sync can be retried later
       }
     } else {
-      console.log(`[OrderPaid] Auto-processing disabled - creating pending cashback entry`);
-      // Don't update customer balance - will be done manually
-      actualBalance = customer.storeCredit;
+      console.log(`[OrderPaid] Auto-processing disabled - ledger entry remains PENDING`);
     }
 
-    // Create ledger entry in local database
-    await tx.storeCreditLedger.create({
-      data: {
-        id: ledgerId,
-        customerId: customer.id,
-        shop,
-        amount: cashbackAmount,
-        balance: isProcessed ? actualBalance : (customer.storeCredit + cashbackAmount), // Future balance if not processed yet
-        type: 'CASHBACK_EARNED',
-        shopifyOrderId: order.id.toString(),
-        orderId: orderRecord.id,
-        metadata: {
-          orderId: order.id,
-          orderName: order.name,
-          orderTotal: eligibleAmount,
-          cashbackPercent: currentTier.cashbackPercent,
-          tierName: currentTier.name,
-          description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
-          paymentBreakdown: breakdown,
-          syncStatus: syncStatus,
-          autoProcessed: isProcessed
-        },
-        createdAt: now,
-      }
-    });
-
-    console.log(`[OrderPaid] Created ${isProcessed ? 'processed' : 'pending'} cashback for ${cashbackAmount} ${currency}`);
+    console.log(`[OrderPaid] Cashback processing complete: ${isProcessed ? 'SYNCED' : 'PENDING'} for ${cashbackAmount} ${currency}`);
 
     // Update Order record with cashback status
     await tx.order.update({
