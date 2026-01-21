@@ -1199,13 +1199,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
       
       // Sync prices between product and selling plans
+      // Use canonical field with legacy fallback for backward compatibility
       const syncResult = await PriceSyncService.syncProductWithSellingPlans({
         shop,
         admin,
         productId,
         variantId,
         newPrice,
-        sellingPlanGroupId: tierProduct.sellingPlanGroupId || undefined,
+        sellingPlanGroupId: tierProduct.shopifySellingPlanGroupId || tierProduct.sellingPlanGroupId || undefined,
         discountPercentage: 10, // Default discount, could be made configurable
       });
       

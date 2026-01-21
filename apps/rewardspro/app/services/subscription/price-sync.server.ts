@@ -284,7 +284,9 @@ export class PriceSyncService {
     });
 
     for (const tierProduct of tierProducts) {
-      if (!tierProduct.sellingPlanGroupId) continue;
+      // Support both canonical field and legacy field for backward compatibility
+      const sellingPlanGroupId = tierProduct.shopifySellingPlanGroupId || tierProduct.sellingPlanGroupId;
+      if (!sellingPlanGroupId) continue;
 
       // Get product price from Shopify
       const productQuery = `
@@ -316,7 +318,7 @@ export class PriceSyncService {
       const sellingPlans = await db.sellingPlan.findMany({
         where: {
           sellingPlanGroup: {
-            shopifySellingPlanGroupId: tierProduct.sellingPlanGroupId,
+            shopifySellingPlanGroupId: sellingPlanGroupId,
           },
         },
       });

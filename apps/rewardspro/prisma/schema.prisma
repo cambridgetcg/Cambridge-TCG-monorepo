@@ -286,8 +286,8 @@ model TierProduct {
 
   // Subscription Configuration
   hasSubscription           Boolean @default(false)
-  sellingPlanGroupId        String? // Links to selling plan group (local ID)
-  shopifySellingPlanGroupId String? // Shopify's ID for the selling plan group
+  sellingPlanGroupId        String? // @deprecated Use shopifySellingPlanGroupId instead. Legacy field kept for data migration.
+  shopifySellingPlanGroupId String? // CANONICAL: Shopify's GraphQL ID for the selling plan group (gid://shopify/SellingPlanGroup/xxx)
   subscriptionPlanIds       Json? // Array of selling plan IDs
 
   // Pricing

@@ -1,6 +1,14 @@
 /**
  * Tier Product Subscription Service
- * 
+ *
+ * @deprecated This service is NOT ACTIVELY USED. Consider using:
+ * - TierProductManagerEnhanced (tier-product-manager-enhanced.server.ts) for product creation
+ * - SellingPlanManager (selling-plan-manager-enhanced.server.ts) for subscription setup
+ *
+ * This file is kept for reference. The methods here lack transaction support
+ * which the enhanced manager provides.
+ *
+ * Original description:
  * Manages tier product subscriptions including:
  * - Creating subscription products in Shopify
  * - Setting up selling plans for recurring billing
@@ -115,7 +123,7 @@ export class TierProductSubscriptionService {
           purchaseType: this.determinePurchaseType(config),
           duration: config.oneTimeDurations?.[0] || null,
           hasSubscription: config.subscriptionPlans.length > 0,
-          sellingPlanGroupId,
+          shopifySellingPlanGroupId: sellingPlanGroupId, // Use canonical field
           subscriptionPlanIds: null, // Will be updated after selling plans are created
           price: config.product.price,
           oneTimePrice: config.oneTimeDurations ? config.product.price : null,
@@ -454,9 +462,11 @@ export class TierProductSubscriptionService {
       `;
 
       // Get the appropriate selling plan based on billing interval
+      // Support both canonical field and legacy field for backward compatibility
+      const sellingPlanGroupId = input.tierProduct.shopifySellingPlanGroupId || input.tierProduct.sellingPlanGroupId;
       const sellingPlan = await db.sellingPlan.findFirst({
         where: {
-          groupId: input.tierProduct.sellingPlanGroupId!,
+          groupId: sellingPlanGroupId!,
           billingInterval: input.billingInterval,
         },
       });
