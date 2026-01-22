@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useFetcher, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigate, useFetcher, useNavigation, useRouteError, isRouteErrorResponse } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import { StaggerChildren, PageLoader, usePageAnimation } from "../components/PageAnimation";
 import { useAnalytics } from "~/hooks/useAnalytics";
@@ -626,7 +626,35 @@ export function shouldRevalidate({
 // ============================================
 
 export default function Dashboard() {
+  // Debug logging - track component lifecycle
+  console.log('[Dashboard] Component function called');
+
   const data = useLoaderData<typeof loader>() as DashboardData;
+
+  // Validate data exists
+  if (!data) {
+    console.error('[Dashboard] CRITICAL: No loader data received!');
+    return (
+      <Frame>
+        <Page title="Dashboard">
+          <Banner title="Loading Error" tone="critical">
+            <p>Failed to load dashboard data. Please refresh the page.</p>
+          </Banner>
+        </Page>
+      </Frame>
+    );
+  }
+
+  console.log('[Dashboard] Loader data received:', {
+    shop: data.shop,
+    hasShopSettings: !!data.shopSettings,
+    hasWidgetStatus: !!data.widgetStatus,
+    hasWebhookStats: !!data.webhookStats,
+    hasDatabaseHealth: !!data.databaseHealth,
+    hasMonthlyOrderUsage: !!data.monthlyOrderUsage,
+    hasActiveSubscription: !!data.activeSubscription,
+  });
+
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
@@ -635,11 +663,16 @@ export default function Dashboard() {
 
   // Track dashboard view with metrics on mount
   useEffect(() => {
-    trackCustomEvent('dashboard_view', {
-      plan_name: data.monthlyOrderUsage?.planName || 'Free',
-      order_count: data.monthlyOrderUsage?.orderCount || 0,
-      webhook_status: data.webhookStats?.status || 'unknown',
-    });
+    console.log('[Dashboard] Mount useEffect - tracking analytics');
+    try {
+      trackCustomEvent('dashboard_view', {
+        plan_name: data.monthlyOrderUsage?.planName || 'Free',
+        order_count: data.monthlyOrderUsage?.orderCount || 0,
+        webhook_status: data.webhookStats?.status || 'unknown',
+      });
+    } catch (err) {
+      console.error('[Dashboard] Analytics tracking failed:', err);
+    }
   }, []); // Only track once on mount
 
   // Toast state for feature toggle feedback
@@ -1355,5 +1388,63 @@ export default function Dashboard() {
     </Page>
     {toastMarkup}
   </Frame>
+  );
+}
+
+// ============================================
+// ERROR BOUNDARY - Catches render errors
+// ============================================
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  // Log error details
+  console.error('[Dashboard ErrorBoundary] Error caught:', error);
+
+  if (isRouteErrorResponse(error)) {
+    console.error('[Dashboard ErrorBoundary] Route error response:', {
+      status: error.status,
+      statusText: error.statusText,
+      data: error.data,
+    });
+
+    return (
+      <Frame>
+        <Page title="Dashboard Error">
+          <Layout>
+            <Layout.Section>
+              <Banner title={`Error ${error.status}: ${error.statusText}`} tone="critical">
+                <p>The dashboard encountered an error.</p>
+                <p><strong>Details:</strong> {typeof error.data === 'string' ? error.data : JSON.stringify(error.data)}</p>
+                <p>Check browser console (F12) for more details.</p>
+              </Banner>
+            </Layout.Section>
+          </Layout>
+        </Page>
+      </Frame>
+    );
+  }
+
+  // Handle unknown errors
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  const errorStack = error instanceof Error ? error.stack : '';
+
+  console.error('[Dashboard ErrorBoundary] Error message:', errorMessage);
+  console.error('[Dashboard ErrorBoundary] Stack trace:', errorStack);
+
+  return (
+    <Frame>
+      <Page title="Dashboard Error">
+        <Layout>
+          <Layout.Section>
+            <Banner title="Something went wrong" tone="critical">
+              <p>The dashboard failed to load.</p>
+              <p><strong>Error:</strong> {errorMessage}</p>
+              <p>Check browser console (F12) for the full stack trace.</p>
+            </Banner>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    </Frame>
   );
 }
