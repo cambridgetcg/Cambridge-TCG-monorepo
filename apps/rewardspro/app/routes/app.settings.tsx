@@ -983,11 +983,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       try {
         console.log(`[Settings Action] ${shop} triggering manual tier recalculation`);
 
-        // Import the tier management service
-        const { recalculateTiersForAllCustomers } = await import("~/services/tier-management.server");
+        // Import the tier management service - use smart engine (same as cron job)
+        const { recalculateTiersSmart, refreshAnnualSpending } = await import("~/services/tier-management.server");
 
-        // Trigger recalculation (runs in background)
-        const result = await recalculateTiersForAllCustomers(shop);
+        // CRITICAL: Refresh annual spending BEFORE tier recalculation
+        // This ensures ANNUAL evaluation period tiers use up-to-date spending data
+        console.log(`[Settings Action] Refreshing annual spending for ${shop}`);
+        const spendingResult = await refreshAnnualSpending(shop);
+        console.log(`[Settings Action] Annual spending refreshed: ${spendingResult.updated}/${spendingResult.processed} customers updated in ${spendingResult.duration}ms`);
+
+        // Use smart engine selection (auto-selects based on customer count)
+        // < 100: LEGACY, 100-499: OPTIMIZED, 500-2499: NEURAL_V2, 2500+: NEURAL_V3
+        const result = await recalculateTiersSmart(shop);
 
         // Update last run timestamp
         await db.shopSettings.update({
@@ -998,13 +1005,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           },
         });
 
-        console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed`);
+        console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed using ${result.engine} engine in ${result.timing?.totalMs || 'N/A'}ms`);
+
+        // Build detailed message with engine info
+        const engineLabel = result.engine === 'NEURAL_V3' ? 'Neural v3' :
+                           result.engine === 'NEURAL_V2' ? 'Neural v2' :
+                           result.engine === 'OPTIMIZED' ? 'Optimized' : 'Standard';
+        const timingInfo = result.timing?.totalMs ? ` (${(result.timing.totalMs / 1000).toFixed(1)}s)` : '';
 
         return json({
           recalculationComplete: true,
           success: true,
-          message: `Tier recalculation completed: ${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`,
-          result
+          message: `Tier recalculation completed${timingInfo}: ${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`,
+          result: {
+            ...result,
+            spendingRefresh: {
+              processed: spendingResult.processed,
+              updated: spendingResult.updated,
+              duration: spendingResult.duration,
+            },
+          },
+          engine: engineLabel,
         });
       } catch (error: any) {
         console.error("[Settings Action] Error recalculating tiers:", error);
