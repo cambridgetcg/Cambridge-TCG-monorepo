@@ -613,6 +613,9 @@ export class DataAPIModelProxy<T = any> {
       // Gift Card System
       IssuedGiftCard: ['bundleType', 'status'],
       GiftCardBundle: ['bundleType'],
+      // Klaviyo Integration System
+      KlaviyoProfile: ['syncStatus', 'emailConsent', 'smsConsent'],
+      KlaviyoEvent: ['status'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -688,6 +691,11 @@ export class DataAPIModelProxy<T = any> {
       'TierGiftCardSettings',
       'IssuedGiftCard',
       'GiftCardBundle',
+      // Klaviyo Integration System
+      'KlaviyoProfile',
+      'KlaviyoEvent',
+      'KlaviyoList',
+      'KlaviyoAutomationSettings',
     ];
     return tablesWithUuidId.includes(this.tableName);
   }
@@ -746,6 +754,10 @@ export class DataAPIModelProxy<T = any> {
       rarity: '"MysteryBoxRarity"',
       // Gift Card System
       bundleType: '"GiftCardBundleType"',
+      // Klaviyo Integration System
+      syncStatus: '"KlaviyoSyncStatus"',
+      emailConsent: '"KlaviyoConsentStatus"',
+      smsConsent: '"KlaviyoConsentStatus"',
     };
 
     return enumTypes[field] || field;
@@ -801,6 +813,9 @@ export class DataAPIModelProxy<T = any> {
       IntegrationWebhook: '"IntegrationWebhookStatus"',
       // Gift Card System
       IssuedGiftCard: '"GiftCardStatus"',
+      // Klaviyo Integration System
+      KlaviyoProfile: '"KlaviyoSyncStatus"',
+      KlaviyoEvent: '"KlaviyoEventStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
@@ -1543,6 +1558,12 @@ export function createDataAPIPrismaClient() {
           sendGridDomain: new DataAPIModelProxy("SendGridDomain", txAuroraClient),
           analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", txAuroraClient),
 
+          // Klaviyo Integration models
+          klaviyoProfile: new DataAPIModelProxy("KlaviyoProfile", txAuroraClient),
+          klaviyoEvent: new DataAPIModelProxy("KlaviyoEvent", txAuroraClient),
+          klaviyoList: new DataAPIModelProxy("KlaviyoList", txAuroraClient),
+          klaviyoAutomationSettings: new DataAPIModelProxy("KlaviyoAutomationSettings", txAuroraClient),
+
           // Sync Job models
           customerSyncJob: new DataAPIModelProxy("CustomerSyncJob", txAuroraClient),
           storeCreditSyncJob: new DataAPIModelProxy("StoreCreditSyncJob", txAuroraClient),
@@ -1758,6 +1779,12 @@ export function createDataAPIPrismaClient() {
     emailEvent: new DataAPIModelProxy("EmailEvent", client),
     sendGridDomain: new DataAPIModelProxy("SendGridDomain", client),
     analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", client),
+
+    // Klaviyo Integration models
+    klaviyoProfile: new DataAPIModelProxy("KlaviyoProfile", client),
+    klaviyoEvent: new DataAPIModelProxy("KlaviyoEvent", client),
+    klaviyoList: new DataAPIModelProxy("KlaviyoList", client),
+    klaviyoAutomationSettings: new DataAPIModelProxy("KlaviyoAutomationSettings", client),
 
     // Sync Job models
     customerSyncJob: new DataAPIModelProxy("CustomerSyncJob", client),

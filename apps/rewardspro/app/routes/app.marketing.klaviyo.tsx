@@ -101,60 +101,97 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Check if OAuth is configured
-  const { isOAuthConfigured } = await import("~/services/klaviyo-oauth.server");
-  const oauthConfigured = isOAuthConfigured();
+  try {
+    console.log("[Klaviyo] Loader starting for shop:", shop);
 
-  // Get email settings
-  const emailSettings = await db.emailSettings.findUnique({
-    where: { shop },
-    select: {
-      emailProvider: true,
-      klaviyoEnabled: true,
-      klaviyoApiKey: true,
-      klaviyoPublicKey: true,
-      klaviyoDefaultListId: true,
-      klaviyoSyncProfiles: true,
-      klaviyoSyncEvents: true,
-      klaviyoLastSyncAt: true,
-      klaviyoSyncStatus: true,
-      klaviyoOAuthConnected: true,
-    },
-  });
+    // Check if OAuth is configured
+    const { isOAuthConfigured } = await import("~/services/klaviyo-oauth.server");
+    const oauthConfigured = isOAuthConfigured();
 
-  // Get automation settings
-  const automationSettings = await db.klaviyoAutomationSettings.findUnique({
-    where: { shop },
-  });
+    // Get email settings
+    console.log("[Klaviyo] Fetching email settings...");
+    const emailSettings = await db.emailSettings.findUnique({
+      where: { shop },
+      select: {
+        emailProvider: true,
+        klaviyoEnabled: true,
+        klaviyoApiKey: true,
+        klaviyoPublicKey: true,
+        klaviyoDefaultListId: true,
+        klaviyoSyncProfiles: true,
+        klaviyoSyncEvents: true,
+        klaviyoLastSyncAt: true,
+        klaviyoSyncStatus: true,
+        klaviyoOAuthConnected: true,
+      },
+    });
 
-  // Get Klaviyo lists if API key is configured
-  let klaviyoLists: Array<{ id: string; name: string }> = [];
-  if (emailSettings?.klaviyoApiKey) {
+    // Get automation settings
+    console.log("[Klaviyo] Fetching automation settings...");
+    let automationSettings = null;
     try {
-      const klaviyo = new KlaviyoService({
-        apiKey: emailSettings.klaviyoApiKey,
+      automationSettings = await db.klaviyoAutomationSettings.findUnique({
+        where: { shop },
       });
-      klaviyoLists = await klaviyo.getLists();
     } catch (error) {
-      console.error("Failed to fetch Klaviyo lists:", error);
+      console.error("[Klaviyo] Error fetching automation settings:", error);
+      // Continue without automation settings if table doesn't exist
     }
+
+    // Get Klaviyo lists if API key is configured
+    let klaviyoLists: Array<{ id: string; name: string }> = [];
+    if (emailSettings?.klaviyoApiKey) {
+      try {
+        const klaviyo = new KlaviyoService({
+          apiKey: emailSettings.klaviyoApiKey,
+        });
+        klaviyoLists = await klaviyo.getLists();
+      } catch (error) {
+        console.error("[Klaviyo] Failed to fetch Klaviyo lists:", error);
+      }
+    }
+
+    // Get sync stats - wrap in try-catch since tables may not exist
+    console.log("[Klaviyo] Fetching sync stats...");
+    let profileCount = 0;
+    let eventCount = 0;
+    try {
+      profileCount = await db.klaviyoProfile.count({ where: { shop } });
+    } catch (error) {
+      console.error("[Klaviyo] Error fetching profile count:", error);
+    }
+    try {
+      eventCount = await db.klaviyoEvent.count({
+        where: { shop, status: "SENT" },
+      });
+    } catch (error) {
+      console.error("[Klaviyo] Error fetching event count:", error);
+    }
+
+    console.log("[Klaviyo] Loader completed successfully");
+    return Response.json({
+      shop,
+      emailSettings,
+      automationSettings,
+      klaviyoLists,
+      profileCount,
+      eventCount,
+      isOAuthConfigured: oauthConfigured,
+    });
+  } catch (error) {
+    console.error("[Klaviyo] Loader error:", error);
+    // Return safe defaults so page can still render
+    return Response.json({
+      shop,
+      emailSettings: null,
+      automationSettings: null,
+      klaviyoLists: [],
+      profileCount: 0,
+      eventCount: 0,
+      isOAuthConfigured: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
   }
-
-  // Get sync stats
-  const profileCount = await db.klaviyoProfile.count({ where: { shop } });
-  const eventCount = await db.klaviyoEvent.count({
-    where: { shop, status: "SENT" },
-  });
-
-  return Response.json({
-    shop,
-    emailSettings,
-    automationSettings,
-    klaviyoLists,
-    profileCount,
-    eventCount,
-    isOAuthConfigured: oauthConfigured,
-  });
 };
 
 // ============================================
