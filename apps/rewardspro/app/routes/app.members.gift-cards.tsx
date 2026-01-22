@@ -91,75 +91,99 @@ interface LoaderData {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
-  const shop = session.shop;
 
-  // Fetch all data in parallel
-  const [config, tiers, tierSettingsArray, bundlesRaw, shopSettings] = await Promise.all([
-    db.giftCardConfig.findUnique({ where: { shop } }),
-    db.tier.findMany({
-      where: { shop },
-      orderBy: { minSpend: "asc" },
-    }),
-    db.tierGiftCardSettings.findMany({ where: { shop } }),
-    db.giftCardBundle.findMany({
-      where: { shop },
-      include: { tier: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.shopSettings.findUnique({ where: { shop } }),
-  ]);
-
-  // Convert tier settings array to lookup map
-  const tierSettings: Record<string, TierGiftCardSettings> = {};
-  for (const setting of tierSettingsArray) {
-    tierSettings[setting.tierId] = {
-      id: setting.id,
-      tierId: setting.tierId,
-      templateSuffix: setting.templateSuffix,
-      bonusPercent: Number(setting.bonusPercent) || 0,
-      canBundleWithCard: setting.canBundleWithCard,
-      bundlePrice: setting.bundlePrice ? Number(setting.bundlePrice) : null,
-    };
+  if (!session?.shop) {
+    console.error("[GiftCards] Loader: No shop in session");
+    throw new Response("Unauthorized", { status: 401 });
   }
 
-  // Transform bundles
-  const bundles: GiftCardBundle[] = bundlesRaw.map((b) => ({
-    id: b.id,
-    name: b.name,
-    tierId: b.tierId,
-    tierName: b.tier?.name || null,
-    bundleType: b.bundleType,
-    giftCardValue: Number(b.giftCardValue),
-    membershipDuration: b.membershipDuration,
-    price: Number(b.price),
-    isActive: b.isActive,
-  }));
+  const shop = session.shop;
 
-  return json<LoaderData>({
-    config: config
-      ? {
-          id: config.id,
-          enableTierBranding: config.enableTierBranding,
-          enableTierBonuses: config.enableTierBonuses,
-          enableMembershipGifts: config.enableMembershipGifts,
-          defaultTemplateSuffix: config.defaultTemplateSuffix,
-        }
-      : null,
-    tiers: tiers.map((t) => ({
-      id: t.id,
-      name: t.name,
-      cashbackPercent: t.cashbackPercent ?? 0,
-      minSpend: t.minSpend ?? 0,
-    })),
-    tierSettings,
-    bundles,
-    shopSettings: shopSettings
-      ? {
-          storeCurrency: shopSettings.storeCurrency,
-          currencyDisplayType: shopSettings.currencyDisplayType,
-        }
-      : null,
-  });
+  try {
+    // Fetch all data in parallel
+    const [config, tiers, tierSettingsArray, bundlesRaw, shopSettings] = await Promise.all([
+      db.giftCardConfig.findUnique({ where: { shop } }),
+      db.tier.findMany({
+        where: { shop },
+        orderBy: { minSpend: "asc" },
+      }),
+      db.tierGiftCardSettings.findMany({ where: { shop } }),
+      db.giftCardBundle.findMany({
+        where: { shop },
+        include: { tier: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.shopSettings.findUnique({ where: { shop } }),
+    ]);
+
+    console.log("[GiftCards] Loader: Data fetched", {
+      shop,
+      configExists: !!config,
+      tiersCount: tiers.length,
+      tierSettingsCount: tierSettingsArray.length,
+      bundlesCount: bundlesRaw.length,
+      shopSettingsExists: !!shopSettings,
+    });
+
+    // Convert tier settings array to lookup map
+    const tierSettings: Record<string, TierGiftCardSettings> = {};
+    for (const setting of tierSettingsArray) {
+      tierSettings[setting.tierId] = {
+        id: setting.id,
+        tierId: setting.tierId,
+        templateSuffix: setting.templateSuffix,
+        bonusPercent: Number(setting.bonusPercent) || 0,
+        canBundleWithCard: setting.canBundleWithCard,
+        bundlePrice: setting.bundlePrice ? Number(setting.bundlePrice) : null,
+      };
+    }
+
+    // Transform bundles
+    const bundles: GiftCardBundle[] = bundlesRaw.map((b) => ({
+      id: b.id,
+      name: b.name,
+      tierId: b.tierId,
+      tierName: b.tier?.name || null,
+      bundleType: b.bundleType,
+      giftCardValue: Number(b.giftCardValue),
+      membershipDuration: b.membershipDuration,
+      price: Number(b.price),
+      isActive: b.isActive,
+    }));
+
+    return json<LoaderData>({
+      config: config
+        ? {
+            id: config.id,
+            enableTierBranding: config.enableTierBranding,
+            enableTierBonuses: config.enableTierBonuses,
+            enableMembershipGifts: config.enableMembershipGifts,
+            defaultTemplateSuffix: config.defaultTemplateSuffix,
+          }
+        : null,
+      tiers: tiers.map((t) => ({
+        id: t.id,
+        name: t.name,
+        cashbackPercent: t.cashbackPercent ?? 0,
+        minSpend: t.minSpend ?? 0,
+      })),
+      tierSettings,
+      bundles,
+      shopSettings: shopSettings
+        ? {
+            storeCurrency: shopSettings.storeCurrency,
+            currencyDisplayType: shopSettings.currencyDisplayType,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error("[GiftCards] Loader error:", {
+      shop,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    throw new Response("Failed to load gift card settings", { status: 500 });
+  }
 };
 
 // ============================================
@@ -168,163 +192,201 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+
+  if (!session?.shop) {
+    console.error("[GiftCards] Action: No shop in session");
+    throw new Response("Unauthorized", { status: 401 });
+  }
+
   const shop = session.shop;
-  const formData = await request.formData();
+
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch (error) {
+    console.error("[GiftCards] Action: Failed to parse form data", {
+      shop,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return json({ error: "Invalid form data" }, { status: 400 });
+  }
+
   const intent = formData.get("intent") as string;
+  console.log("[GiftCards] Action:", { shop, intent });
 
-  // ---- SAVE CONFIG ----
-  if (intent === "saveConfig") {
-    const enableTierBranding = formData.get("enableTierBranding") === "true";
-    const enableTierBonuses = formData.get("enableTierBonuses") === "true";
-    const enableMembershipGifts = formData.get("enableMembershipGifts") === "true";
-    const defaultTemplateSuffix = (formData.get("defaultTemplateSuffix") as string) || null;
+  try {
+    // ---- SAVE CONFIG ----
+    if (intent === "saveConfig") {
+      const enableTierBranding = formData.get("enableTierBranding") === "true";
+      const enableTierBonuses = formData.get("enableTierBonuses") === "true";
+      const enableMembershipGifts = formData.get("enableMembershipGifts") === "true";
+      const defaultTemplateSuffix = (formData.get("defaultTemplateSuffix") as string) || null;
 
-    await db.giftCardConfig.upsert({
-      where: { shop },
-      update: {
-        enableTierBranding,
-        enableTierBonuses,
-        enableMembershipGifts,
-        defaultTemplateSuffix,
-      },
-      create: {
-        shop,
-        enableTierBranding,
-        enableTierBonuses,
-        enableMembershipGifts,
-        defaultTemplateSuffix,
-      },
+      await db.giftCardConfig.upsert({
+        where: { shop },
+        update: {
+          enableTierBranding,
+          enableTierBonuses,
+          enableMembershipGifts,
+          defaultTemplateSuffix,
+        },
+        create: {
+          shop,
+          enableTierBranding,
+          enableTierBonuses,
+          enableMembershipGifts,
+          defaultTemplateSuffix,
+        },
+      });
+
+      console.log("[GiftCards] Config saved", { shop, enableTierBranding, enableTierBonuses, enableMembershipGifts });
+      return json({ success: true, message: "Settings saved successfully" });
+    }
+
+    // ---- SAVE TIER SETTINGS ----
+    if (intent === "saveTierSettings") {
+      const tierId = formData.get("tierId") as string;
+      const templateSuffix = (formData.get("templateSuffix") as string) || null;
+      const bonusPercent = Number(formData.get("bonusPercent")) || 0;
+      const canBundleWithCard = formData.get("canBundleWithCard") === "true";
+
+      // Validate tier belongs to shop
+      const tier = await db.tier.findFirst({ where: { id: tierId, shop } });
+      if (!tier) {
+        console.warn("[GiftCards] saveTierSettings: Tier not found", { shop, tierId });
+        return json({ error: "Tier not found" }, { status: 404 });
+      }
+
+      // Validate bonus percent
+      if (bonusPercent < 0 || bonusPercent > 100) {
+        return json({ error: "Bonus must be between 0 and 100" }, { status: 400 });
+      }
+
+      await db.tierGiftCardSettings.upsert({
+        where: { tierId },
+        update: {
+          templateSuffix,
+          bonusPercent,
+          canBundleWithCard,
+        },
+        create: {
+          shop,
+          tierId,
+          templateSuffix,
+          bonusPercent,
+          canBundleWithCard,
+        },
+      });
+
+      console.log("[GiftCards] Tier settings saved", { shop, tierId, tierName: tier.name });
+      return json({ success: true, message: `${tier.name} settings saved` });
+    }
+
+    // ---- CREATE BUNDLE ----
+    if (intent === "createBundle") {
+      const name = formData.get("name") as string;
+      const tierId = formData.get("tierId") as string;
+      const bundleType = formData.get("bundleType") as string;
+      const giftCardValue = Number(formData.get("giftCardValue")) || 0;
+      const membershipDuration = formData.get("membershipDuration") as string;
+      const price = Number(formData.get("price")) || 0;
+
+      // Validate inputs
+      if (!name || name.trim().length === 0) {
+        return json({ error: "Bundle name is required" }, { status: 400 });
+      }
+      if (!tierId) {
+        return json({ error: "Tier is required" }, { status: 400 });
+      }
+      if (price <= 0) {
+        return json({ error: "Price must be greater than 0" }, { status: 400 });
+      }
+
+      // Validate tier belongs to shop
+      const tier = await db.tier.findFirst({ where: { id: tierId, shop } });
+      if (!tier) {
+        console.warn("[GiftCards] createBundle: Tier not found", { shop, tierId });
+        return json({ error: "Tier not found" }, { status: 404 });
+      }
+
+      const bundle = await db.giftCardBundle.create({
+        data: {
+          shop,
+          name: name.trim(),
+          tierId,
+          bundleType: bundleType as "VALUE_ONLY" | "MEMBERSHIP_ONLY" | "VALUE_PLUS_MEMBERSHIP",
+          giftCardValue,
+          membershipDuration: membershipDuration || null,
+          price,
+          isActive: true,
+        },
+      });
+
+      console.log("[GiftCards] Bundle created", { shop, bundleId: bundle.id, name });
+      return json({ success: true, message: "Bundle created successfully" });
+    }
+
+    // ---- UPDATE BUNDLE ----
+    if (intent === "updateBundle") {
+      const id = formData.get("id") as string;
+      const name = formData.get("name") as string;
+      const bundleType = formData.get("bundleType") as string;
+      const giftCardValue = Number(formData.get("giftCardValue")) || 0;
+      const membershipDuration = formData.get("membershipDuration") as string;
+      const price = Number(formData.get("price")) || 0;
+      const isActive = formData.get("isActive") === "true";
+
+      // Validate bundle belongs to shop
+      const bundle = await db.giftCardBundle.findFirst({ where: { id, shop } });
+      if (!bundle) {
+        console.warn("[GiftCards] updateBundle: Bundle not found", { shop, bundleId: id });
+        return json({ error: "Bundle not found" }, { status: 404 });
+      }
+
+      await db.giftCardBundle.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+          bundleType: bundleType as "VALUE_ONLY" | "MEMBERSHIP_ONLY" | "VALUE_PLUS_MEMBERSHIP",
+          giftCardValue,
+          membershipDuration: membershipDuration || null,
+          price,
+          isActive,
+        },
+      });
+
+      console.log("[GiftCards] Bundle updated", { shop, bundleId: id, name, isActive });
+      return json({ success: true, message: "Bundle updated successfully" });
+    }
+
+    // ---- DELETE BUNDLE ----
+    if (intent === "deleteBundle") {
+      const id = formData.get("id") as string;
+
+      // Validate bundle belongs to shop
+      const bundle = await db.giftCardBundle.findFirst({ where: { id, shop } });
+      if (!bundle) {
+        console.warn("[GiftCards] deleteBundle: Bundle not found", { shop, bundleId: id });
+        return json({ error: "Bundle not found" }, { status: 404 });
+      }
+
+      await db.giftCardBundle.delete({ where: { id } });
+
+      console.log("[GiftCards] Bundle deleted", { shop, bundleId: id });
+      return json({ success: true, message: "Bundle deleted" });
+    }
+
+    console.warn("[GiftCards] Unknown intent", { shop, intent });
+    return json({ error: "Unknown action" }, { status: 400 });
+  } catch (error) {
+    console.error("[GiftCards] Action error:", {
+      shop,
+      intent,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
-
-    return json({ success: true, message: "Settings saved successfully" });
+    return json({ error: "An unexpected error occurred" }, { status: 500 });
   }
-
-  // ---- SAVE TIER SETTINGS ----
-  if (intent === "saveTierSettings") {
-    const tierId = formData.get("tierId") as string;
-    const templateSuffix = (formData.get("templateSuffix") as string) || null;
-    const bonusPercent = Number(formData.get("bonusPercent")) || 0;
-    const canBundleWithCard = formData.get("canBundleWithCard") === "true";
-
-    // Validate tier belongs to shop
-    const tier = await db.tier.findFirst({ where: { id: tierId, shop } });
-    if (!tier) {
-      return json({ error: "Tier not found" }, { status: 404 });
-    }
-
-    // Validate bonus percent
-    if (bonusPercent < 0 || bonusPercent > 100) {
-      return json({ error: "Bonus must be between 0 and 100" }, { status: 400 });
-    }
-
-    await db.tierGiftCardSettings.upsert({
-      where: { tierId },
-      update: {
-        templateSuffix,
-        bonusPercent,
-        canBundleWithCard,
-      },
-      create: {
-        shop,
-        tierId,
-        templateSuffix,
-        bonusPercent,
-        canBundleWithCard,
-      },
-    });
-
-    return json({ success: true, message: `${tier.name} settings saved` });
-  }
-
-  // ---- CREATE BUNDLE ----
-  if (intent === "createBundle") {
-    const name = formData.get("name") as string;
-    const tierId = formData.get("tierId") as string;
-    const bundleType = formData.get("bundleType") as string;
-    const giftCardValue = Number(formData.get("giftCardValue")) || 0;
-    const membershipDuration = formData.get("membershipDuration") as string;
-    const price = Number(formData.get("price")) || 0;
-
-    // Validate inputs
-    if (!name || name.trim().length === 0) {
-      return json({ error: "Bundle name is required" }, { status: 400 });
-    }
-    if (!tierId) {
-      return json({ error: "Tier is required" }, { status: 400 });
-    }
-    if (price <= 0) {
-      return json({ error: "Price must be greater than 0" }, { status: 400 });
-    }
-
-    // Validate tier belongs to shop
-    const tier = await db.tier.findFirst({ where: { id: tierId, shop } });
-    if (!tier) {
-      return json({ error: "Tier not found" }, { status: 404 });
-    }
-
-    await db.giftCardBundle.create({
-      data: {
-        shop,
-        name: name.trim(),
-        tierId,
-        bundleType: bundleType as "VALUE_ONLY" | "MEMBERSHIP_ONLY" | "VALUE_PLUS_MEMBERSHIP",
-        giftCardValue,
-        membershipDuration: membershipDuration || null,
-        price,
-        isActive: true,
-      },
-    });
-
-    return json({ success: true, message: "Bundle created successfully" });
-  }
-
-  // ---- UPDATE BUNDLE ----
-  if (intent === "updateBundle") {
-    const id = formData.get("id") as string;
-    const name = formData.get("name") as string;
-    const bundleType = formData.get("bundleType") as string;
-    const giftCardValue = Number(formData.get("giftCardValue")) || 0;
-    const membershipDuration = formData.get("membershipDuration") as string;
-    const price = Number(formData.get("price")) || 0;
-    const isActive = formData.get("isActive") === "true";
-
-    // Validate bundle belongs to shop
-    const bundle = await db.giftCardBundle.findFirst({ where: { id, shop } });
-    if (!bundle) {
-      return json({ error: "Bundle not found" }, { status: 404 });
-    }
-
-    await db.giftCardBundle.update({
-      where: { id },
-      data: {
-        name: name.trim(),
-        bundleType: bundleType as "VALUE_ONLY" | "MEMBERSHIP_ONLY" | "VALUE_PLUS_MEMBERSHIP",
-        giftCardValue,
-        membershipDuration: membershipDuration || null,
-        price,
-        isActive,
-      },
-    });
-
-    return json({ success: true, message: "Bundle updated successfully" });
-  }
-
-  // ---- DELETE BUNDLE ----
-  if (intent === "deleteBundle") {
-    const id = formData.get("id") as string;
-
-    // Validate bundle belongs to shop
-    const bundle = await db.giftCardBundle.findFirst({ where: { id, shop } });
-    if (!bundle) {
-      return json({ error: "Bundle not found" }, { status: 404 });
-    }
-
-    await db.giftCardBundle.delete({ where: { id } });
-
-    return json({ success: true, message: "Bundle deleted" });
-  }
-
-  return json({ error: "Unknown action" }, { status: 400 });
 };
 
 // ============================================
