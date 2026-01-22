@@ -215,6 +215,7 @@ interface AnalyticsData {
     averageTransactionFee: string | null;
     averageReturnRate: string | null;
     metricsLastUpdated: string | null;
+    metricsLastUpdatedDisplay: string | null; // Pre-formatted for consistent SSR/CSR
     advancedAnalyticsEnabled: boolean;
   } | null;
 
@@ -687,6 +688,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         averageTransactionFee: shopSettings.averageTransactionFee?.toString() || null,
         averageReturnRate: shopSettings.averageReturnRate?.toString() || null,
         metricsLastUpdated: shopSettings.metricsLastUpdated?.toISOString() || null,
+        // Pre-format date to avoid hydration mismatch (server/client locale differences)
+        metricsLastUpdatedDisplay: shopSettings.metricsLastUpdated
+          ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(shopSettings.metricsLastUpdated)
+          : null,
         advancedAnalyticsEnabled: (shopSettings as any).advancedAnalyticsEnabled ?? false,
       } : null,
 
@@ -2500,9 +2505,9 @@ export default function AnalyticsPage() {
                             <Text variant="bodyMd" tone="subdued" as="p">
                               Configure your store's financial metrics to enable accurate ROI calculations and profit analysis
                             </Text>
-                            {data.shopSettings?.metricsLastUpdated && (
+                            {data.shopSettings?.metricsLastUpdatedDisplay && (
                               <Text variant="bodySm" tone="subdued" as="p">
-                                Last updated: {new Date(data.shopSettings.metricsLastUpdated).toLocaleDateString()}
+                                Last updated: {data.shopSettings.metricsLastUpdatedDisplay}
                               </Text>
                             )}
                           </BlockStack>
