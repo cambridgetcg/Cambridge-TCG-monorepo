@@ -702,6 +702,7 @@ model StoreCreditLedger {
   @@index([type])
   @@index([createdAt])
   @@index([customerId, expiresAt]) // Speed up expiring points queries
+  @@index([customerId, shop, createdAt(sort: Desc)]) // Optimize transaction history queries
 }
 
 // ============================================

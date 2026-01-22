@@ -65,6 +65,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     }
     
     // Fetch credit ledger history
+    // Uses composite index: (customerId, shop, createdAt DESC)
     const creditHistory = await db.storeCreditLedger.findMany({
       where: {
         customerId: customer.id,
@@ -73,7 +74,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       orderBy: {
         createdAt: 'desc'
       },
-      take: 20 // Limit to recent 20 entries
+      take: 50 // Increased from 20 to avoid duplicate fetch in StoreCreditTab
     });
     
     // Fetch tier change logs

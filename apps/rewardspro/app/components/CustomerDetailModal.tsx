@@ -449,6 +449,7 @@ export function CustomerDetailModal({
                       } : null
                     }}
                     shopSettings={details.shopSettings}
+                    initialTransactions={details.creditHistory}
                   />
                 </Box>
               )}

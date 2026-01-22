@@ -29,6 +29,16 @@ import { CreditAdjustmentForm } from "./CreditAdjustmentForm";
 // Track which action is currently in progress for granular button states
 type ActionType = 'none' | 'add' | 'remove';
 
+interface Transaction {
+  id: string;
+  amount: string;
+  balance: string;
+  type: string;
+  shopifyOrderId: string | null;
+  metadata: any;
+  createdAt: string;
+}
+
 interface StoreCreditTabProps {
   customer: {
     id: string;
@@ -44,16 +54,19 @@ interface StoreCreditTabProps {
     storeCurrency: string;
     currencyDisplayType: string;
   } | null;
+  /** Pre-loaded transactions from customer details API to avoid duplicate fetch */
+  initialTransactions?: Transaction[];
 }
 
-export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) {
+export function StoreCreditTab({ customer, shopSettings, initialTransactions }: StoreCreditTabProps) {
   // Use separate fetchers for transactions (background) vs actions (user-initiated)
   const transactionFetcher = useFetcher();
   const actionFetcher = useFetcher();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  // Initialize with pre-loaded transactions to avoid duplicate fetch
+  const [transactions, setTransactions] = useState<any[]>(initialTransactions || []);
   const [transactionSearch, setTransactionSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPageSize, setSelectedPageSize] = useState(25);
@@ -70,15 +83,22 @@ export function StoreCreditTab({ customer, shopSettings }: StoreCreditTabProps) 
     : customer.storeCredit;
   const [currentBalance, setCurrentBalance] = useState(initialBalance);
 
-  // Load transactions when component mounts or customer changes
+  // Update transactions if initialTransactions prop changes (e.g., different customer)
+  // Only fetch from server if no initial data provided
   useEffect(() => {
-    loadTransactions();
+    if (initialTransactions && initialTransactions.length > 0) {
+      // Use pre-loaded data - no fetch needed
+      setTransactions(initialTransactions);
+    } else if (!initialTransactions) {
+      // Fallback: fetch if no initial data (backward compatibility)
+      loadTransactions();
+    }
     // Update balance when customer prop changes
     const newBalance = typeof customer.storeCredit === 'string'
       ? parseFloat(customer.storeCredit)
       : customer.storeCredit;
     setCurrentBalance(newBalance);
-  }, [customer.id, customer.storeCredit]);
+  }, [customer.id, customer.storeCredit, initialTransactions]);
 
   // Watch for transaction fetcher responses (background loading)
   useEffect(() => {
