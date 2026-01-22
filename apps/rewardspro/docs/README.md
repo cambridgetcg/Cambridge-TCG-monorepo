@@ -8,19 +8,17 @@
 
 | I want to... | Go to... |
 |--------------|----------|
-| Set up my environment | [Local Setup](./01-getting-started/local-setup.md) |
-| Understand the architecture | [Architecture](./01-getting-started/architecture.md) |
-| Deploy to production | [Deployment](./03-deployment/deployment.md) |
-| Copy security code patterns | [Security Patterns](./08-security/security-patterns.md) |
-| Fix a common issue | [Troubleshooting](./06-troubleshooting/01-common-issues.md) |
-
-{% hint style="warning" %}
-**Security First:** Read [Authentication](./08-security/authentication.md) before writing code.
-{% endhint %}
+| Understand the system | [CLAUDE.md](../CLAUDE.md) (AI context) |
+| Learn the tier system | [Tier System](./01-architecture/tier-system.md) |
+| Set up my environment | [Node Requirements](./01-getting-started/03-node-version-requirements.md) |
+| Write TypeScript code | [TypeScript Guide](./02-development/typescript-guide.md) |
+| Deploy to production | [Deployment Guide](./03-deployment/deployment-guide.md) |
+| Fix a security issue | [Security Hub](./05-security/README.md) |
+| Debug a problem | [Troubleshooting](./06-troubleshooting/01-common-issues.md) |
 
 ---
 
-## Essential Security Rules
+## Essential Rules
 
 | Rule | Requirement |
 |------|-------------|
@@ -28,79 +26,64 @@
 | Every database query | Must include `shop: session.shop` |
 | Every webhook | Must verify HMAC before processing |
 
-For copy-paste code patterns, see [Security Patterns](./08-security/security-patterns.md).
+For copy-paste patterns, see [CLAUDE.md](../CLAUDE.md) or [Security Hub](./05-security/README.md).
 
 ---
 
-## Documentation
+## Documentation Index
 
-### Setup
+### 01 - Architecture
 
-Getting started and environment setup.
+System design and core concepts.
 
 | Page | Description |
 |------|-------------|
-| [Architecture](./01-getting-started/architecture.md) | System design and tech stack |
-| [Local Setup](./01-getting-started/local-setup.md) | Development environment |
-| [Node Requirements](./01-getting-started/03-node-version-requirements.md) | Node.js version |
+| [Tier System](./01-architecture/tier-system.md) | Tier purchase flow, resolution, debugging |
 
-### Guides
+### 02 - Development
 
 Development patterns and best practices.
 
 | Page | Description |
 |------|-------------|
-| [Database](./02-development/database.md) | Prisma, queries, migrations |
-| [TypeScript Patterns](./02-development/02-typescript-remix-patterns.md) | Remix patterns |
-| [Webhooks](./02-development/webhook-best-practices.md) | Webhook implementation |
+| [TypeScript Guide](./02-development/typescript-guide.md) | Unified TypeScript + Remix + Shopify patterns |
 | [Performance](./02-development/04-performance-optimization.md) | Optimization techniques |
-| [GraphQL](./02-development/shopify-graphql-api-guide.md) | Shopify API usage |
+| [Responsive Design](./02-development/05-responsive-design.md) | Polaris responsive patterns |
+| [Testing Guide](./02-development/06-testing-guide.md) | Unit, integration, E2E testing |
+| [API Integration](./02-development/07-api-data-sync.md) | Customer sync, data flow |
+| [GraphQL API](./02-development/shopify-graphql-api-guide.md) | Shopify API reference |
+| [Webhooks](./02-development/webhook-best-practices.md) | Webhook implementation |
 
-### Deploy
+### 03 - Deployment
 
 Deployment and infrastructure.
 
 | Page | Description |
 |------|-------------|
-| [Deployment](./03-deployment/deployment.md) | Full deployment process |
-| [Vercel Setup](./03-deployment/02-vercel-environment-setup.md) | Vercel configuration |
-| [AWS Aurora](./03-deployment/aws-aurora-data-api-guide.md) | Database setup |
-| [Deploy Checklist](./03-deployment/deployment-checklist.md) | Pre-deploy verification |
+| [Deployment Guide](./03-deployment/deployment-guide.md) | Vercel + Aurora deployment |
+| [AWS IAM](./03-deployment/05-aws-iam-configuration.md) | IAM setup for Data API |
+| [Checklist](./03-deployment/deployment-checklist.md) | Pre-deploy verification |
 
-### Design
+### 04 - UI Components
 
-UI components and Polaris patterns.
-
-| Page | Description |
-|------|-------------|
-| [Polaris Overview](./04-ui-components/01-polaris-overview.md) | Design system intro |
-| [RewardsPro Patterns](./04-ui-components/rewardspro-patterns.md) | App-specific UI |
-| [Forms](./04-ui-components/03-forms-guide.md) | Form implementation |
-| [Design Tokens](./04-ui-components/09-design-tokens.md) | Styling reference |
-
-### Reference
-
-Quick lookup documentation.
+UI patterns and Polaris components.
 
 | Page | Description |
 |------|-------------|
-| [Prisma Schema](./05-reference/prisma-schema-reference.md) | Database models |
-| [Routes](./05-reference/APP_ROUTES_REFERENCE.md) | All app routes |
-| [Components](./05-reference/COMPONENTS_REFERENCE.md) | Component reference |
-| [Security Checklist](./05-reference/security-checklist.md) | Quick security check |
+| [Component Overview](./04-ui-components/README.md) | Polaris patterns, design tokens |
 
-### Security
+### 05 - Security
 
-Authentication, authorization, and protection.
+Security audits and patterns.
 
 | Page | Description |
 |------|-------------|
-| [Security Patterns](./08-security/security-patterns.md) | Copy-paste code |
-| [Authentication](./08-security/authentication.md) | Auth deep dive |
-| [Shopify Auth](./08-security/shopify-auth.md) | Shopify-specific |
-| [Pre-Deploy Checklist](./08-security/checklist.md) | Full audit |
+| [Security Hub](./05-security/README.md) | Central security reference |
+| [General Audit](./05-security/general-audit.md) | Overall security findings |
+| [Merchant Audit](./05-security/merchant-audit.md) | Admin user security |
+| [Customer Audit](./05-security/customer-audit.md) | End-user security |
 
-### Troubleshooting
+### 06 - Troubleshooting
 
 Debugging and issue resolution.
 
@@ -109,58 +92,53 @@ Debugging and issue resolution.
 | [Common Issues](./06-troubleshooting/01-common-issues.md) | Frequent problems |
 | [Debug Guide](./06-troubleshooting/02-debug-communications.md) | API debugging |
 
-### Roadmap
+### 07 - Roadmap
 
 Planned features and improvements.
 
 | Page | Description |
 |------|-------------|
-| [Feature Status](./09-project-management/FEATURE_STATUS.md) | Completion tracking |
-| [Implementation Roadmap](./09-project-management/IMPLEMENTATION_ROADMAP.md) | Development phases |
-| [Changelog](./09-project-management/CHANGELOG.md) | Version history |
+| [Analytics Plan](./09-project-management/ANALYTICS_IMPLEMENTATION_PLAN.md) | Analytics expansion |
+| [Onboarding Plan](./09-project-management/ONBOARDING_IMPLEMENTATION_GUIDE.md) | User onboarding |
 
 ---
 
 ## Learning Paths
 
-### Day 1
+### Day 1 - Getting Started
 
-1. [Architecture](./01-getting-started/architecture.md)
-2. [Local Setup](./01-getting-started/local-setup.md)
-3. [Authentication](./08-security/authentication.md)
+1. Read [CLAUDE.md](../CLAUDE.md) for system overview
+2. Review [Tier System](./01-architecture/tier-system.md) for core concepts
+3. Check [TypeScript Guide](./02-development/typescript-guide.md) for patterns
 
 ### Building Features
 
-1. [Security Patterns](./08-security/security-patterns.md)
-2. [Database](./02-development/database.md)
-3. [Polaris Overview](./04-ui-components/01-polaris-overview.md)
+1. [TypeScript Guide](./02-development/typescript-guide.md) - Coding patterns
+2. [Security Hub](./05-security/README.md) - Required security patterns
+3. [Testing Guide](./02-development/06-testing-guide.md) - Testing approach
 
 ### Before Deploying
 
-1. [Security Checklist](./05-reference/security-checklist.md)
-2. [Deploy Checklist](./03-deployment/deployment-checklist.md)
-3. [Deployment](./03-deployment/deployment.md)
+1. [Security Hub](./05-security/README.md) - Security checklist
+2. [Deployment Guide](./03-deployment/deployment-guide.md) - Deployment process
+3. [Checklist](./03-deployment/deployment-checklist.md) - Pre-deploy verification
 
 ---
 
-## Frequently Asked Questions
+## File Conventions
 
-### Where do I find code examples?
-
-Most guides include examples. For security code, see [Security Patterns](./08-security/security-patterns.md). For comprehensive patterns, see [CLAUDE.md](../CLAUDE.md).
-
-### What should I read before deploying?
-
-Complete [Security Checklist](./05-reference/security-checklist.md) and [Deploy Checklist](./03-deployment/deployment-checklist.md).
-
-### How do I report a documentation issue?
-
-Update docs directly. Follow [GitBook Style Guide](./GITBOOK_STYLE_GUIDE.md).
+| Type | Pattern | Example |
+|------|---------|---------|
+| Server-only | `*.server.ts` | `tier-resolution.server.ts` |
+| Route | `app.{name}.tsx` | `app.customers.tsx` |
+| API route | `api.{name}.tsx` | `api.customer-lookup.tsx` |
+| Webhook | `webhooks.{topic}.tsx` | `webhooks.orders.paid.tsx` |
 
 ---
 
 ## External Resources
 
 - [Shopify Polaris](https://polaris.shopify.com)
-- [Prisma Docs](https://www.prisma.io/docs)
+- [Shopify App Remix](https://shopify.dev/docs/api/shopify-app-remix)
+- [Prisma Docs](https://prisma.io/docs)
 - [Remix Docs](https://remix.run/docs)

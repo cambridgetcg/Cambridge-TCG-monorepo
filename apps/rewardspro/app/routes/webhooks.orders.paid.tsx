@@ -11,14 +11,12 @@ import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscrip
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { sendTierUpgradeEmailNotification } from "../services/email-notifications.server";
 import { withRetry } from "../utils/retry";
-import { validatePrice } from "../utils/price-validation";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
 import {
-  extractNumericId,
-  normalizeSku,
-  findMatchingTierProduct,
-  analyzeTierProductMismatch,
-} from "../utils/shopify-id-normalizer";
+  TierProductMatcher,
+  TierProductPurchaseService,
+  tierPurchaseExists,
+} from "../services/tier-products";
 import { trackOrderForKlaviyo } from "../services/email-provider.server";
 import { isKlaviyoEnabled } from "../services/klaviyo.server";
 import {
@@ -593,7 +591,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 };
 
-async function processLineItem(tx: any, params: {
+async function processLineItem(_tx: any, params: {
   shop: string;
   admin: any;
   order: any;
@@ -606,76 +604,24 @@ async function processLineItem(tx: any, params: {
   console.log('║                    TIER PRODUCT RECOGNITION - LINE ITEM                      ║');
   console.log('╚══════════════════════════════════════════════════════════════════════════════╝');
 
-  // ============================================
-  // SECTION 1: RAW LINE ITEM DATA (from Shopify webhook)
-  // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 1: RAW LINE ITEM DATA (from Shopify Webhook)                        │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
-  console.log('[TPR] Line Item ID:      ', lineItem.id, `(type: ${typeof lineItem.id})`);
-  console.log('[TPR] Product ID:        ', lineItem.product_id, `(type: ${typeof lineItem.product_id})`);
-  console.log('[TPR] Variant ID:        ', lineItem.variant_id, `(type: ${typeof lineItem.variant_id})`);
-  console.log('[TPR] SKU:               ', lineItem.sku, `(type: ${typeof lineItem.sku})`);
-  console.log('[TPR] Title:             ', lineItem.title);
-  console.log('[TPR] Name:              ', lineItem.name);
-  console.log('[TPR] Price:             ', lineItem.price, order.currency);
-  console.log('[TPR] Quantity:          ', lineItem.quantity);
-  console.log('[TPR] Vendor:            ', lineItem.vendor);
-  console.log('[TPR] Product Exists:    ', lineItem.product_exists);
-  console.log('[TPR] Fulfillable Qty:   ', lineItem.fulfillable_quantity);
-  console.log('[TPR] Fulfillment Status:', lineItem.fulfillment_status);
-  console.log('[TPR] Gift Card:         ', lineItem.gift_card);
-  console.log('[TPR] Taxable:           ', lineItem.taxable);
-  console.log('[TPR] Properties:        ', JSON.stringify(lineItem.properties || []));
+  // Log raw line item data for debugging
+  console.log('[TPR] Line Item:', {
+    id: lineItem.id,
+    product_id: lineItem.product_id,
+    variant_id: lineItem.variant_id,
+    sku: lineItem.sku,
+    title: lineItem.title || lineItem.name,
+    price: lineItem.price,
+    quantity: lineItem.quantity,
+    has_selling_plan: !!lineItem.selling_plan_allocation,
+  });
 
   // ============================================
-  // SECTION 2: NORMALIZED VALUES FOR MATCHING
+  // SUBSCRIPTION CHECK (handled by matcher, but route separately)
   // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 2: NORMALIZED VALUES FOR MATCHING                                   │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
-
-  // Use the Shopify ID normalizer to extract numeric IDs from any format
-  // This handles both REST API IDs (123456789) and GraphQL IDs (gid://shopify/Product/123456789)
-  const normalizedProductId = extractNumericId(lineItem.product_id);
-  const normalizedVariantId = extractNumericId(lineItem.variant_id);
-  const normalizedSku = normalizeSku(lineItem.sku);
-
-  // Also keep raw values for logging
-  const rawProductId = lineItem.product_id?.toString() || null;
-  const rawVariantId = lineItem.variant_id?.toString() || null;
-  const rawSku = lineItem.sku || null;
-
-  console.log('[TPR] Raw Product ID:        ', `"${rawProductId}"`, rawProductId ? `(type: ${typeof lineItem.product_id})` : '(null)');
-  console.log('[TPR] Raw Variant ID:        ', `"${rawVariantId}"`, rawVariantId ? `(type: ${typeof lineItem.variant_id})` : '(null)');
-  console.log('[TPR] Raw SKU:               ', `"${rawSku}"`);
-  console.log('[TPR] Normalized Product ID: ', `"${normalizedProductId}"`, normalizedProductId !== rawProductId ? '(extracted from GID)' : '');
-  console.log('[TPR] Normalized Variant ID: ', `"${normalizedVariantId}"`, normalizedVariantId !== rawVariantId ? '(extracted from GID)' : '');
-  console.log('[TPR] Normalized SKU:        ', `"${normalizedSku}"`, normalizedSku !== rawSku ? '(normalized: uppercase, trimmed)' : '');
-  console.log('[TPR] Shop:                  ', `"${shop}"`);
-
-  // ============================================
-  // SECTION 3: SUBSCRIPTION CHECK
-  // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 3: SUBSCRIPTION CHECK                                               │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
-
-  const sellingPlanAllocation = lineItem.selling_plan_allocation;
-  const isSubscription = !!sellingPlanAllocation;
-
-  console.log('[TPR] Has selling_plan_allocation:', isSubscription);
-  if (sellingPlanAllocation) {
-    console.log('[TPR] Selling Plan ID:            ', sellingPlanAllocation.selling_plan_id);
-    console.log('[TPR] Selling Plan Group ID:      ', sellingPlanAllocation.selling_plan_group_id);
-    console.log('[TPR] Full Allocation:            ', JSON.stringify(sellingPlanAllocation, null, 2));
-  }
-
-  if (isSubscription) {
+  if (lineItem.selling_plan_allocation) {
     console.log('[TPR] ✅ SUBSCRIPTION DETECTED - Routing to TierSubscriptionBridgeV2');
-    console.log('══════════════════════════════════════════════════════════════════════════════\n');
-
-    const contractId = sellingPlanAllocation.selling_plan_id;
+    const contractId = lineItem.selling_plan_allocation.selling_plan_id;
 
     return await TierSubscriptionBridgeV2.handleTierSubscriptionPurchase({
       shop,
@@ -684,7 +630,7 @@ async function processLineItem(tx: any, params: {
       customerShopifyId: order.customer?.id?.toString() || '',
       lineItem,
       orderId: order.id.toString(),
-      sellingPlanId: sellingPlanAllocation.selling_plan_id,
+      sellingPlanId: lineItem.selling_plan_allocation.selling_plan_id,
       contractId,
     });
   }
@@ -692,570 +638,140 @@ async function processLineItem(tx: any, params: {
   console.log('[TPR] ℹ️  Not a subscription - checking for one-time tier product...');
 
   // ============================================
-  // SECTION 4: DATABASE TIER PRODUCTS
+  // USE TIER PRODUCT MATCHER SERVICE
   // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 4: ALL TIER PRODUCTS IN DATABASE FOR THIS SHOP                      │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
-
-  // CRITICAL FIX: Filter out soft-deleted tier products
-  // Products with deletedAt set should not be matched for purchases
-  const allTierProducts = await tx.tierProduct.findMany({
-    where: {
-      shop,
-      deletedAt: null  // Only active (non-deleted) tier products
-    },
-    include: {
-      tier: {
-        select: {
-          id: true,
-          name: true,
-          minSpend: true,
-          cashbackPercent: true
-        }
-      }
-    }
-  });
-
-  console.log(`[TPR] Total tier products found for shop "${shop}": ${allTierProducts.length}`);
-
-  if (allTierProducts.length === 0) {
-    console.log('[TPR] ⚠️  WARNING: No tier products configured for this shop!');
-    console.log('[TPR] ⚠️  Create tier products in the admin panel to enable tier purchases.');
-  } else {
-    console.log('[TPR] ─────────────────────────────────────────────────────────────────────────');
-    allTierProducts.forEach((tp: any, idx: number) => {
-      console.log(`[TPR] Tier Product #${idx + 1}:`);
-      console.log(`[TPR]   ID:                ${tp.id}`);
-      console.log(`[TPR]   Tier:              ${tp.tier?.name || 'MISSING TIER!'} (${tp.tierId})`);
-      console.log(`[TPR]   Shopify Product ID: "${tp.shopifyProductId}" (type: ${typeof tp.shopifyProductId})`);
-      console.log(`[TPR]   Shopify Variant ID: "${tp.shopifyVariantId}" (type: ${typeof tp.shopifyVariantId})`);
-      console.log(`[TPR]   SKU:                "${tp.sku}" (type: ${typeof tp.sku})`);
-      console.log(`[TPR]   Purchase Type:      ${tp.purchaseType}`);
-      console.log(`[TPR]   Duration:           ${tp.duration}`);
-      console.log(`[TPR]   One-Time Price:     ${tp.oneTimePrice}`);
-      console.log(`[TPR]   Status:             ${tp.status}`);
-      console.log(`[TPR]   Created At:         ${tp.createdAt}`);
-      if (idx < allTierProducts.length - 1) {
-        console.log('[TPR]   ---');
-      }
-    });
-    console.log('[TPR] ─────────────────────────────────────────────────────────────────────────');
-  }
-
-  // ============================================
-  // SECTION 5: MANUAL MATCH ANALYSIS
-  // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 5: MANUAL MATCH ANALYSIS (comparing each tier product)              │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
-
-  let potentialMatches: any[] = [];
-
-  for (const tp of allTierProducts) {
-    console.log(`\n[TPR] Analyzing TierProduct: ${tp.id}`);
-    console.log(`[TPR]   Tier: ${tp.tier?.name || 'MISSING'}`);
-
-    // Check purchase type eligibility
-    const purchaseTypeEligible = tp.purchaseType === 'ONE_TIME' || tp.purchaseType === 'BOTH';
-    console.log(`[TPR]   Purchase Type Check: ${tp.purchaseType} → ${purchaseTypeEligible ? '✅ ELIGIBLE' : '❌ NOT ELIGIBLE (needs ONE_TIME or BOTH)'}`);
-
-    if (!purchaseTypeEligible) {
-      console.log(`[TPR]   → Skipping (purchase type is ${tp.purchaseType})`);
-      continue;
-    }
-
-    // Normalize tier product IDs (handles GraphQL global ID format)
-    const tpNormalizedProductId = extractNumericId(tp.shopifyProductId);
-    const tpNormalizedVariantId = extractNumericId(tp.shopifyVariantId);
-    const tpNormalizedSku = normalizeSku(tp.sku);
-
-    // Check Product ID match (normalized comparison)
-    const productIdMatch = normalizedProductId && tpNormalizedProductId &&
-      normalizedProductId === tpNormalizedProductId;
-    console.log(`[TPR]   Product ID Match: "${normalizedProductId}" === "${tpNormalizedProductId}" (from "${tp.shopifyProductId}") → ${productIdMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
-
-    // Check Variant ID match (normalized comparison)
-    const variantIdMatch = normalizedVariantId && tpNormalizedVariantId &&
-      normalizedVariantId === tpNormalizedVariantId;
-    console.log(`[TPR]   Variant ID Match: "${normalizedVariantId}" === "${tpNormalizedVariantId}" (from "${tp.shopifyVariantId}") → ${variantIdMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
-
-    // Check SKU match (case-insensitive via normalization)
-    const skuMatch = normalizedSku && tpNormalizedSku &&
-      normalizedSku === tpNormalizedSku;
-    console.log(`[TPR]   SKU Match:        "${normalizedSku}" === "${tpNormalizedSku}" (from "${tp.sku}") → ${skuMatch ? '✅ MATCH' : '❌ NO MATCH'}`);
-
-    // Check if any match criteria is met
-    const hasMatch = productIdMatch || variantIdMatch || skuMatch;
-
-    if (hasMatch) {
-      const matchReasons = [];
-      if (productIdMatch) matchReasons.push('PRODUCT_ID');
-      if (variantIdMatch) matchReasons.push('VARIANT_ID');
-      if (skuMatch) matchReasons.push('SKU');
-
-      console.log(`[TPR]   🎯 POTENTIAL MATCH FOUND! Matched by: ${matchReasons.join(', ')}`);
-      potentialMatches.push({
-        tierProduct: tp,
-        matchReasons,
-        productIdMatch,
-        variantIdMatch,
-        skuMatch
-      });
-    } else {
-      console.log(`[TPR]   → No match criteria met`);
-
-      // Additional debugging for near-misses
-      if (normalizedProductId && tp.shopifyProductId) {
-        if (normalizedProductId.includes(tp.shopifyProductId) || tp.shopifyProductId.includes(normalizedProductId)) {
-          console.log(`[TPR]   ⚠️  NEAR MISS: Product IDs are similar but not exact`);
-        }
-      }
-      if (normalizedVariantId && tp.shopifyVariantId) {
-        if (normalizedVariantId.includes(tp.shopifyVariantId) || tp.shopifyVariantId.includes(normalizedVariantId)) {
-          console.log(`[TPR]   ⚠️  NEAR MISS: Variant IDs are similar but not exact`);
-        }
-      }
-      if (normalizedSku && tp.sku) {
-        const skuLower = normalizedSku.toLowerCase();
-        const tpSkuLower = tp.sku.toLowerCase();
-        if (skuLower === tpSkuLower && normalizedSku !== tp.sku) {
-          console.log(`[TPR]   ⚠️  NEAR MISS: SKUs match case-insensitively: "${normalizedSku}" vs "${tp.sku}"`);
-        }
-      }
-    }
-  }
-
-  console.log(`\n[TPR] Total potential matches found: ${potentialMatches.length}`);
-
-  // ============================================
-  // SECTION 6: NORMALIZED TIER PRODUCT MATCHING
-  // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 6: NORMALIZED TIER PRODUCT MATCHING                                 │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
-
-  console.log('[TPR] Using findMatchingTierProduct utility for normalized matching');
-  console.log('[TPR] This handles:');
-  console.log('[TPR]   - REST API IDs vs GraphQL global IDs');
-  console.log('[TPR]   - Case-insensitive SKU matching');
-  console.log('[TPR]   - Whitespace normalization');
-
   const matchStartTime = Date.now();
 
-  // Use the utility function for normalized matching
-  // This handles the ID format mismatch between webhook (REST) and database (GraphQL)
-  const matchResult = findMatchingTierProduct(
-    {
-      product_id: lineItem.product_id,
-      variant_id: lineItem.variant_id,
-      sku: lineItem.sku,
-    },
-    allTierProducts
-  );
-
-  const tierProduct = matchResult.matched ? matchResult.tierProduct : null;
+  const matchResult = await TierProductMatcher.matchLineItem(shop, lineItem, {
+    includeDiagnostics: true,
+  });
 
   const matchDuration = Date.now() - matchStartTime;
-  console.log(`[TPR] Matching completed in ${matchDuration}ms`);
 
-  if (matchResult.matched) {
-    console.log('[TPR] ✅ Match found via utility:');
-    console.log(`[TPR]   Matched by: ${matchResult.matchedBy.join(', ')}`);
-    console.log(`[TPR]   Details: ${JSON.stringify(matchResult.matchDetails, null, 2)}`);
-  } else {
-    // Provide detailed mismatch analysis
-    const mismatchAnalysis = analyzeTierProductMismatch(
-      {
-        product_id: lineItem.product_id,
-        variant_id: lineItem.variant_id,
-        sku: lineItem.sku,
-      },
-      allTierProducts
-    );
-
-    console.log('[TPR] ❌ No match found. Mismatch analysis:');
-    console.log(`[TPR]   Line Item IDs: ${JSON.stringify(mismatchAnalysis.lineItemIds)}`);
-    console.log(`[TPR]   Eligible products checked: ${mismatchAnalysis.eligibleProducts}`);
-    if (mismatchAnalysis.nearMisses.length > 0) {
-      console.log('[TPR]   Near misses detected:');
-      mismatchAnalysis.nearMisses.forEach(nm => {
-        console.log(`[TPR]     - ${nm.tierName}: ${nm.reason}`);
-      });
-    }
-  }
+  console.log(`[TPR] TierProductMatcher completed in ${matchDuration}ms`);
+  console.log('[TPR] Match result:', {
+    matched: matchResult.matched,
+    matchedBy: matchResult.matchedBy,
+    isSubscription: matchResult.isSubscription,
+    tierProductId: matchResult.tierProduct?.id,
+    tierName: matchResult.tierProduct?.tier?.name,
+    diagnostics: matchResult.diagnostics,
+  });
 
   // ============================================
-  // SECTION 7: RESULT ANALYSIS
+  // HANDLE MATCH RESULT
   // ============================================
-  console.log('\n┌─────────────────────────────────────────────────────────────────────────────┐');
-  console.log('│ SECTION 7: QUERY RESULT ANALYSIS                                            │');
-  console.log('└─────────────────────────────────────────────────────────────────────────────┘');
+  if (matchResult.matched && matchResult.tierProduct) {
+    const tierProduct = matchResult.tierProduct;
 
-  if (tierProduct) {
     console.log('[TPR] ╔═══════════════════════════════════════════════════════════════════════╗');
     console.log('[TPR] ║  ✅ TIER PRODUCT MATCH CONFIRMED!                                     ║');
     console.log('[TPR] ╚═══════════════════════════════════════════════════════════════════════╝');
-    console.log('[TPR] Matched TierProduct Details:');
-    console.log(`[TPR]   ID:                 ${tierProduct.id}`);
-    console.log(`[TPR]   Tier ID:            ${tierProduct.tierId}`);
-    console.log(`[TPR]   Tier Name:          ${tierProduct.tier?.name || 'MISSING!'}`);
-    console.log(`[TPR]   Tier Min Spend:     ${tierProduct.tier?.minSpend}`);
-    console.log(`[TPR]   Tier Cashback:      ${tierProduct.tier?.cashbackPercent}%`);
-    console.log(`[TPR]   Shopify Product ID: ${tierProduct.shopifyProductId}`);
-    console.log(`[TPR]   Shopify Variant ID: ${tierProduct.shopifyVariantId}`);
-    console.log(`[TPR]   SKU:                ${tierProduct.sku}`);
-    console.log(`[TPR]   Purchase Type:      ${tierProduct.purchaseType}`);
-    console.log(`[TPR]   Duration:           ${tierProduct.duration}`);
-    console.log(`[TPR]   One-Time Price:     ${tierProduct.oneTimePrice}`);
-    console.log(`[TPR]   Currency:           ${tierProduct.currency}`);
-    console.log(`[TPR]   Status:             ${tierProduct.status}`);
-
-    // Use match result from utility
-    console.log(`[TPR]   Matched By:         ${matchResult.matchedBy.join(', ')}`);
-    console.log(`[TPR]   Match Details:`);
-    console.log(`[TPR]     - Product ID: ${matchResult.matchDetails.productIdMatch ? '✅' : '❌'} (line: ${matchResult.matchDetails.lineItemProductId} → db: ${matchResult.matchDetails.tierProductProductId})`);
-    console.log(`[TPR]     - Variant ID: ${matchResult.matchDetails.variantIdMatch ? '✅' : '❌'} (line: ${matchResult.matchDetails.lineItemVariantId} → db: ${matchResult.matchDetails.tierProductVariantId})`);
-    console.log(`[TPR]     - SKU:        ${matchResult.matchDetails.skuMatch ? '✅' : '❌'} (line: ${matchResult.matchDetails.lineItemSku} → db: ${matchResult.matchDetails.tierProductSku})`);
-
-    // Validate tier exists
-    if (!tierProduct.tier) {
-      console.log('[TPR] ⚠️  WARNING: TierProduct references non-existent tier!');
-      console.log(`[TPR] ⚠️  Tier ID ${tierProduct.tierId} does not exist in database`);
-      console.log('[TPR] ⚠️  This will cause an error in processOneTimeTierPurchase()');
-    }
+    console.log('[TPR] Matched TierProduct:', {
+      id: tierProduct.id,
+      tierId: tierProduct.tierId,
+      tierName: tierProduct.tier?.name,
+      duration: tierProduct.duration,
+      matchedBy: matchResult.matchedBy.join(', '),
+    });
+    console.log('[TPR] Match Details:', matchResult.matchDetails);
 
     console.log('[TPR] → Proceeding to create TierPurchase record...');
     console.log('══════════════════════════════════════════════════════════════════════════════\n');
 
-    return await processOneTimeTierPurchase(tx, {
-      shop,
-      order,
-      lineItem,
-      tierProduct,
-    });
+    return await processOneTimeTierPurchase(shop, order, lineItem, tierProduct);
   }
 
-  // No match found - detailed analysis
+  // No match found
   console.log('[TPR] ╔═══════════════════════════════════════════════════════════════════════╗');
   console.log('[TPR] ║  ❌ NO TIER PRODUCT MATCH FOUND                                        ║');
   console.log('[TPR] ╚═══════════════════════════════════════════════════════════════════════╝');
 
-  console.log('\n[TPR] DIAGNOSTIC SUMMARY:');
-  console.log('[TPR] ─────────────────────────────────────────────────────────────────────────');
-
-  if (allTierProducts.length === 0) {
-    console.log('[TPR] ⚠️  REASON: No tier products exist for this shop');
-    console.log('[TPR]    ACTION: Create tier products in admin panel');
-  } else {
-    console.log(`[TPR] Tier products exist (${allTierProducts.length}), but none matched because:`);
-
-    const eligibleProducts = allTierProducts.filter((tp: any) =>
-      tp.purchaseType === 'ONE_TIME' || tp.purchaseType === 'BOTH'
-    );
-
-    if (eligibleProducts.length === 0) {
-      console.log('[TPR] ⚠️  REASON: No tier products have purchaseType ONE_TIME or BOTH');
-      console.log('[TPR]    All tier products are SUBSCRIPTION only');
-    } else {
-      console.log(`[TPR] ${eligibleProducts.length} tier product(s) eligible for one-time purchase:`);
-
-      for (const tp of eligibleProducts) {
-        console.log(`[TPR]   - ${tp.tier?.name || 'Unknown Tier'}:`);
-
-        // Check why it didn't match
-        const reasons = [];
-
-        if (!tp.shopifyProductId && !tp.shopifyVariantId && !tp.sku) {
-          reasons.push('No matching identifiers configured (Product ID, Variant ID, or SKU are all empty)');
-        } else {
-          if (tp.shopifyProductId && normalizedProductId && tp.shopifyProductId !== normalizedProductId) {
-            reasons.push(`Product ID mismatch: DB="${tp.shopifyProductId}" vs Order="${normalizedProductId}"`);
-          }
-          if (tp.shopifyVariantId && normalizedVariantId && tp.shopifyVariantId !== normalizedVariantId) {
-            reasons.push(`Variant ID mismatch: DB="${tp.shopifyVariantId}" vs Order="${normalizedVariantId}"`);
-          }
-          if (tp.sku && normalizedSku && tp.sku !== normalizedSku) {
-            reasons.push(`SKU mismatch: DB="${tp.sku}" vs Order="${normalizedSku}"`);
-          }
-          if (!tp.shopifyProductId && !tp.shopifyVariantId && !tp.sku) {
-            reasons.push('No identifiers configured in tier product');
-          }
-        }
-
-        reasons.forEach(r => console.log(`[TPR]       → ${r}`));
-      }
-    }
+  if (matchResult.diagnostics) {
+    console.log('[TPR] Diagnostics:', {
+      tierProductsChecked: matchResult.diagnostics.tierProductsChecked,
+      eligibleProducts: matchResult.diagnostics.eligibleProducts,
+      nearMisses: matchResult.diagnostics.nearMisses,
+    });
   }
 
-  console.log('[TPR] ─────────────────────────────────────────────────────────────────────────');
   console.log('[TPR] → Processing as regular line item (not a tier product)');
   console.log('══════════════════════════════════════════════════════════════════════════════\n');
 
   return { type: 'regular', processed: false };
 }
 
-async function processOneTimeTierPurchase(tx: any, params: {
-  shop: string;
-  order: any;
-  lineItem: any;
-  tierProduct: any;
-}) {
-  const { shop, order, lineItem, tierProduct } = params;
-
+async function processOneTimeTierPurchase(
+  shop: string,
+  order: any,
+  lineItem: any,
+  tierProduct: any
+) {
   console.log('========================================');
   console.log('[TIER PURCHASE CREATION] Starting Tier Purchase Creation');
   console.log('========================================');
 
-  // Validate price
-  console.log('[TIER PURCHASE CREATION] Step 1: Validating Price');
-  console.log(`  - Line Item Price: ${lineItem.price}`);
-  console.log(`  - Currency: ${order.currency}`);
+  // Check idempotency - prevent duplicate purchases on webhook retries
+  const alreadyExists = await tierPurchaseExists(
+    shop,
+    order.id.toString(),
+    lineItem.id.toString()
+  );
 
-  const priceValidation = validatePrice(lineItem.price, order.currency);
-  if (!priceValidation.valid) {
-    console.log(`[TIER PURCHASE CREATION] ❌ Price validation failed: ${priceValidation.error}`);
-    throw new Error(`Invalid price for tier product: ${priceValidation.error}`);
-  }
-
-  console.log(`[TIER PURCHASE CREATION] ✅ Price validated: ${priceValidation.sanitizedPrice}`);
-
-  // Get or create customer
-  console.log('[TIER PURCHASE CREATION] Step 2: Get or Create Customer');
-  console.log(`  - Shopify Customer ID: ${order.customer?.id}`);
-  console.log(`  - Has Email: ${!!(order.customer?.email || order.email)}`);
-
-  const customer = await tx.customer.upsert({
-    where: {
-      shop_shopifyCustomerId: {
-        shop,
-        shopifyCustomerId: order.customer?.id?.toString() || '',
-      }
-    },
-    update: {
-      updatedAt: new Date(),
-    },
-    create: {
-      id: uuidv4(),
-      shop,
-      shopifyCustomerId: order.customer?.id?.toString() || '',
-      email: order.customer?.email || order.email || '',
-      storeCredit: 0,
-      totalSpent: 0,
-      netSpent: 0,
-      totalRefunded: 0,
-      orderCount: 0,
-      currentTierId: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-  });
-
-  console.log(`[TIER PURCHASE CREATION] ✅ Customer: ${customer.id}`);
-
-  // Validate that the tier exists before creating TierPurchase
-  console.log('[TIER PURCHASE CREATION] Step 3: Validate Tier & TierProduct Status');
-  console.log(`  - Tier ID: ${tierProduct.tierId}`);
-  console.log(`  - TierProduct ID: ${tierProduct.id}`);
-
-  // CRITICAL FIX: Check if TierProduct was soft-deleted (edge case: deleted between checkout and webhook)
-  const currentTierProduct = await tx.tierProduct.findUnique({
-    where: { id: tierProduct.id },
-    select: { id: true, deletedAt: true, tierId: true }
-  });
-
-  if (!currentTierProduct || currentTierProduct.deletedAt) {
-    console.error(`[TIER PURCHASE CREATION] ❌ CRITICAL: TierProduct was deleted between checkout and payment`);
-    console.error(`  - TierProduct ID: ${tierProduct.id}`);
-    console.error(`  - Deleted At: ${currentTierProduct?.deletedAt || 'Not found'}`);
-    console.error(`  - Order ID: ${order.id}`);
-    console.error(`  - Customer: ${order.customer?.email || 'Unknown'}`);
-    console.error(`  - Line Item Price: ${lineItem.price} ${order.currency}`);
-
-    // Create a failed tier purchase record for admin review
-    try {
-      await tx.webhookError.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          topic: 'tier_purchase_failed',
-          orderId: order.id.toString(),
-          error: `TierProduct ${tierProduct.id} was deleted - customer charged but cannot receive tier`,
-          payload: {
-            tierProductId: tierProduct.id,
-            tierId: tierProduct.tierId,
-            lineItemId: lineItem.id,
-            lineItemPrice: lineItem.price,
-            currency: order.currency,
-            customerEmail: order.customer?.email,
-            customerId: order.customer?.id,
-            sku: lineItem.sku,
-            productTitle: lineItem.name,
-            requiresManualReview: true,
-            suggestedAction: 'REFUND_OR_ASSIGN_TIER_MANUALLY'
-          },
-          createdAt: new Date(),
-        }
-      });
-      console.log(`[TIER PURCHASE CREATION] ⚠️ Created admin alert for manual review`);
-    } catch (alertError) {
-      console.error(`[TIER PURCHASE CREATION] Failed to create admin alert:`, alertError);
-    }
-
+  if (alreadyExists) {
+    console.log('[TIER PURCHASE CREATION] ⚠️ Tier purchase already exists for this line item (idempotency check)');
     return {
       type: 'one_time_tier',
       processed: false,
-      error: 'TIER_PRODUCT_DELETED',
-      message: 'Tier product was deleted - requires manual review',
+      error: 'ALREADY_EXISTS',
+      message: 'Tier purchase already exists - skipping duplicate',
       orderId: order.id.toString(),
       lineItemId: lineItem.id.toString(),
-      requiresRefund: true,
     };
   }
 
-  const tier = await tx.tier.findUnique({
-    where: { id: tierProduct.tierId },
-  });
+  // Use the TierProductPurchaseService for all purchase logic
+  const result = await TierProductPurchaseService.createPurchase(
+    shop,
+    order,
+    lineItem,
+    tierProduct
+  );
 
-  if (!tier) {
-    console.error(`[TIER PURCHASE CREATION] ❌ CRITICAL: Tier not found for TierProduct`);
-    console.error(`  - TierProduct ID: ${tierProduct.id}`);
-    console.error(`  - TierProduct.tierId: ${tierProduct.tierId}`);
-    console.error(`  - This is an orphaned TierProduct record`);
-    console.error(`  - Order ID: ${order.id}`);
-    console.error(`  - Customer: ${order.customer?.email || 'Unknown'}`);
-    console.error(`  - Line Item Price: ${lineItem.price} ${order.currency}`);
-
-    // Create a failed tier purchase record for admin review
-    try {
-      await tx.webhookError.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          topic: 'tier_purchase_failed',
-          orderId: order.id.toString(),
-          error: `Tier ${tierProduct.tierId} not found - TierProduct ${tierProduct.id} is orphaned`,
-          payload: {
-            tierProductId: tierProduct.id,
-            tierId: tierProduct.tierId,
-            lineItemId: lineItem.id,
-            lineItemPrice: lineItem.price,
-            currency: order.currency,
-            customerEmail: order.customer?.email,
-            customerId: order.customer?.id,
-            sku: lineItem.sku,
-            productTitle: lineItem.name,
-            requiresManualReview: true,
-            suggestedAction: 'REFUND_OR_ASSIGN_TIER_MANUALLY'
-          },
-          createdAt: new Date(),
-        }
-      });
-      console.log(`[TIER PURCHASE CREATION] ⚠️ Created admin alert for manual review`);
-    } catch (alertError) {
-      console.error(`[TIER PURCHASE CREATION] Failed to create admin alert:`, alertError);
-    }
+  if (result.success) {
+    console.log('[TIER PURCHASE CREATION] ✅ TierPurchase created successfully!');
+    console.log('[TIER PURCHASE CREATION] Result:', {
+      purchaseId: result.tierPurchase?.id,
+      customerId: result.customerId,
+      tierId: result.tierId,
+      endDate: result.endDate?.toISOString() || 'LIFETIME',
+    });
+    console.log('[TIER PURCHASE CREATION] → Tier resolution will be triggered next');
+    console.log('========================================');
 
     return {
       type: 'one_time_tier',
-      processed: false,
-      error: 'TIER_NOT_FOUND',
-      message: 'Tier was deleted - requires manual review',
-      orderId: order.id.toString(),
-      lineItemId: lineItem.id.toString(),
-      requiresRefund: true,
+      processed: true,
+      tierId: result.tierId,
+      tierPurchaseId: result.tierPurchase?.id,
+      customerId: result.customerId,
+      endDate: result.endDate,
+      needsResolution: result.needsResolution,
     };
   }
 
-  console.log(`[TIER PURCHASE CREATION] ✅ Tier validated: ${tier.name}`);
-
-  // Calculate tier duration
-  console.log('[TIER PURCHASE CREATION] Step 4: Calculate Tier Duration');
-  const now = new Date();
-  let tierEndDate: Date | null = null;
-
-  console.log(`  - Duration Type: ${tierProduct.duration || 'not specified'}`);
-  console.log(`  - Start Date: ${now.toISOString()}`);
-
-  if (tierProduct.duration) {
-    tierEndDate = new Date(now);
-    switch (tierProduct.duration) {
-      case 'MONTHLY':
-        tierEndDate.setMonth(tierEndDate.getMonth() + 1);
-        console.log(`  - Calculated End Date (MONTHLY): ${tierEndDate.toISOString()}`);
-        break;
-      case 'ANNUAL':
-        tierEndDate.setFullYear(tierEndDate.getFullYear() + 1);
-        console.log(`  - Calculated End Date (ANNUAL): ${tierEndDate.toISOString()}`);
-        break;
-      case 'LIFETIME':
-        tierEndDate = null; // No expiry
-        console.log(`  - End Date: LIFETIME (null)`);
-        break;
-    }
-  }
-
-  // Create tier purchase record
-  console.log('[TIER PURCHASE CREATION] Step 5: Creating TierPurchase Record');
-  const tierPurchaseId = uuidv4();
-
-  console.log('[TIER PURCHASE CREATION] TierPurchase Data:');
-  console.log(`  - ID: ${tierPurchaseId}`);
-  console.log(`  - Shop: ${shop}`);
-  console.log(`  - Customer ID: ${customer.id}`);
-  console.log(`  - Tier ID: ${tierProduct.tierId}`);
-  console.log(`  - Tier Product ID: ${tierProduct.id}`);
-  console.log(`  - Shopify Order ID: ${order.id}`);
-  console.log(`  - Shopify Line Item ID: ${lineItem.id}`);
-  console.log(`  - Purchase Price: ${priceValidation.sanitizedPrice}`);
-  console.log(`  - Currency: ${order.currency}`);
-  console.log(`  - Start Date: ${now.toISOString()}`);
-  console.log(`  - End Date: ${tierEndDate?.toISOString() || 'LIFETIME'}`);
-  console.log(`  - Status: ACTIVE`);
-
-  const tierPurchase = await tx.tierPurchase.create({
-    data: {
-      id: tierPurchaseId,
-      shop,
-      customerId: customer.id,
-      tierId: tierProduct.tierId,
-      tierProductId: tierProduct.id,
-      shopifyOrderId: order.id.toString(),
-      shopifyLineItemId: lineItem.id.toString(),
-      purchasePrice: priceValidation.sanitizedPrice!,
-      currency: order.currency,
-      startDate: now,
-      endDate: tierEndDate,
-      status: 'ACTIVE',
-      metadata: {
-        productTitle: lineItem.name,
-        sku: lineItem.sku,
-        quantity: lineItem.quantity,
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-  });
-
-  console.log('[TIER PURCHASE CREATION] ✅ TierPurchase record created successfully!');
-  console.log(`[TIER PURCHASE CREATION] Purchase ID: ${tierPurchase.id}`);
-  console.log(`[TIER PURCHASE CREATION] Duration: ${tierProduct.duration}`);
-  console.log(`[TIER PURCHASE CREATION] End Date: ${tierEndDate?.toISOString() || 'LIFETIME'}`);
-  console.log('[TIER PURCHASE CREATION] → Tier resolution will be triggered next');
-  console.log('========================================');
-
-  // NOTE: Do NOT directly update customer tier here!
-  // Tier resolution will be called OUTSIDE the transaction to handle conflicts
-  // This allows the resolution system to check all tier sources (manual override, subscription, purchase, spending)
+  // Handle failure cases
+  console.error('[TIER PURCHASE CREATION] ❌ Failed:', result.error);
+  console.error('[TIER PURCHASE CREATION] Error Code:', result.errorCode);
 
   return {
     type: 'one_time_tier',
-    processed: true,
-    tierId: tierProduct.tierId,
-    tierPurchaseId: tierPurchase.id,
-    customerId: customer.id,
-    endDate: tierEndDate,
-    needsResolution: true, // Signal that tier resolution should be called
+    processed: false,
+    error: result.errorCode,
+    message: result.error,
+    orderId: order.id.toString(),
+    lineItemId: lineItem.id.toString(),
+    requiresRefund: result.requiresRefund,
   };
 }
 
