@@ -15,10 +15,6 @@ import { useRouteLoaderData } from '@remix-run/react';
 import type { AppLoaderData } from '~/routes/app';
 import type { GA4Event, RewardsProDimensions } from '~/services/analytics/ga4.types';
 
-// SSR guard - only import ga4 on client
-const isServer = typeof window === 'undefined';
-const ga4 = isServer ? null : require('~/services/analytics/ga4.client').ga4;
-
 // ============================================
 // Hook Configuration
 // ============================================
@@ -45,6 +41,10 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
   const location = useLocation();
   const prevPathRef = useRef<string>('');
 
+  // State for lazy-loaded GA4 module (client-only)
+  const [ga4, setGa4] = useState<typeof import('~/services/analytics/ga4.client').ga4 | null>(null);
+  const [isClientReady, setIsClientReady] = useState(false);
+
   // Get app-level data (shop, entitlements, etc.)
   const appData = useRouteLoaderData<AppLoaderData>('routes/app');
 
@@ -56,11 +56,30 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
   };
 
   // ============================================
+  // Load GA4 module on client only
+  // ============================================
+
+  useEffect(() => {
+    // Only run on client
+    if (typeof window === 'undefined') return;
+
+    // Dynamically import the GA4 client module
+    import('~/services/analytics/ga4.client')
+      .then((module) => {
+        setGa4(module.ga4);
+        setIsClientReady(true);
+      })
+      .catch((err) => {
+        console.error('[useAnalytics] Failed to load GA4 module:', err);
+      });
+  }, []);
+
+  // ============================================
   // Automatic Page View Tracking
   // ============================================
 
   useEffect(() => {
-    if (!autoTrackPageViews || !ga4) return;
+    if (!autoTrackPageViews || !ga4 || !isClientReady) return;
 
     // Only track if path changed (not on initial mount with same path)
     if (location.pathname === prevPathRef.current) return;
@@ -70,7 +89,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
     const title = pageTitle || document.title || getPageTitleFromPath(location.pathname);
 
     ga4.trackPageView(title, location.pathname, baseDimensions);
-  }, [location.pathname, autoTrackPageViews, pageTitle, baseDimensions]);
+  }, [location.pathname, autoTrackPageViews, pageTitle, ga4, isClientReady]);
 
   // ============================================
   // Event Tracking Functions
@@ -94,7 +113,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
 
       ga4.trackEvent(enrichedEvent as GA4Event);
     },
-    [baseDimensions]
+    [ga4, baseDimensions]
   );
 
   /**
@@ -109,7 +128,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
         ...params,
       });
     },
-    [baseDimensions]
+    [ga4, baseDimensions]
   );
 
   /**
@@ -125,7 +144,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
         baseDimensions
       );
     },
-    [location.pathname, baseDimensions]
+    [ga4, location.pathname, baseDimensions]
   );
 
   // ============================================
@@ -190,7 +209,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
 
     // Context
     shopDomain: appData?.shop,
-    isReady: ga4?.isReady() ?? false,
+    isReady: isClientReady && ga4?.isReady() === true,
   };
 }
 
