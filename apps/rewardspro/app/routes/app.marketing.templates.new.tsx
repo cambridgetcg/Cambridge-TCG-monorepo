@@ -92,9 +92,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const subject = formData.get("subject") as string;
   const previewText = formData.get("previewText") as string;
   const bodyHtml = formData.get("bodyHtml") as string;
+  const contentJson = formData.get("content") as string;
 
   if (!name || !type || !subject) {
     return json({ error: "Name, type, and subject are required" }, { status: 400 });
+  }
+
+  // Parse block-based content structure (required field)
+  let content: any = { blocks: [], styles: {} };
+  try {
+    if (contentJson) {
+      content = JSON.parse(contentJson);
+    }
+  } catch (e) {
+    console.error("[Template New] Error parsing content JSON:", e);
   }
 
   try {
@@ -106,6 +117,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         name,
         type,
         subject,
+        content, // Block-based content structure (required)
         previewText: previewText || "",
         bodyHtml: bodyHtml || generateDefaultHtml(),
         bodyText: stripHtml(bodyHtml || ""),
@@ -326,8 +338,10 @@ ${contentHtml}
     formData.append("subject", subject);
     formData.append("previewText", previewText);
     formData.append("bodyHtml", generateHtml());
+    // Include block-based content structure (required by schema)
+    formData.append("content", JSON.stringify({ blocks, styles }));
     submit(formData, { method: "post" });
-  }, [name, type, subject, previewText, generateHtml, submit]);
+  }, [name, type, subject, previewText, generateHtml, blocks, styles, submit]);
 
   const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
 
