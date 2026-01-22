@@ -306,7 +306,32 @@ export class DataAPIModelProxy<T = any> {
           record.tier = null;
         }
       }
-      // Add more relation handlers as needed
+
+      // Handle customer relation (many-to-one) for Order model
+      if (relation === 'customer' && record.customerId) {
+        const customerResult = await this.client.executeStatement(
+          `SELECT * FROM "Customer" WHERE id = :customerId`,
+          [AuroraDataAPI.buildParameter('customerId', record.customerId)]
+        );
+
+        if (customerResult.records.length > 0) {
+          const customer = customerResult.records[0];
+          // Handle select if specified
+          if (typeof includeConfig === 'object' && includeConfig.select) {
+            const selected: any = {};
+            for (const field of Object.keys(includeConfig.select)) {
+              if (includeConfig.select[field]) {
+                selected[field] = customer[field];
+              }
+            }
+            record.customer = selected;
+          } else {
+            record.customer = customer;
+          }
+        } else {
+          record.customer = null;
+        }
+      }
     }
   }
 
