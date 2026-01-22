@@ -10,13 +10,12 @@ import {
   InlineStack,
   BlockStack,
   Banner,
-  ProgressBar,
   Badge,
   List,
-  Spinner,
   Toast,
   Frame,
 } from "@shopify/polaris";
+import { SyncProgressCard, type SyncStatus } from "~/components/SyncActionCard";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
@@ -416,50 +415,26 @@ export default function CustomersSyncPage() {
         {/* Sync Progress Card */}
         {(isSyncing || syncJob?.status === 'IN_PROGRESS') && (
           <Card>
-            <Box padding="400">
-              <BlockStack gap="400">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">Sync Progress</Text>
-                  <InlineStack gap="200" blockAlign="center">
-                    <Spinner size="small" />
-                    <Badge tone="info">Syncing</Badge>
-                  </InlineStack>
-                </InlineStack>
-
-                <ProgressBar
-                  progress={progress.percentComplete}
-                  tone="primary"
-                  size="medium"
-                />
-
-                <InlineStack gap="400" wrap>
-                  <Text as="span" variant="bodyMd">
-                    {progress.processedCount.toLocaleString()}
-                    {progress.totalCustomers ? ` / ${progress.totalCustomers.toLocaleString()}` : ''} customers
-                  </Text>
-                  <Text as="span" variant="bodyMd" tone="success">
-                    {progress.createdCount.toLocaleString()} created
-                  </Text>
-                  <Text as="span" variant="bodyMd" tone="info">
-                    {progress.updatedCount.toLocaleString()} updated
-                  </Text>
-                  {progress.skippedCount > 0 && (
-                    <Text as="span" variant="bodyMd" tone="subdued">
-                      {progress.skippedCount.toLocaleString()} skipped
-                    </Text>
-                  )}
-                  {progress.errorCount > 0 && (
-                    <Text as="span" variant="bodyMd" tone="critical">
-                      {progress.errorCount.toLocaleString()} errors
-                    </Text>
-                  )}
-                </InlineStack>
-
-                <Text as="p" variant="bodySm" tone="subdued">
-                  Processing customers in batches of 100. Progress is saved automatically -
-                  you can close this page and return later.
-                </Text>
-              </BlockStack>
+            <SyncProgressCard
+              status="syncing"
+              progress={{
+                processedCount: progress.processedCount,
+                totalCount: progress.totalCustomers,
+                percentComplete: progress.percentComplete,
+                createdCount: progress.createdCount,
+                updatedCount: progress.updatedCount,
+                skippedCount: progress.skippedCount,
+                errorCount: progress.errorCount,
+              }}
+              progressLabel="customers"
+              onCancel={handleCancelSync}
+              isLoading={isStarting}
+            />
+            <Box padding="400" paddingBlockStart="0">
+              <Text as="p" variant="bodySm" tone="subdued">
+                Processing customers in batches of 100. Progress is saved automatically -
+                you can close this page and return later.
+              </Text>
             </Box>
           </Card>
         )}

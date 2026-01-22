@@ -46,6 +46,7 @@ import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { DEMO_VALUES } from "~/utils/angel-numbers";
+import { SyncActionCard, SyncStatusBanner } from "~/components/SyncActionCard";
 
 // ============= TYPES =============
 type Currency = 
@@ -2277,127 +2278,54 @@ export default function SettingsPage() {
 
                           <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
                             {/* Customer Sync Action */}
-                            <Box
-                              padding="400"
-                              background="bg-surface-secondary"
-                              borderRadius="200"
-                            >
-                              <BlockStack gap="300">
-                                <BlockStack gap="100">
-                                  <Text as="span" variant="bodyMd" fontWeight="semibold">Customers</Text>
-                                  <Text as="span" variant="bodySm" tone="subdued">
-                                    Import customer data and assign loyalty tiers
-                                  </Text>
-                                </BlockStack>
-                                <InlineStack gap="200">
-                                  <Button
-                                    onClick={handleStartCustomerSync}
-                                    icon={RefreshIcon}
-                                    disabled={isCustomerSyncing}
-                                    loading={isCustomerSyncing}
-                                    size="slim"
-                                    fullWidth
-                                  >
-                                    {isCustomerSyncing ? 'Syncing...' : 'Sync Customers'}
-                                  </Button>
-                                  {isCustomerSyncing && (
-                                    <Button
-                                      onClick={handleCancelCustomerSync}
-                                      tone="critical"
-                                      variant="plain"
-                                      size="slim"
-                                    >
-                                      Cancel
-                                    </Button>
-                                  )}
-                                </InlineStack>
-                                {/* Progress bar - show when syncing or when job is in progress */}
-                                {(isCustomerSyncing || (customerSyncJob && customerSyncJob.status === 'IN_PROGRESS')) && (
-                                  <BlockStack gap="100">
-                                    <ProgressBar
-                                      progress={customerSyncJob?.progress?.percentComplete || 0}
-                                      size="small"
-                                      tone={customerSyncJob?.progress?.percentComplete === 100 ? 'success' : 'primary'}
-                                    />
-                                    <InlineStack align="space-between">
-                                      <Text as="span" variant="bodySm" tone="subdued">
-                                        {customerSyncJob?.progress?.processedCount || 0} / {customerSyncJob?.progress?.totalCustomers || '?'} customers
-                                      </Text>
-                                      {getCustomerSyncETA() && (
-                                        <Text as="span" variant="bodySm" tone="subdued">
-                                          {getCustomerSyncETA()}
-                                        </Text>
-                                      )}
-                                    </InlineStack>
-                                  </BlockStack>
-                                )}
-                              </BlockStack>
-                            </Box>
+                            <SyncActionCard
+                              title="Customers"
+                              description="Import customer data and assign loyalty tiers"
+                              buttonText="Sync Customers"
+                              isSyncing={isCustomerSyncing || customerSyncJob?.status === 'IN_PROGRESS'}
+                              isStarting={isCustomerSyncing && !customerSyncJob}
+                              progress={customerSyncJob ? {
+                                processedCount: customerSyncJob.progress?.processedCount || 0,
+                                totalCount: customerSyncJob.progress?.totalCustomers || null,
+                                percentComplete: customerSyncJob.progress?.percentComplete || 0,
+                                createdCount: customerSyncJob.progress?.createdCount,
+                                updatedCount: customerSyncJob.progress?.updatedCount,
+                              } : null}
+                              onSync={handleStartCustomerSync}
+                              onCancel={handleCancelCustomerSync}
+                              eta={getCustomerSyncETA()}
+                              progressLabel="customers"
+                              variant="compact"
+                            />
 
                             {/* Order Sync Action */}
-                            <Box
-                              padding="400"
-                              background="bg-surface-secondary"
-                              borderRadius="200"
-                            >
-                              <BlockStack gap="300">
-                                <BlockStack gap="100">
-                                  <Text as="span" variant="bodyMd" fontWeight="semibold">Orders</Text>
-                                  <Text as="span" variant="bodySm" tone="subdued">
-                                    Import order history for spending calculations
-                                  </Text>
-                                </BlockStack>
-                                <Button
-                                  onClick={() => setShowSyncModal(true)}
-                                  icon={RefreshIcon}
-                                  size="slim"
-                                  fullWidth
-                                >
-                                  Sync Orders
-                                </Button>
-                              </BlockStack>
-                            </Box>
+                            <SyncActionCard
+                              title="Orders"
+                              description="Import order history for spending calculations"
+                              buttonText="Sync Orders"
+                              isSyncing={false}
+                              onSync={() => setShowSyncModal(true)}
+                              variant="compact"
+                            />
 
                             {/* Credit Sync Action */}
-                            <Box
-                              padding="400"
-                              background="bg-surface-secondary"
-                              borderRadius="200"
-                            >
-                              <BlockStack gap="300">
-                                <BlockStack gap="100">
-                                  <Text as="span" variant="bodyMd" fontWeight="semibold">Store Credit</Text>
-                                  <Text as="span" variant="bodySm" tone="subdued">
-                                    Import existing Shopify credit balances
-                                  </Text>
-                                </BlockStack>
-                                <InlineStack gap="200">
-                                  <Button
-                                    onClick={() => setShowCreditSyncModal(true)}
-                                    icon={RefreshIcon}
-                                    disabled={isCreditSyncing}
-                                    loading={isCreditSyncStarting}
-                                    size="slim"
-                                    fullWidth
-                                  >
-                                    Sync Credit
-                                  </Button>
-                                  {isCreditSyncing && (
-                                    <Button
-                                      onClick={handleCancelCreditSync}
-                                      tone="critical"
-                                      variant="plain"
-                                      size="slim"
-                                    >
-                                      Cancel
-                                    </Button>
-                                  )}
-                                </InlineStack>
-                                {creditSyncJob && creditSyncJob.status === 'IN_PROGRESS' && (
-                                  <ProgressBar progress={creditSyncJob.progress.percentComplete} size="small" />
-                                )}
-                              </BlockStack>
-                            </Box>
+                            <SyncActionCard
+                              title="Store Credit"
+                              description="Import existing Shopify credit balances"
+                              buttonText="Sync Credit"
+                              isSyncing={isCreditSyncing || creditSyncJob?.status === 'IN_PROGRESS'}
+                              isStarting={isCreditSyncStarting}
+                              progress={creditSyncJob ? {
+                                processedCount: creditSyncJob.progress?.processedCount || 0,
+                                totalCount: creditSyncJob.progress?.totalCustomers || null,
+                                percentComplete: creditSyncJob.progress?.percentComplete || 0,
+                                updatedCount: creditSyncJob.progress?.updatedCount,
+                              } : null}
+                              onSync={() => setShowCreditSyncModal(true)}
+                              onCancel={handleCancelCreditSync}
+                              progressLabel="customers"
+                              variant="compact"
+                            />
                           </InlineGrid>
                         </BlockStack>
                       </Card>

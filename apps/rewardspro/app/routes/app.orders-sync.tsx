@@ -10,13 +10,13 @@ import {
   InlineStack,
   BlockStack,
   Banner,
-  ProgressBar,
   Badge,
   InlineCode,
   List,
   Modal,
   Frame,
 } from "@shopify/polaris";
+import { SyncProgressCard, type SyncStatus } from "~/components/SyncActionCard";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -243,23 +243,6 @@ export default function OrdersSyncPage() {
     }
   }, [syncStatus?.jobId, revalidator]);
 
-  const getStatusBadge = () => {
-    if (!syncStatus) return null;
-
-    switch (syncStatus.status) {
-      case 'IN_PROGRESS':
-        return <Badge tone="attention">Syncing</Badge>;
-      case 'COMPLETED':
-        return <Badge tone="success">Completed</Badge>;
-      case 'FAILED':
-        return <Badge tone="critical">Failed</Badge>;
-      case 'CANCELLED':
-        return <Badge tone="warning">Cancelled</Badge>;
-      default:
-        return null;
-    }
-  };
-
   return (
     <Frame>
       <Page
@@ -307,70 +290,28 @@ export default function OrdersSyncPage() {
         {/* Sync Progress */}
         {syncStatus && syncStatus.status !== 'NO_JOB' && (
           <Card>
-            <Box padding="400">
-              <BlockStack gap="400">
-                <InlineStack align="space-between">
-                  <Text as="h2" variant="headingMd">Sync Progress</Text>
-                  {getStatusBadge()}
-                </InlineStack>
-
-                <ProgressBar
-                  progress={syncStatus.progress.percentComplete}
-                  tone={isFailed ? "critical" : "primary"}
-                />
-
-                <InlineStack gap="400" wrap>
-                  <Text as="span" tone="subdued">
-                    Processed: {syncStatus.progress.processedCount.toLocaleString()}
-                    {syncStatus.progress.totalOrders && (
-                      <> / {syncStatus.progress.totalOrders.toLocaleString()}</>
-                    )}
-                  </Text>
-                  <Text as="span" tone="subdued">
-                    Created: {syncStatus.progress.createdCount.toLocaleString()}
-                  </Text>
-                  <Text as="span" tone="subdued">
-                    Updated: {syncStatus.progress.updatedCount.toLocaleString()}
-                  </Text>
-                  <Text as="span" tone="subdued">
-                    Skipped: {syncStatus.progress.skippedCount.toLocaleString()}
-                  </Text>
-                  {syncStatus.progress.errorCount > 0 && (
-                    <Text as="span" tone="critical">
-                      Errors: {syncStatus.progress.errorCount.toLocaleString()}
-                    </Text>
-                  )}
-                </InlineStack>
-
-                {isFailed && syncStatus.error && (
-                  <Banner title="Sync Failed" tone="critical">
-                    <p>{syncStatus.error}</p>
-                  </Banner>
-                )}
-
-                {isCompleted && (
-                  <Banner title="Sync Complete" tone="success">
-                    <p>
-                      Successfully synced {syncStatus.progress.createdCount.toLocaleString()} new orders
-                      and updated {syncStatus.progress.updatedCount.toLocaleString()} existing orders.
-                    </p>
-                  </Banner>
-                )}
-
-                <InlineStack gap="200">
-                  {isSyncing && (
-                    <Button onClick={handleCancel} tone="critical">
-                      Cancel Sync
-                    </Button>
-                  )}
-                  {isFailed && (
-                    <Button onClick={handleResume} variant="primary">
-                      Resume Sync
-                    </Button>
-                  )}
-                </InlineStack>
-              </BlockStack>
-            </Box>
+            <SyncProgressCard
+              status={
+                syncStatus.status === 'IN_PROGRESS' ? 'syncing' :
+                syncStatus.status === 'COMPLETED' ? 'completed' :
+                syncStatus.status === 'FAILED' ? 'failed' :
+                syncStatus.status === 'CANCELLED' ? 'cancelled' : 'idle'
+              }
+              progress={{
+                processedCount: syncStatus.progress.processedCount,
+                totalCount: syncStatus.progress.totalOrders,
+                percentComplete: syncStatus.progress.percentComplete,
+                createdCount: syncStatus.progress.createdCount,
+                updatedCount: syncStatus.progress.updatedCount,
+                skippedCount: syncStatus.progress.skippedCount,
+                errorCount: syncStatus.progress.errorCount,
+              }}
+              error={syncStatus.error}
+              progressLabel="orders"
+              onCancel={handleCancel}
+              onResume={handleResume}
+              isLoading={isProcessing}
+            />
           </Card>
         )}
 
