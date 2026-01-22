@@ -142,15 +142,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const endsAt = new Date(formData.get("endsAt") as string);
     const entryCost = parseInt(formData.get("entryCost") as string) || 100;
 
-    await createRaffle({
-      shop,
-      name,
-      startsAt,
-      endsAt,
-      entryCost,
-    });
+    try {
+      await createRaffle({
+        shop,
+        name,
+        startsAt,
+        endsAt,
+        entryCost,
+      });
 
-    return json({ success: true, message: "Raffle created successfully" });
+      return json({ success: true, message: "Raffle created successfully" });
+    } catch (error) {
+      console.error("[Raffles] Create raffle error:", error);
+      return json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create raffle",
+      }, { status: 500 });
+    }
   }
 
   if (intent === "delete") {

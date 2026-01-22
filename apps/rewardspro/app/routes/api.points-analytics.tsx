@@ -210,19 +210,26 @@ async function getPointsAnalytics(shop: string): Promise<PointsAnalytics> {
 
 async function getOverviewData(shop: string) {
   // Get customer totals
-  const [customerStats, ledgerStats] = await Promise.all([
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Instead, fetch type and amount fields and aggregate in memory
+  const [customerStats, ledgerEntries] = await Promise.all([
     db.customer.aggregate({
       where: { shop },
       _sum: { pointsBalance: true, lifetimePoints: true },
       _count: true,
       _avg: { pointsBalance: true },
     }),
-    db.pointsLedger.groupBy({
-      by: ["type"],
+    db.pointsLedger.findMany({
       where: { shop },
-      _sum: { amount: true },
+      select: { type: true, amount: true },
     }),
   ]);
+
+  // Aggregate by type in memory (replaces groupBy + _sum)
+  const ledgerStatsByType: Record<string, number> = {};
+  for (const entry of ledgerEntries) {
+    ledgerStatsByType[entry.type] = (ledgerStatsByType[entry.type] || 0) + entry.amount;
+  }
 
   // Count customers with positive balance
   const customersWithPoints = await db.customer.count({
@@ -244,20 +251,20 @@ async function getOverviewData(shop: string) {
   const redeemTypes = ["REDEMPTION"];
   const expireTypes = ["EXPIRATION"];
 
-  const totalEarned = ledgerStats
-    .filter((s) => earnTypes.includes(s.type))
-    .reduce((sum, s) => sum + (s._sum.amount || 0), 0);
+  const totalEarned = Object.entries(ledgerStatsByType)
+    .filter(([type]) => earnTypes.includes(type))
+    .reduce((sum, [, amount]) => sum + amount, 0);
 
   const totalRedeemed = Math.abs(
-    ledgerStats
-      .filter((s) => redeemTypes.includes(s.type))
-      .reduce((sum, s) => sum + (s._sum.amount || 0), 0)
+    Object.entries(ledgerStatsByType)
+      .filter(([type]) => redeemTypes.includes(type))
+      .reduce((sum, [, amount]) => sum + amount, 0)
   );
 
   const totalExpired = Math.abs(
-    ledgerStats
-      .filter((s) => expireTypes.includes(s.type))
-      .reduce((sum, s) => sum + (s._sum.amount || 0), 0)
+    Object.entries(ledgerStatsByType)
+      .filter(([type]) => expireTypes.includes(type))
+      .reduce((sum, [, amount]) => sum + amount, 0)
   );
 
   return {
@@ -283,7 +290,9 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
     "STREAK_BONUS",
   ];
 
-  const [earnedData, redeemedData, transactionData] = await Promise.all([
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Replace with findMany and count in memory
+  const [earnedData, redeemedData, transactionEntries] = await Promise.all([
     db.pointsLedger.aggregate({
       where: {
         shop,
@@ -300,23 +309,24 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
       },
       _sum: { amount: true },
     }),
-    db.pointsLedger.groupBy({
-      by: ["customerId"],
+    db.pointsLedger.findMany({
       where: {
         shop,
         createdAt: { gte: startDate, lte: endDate },
       },
-      _count: true,
+      select: { customerId: true },
     }),
   ]);
 
-  const transactionCount = transactionData.reduce((sum, d) => sum + d._count, 0);
+  // Count total transactions and unique customers in memory
+  const transactionCount = transactionEntries.length;
+  const uniqueCustomerIds = new Set(transactionEntries.map(e => e.customerId));
 
   return {
     pointsEarned: earnedData._sum.amount || 0,
     pointsRedeemed: Math.abs(redeemedData._sum.amount || 0),
     transactionCount,
-    uniqueCustomers: transactionData.length,
+    uniqueCustomers: uniqueCustomerIds.size,
   };
 }
 
@@ -401,13 +411,16 @@ async function getRedemptionAnalytics(shop: string) {
   });
 
   // Get customers who have redeemed
-  const customersWhoRedeemed = await db.pointsLedger.groupBy({
-    by: ["customerId"],
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Instead, fetch customerIds and count distinct in memory
+  const redemptionEntries = await db.pointsLedger.findMany({
     where: { shop, type: "REDEMPTION" },
+    select: { customerId: true },
   });
+  const uniqueRedeemers = new Set(redemptionEntries.map(e => e.customerId));
 
   const conversionRate = customersWithHistory > 0
-    ? (customersWhoRedeemed.length / customersWithHistory) * 100
+    ? (uniqueRedeemers.size / customersWithHistory) * 100
     : 0;
 
   return {

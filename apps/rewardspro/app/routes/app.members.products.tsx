@@ -187,8 +187,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const hasPurchasableTiers = entitlements.featurePurchasableTiers;
 
     // Fetch tiers, shop settings, and tier distribution
-    // OPTIMIZED: Use groupBy aggregation instead of fetching all customers
-    const [tiers, shopSettings, tierDistributionResult] = await Promise.all([
+    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+    // Instead, fetch only currentTierId and count in memory
+    const [tiers, shopSettings, customersWithTiers] = await Promise.all([
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
@@ -196,21 +197,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       db.shopSettings.findUnique({
         where: { shop },
       }),
-      // Use aggregation - much faster than fetching all customer records
-      db.customer.groupBy({
-        by: ['currentTierId'],
+      // Fetch only tierId field for counting - more efficient than full records
+      db.customer.findMany({
         where: { shop },
-        _count: {
-          currentTierId: true
-        }
+        select: { currentTierId: true }
       }),
     ]);
 
-    // Transform groupBy result to distribution map
+    // Count tier distribution in memory
     const tierDistribution: Record<string, number> = {};
-    for (const group of tierDistributionResult) {
-      if (group.currentTierId) {
-        tierDistribution[group.currentTierId] = group._count.currentTierId;
+    for (const customer of customersWithTiers) {
+      if (customer.currentTierId) {
+        tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
       }
     }
     

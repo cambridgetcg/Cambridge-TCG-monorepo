@@ -326,17 +326,22 @@ export async function getCustomerAvailableBoxes(
   });
 
   // Get customer's opens for these boxes
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Instead, fetch boxId for each open and count in memory
   const boxIds = boxes.map((b) => b.id);
-  const opens = await db.mysteryBoxOpen.groupBy({
-    by: ["boxId"],
+  const customerOpens = await db.mysteryBoxOpen.findMany({
     where: {
       customerId,
       boxId: { in: boxIds },
     },
-    _count: { id: true },
+    select: { boxId: true },
   });
 
-  const opensMap = new Map(opens.map((o) => [o.boxId, o._count.id]));
+  // Count opens per box in memory
+  const opensMap = new Map<string, number>();
+  for (const open of customerOpens) {
+    opensMap.set(open.boxId, (opensMap.get(open.boxId) || 0) + 1);
+  }
 
   // Build status for each box
   const results: CustomerBoxStatus[] = [];

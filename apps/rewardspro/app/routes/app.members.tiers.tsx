@@ -73,7 +73,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const hasAnnualEval = entitlements.featureAnnualEval;
 
   // Fetch tiers and settings
-  const [tiers, shopSettings, tierDistributionResult] = await Promise.all([
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Instead, fetch only currentTierId and count in memory
+  const [tiers, shopSettings, customersWithTiers] = await Promise.all([
     db.tier.findMany({
       where: { shop },
       orderBy: { minSpend: "asc" },
@@ -81,19 +83,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     db.shopSettings.findUnique({
       where: { shop },
     }),
-    // Use aggregation for customer counts
-    db.customer.groupBy({
-      by: ["currentTierId"],
+    // Fetch only tierId field for counting - works with Data API
+    db.customer.findMany({
       where: { shop },
-      _count: { id: true },
+      select: { currentTierId: true },
     }),
   ]);
 
-  // Convert tier distribution to lookup
+  // Count tier distribution in memory
   const tierDistribution: Record<string, number> = {};
-  for (const item of tierDistributionResult) {
-    if (item.currentTierId) {
-      tierDistribution[item.currentTierId] = item._count.id;
+  for (const customer of customersWithTiers) {
+    if (customer.currentTierId) {
+      tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
     }
   }
 

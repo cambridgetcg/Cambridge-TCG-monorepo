@@ -479,22 +479,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
    * For a shop with 10 tiers, reduces from 11 queries to 2 queries
    */
   async function calculateTierDistributionData(shop: string) {
-    // OPTIMIZED: Use parallel queries - count + groupBy instead of N separate counts
-    const [totalCustomers, tierDistributionResult] = await Promise.all([
+    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+    // Instead, fetch all customer tier IDs and count in memory
+    const [totalCustomers, customersWithTiers] = await Promise.all([
       db.customer.count({ where: { shop } }),
-      // Single groupBy query instead of N separate count queries
-      db.customer.groupBy({
-        by: ['currentTierId'],
+      // Fetch only the tierId field for all customers to count distribution
+      db.customer.findMany({
         where: { shop },
-        _count: { currentTierId: true }
+        select: { currentTierId: true }
       })
     ]);
 
-    // Transform groupBy result to distribution map
+    // Count tier distribution in memory
     const tierDistribution: Record<string, number> = {};
-    for (const group of tierDistributionResult) {
-      if (group.currentTierId && group._count.currentTierId > 0) {
-        tierDistribution[group.currentTierId] = group._count.currentTierId;
+    for (const customer of customersWithTiers) {
+      if (customer.currentTierId) {
+        tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
       }
     }
 

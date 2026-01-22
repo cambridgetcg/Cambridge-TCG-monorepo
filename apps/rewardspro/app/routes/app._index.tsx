@@ -577,18 +577,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log(`[Feature Manager] Future orders will ${enabled ? 'automatically earn' : 'NOT automatically earn'} cashback rewards`);
     }
 
-    // Single DB operation - no need for pre-fetch or post-verify
-    await db.shopSettings.update({
-      where: { shop },
-      data: updateData,
-    });
+    // Single DB operation with error handling
+    try {
+      await db.shopSettings.update({
+        where: { shop },
+        data: updateData,
+      });
 
-    console.log(`[Feature Manager] ✓ Database updated: ${feature} = ${enabled}`);
+      console.log(`[Feature Manager] ✓ Database updated: ${feature} = ${enabled}`);
 
-    return json({ success: true, feature, enabled });
+      return json({ success: true, feature, enabled });
+    } catch (dbError: any) {
+      console.error(`[Feature Manager] ✗ Database update failed:`, dbError);
+      return json({
+        success: false,
+        error: dbError.message || 'Failed to update feature setting'
+      }, { status: 500 });
+    }
   }
 
-  return json({ success: false });
+  return json({ success: false, error: 'Unknown action' });
 };
 
 // ============================================
@@ -1183,7 +1191,8 @@ export default function Dashboard() {
                               top: '2px',
                               left: isEnabled ? '26px' : '2px',
                               transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                              pointerEvents: 'none'
                             }} />
                           </div>
                         </InlineStack>
@@ -1246,7 +1255,8 @@ export default function Dashboard() {
                               top: '2px',
                               left: isEnabled ? '26px' : '2px',
                               transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                              pointerEvents: 'none'
                             }} />
                           </div>
                         </InlineStack>
@@ -1311,7 +1321,8 @@ export default function Dashboard() {
                               top: '2px',
                               left: isEnabled ? '26px' : '2px',
                               transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                              pointerEvents: 'none'
                             }} />
                           </div>
                         </InlineStack>

@@ -644,14 +644,15 @@ export async function getDeliveryStats(
   failed: number;
   claimed: number;
 }> {
-  const stats = await db.mysteryBoxWinner.groupBy({
-    by: ["deliveryStatus"],
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Instead, fetch deliveryStatus for all winners and count in memory
+  const winners = await db.mysteryBoxWinner.findMany({
     where: { boxId, shop },
-    _count: { id: true },
+    select: { deliveryStatus: true },
   });
 
   const result = {
-    total: 0,
+    total: winners.length,
     pending: 0,
     processing: 0,
     delivered: 0,
@@ -659,25 +660,23 @@ export async function getDeliveryStats(
     claimed: 0,
   };
 
-  for (const stat of stats) {
-    const count = stat._count.id;
-    result.total += count;
-
-    switch (stat.deliveryStatus) {
+  // Count by status in memory
+  for (const winner of winners) {
+    switch (winner.deliveryStatus) {
       case "PENDING":
-        result.pending = count;
+        result.pending++;
         break;
       case "PROCESSING":
-        result.processing = count;
+        result.processing++;
         break;
       case "DELIVERED":
-        result.delivered = count;
+        result.delivered++;
         break;
       case "FAILED":
-        result.failed = count;
+        result.failed++;
         break;
       case "CLAIMED":
-        result.claimed = count;
+        result.claimed++;
         break;
     }
   }

@@ -592,21 +592,28 @@ export async function getPointsStats(shop: string): Promise<{
     }
 
     console.log(`${LOG_PREFIX} getPointsStats: Starting parallel queries...`);
-    const [config, stats] = await Promise.all([
+    // DATA API COMPATIBLE: groupBy with _sum is not supported by Aurora Data API adapter
+    // Instead, fetch type and amount fields and aggregate in memory
+    const [config, ledgerEntries] = await Promise.all([
       db.pointsConfig.findUnique({
         where: { shop },
         select: { isEnabled: true },
       }),
-      // Get aggregated stats from ledger
-      db.pointsLedger.groupBy({
-        by: ['type'],
+      // Fetch only type and amount for aggregation in memory
+      db.pointsLedger.findMany({
         where: { shop },
-        _sum: { amount: true },
+        select: { type: true, amount: true },
       }),
     ]);
     console.log(`${LOG_PREFIX} getPointsStats: Parallel queries completed in ${Date.now() - startTime}ms`);
 
-    // Calculate totals from grouped stats
+    // Aggregate by type in memory (replaces groupBy + _sum)
+    const statsByType: Record<string, number> = {};
+    for (const entry of ledgerEntries) {
+      statsByType[entry.type] = (statsByType[entry.type] || 0) + entry.amount;
+    }
+
+    // Calculate totals from aggregated stats
     let totalPointsIssued = 0;
     let totalPointsRedeemed = 0;
     let totalPointsExpired = 0;
@@ -631,13 +638,12 @@ export async function getPointsStats(shop: string): Promise<{
       'MANUAL_DEBIT',
     ];
 
-    for (const stat of stats) {
-      const amount = stat._sum.amount ?? 0;
-      if (earningTypes.includes(stat.type)) {
+    for (const [type, amount] of Object.entries(statsByType)) {
+      if (earningTypes.includes(type)) {
         totalPointsIssued += amount;
-      } else if (spendingTypes.includes(stat.type)) {
+      } else if (spendingTypes.includes(type)) {
         totalPointsRedeemed += Math.abs(amount);
-      } else if (stat.type === 'EXPIRATION') {
+      } else if (type === 'EXPIRATION') {
         totalPointsExpired += Math.abs(amount);
       }
     }

@@ -3,7 +3,7 @@
     "shopify-test": {
       "command": "node",
       "args": [
-        "/Users/alex/rewardspro-production/mcp-shopify-server.js"
+        "/Users/yu/Desktop/rewardspro-production/mcp-shopify-server.js"
       ],
       "env": {
         "SHOPIFY_APP_URL": "http://localhost:3000",
@@ -15,7 +15,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/Users/alex/rewardspro-production"
+        "/Users/yu/Desktop/rewardspro-production"
       ]
     }
   }

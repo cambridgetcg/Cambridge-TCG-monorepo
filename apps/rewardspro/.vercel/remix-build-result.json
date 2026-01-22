@@ -12,6 +12,8 @@
     "routeIdToServerBundleId": {
       "routes/api.marketing.recommendations.$id.apply": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.subscriptions.approaching-cap": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.store-credit-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.subscription-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.cancelled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.dismiss-customer-account-block": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -20,6 +22,7 @@
       "routes/webhooks.app-subscriptions-update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.billing-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.gift-cards": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.subscription-expiry": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.raffles": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -37,12 +40,15 @@
       "routes/api.dismiss-widget-banner": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.customers.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.orders.cancelled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.orders.fulfilled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.session-cleanup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-cleanup": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-details.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.uninstalled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.refunded": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.products.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.klaviyo-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -66,9 +72,17 @@
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.members.export": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.usage": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.email.domain": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations.webhooks.$provider": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations.oauth.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations.points-rules": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations.oauth.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations.zapier": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.integrations.slack": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.set-currency": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-count": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.upload-icon": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -115,6 +129,7 @@
       "routes/app.settings.store-metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.automation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.members.gift-cards": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.members.products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.members._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.members.tiers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -153,6 +168,24 @@
         "parentId": "root",
         "file": "app/routes/webhooks.subscriptions.approaching-cap.tsx",
         "path": "webhooks/subscriptions/approaching-cap",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.cron.store-credit-reconciliation": {
+        "id": "routes/api.cron.store-credit-reconciliation",
+        "parentId": "root",
+        "file": "app/routes/api.cron.store-credit-reconciliation.tsx",
+        "path": "api/cron/store-credit-reconciliation",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.cron.subscription-reconciliation": {
+        "id": "routes/api.cron.subscription-reconciliation",
+        "parentId": "root",
+        "file": "app/routes/api.cron.subscription-reconciliation.tsx",
+        "path": "api/cron/subscription-reconciliation",
         "config": {
           "runtime": "nodejs"
         }
@@ -225,6 +258,15 @@
         "parentId": "root",
         "file": "app/routes/api.cron.webhook-reconciliation.tsx",
         "path": "api/cron/webhook-reconciliation",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-account.gift-cards": {
+        "id": "routes/api.customer-account.gift-cards",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.gift-cards.tsx",
+        "path": "api/customer-account/gift-cards",
         "config": {
           "runtime": "nodejs"
         }
@@ -380,6 +422,24 @@
           "runtime": "nodejs"
         }
       },
+      "routes/webhooks.orders.cancelled": {
+        "id": "routes/webhooks.orders.cancelled",
+        "parentId": "root",
+        "file": "app/routes/webhooks.orders.cancelled.tsx",
+        "path": "webhooks/orders/cancelled",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.orders.fulfilled": {
+        "id": "routes/webhooks.orders.fulfilled",
+        "parentId": "root",
+        "file": "app/routes/webhooks.orders.fulfilled.tsx",
+        "path": "webhooks/orders/fulfilled",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.cron.session-cleanup": {
         "id": "routes/api.cron.session-cleanup",
         "parentId": "root",
@@ -430,6 +490,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.orders.refunded.tsx",
         "path": "webhooks/orders/refunded",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.products.update": {
+        "id": "routes/webhooks.products.update",
+        "parentId": "root",
+        "file": "app/routes/webhooks.products.update.tsx",
+        "path": "webhooks/products/update",
         "config": {
           "runtime": "nodejs"
         }
@@ -641,6 +710,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.members.export": {
+        "id": "routes/api.members.export",
+        "parentId": "root",
+        "file": "app/routes/api.members.export.tsx",
+        "path": "api/members/export",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.billing.usage": {
         "id": "routes/api.billing.usage",
         "parentId": "root",
@@ -667,6 +745,57 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/api.integrations": {
+        "id": "routes/api.integrations",
+        "parentId": "root",
+        "file": "app/routes/api.integrations.tsx",
+        "path": "api/integrations",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.integrations.webhooks.$provider": {
+        "id": "routes/api.integrations.webhooks.$provider",
+        "parentId": "routes/api.integrations",
+        "file": "app/routes/api.integrations.webhooks.$provider.tsx",
+        "path": "webhooks/:provider",
+        "config": {}
+      },
+      "routes/api.integrations.oauth.callback": {
+        "id": "routes/api.integrations.oauth.callback",
+        "parentId": "routes/api.integrations",
+        "file": "app/routes/api.integrations.oauth.callback.tsx",
+        "path": "oauth/callback",
+        "config": {}
+      },
+      "routes/api.integrations.points-rules": {
+        "id": "routes/api.integrations.points-rules",
+        "parentId": "routes/api.integrations",
+        "file": "app/routes/api.integrations.points-rules.tsx",
+        "path": "points-rules",
+        "config": {}
+      },
+      "routes/api.integrations.oauth.start": {
+        "id": "routes/api.integrations.oauth.start",
+        "parentId": "routes/api.integrations",
+        "file": "app/routes/api.integrations.oauth.start.tsx",
+        "path": "oauth/start",
+        "config": {}
+      },
+      "routes/api.integrations.zapier": {
+        "id": "routes/api.integrations.zapier",
+        "parentId": "routes/api.integrations",
+        "file": "app/routes/api.integrations.zapier.tsx",
+        "path": "zapier",
+        "config": {}
+      },
+      "routes/api.integrations.slack": {
+        "id": "routes/api.integrations.slack",
+        "parentId": "routes/api.integrations",
+        "file": "app/routes/api.integrations.slack.tsx",
+        "path": "slack",
+        "config": {}
       },
       "routes/api.set-currency": {
         "id": "routes/api.set-currency",
@@ -1099,6 +1228,15 @@
         "path": "members",
         "config": {}
       },
+      "routes/app.members.gift-cards": {
+        "id": "routes/app.members.gift-cards",
+        "parentId": "routes/app.members",
+        "file": "app/routes/app.members.gift-cards.tsx",
+        "path": "gift-cards",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.members.products": {
         "id": "routes/app.members.products",
         "parentId": "routes/app.members",
@@ -1287,6 +1425,18 @@
         "file": "routes/webhooks.subscriptions.approaching-cap.tsx",
         "path": "webhooks/subscriptions/approaching-cap"
       },
+      "routes/api.cron.store-credit-reconciliation": {
+        "id": "routes/api.cron.store-credit-reconciliation",
+        "parentId": "root",
+        "file": "routes/api.cron.store-credit-reconciliation.tsx",
+        "path": "api/cron/store-credit-reconciliation"
+      },
+      "routes/api.cron.subscription-reconciliation": {
+        "id": "routes/api.cron.subscription-reconciliation",
+        "parentId": "root",
+        "file": "routes/api.cron.subscription-reconciliation.tsx",
+        "path": "api/cron/subscription-reconciliation"
+      },
       "routes/webhooks.tier-subscription.cancelled": {
         "id": "routes/webhooks.tier-subscription.cancelled",
         "parentId": "root",
@@ -1334,6 +1484,12 @@
         "parentId": "root",
         "file": "routes/api.cron.webhook-reconciliation.tsx",
         "path": "api/cron/webhook-reconciliation"
+      },
+      "routes/api.customer-account.gift-cards": {
+        "id": "routes/api.customer-account.gift-cards",
+        "parentId": "root",
+        "file": "routes/api.customer-account.gift-cards.tsx",
+        "path": "api/customer-account/gift-cards"
       },
       "routes/api.cron.subscription-expiry": {
         "id": "routes/api.cron.subscription-expiry",
@@ -1437,6 +1593,18 @@
         "file": "routes/webhooks.customers.update.tsx",
         "path": "webhooks/customers/update"
       },
+      "routes/webhooks.orders.cancelled": {
+        "id": "routes/webhooks.orders.cancelled",
+        "parentId": "root",
+        "file": "routes/webhooks.orders.cancelled.tsx",
+        "path": "webhooks/orders/cancelled"
+      },
+      "routes/webhooks.orders.fulfilled": {
+        "id": "routes/webhooks.orders.fulfilled",
+        "parentId": "root",
+        "file": "routes/webhooks.orders.fulfilled.tsx",
+        "path": "webhooks/orders/fulfilled"
+      },
       "routes/api.cron.session-cleanup": {
         "id": "routes/api.cron.session-cleanup",
         "parentId": "root",
@@ -1472,6 +1640,12 @@
         "parentId": "root",
         "file": "routes/webhooks.orders.refunded.tsx",
         "path": "webhooks/orders/refunded"
+      },
+      "routes/webhooks.products.update": {
+        "id": "routes/webhooks.products.update",
+        "parentId": "root",
+        "file": "routes/webhooks.products.update.tsx",
+        "path": "webhooks/products/update"
       },
       "routes/api.credit-sync.process": {
         "id": "routes/api.credit-sync.process",
@@ -1611,6 +1785,12 @@
         "file": "routes/webhooks.compliance.tsx",
         "path": "webhooks/compliance"
       },
+      "routes/api.members.export": {
+        "id": "routes/api.members.export",
+        "parentId": "root",
+        "file": "routes/api.members.export.tsx",
+        "path": "api/members/export"
+      },
       "routes/api.billing.usage": {
         "id": "routes/api.billing.usage",
         "parentId": "root",
@@ -1628,6 +1808,48 @@
         "parentId": "root",
         "file": "routes/api.email.domain.tsx",
         "path": "api/email/domain"
+      },
+      "routes/api.integrations": {
+        "id": "routes/api.integrations",
+        "parentId": "root",
+        "file": "routes/api.integrations.tsx",
+        "path": "api/integrations"
+      },
+      "routes/api.integrations.webhooks.$provider": {
+        "id": "routes/api.integrations.webhooks.$provider",
+        "parentId": "routes/api.integrations",
+        "file": "routes/api.integrations.webhooks.$provider.tsx",
+        "path": "webhooks/:provider"
+      },
+      "routes/api.integrations.oauth.callback": {
+        "id": "routes/api.integrations.oauth.callback",
+        "parentId": "routes/api.integrations",
+        "file": "routes/api.integrations.oauth.callback.tsx",
+        "path": "oauth/callback"
+      },
+      "routes/api.integrations.points-rules": {
+        "id": "routes/api.integrations.points-rules",
+        "parentId": "routes/api.integrations",
+        "file": "routes/api.integrations.points-rules.tsx",
+        "path": "points-rules"
+      },
+      "routes/api.integrations.oauth.start": {
+        "id": "routes/api.integrations.oauth.start",
+        "parentId": "routes/api.integrations",
+        "file": "routes/api.integrations.oauth.start.tsx",
+        "path": "oauth/start"
+      },
+      "routes/api.integrations.zapier": {
+        "id": "routes/api.integrations.zapier",
+        "parentId": "routes/api.integrations",
+        "file": "routes/api.integrations.zapier.tsx",
+        "path": "zapier"
+      },
+      "routes/api.integrations.slack": {
+        "id": "routes/api.integrations.slack",
+        "parentId": "routes/api.integrations",
+        "file": "routes/api.integrations.slack.tsx",
+        "path": "slack"
       },
       "routes/api.set-currency": {
         "id": "routes/api.set-currency",
@@ -1934,6 +2156,12 @@
         "parentId": "routes/app",
         "file": "routes/app.members.tsx",
         "path": "members"
+      },
+      "routes/app.members.gift-cards": {
+        "id": "routes/app.members.gift-cards",
+        "parentId": "routes/app.members",
+        "file": "routes/app.members.gift-cards.tsx",
+        "path": "gift-cards"
       },
       "routes/app.members.products": {
         "id": "routes/app.members.products",
