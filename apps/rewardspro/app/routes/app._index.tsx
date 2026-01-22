@@ -636,9 +636,9 @@ export default function Dashboard() {
   // Track dashboard view with metrics on mount
   useEffect(() => {
     trackCustomEvent('dashboard_view', {
-      active_customers_count: data.totalCustomers || 0,
-      total_cashback_paid: data.cashbackStats?.totalCashbackPaid || 0,
-      sync_status: data.recentSyncs?.length > 0 ? 'active' : 'inactive',
+      plan_name: data.monthlyOrderUsage?.planName || 'Free',
+      order_count: data.monthlyOrderUsage?.orderCount || 0,
+      webhook_status: data.webhookStats?.status || 'unknown',
     });
   }, []); // Only track once on mount
 
