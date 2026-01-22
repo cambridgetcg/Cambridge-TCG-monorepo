@@ -841,7 +841,7 @@ export class InsightEngine {
           createdAt: { gte: thirtyDaysAgo },
           type: 'EARN',
         },
-        _sum: { points: true },
+        _sum: { amount: true },
       }),
       db.pointsLedger.aggregate({
         where: {
@@ -849,7 +849,7 @@ export class InsightEngine {
           createdAt: { gte: thirtyDaysAgo },
           type: 'REDEEM',
         },
-        _sum: { points: true },
+        _sum: { amount: true },
       }),
       db.customer.aggregate({
         where: { shop: this.shop },
@@ -858,9 +858,9 @@ export class InsightEngine {
     ]);
 
     return {
-      earned: earned._sum.points || 0,
-      redeemed: Math.abs(redeemed._sum.points || 0),
-      outstanding: outstanding._sum.pointsBalance || 0,
+      earned: earned._sum.amount || 0,
+      redeemed: Math.abs(redeemed._sum.amount || 0),
+      outstanding: outstanding._sum.amountBalance || 0,
     };
   }
 
@@ -875,10 +875,10 @@ export class InsightEngine {
         shop: this.shop,
         expiresAt: { gte: now, lte: expiryDate },
       },
-      _sum: { points: true },
+      _sum: { amount: true },
     });
 
-    const totalPoints = result.reduce((sum, r) => sum + (r._sum.points || 0), 0);
+    const totalPoints = result.reduce((sum, r) => sum + (r._sum.amount || 0), 0);
     return { count: totalPoints, customers: result.length };
   }
 
@@ -1099,9 +1099,9 @@ export class InsightEngine {
         case 'points_earned':
           const points = await db.pointsLedger.aggregate({
             where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: 'EARN' },
-            _sum: { points: true },
+            _sum: { amount: true },
           });
-          value = points._sum.points || 0;
+          value = points._sum.amount || 0;
           break;
         case 'redemptions':
           value = await db.pointsLedger.count({
