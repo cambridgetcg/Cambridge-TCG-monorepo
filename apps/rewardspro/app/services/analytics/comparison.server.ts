@@ -10,6 +10,20 @@
  */
 
 import { db } from "~/db.server";
+import { analyticsCache } from "./cache.service";
+
+// Cache TTL constants
+const COMPARISON_CACHE_TTL = 60_000; // 60 seconds
+const BENCHMARK_CACHE_TTL = 120_000; // 2 minutes (benchmarks change less frequently)
+
+// Helper to generate cache keys
+function comparisonCacheKey(shop: string, metric: string, start: Date, end: Date): string {
+  return `comparison:${shop}:${metric}:${start.getTime()}:${end.getTime()}`;
+}
+
+function benchmarkCacheKey(shop: string, metric: string): string {
+  return `benchmark:${shop}:${metric}`;
+}
 
 // ============================================================================
 // Types
@@ -151,11 +165,22 @@ export class ComparisonService {
 
   /**
    * Get benchmark comparison for a metric
+   * Results are cached for 2 minutes to reduce DB load
    */
   async getBenchmarkComparison(metric: string): Promise<{
     current: MetricValue;
     benchmarks: Array<BenchmarkData & { comparison: 'above' | 'below' | 'at' }>;
   }> {
+    // Check cache first
+    const cacheKey = benchmarkCacheKey(this.shop, metric);
+    const cached = analyticsCache.get<{
+      current: MetricValue;
+      benchmarks: Array<BenchmarkData & { comparison: 'above' | 'below' | 'at' }>;
+    }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const current = await this.getMetricValue(metric, { start: thirtyDaysAgo, end: new Date() });
 
@@ -194,7 +219,12 @@ export class ComparisonService {
       });
     }
 
-    return { current, benchmarks };
+    const result = { current, benchmarks };
+
+    // Cache the result
+    analyticsCache.set(cacheKey, result, BENCHMARK_CACHE_TTL);
+
+    return result;
   }
 
   /**
@@ -242,56 +272,80 @@ export class ComparisonService {
   // ============================================================================
 
   private async getMetricValue(metric: string, period: DateRange): Promise<MetricValue> {
+    // Check cache first
+    const cacheKey = comparisonCacheKey(this.shop, metric, period.start, period.end);
+    const cached = analyticsCache.get<MetricValue>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     let value = 0;
+    let result: MetricValue;
 
     switch (metric) {
       case 'revenue':
         value = await this.getRevenue(period);
-        return { value, formatted: this.formatCurrency(value) };
+        result = { value, formatted: this.formatCurrency(value) };
+        break;
 
       case 'orders':
         value = await this.getOrderCount(period);
-        return { value, formatted: this.formatNumber(value) };
+        result = { value, formatted: this.formatNumber(value) };
+        break;
 
       case 'customers':
         value = await this.getCustomerCount(period);
-        return { value, formatted: this.formatNumber(value) };
+        result = { value, formatted: this.formatNumber(value) };
+        break;
 
       case 'new_members':
         value = await this.getNewMemberCount(period);
-        return { value, formatted: this.formatNumber(value) };
+        result = { value, formatted: this.formatNumber(value) };
+        break;
 
       case 'points_earned':
         value = await this.getPointsEarned(period);
-        return { value, formatted: this.formatNumber(value) };
+        result = { value, formatted: this.formatNumber(value) };
+        break;
 
       case 'points_redeemed':
         value = await this.getPointsRedeemed(period);
-        return { value, formatted: this.formatNumber(value) };
+        result = { value, formatted: this.formatNumber(value) };
+        break;
 
       case 'redemption_rate':
         value = await this.getRedemptionRate(period);
-        return { value, formatted: this.formatPercent(value) };
+        result = { value, formatted: this.formatPercent(value) };
+        break;
 
       case 'cashback_earned':
         value = await this.getCashbackEarned(period);
-        return { value, formatted: this.formatCurrency(value) };
+        result = { value, formatted: this.formatCurrency(value) };
+        break;
 
       case 'cashback_used':
         value = await this.getCashbackUsed(period);
-        return { value, formatted: this.formatCurrency(value) };
+        result = { value, formatted: this.formatCurrency(value) };
+        break;
 
       case 'aov':
         value = await this.getAOV(period);
-        return { value, formatted: this.formatCurrency(value) };
+        result = { value, formatted: this.formatCurrency(value) };
+        break;
 
       case 'tier_upgrades':
         value = await this.getTierUpgrades(period);
-        return { value, formatted: this.formatNumber(value) };
+        result = { value, formatted: this.formatNumber(value) };
+        break;
 
       default:
-        return { value: 0, formatted: '0' };
+        result = { value: 0, formatted: '0' };
     }
+
+    // Cache the result
+    analyticsCache.set(cacheKey, result, COMPARISON_CACHE_TTL);
+
+    return result;
   }
 
   // ============================================================================
@@ -417,17 +471,26 @@ export class ComparisonService {
   }
 
   private async getBestPeriodValue(metric: string, lookbackDays: number): Promise<number> {
-    // Simplified - check monthly values and return best
-    let best = 0;
-    const monthsToCheck = Math.min(Math.floor(lookbackDays / 30), 12);
-
-    for (let i = 0; i < monthsToCheck; i++) {
-      const period = this.getDateRange(30, i * 30);
-      const value = await this.getMetricValue(metric, period);
-      if (value.value > best) {
-        best = value.value;
-      }
+    // Check cache first - best period values change slowly
+    const cacheKey = `bestPeriod:${this.shop}:${metric}:${lookbackDays}`;
+    const cached = analyticsCache.get<number>(cacheKey);
+    if (cached !== null) {
+      return cached;
     }
+
+    // Simplified - check monthly values and return best
+    // Run queries in parallel for better performance
+    const monthsToCheck = Math.min(Math.floor(lookbackDays / 30), 12);
+    const periods = Array.from({ length: monthsToCheck }, (_, i) => this.getDateRange(30, i * 30));
+
+    const values = await Promise.all(
+      periods.map(period => this.getMetricValue(metric, period))
+    );
+
+    const best = Math.max(0, ...values.map(v => v.value));
+
+    // Cache for 5 minutes (best period changes slowly)
+    analyticsCache.set(cacheKey, best, 300_000);
 
     return best;
   }

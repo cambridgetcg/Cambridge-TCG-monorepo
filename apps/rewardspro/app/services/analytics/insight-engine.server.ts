@@ -10,6 +10,16 @@
 
 import { db } from "~/db.server";
 import { analytics } from "./aggregator.service";
+import { analyticsCache } from "./cache.service";
+
+// Cache TTL constants
+const INSIGHTS_CACHE_TTL = 60_000; // 60 seconds
+const HEALTH_SCORE_CACHE_TTL = 60_000; // 60 seconds
+
+// Helper to generate cache keys
+function insightCacheKey(shop: string, type: string): string {
+  return `insights:${shop}:${type}`;
+}
 
 // Helper to safely convert Decimal/number values (Data API returns plain numbers, Prisma returns Decimal objects)
 function toNumber(value: any): number {
@@ -114,8 +124,16 @@ export class InsightEngine {
 
   /**
    * Generate all insights for the shop
+   * Results are cached for 60 seconds to reduce DB load
    */
   async generateInsights(): Promise<AnalyticsInsight[]> {
+    // Check cache first
+    const cacheKey = insightCacheKey(this.shop, 'all');
+    const cached = analyticsCache.get<AnalyticsInsight[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const insights: AnalyticsInsight[] = [];
 
     try {
@@ -146,7 +164,12 @@ export class InsightEngine {
       );
 
       // Sort by severity and confidence
-      return this.prioritizeInsights(insights);
+      const result = this.prioritizeInsights(insights);
+
+      // Cache the result
+      analyticsCache.set(cacheKey, result, INSIGHTS_CACHE_TTL);
+
+      return result;
     } catch (error) {
       console.error('[InsightEngine] Error generating insights:', error);
       return [];
@@ -155,8 +178,16 @@ export class InsightEngine {
 
   /**
    * Calculate overall program health score
+   * Results are cached for 60 seconds to reduce DB load
    */
   async calculateHealthScore(): Promise<HealthScore> {
+    // Check cache first
+    const cacheKey = insightCacheKey(this.shop, 'healthScore');
+    const cached = analyticsCache.get<HealthScore>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const [engagement, retention, roi, growth] = await Promise.all([
         this.calculateEngagementScore(),
@@ -174,7 +205,7 @@ export class InsightEngine {
         growth.score * weights.growth
       );
 
-      return {
+      const result: HealthScore = {
         overall,
         engagement: engagement.score,
         retention: retention.score,
@@ -187,6 +218,11 @@ export class InsightEngine {
           { category: 'Growth', score: growth.score, weight: weights.growth, factors: growth.factors },
         ],
       };
+
+      // Cache the result
+      analyticsCache.set(cacheKey, result, HEALTH_SCORE_CACHE_TTL);
+
+      return result;
     } catch (error) {
       console.error('[InsightEngine] Error calculating health score:', error);
       return {
