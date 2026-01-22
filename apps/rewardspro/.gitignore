@@ -14,6 +14,10 @@ database.sqlite
 .env
 .env.*
 
+# Claude Desktop MCP config (user-specific paths)
+# Use claude-desktop-config.template.json as reference
+claude-desktop-config.json
+
 # Documentation and guide files (non-functional)
 *.md
 **/*.md

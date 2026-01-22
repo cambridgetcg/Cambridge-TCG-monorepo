@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "shopify-test": {
+      "command": "node",
+      "args": [
+        "${PROJECT_ROOT}/mcp-shopify-server.js"
+      ],
+      "env": {
+        "SHOPIFY_APP_URL": "http://localhost:3000",
+        "NODE_ENV": "development"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${PROJECT_ROOT}"
+      ]
+    }
+  }
+}
