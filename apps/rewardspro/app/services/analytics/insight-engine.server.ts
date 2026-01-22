@@ -835,7 +835,7 @@ export class InsightEngine {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const [earned, redeemed, outstanding] = await Promise.all([
-      db.pointLedger.aggregate({
+      db.pointsLedger.aggregate({
         where: {
           shop: this.shop,
           createdAt: { gte: thirtyDaysAgo },
@@ -843,7 +843,7 @@ export class InsightEngine {
         },
         _sum: { points: true },
       }),
-      db.pointLedger.aggregate({
+      db.pointsLedger.aggregate({
         where: {
           shop: this.shop,
           createdAt: { gte: thirtyDaysAgo },
@@ -869,7 +869,7 @@ export class InsightEngine {
     const now = new Date();
 
     // Check for points with expiry dates
-    const result = await db.pointLedger.groupBy({
+    const result = await db.pointsLedger.groupBy({
       by: ['customerId'],
       where: {
         shop: this.shop,
@@ -999,7 +999,7 @@ export class InsightEngine {
       db.customer.count({
         where: { shop: this.shop, createdAt: { gte: sevenDaysAgo } },
       }),
-      db.pointLedger.groupBy({
+      db.pointsLedger.groupBy({
         by: ['customerId'],
         where: { shop: this.shop, createdAt: { gte: thirtyDaysAgo } },
       }),
@@ -1097,14 +1097,14 @@ export class InsightEngine {
           });
           break;
         case 'points_earned':
-          const points = await db.pointLedger.aggregate({
+          const points = await db.pointsLedger.aggregate({
             where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: 'EARN' },
             _sum: { points: true },
           });
           value = points._sum.points || 0;
           break;
         case 'redemptions':
-          value = await db.pointLedger.count({
+          value = await db.pointsLedger.count({
             where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: 'REDEEM' },
           });
           break;

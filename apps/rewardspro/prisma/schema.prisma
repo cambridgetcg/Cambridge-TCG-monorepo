@@ -2250,9 +2250,11 @@ model EmailCampaign {
   shop String
 
   // Campaign details
-  name       String // Campaign name
-  templateId String // Reference to EmailTemplate
-  template   EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name        String  // Campaign name
+  subject     String? // Email subject line
+  previewText String? // Email preview text
+  templateId  String  // Reference to EmailTemplate
+  template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   // Status
   status String // draft, scheduled, sending, sent, failed

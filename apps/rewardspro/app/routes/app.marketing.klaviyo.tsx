@@ -9,6 +9,7 @@
  */
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher, useSearchParams } from "@remix-run/react";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -169,7 +170,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     console.log("[Klaviyo] Loader completed successfully");
-    return Response.json({
+    return json({
       shop,
       emailSettings,
       automationSettings,
@@ -181,7 +182,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   } catch (error) {
     console.error("[Klaviyo] Loader error:", error);
     // Return safe defaults so page can still render
-    return Response.json({
+    return json({
       shop,
       emailSettings: null,
       automationSettings: null,
@@ -219,13 +220,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const klaviyo = new KlaviyoService({ apiKey: klaviyoApiKey });
         const isValid = await klaviyo.validateApiKey();
         if (!isValid) {
-          return Response.json(
+          return json(
             { success: false, error: "Invalid Klaviyo API key" },
             { status: 400 }
           );
         }
       } catch (error) {
-        return Response.json(
+        return json(
           { success: false, error: "Failed to validate Klaviyo API key" },
           { status: 400 }
         );
@@ -255,7 +256,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    return Response.json({ success: true, message: "Connection settings saved!" });
+    return json({ success: true, message: "Connection settings saved!" });
   }
 
   if (intent === "saveAutomation") {
@@ -331,7 +332,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    return Response.json({ success: true, message: "Automation settings saved!" });
+    return json({ success: true, message: "Automation settings saved!" });
   }
 
   if (intent === "testConnection") {
@@ -341,7 +342,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
 
     if (!settings?.klaviyoApiKey) {
-      return Response.json(
+      return json(
         { success: false, error: "Klaviyo API key not configured" },
         { status: 400 }
       );
@@ -350,12 +351,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       const klaviyo = new KlaviyoService({ apiKey: settings.klaviyoApiKey });
       const isValid = await klaviyo.validateApiKey();
-      return Response.json({
+      return json({
         success: isValid,
         message: isValid ? "Connection successful!" : "Connection failed",
       });
     } catch (error) {
-      return Response.json(
+      return json(
         { success: false, error: "Failed to connect to Klaviyo" },
         { status: 500 }
       );
@@ -365,13 +366,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (intent === "disconnectOAuth") {
     const { disconnectKlaviyoOAuth } = await import("~/services/klaviyo-oauth.server");
     await disconnectKlaviyoOAuth(shop);
-    return Response.json({
+    return json({
       success: true,
       message: "Klaviyo OAuth disconnected",
     });
   }
 
-  return Response.json({ success: false, error: "Invalid intent" }, { status: 400 });
+  return json({ success: false, error: "Invalid intent" }, { status: 400 });
 };
 
 // ============================================
