@@ -854,6 +854,7 @@ export async function sendTestEmail(
 export const sendgrid = {
   // Email sending
   sendEmail,
+  sendTransactionalEmail: sendEmail, // Alias for transactional emails
   sendBatchEmails,
   sendTestEmail,
 
