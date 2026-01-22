@@ -111,19 +111,15 @@ async function handleCustomerDataRequest(
   });
 
   try {
+    // DATA API COMPATIBLE: Nested include not supported, use two-step query
     // Find the customer in our system
-    const customer = await db.customer.findFirst({
+    const customerRaw = await db.customer.findFirst({
       where: {
         shop,
         shopifyCustomerId: String(payload.customer.id)
       },
       include: {
-        orders: {
-          include: {
-            lineItems: true,
-            refunds: true
-          }
-        },
+        orders: true, // Flat include, no nested lineItems/refunds
         tierSubscriptions: true,
         tierPurchases: true,
         tierState: true,
@@ -131,6 +127,35 @@ async function handleCustomerDataRequest(
         storeCreditLedger: true
       }
     });
+
+    // Fetch refunds separately and join in memory (lineItems not used in data report)
+    let customer = customerRaw;
+    if (customerRaw) {
+      const orderIds = customerRaw.orders.map((o: any) => o.id);
+      const refunds = orderIds.length > 0
+        ? await db.orderRefund.findMany({
+            where: { orderId: { in: orderIds } },
+          })
+        : [];
+
+      // Group refunds by orderId
+      const refundsByOrder = new Map<string, typeof refunds>();
+      for (const refund of refunds) {
+        const existing = refundsByOrder.get(refund.orderId) || [];
+        existing.push(refund);
+        refundsByOrder.set(refund.orderId, existing);
+      }
+
+      // Attach refunds to orders
+      customer = {
+        ...customerRaw,
+        orders: customerRaw.orders.map((order: any) => ({
+          ...order,
+          refunds: refundsByOrder.get(order.id) || [],
+          lineItems: [], // Not used in data report
+        })),
+      };
+    }
 
     if (!customer) {
       logger.gdpr('DATA_REQUEST_NO_DATA', {

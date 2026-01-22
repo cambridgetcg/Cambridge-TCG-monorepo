@@ -860,7 +860,7 @@ export class InsightEngine {
     return {
       earned: earned._sum.amount || 0,
       redeemed: Math.abs(redeemed._sum.amount || 0),
-      outstanding: outstanding._sum.amountBalance || 0,
+      outstanding: outstanding._sum.pointsBalance || 0,
     };
   }
 
@@ -868,18 +868,24 @@ export class InsightEngine {
     const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     const now = new Date();
 
-    // Check for points with expiry dates
-    const result = await db.pointsLedger.groupBy({
-      by: ['customerId'],
+    // DATA API COMPATIBLE: groupBy is not supported, use findMany and aggregate in memory
+    const expiringEntries = await db.pointsLedger.findMany({
       where: {
         shop: this.shop,
         expiresAt: { gte: now, lte: expiryDate },
       },
-      _sum: { amount: true },
+      select: { customerId: true, amount: true },
     });
 
-    const totalPoints = result.reduce((sum, r) => sum + (r._sum.amount || 0), 0);
-    return { count: totalPoints, customers: result.length };
+    // Aggregate by customer in memory
+    const customerPoints = new Map<string, number>();
+    for (const entry of expiringEntries) {
+      const current = customerPoints.get(entry.customerId) || 0;
+      customerPoints.set(entry.customerId, current + (entry.amount || 0));
+    }
+
+    const totalPoints = Array.from(customerPoints.values()).reduce((sum, amt) => sum + amt, 0);
+    return { count: totalPoints, customers: customerPoints.size };
   }
 
   private async getTierStats(): Promise<{ vipInactive: number; upgradeRate: number; recentUpgrades: number }> {
@@ -988,7 +994,8 @@ export class InsightEngine {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const [activeRaffles, totalCustomers, activeCustomers, newMembers, pointsActivity] = await Promise.all([
+    // DATA API COMPATIBLE: groupBy is not supported, use findMany and count distinct in memory
+    const [activeRaffles, totalCustomers, activeCustomers, newMembers, pointsActivityEntries] = await Promise.all([
       db.raffle.count({
         where: { shop: this.shop, status: 'active' },
       }),
@@ -999,11 +1006,14 @@ export class InsightEngine {
       db.customer.count({
         where: { shop: this.shop, createdAt: { gte: sevenDaysAgo } },
       }),
-      db.pointsLedger.groupBy({
-        by: ['customerId'],
+      db.pointsLedger.findMany({
         where: { shop: this.shop, createdAt: { gte: thirtyDaysAgo } },
+        select: { customerId: true },
       }),
     ]);
+
+    // Count unique customers with points activity in memory
+    const uniqueCustomersWithActivity = new Set(pointsActivityEntries.map(e => e.customerId));
 
     // Raffle participation calculation would need entry data
     const raffleParticipation = 0; // Placeholder
@@ -1013,7 +1023,7 @@ export class InsightEngine {
       raffleParticipation,
       newMembersThisWeek: newMembers,
       activeMemberRatio: totalCustomers > 0 ? activeCustomers / totalCustomers : 0,
-      pointsActivityRate: totalCustomers > 0 ? pointsActivity.length / totalCustomers : 0,
+      pointsActivityRate: totalCustomers > 0 ? uniqueCustomersWithActivity.size / totalCustomers : 0,
       redemptionRate: 0.15, // Default, would calculate from actual data
     };
   }

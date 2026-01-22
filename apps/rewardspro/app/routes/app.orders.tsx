@@ -285,15 +285,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     let ordersQuery;
     if (searchQuery) {
       console.log('[Orders Loader] Using search query, fetching all orders first...');
+      // DATA API COMPATIBLE: Nested include not supported, use two-step query
       // Fetch all orders for the shop first, then filter
       const allOrders = await db.order.findMany({
         where: whereClause,
         include: {
-          customer: {
-            include: {
-              currentTier: true,
-            },
-          },
+          customer: true, // Flat include, no nested currentTier
           creditLedgerEntries: {
             orderBy: { createdAt: 'desc' },
           },
@@ -322,15 +319,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.log('[Orders Loader] Paginated orders:', ordersQuery.length);
     } else {
       console.log('[Orders Loader] No search query, using direct pagination...');
+      // DATA API COMPATIBLE: Nested include not supported, use two-step query
       // No search, use normal pagination
       ordersQuery = await db.order.findMany({
         where: whereClause,
         include: {
-          customer: {
-            include: {
-              currentTier: true,
-            },
-          },
+          customer: true, // Flat include, no nested currentTier
           creditLedgerEntries: {
             orderBy: { createdAt: 'desc' },
           },
@@ -348,6 +342,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       var filteredTotalCount = await db.order.count({ where: whereClause });
       console.log('[Orders Loader] Total count from database:', filteredTotalCount);
     }
+
+    // DATA API COMPATIBLE: Fetch tiers separately and join in memory
+    // Collect unique tier IDs from customers
+    const tierIds = [...new Set(
+      ordersQuery
+        .map((o: any) => o.customer?.currentTierId)
+        .filter((id: string | null | undefined): id is string => !!id)
+    )];
+    const tiers = tierIds.length > 0
+      ? await db.tier.findMany({
+          where: { id: { in: tierIds } },
+          select: { id: true, name: true, cashbackPercent: true },
+        })
+      : [];
+    const tierMap = new Map(tiers.map(t => [t.id, t]));
+
+    // Attach currentTier to each order's customer
+    ordersQuery = ordersQuery.map((order: any) => ({
+      ...order,
+      customer: order.customer ? {
+        ...order.customer,
+        currentTier: order.customer.currentTierId
+          ? tierMap.get(order.customer.currentTierId) || null
+          : null,
+      } : null,
+    }));
 
     console.log('[Orders Loader] Fetching shop settings...');
     // Fetch shop settings (CACHED via shop-data-provider)

@@ -572,18 +572,19 @@ export async function getSubscriptionHealthMetrics(shop: string): Promise<{
   inGracePeriod: number;
   recentlyUpdated: number;
 }> {
+  // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+  // Replace groupBy with findMany + in-memory aggregation
   const [
     total,
-    statusCounts,
+    statusEntries,
     withContract,
     failedPayments,
     recentlyUpdated,
   ] = await Promise.all([
     db.tierSubscription.count({ where: { shop } }),
-    db.tierSubscription.groupBy({
-      by: ['status'],
+    db.tierSubscription.findMany({
       where: { shop },
-      _count: true,
+      select: { status: true },
     }),
     db.tierSubscription.count({
       where: { shop, shopifyContractId: { not: null } },
@@ -599,9 +600,10 @@ export async function getSubscriptionHealthMetrics(shop: string): Promise<{
     }),
   ]);
 
+  // Count by status in memory (replaces groupBy)
   const byStatus: Record<string, number> = {};
-  for (const item of statusCounts) {
-    byStatus[item.status] = item._count;
+  for (const entry of statusEntries) {
+    byStatus[entry.status] = (byStatus[entry.status] || 0) + 1;
   }
 
   // Check grace periods

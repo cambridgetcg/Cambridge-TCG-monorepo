@@ -95,15 +95,28 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       orderBy: { minSpend: "asc" },
     });
 
-    // Count customers per tier
+    // DATA API COMPATIBLE: Batch count instead of N+1 queries
+    const tierIds = dbTiers.map(t => t.id);
+    const customerTierAssignments = tierIds.length > 0
+      ? await db.customer.findMany({
+          where: { shop, tierId: { in: tierIds } },
+          select: { tierId: true },
+        })
+      : [];
+
+    // Count customers per tier in memory
+    const tierCountMap = new Map<string, number>();
+    for (const customer of customerTierAssignments) {
+      if (customer.tierId) {
+        tierCountMap.set(customer.tierId, (tierCountMap.get(customer.tierId) || 0) + 1);
+      }
+    }
+
     for (const tier of dbTiers) {
-      const count = await db.customer.count({
-        where: { shop, tierId: tier.id },
-      });
       tiers.push({
         id: tier.id,
         name: tier.name,
-        customerCount: count,
+        customerCount: tierCountMap.get(tier.id) || 0,
       });
     }
   } catch (e) {

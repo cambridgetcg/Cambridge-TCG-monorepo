@@ -126,18 +126,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const results: ShopResult[] = [];
 
   try {
-    // Get all distinct shops that have active tier subscriptions
-    const shopsWithSubscriptions = await db.tierSubscription.groupBy({
-      by: ['shop'],
-      where: {
-        status: 'ACTIVE'
-      }
+    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+    // Get all distinct shops that have active tier subscriptions using findMany + Set
+    const activeSubscriptions = await db.tierSubscription.findMany({
+      where: { status: 'ACTIVE' },
+      select: { shop: true },
     });
+    const shopsWithSubscriptions = [...new Set(activeSubscriptions.map(s => s.shop))];
 
     log('info', `Found ${shopsWithSubscriptions.length} shops with active subscriptions`);
 
-    for (const shopRecord of shopsWithSubscriptions) {
-      const shop = shopRecord.shop;
+    for (const shop of shopsWithSubscriptions) {
       const shopStartTime = Date.now();
 
       const result: ShopResult = {

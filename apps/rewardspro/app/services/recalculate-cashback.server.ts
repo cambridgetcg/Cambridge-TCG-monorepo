@@ -6,8 +6,9 @@ import db from "../db.server";
 export async function recalculateCashbackForAllOrders(shop: string) {
   console.log(`[Cashback Recalculation] Starting for shop: ${shop}`);
 
+  // DATA API COMPATIBLE: Nested include not supported, use two-step query
   // Get all orders that don't have cashback calculated
-  const orders = await db.order.findMany({
+  const ordersRaw = await db.order.findMany({
     where: {
       shop,
       cashbackAmount: null,
@@ -15,13 +16,33 @@ export async function recalculateCashbackForAllOrders(shop: string) {
       financialStatus: 'PAID'
     },
     include: {
-      customer: {
-        include: {
-          currentTier: true
-        }
-      }
+      customer: true, // Flat include, no nested currentTier
     }
   });
+
+  // Fetch tiers separately and join in memory
+  const tierIds = [...new Set(
+    ordersRaw
+      .map(o => o.customer?.currentTierId)
+      .filter((id): id is string => !!id)
+  )];
+  const tiers = tierIds.length > 0
+    ? await db.tier.findMany({
+        where: { id: { in: tierIds } },
+      })
+    : [];
+  const tierMap = new Map(tiers.map(t => [t.id, t]));
+
+  // Attach currentTier to each order's customer
+  const orders = ordersRaw.map(order => ({
+    ...order,
+    customer: order.customer ? {
+      ...order.customer,
+      currentTier: order.customer.currentTierId
+        ? tierMap.get(order.customer.currentTierId) || null
+        : null,
+    } : null,
+  }));
 
   console.log(`[Cashback Recalculation] Found ${orders.length} orders to process`);
 

@@ -187,20 +187,23 @@ export class GiftCardService {
       let bonusPercent = 0;
 
       if (input.purchaserInternalId && config?.enableTierBranding) {
+        // DATA API COMPATIBLE: Nested include not supported, use two-step query
         // Get purchaser's current tier
         const customer = await db.customer.findUnique({
           where: { id: input.purchaserInternalId },
           include: {
-            currentTier: {
-              include: {
-                giftCardSettings: true,
-              },
-            },
+            currentTier: true, // Flat include, no nested giftCardSettings
           },
         });
 
+        // Fetch giftCardSettings separately if customer has a tier
+        const tierSettings = customer?.currentTier
+          ? await db.tierGiftCardSettings.findUnique({
+              where: { tierId: customer.currentTier.id },
+            })
+          : null;
+
         if (customer?.currentTier) {
-          const tierSettings = customer.currentTier.giftCardSettings;
           if (tierSettings?.templateSuffix) {
             templateSuffix = tierSettings.templateSuffix;
           }
@@ -468,19 +471,25 @@ export class GiftCardService {
     try {
       // Use transaction to ensure atomicity
       const result = await db.$transaction(async (tx) => {
+        // DATA API COMPATIBLE: Nested include not supported, use two-step query
         // Get customer with current balance
         const customer = await tx.customer.findUnique({
           where: { id: input.customerId },
           include: {
-            currentTier: {
-              include: { giftCardSettings: true },
-            },
+            currentTier: true, // Flat include, no nested giftCardSettings
           },
         });
 
         if (!customer) {
           throw new Error("Customer not found");
         }
+
+        // Fetch giftCardSettings separately if customer has a tier
+        const giftCardSettings = customer.currentTier
+          ? await tx.tierGiftCardSettings.findUnique({
+              where: { tierId: customer.currentTier.id },
+            })
+          : null;
 
         const currentBalance = Number(customer.storeCredit);
         if (currentBalance < input.amount) {
@@ -526,7 +535,7 @@ export class GiftCardService {
         return {
           ledgerEntryId: ledgerEntry.id,
           customer,
-          templateSuffix: customer.currentTier?.giftCardSettings?.templateSuffix,
+          templateSuffix: giftCardSettings?.templateSuffix,
         };
       });
 
@@ -624,20 +633,26 @@ export class GiftCardService {
       return { bonusPercent: 0, bonusAmount: 0 };
     }
 
+    // DATA API COMPATIBLE: Nested include not supported, use two-step query
     const customer = await db.customer.findUnique({
       where: { id: customerId },
       include: {
-        currentTier: {
-          include: { giftCardSettings: true },
-        },
+        currentTier: true, // Flat include, no nested giftCardSettings
       },
     });
 
-    if (!customer?.currentTier?.giftCardSettings) {
+    // Fetch giftCardSettings separately if customer has a tier
+    const giftCardSettings = customer?.currentTier
+      ? await db.tierGiftCardSettings.findUnique({
+          where: { tierId: customer.currentTier.id },
+        })
+      : null;
+
+    if (!giftCardSettings) {
       return { bonusPercent: 0, bonusAmount: 0 };
     }
 
-    const bonusPercent = Number(customer.currentTier.giftCardSettings.bonusPercent);
+    const bonusPercent = Number(giftCardSettings.bonusPercent);
     const bonusAmount = (baseValue * bonusPercent) / 100;
 
     return { bonusPercent, bonusAmount };

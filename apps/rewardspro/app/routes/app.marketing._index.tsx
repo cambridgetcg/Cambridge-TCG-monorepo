@@ -286,14 +286,16 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   // Customer stats
+  // DATA API COMPATIBLE: Use count instead of loading all customers
   let customerStats = { total: 0, withEmail: 0, subscribed: 0 };
   try {
-    const customers = await db.customer.findMany({
-      where: { shop },
-    });
+    const [totalCount, withEmailCount] = await Promise.all([
+      db.customer.count({ where: { shop } }),
+      db.customer.count({ where: { shop, email: { not: null } } }),
+    ]);
 
-    customerStats.total = customers.length;
-    customerStats.withEmail = customers.filter(c => c.email).length;
+    customerStats.total = totalCount;
+    customerStats.withEmail = withEmailCount;
     // For now, assume all with email are subscribed (you'd track this properly in production)
     customerStats.subscribed = customerStats.withEmail;
   } catch (e) {

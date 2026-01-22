@@ -510,15 +510,16 @@ export class SubscriptionDiagnosticQueries {
   }
 
   private static async getStatusBreakdown(shop: string): Promise<Record<string, number>> {
-    const counts = await db.tierSubscription.groupBy({
-      by: ["status"],
+    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+    // Fetch status for all subscriptions and count in memory
+    const subscriptions = await db.tierSubscription.findMany({
       where: { shop },
-      _count: true,
+      select: { status: true },
     });
 
     const result: Record<string, number> = {};
-    for (const item of counts) {
-      result[item.status] = item._count;
+    for (const sub of subscriptions) {
+      result[sub.status] = (result[sub.status] || 0) + 1;
     }
     return result;
   }
@@ -526,15 +527,16 @@ export class SubscriptionDiagnosticQueries {
   private static async getBillingIntervalBreakdown(
     shop: string
   ): Promise<Record<string, number>> {
-    const counts = await db.tierSubscription.groupBy({
-      by: ["billingInterval"],
+    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+    // Fetch billingInterval for all subscriptions and count in memory
+    const subscriptions = await db.tierSubscription.findMany({
       where: { shop },
-      _count: true,
+      select: { billingInterval: true },
     });
 
     const result: Record<string, number> = {};
-    for (const item of counts) {
-      result[item.billingInterval] = item._count;
+    for (const sub of subscriptions) {
+      result[sub.billingInterval] = (result[sub.billingInterval] || 0) + 1;
     }
     return result;
   }
@@ -542,13 +544,20 @@ export class SubscriptionDiagnosticQueries {
   private static async getTierDistribution(
     shop: string
   ): Promise<Array<{ tierId: string; tierName: string; count: number }>> {
-    const counts = await db.tierSubscription.groupBy({
-      by: ["tierId"],
+    // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
+    // Fetch tierId for all subscriptions and count in memory
+    const subscriptions = await db.tierSubscription.findMany({
       where: { shop },
-      _count: true,
+      select: { tierId: true },
     });
 
-    const tierIds = counts.map((c) => c.tierId);
+    // Count by tierId in memory
+    const tierCounts = new Map<string, number>();
+    for (const sub of subscriptions) {
+      tierCounts.set(sub.tierId, (tierCounts.get(sub.tierId) || 0) + 1);
+    }
+
+    const tierIds = Array.from(tierCounts.keys());
     const tiers = await db.tier.findMany({
       where: { id: { in: tierIds } },
       select: { id: true, name: true },
@@ -556,10 +565,10 @@ export class SubscriptionDiagnosticQueries {
 
     const tierMap = new Map(tiers.map((t) => [t.id, t.name]));
 
-    return counts.map((c) => ({
-      tierId: c.tierId,
-      tierName: tierMap.get(c.tierId) || "Unknown",
-      count: c._count,
+    return tierIds.map((tierId) => ({
+      tierId,
+      tierName: tierMap.get(tierId) || "Unknown",
+      count: tierCounts.get(tierId) || 0,
     }));
   }
 

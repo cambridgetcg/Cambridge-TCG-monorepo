@@ -19,35 +19,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const shop = session.shop;
 
   // Get recent campaigns with metrics
+  // DATA API COMPATIBLE: Nested include not supported, use two-step query
   const campaigns = await db.emailCampaign.findMany({
     where: {
       shop,
       status: 'sent',
       sentAt: { not: null }
     },
-    include: {
-      template: {
-        select: {
-          name: true,
-          type: true
-        }
-      }
-    },
     orderBy: { sentAt: 'desc' },
     take: 10
   });
 
+  // Fetch templates separately and join in memory
+  const templateIds = [...new Set(campaigns.map(c => c.templateId).filter(Boolean))];
+  const templates = templateIds.length > 0
+    ? await db.emailTemplate.findMany({
+        where: { id: { in: templateIds } },
+        select: { id: true, name: true, type: true }
+      })
+    : [];
+  const templateMap = new Map(templates.map(t => [t.id, t]));
+
   // Process campaigns with predicted vs actual
   const campaignsWithPredictions = campaigns.map(campaign => {
     const metrics = campaign.metrics as any || {};
+    const template = templateMap.get(campaign.templateId) || { name: 'Unknown', type: 'general' };
 
     // Mock predictions based on campaign type
-    const predictions = getPredictions(campaign.template.type);
+    const predictions = getPredictions(template.type);
 
     return {
       id: campaign.id,
       name: campaign.name,
-      type: campaign.template.type,
+      type: template.type,
       sentAt: campaign.sentAt,
       metrics: {
         sent: metrics.sent || 0,

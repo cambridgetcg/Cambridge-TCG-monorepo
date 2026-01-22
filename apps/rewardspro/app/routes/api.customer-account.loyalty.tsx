@@ -285,12 +285,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         },
         include: {
           currentTier: true,  // Include tier in same query
-          tierState: {        // Include tier state for source information
-            include: {
-              effectiveTier: true,
-              nextTier: true
-            }
-          },
+          tierState: true,    // DATA API COMPATIBLE: Removed nested include (effectiveTier/nextTier found via allTiers)
           currentSubscription: true  // Include active subscription for renewal info
         }
       });

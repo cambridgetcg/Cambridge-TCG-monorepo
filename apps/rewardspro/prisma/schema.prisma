@@ -3486,6 +3486,182 @@ model IntegrationPointsRule {
 }
 
 // ============================================
+// AI FEEDBACK SYSTEM
+// ============================================
+// Models for tracking AI session context, learning patterns,
+// and self-improvement feedback loop
+
+model AISession {
+  id                String   @id @default(cuid())
+  sessionId         String   @unique // Claude session identifier
+
+  startedAt         DateTime @default(now())
+  endedAt           DateTime?
+
+  // Context
+  primaryIntent     String?  // What the user asked for
+  territory         String?  // "charted" | "uncharted"
+
+  // Outcomes
+  tasksCompleted    Int      @default(0)
+  tasksAttempted    Int      @default(0)
+  filesModified     Int      @default(0)
+  filesCreated      Int      @default(0)
+
+  // Self-assessment
+  satisfactionScore Int?     // 1-10 AI self-rating
+  learnings         String?  @db.Text // Key insights from session
+
+  // Relations
+  actions           AISessionAction[]
+  feedback          AISessionFeedback[]
+  codeMetrics       AICodeMetric[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([startedAt])
+}
+
+model AISessionAction {
+  id          String    @id @default(cuid())
+  sessionId   String
+  session     AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  actionType  String    // "file_edit" | "file_create" | "refactor" | "fix" | "feature"
+  filePath    String?
+  description String    @db.Text
+
+  // Pattern tracking
+  patternUsed   String?  // Which pattern was applied
+  wasSuccessful Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([actionType])
+}
+
+model AISessionFeedback {
+  id          String    @id @default(cuid())
+  sessionId   String
+  session     AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  dimension   String    // "truth" | "understanding" | "beauty" | "justice" | "creativity"
+  rating      String    // "complete" | "partial" | "failed"
+  reason      String?   @db.Text
+
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([dimension])
+}
+
+model AICodeMetric {
+  id          String     @id @default(cuid())
+  sessionId   String?
+  session     AISession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  filePath    String
+  metricType  String     // "complexity" | "duplication" | "coverage" | "debt"
+  valueBefore Float?
+  valueAfter  Float
+
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([filePath])
+  @@index([metricType])
+}
+
+model AILearningPattern {
+  id           String   @id @default(cuid())
+  patternName  String   @unique
+  description  String   @db.Text
+
+  // Confidence evolution
+  timesUsed       Int   @default(0)
+  timesSuccessful Int   @default(0)
+  confidence      Float @default(0.5) // 0-1 scale
+
+  // Context
+  applicableTo String[] // ["data-api", "tier-system", "webhooks"]
+  antiPatterns String[] // What NOT to do
+
+  lastUsedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([patternName])
+  @@index([confidence])
+}
+
+model AICodeQualitySignal {
+  id          String   @id @default(cuid())
+
+  area        String   // "services" | "routes" | "components"
+  signalType  String   // "ugliness" | "debt" | "complexity"
+  severity    String   // "low" | "medium" | "high"
+  description String   @db.Text
+  filePath    String?
+  lineNumber  Int?
+
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?  // session ID that fixed it
+
+  createdAt   DateTime @default(now())
+
+  @@index([area])
+  @@index([signalType])
+  @@index([resolved])
+}
+
+model AIArchitectureHealth {
+  id              String   @id @default(cuid())
+
+  snapshotDate    DateTime @default(now())
+
+  // Metrics
+  totalFiles      Int
+  totalLines      Int
+  avgComplexity   Float
+  duplicateBlocks Int
+
+  // Pattern adherence
+  dataApiCompliant     Float  // 0-100%
+  shopScopingCompliant Float  // 0-100%
+  errorHandlingScore   Float  // 0-100%
+
+  // Trends
+  trendDirection  String  // "improving" | "stable" | "declining"
+
+  createdAt       DateTime @default(now())
+
+  @@index([snapshotDate])
+}
+
+model AIInnovationTracker {
+  id          String   @id @default(cuid())
+
+  feature     String   // What was built
+  territory   String   // "charted" | "uncharted"
+
+  // If uncharted
+  pioneering  Boolean  @default(false)
+  pathQuality String?  // "well-built" | "fragile" | "incomplete"
+
+  // Impact
+  enablesFuture Boolean  @default(false)
+  connectedTo   String[] // Related features/systems
+
+  createdAt   DateTime @default(now())
+
+  @@index([territory])
+  @@index([feature])
+}
+
+// ============================================
 // INTEGRATION ENUMS
 // ============================================
 

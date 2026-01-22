@@ -349,8 +349,9 @@ export class AnalyticsRecommendationsService {
     }
 
     // 3. Expiring Rewards - Find ledger entries with expiring credits
+    // DATA API COMPATIBLE: Nested include not supported, use two-step query
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const expiringRewards = await db.storeCreditLedger.findMany({
+    const expiringLedgerEntries = await db.storeCreditLedger.findMany({
       where: {
         shop: this.shop,
         expiresAt: {
@@ -359,16 +360,29 @@ export class AnalyticsRecommendationsService {
         },
         amount: { gt: 0 } // Only credit entries
       },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            email: true,
-            storeCredit: true
-          }
-        }
+      select: {
+        id: true,
+        customerId: true,
+        amount: true,
+        expiresAt: true,
       }
     });
+
+    // Fetch customers separately and join in memory
+    const expiringCustomerIds = [...new Set(expiringLedgerEntries.map(e => e.customerId))];
+    const expiringCustomers = expiringCustomerIds.length > 0
+      ? await db.customer.findMany({
+          where: { id: { in: expiringCustomerIds } },
+          select: { id: true, email: true, storeCredit: true }
+        })
+      : [];
+    const customerMap = new Map(expiringCustomers.map(c => [c.id, c]));
+
+    // Join ledger entries with customers
+    const expiringRewards = expiringLedgerEntries.map(entry => ({
+      ...entry,
+      customer: customerMap.get(entry.customerId) || { id: entry.customerId, email: null, storeCredit: 0 }
+    }));
 
     // Filter to customers with positive balances
     const customersWithExpiringRewards = expiringRewards.filter(r => Number(r.customer.storeCredit || 0) > 0);

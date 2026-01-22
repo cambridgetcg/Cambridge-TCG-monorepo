@@ -721,6 +721,15 @@ export class DataAPIModelProxy<T = any> {
       'KlaviyoEvent',
       'KlaviyoList',
       'KlaviyoAutomationSettings',
+      // AI Feedback System
+      'AISession',
+      'AISessionAction',
+      'AISessionFeedback',
+      'AICodeMetric',
+      'AILearningPattern',
+      'AICodeQualitySignal',
+      'AIArchitectureHealth',
+      'AIInnovationTracker',
     ];
     return tablesWithUuidId.includes(this.tableName);
   }
@@ -1685,6 +1694,16 @@ export function createDataAPIPrismaClient() {
           issuedGiftCard: new DataAPIModelProxy("IssuedGiftCard", txAuroraClient),
           giftCardBundle: new DataAPIModelProxy("GiftCardBundle", txAuroraClient),
 
+          // AI Feedback System
+          aISession: new DataAPIModelProxy("AISession", txAuroraClient),
+          aISessionAction: new DataAPIModelProxy("AISessionAction", txAuroraClient),
+          aISessionFeedback: new DataAPIModelProxy("AISessionFeedback", txAuroraClient),
+          aICodeMetric: new DataAPIModelProxy("AICodeMetric", txAuroraClient),
+          aILearningPattern: new DataAPIModelProxy("AILearningPattern", txAuroraClient),
+          aICodeQualitySignal: new DataAPIModelProxy("AICodeQualitySignal", txAuroraClient),
+          aIArchitectureHealth: new DataAPIModelProxy("AIArchitectureHealth", txAuroraClient),
+          aIInnovationTracker: new DataAPIModelProxy("AIInnovationTracker", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1907,6 +1926,16 @@ export function createDataAPIPrismaClient() {
     tierGiftCardSettings: new DataAPIModelProxy("TierGiftCardSettings", client),
     issuedGiftCard: new DataAPIModelProxy("IssuedGiftCard", client),
     giftCardBundle: new DataAPIModelProxy("GiftCardBundle", client),
+
+    // AI Feedback System
+    aISession: new DataAPIModelProxy("AISession", client),
+    aISessionAction: new DataAPIModelProxy("AISessionAction", client),
+    aISessionFeedback: new DataAPIModelProxy("AISessionFeedback", client),
+    aICodeMetric: new DataAPIModelProxy("AICodeMetric", client),
+    aILearningPattern: new DataAPIModelProxy("AILearningPattern", client),
+    aICodeQualitySignal: new DataAPIModelProxy("AICodeQualitySignal", client),
+    aIArchitectureHealth: new DataAPIModelProxy("AIArchitectureHealth", client),
+    aIInnovationTracker: new DataAPIModelProxy("AIInnovationTracker", client),
 
     // Cron Locks
     cronLock: new DataAPIModelProxy("CronLock", client),
