@@ -610,6 +610,9 @@ export class DataAPIModelProxy<T = any> {
       IntegrationWebhook: ['status'],
       OAuthState: ['provider'],
       IntegrationPointsRule: ['provider', 'pointsType'],
+      // Gift Card System
+      IssuedGiftCard: ['bundleType', 'status'],
+      GiftCardBundle: ['bundleType'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -680,6 +683,11 @@ export class DataAPIModelProxy<T = any> {
       'IntegrationWebhook',
       'OAuthState',
       'IntegrationPointsRule',
+      // Gift Card System
+      'GiftCardConfig',
+      'TierGiftCardSettings',
+      'IssuedGiftCard',
+      'GiftCardBundle',
     ];
     return tablesWithUuidId.includes(this.tableName);
   }
@@ -736,6 +744,8 @@ export class DataAPIModelProxy<T = any> {
       // Mystery Box System
       rewardType: '"MysteryBoxRewardType"',
       rarity: '"MysteryBoxRarity"',
+      // Gift Card System
+      bundleType: '"GiftCardBundleType"',
     };
 
     return enumTypes[field] || field;
@@ -789,6 +799,8 @@ export class DataAPIModelProxy<T = any> {
       Integration: '"IntegrationStatus"',
       IntegrationEvent: '"IntegrationEventStatus"',
       IntegrationWebhook: '"IntegrationWebhookStatus"',
+      // Gift Card System
+      IssuedGiftCard: '"GiftCardStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
@@ -1562,6 +1574,12 @@ export function createDataAPIPrismaClient() {
           oAuthState: new DataAPIModelProxy("OAuthState", txAuroraClient),
           integrationPointsRule: new DataAPIModelProxy("IntegrationPointsRule", txAuroraClient),
 
+          // Gift Card System
+          giftCardConfig: new DataAPIModelProxy("GiftCardConfig", txAuroraClient),
+          tierGiftCardSettings: new DataAPIModelProxy("TierGiftCardSettings", txAuroraClient),
+          issuedGiftCard: new DataAPIModelProxy("IssuedGiftCard", txAuroraClient),
+          giftCardBundle: new DataAPIModelProxy("GiftCardBundle", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -1771,6 +1789,12 @@ export function createDataAPIPrismaClient() {
     integrationWebhook: new DataAPIModelProxy("IntegrationWebhook", client),
     oAuthState: new DataAPIModelProxy("OAuthState", client),
     integrationPointsRule: new DataAPIModelProxy("IntegrationPointsRule", client),
+
+    // Gift Card System
+    giftCardConfig: new DataAPIModelProxy("GiftCardConfig", client),
+    tierGiftCardSettings: new DataAPIModelProxy("TierGiftCardSettings", client),
+    issuedGiftCard: new DataAPIModelProxy("IssuedGiftCard", client),
+    giftCardBundle: new DataAPIModelProxy("GiftCardBundle", client),
 
     // Cron Locks
     cronLock: new DataAPIModelProxy("CronLock", client),
