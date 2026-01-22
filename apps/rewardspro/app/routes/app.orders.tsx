@@ -266,12 +266,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Add cashback filter
+    // Note: cashbackAmount > 0 ensures we only show orders that actually have cashback
+    // (not orders where cashbackAmount = 0 or null which display as "no cashback")
     if (cashbackFilter === "processed") {
       whereClause.cashbackProcessed = true;
+      whereClause.cashbackAmount = { gt: 0 };  // Must have positive cashback amount
       console.log('[Orders Loader] Applied cashback filter: processed');
     } else if (cashbackFilter === "pending") {
       whereClause.cashbackProcessed = false;
-      whereClause.cashbackAmount = { not: null };
+      whereClause.cashbackAmount = { gt: 0 };  // Must have positive cashback amount
       console.log('[Orders Loader] Applied cashback filter: pending');
     } else if (cashbackFilter === "excluded") {
       whereClause.cashbackEligible = false;
