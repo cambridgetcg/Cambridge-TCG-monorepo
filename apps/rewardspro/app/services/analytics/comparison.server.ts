@@ -337,27 +337,27 @@ export class ComparisonService {
   }
 
   private async getPointsEarned(period: DateRange): Promise<number> {
-    const result = await db.pointLedger.aggregate({
+    const result = await db.pointsLedger.aggregate({
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
         type: 'EARN',
       },
-      _sum: { points: true },
+      _sum: { amount: true },
     });
-    return result._sum.points || 0;
+    return result._sum.amount || 0;
   }
 
   private async getPointsRedeemed(period: DateRange): Promise<number> {
-    const result = await db.pointLedger.aggregate({
+    const result = await db.pointsLedger.aggregate({
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
         type: 'REDEEM',
       },
-      _sum: { points: true },
+      _sum: { amount: true },
     });
-    return Math.abs(result._sum.points || 0);
+    return Math.abs(result._sum.amount || 0);
   }
 
   private async getRedemptionRate(period: DateRange): Promise<number> {
@@ -369,7 +369,7 @@ export class ComparisonService {
   }
 
   private async getCashbackEarned(period: DateRange): Promise<number> {
-    const result = await db.cashbackLedger.aggregate({
+    const result = await db.storeCreditLedger.aggregate({
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
@@ -381,7 +381,7 @@ export class ComparisonService {
   }
 
   private async getCashbackUsed(period: DateRange): Promise<number> {
-    const result = await db.cashbackLedger.aggregate({
+    const result = await db.storeCreditLedger.aggregate({
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
