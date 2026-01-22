@@ -1615,6 +1615,7 @@ export function createDataAPIPrismaClient() {
           emailEvent: new DataAPIModelProxy("EmailEvent", txAuroraClient),
           sendGridDomain: new DataAPIModelProxy("SendGridDomain", txAuroraClient),
           analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", txAuroraClient),
+          exchangeRate: new DataAPIModelProxy("ExchangeRate", txAuroraClient),
 
           // Klaviyo Integration models
           klaviyoProfile: new DataAPIModelProxy("KlaviyoProfile", txAuroraClient),
@@ -1837,6 +1838,7 @@ export function createDataAPIPrismaClient() {
     emailEvent: new DataAPIModelProxy("EmailEvent", client),
     sendGridDomain: new DataAPIModelProxy("SendGridDomain", client),
     analyticsRecommendation: new DataAPIModelProxy("AnalyticsRecommendation", client),
+    exchangeRate: new DataAPIModelProxy("ExchangeRate", client),
 
     // Klaviyo Integration models
     klaviyoProfile: new DataAPIModelProxy("KlaviyoProfile", client),
