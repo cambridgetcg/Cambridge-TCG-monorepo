@@ -220,7 +220,7 @@ async function getOverviewData(shop: string) {
     db.pointsLedger.groupBy({
       by: ["type"],
       where: { shop },
-      _sum: { points: true },
+      _sum: { amount: true },
     }),
   ]);
 
@@ -246,22 +246,22 @@ async function getOverviewData(shop: string) {
 
   const totalEarned = ledgerStats
     .filter((s) => earnTypes.includes(s.type))
-    .reduce((sum, s) => sum + (s._sum.points || 0), 0);
+    .reduce((sum, s) => sum + (s._sum.amount || 0), 0);
 
   const totalRedeemed = Math.abs(
     ledgerStats
       .filter((s) => redeemTypes.includes(s.type))
-      .reduce((sum, s) => sum + (s._sum.points || 0), 0)
+      .reduce((sum, s) => sum + (s._sum.amount || 0), 0)
   );
 
   const totalExpired = Math.abs(
     ledgerStats
       .filter((s) => expireTypes.includes(s.type))
-      .reduce((sum, s) => sum + (s._sum.points || 0), 0)
+      .reduce((sum, s) => sum + (s._sum.amount || 0), 0)
   );
 
   return {
-    totalPointsInCirculation: customerStats._sum.pointsBalance || 0,
+    totalPointsInCirculation: customerStats._sum.amountBalance || 0,
     totalPointsEarnedAllTime: totalEarned,
     totalPointsRedeemedAllTime: totalRedeemed,
     totalPointsExpiredAllTime: totalExpired,
@@ -290,7 +290,7 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
         createdAt: { gte: startDate, lte: endDate },
         type: { in: earnTypes },
       },
-      _sum: { points: true },
+      _sum: { amount: true },
     }),
     db.pointsLedger.aggregate({
       where: {
@@ -298,7 +298,7 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
         createdAt: { gte: startDate, lte: endDate },
         type: "REDEMPTION",
       },
-      _sum: { points: true },
+      _sum: { amount: true },
     }),
     db.pointsLedger.groupBy({
       by: ["customerId"],
@@ -313,8 +313,8 @@ async function getEngagementPeriodData(shop: string, startDate: Date, endDate: D
   const transactionCount = transactionData.reduce((sum, d) => sum + d._count, 0);
 
   return {
-    pointsEarned: earnedData._sum.points || 0,
-    pointsRedeemed: Math.abs(redeemedData._sum.points || 0),
+    pointsEarned: earnedData._sum.amount || 0,
+    pointsRedeemed: Math.abs(redeemedData._sum.amount || 0),
     transactionCount,
     uniqueCustomers: transactionData.length,
   };
@@ -442,7 +442,7 @@ async function getTierBreakdown(shop: string) {
         tierId: tier.id,
         tierName: tier.name,
         customerCount: tier._count.customers,
-        totalPoints: stats._sum.pointsBalance || 0,
+        totalPoints: stats._sum.amountBalance || 0,
         averagePoints: Math.round(stats._avg.pointsBalance || 0),
         multiplier: tier.pointsMultiplier || 1.0,
       };
