@@ -160,169 +160,147 @@ async function fetchTierPerformanceMetrics(
 
   const tierIds = tiers.map(t => t.id);
 
-  // BATCH QUERY 2: Get all customers with their tier IDs and totalSpent for aggregation
-  // NOTE: Aurora Data API doesn't support groupBy, so we fetch all and aggregate in memory
-  const allCustomersWithTier = await db.customer.findMany({
-    where: {
-      shop,
-      currentTierId: { in: tierIds },
-    },
-    select: {
-      id: true,
-      currentTierId: true,
-      totalSpent: true,
-    },
-  });
+  // OPTIMIZED: Use COUNT and AGGREGATE queries instead of fetching all customers
+  // This avoids loading 100K+ customer records into memory
 
-  // Aggregate customer counts and LTV by tier in memory
-  const customerCountMap = new Map<string, number>();
-  const ltvTotals = new Map<string, { total: number; count: number }>();
-  const customersByTier = new Map<string, string[]>();
-
-  allCustomersWithTier.forEach(c => {
-    if (c.currentTierId) {
-      // Count customers per tier
-      customerCountMap.set(c.currentTierId, (customerCountMap.get(c.currentTierId) || 0) + 1);
-
-      // Track total spent for LTV calculation
-      const existing = ltvTotals.get(c.currentTierId) || { total: 0, count: 0 };
-      existing.total += Number(c.totalSpent || 0);
-      existing.count += 1;
-      ltvTotals.set(c.currentTierId, existing);
-
-      // Group customer IDs by tier
-      const customerIds = customersByTier.get(c.currentTierId) || [];
-      customerIds.push(c.id);
-      customersByTier.set(c.currentTierId, customerIds);
-    }
-  });
-
-  // Calculate average LTV per tier
-  const ltvMap = new Map<string, number>();
-  ltvTotals.forEach((data, tierId) => {
-    ltvMap.set(tierId, data.count > 0 ? data.total / data.count : 0);
-  });
-
-  // Get all customer IDs for order queries
-  const allCustomerIds = allCustomersWithTier.map(c => c.id);
-
-  // BATCH QUERY 3: Get all order data for current month in one query
-  const [allOrders, allActiveCustomerOrders] = await Promise.all([
-    // All orders in current month for all tier customers
-    db.order.findMany({
-      where: {
-        shop,
-        customerId: { in: allCustomerIds },
-        shopifyCreatedAt: {
-          gte: currentMonthRange.start,
-          lte: currentMonthRange.end,
-        },
-        financialStatus: {
-          in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'],
-        },
-      },
-      select: {
-        customerId: true,
-        netAmount: true,
-        cashbackAmount: true,
-      },
-    }),
-    // Distinct customers who ordered this month (for active count)
-    db.order.findMany({
-      where: {
-        shop,
-        customerId: { in: allCustomerIds },
-        shopifyCreatedAt: {
-          gte: currentMonthRange.start,
-          lte: currentMonthRange.end,
-        },
-        financialStatus: {
-          in: ['PAID', 'PARTIALLY_PAID'],
-        },
-      },
-      distinct: ['customerId'],
-      select: { customerId: true },
-    }),
-  ]);
-
-  // Create customer to tier lookup
-  const customerToTier = new Map(
-    allCustomersWithTier.map(c => [c.id, c.currentTierId])
+  // BATCH QUERY 2a: Get customer counts per tier (parallel COUNT queries)
+  const customerCountResults = await Promise.all(
+    tiers.map(tier =>
+      db.customer.count({
+        where: { shop, currentTierId: tier.id },
+      }).then(count => ({ tierId: tier.id, count }))
+    )
   );
 
-  // Aggregate order data by tier in memory (much faster than N queries)
-  const orderDataByTier = new Map<string, { revenue: number; cashback: number; orderCount: number }>();
-  allOrders.forEach(order => {
-    const tierId = customerToTier.get(order.customerId);
-    if (tierId) {
-      const existing = orderDataByTier.get(tierId) || { revenue: 0, cashback: 0, orderCount: 0 };
-      existing.revenue += Number(order.netAmount || 0);
-      existing.cashback += Number(order.cashbackAmount || 0);
-      existing.orderCount += 1;
-      orderDataByTier.set(tierId, existing);
-    }
-  });
+  // BATCH QUERY 2b: Get average LTV per tier (parallel AGGREGATE queries)
+  const ltvResults = await Promise.all(
+    tiers.map(tier =>
+      db.customer.aggregate({
+        where: { shop, currentTierId: tier.id },
+        _avg: { totalSpent: true },
+      }).then(result => ({ tierId: tier.id, avgLtv: Number(result._avg.totalSpent || 0) }))
+    )
+  );
 
-  // Count active customers by tier
-  const activeCustomersByTier = new Map<string, Set<string>>();
-  allActiveCustomerOrders.forEach(order => {
-    const tierId = customerToTier.get(order.customerId);
-    if (tierId) {
-      const existing = activeCustomersByTier.get(tierId) || new Set();
-      existing.add(order.customerId);
-      activeCustomersByTier.set(tierId, existing);
-    }
-  });
+  // Build lookup maps from aggregate results (no memory-intensive loops)
+  const customerCountMap = new Map<string, number>(
+    customerCountResults.map(r => [r.tierId, r.count])
+  );
+  const ltvMap = new Map<string, number>(
+    ltvResults.map(r => [r.tierId, r.avgLtv])
+  );
 
-  // BATCH QUERY 4: Get retention data (previous month orders)
-  const [lastMonthOrders, thisMonthOrders] = await Promise.all([
-    db.order.findMany({
-      where: {
-        shop,
-        customerId: { in: allCustomerIds },
-        shopifyCreatedAt: {
-          gte: previousMonthRange.start,
-          lte: previousMonthRange.end,
+  // BATCH QUERY 3: Get order aggregates per tier using relation filter
+  // This uses aggregate queries instead of fetching all order records
+  const orderAggregateResults = await Promise.all(
+    tiers.map(async tier => {
+      const [orderAggregate, activeCustomerCount] = await Promise.all([
+        // Aggregate order metrics for this tier
+        db.order.aggregate({
+          where: {
+            shop,
+            customer: { currentTierId: tier.id },
+            shopifyCreatedAt: {
+              gte: currentMonthRange.start,
+              lte: currentMonthRange.end,
+            },
+            financialStatus: {
+              in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'],
+            },
+          },
+          _sum: { netAmount: true, cashbackAmount: true },
+          _count: true,
+        }),
+        // Count distinct active customers (who ordered this month)
+        db.order.findMany({
+          where: {
+            shop,
+            customer: { currentTierId: tier.id },
+            shopifyCreatedAt: {
+              gte: currentMonthRange.start,
+              lte: currentMonthRange.end,
+            },
+            financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+          },
+          distinct: ['customerId'],
+          select: { customerId: true },
+        }),
+      ]);
+
+      return {
+        tierId: tier.id,
+        revenue: Number(orderAggregate._sum.netAmount || 0),
+        cashback: Number(orderAggregate._sum.cashbackAmount || 0),
+        orderCount: orderAggregate._count || 0,
+        activeCustomerCount: activeCustomerCount.length,
+      };
+    })
+  );
+
+  // Build order data lookup maps
+  const orderDataByTier = new Map(
+    orderAggregateResults.map(r => [
+      r.tierId,
+      { revenue: r.revenue, cashback: r.cashback, orderCount: r.orderCount },
+    ])
+  );
+  const activeCustomerCountByTier = new Map(
+    orderAggregateResults.map(r => [r.tierId, r.activeCustomerCount])
+  );
+
+  // BATCH QUERY 4: Calculate retention per tier
+  // Uses distinct order queries limited to specific tier via relation filter
+  const retentionResults = await Promise.all(
+    tiers.map(async tier => {
+      // Get distinct customers who ordered last month for this tier
+      const lastMonthCustomers = await db.order.findMany({
+        where: {
+          shop,
+          customer: { currentTierId: tier.id },
+          shopifyCreatedAt: {
+            gte: previousMonthRange.start,
+            lte: previousMonthRange.end,
+          },
+          financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
         },
-        financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
-      },
-      distinct: ['customerId'],
-      select: { customerId: true },
-    }),
-    db.order.findMany({
-      where: {
-        shop,
-        customerId: { in: allCustomerIds },
-        shopifyCreatedAt: { gte: currentMonthRange.start },
-        financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
-      },
-      distinct: ['customerId'],
-      select: { customerId: true },
-    }),
-  ]);
+        distinct: ['customerId'],
+        select: { customerId: true },
+        take: 5000, // Safety limit for very large tiers
+      });
 
-  // Calculate retention by tier
-  const lastMonthCustomerIds = new Set(lastMonthOrders.map(o => o.customerId));
-  const thisMonthCustomerIds = new Set(thisMonthOrders.map(o => o.customerId));
+      if (lastMonthCustomers.length === 0) {
+        return { tierId: tier.id, retentionRate: 0 };
+      }
 
-  const retentionByTier = new Map<string, number>();
-  tierIds.forEach(tierId => {
-    const tierCustomerIds = customersByTier.get(tierId) || [];
-    const lastMonthTierCustomers = tierCustomerIds.filter(id => lastMonthCustomerIds.has(id));
-    if (lastMonthTierCustomers.length === 0) {
-      retentionByTier.set(tierId, 0);
-    } else {
-      const retained = lastMonthTierCustomers.filter(id => thisMonthCustomerIds.has(id));
-      retentionByTier.set(tierId, (retained.length / lastMonthTierCustomers.length) * 100);
-    }
-  });
+      const lastMonthCustomerIds = lastMonthCustomers.map(o => o.customerId);
+
+      // Check how many of those customers ordered this month
+      const retainedCustomers = await db.order.findMany({
+        where: {
+          shop,
+          customerId: { in: lastMonthCustomerIds },
+          shopifyCreatedAt: { gte: currentMonthRange.start },
+          financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+        },
+        distinct: ['customerId'],
+        select: { customerId: true },
+      });
+
+      const retentionRate = (retainedCustomers.length / lastMonthCustomers.length) * 100;
+      return { tierId: tier.id, retentionRate };
+    })
+  );
+
+  const retentionByTier = new Map(
+    retentionResults.map(r => [r.tierId, r.retentionRate])
+  );
 
   // Build final metrics from aggregated data
   const tierMetrics = tiers.map(tier => {
     const customerCount = customerCountMap.get(tier.id) || 0;
     const lifetimeValue = ltvMap.get(tier.id) || 0;
     const orderData = orderDataByTier.get(tier.id) || { revenue: 0, cashback: 0, orderCount: 0 };
-    const activeCustomerCount = activeCustomersByTier.get(tier.id)?.size || 0;
+    const activeCustomerCount = activeCustomerCountByTier.get(tier.id) || 0;
     const retentionRate = retentionByTier.get(tier.id) || 0;
 
     const monthlyOrderFrequency = activeCustomerCount > 0

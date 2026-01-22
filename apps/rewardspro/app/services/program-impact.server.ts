@@ -129,91 +129,99 @@ async function fetchProgramImpactMetrics(shop: string): Promise<ProgramImpactMet
 }
 
 /**
- * Fetch historical monthly data (last 12 months) - OPTIMIZED
- * Uses 3 queries instead of 25 for 6-8x performance improvement
+ * Fetch historical monthly data (last 12 months) - OPTIMIZED v2
+ * Uses aggregate queries per month instead of fetching all records
+ * This prevents loading millions of ledger entries into memory
  */
 async function fetchMonthlyImpactData(shop: string): Promise<MonthlyImpactData[]> {
-  console.log(`[Program Impact] Fetching monthly historical data for ${shop}`);
+  console.log(`[Program Impact] Fetching monthly historical data for ${shop} (aggregate-based)`);
 
   const now = new Date();
-  const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-  console.log(`[Program Impact] Optimized: Fetching data from ${twelveMonthsAgo.toISOString()} to ${now.toISOString()}`);
-
-  // Query 1: Get all credit ledger entries (earned cashback)
-  const [creditsRaw, debitsRaw, ordersRaw] = await Promise.all([
-    db.storeCreditLedger.findMany({
-      where: {
-        shop,
-        createdAt: { gte: twelveMonthsAgo },
-        amount: { gt: 0 },
-        type: { in: ['CASHBACK_EARNED', 'REFUND_CREDIT', 'MANUAL_ADJUSTMENT'] },
-      },
-      select: { amount: true, createdAt: true },
-    }),
-    // Query 2: Get all debit ledger entries (redeemed cashback)
-    db.storeCreditLedger.findMany({
-      where: {
-        shop,
-        createdAt: { gte: twelveMonthsAgo },
-        amount: { lt: 0 },
-        type: 'ORDER_PAYMENT',
-      },
-      select: { amount: true, createdAt: true },
-    }),
-    // Query 3: Get all influenced orders
-    db.order.findMany({
-      where: {
-        shop,
-        cashbackProcessed: true,
-        financialStatus: { in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'] },
-        shopifyCreatedAt: { gte: twelveMonthsAgo },
-      },
-      select: { netAmount: true, shopifyCreatedAt: true },
-      orderBy: { shopifyCreatedAt: 'asc' },
-    }),
-  ]);
-
-  console.log(`[Program Impact] Fetched ${creditsRaw.length} credits, ${debitsRaw.length} debits, ${ordersRaw.length} orders`);
-
-  // Build monthly data with cumulative calculations
-  const monthlyData: MonthlyImpactData[] = [];
-
+  // Build month ranges for parallel aggregate queries
+  const monthRanges: Array<{ start: Date; end: Date; name: string }> = [];
   for (let i = 11; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
     const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+    monthRanges.push({
+      start: date,
+      end: endOfMonth,
+      name: date.toLocaleDateString('en-US', { month: 'short' }),
+    });
+  }
 
-    // Aggregate credits earned up to end of this month
-    const cumulativeEarned = creditsRaw
-      .filter(c => c.createdAt <= endOfMonth)
-      .reduce((sum, c) => sum + Number(c.amount), 0);
+  // Parallel aggregate queries for each month (36 total, but each returns a single number)
+  const [creditsPerMonth, debitsPerMonth, salesPerMonth] = await Promise.all([
+    // Credits (earned) per month
+    Promise.all(
+      monthRanges.map(({ start, end }) =>
+        db.storeCreditLedger.aggregate({
+          where: {
+            shop,
+            createdAt: { gte: start, lte: end },
+            amount: { gt: 0 },
+            type: { in: ['CASHBACK_EARNED', 'REFUND_CREDIT', 'MANUAL_ADJUSTMENT'] },
+          },
+          _sum: { amount: true },
+        }).then(r => Number(r._sum.amount || 0))
+      )
+    ),
+    // Debits (redeemed) per month
+    Promise.all(
+      monthRanges.map(({ start, end }) =>
+        db.storeCreditLedger.aggregate({
+          where: {
+            shop,
+            createdAt: { gte: start, lte: end },
+            amount: { lt: 0 },
+            type: 'ORDER_PAYMENT',
+          },
+          _sum: { amount: true },
+        }).then(r => Math.abs(Number(r._sum.amount || 0)))
+      )
+    ),
+    // Influenced sales per month
+    Promise.all(
+      monthRanges.map(({ start, end }) =>
+        db.order.aggregate({
+          where: {
+            shop,
+            cashbackProcessed: true,
+            financialStatus: { in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'] },
+            shopifyCreatedAt: { gte: start, lte: end },
+          },
+          _sum: { netAmount: true },
+        }).then(r => Number(r._sum.netAmount || 0))
+      )
+    ),
+  ]);
 
-    // Aggregate debits (redemptions) up to end of this month
-    const cumulativeUsed = debitsRaw
-      .filter(d => d.createdAt <= endOfMonth)
-      .reduce((sum, d) => sum + Math.abs(Number(d.amount)), 0);
+  console.log(`[Program Impact] Fetched aggregates for ${monthRanges.length} months`);
 
-    // Aggregate influenced sales up to end of this month
-    const cumulativeSales = ordersRaw
-      .filter(o => o.shopifyCreatedAt <= endOfMonth)
-      .reduce((sum, o) => sum + Number(o.netAmount), 0);
+  // Calculate cumulative values from monthly totals
+  let cumulativeEarned = 0;
+  let cumulativeUsed = 0;
+  let cumulativeSales = 0;
 
-    // Calculate usage rate for this month
+  const monthlyData: MonthlyImpactData[] = monthRanges.map((month, i) => {
+    cumulativeEarned += creditsPerMonth[i];
+    cumulativeUsed += debitsPerMonth[i];
+    cumulativeSales += salesPerMonth[i];
+
     const usageRate = cumulativeEarned > 0
       ? (cumulativeUsed / cumulativeEarned) * 100
       : 0;
 
-    monthlyData.push({
-      month: monthName,
+    console.log(`[Program Impact] ${month.name}: Usage=${usageRate.toFixed(1)}%, Sales=$${cumulativeSales.toFixed(2)}`);
+
+    return {
+      month: month.name,
       usageRate: Math.round(usageRate * 10) / 10,
       cumulativeSales: Math.round(cumulativeSales * 100) / 100,
-    });
+    };
+  });
 
-    console.log(`[Program Impact] ${monthName}: Usage=${usageRate.toFixed(1)}%, Sales=$${cumulativeSales.toFixed(2)}`);
-  }
-
-  console.log(`[Program Impact] Generated ${monthlyData.length} months of data (optimized)`);
+  console.log(`[Program Impact] Generated ${monthlyData.length} months of data (aggregate-based)`);
   return monthlyData;
 }
 
