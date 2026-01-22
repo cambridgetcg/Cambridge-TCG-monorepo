@@ -237,7 +237,7 @@ export class InsightEngine {
             },
             action: {
               label: 'Launch Campaign',
-              href: '/app/marketing/campaigns/new?type=multiplier',
+              href: '/app/marketing/campaigns/create?type=multiplier',
               priority: 'high',
             },
             context: {
@@ -306,7 +306,7 @@ export class InsightEngine {
             value: liabilityRatio,
             action: {
               label: 'Redemption Campaign',
-              href: '/app/marketing/campaigns/new?type=redemption',
+              href: '/app/marketing/campaigns/create?type=redemption',
               priority: 'high',
             },
             context: {
@@ -336,7 +336,7 @@ export class InsightEngine {
             value: redemptionRate,
             action: {
               label: 'Send Reminder',
-              href: '/app/marketing/campaigns/new?type=reminder',
+              href: '/app/marketing/campaigns/create?type=reminder',
               priority: 'medium',
             },
             context: {
@@ -364,7 +364,7 @@ export class InsightEngine {
           value: expiringPoints.count,
           action: {
             label: 'Send Expiry Reminder',
-            href: '/app/marketing/campaigns/new?type=expiry_reminder',
+            href: '/app/marketing/campaigns/create?type=expiry_reminder',
             priority: 'high',
           },
           confidence: 0.95,
@@ -486,7 +486,7 @@ export class InsightEngine {
             value: utilizationRate,
             action: {
               label: 'Send Reminder',
-              href: '/app/marketing/campaigns/new?type=cashback_reminder',
+              href: '/app/marketing/campaigns/create?type=cashback_reminder',
               priority: 'medium',
             },
             context: {
