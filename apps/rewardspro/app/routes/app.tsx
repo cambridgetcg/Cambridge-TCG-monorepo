@@ -6,7 +6,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 
-import { authenticate, FREE_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
+import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN, STARTER_PLAN, GROWTH_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
 import { AuthenticatedFetchProvider } from "../components/AuthenticatedFetch";
 import { HelpAssistant } from "../components/HelpAssistant";
@@ -90,8 +90,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       
       try {
         // First check if they have any paid plan
+        // Check both current and legacy plans to handle all subscription states
         const { hasActivePayment, appSubscriptions } = await billing.check({
-          plans: [STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
+          plans: [
+            // Current plans
+            FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN,
+            // Legacy plans (for backward compatibility)
+            STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN
+          ],
           isTest: process.env.NODE_ENV === 'development',
         });
         
@@ -177,7 +183,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       if (!entitlements?.effectivePlan && billing) {
         try {
           const { appSubscriptions } = await billing.check({
-            plans: [STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN] as any,
+            plans: [
+              // Current plans
+              FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN,
+              // Legacy plans
+              STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN
+            ],
             isTest: process.env.NODE_ENV === 'development',
           });
           if (appSubscriptions && appSubscriptions.length > 0) {

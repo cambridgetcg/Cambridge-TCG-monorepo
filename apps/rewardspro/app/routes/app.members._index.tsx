@@ -301,11 +301,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }
     }
 
-    // Manual override filter - uses tierState relation for single query
+    // Manual override filter - query CustomerTierState first to get matching customer IDs
+    // Note: Prisma relation filters are not supported by Data API adapter, so we use a two-step query
     if (hasOverride && hasOverride !== "all") {
-      whereClause.tierState = {
-        hasManualOverride: hasOverride === "yes"
-      };
+      const tierStatesWithOverride = await db.customerTierState.findMany({
+        where: {
+          shop,
+          hasManualOverride: hasOverride === "yes"
+        },
+        select: { customerId: true }
+      });
+      const customerIdsWithOverride = tierStatesWithOverride.map(ts => ts.customerId);
+
+      if (customerIdsWithOverride.length === 0) {
+        // No customers match the override filter - return empty result
+        return { customers: [], totalCount: 0 };
+      }
+
+      // Add customer ID filter to whereClause
+      whereClause.id = { in: customerIdsWithOverride };
     }
 
     // Execute both queries in parallel for maximum efficiency
