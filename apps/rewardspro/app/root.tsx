@@ -82,7 +82,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     `style-src 'self' 'unsafe-inline' https://cdn.shopify.com https://cdn.shopifycdn.net`,
     `img-src 'self' data: https: blob: https://www.google-analytics.com https://www.googletagmanager.com`,
     `font-src 'self' data: https://cdn.shopify.com`,
-    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com`,
+    `connect-src 'self' https://*.myshopify.com wss://*.myshopify.com https://vitals.vercel-insights.com https://va.vercel-scripts.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.ingest.de.sentry.io`,
     `frame-ancestors https://*.myshopify.com https://admin.shopify.com`,
     `form-action 'self'`,
     `base-uri 'self'`,
@@ -112,11 +112,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     nonce,
     // Google Analytics 4 Measurement ID (optional)
     ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || "",
+    // Sentry configuration for client-side error tracking
+    sentryDsn: process.env.SENTRY_DSN || "",
+    nodeEnv: process.env.NODE_ENV || "development",
+    shopifyShop: process.env.SHOPIFY_SHOP_DOMAIN || "",
   }, { headers });
 };
 
 export default function App() {
-  const { apiKey, nonce, ga4MeasurementId } = useLoaderData<typeof loader>();
+  const { apiKey, nonce, ga4MeasurementId, sentryDsn, nodeEnv, shopifyShop } = useLoaderData<typeof loader>();
 
   return (
     <html>
@@ -124,6 +128,17 @@ export default function App() {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <link rel="preconnect" href="https://cdn.shopify.com/" />
+        {/* Expose environment variables to client for Sentry */}
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `window.ENV = ${JSON.stringify({
+              SENTRY_DSN: sentryDsn,
+              NODE_ENV: nodeEnv,
+              SHOPIFY_SHOP: shopifyShop,
+            })}`,
+          }}
+        />
         {/* Preconnect to Google Analytics for faster loading */}
         {ga4MeasurementId && (
           <>
