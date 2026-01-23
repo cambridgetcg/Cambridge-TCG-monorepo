@@ -164,7 +164,7 @@ model ShopEntitlements {
   effectivePlan String            @default("free") // free, pro, max, ultra, enterprise
   planSource    EntitlementSource @default(DEFAULT)
 
-  // Feature flags (boolean)
+  // Feature flags (boolean) - Core features
   featureApiAccess         Boolean @default(false)
   featureWebhooks          Boolean @default(false)
   featureWhiteLabel        Boolean @default(false)
@@ -179,10 +179,25 @@ model ShopEntitlements {
   featureExportData        Boolean @default(false)
   featureCustomRewards     Boolean @default(false)
 
-  // Numeric limits
+  // Feature flags (boolean) - Integrations (P1)
+  featureIntegrationKlaviyo  Boolean @default(false) // Pro+
+  featureIntegrationSendgrid Boolean @default(false) // Pro+
+  featureIntegrationJudgeme  Boolean @default(false) // Pro+
+  featureIntegrationSlack    Boolean @default(false) // Pro+
+  featureIntegrationRecharge Boolean @default(false) // Max+
+  featureIntegrationGorgias  Boolean @default(false) // Max+
+  featureIntegrationZapier   Boolean @default(false) // Max+
+
+  // Numeric limits - Core
   limitMaxTiers  Int @default(2)
   limitMaxOrders Int @default(50)
   limitMaxEmails Int @default(0)
+
+  // Numeric limits - Sync with plan-limits.ts (P0)
+  limitMaxAutomations    Int @default(1)    // Free: 1, Pro: 5, Max: 20, Ultra: 999999
+  limitMaxCustomersSync  Int @default(1000) // Free: 1K, Pro: 10K, Max: 50K, Ultra: 999999
+  limitMaxTierProducts   Int @default(2)    // Free: 2, Pro: 5, Max: 10, Ultra: 999999
+  limitMaxHistoricalDays Int @default(30)   // Free: 30, Pro: 90, Max: 365, Ultra: 999999
 
   // Override support (for custom deals / grandfathered plans)
   hasOverride    Boolean   @default(false)

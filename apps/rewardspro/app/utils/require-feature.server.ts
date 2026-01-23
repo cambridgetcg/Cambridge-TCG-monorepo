@@ -201,14 +201,30 @@ export const requireSubscriptionTiers = createFeatureGuard('subscriptionTiers');
 export const requirePurchasableTiers = createFeatureGuard('purchasableTiers');
 export const requireExportData = createFeatureGuard('exportData');
 
+// Pre-built guards for integrations (P1)
+export const requireIntegrationKlaviyo = createFeatureGuard('integrationKlaviyo');
+export const requireIntegrationSendgrid = createFeatureGuard('integrationSendgrid');
+export const requireIntegrationJudgeme = createFeatureGuard('integrationJudgeme');
+export const requireIntegrationSlack = createFeatureGuard('integrationSlack');
+export const requireIntegrationRecharge = createFeatureGuard('integrationRecharge');
+export const requireIntegrationGorgias = createFeatureGuard('integrationGorgias');
+export const requireIntegrationZapier = createFeatureGuard('integrationZapier');
+
 // Pre-built guards for common limits
 export const requireWithinTierLimit = createLimitGuard('maxTiers');
 export const requireWithinOrderLimit = createLimitGuard('maxOrders');
 export const requireWithinEmailLimit = createLimitGuard('maxEmails');
 
+// Pre-built guards for synced limits (P0)
+export const requireWithinAutomationLimit = createLimitGuard('maxAutomations');
+export const requireWithinCustomerSyncLimit = createLimitGuard('maxCustomersSync');
+export const requireWithinTierProductLimit = createLimitGuard('maxTierProducts');
+export const requireWithinHistoricalDaysLimit = createLimitGuard('maxHistoricalDays');
+
 // Helper: Format feature name for user-friendly messages
 function formatFeatureName(feature: FeatureKey): string {
   const names: Record<FeatureKey, string> = {
+    // Core features
     apiAccess: 'API Access',
     webhooks: 'Webhook Integrations',
     whiteLabel: 'White Label Emails',
@@ -222,6 +238,14 @@ function formatFeatureName(feature: FeatureKey): string {
     purchasableTiers: 'Purchasable Tiers',
     exportData: 'Data Export',
     customRewards: 'Custom Rewards',
+    // Integration features
+    integrationKlaviyo: 'Klaviyo Integration',
+    integrationSendgrid: 'SendGrid Integration',
+    integrationJudgeme: 'Judge.me Integration',
+    integrationSlack: 'Slack Integration',
+    integrationRecharge: 'Recharge Integration',
+    integrationGorgias: 'Gorgias Integration',
+    integrationZapier: 'Zapier Integration',
   };
   return names[feature] || feature;
 }
@@ -229,9 +253,15 @@ function formatFeatureName(feature: FeatureKey): string {
 // Helper: Format limit name for user-friendly messages
 function formatLimitName(limit: LimitKey): string {
   const names: Record<LimitKey, string> = {
+    // Core limits
     maxTiers: 'tier',
     maxOrders: 'monthly order',
     maxEmails: 'email',
+    // Synced limits
+    maxAutomations: 'automation',
+    maxCustomersSync: 'customer sync',
+    maxTierProducts: 'tier product',
+    maxHistoricalDays: 'historical data day',
   };
   return names[limit] || limit;
 }
@@ -240,6 +270,7 @@ function formatLimitName(limit: LimitKey): string {
 function getFeatureRequiredPlan(feature: FeatureKey): string {
   // Map feature keys to the minimum plan that has them
   const planRequirements: Record<FeatureKey, string> = {
+    // Core features
     apiAccess: 'RewardsPro Ultra',
     webhooks: 'RewardsPro Max',
     whiteLabel: 'RewardsPro Max',
@@ -253,6 +284,15 @@ function getFeatureRequiredPlan(feature: FeatureKey): string {
     purchasableTiers: 'RewardsPro Max',
     exportData: 'RewardsPro Pro',
     customRewards: 'RewardsPro Pro',
+    // Integration features - Pro tier
+    integrationKlaviyo: 'RewardsPro Pro',
+    integrationSendgrid: 'RewardsPro Pro',
+    integrationJudgeme: 'RewardsPro Pro',
+    integrationSlack: 'RewardsPro Pro',
+    // Integration features - Max tier
+    integrationRecharge: 'RewardsPro Max',
+    integrationGorgias: 'RewardsPro Max',
+    integrationZapier: 'RewardsPro Max',
   };
   return planRequirements[feature] || 'RewardsPro Pro';
 }

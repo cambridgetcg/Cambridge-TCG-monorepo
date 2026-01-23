@@ -21,6 +21,42 @@ import {
   testConnection,
 } from "~/services/integrations/integration-manager.server";
 import type { IntegrationProvider } from "@prisma/client";
+import { checkFeatureAccess, type FeatureKey } from "~/utils/require-feature.server";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTEGRATION FEATURE GATING
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Map provider to required feature key
+ * Only providers with feature flags are mapped; others are allowed by default
+ */
+const PROVIDER_FEATURE_MAP: Partial<Record<IntegrationProvider, FeatureKey>> = {
+  // Pro+ integrations
+  KLAVIYO: 'integrationKlaviyo',
+  JUDGE_ME: 'integrationJudgeme',
+  SLACK: 'integrationSlack',
+  // Max+ integrations
+  RECHARGE: 'integrationRecharge',
+  GORGIAS: 'integrationGorgias',
+  ZAPIER: 'integrationZapier',
+  // Note: SendGrid uses direct API, not the integration system
+};
+
+/**
+ * Check if shop has access to a specific integration provider
+ */
+async function checkIntegrationAccess(
+  shop: string,
+  provider: IntegrationProvider
+): Promise<{ hasAccess: boolean; error?: object }> {
+  const featureKey = PROVIDER_FEATURE_MAP[provider];
+  if (!featureKey) {
+    // Provider not in feature map - allow by default (not gated)
+    return { hasAccess: true };
+  }
+  return checkFeatureAccess(shop, featureKey);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LOADER - List integrations
@@ -127,6 +163,21 @@ async function handleConnect(
     return json(
       { success: false, error: "Provider is required" },
       { status: 400 }
+    );
+  }
+
+  // Check integration feature access
+  const accessCheck = await checkIntegrationAccess(shop, provider);
+  if (!accessCheck.hasAccess) {
+    console.log(`[IntegrationsAPI] Access denied for ${provider} - shop: ${shop}`);
+    return json(
+      {
+        success: false,
+        error: "Integration not available on your plan",
+        code: "FEATURE_NOT_AVAILABLE",
+        ...accessCheck.error,
+      },
+      { status: 403 }
     );
   }
 

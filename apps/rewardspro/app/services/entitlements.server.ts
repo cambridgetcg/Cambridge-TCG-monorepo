@@ -26,6 +26,7 @@ const entitlementsCache = new Map<string, { data: ShopEntitlements; expires: num
 
 // Feature keys that map to ShopEntitlements columns
 export type FeatureKey =
+  // Core features
   | 'apiAccess'
   | 'webhooks'
   | 'whiteLabel'
@@ -38,10 +39,27 @@ export type FeatureKey =
   | 'subscriptionTiers'
   | 'purchasableTiers'
   | 'exportData'
-  | 'customRewards';
+  | 'customRewards'
+  // Integration features (P1)
+  | 'integrationKlaviyo'
+  | 'integrationSendgrid'
+  | 'integrationJudgeme'
+  | 'integrationSlack'
+  | 'integrationRecharge'
+  | 'integrationGorgias'
+  | 'integrationZapier';
 
 // Limit keys that map to ShopEntitlements columns
-export type LimitKey = 'maxTiers' | 'maxOrders' | 'maxEmails';
+export type LimitKey =
+  // Core limits
+  | 'maxTiers'
+  | 'maxOrders'
+  | 'maxEmails'
+  // Synced limits from plan-limits.ts (P0)
+  | 'maxAutomations'
+  | 'maxCustomersSync'
+  | 'maxTierProducts'
+  | 'maxHistoricalDays';
 
 // Plan names with their canonical order limits
 // IMPORTANT: These values MUST match app/constants/plan-limits.ts
@@ -49,11 +67,11 @@ export type LimitKey = 'maxTiers' | 'maxOrders' | 'maxEmails';
 import { getOrderLimit, getTierLimit } from '~/constants/plan-limits';
 
 export const PLAN_ORDER_LIMITS: Record<string, number> = {
-  [FREE_PLAN]: 100,       // Updated to match plan-limits.ts
+  [FREE_PLAN]: 50,        // Matches plan-limits.ts (canonical source)
   [STARTER_PLAN]: 500,    // Legacy - same as Pro
   [PRO_PLAN]: 500,
-  [GROWTH_PLAN]: 2000,    // Updated: Legacy - same as Max
-  [MAX_PLAN]: 2000,       // Updated to match plan-limits.ts
+  [GROWTH_PLAN]: 2000,    // Legacy - same as Max
+  [MAX_PLAN]: 2000,       // Matches plan-limits.ts (canonical source)
   [ULTRA_PLAN]: Infinity,
   [ENTERPRISE_PLAN]: Infinity,
 };
@@ -74,7 +92,7 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
   effectivePlan: FREE_PLAN,
   planSource: 'DEFAULT' as EntitlementSource,
 
-  // Feature flags (Free plan defaults)
+  // Feature flags (Free plan defaults) - Core
   featureApiAccess: false,
   featureWebhooks: false,
   featureWhiteLabel: false,
@@ -89,10 +107,25 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
   featureExportData: false,
   featureCustomRewards: false,
 
-  // Numeric limits (Free plan)
+  // Feature flags (Free plan defaults) - Integrations
+  featureIntegrationKlaviyo: false,
+  featureIntegrationSendgrid: false,
+  featureIntegrationJudgeme: false,
+  featureIntegrationSlack: false,
+  featureIntegrationRecharge: false,
+  featureIntegrationGorgias: false,
+  featureIntegrationZapier: false,
+
+  // Numeric limits (Free plan) - Core
   limitMaxTiers: 2,
   limitMaxOrders: 50,
   limitMaxEmails: 0,
+
+  // Numeric limits (Free plan) - Synced with plan-limits.ts
+  limitMaxAutomations: 1,
+  limitMaxCustomersSync: 1000,
+  limitMaxTierProducts: 2,
+  limitMaxHistoricalDays: 30,
 
   // Override fields
   hasOverride: false,
@@ -108,6 +141,7 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
 // Feature mapping from plan to entitlements
 const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
   [FREE_PLAN]: {
+    // Core features
     featureApiAccess: false,
     featureWebhooks: false,
     featureWhiteLabel: false,
@@ -121,11 +155,26 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featurePurchasableTiers: false,
     featureExportData: false,
     featureCustomRewards: false,
+    // Integration features - Free: None
+    featureIntegrationKlaviyo: false,
+    featureIntegrationSendgrid: false,
+    featureIntegrationJudgeme: false,
+    featureIntegrationSlack: false,
+    featureIntegrationRecharge: false,
+    featureIntegrationGorgias: false,
+    featureIntegrationZapier: false,
+    // Core limits
     limitMaxTiers: 2,
     limitMaxOrders: 50,
     limitMaxEmails: 0,
+    // Synced limits
+    limitMaxAutomations: 1,
+    limitMaxCustomersSync: 1000,
+    limitMaxTierProducts: 2,
+    limitMaxHistoricalDays: 30,
   },
   [PRO_PLAN]: {
+    // Core features
     featureApiAccess: false,
     featureWebhooks: false,
     featureWhiteLabel: false,
@@ -139,11 +188,26 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featurePurchasableTiers: false, // Max plan and above only
     featureExportData: true,
     featureCustomRewards: true,
+    // Integration features - Pro: Basic integrations
+    featureIntegrationKlaviyo: true,
+    featureIntegrationSendgrid: true,
+    featureIntegrationJudgeme: true,
+    featureIntegrationSlack: true,
+    featureIntegrationRecharge: false, // Max+
+    featureIntegrationGorgias: false, // Max+
+    featureIntegrationZapier: false, // Max+
+    // Core limits
     limitMaxTiers: 5,
     limitMaxOrders: 500,
     limitMaxEmails: 100,
+    // Synced limits
+    limitMaxAutomations: 5,
+    limitMaxCustomersSync: 10000,
+    limitMaxTierProducts: 5,
+    limitMaxHistoricalDays: 90,
   },
   [MAX_PLAN]: {
+    // Core features
     featureApiAccess: false,
     featureWebhooks: true,
     featureWhiteLabel: true,
@@ -157,11 +221,26 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featurePurchasableTiers: true,
     featureExportData: true,
     featureCustomRewards: true,
+    // Integration features - Max: All integrations
+    featureIntegrationKlaviyo: true,
+    featureIntegrationSendgrid: true,
+    featureIntegrationJudgeme: true,
+    featureIntegrationSlack: true,
+    featureIntegrationRecharge: true,
+    featureIntegrationGorgias: true,
+    featureIntegrationZapier: true,
+    // Core limits
     limitMaxTiers: 10,
-    limitMaxOrders: 5000,
+    limitMaxOrders: 2000,
     limitMaxEmails: 500,
+    // Synced limits
+    limitMaxAutomations: 20,
+    limitMaxCustomersSync: 50000,
+    limitMaxTierProducts: 10,
+    limitMaxHistoricalDays: 365,
   },
   [ULTRA_PLAN]: {
+    // Core features
     featureApiAccess: true,
     featureWebhooks: true,
     featureWhiteLabel: true,
@@ -175,30 +254,60 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featurePurchasableTiers: true,
     featureExportData: true,
     featureCustomRewards: true,
-    limitMaxTiers: 999999, // Effectively unlimited
-    limitMaxOrders: 999999,
-    limitMaxEmails: 999999,
-  },
-  [ENTERPRISE_PLAN]: {
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
+    // Integration features - Ultra: All integrations
+    featureIntegrationKlaviyo: true,
+    featureIntegrationSendgrid: true,
+    featureIntegrationJudgeme: true,
+    featureIntegrationSlack: true,
+    featureIntegrationRecharge: true,
+    featureIntegrationGorgias: true,
+    featureIntegrationZapier: true,
+    // Core limits - Effectively unlimited
     limitMaxTiers: 999999,
     limitMaxOrders: 999999,
     limitMaxEmails: 999999,
+    // Synced limits - Effectively unlimited
+    limitMaxAutomations: 999999,
+    limitMaxCustomersSync: 999999,
+    limitMaxTierProducts: 999999,
+    limitMaxHistoricalDays: 999999,
+  },
+  [ENTERPRISE_PLAN]: {
+    // Core features
+    featureApiAccess: true,
+    featureWebhooks: true,
+    featureWhiteLabel: true,
+    featureAdvancedReport: true,
+    featureCustomEmail: true,
+    featureAnnualEval: true,
+    featureBulkOps: true,
+    featureCustomBranding: true,
+    featurePrioritySupport: true,
+    featureSubscriptionTiers: true,
+    featurePurchasableTiers: true,
+    featureExportData: true,
+    featureCustomRewards: true,
+    // Integration features - Enterprise: All integrations
+    featureIntegrationKlaviyo: true,
+    featureIntegrationSendgrid: true,
+    featureIntegrationJudgeme: true,
+    featureIntegrationSlack: true,
+    featureIntegrationRecharge: true,
+    featureIntegrationGorgias: true,
+    featureIntegrationZapier: true,
+    // Core limits - Effectively unlimited
+    limitMaxTiers: 999999,
+    limitMaxOrders: 999999,
+    limitMaxEmails: 999999,
+    // Synced limits - Effectively unlimited
+    limitMaxAutomations: 999999,
+    limitMaxCustomersSync: 999999,
+    limitMaxTierProducts: 999999,
+    limitMaxHistoricalDays: 999999,
   },
   // Legacy plans map to their equivalent tiers
   [STARTER_PLAN]: {
+    // Core features (same as Pro)
     featureApiAccess: false,
     featureWebhooks: false,
     featureWhiteLabel: false,
@@ -209,14 +318,29 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureCustomBranding: false,
     featurePrioritySupport: false,
     featureSubscriptionTiers: true,
-    featurePurchasableTiers: false, // Max plan and above only
+    featurePurchasableTiers: false,
     featureExportData: true,
     featureCustomRewards: true,
+    // Integration features (same as Pro)
+    featureIntegrationKlaviyo: true,
+    featureIntegrationSendgrid: true,
+    featureIntegrationJudgeme: true,
+    featureIntegrationSlack: true,
+    featureIntegrationRecharge: false,
+    featureIntegrationGorgias: false,
+    featureIntegrationZapier: false,
+    // Core limits
     limitMaxTiers: 5,
     limitMaxOrders: 500,
     limitMaxEmails: 100,
+    // Synced limits
+    limitMaxAutomations: 5,
+    limitMaxCustomersSync: 10000,
+    limitMaxTierProducts: 5,
+    limitMaxHistoricalDays: 90,
   },
   [GROWTH_PLAN]: {
+    // Core features (same as Max)
     featureApiAccess: false,
     featureWebhooks: true,
     featureWhiteLabel: true,
@@ -230,9 +354,23 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featurePurchasableTiers: true,
     featureExportData: true,
     featureCustomRewards: true,
+    // Integration features (same as Max)
+    featureIntegrationKlaviyo: true,
+    featureIntegrationSendgrid: true,
+    featureIntegrationJudgeme: true,
+    featureIntegrationSlack: true,
+    featureIntegrationRecharge: true,
+    featureIntegrationGorgias: true,
+    featureIntegrationZapier: true,
+    // Core limits
     limitMaxTiers: 10,
-    limitMaxOrders: 5000,
+    limitMaxOrders: 2000,
     limitMaxEmails: 500,
+    // Synced limits
+    limitMaxAutomations: 20,
+    limitMaxCustomersSync: 50000,
+    limitMaxTierProducts: 10,
+    limitMaxHistoricalDays: 365,
   },
 };
 
