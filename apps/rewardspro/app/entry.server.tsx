@@ -8,6 +8,7 @@ import { addDocumentResponseHeaders } from "./shopify.server";
 import * as Sentry from "@sentry/remix";
 import { initDatadog } from "./services/monitoring/datadog.service";
 import { initBetterStack, BetterStackService } from "./services/monitoring/betterstack.service";
+import { SentryService, createSmartSampler } from "./services/monitoring/sentry.service";
 
 // Initialize monitoring services
 // 1. Datadog: APM, distributed tracing, metrics
@@ -15,29 +16,39 @@ initDatadog();
 // 2. Better Stack: Log aggregation (cost-effective alternative to Datadog Logs)
 initBetterStack();
 
-// Initialize Sentry for server-side error tracking
+// Initialize Sentry for server-side error tracking with enhanced configuration
 if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
 
-    // Performance Monitoring
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+    // Smart sampling: 100% for critical ops, 20% default
+    tracesSampler: createSmartSampler(0.2),
 
     // Set sample rate for profiling
     profilesSampleRate: 0.1,
 
-    // Attach release information
+    // Attach release information for release health tracking
     release: process.env.VERCEL_GIT_COMMIT_SHA,
     dist: process.env.VERCEL_ENV,
 
-    // Filter and sanitize events
+    // Enable session tracking for release health
+    autoSessionTracking: true,
+
+    // Integrations
+    integrations: [
+      // Track HTTP requests
+      new Sentry.Integrations.Http({ tracing: true }),
+    ],
+
+    // Filter and sanitize events before sending
     beforeSend(event, hint) {
       // Remove sensitive headers
       if (event.request?.headers) {
         delete event.request.headers['authorization'];
         delete event.request.headers['cookie'];
         delete event.request.headers['x-shopify-access-token'];
+        delete event.request.headers['x-shopify-hmac-sha256'];
       }
 
       // Remove sensitive data from query strings
@@ -45,15 +56,51 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
         event.request.query_string = event.request.query_string.replace(
           /token=[^&]*/g,
           'token=[REDACTED]'
+        ).replace(
+          /hmac=[^&]*/g,
+          'hmac=[REDACTED]'
+        ).replace(
+          /signature=[^&]*/g,
+          'signature=[REDACTED]'
         );
+      }
+
+      // Add shop domain tag from request headers if available
+      const shopDomain = event.request?.headers?.['x-shopify-shop-domain'];
+      if (shopDomain && !event.tags?.['shop.domain']) {
+        event.tags = { ...event.tags, 'shop.domain': shopDomain };
       }
 
       return event;
     },
 
+    // Enrich transactions with business context
+    beforeSendTransaction(event) {
+      // Add deployment info to all transactions
+      event.tags = {
+        ...event.tags,
+        'vercel.region': process.env.VERCEL_REGION || 'unknown',
+        'vercel.env': process.env.VERCEL_ENV || 'unknown',
+      };
+      return event;
+    },
+
     // Server-specific options
     serverName: process.env.VERCEL_REGION || 'unknown',
+
+    // Ignore known benign errors
+    ignoreErrors: [
+      // Shopify session errors (expected during OAuth flow)
+      'No session found',
+      'Session not found',
+      // Network timeouts (retryable)
+      'ETIMEDOUT',
+      'ECONNRESET',
+    ],
   });
+
+  // Mark SentryService as initialized
+  SentryService.markInitialized();
 }
 
 // Export error handler for Remix
@@ -69,41 +116,71 @@ export function handleError(
   // Extract useful context from request
   const url = new URL(request.url);
   const shopDomain = request.headers.get('x-shopify-shop-domain');
+  const webhookTopic = request.headers.get('x-shopify-topic');
+  const webhookId = request.headers.get('x-shopify-webhook-id');
 
   // Log to Better Stack for centralized log aggregation
   BetterStackService.error('Unhandled error', error instanceof Error ? error : undefined, {
     url: url.pathname,
     method: request.method,
     shop: shopDomain || undefined,
+    webhookTopic: webhookTopic || undefined,
   });
 
-  // Capture with Sentry if enabled
-  if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
-    Sentry.withScope((scope) => {
-      scope.setContext('request', {
-        url: url.pathname,
-        method: request.method,
-        shopDomain,
-      });
+  // Capture with enhanced Sentry context
+  if (SentryService.isEnabled()) {
+    // Determine error type and severity
+    let errorType = 'unknown';
+    let level: Sentry.SeverityLevel = 'error';
+    let isRecoverable = false;
 
-      if (shopDomain) {
-        scope.setTag('shopify.shop', shopDomain);
+    if (error instanceof Error) {
+      if (error.message.includes('HMAC')) {
+        errorType = 'hmac_validation';
+        level = 'warning';
+        isRecoverable = false;
+      } else if (error.message.includes('rate limit')) {
+        errorType = 'rate_limit';
+        level = 'warning';
+        isRecoverable = true;
+      } else if (error.message.includes('session')) {
+        errorType = 'session_error';
+        level = 'warning';
+        isRecoverable = true;
+      } else if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+        errorType = 'timeout';
+        level = 'warning';
+        isRecoverable = true;
+      } else if (error.message.includes('database') || error.message.includes('prisma')) {
+        errorType = 'database_error';
+        level = 'error';
+        isRecoverable = false;
       }
+    }
 
-      // If it's a known error type, add specific handling
-      if (error instanceof Error) {
-        if (error.message.includes('HMAC')) {
-          scope.setTag('error.type', 'hmac_validation');
-          scope.setLevel('warning');
-        } else if (error.message.includes('rate limit')) {
-          scope.setTag('error.type', 'rate_limit');
-          scope.setLevel('warning');
-        } else if (error.message.includes('session')) {
-          scope.setTag('error.type', 'session_error');
-        }
-      }
+    // Determine operation type from URL
+    let operationType: 'webhook' | 'api' | 'cron' | 'ui' = 'ui';
+    if (url.pathname.startsWith('/webhooks')) {
+      operationType = 'webhook';
+    } else if (url.pathname.startsWith('/api')) {
+      operationType = url.pathname.includes('cron') ? 'cron' : 'api';
+    }
 
-      Sentry.captureException(error);
+    // Use SentryService for rich context capture
+    SentryService.captureException(error, {
+      shop: shopDomain ? { domain: shopDomain } : undefined,
+      operation: {
+        type: operationType,
+        name: url.pathname,
+        correlationId: webhookId || undefined,
+      },
+      tags: {
+        'error.type': errorType,
+        'error.recoverable': String(isRecoverable),
+        'request.method': request.method,
+        ...(webhookTopic ? { 'webhook.topic': webhookTopic } : {}),
+      },
+      level,
     });
   }
 }

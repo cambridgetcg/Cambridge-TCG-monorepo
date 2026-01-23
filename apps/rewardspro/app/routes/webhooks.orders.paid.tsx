@@ -27,6 +27,7 @@ import {
 import { createLogger } from "../services/logger.server";
 import { isPointsEnabled } from "../services/points-config.server";
 import { awardOrderPoints } from "../services/points-ledger.server";
+import { SentryService } from "../services/monitoring/sentry.service";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
@@ -113,6 +114,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   let order: any;
   let admin: any;
 
+  // Start Sentry transaction for webhook tracing
+  const webhookId = request.headers.get('X-Shopify-Webhook-Id') || 'unknown';
+  const sentryWebhook = SentryService.startWebhookTransaction({
+    topic: 'orders/paid',
+    shop: 'pending',
+    webhookId,
+  });
+  const startTime = Date.now();
+
   try {
     // Use Shopify's built-in webhook authentication which handles HMAC verification
     const webhookData = await authenticate.webhook(request);
@@ -120,6 +130,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     topic = webhookData.topic;
     order = webhookData.payload;
     admin = webhookData.admin; // Get admin API access for GraphQL
+
+    // Set Sentry context now that we have shop info
+    SentryService.setShopContext({ domain: shop });
+    SentryService.setOperationContext({
+      type: 'webhook',
+      name: 'orders/paid',
+      correlationId: webhookId,
+    });
 
     // Log webhook received with structured data
     const shopMoney = order.total_price_set?.shop_money;
@@ -557,6 +575,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       logger.debug('Could not record webhook processing (table may not exist or duplicate)');
     }
 
+    // Track successful webhook processing in Sentry
+    const durationMs = Date.now() - startTime;
+    SentryService.events.webhookProcessed({
+      shop: shop!,
+      topic: 'orders/paid',
+      success: true,
+      durationMs,
+      orderId: order.id?.toString(),
+    });
+    sentryWebhook.finish('ok');
+
     webhookLogger.info('Order processed successfully', { orderId: order.id, shop });
     return json({ success: true, data: result });
 
@@ -569,6 +598,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const errorLogger = webhookLogger.withContext({ shop, orderId: order?.id || 'unknown' });
     errorLogger.error('Order processing failed', error);
+
+    // Track failed webhook in Sentry with business impact
+    const durationMs = Date.now() - startTime;
+    SentryService.captureException(error, {
+      shop: shop ? { domain: shop } : undefined,
+      operation: {
+        type: 'webhook',
+        name: 'orders/paid',
+        correlationId: webhookId,
+      },
+      businessImpact: {
+        orderValue: parseFloat(order?.total_price || '0'),
+        affectedCustomers: 1,
+      },
+      tags: {
+        'webhook.topic': 'orders/paid',
+        'order.id': order?.id?.toString() || 'unknown',
+      },
+    });
+    SentryService.events.webhookProcessed({
+      shop: shop || 'unknown',
+      topic: 'orders/paid',
+      success: false,
+      durationMs,
+      orderId: order?.id?.toString(),
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    sentryWebhook.finish('error');
 
     // Log error for monitoring (if model exists and we have required data)
     if (db.webhookError && shop && order) {

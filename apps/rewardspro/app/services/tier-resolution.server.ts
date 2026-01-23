@@ -22,6 +22,7 @@ import { calculateCustomerTierFromDB } from "./tier-calculation.server";
 import { getBaseTier, getBaseTierConfig } from "./base-tier.server";
 import { calculateProgress } from "./customer-tier-state-update.server";
 import { createLogger } from "~/services/logger.server";
+import { SentryService } from "~/services/monitoring/sentry.service";
 
 const logger = createLogger('TierResolution');
 
@@ -469,6 +470,13 @@ export async function updateCustomerToEffectiveTier(
   const updateLogger = logger.withContext({ shop, customerId, triggeredBy: context?.triggeredBy || 'unknown' });
   updateLogger.info('Updating customer to effective tier');
 
+  // Start Sentry transaction for tier resolution
+  const sentryTier = SentryService.startTierResolutionTransaction(
+    shop,
+    customerId,
+    context?.triggeredBy
+  );
+
   try {
     // Wrap ALL reads and writes in a transaction to prevent race conditions
     // Using ReadCommitted isolation to prevent dirty reads while allowing concurrent access
@@ -700,10 +708,50 @@ export async function updateCustomerToEffectiveTier(
       timeout: 10000,                   // 10 second timeout
     });
 
+    // Record successful tier resolution in Sentry
+    sentryTier.recordResult({
+      effectiveSource: result.source,
+      effectiveTierId: result.newTierId,
+      conflictResolved: false, // Would need to get from resolution
+      changed: result.changed,
+    });
+
+    // Track tier change event if tier actually changed
+    if (result.changed) {
+      SentryService.events.tierChanged({
+        shop,
+        customerId,
+        fromTier: result.previousTierId,
+        toTier: result.newTierId,
+        source: result.source,
+        triggered_by: context?.triggeredBy || 'unknown',
+      });
+    }
+
+    sentryTier.finish('ok');
     return result;
 
   } catch (error) {
     updateLogger.error('Error updating customer to effective tier', error);
+
+    // Capture tier resolution error in Sentry with business impact
+    SentryService.captureException(error, {
+      shop: { domain: shop },
+      customer: { id: customerId },
+      operation: {
+        type: 'sync',
+        name: 'tier.resolution',
+      },
+      businessImpact: {
+        affectedCustomers: 1,
+      },
+      tags: {
+        'tier.trigger': context?.triggeredBy || 'unknown',
+      },
+      level: 'error',
+    });
+    sentryTier.finish('error');
+
     return {
       success: false,
       previousTierId: null,
