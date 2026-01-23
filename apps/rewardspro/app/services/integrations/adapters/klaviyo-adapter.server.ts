@@ -197,7 +197,7 @@ export class KlaviyoAdapter extends BaseIntegrationAdapter {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    const clientId = process.env.KLAVIYO_CLIENT_ID;
+    const clientId = process.env.KLAVIYO_CLIENT_ID?.trim();
     if (!clientId) {
       throw new Error("KLAVIYO_CLIENT_ID environment variable not set");
     }
@@ -228,8 +228,8 @@ export class KlaviyoAdapter extends BaseIntegrationAdapter {
     redirectUri: string,
     codeVerifier?: string
   ): Promise<OAuthTokens> {
-    const clientId = process.env.KLAVIYO_CLIENT_ID;
-    const clientSecret = process.env.KLAVIYO_CLIENT_SECRET;
+    const clientId = process.env.KLAVIYO_CLIENT_ID?.trim();
+    const clientSecret = process.env.KLAVIYO_CLIENT_SECRET?.trim();
 
     if (!clientId || !clientSecret) {
       throw new Error("Klaviyo OAuth credentials not configured");
@@ -276,8 +276,8 @@ export class KlaviyoAdapter extends BaseIntegrationAdapter {
   }
 
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokens> {
-    const clientId = process.env.KLAVIYO_CLIENT_ID;
-    const clientSecret = process.env.KLAVIYO_CLIENT_SECRET;
+    const clientId = process.env.KLAVIYO_CLIENT_ID?.trim();
+    const clientSecret = process.env.KLAVIYO_CLIENT_SECRET?.trim();
 
     if (!clientId || !clientSecret) {
       throw new Error("Klaviyo OAuth credentials not configured");

@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 const CONFIG = {
   provider: 'ExchangeRate-API',
-  apiKey: process.env.EXCHANGE_RATE_API_KEY || '',
+  apiKey: process.env.EXCHANGE_RATE_API_KEY?.trim() || '',
   apiUrl: 'https://v6.exchangerate-api.com/v6',
   updateIntervalHours: 6,     // Update 4 times per day
   staleThresholdHours: 72,    // Alert if rates >3 days old

@@ -24,7 +24,7 @@ let logtailInstance: Logtail | null = null;
 function getLogtail(): Logtail | null {
   if (logtailInstance) return logtailInstance;
 
-  const sourceToken = process.env.BETTERSTACK_SOURCE_TOKEN;
+  const sourceToken = process.env.BETTERSTACK_SOURCE_TOKEN?.trim();
   if (!sourceToken) {
     // Silent fail in development - Better Stack is optional
     if (process.env.NODE_ENV === 'production') {

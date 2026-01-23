@@ -98,7 +98,7 @@ const DEFAULT_SENDER = {
 };
 
 function getSendGridApiKey(): string {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey = process.env.SENDGRID_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("SENDGRID_API_KEY environment variable is not set");
   }

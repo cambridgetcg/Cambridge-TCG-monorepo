@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 
 // GitBook API configuration
-const GITBOOK_API_KEY = process.env.GITBOOK_API_KEY;
+const GITBOOK_API_KEY = process.env.GITBOOK_API_KEY?.trim();
 const GITBOOK_ORG_ID = process.env.GITBOOK_ORG_ID || "VJBnfwGxopYM3L5yD24u";
 const GITBOOK_SITE_ID = process.env.GITBOOK_SITE_ID || "site_woFqX";
 const GITBOOK_API_URL = `https://api.gitbook.com/v1/orgs/${GITBOOK_ORG_ID}/sites/${GITBOOK_SITE_ID}/ask`;

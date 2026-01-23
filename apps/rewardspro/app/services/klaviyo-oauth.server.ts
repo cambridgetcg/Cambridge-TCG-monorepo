@@ -22,8 +22,8 @@ import { encrypt, decrypt } from "~/utils/encryption";
 // CONFIGURATION
 // ============================================
 
-const KLAVIYO_CLIENT_ID = process.env.KLAVIYO_CLIENT_ID;
-const KLAVIYO_CLIENT_SECRET = process.env.KLAVIYO_CLIENT_SECRET;
+const KLAVIYO_CLIENT_ID = process.env.KLAVIYO_CLIENT_ID?.trim();
+const KLAVIYO_CLIENT_SECRET = process.env.KLAVIYO_CLIENT_SECRET?.trim();
 
 const KLAVIYO_AUTH_URL = "https://www.klaviyo.com/oauth/authorize";
 const KLAVIYO_TOKEN_URL = "https://a.klaviyo.com/oauth/token";

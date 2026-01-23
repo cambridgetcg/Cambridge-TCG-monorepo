@@ -102,7 +102,8 @@ export abstract class BaseIntegrationAdapter implements IIntegrationAdapter {
 
     let accessToken: string;
     try {
-      accessToken = decrypt(integration.accessToken);
+      // Trim to remove any accidental whitespace/newlines that cause header errors
+      accessToken = decrypt(integration.accessToken).trim();
     } catch (error) {
       this.logger.error("Failed to decrypt access token", {
         integrationId: integration.id,
@@ -177,7 +178,8 @@ export abstract class BaseIntegrationAdapter implements IIntegrationAdapter {
     }
 
     try {
-      return decrypt(integration.apiKey);
+      // Trim to remove any accidental whitespace/newlines that cause header errors
+      return decrypt(integration.apiKey).trim();
     } catch (error) {
       this.logger.error("Failed to decrypt API key", {
         integrationId: integration.id,

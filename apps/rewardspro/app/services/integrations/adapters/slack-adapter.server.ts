@@ -229,7 +229,7 @@ class SlackAdapter extends BaseIntegrationAdapter {
     redirectUri: string
   ): Promise<OAuthAuthorizationResult> {
     const state = this.generateOAuthState(shop, redirectUri);
-    const clientId = process.env.SLACK_CLIENT_ID;
+    const clientId = process.env.SLACK_CLIENT_ID?.trim();
 
     if (!clientId) {
       throw new Error("SLACK_CLIENT_ID not configured");
@@ -256,8 +256,8 @@ class SlackAdapter extends BaseIntegrationAdapter {
     code: string,
     redirectUri: string
   ): Promise<OAuthTokens> {
-    const clientId = process.env.SLACK_CLIENT_ID;
-    const clientSecret = process.env.SLACK_CLIENT_SECRET;
+    const clientId = process.env.SLACK_CLIENT_ID?.trim();
+    const clientSecret = process.env.SLACK_CLIENT_SECRET?.trim();
 
     if (!clientId || !clientSecret) {
       throw new Error("Slack OAuth credentials not configured");
@@ -306,7 +306,7 @@ class SlackAdapter extends BaseIntegrationAdapter {
   ): boolean {
     // Slack signature format: v0=hash
     // The signature is computed over: v0:timestamp:body
-    const signingSecret = process.env.SLACK_SIGNING_SECRET || secret;
+    const signingSecret = process.env.SLACK_SIGNING_SECRET?.trim() || secret;
 
     // Extract timestamp from the signature header context
     // In practice, this should come from the request headers
@@ -342,7 +342,7 @@ class SlackAdapter extends BaseIntegrationAdapter {
     body: string,
     signature: string
   ): boolean {
-    const signingSecret = process.env.SLACK_SIGNING_SECRET;
+    const signingSecret = process.env.SLACK_SIGNING_SECRET?.trim();
     if (!signingSecret) {
       this.logger.error("SLACK_SIGNING_SECRET not configured");
       return false;
