@@ -188,6 +188,22 @@ model ShopEntitlements {
   featureIntegrationGorgias  Boolean @default(false) // Max+
   featureIntegrationZapier   Boolean @default(false) // Max+
 
+  // Feature flags (boolean) - Gamification (P2)
+  featureRaffles       Boolean @default(false) // Pro+
+  featureMysteryBoxes  Boolean @default(false) // Max+
+  featureChallenges    Boolean @default(false) // Pro+
+
+  // Feature flags (boolean) - Marketing (P3)
+  featureMarketingCampaigns  Boolean @default(false) // Pro+
+  featureMarketingAutomation Boolean @default(false) // Max+
+  featureAiRecommendations   Boolean @default(false) // Max+
+
+  // Feature flags (boolean) - Analytics (P4)
+  featureRfmSegmentation  Boolean @default(false) // Max+
+  featureProgramImpact    Boolean @default(false) // Pro+
+  featureRealtimeAnalytics Boolean @default(false) // Max+
+  featureCohortAnalysis   Boolean @default(false) // Ultra
+
   // Numeric limits - Core
   limitMaxTiers  Int @default(2)
   limitMaxOrders Int @default(50)
@@ -198,6 +214,15 @@ model ShopEntitlements {
   limitMaxCustomersSync  Int @default(1000) // Free: 1K, Pro: 10K, Max: 50K, Ultra: 999999
   limitMaxTierProducts   Int @default(2)    // Free: 2, Pro: 5, Max: 10, Ultra: 999999
   limitMaxHistoricalDays Int @default(30)   // Free: 30, Pro: 90, Max: 365, Ultra: 999999
+
+  // Numeric limits - Gamification (P2)
+  limitMaxActiveRaffles    Int @default(0) // Free: 0, Pro: 2, Max: 5, Ultra: 999999
+  limitMaxActiveMysteryBoxes Int @default(0) // Free: 0, Pro: 0, Max: 3, Ultra: 999999
+  limitMaxActiveChallenges Int @default(0) // Free: 0, Pro: 3, Max: 10, Ultra: 999999
+
+  // Numeric limits - Marketing (P3)
+  limitMaxCampaigns      Int @default(0) // Free: 0, Pro: 5, Max: 20, Ultra: 999999
+  limitMaxAutomationFlows Int @default(0) // Free: 0, Pro: 0, Max: 5, Ultra: 999999
 
   // Override support (for custom deals / grandfathered plans)
   hasOverride    Boolean   @default(false)

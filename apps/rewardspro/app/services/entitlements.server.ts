@@ -47,7 +47,20 @@ export type FeatureKey =
   | 'integrationSlack'
   | 'integrationRecharge'
   | 'integrationGorgias'
-  | 'integrationZapier';
+  | 'integrationZapier'
+  // Gamification features (P2)
+  | 'raffles'
+  | 'mysteryBoxes'
+  | 'challenges'
+  // Marketing features (P3)
+  | 'marketingCampaigns'
+  | 'marketingAutomation'
+  | 'aiRecommendations'
+  // Analytics features (P4)
+  | 'rfmSegmentation'
+  | 'programImpact'
+  | 'realtimeAnalytics'
+  | 'cohortAnalysis';
 
 // Limit keys that map to ShopEntitlements columns
 export type LimitKey =
@@ -59,7 +72,14 @@ export type LimitKey =
   | 'maxAutomations'
   | 'maxCustomersSync'
   | 'maxTierProducts'
-  | 'maxHistoricalDays';
+  | 'maxHistoricalDays'
+  // Gamification limits (P2)
+  | 'maxActiveRaffles'
+  | 'maxActiveMysteryBoxes'
+  | 'maxActiveChallenges'
+  // Marketing limits (P3)
+  | 'maxCampaigns'
+  | 'maxAutomationFlows';
 
 // Plan names with their canonical order limits
 // IMPORTANT: These values MUST match app/constants/plan-limits.ts
@@ -116,6 +136,22 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
   featureIntegrationGorgias: false,
   featureIntegrationZapier: false,
 
+  // Feature flags (Free plan defaults) - Gamification (P2)
+  featureRaffles: false,
+  featureMysteryBoxes: false,
+  featureChallenges: false,
+
+  // Feature flags (Free plan defaults) - Marketing (P3)
+  featureMarketingCampaigns: false,
+  featureMarketingAutomation: false,
+  featureAiRecommendations: false,
+
+  // Feature flags (Free plan defaults) - Analytics (P4)
+  featureRfmSegmentation: false,
+  featureProgramImpact: false,
+  featureRealtimeAnalytics: false,
+  featureCohortAnalysis: false,
+
   // Numeric limits (Free plan) - Core
   limitMaxTiers: 2,
   limitMaxOrders: 50,
@@ -126,6 +162,15 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
   limitMaxCustomersSync: 1000,
   limitMaxTierProducts: 2,
   limitMaxHistoricalDays: 30,
+
+  // Numeric limits (Free plan) - Gamification (P2)
+  limitMaxActiveRaffles: 0,
+  limitMaxActiveMysteryBoxes: 0,
+  limitMaxActiveChallenges: 0,
+
+  // Numeric limits (Free plan) - Marketing (P3)
+  limitMaxCampaigns: 0,
+  limitMaxAutomationFlows: 0,
 
   // Override fields
   hasOverride: false,
@@ -163,6 +208,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: false,
     featureIntegrationGorgias: false,
     featureIntegrationZapier: false,
+    // Gamification features - Free: None
+    featureRaffles: false,
+    featureMysteryBoxes: false,
+    featureChallenges: false,
+    // Marketing features - Free: None
+    featureMarketingCampaigns: false,
+    featureMarketingAutomation: false,
+    featureAiRecommendations: false,
+    // Analytics features - Free: None
+    featureRfmSegmentation: false,
+    featureProgramImpact: false,
+    featureRealtimeAnalytics: false,
+    featureCohortAnalysis: false,
     // Core limits
     limitMaxTiers: 2,
     limitMaxOrders: 50,
@@ -172,6 +230,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 1000,
     limitMaxTierProducts: 2,
     limitMaxHistoricalDays: 30,
+    // Gamification limits
+    limitMaxActiveRaffles: 0,
+    limitMaxActiveMysteryBoxes: 0,
+    limitMaxActiveChallenges: 0,
+    // Marketing limits
+    limitMaxCampaigns: 0,
+    limitMaxAutomationFlows: 0,
   },
   [PRO_PLAN]: {
     // Core features
@@ -196,6 +261,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: false, // Max+
     featureIntegrationGorgias: false, // Max+
     featureIntegrationZapier: false, // Max+
+    // Gamification features - Pro: Raffles + Challenges
+    featureRaffles: true,
+    featureMysteryBoxes: false, // Max+
+    featureChallenges: true,
+    // Marketing features - Pro: Campaigns only
+    featureMarketingCampaigns: true,
+    featureMarketingAutomation: false, // Max+
+    featureAiRecommendations: false, // Max+
+    // Analytics features - Pro: Program Impact only
+    featureRfmSegmentation: false, // Max+
+    featureProgramImpact: true,
+    featureRealtimeAnalytics: false, // Max+
+    featureCohortAnalysis: false, // Ultra
     // Core limits
     limitMaxTiers: 5,
     limitMaxOrders: 500,
@@ -205,6 +283,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 10000,
     limitMaxTierProducts: 5,
     limitMaxHistoricalDays: 90,
+    // Gamification limits
+    limitMaxActiveRaffles: 2,
+    limitMaxActiveMysteryBoxes: 0,
+    limitMaxActiveChallenges: 3,
+    // Marketing limits
+    limitMaxCampaigns: 5,
+    limitMaxAutomationFlows: 0,
   },
   [MAX_PLAN]: {
     // Core features
@@ -229,6 +314,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: true,
     featureIntegrationGorgias: true,
     featureIntegrationZapier: true,
+    // Gamification features - Max: All
+    featureRaffles: true,
+    featureMysteryBoxes: true,
+    featureChallenges: true,
+    // Marketing features - Max: All
+    featureMarketingCampaigns: true,
+    featureMarketingAutomation: true,
+    featureAiRecommendations: true,
+    // Analytics features - Max: All except Cohort
+    featureRfmSegmentation: true,
+    featureProgramImpact: true,
+    featureRealtimeAnalytics: true,
+    featureCohortAnalysis: false, // Ultra only
     // Core limits
     limitMaxTiers: 10,
     limitMaxOrders: 2000,
@@ -238,6 +336,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 50000,
     limitMaxTierProducts: 10,
     limitMaxHistoricalDays: 365,
+    // Gamification limits
+    limitMaxActiveRaffles: 10,
+    limitMaxActiveMysteryBoxes: 5,
+    limitMaxActiveChallenges: 15,
+    // Marketing limits
+    limitMaxCampaigns: 25,
+    limitMaxAutomationFlows: 10,
   },
   [ULTRA_PLAN]: {
     // Core features
@@ -262,6 +367,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: true,
     featureIntegrationGorgias: true,
     featureIntegrationZapier: true,
+    // Gamification features - Ultra: All
+    featureRaffles: true,
+    featureMysteryBoxes: true,
+    featureChallenges: true,
+    // Marketing features - Ultra: All
+    featureMarketingCampaigns: true,
+    featureMarketingAutomation: true,
+    featureAiRecommendations: true,
+    // Analytics features - Ultra: All including Cohort
+    featureRfmSegmentation: true,
+    featureProgramImpact: true,
+    featureRealtimeAnalytics: true,
+    featureCohortAnalysis: true,
     // Core limits - Effectively unlimited
     limitMaxTiers: 999999,
     limitMaxOrders: 999999,
@@ -271,6 +389,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 999999,
     limitMaxTierProducts: 999999,
     limitMaxHistoricalDays: 999999,
+    // Gamification limits - Effectively unlimited
+    limitMaxActiveRaffles: 999999,
+    limitMaxActiveMysteryBoxes: 999999,
+    limitMaxActiveChallenges: 999999,
+    // Marketing limits - Effectively unlimited
+    limitMaxCampaigns: 999999,
+    limitMaxAutomationFlows: 999999,
   },
   [ENTERPRISE_PLAN]: {
     // Core features
@@ -295,6 +420,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: true,
     featureIntegrationGorgias: true,
     featureIntegrationZapier: true,
+    // Gamification features - Enterprise: All
+    featureRaffles: true,
+    featureMysteryBoxes: true,
+    featureChallenges: true,
+    // Marketing features - Enterprise: All
+    featureMarketingCampaigns: true,
+    featureMarketingAutomation: true,
+    featureAiRecommendations: true,
+    // Analytics features - Enterprise: All
+    featureRfmSegmentation: true,
+    featureProgramImpact: true,
+    featureRealtimeAnalytics: true,
+    featureCohortAnalysis: true,
     // Core limits - Effectively unlimited
     limitMaxTiers: 999999,
     limitMaxOrders: 999999,
@@ -304,6 +442,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 999999,
     limitMaxTierProducts: 999999,
     limitMaxHistoricalDays: 999999,
+    // Gamification limits - Effectively unlimited
+    limitMaxActiveRaffles: 999999,
+    limitMaxActiveMysteryBoxes: 999999,
+    limitMaxActiveChallenges: 999999,
+    // Marketing limits - Effectively unlimited
+    limitMaxCampaigns: 999999,
+    limitMaxAutomationFlows: 999999,
   },
   // Legacy plans map to their equivalent tiers
   [STARTER_PLAN]: {
@@ -329,6 +474,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: false,
     featureIntegrationGorgias: false,
     featureIntegrationZapier: false,
+    // Gamification features (same as Pro)
+    featureRaffles: true,
+    featureMysteryBoxes: false,
+    featureChallenges: true,
+    // Marketing features (same as Pro)
+    featureMarketingCampaigns: true,
+    featureMarketingAutomation: false,
+    featureAiRecommendations: false,
+    // Analytics features (same as Pro)
+    featureRfmSegmentation: false,
+    featureProgramImpact: true,
+    featureRealtimeAnalytics: false,
+    featureCohortAnalysis: false,
     // Core limits
     limitMaxTiers: 5,
     limitMaxOrders: 500,
@@ -338,6 +496,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 10000,
     limitMaxTierProducts: 5,
     limitMaxHistoricalDays: 90,
+    // Gamification limits (same as Pro)
+    limitMaxActiveRaffles: 2,
+    limitMaxActiveMysteryBoxes: 0,
+    limitMaxActiveChallenges: 3,
+    // Marketing limits (same as Pro)
+    limitMaxCampaigns: 5,
+    limitMaxAutomationFlows: 0,
   },
   [GROWTH_PLAN]: {
     // Core features (same as Max)
@@ -362,6 +527,19 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     featureIntegrationRecharge: true,
     featureIntegrationGorgias: true,
     featureIntegrationZapier: true,
+    // Gamification features (same as Max)
+    featureRaffles: true,
+    featureMysteryBoxes: true,
+    featureChallenges: true,
+    // Marketing features (same as Max)
+    featureMarketingCampaigns: true,
+    featureMarketingAutomation: true,
+    featureAiRecommendations: true,
+    // Analytics features (same as Max)
+    featureRfmSegmentation: true,
+    featureProgramImpact: true,
+    featureRealtimeAnalytics: true,
+    featureCohortAnalysis: false, // Ultra only
     // Core limits
     limitMaxTiers: 10,
     limitMaxOrders: 2000,
@@ -371,6 +549,13 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
     limitMaxCustomersSync: 50000,
     limitMaxTierProducts: 10,
     limitMaxHistoricalDays: 365,
+    // Gamification limits (same as Max)
+    limitMaxActiveRaffles: 10,
+    limitMaxActiveMysteryBoxes: 5,
+    limitMaxActiveChallenges: 15,
+    // Marketing limits (same as Max)
+    limitMaxCampaigns: 25,
+    limitMaxAutomationFlows: 10,
   },
 };
 
@@ -520,10 +705,10 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
     where: { shop },
     create: {
       shop,
-      effectivePlan,
-      planSource,
       ...DEFAULT_ENTITLEMENTS,
       ...planFeatures,
+      effectivePlan,
+      planSource,
       lastResolvedAt: new Date(),
       resolvedFrom,
     },

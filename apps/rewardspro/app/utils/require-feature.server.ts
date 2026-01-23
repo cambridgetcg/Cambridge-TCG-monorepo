@@ -35,6 +35,9 @@ import {
 } from "~/services/entitlements.server";
 import { getRequiredPlan } from "~/utils/plan-limits";
 
+// Re-export types for convenience
+export type { FeatureKey, LimitKey };
+
 /**
  * Require a feature or throw a JSON error response
  * Use this in actions/loaders for clean error handling
@@ -221,6 +224,31 @@ export const requireWithinCustomerSyncLimit = createLimitGuard('maxCustomersSync
 export const requireWithinTierProductLimit = createLimitGuard('maxTierProducts');
 export const requireWithinHistoricalDaysLimit = createLimitGuard('maxHistoricalDays');
 
+// Pre-built guards for gamification features (P2)
+export const requireRaffles = createFeatureGuard('raffles');
+export const requireMysteryBoxes = createFeatureGuard('mysteryBoxes');
+export const requireChallenges = createFeatureGuard('challenges');
+
+// Pre-built guards for gamification limits (P2)
+export const requireWithinActiveRaffleLimit = createLimitGuard('maxActiveRaffles');
+export const requireWithinActiveMysteryBoxLimit = createLimitGuard('maxActiveMysteryBoxes');
+export const requireWithinActiveChallengeLimit = createLimitGuard('maxActiveChallenges');
+
+// Pre-built guards for marketing features (P3)
+export const requireMarketingCampaigns = createFeatureGuard('marketingCampaigns');
+export const requireMarketingAutomation = createFeatureGuard('marketingAutomation');
+export const requireAiRecommendations = createFeatureGuard('aiRecommendations');
+
+// Pre-built guards for marketing limits (P3)
+export const requireWithinCampaignLimit = createLimitGuard('maxCampaigns');
+export const requireWithinAutomationFlowLimit = createLimitGuard('maxAutomationFlows');
+
+// Pre-built guards for analytics features (P4)
+export const requireRfmSegmentation = createFeatureGuard('rfmSegmentation');
+export const requireProgramImpact = createFeatureGuard('programImpact');
+export const requireRealtimeAnalytics = createFeatureGuard('realtimeAnalytics');
+export const requireCohortAnalysis = createFeatureGuard('cohortAnalysis');
+
 // Helper: Format feature name for user-friendly messages
 function formatFeatureName(feature: FeatureKey): string {
   const names: Record<FeatureKey, string> = {
@@ -238,7 +266,7 @@ function formatFeatureName(feature: FeatureKey): string {
     purchasableTiers: 'Purchasable Tiers',
     exportData: 'Data Export',
     customRewards: 'Custom Rewards',
-    // Integration features
+    // Integration features (P1)
     integrationKlaviyo: 'Klaviyo Integration',
     integrationSendgrid: 'SendGrid Integration',
     integrationJudgeme: 'Judge.me Integration',
@@ -246,6 +274,19 @@ function formatFeatureName(feature: FeatureKey): string {
     integrationRecharge: 'Recharge Integration',
     integrationGorgias: 'Gorgias Integration',
     integrationZapier: 'Zapier Integration',
+    // Gamification features (P2)
+    raffles: 'Raffles',
+    mysteryBoxes: 'Mystery Boxes',
+    challenges: 'Challenges',
+    // Marketing features (P3)
+    marketingCampaigns: 'Marketing Campaigns',
+    marketingAutomation: 'Marketing Automation',
+    aiRecommendations: 'AI Recommendations',
+    // Analytics features (P4)
+    rfmSegmentation: 'RFM Segmentation',
+    programImpact: 'Program Impact Analytics',
+    realtimeAnalytics: 'Realtime Analytics',
+    cohortAnalysis: 'Cohort Analysis',
   };
   return names[feature] || feature;
 }
@@ -257,11 +298,18 @@ function formatLimitName(limit: LimitKey): string {
     maxTiers: 'tier',
     maxOrders: 'monthly order',
     maxEmails: 'email',
-    // Synced limits
+    // Synced limits (P0)
     maxAutomations: 'automation',
     maxCustomersSync: 'customer sync',
     maxTierProducts: 'tier product',
     maxHistoricalDays: 'historical data day',
+    // Gamification limits (P2)
+    maxActiveRaffles: 'active raffle',
+    maxActiveMysteryBoxes: 'active mystery box',
+    maxActiveChallenges: 'active challenge',
+    // Marketing limits (P3)
+    maxCampaigns: 'campaign',
+    maxAutomationFlows: 'automation flow',
   };
   return names[limit] || limit;
 }
@@ -284,15 +332,28 @@ function getFeatureRequiredPlan(feature: FeatureKey): string {
     purchasableTiers: 'RewardsPro Max',
     exportData: 'RewardsPro Pro',
     customRewards: 'RewardsPro Pro',
-    // Integration features - Pro tier
+    // Integration features - Pro tier (P1)
     integrationKlaviyo: 'RewardsPro Pro',
     integrationSendgrid: 'RewardsPro Pro',
     integrationJudgeme: 'RewardsPro Pro',
     integrationSlack: 'RewardsPro Pro',
-    // Integration features - Max tier
+    // Integration features - Max tier (P1)
     integrationRecharge: 'RewardsPro Max',
     integrationGorgias: 'RewardsPro Max',
     integrationZapier: 'RewardsPro Max',
+    // Gamification features (P2)
+    raffles: 'RewardsPro Pro',
+    mysteryBoxes: 'RewardsPro Max',
+    challenges: 'RewardsPro Pro',
+    // Marketing features (P3)
+    marketingCampaigns: 'RewardsPro Pro',
+    marketingAutomation: 'RewardsPro Max',
+    aiRecommendations: 'RewardsPro Max',
+    // Analytics features (P4)
+    rfmSegmentation: 'RewardsPro Max',
+    programImpact: 'RewardsPro Pro',
+    realtimeAnalytics: 'RewardsPro Max',
+    cohortAnalysis: 'RewardsPro Ultra',
   };
   return planRequirements[feature] || 'RewardsPro Pro';
 }
