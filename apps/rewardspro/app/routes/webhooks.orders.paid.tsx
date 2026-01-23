@@ -561,6 +561,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ success: true, data: result });
 
   } catch (error) {
+    // If the error is a Response (from authenticate.webhook), return it directly
+    // This handles auth failures (401), bad requests (400), etc.
+    if (error instanceof Response) {
+      return error;
+    }
+
     const errorLogger = webhookLogger.withContext({ shop, orderId: order?.id || 'unknown' });
     errorLogger.error('Order processing failed', error);
 
@@ -578,14 +584,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }).catch(e => errorLogger.error('Failed to log webhook error', e));
     }
-    
+
     // Return success to prevent Shopify retries for non-recoverable errors
-    if (error instanceof Error && 
-        (error.message.includes('Invalid') || 
+    if (error instanceof Error &&
+        (error.message.includes('Invalid') ||
          error.message.includes('not found'))) {
       return json({ success: false, error: error.message });
     }
-    
+
     // Return error for recoverable issues (will trigger retry)
     return json({ error: "Processing failed" }, { status: 500 });
   }

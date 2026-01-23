@@ -36,8 +36,16 @@ afterEach(() => {
 
   // Clear any localStorage/sessionStorage if used
   if (typeof window !== 'undefined') {
-    window.localStorage.clear();
-    window.sessionStorage.clear();
+    try {
+      if (window.localStorage?.clear) {
+        window.localStorage.clear();
+      }
+      if (window.sessionStorage?.clear) {
+        window.sessionStorage.clear();
+      }
+    } catch {
+      // Ignore localStorage errors in non-browser environments
+    }
   }
 });
 
