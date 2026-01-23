@@ -164,7 +164,6 @@ describe('Webhook: orders/paid - Cashback Processing', () => {
     name: 'Bronze',
     minSpend: 0,
     cashbackPercent: 5,
-    isBaseTier: true,
     sortOrder: 0,
   };
 
@@ -174,7 +173,6 @@ describe('Webhook: orders/paid - Cashback Processing', () => {
     name: 'Silver',
     minSpend: 500,
     cashbackPercent: 8,
-    isBaseTier: false,
     sortOrder: 1,
   };
 
@@ -184,7 +182,6 @@ describe('Webhook: orders/paid - Cashback Processing', () => {
     name: 'Gold',
     minSpend: 1000,
     cashbackPercent: 12,
-    isBaseTier: false,
     sortOrder: 2,
   };
 
@@ -561,7 +558,6 @@ describe('Webhook: orders/paid - Cashback Processing', () => {
         name: 'Zero',
         minSpend: 0,
         cashbackPercent: 0, // 0%
-        isBaseTier: true,
       };
 
       (mockPrisma.customer.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({

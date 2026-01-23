@@ -82,7 +82,6 @@ export interface Tier {
   minSpend: number | Decimal;
   cashbackPercent: number | Decimal;
   pointsMultiplier: number | Decimal;
-  isBaseTier: boolean;
   sortOrder: number;
 }
 
@@ -391,7 +390,6 @@ export function setupMockDatabaseState(
       minSpend: 0,
       cashbackPercent: 5,
       pointsMultiplier: 1,
-      isBaseTier: i === 0,
       sortOrder: i,
       ...t,
     }));

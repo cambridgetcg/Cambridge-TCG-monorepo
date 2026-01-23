@@ -192,7 +192,6 @@ describe('Webhook: orders/paid - Tier Products', () => {
     name: 'VIP',
     minSpend: 1000,
     cashbackPercent: 15,
-    isBaseTier: false,
     sortOrder: 2,
   };
 
@@ -202,7 +201,6 @@ describe('Webhook: orders/paid - Tier Products', () => {
     name: 'Bronze',
     minSpend: 0,
     cashbackPercent: 5,
-    isBaseTier: true,
     sortOrder: 0,
   };
 

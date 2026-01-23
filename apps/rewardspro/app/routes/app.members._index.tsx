@@ -2454,8 +2454,8 @@ export default function Customers() {
     submit(formData, { method: "post" });
   }, [submit, showInfo]);
 
-  // Export customers to CSV
-  const handleExportCSV = useCallback(() => {
+  // Export customers to CSV (using fetch to maintain session context)
+  const handleExportCSV = useCallback(async () => {
     // Build export URL with current filters
     const exportParams = new URLSearchParams();
     if (tierFilter !== "all") {
@@ -2467,21 +2467,76 @@ export default function Customers() {
 
     const exportUrl = `/api/members/export?${exportParams.toString()}`;
 
-    // Trigger download
-    window.open(exportUrl, '_blank');
-    showSuccess("Export started. Your download should begin shortly.");
-  }, [tierFilter, queryValue, showSuccess]);
+    try {
+      showInfo("Preparing export...");
+      const response = await fetch(exportUrl);
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : `members-export-${new Date().toISOString().split('T')[0]}.csv`;
+
+      // Create blob from response and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSuccess("Export completed successfully.");
+    } catch (error) {
+      console.error('[Export CSV] Error:', error);
+      showError("Failed to export CSV. Please try again.");
+    }
+  }, [tierFilter, queryValue, showSuccess, showError, showInfo]);
 
   // Export selected customers to CSV
-  const handleExportSelected = useCallback(() => {
+  const handleExportSelected = useCallback(async () => {
     if (selectedResources.length === 0) {
       showError("No customers selected");
       return;
     }
+
     const exportUrl = `/api/members/export?ids=${selectedResources.join(",")}`;
-    window.open(exportUrl, '_blank');
-    showSuccess(`Exporting ${selectedResources.length} selected customers`);
-  }, [selectedResources, showSuccess, showError]);
+
+    try {
+      showInfo(`Exporting ${selectedResources.length} selected customers...`);
+      const response = await fetch(exportUrl);
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : `members-export-${new Date().toISOString().split('T')[0]}.csv`;
+
+      // Create blob from response and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSuccess(`Successfully exported ${selectedResources.length} customers.`);
+    } catch (error) {
+      console.error('[Export Selected] Error:', error);
+      showError("Failed to export selected customers. Please try again.");
+    }
+  }, [selectedResources, showSuccess, showError, showInfo]);
 
   // Handle bulk selection change
   const handleSelectionChange = useCallback((

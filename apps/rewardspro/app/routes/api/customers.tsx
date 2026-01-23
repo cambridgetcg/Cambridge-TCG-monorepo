@@ -9,6 +9,7 @@ import { authenticate } from "../../shopify.server";
 import db from "../../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { setManualOverride } from "../../services/tier-state.server";
+import { updateCustomerToEffectiveTier } from "../../services/tier-resolution.server";
 
 /**
  * GET /api/customers
@@ -125,13 +126,24 @@ export async function action({ request }: ActionFunctionArgs) {
       email: data.email,
       shopifyCustomerId: data.shopifyCustomerId,
       storeCredit: data.storeCredit || 0,
-      currentTierId: null, // Set through setManualOverride below
+      currentTierId: null, // Will be set by tier resolution below
       createdAt: new Date(),
       updatedAt: new Date()
     }
   });
 
-  // If tier was specified, set it through proper tier assignment
+  // Trigger tier resolution to assign base tier (if configured)
+  // This ensures customers get the shop's default base tier instead of null
+  try {
+    await updateCustomerToEffectiveTier(session.shop, customerId, {
+      triggeredBy: 'api_customer_creation'
+    });
+  } catch (error) {
+    // Log warning but don't fail customer creation
+    console.warn(`[API/Customers] Failed to assign base tier for customer ${customerId}:`, error);
+  }
+
+  // If tier was explicitly specified, set it through manual override (takes priority)
   // This ensures logging and CustomerTierState are properly updated
   if (data.tierId) {
     const tierResult = await setManualOverride(
