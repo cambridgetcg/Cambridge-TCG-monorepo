@@ -14,6 +14,11 @@
   --rp-color-primary-success: #057A55;
   --rp-color-primary-warning: #F59E0B;
   --rp-color-primary-critical: #DC2626;
+
+  /* Accent Colors (migrated from design-tokens.css) */
+  --rp-color-accent-gold: #d69e2e;
+  --rp-color-accent-amber: #ed8936;
+  --rp-color-accent-blue: #1a365d;
   
   /* Surface Colors */
   --rp-color-surface-default: #FFFFFF;
@@ -29,12 +34,64 @@
   --rp-color-text-critical: #D72C0D;
   --rp-color-text-success: #007F5F;
   
-  /* Tier Colors */
-  --rp-color-tier-bronze: #92400E;
-  --rp-color-tier-silver: #6B7280;
-  --rp-color-tier-gold: #F59E0B;
-  --rp-color-tier-platinum: #4B5563;
-  --rp-color-tier-diamond: #7C3AED;
+  /* ============================================
+     TIER COLORS - SINGLE SOURCE OF TRUTH
+     ============================================
+     DO NOT define tier colors here.
+     All tier colors are defined in: app/utils/tier-styles.ts
+
+     Use the generated CSS variables:
+     - var(--rp-tier-bronze), var(--rp-tier-gold), etc.
+     - var(--rp-tier-gold-gradient-from), var(--rp-tier-gold-gradient-to)
+
+     For TypeScript: import { getTierStyle, getTierCSSVar } from '~/utils/tier-styles'
+     ============================================ */
+
+  /* Core Tier Colors (generated from tier-styles.ts) */
+  --rp-tier-diamond: #7C3AED;
+  --rp-tier-diamond-text: #7C3AED;
+  --rp-tier-diamond-bg: rgba(124, 58, 237, 0.08);
+  --rp-tier-diamond-border: rgba(124, 58, 237, 0.24);
+  --rp-tier-diamond-gradient-from: #8B5CF6;
+  --rp-tier-diamond-gradient-to: #6D28D9;
+
+  --rp-tier-platinum: #4B5563;
+  --rp-tier-platinum-text: #4B5563;
+  --rp-tier-platinum-bg: rgba(75, 85, 99, 0.08);
+  --rp-tier-platinum-border: rgba(75, 85, 99, 0.24);
+  --rp-tier-platinum-gradient-from: #6B7280;
+  --rp-tier-platinum-gradient-to: #374151;
+
+  --rp-tier-gold: #F59E0B;
+  --rp-tier-gold-text: #D97706;
+  --rp-tier-gold-bg: rgba(245, 158, 11, 0.08);
+  --rp-tier-gold-border: rgba(245, 158, 11, 0.24);
+  --rp-tier-gold-gradient-from: #FCD34D;
+  --rp-tier-gold-gradient-to: #F59E0B;
+
+  --rp-tier-silver: #6B7280;
+  --rp-tier-silver-text: #6B7280;
+  --rp-tier-silver-bg: rgba(107, 114, 128, 0.08);
+  --rp-tier-silver-border: rgba(107, 114, 128, 0.24);
+  --rp-tier-silver-gradient-from: #9CA3AF;
+  --rp-tier-silver-gradient-to: #6B7280;
+
+  --rp-tier-bronze: #92400E;
+  --rp-tier-bronze-text: #92400E;
+  --rp-tier-bronze-bg: rgba(146, 64, 14, 0.08);
+  --rp-tier-bronze-border: rgba(146, 64, 14, 0.24);
+  --rp-tier-bronze-gradient-from: #B45309;
+  --rp-tier-bronze-gradient-to: #78350F;
+
+  --rp-tier-vip: #DC2626;
+  --rp-tier-elite: #0891B2;
+  --rp-tier-premium: #0066FF;
+  --rp-tier-member: #059669;
+  --rp-tier-basic: #3B82F6;
+  --rp-tier-starter: #10B981;
+  --rp-tier-insider: #8B5CF6;
+  --rp-tier-loyal: #EA580C;
+  --rp-tier-none: #9CA3AF;
   
   /* Spacing Scale */
   --rp-space-050: 2px;
@@ -222,28 +279,64 @@
 }
 
 .rp-tier-badge--bronze {
-  background: linear-gradient(135deg, #D97706, #92400E);
+  background: linear-gradient(135deg, var(--rp-tier-bronze-gradient-from), var(--rp-tier-bronze-gradient-to));
   color: white;
 }
 
 .rp-tier-badge--silver {
-  background: linear-gradient(135deg, #9CA3AF, #6B7280);
+  background: linear-gradient(135deg, var(--rp-tier-silver-gradient-from), var(--rp-tier-silver-gradient-to));
   color: white;
 }
 
 .rp-tier-badge--gold {
-  background: linear-gradient(135deg, #FCD34D, #F59E0B);
+  background: linear-gradient(135deg, var(--rp-tier-gold-gradient-from), var(--rp-tier-gold-gradient-to));
   color: white;
 }
 
 .rp-tier-badge--platinum {
-  background: linear-gradient(135deg, #6B7280, #374151);
+  background: linear-gradient(135deg, var(--rp-tier-platinum-gradient-from), var(--rp-tier-platinum-gradient-to));
   color: white;
 }
 
 .rp-tier-badge--diamond {
-  background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+  background: linear-gradient(135deg, var(--rp-tier-diamond-gradient-from), var(--rp-tier-diamond-gradient-to));
   color: white;
+}
+
+/* Additional tier badge variants */
+.rp-tier-badge--vip {
+  background: linear-gradient(135deg, #EF4444, var(--rp-tier-vip));
+  color: white;
+}
+
+.rp-tier-badge--elite {
+  background: linear-gradient(135deg, #06B6D4, var(--rp-tier-elite));
+  color: white;
+}
+
+.rp-tier-badge--premium {
+  background: linear-gradient(135deg, #4D94FF, var(--rp-tier-premium));
+  color: white;
+}
+
+.rp-tier-badge--member {
+  background: linear-gradient(135deg, #10B981, var(--rp-tier-member));
+  color: white;
+}
+
+.rp-tier-badge--basic {
+  background: linear-gradient(135deg, #60A5FA, var(--rp-tier-basic));
+  color: white;
+}
+
+.rp-tier-badge--starter {
+  background: linear-gradient(135deg, #34D399, var(--rp-tier-starter));
+  color: white;
+}
+
+.rp-tier-badge--none {
+  background: linear-gradient(135deg, #D1D5DB, var(--rp-tier-none));
+  color: #4B5563;
 }
 
 .rp-tier-badge:hover {

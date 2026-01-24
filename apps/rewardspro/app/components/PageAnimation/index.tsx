@@ -355,7 +355,7 @@ interface NavigationProgressProps {
  * Slim progress bar at the top of the page during navigation
  */
 export function NavigationProgress({
-  color = 'var(--color-ducal-gold, #d69e2e)',
+  color = 'var(--rp-color-accent-gold, #d69e2e)',
   height = 3
 }: NavigationProgressProps) {
   const { isNavigating, navigationProgress, reducedMotion } = usePageAnimationContext();
@@ -756,7 +756,7 @@ export function PageLoader({
                   height: 40,
                   borderRadius: '50%',
                   border: '3px solid var(--p-color-border-secondary)',
-                  borderTopColor: 'var(--color-ducal-gold, #d69e2e)',
+                  borderTopColor: 'var(--rp-color-accent-gold, #d69e2e)',
                   animation: reducedMotion ? 'none' : 'spin 1s linear infinite',
                 }}
               />

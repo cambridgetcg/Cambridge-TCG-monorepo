@@ -460,6 +460,72 @@ export function tierNeedsDarkText(tierName: string | null | undefined): boolean 
 }
 
 // Re-export icon for convenience
-export { 
+export {
   RewardIcon,
 };
+
+// ============================================
+// CSS GENERATION (Single Source of Truth)
+// ============================================
+
+/**
+ * Generate CSS custom properties for all tier colors.
+ * This is the SINGLE SOURCE OF TRUTH for tier colors.
+ *
+ * Usage in CSS: var(--rp-tier-bronze), var(--rp-tier-gold-gradient-from), etc.
+ *
+ * DO NOT define tier colors elsewhere. Import from here.
+ */
+export function generateTierCSSProperties(): string {
+  const lines: string[] = [
+    '/* ============================================',
+    '   TIER COLORS (Auto-generated from tier-styles.ts)',
+    '   Single Source of Truth - DO NOT EDIT MANUALLY',
+    '   Regenerate with: generateTierCSSProperties()',
+    '   ============================================ */',
+    ''
+  ];
+
+  for (const [name, style] of Object.entries(DEFAULT_TIER_STYLES)) {
+    const prefix = `--rp-tier-${name.toLowerCase()}`;
+    lines.push(`  /* ${name} Tier */`);
+    lines.push(`  ${prefix}: ${style.color};`);
+    lines.push(`  ${prefix}-text: ${style.textColor};`);
+    lines.push(`  ${prefix}-bg: ${style.backgroundColor};`);
+    lines.push(`  ${prefix}-border: ${style.borderColor};`);
+    lines.push(`  ${prefix}-gradient-from: ${style.gradientFrom};`);
+    lines.push(`  ${prefix}-gradient-to: ${style.gradientTo};`);
+    lines.push(`  ${prefix}-shadow: ${style.shadowColor};`);
+    lines.push(`  ${prefix}-contrast: ${style.contrastColor};`);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Get a tier color CSS variable reference.
+ * Use this instead of hardcoding colors.
+ *
+ * @example getTierCSSVar('gold') => 'var(--rp-tier-gold)'
+ * @example getTierCSSVar('gold', 'gradient-from') => 'var(--rp-tier-gold-gradient-from)'
+ */
+export function getTierCSSVar(
+  tierName: string,
+  property?: 'text' | 'bg' | 'border' | 'gradient-from' | 'gradient-to' | 'shadow' | 'contrast'
+): string {
+  const normalizedName = tierName.toLowerCase().replace(/[\s-_]/g, '');
+  const suffix = property ? `-${property}` : '';
+  return `var(--rp-tier-${normalizedName}${suffix})`;
+}
+
+/**
+ * Core tier names for CSS class generation and validation
+ */
+export const CORE_TIER_NAMES = [
+  'diamond', 'platinum', 'gold', 'silver', 'bronze',
+  'vip', 'elite', 'premium', 'member', 'basic', 'starter',
+  'insider', 'loyal', 'none'
+] as const;
+
+export type CoreTierName = typeof CORE_TIER_NAMES[number];
