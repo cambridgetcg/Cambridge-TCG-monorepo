@@ -46,6 +46,11 @@ import { MarketingChoiceModal } from "~/components/MarketingChoiceModal";
 import { KlaviyoMarketingDashboard } from "~/components/KlaviyoMarketingDashboard";
 import { SubscriptionCard } from "~/components/Billing/UpgradePrompt";
 import type { MarketingHubMode } from "@prisma/client";
+import {
+  checkFeatureAccess,
+  checkLimitAccess,
+  requireMarketingCampaigns,
+} from "~/utils/require-feature.server";
 
 // ============================================
 // TYPES
@@ -120,6 +125,17 @@ interface RecentKlaviyoEvent {
 interface LoaderData {
   shop: string;
   isConfigured: boolean;
+  // Plan Access
+  planAccess: {
+    campaigns: { hasAccess: boolean; requiredPlan?: string };
+    automation: { hasAccess: boolean; requiredPlan?: string };
+    aiRecommendations: { hasAccess: boolean; requiredPlan?: string };
+  };
+  campaignLimitAccess: {
+    canCreate: boolean;
+    current: number;
+    max: number;
+  };
   // Marketing Hub Mode
   marketingMode: MarketingHubMode;
   showChoiceModal: boolean;
@@ -161,6 +177,22 @@ interface LoaderData {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Check plan access for marketing features
+  const [campaignsAccess, automationAccess, aiAccess] = await Promise.all([
+    checkFeatureAccess(shop, 'marketingCampaigns'),
+    checkFeatureAccess(shop, 'marketingAutomation'),
+    checkFeatureAccess(shop, 'aiRecommendations'),
+  ]);
+
+  // Count existing campaigns for limit check
+  let campaignCount = 0;
+  try {
+    campaignCount = await db.emailCampaign.count({ where: { shop } });
+  } catch (e) {
+    // Table might not exist
+  }
+  const campaignLimitAccess = await checkLimitAccess(shop, 'maxCampaigns', campaignCount);
 
   // Check if email is configured
   let emailSettings = null;
@@ -397,6 +429,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json<LoaderData>({
     shop,
     isConfigured,
+    // Plan Access
+    planAccess: {
+      campaigns: {
+        hasAccess: campaignsAccess.hasAccess,
+        requiredPlan: campaignsAccess.error?.requiredPlan,
+      },
+      automation: {
+        hasAccess: automationAccess.hasAccess,
+        requiredPlan: automationAccess.error?.requiredPlan,
+      },
+      aiRecommendations: {
+        hasAccess: aiAccess.hasAccess,
+        requiredPlan: aiAccess.error?.requiredPlan,
+      },
+    },
+    campaignLimitAccess: {
+      canCreate: campaignLimitAccess.hasAccess,
+      current: campaignCount,
+      max: campaignLimitAccess.error?.maxLimit ?? 999999,
+    },
     // Marketing Hub Mode
     marketingMode: modeInfo.mode,
     showChoiceModal,
@@ -438,6 +490,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   switch (intent) {
     case "setMarketingMode": {
+      // Enforce feature access for marketing campaigns
+      await requireMarketingCampaigns(shop);
+
       const mode = formData.get("mode") as MarketingHubMode;
 
       // If selecting Klaviyo but not connected, redirect to connect page

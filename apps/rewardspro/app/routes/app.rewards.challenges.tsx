@@ -19,6 +19,7 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
+import { checkFeatureAccess, requireChallenges } from "~/utils/require-feature.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -26,6 +27,12 @@ import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../serv
 
 interface LoaderData {
   challengesEnabled: boolean;
+  planAccess: {
+    hasAccess: boolean;
+    currentPlan?: string;
+    requiredPlan?: string;
+    message?: string;
+  };
   pointsConfig: {
     currencyName: string;
     currencyIcon: string;
@@ -71,6 +78,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
+    // Check plan access for challenges feature
+    const planAccess = await checkFeatureAccess(shop, 'challenges');
+
     // Fetch config and features
     const [config, features] = await Promise.all([
       getPointsConfig(shop),
@@ -85,6 +95,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json<LoaderData>({
       challengesEnabled: features.challenges,
+      planAccess: {
+        hasAccess: planAccess.hasAccess,
+        currentPlan: planAccess.error?.currentPlan,
+        requiredPlan: planAccess.error?.requiredPlan,
+        message: planAccess.error?.message,
+      },
       pointsConfig: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
@@ -118,6 +134,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     if (intent === "enableFeature") {
+      // Enforce feature access before enabling
+      await requireChallenges(shop);
       await updatePointsConfig(shop, { challengesEnabled: true });
       return json<ActionData>({ success: true, message: "Challenges enabled" });
     }

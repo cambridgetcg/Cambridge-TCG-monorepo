@@ -32,6 +32,13 @@ import {
   transitionStatus,
   type MysteryBoxStatus,
 } from "../services/mystery-box-management.server";
+import {
+  checkFeatureAccess,
+  checkLimitAccess,
+  requireMysteryBoxes,
+  requireWithinActiveMysteryBoxLimit,
+} from "~/utils/require-feature.server";
+import db from "~/db.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -39,6 +46,18 @@ import {
 
 interface LoaderData {
   mysteryBoxesEnabled: boolean;
+  planAccess: {
+    hasAccess: boolean;
+    currentPlan?: string;
+    requiredPlan?: string;
+    message?: string;
+  };
+  limitAccess: {
+    canCreate: boolean;
+    current: number;
+    max: number;
+    message?: string;
+  };
   pointsConfig: {
     currencyName: string;
     currencyIcon: string;
@@ -85,6 +104,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
+    // Check plan access for mystery boxes feature
+    const planAccess = await checkFeatureAccess(shop, 'mysteryBoxes');
+
+    // Count active mystery boxes for limit check
+    const activeBoxCount = await db.mysteryBox.count({
+      where: { shop, isActive: true },
+    });
+
+    // Check limit access
+    const limitAccess = await checkLimitAccess(shop, 'maxActiveMysteryBoxes', activeBoxCount);
+
     // Fetch config and features
     const [config, features] = await Promise.all([
       getPointsConfig(shop),
@@ -99,6 +129,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json<LoaderData>({
       mysteryBoxesEnabled: features.mysteryBoxes,
+      planAccess: {
+        hasAccess: planAccess.hasAccess,
+        currentPlan: planAccess.error?.currentPlan,
+        requiredPlan: planAccess.error?.requiredPlan,
+        message: planAccess.error?.message,
+      },
+      limitAccess: {
+        canCreate: limitAccess.hasAccess,
+        current: activeBoxCount,
+        max: limitAccess.error?.maxLimit ?? 999999,
+        message: limitAccess.error?.message,
+      },
       pointsConfig: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
@@ -138,6 +180,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     if (intent === "enableFeature") {
+      // Enforce feature access before enabling
+      await requireMysteryBoxes(shop);
       await updatePointsConfig(shop, { mysteryBoxesEnabled: true });
       return json<ActionData>({ success: true, message: "Mystery Boxes enabled" });
     }
@@ -148,6 +192,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (intent === "create") {
+      // Enforce feature access
+      await requireMysteryBoxes(shop);
+
+      // Count active mystery boxes and enforce limit
+      const activeBoxCount = await db.mysteryBox.count({
+        where: { shop, isActive: true },
+      });
+      await requireWithinActiveMysteryBoxLimit(shop, activeBoxCount);
+
       const name = formData.get("name") as string;
       const openCost = parseInt(formData.get("openCost") as string) || 100;
       const maxOpensPerCustomer = parseInt(formData.get("maxOpensPerCustomer") as string) || 5;
@@ -177,12 +230,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (intent === "delete") {
+      await requireMysteryBoxes(shop);
       const boxId = formData.get("boxId") as string;
       await deleteMysteryBox(boxId, shop);
       return json<ActionData>({ success: true, message: "Mystery box deleted" });
     }
 
     if (intent === "updateStatus") {
+      await requireMysteryBoxes(shop);
       const boxId = formData.get("boxId") as string;
       const newStatus = formData.get("status") as MysteryBoxStatus;
       await transitionStatus(boxId, shop, newStatus);

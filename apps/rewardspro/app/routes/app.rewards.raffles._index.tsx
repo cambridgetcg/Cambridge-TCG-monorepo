@@ -33,6 +33,13 @@ import {
   deleteRaffle,
 } from "../services/raffle-management.server";
 import { getPointsConfig } from "../services/points-config.server";
+import {
+  checkFeatureAccess,
+  checkLimitAccess,
+  requireRaffles,
+  requireWithinActiveRaffleLimit,
+} from "~/utils/require-feature.server";
+import db from "~/db.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -52,6 +59,18 @@ interface RaffleData {
 
 interface LoaderData {
   rafflesEnabled: boolean;
+  planAccess: {
+    hasAccess: boolean;
+    currentPlan?: string;
+    requiredPlan?: string;
+    message?: string;
+  };
+  limitAccess: {
+    canCreate: boolean;
+    current: number;
+    max: number;
+    message?: string;
+  };
   pointsConfig: {
     currencyName: string;
     currencyIcon: string;
@@ -77,12 +96,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
+  // Check plan access for raffles feature
+  const planAccess = await checkFeatureAccess(shop, 'raffles');
+
   // Get points config to check if raffles are enabled
   const config = await getPointsConfig(shop);
+
+  // Count active raffles for limit check
+  const activeRaffleCount = await db.raffle.count({
+    where: { shop, status: { in: ['ACTIVE', 'UPCOMING'] } },
+  });
+
+  // Check limit access
+  const limitAccess = await checkLimitAccess(shop, 'maxActiveRaffles', activeRaffleCount);
 
   if (!config.isEnabled) {
     return json<LoaderData>({
       rafflesEnabled: false,
+      planAccess: {
+        hasAccess: planAccess.hasAccess,
+        currentPlan: planAccess.error?.currentPlan,
+        requiredPlan: planAccess.error?.requiredPlan,
+        message: planAccess.error?.message,
+      },
+      limitAccess: {
+        canCreate: limitAccess.hasAccess,
+        current: activeRaffleCount,
+        max: limitAccess.error?.maxLimit ?? 999999,
+        message: limitAccess.error?.message,
+      },
       pointsConfig: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
@@ -107,6 +149,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return json<LoaderData>({
     rafflesEnabled: config.rafflesEnabled,
+    planAccess: {
+      hasAccess: planAccess.hasAccess,
+      currentPlan: planAccess.error?.currentPlan,
+      requiredPlan: planAccess.error?.requiredPlan,
+      message: planAccess.error?.message,
+    },
+    limitAccess: {
+      canCreate: limitAccess.hasAccess,
+      current: activeRaffleCount,
+      max: limitAccess.error?.maxLimit ?? 999999,
+      message: limitAccess.error?.message,
+    },
     pointsConfig: {
       currencyName: config.currencyName,
       currencyIcon: config.currencyIcon,
@@ -137,6 +191,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
 
   if (intent === "create") {
+    // Enforce feature access - throws 403 if not allowed
+    await requireRaffles(shop);
+
+    // Count active raffles and enforce limit
+    const activeRaffleCount = await db.raffle.count({
+      where: { shop, status: { in: ['ACTIVE', 'UPCOMING'] } },
+    });
+    await requireWithinActiveRaffleLimit(shop, activeRaffleCount);
+
     const name = formData.get("name") as string;
     const startsAt = new Date(formData.get("startsAt") as string);
     const endsAt = new Date(formData.get("endsAt") as string);
@@ -162,6 +225,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (intent === "delete") {
+    // Feature access check for delete as well
+    await requireRaffles(shop);
+
     const raffleId = formData.get("raffleId") as string;
     try {
       await deleteRaffle(raffleId, shop);

@@ -24,6 +24,7 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
+import { requireMarketingAutomation } from "~/utils/require-feature.server";
 
 // ============================================
 // TYPES
@@ -49,6 +50,9 @@ type AutomationStep = 1 | 2 | 3 | 4;
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Enforce feature access for marketing automation
+  await requireMarketingAutomation(shop);
 
   // Guard: Redirect Klaviyo mode users to main Marketing Hub
   const guardRedirect = await guardInHouseRoute(shop);

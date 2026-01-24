@@ -28,6 +28,10 @@ import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
+import {
+  requireMarketingCampaigns,
+  requireWithinCampaignLimit,
+} from "~/utils/require-feature.server";
 
 // ============================================
 // TYPES
@@ -146,6 +150,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Enforce feature access and limit
+  await requireMarketingCampaigns(shop);
+
+  const campaignCount = await db.emailCampaign.count({ where: { shop } });
+  await requireWithinCampaignLimit(shop, campaignCount);
 
   const formData = await request.formData();
   const campaignName = formData.get("campaignName") as string;
