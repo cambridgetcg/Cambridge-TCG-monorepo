@@ -105,7 +105,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   // Count active raffles for limit check
   const activeRaffleCount = await db.raffle.count({
-    where: { shop, status: { in: ['ACTIVE', 'UPCOMING'] } },
+    where: { shop, status: { in: ['ACTIVE', 'SCHEDULED'] } },
   });
 
   // Check limit access
