@@ -20,6 +20,7 @@ import {
 import { authenticate } from "../shopify.server";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
 import { checkFeatureAccess, requireChallenges } from "~/utils/require-feature.server";
+import { FeatureLockedCard } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -198,6 +199,36 @@ export default function ChallengesPage() {
     formData.append("intent", "disableFeature");
     submit(formData, { method: "post" });
   };
+
+  // If plan doesn't have access to challenges feature
+  if (!data.planAccess.hasAccess) {
+    return (
+      <Frame>
+        <Page
+          title="Challenges"
+          subtitle="Create goal-based engagement activities for your customers"
+          backAction={{ content: "Points", url: "/app/rewards" }}
+        >
+          <Layout>
+            <Layout.Section>
+              <FeatureLockedCard
+                feature="Challenges"
+                description="Create goal-based challenges where customers earn rewards by completing specific objectives like spending thresholds, purchase counts, or buying from specific collections."
+                requiredPlan={data.planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
+                benefits={[
+                  "Spending goal challenges",
+                  "Purchase count objectives",
+                  "Collection-based challenges",
+                  "Streak and consistency rewards",
+                  "Detailed progress tracking",
+                ]}
+              />
+            </Layout.Section>
+          </Layout>
+        </Page>
+      </Frame>
+    );
+  }
 
   // Feature not enabled state
   if (!data.challengesEnabled) {

@@ -20,6 +20,8 @@ import { PlusIcon } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
+import { checkFeatureAccess } from "~/utils/require-feature.server";
+import { FeatureLockedCard } from "~/components/Billing/UpgradePrompt";
 
 interface Campaign {
   id: string;
@@ -41,6 +43,9 @@ interface Campaign {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
+
+  // Check plan access for marketing campaigns feature
+  const planAccess = await checkFeatureAccess(shop, 'marketingCampaigns');
 
   // Guard: Redirect Klaviyo mode users to main Marketing Hub
   const guardRedirect = await guardInHouseRoute(shop);
@@ -67,11 +72,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.error("[Campaigns] Error fetching campaigns:", e);
   }
 
-  return json({ shop, campaigns });
+  return json({
+    shop,
+    campaigns,
+    planAccess: {
+      hasAccess: planAccess.hasAccess,
+      currentPlan: planAccess.error?.currentPlan,
+      requiredPlan: planAccess.error?.requiredPlan,
+      message: planAccess.error?.message,
+    },
+  });
 };
 
 export default function CampaignsList() {
-  const { campaigns } = useLoaderData<typeof loader>();
+  const { campaigns, planAccess } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [queryValue, setQueryValue] = useState("");
@@ -161,6 +175,36 @@ export default function CampaignsList() {
       label: `Status: ${statusFilter.join(", ")}`,
       onRemove: handleStatusRemove,
     });
+  }
+
+  // If plan doesn't have access to marketing campaigns feature
+  if (!planAccess.hasAccess) {
+    return (
+      <Page
+        title="Email Campaigns"
+        backAction={{
+          content: "Marketing Hub",
+          onAction: () => navigate("/app/marketing"),
+        }}
+      >
+        <Layout>
+          <Layout.Section>
+            <FeatureLockedCard
+              feature="Email Campaigns"
+              description="Create and send targeted email campaigns to your loyalty program members. Segment by tier, activity, or custom criteria to maximize engagement."
+              requiredPlan={planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
+              benefits={[
+                "Send targeted email campaigns",
+                "Advanced customer segmentation",
+                "Campaign analytics and tracking",
+                "A/B testing capabilities",
+                "Automated campaign scheduling",
+              ]}
+            />
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
   }
 
   if (campaigns.length === 0) {

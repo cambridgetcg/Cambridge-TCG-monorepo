@@ -39,6 +39,7 @@ import {
   requireWithinActiveMysteryBoxLimit,
 } from "~/utils/require-feature.server";
 import db from "~/db.server";
+import { FeatureLockedCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -259,7 +260,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function MysteryBoxes() {
-  const { mysteryBoxesEnabled, pointsConfig, boxes, stats } = useLoaderData<LoaderData>();
+  const { mysteryBoxesEnabled, planAccess, limitAccess, pointsConfig, boxes, stats } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -358,6 +359,35 @@ export default function MysteryBoxes() {
     setFormEndsAt(thirtyDaysLater.toISOString().slice(0, 16));
     setCreateModalOpen(true);
   }, []);
+
+  // If plan doesn't have access to mystery boxes feature
+  if (!planAccess.hasAccess) {
+    return (
+      <Frame>
+        <Page
+          title="Mystery Boxes"
+          backAction={{ content: "Points", url: "/app/rewards" }}
+        >
+          <Layout>
+            <Layout.Section>
+              <FeatureLockedCard
+                feature="Mystery Boxes"
+                description="Create exciting mystery boxes that customers can open using their points. Each box contains randomized rewards with configurable probabilities."
+                requiredPlan={planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
+                benefits={[
+                  "Create unlimited mystery box events",
+                  "Configurable reward rarities (Common to Legendary)",
+                  "Customizable opening costs",
+                  "Per-customer and total open limits",
+                  "Detailed engagement analytics",
+                ]}
+              />
+            </Layout.Section>
+          </Layout>
+        </Page>
+      </Frame>
+    );
+  }
 
   // If feature not enabled, show setup prompt
   if (!mysteryBoxesEnabled) {
@@ -606,6 +636,19 @@ export default function MysteryBoxes() {
         ]}
       >
         <Layout>
+          {/* Usage Warning */}
+          {!limitAccess.canCreate && (
+            <Layout.Section>
+              <UsageUpgradePrompt
+                current={limitAccess.current}
+                limit={limitAccess.max}
+                resource="active mystery boxes"
+                title="Active Mystery Box Limit"
+                hideUnderThreshold={false}
+              />
+            </Layout.Section>
+          )}
+
           {/* Stats Cards */}
           <Layout.Section>
             <InlineStack gap="400" wrap>

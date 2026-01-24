@@ -40,6 +40,7 @@ import {
   requireWithinActiveRaffleLimit,
 } from "~/utils/require-feature.server";
 import db from "~/db.server";
+import { FeatureLockedCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -248,7 +249,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function RafflesList() {
-  const { rafflesEnabled, pointsConfig, raffles, stats } = useLoaderData<LoaderData>();
+  const { rafflesEnabled, planAccess, limitAccess, pointsConfig, raffles, stats } = useLoaderData<LoaderData>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -319,6 +320,35 @@ export default function RafflesList() {
       year: "numeric",
     });
   };
+
+  // If plan doesn't have access to raffles feature
+  if (!planAccess.hasAccess) {
+    return (
+      <Frame>
+        <Page
+          title="Raffles"
+          backAction={{ content: "Points", url: "/app/rewards" }}
+        >
+          <Layout>
+            <Layout.Section>
+              <FeatureLockedCard
+                feature="Raffles"
+                description="Create exciting prize drawings where customers can spend their points for a chance to win amazing rewards."
+                requiredPlan={planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
+                benefits={[
+                  "Create unlimited raffle events",
+                  "Multiple prize tiers per raffle",
+                  "Automatic winner selection",
+                  "Points-based entry system",
+                  "Detailed participation analytics",
+                ]}
+              />
+            </Layout.Section>
+          </Layout>
+        </Page>
+      </Frame>
+    );
+  }
 
   // If points system is not enabled
   if (!rafflesEnabled) {
@@ -404,6 +434,19 @@ export default function RafflesList() {
         }}
       >
         <Layout>
+          {/* Usage Warning */}
+          {!limitAccess.canCreate && (
+            <Layout.Section>
+              <UsageUpgradePrompt
+                current={limitAccess.current}
+                limit={limitAccess.max}
+                resource="active raffles"
+                title="Active Raffle Limit"
+                hideUnderThreshold={false}
+              />
+            </Layout.Section>
+          )}
+
           {/* Stats Cards */}
           <Layout.Section>
             <InlineStack gap="400" wrap={false}>
