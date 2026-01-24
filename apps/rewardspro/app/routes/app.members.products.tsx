@@ -36,7 +36,6 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   CalendarIcon,
-  PackageIcon,
   UndoIcon,
   ClockIcon,
   ArchiveIcon,
@@ -2064,20 +2063,6 @@ export default function TierProducts() {
           )}
 
           {/* Note: Loyalty Tiers Management is now in app.members.tiers.tsx */}
-
-          {/* Information Banner */}
-          <Layout.Section>
-            <Banner
-              title="Sell tier memberships as products"
-              tone="info"
-              icon={PackageIcon}
-            >
-              <p>
-                Create Shopify products that customers can purchase to gain access to specific loyalty tiers.
-                These products can be one-time purchases or recurring subscriptions.
-              </p>
-            </Banner>
-          </Layout.Section>
 
           {/* Tier-Duration Matrix View */}
           <Layout.Section>
