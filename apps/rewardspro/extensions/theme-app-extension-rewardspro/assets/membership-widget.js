@@ -146,7 +146,7 @@
         api: {
           endpoint: dataset.apiEndpoint,
           enabled: dataset.enableApi !== 'false',
-          cacheDuration: parseInt(dataset.cacheDuration) || 120 // seconds (aligned with server 60s + 30s stale-while-revalidate)
+          cacheDuration: parseInt(dataset.cacheDuration) || 60 // seconds (aligned with server 30s + 15s stale-while-revalidate)
         },
 
         // Guest configuration

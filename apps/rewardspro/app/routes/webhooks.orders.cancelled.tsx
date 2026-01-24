@@ -12,6 +12,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 
 interface CancelledOrderWebhook {
   id: number;
@@ -136,6 +137,22 @@ export async function action({ request }: ActionFunctionArgs) {
     if (existingOrder.cashbackProcessed && existingOrder.cashbackAmount > 0) {
       console.log(`[OrdersCancelled] Note: Order had ${existingOrder.cashbackAmount} cashback processed`);
       console.log(`[OrdersCancelled] Refund webhook will handle clawback if payment was refunded`);
+    }
+
+    // Re-evaluate tier to update CustomerTierState
+    // This ensures the widget shows correct tier even if no refund webhook fires
+    // (e.g., order cancelled before payment was captured)
+    if (existingOrder.customerId) {
+      try {
+        await updateCustomerToEffectiveTier(shop, existingOrder.customerId, {
+          triggeredBy: 'order_cancelled',
+          orderId: existingOrder.id
+        });
+        console.log(`[OrdersCancelled] Re-evaluated tier for customer ${existingOrder.customerId}`);
+      } catch (tierError) {
+        // Log but don't fail the webhook - tier update is not critical
+        console.error(`[OrdersCancelled] Failed to re-evaluate tier:`, tierError);
+      }
     }
 
     console.log("=".repeat(60) + "\n");

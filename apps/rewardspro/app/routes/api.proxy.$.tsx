@@ -112,8 +112,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
     "Content-Type": "application/json",
-    // Cache for 60 seconds, serve stale content while revalidating for up to 30 more seconds
-    "Cache-Control": "private, max-age=60, stale-while-revalidate=30",
+    // Cache for 30 seconds, serve stale content while revalidating for up to 15 more seconds
+    // Reduced from 60+30=90s to 30+15=45s to improve post-purchase experience
+    "Cache-Control": "private, max-age=30, stale-while-revalidate=15",
     // Additional security headers
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY"
@@ -459,11 +460,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           id: row.id,
           shopifyId: row.shopifyCustomerId,
           email: row.email,
+          firstName: row.firstName || null,
+          lastName: row.lastName || null,
           memberSince: row.createdAt,
           totalSpent: Number(row.totalSpent || 0),
           totalRefunded: Number(row.totalRefunded || 0),
           netSpent: Number(row.netSpent || 0),
-          orderCount: Number(row.orderCount || 0)
+          orderCount: Number(row.orderCount || 0),
+          // Indicates new customer who hasn't made purchases yet (for welcome flow)
+          isNewCustomer: Number(row.orderCount || 0) === 0 && Number(row.totalCashbackEarned || 0) === 0
         },
         balance: {
           storeCredit: Number(row.storeCredit || 0),
