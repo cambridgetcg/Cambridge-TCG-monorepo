@@ -17,6 +17,9 @@ import {
   Icon,
   Tabs,
   Badge,
+  Tooltip,
+  Collapsible,
+  Link,
 } from "@shopify/polaris";
 import {
   TextIcon,
@@ -36,6 +39,9 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   MinusIcon,
+  EmailIcon,
+  CheckIcon,
+  QuestionCircleIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
@@ -178,14 +184,154 @@ const BLOCK_TYPES = [
   { id: "html", label: "HTML", icon: CodeIcon, description: "Add custom HTML" },
 ];
 
+// Template types with merchant-friendly descriptions
 const TEMPLATE_TYPES = [
-  { label: "Tier Welcome", value: "tier_welcome" },
-  { label: "Tier Upgrade", value: "tier_upgrade" },
-  { label: "Tier Downgrade", value: "tier_downgrade" },
-  { label: "Reward Expiry", value: "reward_expiry" },
-  { label: "Re-engagement", value: "inactive_reengagement" },
-  { label: "Promotional", value: "promotional" },
-  { label: "Transactional", value: "transactional" },
+  {
+    label: "Tier Welcome",
+    value: "tier_welcome",
+    description: "Sent when a customer joins a membership tier",
+    trigger: "Automatic - when customer reaches tier spending threshold or purchases a tier"
+  },
+  {
+    label: "Tier Upgrade",
+    value: "tier_upgrade",
+    description: "Celebrate when customers move to a higher tier",
+    trigger: "Automatic - when customer qualifies for a better tier"
+  },
+  {
+    label: "Tier Downgrade",
+    value: "tier_downgrade",
+    description: "Notify customers when their tier changes due to reduced spending",
+    trigger: "Automatic - when customer no longer meets tier requirements"
+  },
+  {
+    label: "Reward Expiry",
+    value: "reward_expiry",
+    description: "Remind customers about expiring rewards or store credit",
+    trigger: "Automatic - sent before rewards expire"
+  },
+  {
+    label: "Re-engagement",
+    value: "inactive_reengagement",
+    description: "Win back customers who haven't purchased recently",
+    trigger: "Automatic - based on your inactivity settings"
+  },
+  {
+    label: "Promotional",
+    value: "promotional",
+    description: "Marketing emails for sales, events, or announcements",
+    trigger: "Manual - you choose when to send"
+  },
+  {
+    label: "Transactional",
+    value: "transactional",
+    description: "Order confirmations, shipping updates, etc.",
+    trigger: "Automatic - triggered by customer actions"
+  },
+];
+
+// Starter templates to help merchants get started quickly
+const STARTER_TEMPLATES = [
+  {
+    id: "welcome",
+    name: "Welcome New Member",
+    type: "tier_welcome",
+    subject: "Welcome to {{tier_name}}, {{customer_name}}!",
+    previewText: "You're now part of our loyalty program",
+    blocks: [
+      { id: "1", type: "text", content: { text: "Hi {{customer_name}}," } },
+      { id: "2", type: "text", content: { text: "Welcome to {{tier_name}}! We're thrilled to have you as a valued member of our loyalty program." } },
+      { id: "3", type: "text", content: { text: "As a {{tier_name}} member, you'll enjoy {{cashback_rate}} cashback on every purchase. Your current store credit balance is {{store_credit}}." } },
+      { id: "4", type: "button", content: { text: "Start Shopping", url: "{{shop_url}}", style: "primary" } },
+      { id: "5", type: "text", content: { text: "Thanks for being part of our community!\n\n- The {{shop_name}} Team" } },
+    ],
+  },
+  {
+    id: "upgrade",
+    name: "Tier Upgrade Celebration",
+    type: "tier_upgrade",
+    subject: "Congratulations! You've been upgraded to {{tier_name}}",
+    previewText: "You've unlocked new benefits",
+    blocks: [
+      { id: "1", type: "text", content: { text: "Great news, {{customer_name}}!" } },
+      { id: "2", type: "text", content: { text: "Thanks to your loyalty, you've been upgraded to {{tier_name}}! This means you now enjoy even better rewards." } },
+      { id: "3", type: "text", content: { text: "Your new cashback rate: {{cashback_rate}} on every purchase" } },
+      { id: "4", type: "button", content: { text: "See My Benefits", url: "{{shop_url}}", style: "primary" } },
+    ],
+  },
+  {
+    id: "expiry",
+    name: "Reward Expiry Reminder",
+    type: "reward_expiry",
+    subject: "{{customer_name}}, your {{store_credit}} expires soon",
+    previewText: "Don't miss out on your rewards",
+    blocks: [
+      { id: "1", type: "text", content: { text: "Hi {{customer_name}}," } },
+      { id: "2", type: "text", content: { text: "Just a friendly reminder that your store credit of {{store_credit}} will expire soon. Don't let it go to waste!" } },
+      { id: "3", type: "button", content: { text: "Use My Credit Now", url: "{{shop_url}}", style: "primary" } },
+    ],
+  },
+  {
+    id: "winback",
+    name: "We Miss You",
+    type: "inactive_reengagement",
+    subject: "{{customer_name}}, we miss you at {{shop_name}}",
+    previewText: "Come back and see what's new",
+    blocks: [
+      { id: "1", type: "text", content: { text: "Hi {{customer_name}}," } },
+      { id: "2", type: "text", content: { text: "It's been a while since your last visit. We've missed you!" } },
+      { id: "3", type: "text", content: { text: "As a {{tier_name}} member, you still have {{store_credit}} waiting for you, plus {{cashback_rate}} cashback on your next purchase." } },
+      { id: "4", type: "button", content: { text: "Shop Now", url: "{{shop_url}}", style: "primary" } },
+    ],
+  },
+  {
+    id: "blank",
+    name: "Start from Scratch",
+    type: "promotional",
+    subject: "",
+    previewText: "",
+    blocks: [],
+  },
+];
+
+// Personalization variables with merchant-friendly explanations
+const PERSONALIZATION_VARIABLES = [
+  {
+    variable: "{{customer_name}}",
+    label: "Customer Name",
+    description: "Customer's first name (e.g., 'Sarah')",
+    example: "Sarah"
+  },
+  {
+    variable: "{{tier_name}}",
+    label: "Tier Name",
+    description: "Customer's current membership tier (e.g., 'Gold')",
+    example: "Gold"
+  },
+  {
+    variable: "{{store_credit}}",
+    label: "Store Credit",
+    description: "Customer's available store credit with currency (e.g., '$25.00')",
+    example: "$25.00"
+  },
+  {
+    variable: "{{shop_name}}",
+    label: "Shop Name",
+    description: "Your store's name",
+    example: "My Store"
+  },
+  {
+    variable: "{{cashback_rate}}",
+    label: "Cashback Rate",
+    description: "Customer's tier cashback percentage (e.g., '5%')",
+    example: "5%"
+  },
+  {
+    variable: "{{shop_url}}",
+    label: "Shop URL",
+    description: "Link to your store's homepage",
+    example: "https://mystore.com"
+  },
 ];
 
 // ============================================
@@ -197,6 +343,10 @@ export default function CreateEmailTemplate() {
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
 
+  // Step tracking for guided experience
+  const [currentStep, setCurrentStep] = useState<"choose" | "customize">("choose");
+  const [selectedStarterTemplate, setSelectedStarterTemplate] = useState<string | null>(null);
+
   // Template metadata
   const [name, setName] = useState("");
   const [type, setType] = useState("promotional");
@@ -204,14 +354,14 @@ export default function CreateEmailTemplate() {
   const [previewText, setPreviewText] = useState("");
 
   // Editor state
-  const [blocks, setBlocks] = useState<ContentBlock[]>([
-    { id: "1", type: "text", content: { text: "Hello {{customer_name}}," } },
-    { id: "2", type: "text", content: { text: "Your email content goes here. Click on any block to edit it." } },
-    { id: "3", type: "button", content: { text: "Shop Now", url: "#", style: "primary" } },
-  ]);
+  const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [activeTab, setActiveTab] = useState(0);
+  const [showVariablesHelp, setShowVariablesHelp] = useState(false);
+
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Styles
   const [styles, setStyles] = useState<TemplateStyles>({
@@ -226,6 +376,33 @@ export default function CreateEmailTemplate() {
   // History for undo/redo
   const [history, setHistory] = useState<ContentBlock[][]>([blocks]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Select a starter template
+  const selectStarterTemplate = useCallback((templateId: string) => {
+    const template = STARTER_TEMPLATES.find(t => t.id === templateId);
+    if (template) {
+      setSelectedStarterTemplate(templateId);
+      setType(template.type);
+      setSubject(template.subject);
+      setPreviewText(template.previewText);
+      setBlocks(template.blocks.map(b => ({ ...b, id: uuidv4() })));
+      if (template.id !== "blank") {
+        setName(template.name);
+      }
+      setCurrentStep("customize");
+      setHistory([template.blocks]);
+      setHistoryIndex(0);
+    }
+  }, []);
+
+  // Validate form
+  const validateForm = useCallback(() => {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Give your template a name so you can find it later";
+    if (!subject.trim()) errors.subject = "Subject line is required - this is what customers see in their inbox";
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [name, subject]);
 
   const saveToHistory = useCallback((newBlocks: ContentBlock[]) => {
     setHistory(prev => [...prev.slice(0, historyIndex + 1), newBlocks]);
@@ -332,6 +509,8 @@ ${contentHtml}
   }, [blocks, styles]);
 
   const handleSubmit = useCallback(() => {
+    if (!validateForm()) return;
+
     const formData = new FormData();
     formData.append("name", name);
     formData.append("type", type);
@@ -341,7 +520,16 @@ ${contentHtml}
     // Include block-based content structure (required by schema)
     formData.append("content", JSON.stringify({ blocks, styles }));
     submit(formData, { method: "post" });
-  }, [name, type, subject, previewText, generateHtml, blocks, styles, submit]);
+  }, [name, type, subject, previewText, generateHtml, blocks, styles, submit, validateForm]);
+
+  // Insert variable at cursor position (for text fields)
+  const insertVariable = useCallback((variable: string) => {
+    // Copy to clipboard for easy pasting
+    navigator.clipboard.writeText(variable);
+  }, []);
+
+  // Get current template type info
+  const currentTemplateType = TEMPLATE_TYPES.find(t => t.value === type);
 
   const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
 
@@ -350,16 +538,118 @@ ${contentHtml}
     { id: "styles", content: "Styles", accessibilityLabel: "Template styles" },
   ];
 
+  // Step 1: Choose a starting template
+  if (currentStep === "choose") {
+    return (
+      <Page
+        title="Create Email Template"
+        subtitle="Choose a starting point for your email"
+        backAction={{ content: "Templates", onAction: () => navigate("/app/marketing/templates") }}
+      >
+        <Layout>
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <BlockStack gap="200">
+                  <Text as="h2" variant="headingMd">Quick Start Templates</Text>
+                  <Text as="p" tone="subdued">
+                    Pick a template to get started quickly, or start from scratch
+                  </Text>
+                </BlockStack>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                  {STARTER_TEMPLATES.map((template) => {
+                    const templateType = TEMPLATE_TYPES.find(t => t.value === template.type);
+                    return (
+                      <Box
+                        key={template.id}
+                        padding="400"
+                        background={selectedStarterTemplate === template.id ? "bg-surface-selected" : "bg-surface-secondary"}
+                        borderRadius="200"
+                        borderWidth="025"
+                        borderColor={selectedStarterTemplate === template.id ? "border-success" : "border"}
+                      >
+                        <BlockStack gap="300">
+                          <InlineStack align="space-between" blockAlign="start">
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingSm">{template.name}</Text>
+                              <Badge tone="info">{templateType?.label || template.type}</Badge>
+                            </BlockStack>
+                            {template.id !== "blank" && (
+                              <Icon source={EmailIcon} tone="base" />
+                            )}
+                          </InlineStack>
+                          {template.id !== "blank" ? (
+                            <BlockStack gap="100">
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Subject: {template.subject}
+                              </Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                {template.blocks.length} content blocks
+                              </Text>
+                            </BlockStack>
+                          ) : (
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              Create a custom email from scratch
+                            </Text>
+                          )}
+                          <Button
+                            fullWidth
+                            variant={template.id === "blank" ? "secondary" : "primary"}
+                            onClick={() => selectStarterTemplate(template.id)}
+                          >
+                            {template.id === "blank" ? "Start Fresh" : "Use This Template"}
+                          </Button>
+                        </BlockStack>
+                      </Box>
+                    );
+                  })}
+                </div>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          {/* Template Type Explanations */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <Text as="h2" variant="headingMd">Template Types Explained</Text>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "12px" }}>
+                  {TEMPLATE_TYPES.map((templateType) => (
+                    <Box key={templateType.value} padding="300" background="bg-surface-secondary" borderRadius="150">
+                      <BlockStack gap="100">
+                        <Text as="h4" variant="headingSm">{templateType.label}</Text>
+                        <Text as="p" variant="bodySm">{templateType.description}</Text>
+                        <Text as="p" variant="bodySm" tone="subdued">{templateType.trigger}</Text>
+                      </BlockStack>
+                    </Box>
+                  ))}
+                </div>
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
+  }
+
+  // Step 2: Customize the template
   return (
     <Page
       title="Create Email Template"
-      subtitle="Design your email with the visual editor"
-      backAction={{ content: "Templates", onAction: () => navigate("/app/marketing/templates") }}
+      subtitle={currentTemplateType ? `${currentTemplateType.label} - ${currentTemplateType.description}` : "Design your email"}
+      backAction={{ content: "Back", onAction: () => setCurrentStep("choose") }}
       primaryAction={{
         content: "Save Template",
         disabled: !name || !subject,
         onAction: handleSubmit,
+        icon: CheckIcon,
       }}
+      secondaryActions={[
+        {
+          content: "Choose Different Template",
+          onAction: () => setCurrentStep("choose"),
+        }
+      ]}
     >
       <Layout>
         {actionData?.error && (
@@ -370,60 +660,143 @@ ${contentHtml}
           </Layout.Section>
         )}
 
-        {/* Template Settings */}
+        {/* Inbox Preview - Shows how the email will appear in customer's inbox */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="300">
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="h2" variant="headingMd">Inbox Preview</Text>
+                <Text as="span" variant="bodySm" tone="subdued">How customers will see your email</Text>
+              </InlineStack>
+              <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                <BlockStack gap="200">
+                  <InlineStack gap="200" blockAlign="center">
+                    <Box padding="200" background="bg-fill-success" borderRadius="100">
+                      <Text as="span" variant="bodySm" fontWeight="bold">
+                        {name ? name.charAt(0).toUpperCase() : "S"}
+                      </Text>
+                    </Box>
+                    <BlockStack gap="0">
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        {name || "Your Store Name"}
+                      </Text>
+                      <Text as="p" variant="bodyMd">
+                        {subject || "Your subject line will appear here"}
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        {previewText || "Preview text helps customers decide to open your email..."}
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                </BlockStack>
+              </Box>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
+        {/* Template Settings - Simplified and with better guidance */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
-              <Text as="h2" variant="headingMd">Template Settings</Text>
+              <Text as="h2" variant="headingMd">Email Details</Text>
               <InlineStack gap="400" wrap={false}>
                 <div style={{ flex: 1 }}>
                   <TextField
                     label="Template Name"
                     value={name}
-                    onChange={setName}
+                    onChange={(v) => { setName(v); setValidationErrors({ ...validationErrors, name: "" }); }}
                     placeholder="e.g., Welcome Email"
                     autoComplete="off"
                     requiredIndicator
+                    error={validationErrors.name}
+                    helpText="Internal name to help you identify this template"
                   />
                 </div>
                 <div style={{ width: 200 }}>
                   <Select
                     label="Template Type"
-                    options={TEMPLATE_TYPES}
+                    options={TEMPLATE_TYPES.map(t => ({ label: t.label, value: t.value }))}
                     value={type}
                     onChange={setType}
+                    helpText={currentTemplateType?.trigger}
                   />
                 </div>
               </InlineStack>
-              <InlineStack gap="400" wrap={false}>
-                <div style={{ flex: 1 }}>
-                  <TextField
-                    label="Subject Line"
-                    value={subject}
-                    onChange={setSubject}
-                    placeholder="e.g., Welcome to {{tier_name}}!"
-                    autoComplete="off"
-                    requiredIndicator
-                    helpText="Use {{customer_name}}, {{tier_name}}, {{store_credit}} for personalization"
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <TextField
-                    label="Preview Text"
-                    value={previewText}
-                    onChange={setPreviewText}
-                    placeholder="Text shown in inbox preview"
-                    autoComplete="off"
-                  />
-                </div>
-              </InlineStack>
+              <TextField
+                label="Subject Line"
+                value={subject}
+                onChange={(v) => { setSubject(v); setValidationErrors({ ...validationErrors, subject: "" }); }}
+                placeholder="e.g., Welcome to {{tier_name}}!"
+                autoComplete="off"
+                requiredIndicator
+                error={validationErrors.subject}
+                helpText="The first thing customers see - make it count! Use personalization variables to make it personal."
+              />
+              <TextField
+                label="Preview Text"
+                value={previewText}
+                onChange={setPreviewText}
+                placeholder="A short summary that appears after the subject line in most email clients"
+                autoComplete="off"
+                helpText="This text appears after the subject line in most email apps. Keep it under 100 characters."
+              />
             </BlockStack>
           </Card>
         </Layout.Section>
 
-        {/* Editor */}
+        {/* Personalization Variables - Expandable with examples */}
         <Layout.Section>
-          <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 280px", gap: "16px", minHeight: "500px" }}>
+          <Card>
+            <BlockStack gap="300">
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  <Text as="h2" variant="headingMd">Personalization</Text>
+                  <Tooltip content="Click a variable to copy it, then paste into your subject or content">
+                    <Icon source={QuestionCircleIcon} tone="subdued" />
+                  </Tooltip>
+                </InlineStack>
+                <Button
+                  variant="plain"
+                  onClick={() => setShowVariablesHelp(!showVariablesHelp)}
+                >
+                  {showVariablesHelp ? "Hide Details" : "Show Details"}
+                </Button>
+              </InlineStack>
+              <InlineStack gap="200" wrap>
+                {PERSONALIZATION_VARIABLES.map((v) => (
+                  <Tooltip key={v.variable} content={`${v.description} - Click to copy`}>
+                    <Button
+                      variant="secondary"
+                      size="slim"
+                      onClick={() => insertVariable(v.variable)}
+                    >
+                      {v.variable}
+                    </Button>
+                  </Tooltip>
+                ))}
+              </InlineStack>
+              <Collapsible open={showVariablesHelp} id="variables-help">
+                <Box paddingBlockStart="200">
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px" }}>
+                    {PERSONALIZATION_VARIABLES.map((v) => (
+                      <Box key={v.variable} padding="200" background="bg-surface-secondary" borderRadius="100">
+                        <BlockStack gap="050">
+                          <Text as="span" variant="bodySm" fontWeight="semibold">{v.label}</Text>
+                          <Text as="span" variant="bodySm" tone="subdued">{v.description}</Text>
+                          <Text as="span" variant="bodySm" tone="magic">Example: {v.example}</Text>
+                        </BlockStack>
+                      </Box>
+                    ))}
+                  </div>
+                </Box>
+              </Collapsible>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
+        {/* Editor - Simplified 2-column on smaller screens */}
+        <Layout.Section>
+          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 260px", gap: "16px", minHeight: "450px" }}>
             {/* Left Sidebar - Blocks */}
             <Card>
               <BlockStack gap="300">
@@ -432,6 +805,7 @@ ${contentHtml}
                 {activeTab === 0 && (
                   <BlockStack gap="200">
                     <Text as="h3" variant="headingSm">Add Content</Text>
+                    <Text as="p" variant="bodySm" tone="subdued">Click to add a block to your email</Text>
                     {BLOCK_TYPES.map((blockType) => (
                       <Box
                         key={blockType.id}
@@ -444,6 +818,9 @@ ${contentHtml}
                           <BlockStack gap="0">
                             <Text as="span" variant="bodySm" fontWeight="medium">
                               {blockType.label}
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              {blockType.description}
                             </Text>
                           </BlockStack>
                           <div style={{ marginLeft: "auto" }}>
@@ -462,25 +839,20 @@ ${contentHtml}
 
                 {activeTab === 1 && (
                   <BlockStack gap="200">
-                    <Text as="h3" variant="headingSm">Template Styles</Text>
+                    <Text as="h3" variant="headingSm">Design</Text>
                     <TextField
                       label="Background Color"
                       value={styles.backgroundColor}
                       onChange={(v) => setStyles({ ...styles, backgroundColor: v })}
                       autoComplete="off"
+                      helpText="Hex color (e.g., #f4f4f4)"
                     />
                     <TextField
-                      label="Content Width (px)"
-                      value={styles.contentWidth}
-                      onChange={(v) => setStyles({ ...styles, contentWidth: v })}
-                      autoComplete="off"
-                      type="number"
-                    />
-                    <TextField
-                      label="Primary Color"
+                      label="Button Color"
                       value={styles.primaryColor}
                       onChange={(v) => setStyles({ ...styles, primaryColor: v })}
                       autoComplete="off"
+                      helpText="Color for buttons and links"
                     />
                     <TextField
                       label="Text Color"
@@ -489,7 +861,7 @@ ${contentHtml}
                       autoComplete="off"
                     />
                     <Select
-                      label="Font Family"
+                      label="Font"
                       options={[
                         { label: "Arial", value: "Arial, sans-serif" },
                         { label: "Helvetica", value: "Helvetica, sans-serif" },
@@ -524,19 +896,22 @@ ${contentHtml}
                       size="slim"
                     />
                   </InlineStack>
+                  <Text as="span" variant="bodySm" tone="subdued">
+                    Click any block to edit it
+                  </Text>
                   <InlineStack gap="100">
                     <Button
                       icon={DesktopIcon}
                       pressed={previewMode === "desktop"}
                       onClick={() => setPreviewMode("desktop")}
-                      accessibilityLabel="Desktop"
+                      accessibilityLabel="Desktop preview"
                       size="slim"
                     />
                     <Button
                       icon={MobileIcon}
                       pressed={previewMode === "mobile"}
                       onClick={() => setPreviewMode("mobile")}
-                      accessibilityLabel="Mobile"
+                      accessibilityLabel="Mobile preview"
                       size="slim"
                     />
                   </InlineStack>
@@ -565,9 +940,14 @@ ${contentHtml}
                   >
                     {blocks.length === 0 ? (
                       <Box padding="600">
-                        <Text as="p" tone="subdued" alignment="center">
-                          Add content blocks from the left panel
-                        </Text>
+                        <BlockStack gap="300">
+                          <Text as="p" tone="subdued" alignment="center">
+                            Your email is empty
+                          </Text>
+                          <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                            Add content blocks from the panel on the left to build your email
+                          </Text>
+                        </BlockStack>
                       </Box>
                     ) : (
                       <BlockStack gap="0">
@@ -651,17 +1031,22 @@ ${contentHtml}
             {/* Right Sidebar - Block Settings */}
             <Card>
               <BlockStack gap="300">
-                <Text as="h3" variant="headingMd">Block Settings</Text>
+                <Text as="h3" variant="headingMd">Edit Block</Text>
                 {selectedBlock ? (
                   <BlockSettings
                     block={selectedBlock}
                     onUpdate={(content) => updateBlock(selectedBlock.id, content)}
                   />
                 ) : (
-                  <Box padding="300" background="bg-surface-secondary" borderRadius="200">
-                    <Text as="p" tone="subdued" alignment="center" variant="bodySm">
-                      Select a block to edit
-                    </Text>
+                  <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                    <BlockStack gap="200">
+                      <Text as="p" tone="subdued" alignment="center" variant="bodySm">
+                        No block selected
+                      </Text>
+                      <Text as="p" tone="subdued" alignment="center" variant="bodySm">
+                        Click on a block in the preview to edit its content
+                      </Text>
+                    </BlockStack>
                   </Box>
                 )}
               </BlockStack>
@@ -669,17 +1054,24 @@ ${contentHtml}
           </div>
         </Layout.Section>
 
-        {/* Variables Reference */}
+        {/* Tips for better emails */}
         <Layout.Section>
           <Card>
             <BlockStack gap="200">
-              <Text as="h3" variant="headingSm">Personalization Variables</Text>
-              <InlineStack gap="100" wrap>
-                <Badge tone="info">{"{{customer_name}}"}</Badge>
-                <Badge tone="info">{"{{tier_name}}"}</Badge>
-                <Badge tone="info">{"{{store_credit}}"}</Badge>
-                <Badge tone="info">{"{{shop_name}}"}</Badge>
-                <Badge tone="info">{"{{cashback_rate}}"}</Badge>
+              <Text as="h3" variant="headingSm">Tips for Better Emails</Text>
+              <InlineStack gap="400" wrap>
+                <Box padding="200" background="bg-surface-secondary" borderRadius="100">
+                  <Text as="p" variant="bodySm">Keep subject lines under 50 characters</Text>
+                </Box>
+                <Box padding="200" background="bg-surface-secondary" borderRadius="100">
+                  <Text as="p" variant="bodySm">Use personalization to increase open rates</Text>
+                </Box>
+                <Box padding="200" background="bg-surface-secondary" borderRadius="100">
+                  <Text as="p" variant="bodySm">Include one clear call-to-action button</Text>
+                </Box>
+                <Box padding="200" background="bg-surface-secondary" borderRadius="100">
+                  <Text as="p" variant="bodySm">Test on mobile - most emails are read on phones</Text>
+                </Box>
               </InlineStack>
             </BlockStack>
           </Card>

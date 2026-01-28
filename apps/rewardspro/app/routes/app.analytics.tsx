@@ -1758,20 +1758,73 @@ export default function AnalyticsPage() {
 
     if (hasAdvancedAnalytics) {
       baseTabs.push(
-        { id: 'financial', content: 'Financial' },
-        { id: 'actions', content: 'Recommended Actions', badge: data.recommendations?.length.toString() || '0' },
-        { id: 'behaviour', content: 'Customer Behaviour' },
-        { id: 'cohorts', content: 'Cohort Analysis' },
+        { id: 'financial', content: 'Business Numbers' },
+        { id: 'actions', content: 'What To Do Next', badge: data.recommendations?.length.toString() || '0' },
+        { id: 'behaviour', content: 'Customer Insights' },
+        { id: 'cohorts', content: 'Retention Trends' },
       );
     }
 
     return baseTabs;
   }, [hasAdvancedAnalytics, data.recommendations?.length]);
 
+  // Determine quick health status for merchant-friendly summary
+  const getQuickHealthStatus = useCallback(() => {
+    const healthScore = data.healthScore?.overall || 0;
+    const usageRate = data.programImpact.currentUsageRate;
+    const hasCustomers = data.overviewMetrics.totalCustomers > 0;
+    const hasActiveMembers = data.overviewMetrics.activeMembers > 0;
+
+    if (!hasCustomers || !hasActiveMembers) {
+      return {
+        status: 'getting-started' as const,
+        message: "You're just getting started",
+        description: "Once customers start joining your loyalty program, you'll see their performance data here.",
+        tone: 'info' as const,
+      };
+    }
+
+    if (healthScore >= 70 && usageRate >= 50) {
+      return {
+        status: 'excellent' as const,
+        message: "Your loyalty program is performing excellently",
+        description: "Customers are actively engaging with rewards and your retention metrics look strong.",
+        tone: 'success' as const,
+      };
+    }
+
+    if (healthScore >= 50) {
+      return {
+        status: 'good' as const,
+        message: "Your loyalty program is performing well",
+        description: "There are some opportunities to improve engagement, but overall your program is healthy.",
+        tone: 'success' as const,
+      };
+    }
+
+    if (healthScore >= 30) {
+      return {
+        status: 'needs-attention' as const,
+        message: "Your loyalty program needs some attention",
+        description: "Customer engagement could be improved. Check the recommendations below for actions you can take.",
+        tone: 'warning' as const,
+      };
+    }
+
+    return {
+      status: 'action-needed' as const,
+      message: "Your loyalty program needs action",
+      description: "Customer engagement is low. Consider adjusting your rewards or reaching out to inactive members.",
+      tone: 'critical' as const,
+    };
+  }, [data.healthScore, data.programImpact.currentUsageRate, data.overviewMetrics]);
+
+  const quickHealth = getQuickHealthStatus();
+
   return (
     <Page
       title="Analytics"
-      subtitle="Track your loyalty program performance"
+      subtitle="See how your loyalty program is performing and what you can do to improve it"
     >
       <Layout>
         {/* Historical Data Limit Notice - Rate-based gating */}
@@ -1796,7 +1849,39 @@ export default function AnalyticsPage() {
               {selectedTab === 0 && (
                 <Box padding="400">
                   <BlockStack gap="500">
-                    {/* Executive Summary - NEW */}
+                    {/* Quick Health Summary - Merchant-Friendly At-a-Glance */}
+                    <Banner
+                      tone={quickHealth.tone}
+                      title={quickHealth.message}
+                    >
+                      <BlockStack gap="300">
+                        <p>{quickHealth.description}</p>
+                        {quickHealth.status !== 'getting-started' && (
+                          <InlineStack gap="400" wrap>
+                            <Box padding="200" background="bg-surface" borderRadius="100">
+                              <BlockStack gap="100">
+                                <Text as="span" variant="bodySm" tone="subdued">Health Score</Text>
+                                <Text as="span" variant="headingSm">{data.healthScore?.overall || 0}/100</Text>
+                              </BlockStack>
+                            </Box>
+                            <Box padding="200" background="bg-surface" borderRadius="100">
+                              <BlockStack gap="100">
+                                <Text as="span" variant="bodySm" tone="subdued">Active Members</Text>
+                                <Text as="span" variant="headingSm">{data.overviewMetrics.activeMembers.toLocaleString()}</Text>
+                              </BlockStack>
+                            </Box>
+                            <Box padding="200" background="bg-surface" borderRadius="100">
+                              <BlockStack gap="100">
+                                <Text as="span" variant="bodySm" tone="subdued">Reward Usage</Text>
+                                <Text as="span" variant="headingSm">{data.programImpact.currentUsageRate.toFixed(0)}%</Text>
+                              </BlockStack>
+                            </Box>
+                          </InlineStack>
+                        )}
+                      </BlockStack>
+                    </Banner>
+
+                    {/* Executive Summary - Detailed breakdown */}
                     <ExecutiveSummary
                       summary={data.executiveSummary}
                       healthScore={data.healthScore?.overall || 0}
@@ -1847,18 +1932,23 @@ export default function AnalyticsPage() {
 
                     {/* Tier Performance */}
                     <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">
-                        Tier Performance
-                      </Text>
+                      <BlockStack gap="200">
+                        <Text variant="headingMd" as="h2">
+                          How Your Tiers Are Performing
+                        </Text>
+                        <Text variant="bodyMd" tone="subdued" as="p">
+                          Compare how customers in each tier shop with you. Higher tiers typically show better engagement and spending.
+                        </Text>
+                      </BlockStack>
                       {data.tierPerformance.length > 0 ? (
                         <DataTable
                           columnContentTypes={['text', 'numeric', 'numeric', 'numeric', 'numeric']}
                           headings={[
                             'Tier',
                             'Members',
-                            'Monthly Order Frequency',
-                            'Revenue/Order',
-                            'Monthly Gross Profit/Customer',
+                            'Orders/Month',
+                            'Avg Order Value',
+                            'Monthly Profit/Customer',
                           ]}
                           rows={sortTiersByPriority(data.tierPerformance).map(tier => [
                             <TierBadge
@@ -1897,12 +1987,14 @@ export default function AnalyticsPage() {
 
                     {/* Program Impact */}
                     <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">
-                        Program Impact
-                      </Text>
-                      <Text variant="bodyMd" tone="subdued" as="p">
-                        Track reward redemption and sales influenced by your loyalty program
-                      </Text>
+                      <BlockStack gap="200">
+                        <Text variant="headingMd" as="h2">
+                          Is Your Loyalty Program Working?
+                        </Text>
+                        <Text variant="bodyMd" tone="subdued" as="p">
+                          These metrics show how effectively your loyalty program drives sales. Higher reward usage means customers are engaged and coming back.
+                        </Text>
+                      </BlockStack>
 
                       {/* Metrics Grid */}
                       <div style={{
@@ -1915,9 +2007,14 @@ export default function AnalyticsPage() {
                         <Card>
                           <Box padding="400">
                             <BlockStack gap="200">
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Current Reward Usage Rate
-                              </Text>
+                              <BlockStack gap="050">
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  Reward Usage Rate
+                                </Text>
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  % of earned rewards that customers actually use
+                                </Text>
+                              </BlockStack>
                               <Text variant="headingLg" as="h3">
                                 {data.programImpact.currentUsageRate.toFixed(1)}%
                               </Text>
@@ -1936,6 +2033,13 @@ export default function AnalyticsPage() {
                                   <Badge tone="info">Current Period</Badge>
                                 )}
                               </InlineStack>
+                              <Text variant="bodySm" tone="subdued" as="p">
+                                {data.programImpact.currentUsageRate >= 60
+                                  ? "Great! Customers are actively using their rewards."
+                                  : data.programImpact.currentUsageRate >= 30
+                                  ? "There's room to encourage more reward redemptions."
+                                  : "Consider promoting rewards to boost engagement."}
+                              </Text>
                             </BlockStack>
                           </Box>
                         </Card>
@@ -1944,17 +2048,19 @@ export default function AnalyticsPage() {
                         <Card>
                           <Box padding="400">
                             <BlockStack gap="200">
-                              <Text variant="bodySm" tone="subdued" as="p">
-                                Total Influenced Sales
-                              </Text>
+                              <BlockStack gap="050">
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  Sales from Loyalty Members
+                                </Text>
+                                <Text variant="bodySm" tone="subdued" as="p">
+                                  Revenue from customers in your loyalty program
+                                </Text>
+                              </BlockStack>
                               <Text variant="headingLg" as="h3">
                                 {formatAmount(data.programImpact.totalInfluencedSales)}
                               </Text>
                               <InlineStack gap="200" blockAlign="center">
-                                <Badge tone="info">Cumulative</Badge>
-                                <Text variant="bodySm" tone="subdued" as="span">
-                                  all-time
-                                </Text>
+                                <Badge tone="info">All-time total</Badge>
                               </InlineStack>
                             </BlockStack>
                           </Box>
@@ -1974,10 +2080,10 @@ export default function AnalyticsPage() {
                             <BlockStack gap="300">
                               <BlockStack gap="100">
                                 <Text variant="headingSm" as="h3">
-                                  Reward Usage & Influenced Sales Over Time
+                                  Program Growth Over Time
                                 </Text>
                                 <Text variant="bodySm" tone="subdued" as="p">
-                                  Monthly redemption rate and cumulative revenue
+                                  See how reward usage and total revenue have changed month over month
                                 </Text>
                               </BlockStack>
 
@@ -2096,7 +2202,7 @@ export default function AnalyticsPage() {
                       </div>
 
                       <Text variant="bodySm" tone="subdued" as="p">
-                        Track redemption rates alongside program revenue growth. Usage rate (left axis) shows the percentage of earned rewards redeemed monthly, while cumulative sales (right axis) displays total revenue influenced by the loyalty program.
+                        The purple line shows what percentage of earned rewards customers are actually redeeming each month. The green line shows your total revenue from loyalty members over time. A rising green line means your program is driving more sales.
                       </Text>
                     </BlockStack>
                   </BlockStack>
@@ -2531,10 +2637,10 @@ export default function AnalyticsPage() {
                         <BlockStack gap="400">
                           <BlockStack gap="200">
                             <Text variant="headingMd" as="h2">
-                              Business Metrics Configuration
+                              Your Business Numbers
                             </Text>
                             <Text variant="bodyMd" tone="subdued" as="p">
-                              Configure your store's financial metrics to enable accurate ROI calculations and profit analysis
+                              Help us understand your business better by entering your profit margins and costs. This lets us show you more accurate ROI and profit calculations.
                             </Text>
                             {data.shopSettings?.metricsLastUpdatedDisplay && (
                               <Text variant="bodySm" tone="subdued" as="p">
@@ -2624,10 +2730,10 @@ export default function AnalyticsPage() {
                       <InlineStack align="space-between" blockAlign="center">
                         <BlockStack gap="200">
                           <Text variant="headingMd" as="h2">
-                            Recommended Actions
+                            Things You Can Do to Grow
                           </Text>
                           <Text variant="bodyMd" tone="subdued" as="p">
-                            Data-driven marketing opportunities from customer analytics
+                            Based on your data, here are opportunities to engage customers and increase sales
                           </Text>
                         </BlockStack>
                         {/* Hidden until marketing page is ready */}
@@ -2791,14 +2897,14 @@ export default function AnalyticsPage() {
                       <InlineStack align="space-between" blockAlign="center">
                         <BlockStack gap="100">
                           <Text variant="headingMd" as="h2">
-                            Customer Behaviour Intelligence
+                            Understanding Your Customers
                           </Text>
                           <Text variant="bodyMd" tone="subdued" as="p">
-                            Understand your customers using RFM analysis, engagement metrics, and behavioral psychology insights
+                            See how your customers are engaging with your store and what drives their loyalty
                           </Text>
                         </BlockStack>
                         <Badge tone="info">
-                          Health Score: {data.healthScore?.overall || data.customerBehaviourData.engagementMetrics.programEngagementScore}/100
+                          Engagement Score: {data.healthScore?.overall || data.customerBehaviourData.engagementMetrics.programEngagementScore}/100
                         </Badge>
                       </InlineStack>
                     </BlockStack>
@@ -2809,10 +2915,10 @@ export default function AnalyticsPage() {
                         <BlockStack gap="400">
                           <BlockStack gap="100">
                             <Text variant="headingSm" as="h3">
-                              🧠 Behavioral Psychology Insights
+                              Customer Loyalty Indicators
                             </Text>
                             <Text variant="bodySm" tone="subdued" as="p">
-                              Understanding the emotional drivers behind customer loyalty
+                              These scores show how likely customers are to stay loyal to your brand
                             </Text>
                           </BlockStack>
 
@@ -2923,10 +3029,10 @@ export default function AnalyticsPage() {
                         <BlockStack gap="400">
                           <BlockStack gap="100">
                             <Text variant="headingSm" as="h3">
-                              📊 Customer Segments (RFM Analysis)
+                              Your Customer Groups
                             </Text>
                             <Text variant="bodySm" tone="subdued" as="p">
-                              Customers grouped by Recency, Frequency, and Monetary value
+                              Customers grouped by how recently they bought, how often they buy, and how much they spend
                             </Text>
                           </BlockStack>
 
@@ -3266,6 +3372,16 @@ export default function AnalyticsPage() {
               {selectedTab === 4 && (
                 <Box padding="400">
                   <BlockStack gap="500">
+                    {/* Header */}
+                    <BlockStack gap="200">
+                      <Text variant="headingMd" as="h2">
+                        Customer Retention Over Time
+                      </Text>
+                      <Text variant="bodyMd" tone="subdued" as="p">
+                        See how well you're keeping customers month after month. A "cohort" is a group of customers who made their first purchase in the same month.
+                      </Text>
+                    </BlockStack>
+
                     {/* Summary Metrics Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                       {/* Retention Summary */}

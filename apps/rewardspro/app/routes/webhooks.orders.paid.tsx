@@ -169,10 +169,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
 
     // Check if already processed using webhook ID
-    const webhookId = request.headers.get('X-Shopify-Webhook-Id') || idempotencyKey;
+    // Use the already-declared webhookId, falling back to idempotencyKey if 'unknown'
+    const idempotencyWebhookId = webhookId !== 'unknown' ? webhookId : idempotencyKey;
     try {
       const existingProcess = await db.webhookProcessed.findUnique({
-        where: { webhookId }
+        where: { webhookId: idempotencyWebhookId }
       });
 
       if (existingProcess) {
@@ -570,7 +571,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           id: uuidv4(),
           shop,
           topic: topic || 'orders/paid',
-          webhookId,
+          webhookId: idempotencyWebhookId,
           processedAt: new Date(),
         }
       });

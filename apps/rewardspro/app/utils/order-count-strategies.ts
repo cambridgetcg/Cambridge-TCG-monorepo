@@ -424,6 +424,8 @@ export async function incrementMonthlyOrderCount(
       });
     } else {
       // Create new record starting at 1
+      // Note: isLocked, lockedAt, lockReason, lastOrderDate columns may not exist in production yet
+      // These fields have defaults in the schema and will be added when migrations are applied
       await db.monthlyOrderUsage.create({
         data: {
           id: crypto.randomUUID(),
@@ -433,7 +435,6 @@ export async function incrementMonthlyOrderCount(
           orderCount: 1,
           planLimit: planLimit ?? 100, // Default to Free plan
           planName: planName ?? "RewardsPro Free",
-          isLocked: false,
           createdAt: new Date(),
           updatedAt: new Date()
         }

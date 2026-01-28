@@ -147,9 +147,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
           orderCount: 0, // Reset to zero
           planLimit: usage.planLimit, // Keep same plan limit
           planName: usage.planName, // Keep same plan name
-          isLocked: false, // Unlock for new month
-          lockedAt: null,
-          lockReason: null,
+          // Note: isLocked/lockedAt/lockReason columns not yet in production DB
+          // Will be added when migration is applied
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -161,8 +160,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', `Reset ${usage.shop}`, {
         shop: usage.shop,
         oldUsage: usage.orderCount,
-        planLimit: usage.planLimit,
-        wasLocked: usage.isLocked
+        planLimit: usage.planLimit
+        // wasLocked: usage.isLocked - column not yet in production
       });
 
     } catch (error: any) {
