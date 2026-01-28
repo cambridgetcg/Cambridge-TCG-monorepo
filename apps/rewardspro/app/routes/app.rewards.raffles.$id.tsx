@@ -139,7 +139,7 @@ interface LoaderData {
 // LOADER
 // ============================================
 
-const LOG_PREFIX = "[app.points_.raffles.$id]";
+const LOG_PREFIX = "[app.rewards.raffles.$id]";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   console.log(`${LOG_PREFIX} Loader starting for raffle: ${params.id}`);

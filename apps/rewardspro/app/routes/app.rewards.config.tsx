@@ -84,7 +84,7 @@ interface LoaderData {
 // LOADER
 // ============================================
 
-const LOG_PREFIX = "[app.points.config]";
+const LOG_PREFIX = "[app.rewards.config]";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const startTime = Date.now();

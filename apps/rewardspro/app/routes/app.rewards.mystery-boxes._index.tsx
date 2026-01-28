@@ -90,7 +90,7 @@ interface ActionData {
 // LOADER
 // ============================================
 
-const LOG_PREFIX = "[app.points_.mystery-boxes]";
+const LOG_PREFIX = "[app.rewards.mystery-boxes]";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log(`${LOG_PREFIX} Loader starting...`);

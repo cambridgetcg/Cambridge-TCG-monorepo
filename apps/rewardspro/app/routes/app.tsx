@@ -53,11 +53,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       authResult = await authenticate.admin(request);
     } catch (authError: any) {
-      // If authenticate.admin throws a Response (like a billing redirect), return it
+      // If authenticate.admin throws a Response (like a redirect or error), handle it
       if (authError instanceof Response) {
-        console.log("[App Loader] Auth threw a Response, returning it");
+        const status = authError.status;
+        const location = authError.headers.get('Location');
+
+        // Log details for debugging
+        console.log(`[App Loader] Auth threw Response: status=${status}, location=${location || 'none'}`);
+
+        // 3xx redirects are normal (OAuth flow, billing redirect, etc.)
+        if (status >= 300 && status < 400) {
+          console.log("[App Loader] Returning redirect response");
+          return authError;
+        }
+
+        // 4xx/5xx errors - log more detail and re-throw for ErrorBoundary
+        console.error(`[App Loader] Auth error response: ${status}`);
+        try {
+          const body = await authError.clone().text();
+          console.error(`[App Loader] Auth error body: ${body.slice(0, 500)}`);
+        } catch (e) {
+          // Ignore body read errors
+        }
+
+        // Return the error response (will be caught by ErrorBoundary)
         return authError;
       }
+
+      // Non-Response errors - log and re-throw
+      console.error("[App Loader] Auth error (not a Response):", authError.message || authError);
       throw authError;
     }
 

@@ -61,7 +61,7 @@ interface ActionData {
 // LOADER
 // ============================================
 
-const LOG_PREFIX = "[app.points_.challenges]";
+const LOG_PREFIX = "[app.rewards.challenges]";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log(`${LOG_PREFIX} Loader starting...`);

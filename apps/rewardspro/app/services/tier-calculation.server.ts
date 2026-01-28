@@ -171,15 +171,24 @@ export async function calculateCustomerTierFromDB(
     let qualifyingTier = null;
     let highestQualifyingSpend = 0;
 
-    for (const tier of tiers) {
-      // Calculate spending from LOCAL DATABASE for THIS tier's evaluation period
-      const spending = await getCustomerSpendingFromDB(
-        shop,
-        customerId,
-        tier.evaluationPeriod || 'LIFETIME'
-      );
+    // Cache spending calculations by evaluation period to avoid redundant DB queries
+    // This is critical for performance - shops with 4+ tiers using the same period
+    // would otherwise run identical queries multiple times
+    const spendingCache = new Map<string, CustomerSpending>();
 
-      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${tier.evaluationPeriod}, customerSpending=${spending.totalSpending}`);
+    for (const tier of tiers) {
+      const period = tier.evaluationPeriod || 'LIFETIME';
+
+      // Check cache first - reuse if same evaluation period already calculated
+      let spending = spendingCache.get(period);
+      if (!spending) {
+        // Calculate spending from LOCAL DATABASE for THIS tier's evaluation period
+        spending = await getCustomerSpendingFromDB(shop, customerId, period);
+        spendingCache.set(period, spending);
+        console.log(`[TierCalc] Calculated spending for period ${period}: $${spending.totalSpending} (cached)`);
+      }
+
+      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${period}, customerSpending=${spending.totalSpending}`);
 
       // Check if customer qualifies for this tier
       if (spending.totalSpending >= tier.minSpend) {
@@ -379,16 +388,24 @@ export async function calculateCustomerTier(
     let qualifyingTier = null;
     let highestQualifyingSpend = 0;
 
-    for (const tier of tiers) {
-      // Calculate spending based on THIS tier's evaluation period
-      const spending = await getCustomerSpending(
-        shop,
-        customer.shopifyCustomerId,
-        admin,
-        tier.evaluationPeriod || 'LIFETIME'
-      );
+    // Cache spending calculations by evaluation period to avoid redundant Shopify API calls
+    // This is critical for performance - shops with 4+ tiers using the same period
+    // would otherwise make identical API calls multiple times
+    const spendingCache = new Map<string, CustomerSpending>();
 
-      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${tier.evaluationPeriod}, customerSpending=${spending.totalSpending}`);
+    for (const tier of tiers) {
+      const period = tier.evaluationPeriod || 'LIFETIME';
+
+      // Check cache first - reuse if same evaluation period already calculated
+      let spending = spendingCache.get(period);
+      if (!spending) {
+        // Calculate spending based on THIS tier's evaluation period
+        spending = await getCustomerSpending(shop, customer.shopifyCustomerId, admin, period);
+        spendingCache.set(period, spending);
+        console.log(`[TierCalc] Calculated spending for period ${period}: $${spending.totalSpending} (cached)`);
+      }
+
+      console.log(`[TierCalc] Evaluating tier ${tier.name}: minSpend=${tier.minSpend}, period=${period}, customerSpending=${spending.totalSpending}`);
 
       // Check if customer qualifies for this tier
       if (spending.totalSpending >= tier.minSpend) {

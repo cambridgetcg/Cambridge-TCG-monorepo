@@ -35,6 +35,7 @@ export const PLAN_LIMITS = {
     historicalDataDays: 7,
     tierProducts: 1,
     emails: 50,
+    memberExportRows: 100, // Export limit - taste the value
     // Gamification limits
     activeRaffles: 1,
     activeMysteryBoxes: 1,
@@ -56,6 +57,7 @@ export const PLAN_LIMITS = {
     historicalDataDays: 30,
     tierProducts: 3,
     emails: 500,
+    memberExportRows: 1000, // Export limit
     // Gamification limits
     activeRaffles: 3,
     activeMysteryBoxes: 2,
@@ -77,6 +79,7 @@ export const PLAN_LIMITS = {
     historicalDataDays: 90,
     tierProducts: 10,
     emails: 2000,
+    memberExportRows: 10000, // Export limit
     // Gamification limits
     activeRaffles: 10,
     activeMysteryBoxes: 5,
@@ -98,6 +101,7 @@ export const PLAN_LIMITS = {
     historicalDataDays: Infinity,
     tierProducts: Infinity,
     emails: Infinity,
+    memberExportRows: Infinity, // Unlimited export
     // Gamification limits - unlimited
     activeRaffles: Infinity,
     activeMysteryBoxes: Infinity,
@@ -129,6 +133,7 @@ export type NumericPlanLimit =
   | 'historicalDataDays'
   | 'tierProducts'
   | 'emails'
+  | 'memberExportRows'
   | 'activeRaffles'
   | 'activeMysteryBoxes'
   | 'activeChallenges'
@@ -248,6 +253,13 @@ export function getHistoricalDataLimit(planName: string | null | undefined): num
  */
 export function getEmailLimit(planName: string | null | undefined): number {
   return getPlanLimit(planName, 'emails');
+}
+
+/**
+ * Gets the member export rows limit for a plan.
+ */
+export function getMemberExportRowsLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'memberExportRows');
 }
 
 /**

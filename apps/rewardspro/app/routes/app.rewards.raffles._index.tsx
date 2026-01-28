@@ -84,7 +84,7 @@ interface LoaderData {
 // LOADER
 // ============================================
 
-const LOG_PREFIX = "[app.points_.raffles]";
+const LOG_PREFIX = "[app.rewards.raffles]";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   console.log(`${LOG_PREFIX} Loader starting...`);

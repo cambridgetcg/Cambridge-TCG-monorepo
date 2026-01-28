@@ -2454,6 +2454,53 @@ export default function Customers() {
     submit(formData, { method: "post" });
   }, [submit, showInfo]);
 
+  // Shared CSV download helper - handles fetch, blob creation, and download trigger
+  const downloadCSV = useCallback(async (
+    exportUrl: string,
+    progressMessage: string,
+    successMessage: string,
+    errorMessage: string
+  ) => {
+    try {
+      showInfo(progressMessage);
+      const response = await fetch(exportUrl);
+
+      if (!response.ok) {
+        throw new Error(`Export failed: ${response.statusText}`);
+      }
+
+      // Check for export limit warning from headers
+      const exportLimit = response.headers.get('X-Export-Limit');
+      const plan = response.headers.get('X-Plan');
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : `members-export-${new Date().toISOString().split('T')[0]}.csv`;
+
+      // Create blob from response and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Show success with export limit info if applicable
+      if (exportLimit && exportLimit !== 'Infinity' && plan) {
+        showSuccess(`${successMessage} (${plan} plan limit: ${parseInt(exportLimit).toLocaleString()} rows)`);
+      } else {
+        showSuccess(successMessage);
+      }
+    } catch (error) {
+      console.error('[CSV Export] Error:', error);
+      showError(errorMessage);
+    }
+  }, [showSuccess, showError, showInfo]);
+
   // Export customers to CSV (using fetch to maintain session context)
   const handleExportCSV = useCallback(async () => {
     // Build export URL with current filters
@@ -2466,37 +2513,13 @@ export default function Customers() {
     }
 
     const exportUrl = `/api/members/export?${exportParams.toString()}`;
-
-    try {
-      showInfo("Preparing export...");
-      const response = await fetch(exportUrl);
-
-      if (!response.ok) {
-        throw new Error(`Export failed: ${response.statusText}`);
-      }
-
-      // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : `members-export-${new Date().toISOString().split('T')[0]}.csv`;
-
-      // Create blob from response and trigger download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      showSuccess("Export completed successfully.");
-    } catch (error) {
-      console.error('[Export CSV] Error:', error);
-      showError("Failed to export CSV. Please try again.");
-    }
-  }, [tierFilter, queryValue, showSuccess, showError, showInfo]);
+    await downloadCSV(
+      exportUrl,
+      "Preparing export...",
+      "Export completed successfully.",
+      "Failed to export CSV. Please try again."
+    );
+  }, [tierFilter, queryValue, downloadCSV]);
 
   // Export selected customers to CSV
   const handleExportSelected = useCallback(async () => {
@@ -2506,37 +2529,13 @@ export default function Customers() {
     }
 
     const exportUrl = `/api/members/export?ids=${selectedResources.join(",")}`;
-
-    try {
-      showInfo(`Exporting ${selectedResources.length} selected customers...`);
-      const response = await fetch(exportUrl);
-
-      if (!response.ok) {
-        throw new Error(`Export failed: ${response.statusText}`);
-      }
-
-      // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
-      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
-      const filename = filenameMatch ? filenameMatch[1] : `members-export-${new Date().toISOString().split('T')[0]}.csv`;
-
-      // Create blob from response and trigger download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      showSuccess(`Successfully exported ${selectedResources.length} customers.`);
-    } catch (error) {
-      console.error('[Export Selected] Error:', error);
-      showError("Failed to export selected customers. Please try again.");
-    }
-  }, [selectedResources, showSuccess, showError, showInfo]);
+    await downloadCSV(
+      exportUrl,
+      `Exporting ${selectedResources.length} selected customers...`,
+      `Successfully exported ${selectedResources.length} customers.`,
+      "Failed to export selected customers. Please try again."
+    );
+  }, [selectedResources, showError, downloadCSV]);
 
   // Handle bulk selection change
   const handleSelectionChange = useCallback((
