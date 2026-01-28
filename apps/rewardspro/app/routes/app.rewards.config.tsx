@@ -49,11 +49,11 @@ interface LoaderData {
     currencyName: string;
     currencyNamePlural: string;
     currencyIcon: string;
-    // Enhanced icon system fields
-    currencyIconType: CurrencyIconType;
-    currencyIconUrl: string | null;
-    currencyIconId: string | null;
-    currencyIconColor: string | null;
+    // Enhanced icon system fields - DISABLED until migration applied
+    // currencyIconType: CurrencyIconType;
+    // currencyIconUrl: string | null;
+    // currencyIconId: string | null;
+    // currencyIconColor: string | null;
     pointsPerDollar: number;
     roundingMode: PointsRoundingMode;
     pointsExpire: boolean;
@@ -153,11 +153,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const currencyNamePlural = formData.get("currencyNamePlural") as string;
       const currencyIcon = formData.get("currencyIcon") as string;
 
-      // Enhanced icon system fields
-      const currencyIconType = (formData.get("currencyIconType") as CurrencyIconType) || "emoji";
-      const currencyIconUrl = formData.get("currencyIconUrl") as string | null;
-      const currencyIconId = formData.get("currencyIconId") as string | null;
-      const currencyIconColor = formData.get("currencyIconColor") as string | null;
+      // Enhanced icon system fields - DISABLED until migration applied
+      // const currencyIconType = (formData.get("currencyIconType") as CurrencyIconType) || "emoji";
+      // const currencyIconUrl = formData.get("currencyIconUrl") as string | null;
+      // const currencyIconId = formData.get("currencyIconId") as string | null;
+      // const currencyIconColor = formData.get("currencyIconColor") as string | null;
 
       const pointsPerDollar = parseInt(formData.get("pointsPerDollar") as string, 10);
       const roundingMode = formData.get("roundingMode") as PointsRoundingMode;
@@ -197,10 +197,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         currencyName,
         currencyNamePlural,
         currencyIcon,
-        currencyIconType,
-        currencyIconUrl: currencyIconUrl || null,
-        currencyIconId: currencyIconId || null,
-        currencyIconColor: currencyIconColor || null,
+        // Enhanced icon system fields - DISABLED until migration applied
+        // currencyIconType,
+        // currencyIconUrl: currencyIconUrl || null,
+        // currencyIconId: currencyIconId || null,
+        // currencyIconColor: currencyIconColor || null,
         pointsPerDollar,
         roundingMode,
         pointsExpire,
@@ -268,13 +269,13 @@ export default function PointsConfiguration() {
   const [currencyName, setCurrencyName] = useState(config.currencyName);
   const [currencyNamePlural, setCurrencyNamePlural] = useState(config.currencyNamePlural);
 
-  // Enhanced icon state
+  // Enhanced icon state - using defaults until migration applied
   const [iconValue, setIconValue] = useState<IconPickerValue>({
-    iconType: config.currencyIconType,
+    iconType: "emoji", // config.currencyIconType - DISABLED
     iconEmoji: config.currencyIcon,
-    iconUrl: config.currencyIconUrl,
-    iconId: config.currencyIconId,
-    iconColor: config.currencyIconColor,
+    iconUrl: null, // config.currencyIconUrl - DISABLED
+    iconId: null, // config.currencyIconId - DISABLED
+    iconColor: null, // config.currencyIconColor - DISABLED
   });
 
   const [pointsPerDollar, setPointsPerDollar] = useState(config.pointsPerDollar.toString());
@@ -351,12 +352,12 @@ export default function PointsConfiguration() {
     formData.append("currencyName", currencyName);
     formData.append("currencyNamePlural", currencyNamePlural);
 
-    // Enhanced icon system
+    // Enhanced icon system - only emoji icon enabled until migration applied
     formData.append("currencyIcon", iconValue.iconEmoji);
-    formData.append("currencyIconType", iconValue.iconType);
-    if (iconValue.iconUrl) formData.append("currencyIconUrl", iconValue.iconUrl);
-    if (iconValue.iconId) formData.append("currencyIconId", iconValue.iconId);
-    if (iconValue.iconColor) formData.append("currencyIconColor", iconValue.iconColor);
+    // formData.append("currencyIconType", iconValue.iconType);
+    // if (iconValue.iconUrl) formData.append("currencyIconUrl", iconValue.iconUrl);
+    // if (iconValue.iconId) formData.append("currencyIconId", iconValue.iconId);
+    // if (iconValue.iconColor) formData.append("currencyIconColor", iconValue.iconColor);
 
     formData.append("pointsPerDollar", pointsPerDollar);
     formData.append("roundingMode", roundingMode);
