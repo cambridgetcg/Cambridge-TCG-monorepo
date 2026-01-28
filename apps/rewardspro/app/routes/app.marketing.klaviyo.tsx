@@ -12,6 +12,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher, useSearchParams } from "@remix-run/react";
 import { useState, useEffect, useCallback } from "react";
+import { useToast } from "~/hooks/useToast";
 import {
   Page,
   Layout,
@@ -437,24 +438,19 @@ export default function KlaviyoSettings() {
     tierNudgeCooldownDays: data.automationSettings?.tierNudgeCooldownDays ?? 14,
   });
 
-  // UI state
-  const [toastActive, setToastActive] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastError, setToastError] = useState(false);
+  // Standardized toast notifications
+  const { toast, showSuccess, showError, hideToast } = useToast();
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   useEffect(() => {
     if (fetcher.data) {
       if (fetcher.data.success) {
-        setToastMessage(fetcher.data.message || "Saved!");
-        setToastError(false);
+        showSuccess(fetcher.data.message || "Saved!");
       } else {
-        setToastMessage(fetcher.data.error || "Failed");
-        setToastError(true);
+        showError(fetcher.data.error || "Failed");
       }
-      setToastActive(true);
     }
-  }, [fetcher.data]);
+  }, [fetcher.data, showSuccess, showError]);
 
   const handleSaveConnection = useCallback(() => {
     const formData = new FormData();
@@ -930,12 +926,12 @@ export default function KlaviyoSettings() {
         </Layout>
       </Page>
 
-      {toastActive && (
+      {toast.active && (
         <Toast
-          content={toastMessage}
-          error={toastError}
-          onDismiss={() => setToastActive(false)}
-          duration={4000}
+          content={toast.content}
+          error={toast.error}
+          onDismiss={hideToast}
+          duration={toast.duration}
         />
       )}
     </Frame>

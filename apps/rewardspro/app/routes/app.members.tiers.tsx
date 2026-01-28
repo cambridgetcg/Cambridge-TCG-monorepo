@@ -32,6 +32,7 @@ import {
   PackageIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
+import { useToast } from "~/hooks/useToast";
 import {
   atomicTierCreate,
   LimitExceededError,
@@ -293,10 +294,8 @@ export default function TiersPage() {
     evaluationPeriod: data.hasAnnualEval ? "ANNUAL" : "LIFETIME" as "ANNUAL" | "LIFETIME",
   });
 
-  // Toast state
-  const [toastActive, setToastActive] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastError, setToastError] = useState(false);
+  // Standardized toast notifications
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
   const isSubmitting = navigation.state === "submitting";
 
@@ -304,19 +303,16 @@ export default function TiersPage() {
   useEffect(() => {
     if (actionData) {
       if ("success" in actionData && actionData.success) {
-        setToastMessage(actionData.message || "Success");
-        setToastError(false);
+        showSuccess(actionData.message || "Success");
         setTierModalActive(false);
         setDeleteConfirmActive(false);
         setEditingTier(null);
         setDeletingTierId(null);
       } else if ("error" in actionData) {
-        setToastMessage(actionData.error || "An error occurred");
-        setToastError(true);
+        showError(actionData.error || "An error occurred");
       }
-      setToastActive(true);
     }
-  }, [actionData]);
+  }, [actionData, showSuccess, showError]);
 
   // Format currency helper
   const formatAmount = useCallback(
@@ -649,11 +645,11 @@ export default function TiersPage() {
         </Modal>
 
         {/* Toast */}
-        {toastActive && (
+        {toast.active && (
           <Toast
-            content={toastMessage}
-            error={toastError}
-            onDismiss={() => setToastActive(false)}
+            content={toast.content}
+            error={toast.error}
+            onDismiss={hideToast}
           />
         )}
       </Page>

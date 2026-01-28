@@ -2,6 +2,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
+import { useToast } from "~/hooks/useToast";
 import {
   Page,
   Layout,
@@ -465,10 +466,8 @@ export default function RaffleDetail() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  // Toast state
-  const [toastActive, setToastActive] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastError, setToastError] = useState(false);
+  // Standardized toast notifications
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
@@ -508,13 +507,13 @@ export default function RaffleDetail() {
   // Show toast on action result
   useEffect(() => {
     if (actionData) {
-      setToastMessage(actionData.message || actionData.error || "");
-      setToastError(!actionData.success);
-      setToastActive(true);
+      if (actionData.success) {
+        showSuccess(actionData.message || "Success");
+      } else {
+        showError(actionData.error || actionData.message || "An error occurred");
+      }
     }
-  }, [actionData]);
-
-  const dismissToast = useCallback(() => setToastActive(false), []);
+  }, [actionData, showSuccess, showError]);
 
   // Handle edit form submit
   const handleEditSubmit = useCallback(() => {
@@ -1423,11 +1422,11 @@ export default function RaffleDetail() {
         </Modal>
 
         {/* Toast */}
-        {toastActive && (
+        {toast.active && (
           <Toast
-            content={toastMessage}
-            error={toastError}
-            onDismiss={dismissToast}
+            content={toast.content}
+            error={toast.error}
+            onDismiss={hideToast}
           />
         )}
       </Page>

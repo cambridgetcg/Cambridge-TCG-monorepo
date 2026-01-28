@@ -4,6 +4,7 @@ import { useLoaderData, useNavigate, useFetcher, useNavigation, useRouteError, i
 import { useState, useCallback, useEffect } from "react";
 import { StaggerChildren, PageLoader, usePageAnimation } from "../components/PageAnimation";
 import { useAnalytics } from "~/hooks/useAnalytics";
+import { useToast } from "~/hooks/useToast";
 
 import {
   Page,
@@ -675,9 +676,8 @@ export default function Dashboard() {
     }
   }, []); // Only track once on mount
 
-  // Toast state for feature toggle feedback
-  const [toastActive, setToastActive] = useState(false);
-  const [toastContent, setToastContent] = useState('');
+  // Standardized toast notifications
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
   // OPTIMISTIC UI: Track pending toggle states for instant feedback
   const [optimisticToggles, setOptimisticToggles] = useState<Record<string, boolean>>({});
@@ -724,23 +724,22 @@ export default function Dashboard() {
         const featureName = featureNames[result.feature] || result.feature;
         const action = result.enabled ? 'enabled' : 'disabled';
 
-        setToastContent(`${featureName} ${action}`);
-        setToastActive(true);
+        showSuccess(`${featureName} ${action}`, 3000);
       } else if (result.error) {
         // On error, revert optimistic state to server values
         setOptimisticToggles({});
-        setToastContent('Failed to update feature');
-        setToastActive(true);
+        showError('Failed to update feature');
       }
     }
-  }, [fetcher.state, fetcher.data]);
+  }, [fetcher.state, fetcher.data, showSuccess, showError]);
 
   // Toast markup
-  const toastMarkup = toastActive ? (
+  const toastMarkup = toast.active ? (
     <Toast
-      content={toastContent}
-      onDismiss={() => setToastActive(false)}
-      duration={3000}
+      content={toast.content}
+      error={toast.error}
+      onDismiss={hideToast}
+      duration={toast.duration}
     />
   ) : null;
 

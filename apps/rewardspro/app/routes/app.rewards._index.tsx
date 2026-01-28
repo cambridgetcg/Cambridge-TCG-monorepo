@@ -31,6 +31,7 @@ import {
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { useToast } from "~/hooks/useToast";
 import { getPointsConfig, getPointsStats, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
 import { getRaffleStats } from "../services/raffle-management.server";
 import { getMysteryBoxStats } from "../services/mystery-box-management.server";
@@ -279,18 +280,15 @@ export default function PointsOverview() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  const [toastActive, setToastActive] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
+  // Standardized toast notifications
+  const { toast, showSuccess, hideToast } = useToast();
 
   const handleToggle = useCallback(() => {
     const formData = new FormData();
     formData.append("intent", "toggle");
     submit(formData, { method: "post" });
-    setToastMessage(config.isEnabled ? "Points system disabled" : "Points system enabled");
-    setToastActive(true);
-  }, [config.isEnabled, submit]);
-
-  const dismissToast = useCallback(() => setToastActive(false), []);
+    showSuccess(config.isEnabled ? "Points system disabled" : "Points system enabled");
+  }, [config.isEnabled, submit, showSuccess]);
 
   // Format large numbers
   const formatNumber = (num: number) => {
@@ -1038,8 +1036,8 @@ export default function PointsOverview() {
           </Layout.Section>
         </Layout>
 
-        {toastActive && (
-          <Toast content={toastMessage} onDismiss={dismissToast} />
+        {toast.active && (
+          <Toast content={toast.content} error={toast.error} onDismiss={hideToast} />
         )}
       </Page>
     </Frame>

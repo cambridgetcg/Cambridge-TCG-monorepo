@@ -65,6 +65,7 @@ import db from "../db.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
+import { useToast } from "../hooks/useToast";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -1488,10 +1489,7 @@ export default function OrdersPage() {
   const [processAllProgress, setProcessAllProgress] = useState({ current: 0, total: 0 });
   const [processingLog, setProcessingLog] = useState<string[]>([]);
   const [currentProcessingStep, setCurrentProcessingStep] = useState<string>("");
-  const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
-    active: false,
-    content: "",
-  });
+  const { toast, showSuccess, showError, hideToast } = useToast();
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [cashbackFilter, setCashbackFilter] = useState(searchParams.get("cashback") || "all");
@@ -1539,14 +1537,15 @@ export default function OrdersPage() {
 
       // Show result toast
       if (actionData.message) {
-        setToast({
-          active: true,
-          content: actionData.message,
-          error: actionData.failCount > 0 && actionData.successCount === 0 // Only error if all failed
-        });
+        const isError = actionData.failCount > 0 && actionData.successCount === 0;
+        if (isError) {
+          showError(actionData.message);
+        } else {
+          showSuccess(actionData.message);
+        }
       }
     }
-  }, [actionData]);
+  }, [actionData, showSuccess, showError]);
 
   // Selected order for modal
   const selectedOrder = useMemo(() => {
@@ -1644,11 +1643,7 @@ export default function OrdersPage() {
         content: `Export ${selectedOrders.length} order${selectedOrders.length > 1 ? 's' : ''}`,
         onAction: () => {
           // TODO: Implement export functionality
-          setToast({
-            active: true,
-            content: 'Export functionality coming soon',
-            error: false
-          });
+          showSuccess('Export functionality coming soon');
         },
       });
     }
@@ -1688,21 +1683,13 @@ export default function OrdersPage() {
     console.log('[Orders] Customer ID in order:', order?.customerId);
 
     if (!order) {
-      setToast({
-        active: true,
-        content: 'Order not found',
-        error: true
-      });
+      showError('Order not found');
       return;
     }
 
     // If customer object not directly available, check if we have customerId
     if (!order.customer && order.customerId === "unknown") {
-      setToast({
-        active: true,
-        content: 'This order has no associated customer',
-        error: true
-      });
+      showError('This order has no associated customer');
       return;
     }
 
@@ -1715,11 +1702,7 @@ export default function OrdersPage() {
     };
 
     if (!customerData.id || customerData.id === "unknown") {
-      setToast({
-        active: true,
-        content: 'Customer information not available for this order',
-        error: true
-      });
+      showError('Customer information not available for this order');
       return;
     }
 
@@ -1827,11 +1810,7 @@ export default function OrdersPage() {
     });
 
     if (qualifyingOrders.length === 0) {
-      setToast({
-        active: true,
-        content: 'No qualifying orders to process',
-        error: false
-      });
+      showSuccess('No qualifying orders to process');
       return;
     }
 
@@ -1944,14 +1923,16 @@ export default function OrdersPage() {
 
       // Only show toast if there's a message or explicit success/failure
       if (data.message || data.success !== undefined) {
-        setToast({
-          active: true,
-          content: data.message || (data.success ? "Action completed" : "Action failed"),
-          error: data.failCount > 0 && data.successCount === 0 ? true : !data.success,
-        });
+        const content = data.message || (data.success ? "Action completed" : "Action failed");
+        const isError = data.failCount > 0 && data.successCount === 0 ? true : !data.success;
+        if (isError) {
+          showError(content);
+        } else {
+          showSuccess(content);
+        }
       }
     }
-  }, [fetcher.data]);
+  }, [fetcher.data, showSuccess, showError]);
 
   // Show toast for action results (from submit)
   useEffect(() => {
@@ -1973,18 +1954,20 @@ export default function OrdersPage() {
       // Show toast only if there's feedback to show
       // All user-facing actions should return a message
       if (data.message || data.success !== undefined || data.error) {
-        setToast({
-          active: true,
-          content: data.message || data.error || (data.success ? "Action completed" : "Action failed"),
-          error: data.error ? true : (data.failCount > 0 && data.successCount === 0 ? true : !data.success),
-        });
+        const content = data.message || data.error || (data.success ? "Action completed" : "Action failed");
+        const isError = data.error ? true : (data.failCount > 0 && data.successCount === 0 ? true : !data.success);
+        if (isError) {
+          showError(content);
+        } else {
+          showSuccess(content);
+        }
       }
 
       // Reset processing state
       setIsProcessingAll(false);
       setProcessAllProgress({ current: 0, total: 0 });
     }
-  }, [actionData]);
+  }, [actionData, showSuccess, showError]);
 
   // Financial status badge
   const getFinancialStatusBadge = (status: string) => {
@@ -2753,11 +2736,7 @@ export default function OrdersPage() {
                       // Copy log to clipboard
                       const logText = processingLog.join('\n');
                       navigator.clipboard.writeText(logText).then(() => {
-                        setToast({
-                          active: true,
-                          content: "Debug log copied to clipboard",
-                          error: false
-                        });
+                        showSuccess("Debug log copied to clipboard");
                       });
                     }}
                   >
@@ -2783,7 +2762,7 @@ export default function OrdersPage() {
           <Toast
             content={toast.content}
             error={toast.error}
-            onDismiss={() => setToast({ ...toast, active: false })}
+            onDismiss={hideToast}
           />
         )}
 

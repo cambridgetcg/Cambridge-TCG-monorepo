@@ -55,6 +55,7 @@ import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sk
 import { extractNumericId } from "../utils/shopify-id-normalizer";
 import { getEntitlements } from "../services/entitlements.server";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
+import { useToast } from "../hooks/useToast";
 // Note: TierEmptyStateV1B moved to app.members.tiers.tsx
 import {
   validateTierProductDeletion,
@@ -1712,10 +1713,7 @@ export default function TierProducts() {
     monthlyDiscount: "0",
     annualDiscount: "15",
   });
-  const [toast, setToast] = useState<{ active: boolean; content: string; error?: boolean }>({
-    active: false,
-    content: "",
-  });
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
   // Note: Tier management states moved to app.members.tiers.tsx
 
@@ -1798,31 +1796,19 @@ export default function TierProducts() {
   const handleCreateProduct = useCallback(() => {
     // Validate inputs
     if (!selectedTier) {
-      setToast({
-        active: true,
-        content: "Please select a tier for this membership product",
-        error: true,
-      });
+      showError("Please select a tier for this membership product");
       return;
     }
 
     if (!price || parseFloat(price) <= 0) {
-      setToast({
-        active: true,
-        content: "Please enter a valid price greater than 0",
-        error: true,
-      });
+      showError("Please enter a valid price greater than 0");
       return;
     }
 
     // Validate price format (max 2 decimal places)
     const priceNum = parseFloat(price);
     if (isNaN(priceNum) || priceNum !== Math.round(priceNum * 100) / 100) {
-      setToast({
-        active: true,
-        content: "Price must be a valid number with up to 2 decimal places",
-        error: true,
-      });
+      showError("Price must be a valid number with up to 2 decimal places");
       return;
     }
     
@@ -1847,11 +1833,7 @@ export default function TierProducts() {
   // Handle update product
   const handleUpdateProduct = useCallback(() => {
     if (!editingProduct || !price) {
-      setToast({
-        active: true,
-        content: "Please enter a valid price",
-        error: true,
-      });
+      showError("Please enter a valid price");
       return;
     }
     
@@ -1873,35 +1855,25 @@ export default function TierProducts() {
   // Handle action response
   useEffect(() => {
     if (actionData) {
-      // Construct appropriate toast message
-      let toastContent = '';
-      let toastError = false;
       let shouldRevalidate = false;
 
       if ('message' in actionData) {
-        toastContent = actionData.message;
-        toastError = !actionData.success;
         if (actionData.success) {
+          showSuccess(actionData.message);
           setModalActive(false);
           setEditModalActive(false);
           shouldRevalidate = true;
+        } else {
+          showError(actionData.message);
         }
       } else if (actionData.success) {
-        toastContent = "Product created successfully! The product is now available in your Shopify admin.";
-        toastError = false;
+        showSuccess("Product created successfully! The product is now available in your Shopify admin.");
         setModalActive(false);
         setEditModalActive(false);
         shouldRevalidate = true;
       } else {
-        toastContent = actionData.error || "Operation failed. Please try again.";
-        toastError = true;
+        showError(actionData.error || "Operation failed. Please try again.");
       }
-
-      setToast({
-        active: true,
-        content: toastContent,
-        error: toastError,
-      });
 
       // Revalidate loader data to refresh the tier products list
       if (shouldRevalidate) {
@@ -1911,7 +1883,7 @@ export default function TierProducts() {
         }, 300);
       }
     }
-  }, [actionData, revalidate]);
+  }, [actionData, revalidate, showSuccess, showError]);
   
   
   // Tier options for select
@@ -1966,19 +1938,16 @@ export default function TierProducts() {
         setPermanentDeleteModalActive(false);
         setSelectedDeletedProduct(null);
 
-        setToast({
-          active: true,
-          content: success ? (message || "Operation completed") : (error || "Operation failed"),
-          error: !success,
-        });
-
         if (success) {
+          showSuccess(message || "Operation completed");
           // Revalidate to refresh the lists
           setTimeout(() => revalidate(), 300);
+        } else {
+          showError(error || "Operation failed");
         }
       }
     }
-  }, [restoreFetcher.state, restoreFetcher.data, revalidate]);
+  }, [restoreFetcher.state, restoreFetcher.data, revalidate, showSuccess, showError]);
 
   // Handlers for restore and permanent delete
   const handleRestoreProduct = useCallback((product: DeletedTierProduct) => {
@@ -3124,7 +3093,7 @@ export default function TierProducts() {
           <Toast
             content={toast.content}
             error={toast.error}
-            onDismiss={() => setToast({ ...toast, active: false })}
+            onDismiss={hideToast}
           />
         )}
       </Page>

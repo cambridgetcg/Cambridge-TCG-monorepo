@@ -1,6 +1,7 @@
 import { json, ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
+import { useToast } from "~/hooks/useToast";
 import {
   Page,
   Layout,
@@ -264,9 +265,8 @@ export default function EmailSettings() {
       (data.emailSettings?.sendTimePrefs as any)?.timezone || "America/New_York",
   });
 
-  const [toastActive, setToastActive] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastError, setToastError] = useState(false);
+  // Standardized toast notifications
+  const { toast, showSuccess, showError, hideToast } = useToast();
 
   // Domain setup state
   const [setupDomainModalOpen, setSetupDomainModalOpen] = useState(false);
@@ -279,39 +279,31 @@ export default function EmailSettings() {
 
   useEffect(() => {
     if (fetcher.data?.success) {
-      setToastMessage(fetcher.data.message || "Settings saved!");
-      setToastError(false);
-      setToastActive(true);
+      showSuccess(fetcher.data.message || "Settings saved!");
     }
-  }, [fetcher.data]);
+  }, [fetcher.data, showSuccess]);
 
   useEffect(() => {
     if (domainFetcher.data) {
       if (domainFetcher.data.success) {
-        setToastMessage(domainFetcher.data.message || "Operation successful!");
-        setToastError(false);
+        showSuccess(domainFetcher.data.message || "Operation successful!");
         setSetupDomainModalOpen(false);
         setNewDomain("");
       } else {
-        setToastMessage(domainFetcher.data.error || "Operation failed");
-        setToastError(true);
+        showError(domainFetcher.data.error || "Operation failed");
       }
-      setToastActive(true);
     }
-  }, [domainFetcher.data]);
+  }, [domainFetcher.data, showSuccess, showError]);
 
   useEffect(() => {
     if (testEmailFetcher.data) {
       if (testEmailFetcher.data.success) {
-        setToastMessage(testEmailFetcher.data.message || "Test email sent!");
-        setToastError(false);
+        showSuccess(testEmailFetcher.data.message || "Test email sent!");
       } else {
-        setToastMessage(testEmailFetcher.data.error || "Failed to send");
-        setToastError(true);
+        showError(testEmailFetcher.data.error || "Failed to send");
       }
-      setToastActive(true);
     }
-  }, [testEmailFetcher.data]);
+  }, [testEmailFetcher.data, showSuccess, showError]);
 
   const handleChange =
     (field: string) => (value: string | boolean | number) => {
@@ -1234,11 +1226,11 @@ export default function EmailSettings() {
       </Modal>
 
       {/* Toast */}
-      {toastActive && (
+      {toast.active && (
         <Toast
-          content={toastMessage}
-          error={toastError}
-          onDismiss={() => setToastActive(false)}
+          content={toast.content}
+          error={toast.error}
+          onDismiss={hideToast}
         />
       )}
     </Frame>
