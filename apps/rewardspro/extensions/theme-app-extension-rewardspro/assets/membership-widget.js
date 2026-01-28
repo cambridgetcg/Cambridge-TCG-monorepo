@@ -171,6 +171,10 @@
       // PROJECTION: Initialize system theme detection
       this.initSystemThemeDetection();
 
+      // Apply default theme immediately to ensure CSS variables are set
+      // This prevents flash of unstyled content before API data arrives
+      this.applyDefaultTheme();
+
       if (!this.config.isAuthenticated) {
         // Guest user - render CTA immediately
         this.renderGuest();
@@ -1317,6 +1321,25 @@
       `;
     }
 
+
+    /**
+     * Apply default theme on initialization
+     * Ensures CSS variables are set before API data arrives
+     * Respects system preference for light/dark mode
+     */
+    applyDefaultTheme() {
+      const defaultTheme = {
+        mode: this.systemPrefersDark ? 'DARK' : 'LIGHT',
+        primaryColor: '#5C6AC4',
+        backgroundColor: '#FFFFFF',
+        textColor: '#212B36',
+        accentColor: '#008060',
+        borderRadius: 12,
+        fontFamily: 'inherit'
+      };
+      log.debug('Applying default theme:', defaultTheme.mode);
+      this.applyTheme(defaultTheme);
+    }
 
     /**
      * Apply theme settings from API response

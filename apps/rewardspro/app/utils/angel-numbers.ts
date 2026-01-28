@@ -174,6 +174,9 @@ export const DEMO_VALUES = {
     credit: ANGEL_NUMBERS.CREDIT.ABUNDANCE,
     cashbackPercent: ANGEL_NUMBERS.TIER.GOLD.cashbackPercent,
     progress: ANGEL_NUMBERS.PERCENT.GOOD,
+    nextTierName: 'Platinum',
+    amountRemaining: ANGEL_NUMBERS.CREDIT.BALANCE,
+    isMaxTier: false,
   },
 
   /** Dashboard metrics preview */

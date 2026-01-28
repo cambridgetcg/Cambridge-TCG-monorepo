@@ -2985,7 +2985,7 @@ export default function SettingsPage() {
                         </FormLayout>
                       )}
 
-                      {/* Compact Preview */}
+                      {/* Widget Preview - Matches actual storefront widget */}
                       <Box padding="400" background="bg-surface-secondary" borderRadius="200">
                         <BlockStack gap="300">
                           <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
@@ -2993,37 +2993,138 @@ export default function SettingsPage() {
                             style={{
                               backgroundColor: widgetBackgroundColor,
                               borderRadius: `${widgetBorderRadius}px`,
-                              padding: "16px",
                               fontFamily: widgetFontFamily,
-                              color: widgetTextColor,
-                              border: "1px solid #E1E3E5",
-                              maxWidth: "320px"
+                              border: `1px solid ${widgetThemeMode === "DARK" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                              maxWidth: "320px",
+                              overflow: "hidden",
+                              boxShadow: widgetThemeMode === "DARK"
+                                ? "0 4px 12px rgba(0, 0, 0, 0.3)"
+                                : "0 4px 12px rgba(0, 0, 0, 0.08)"
                             }}
                           >
-                            <InlineStack align="space-between" blockAlign="center">
-                              <BlockStack gap="100">
-                                <span style={{ color: widgetTextColor, fontWeight: 600, fontSize: "14px" }}>{DEMO_VALUES.WIDGET_PREVIEW.tierName}</span>
-                                <span style={{ color: widgetAccentColor, fontWeight: 700, fontSize: "20px" }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.credit, { storeCurrency, currencyDisplayType })}</span>
-                              </BlockStack>
+                            {/* Header */}
+                            <div style={{
+                              background: `linear-gradient(135deg, ${widgetPrimaryColor} 0%, ${widgetPrimaryColor}dd 100%)`,
+                              padding: "12px 16px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px"
+                            }}>
                               <div style={{
-                                backgroundColor: widgetPrimaryColor,
-                                color: "#FFF",
-                                padding: "4px 10px",
-                                borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
-                                fontSize: "11px",
-                                fontWeight: 600
+                                width: "32px",
+                                height: "32px",
+                                borderRadius: "50%",
+                                backgroundColor: "rgba(255,255,255,0.2)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center"
                               }}>
-                                {DEMO_VALUES.WIDGET_PREVIEW.cashbackPercent}% Cashback
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                </svg>
                               </div>
-                            </InlineStack>
-                            <div style={{ marginTop: "12px" }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ color: "#FFF", fontWeight: 600, fontSize: "14px" }}>{DEMO_VALUES.WIDGET_PREVIEW.tierName}</div>
+                                <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "12px" }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.credit, { storeCurrency, currencyDisplayType })} Store Credit</div>
+                              </div>
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2" style={{ opacity: 0.8 }}>
+                                <path d="M6 9l6 6 6-6"/>
+                              </svg>
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ padding: "16px" }}>
+                              {/* Balance Hero */}
+                              <div style={{ textAlign: "center", marginBottom: "16px" }}>
+                                <div style={{
+                                  color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)",
+                                  fontSize: "11px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.5px",
+                                  marginBottom: "4px"
+                                }}>Store Credit Balance</div>
+                                <div style={{
+                                  color: widgetTextColor,
+                                  fontSize: "28px",
+                                  fontWeight: 700
+                                }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.credit, { storeCurrency, currencyDisplayType })}</div>
+                              </div>
+
+                              {/* Cards */}
                               <div style={{
-                                backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.1)" : "#E1E3E5",
-                                borderRadius: "4px",
-                                height: "6px",
-                                overflow: "hidden"
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr 1fr",
+                                gap: "8px",
+                                marginBottom: "16px"
                               }}>
-                                <div style={{ backgroundColor: widgetPrimaryColor, width: `${DEMO_VALUES.WIDGET_PREVIEW.progress}%`, height: "100%" }} />
+                                {/* Tier Card */}
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                                  borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                  padding: "12px 8px",
+                                  textAlign: "center"
+                                }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={widgetAccentColor} strokeWidth="2" style={{ marginBottom: "4px" }}>
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                  </svg>
+                                  <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>Gold</div>
+                                  <div style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)", fontSize: "10px" }}>Tier</div>
+                                </div>
+
+                                {/* Cashback Card */}
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                                  borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                  padding: "12px 8px",
+                                  textAlign: "center"
+                                }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={widgetAccentColor} strokeWidth="2" style={{ marginBottom: "4px" }}>
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 6v6l4 2"/>
+                                  </svg>
+                                  <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>{DEMO_VALUES.WIDGET_PREVIEW.cashbackPercent}%</div>
+                                  <div style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)", fontSize: "10px" }}>Cashback</div>
+                                </div>
+
+                                {/* Progress Card */}
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                                  borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                  padding: "12px 8px",
+                                  textAlign: "center"
+                                }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={widgetAccentColor} strokeWidth="2" style={{ marginBottom: "4px" }}>
+                                    <path d="M12 20V10M18 20V4M6 20v-4"/>
+                                  </svg>
+                                  <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>{DEMO_VALUES.WIDGET_PREVIEW.progress}%</div>
+                                  <div style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)", fontSize: "10px" }}>Progress</div>
+                                </div>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div>
+                                <div style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: "6px",
+                                  fontSize: "11px"
+                                }}>
+                                  <span style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)" }}>Next Tier Progress</span>
+                                  <span style={{ color: widgetAccentColor, fontWeight: 500 }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.amountRemaining, { storeCurrency, currencyDisplayType })} to go</span>
+                                </div>
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.15)" : "#E1E3E5",
+                                  borderRadius: "999px",
+                                  height: "6px",
+                                  overflow: "hidden"
+                                }}>
+                                  <div style={{
+                                    background: `linear-gradient(90deg, ${widgetAccentColor} 0%, ${widgetPrimaryColor} 100%)`,
+                                    width: `${DEMO_VALUES.WIDGET_PREVIEW.progress}%`,
+                                    height: "100%",
+                                    borderRadius: "999px"
+                                  }} />
+                                </div>
                               </div>
                             </div>
                           </div>
