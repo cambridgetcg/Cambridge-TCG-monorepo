@@ -1510,8 +1510,10 @@ export default function OrdersPage() {
   const isLoading = navigation.state === "loading" || navigation.state === "submitting";
 
   // Handle fetcher response for store credit balance
+  // Only process when we're actively fetching (fetchingBalance is true)
+  // This prevents stale fetcher.data from reopening the modal after submission
   useEffect(() => {
-    if (fetcher.data && fetcher.data.action === "fetch-store-credit-balance") {
+    if (fetcher.data && fetcher.data.action === "fetch-store-credit-balance" && fetchingBalance) {
       if (fetcher.data.success && processingCustomer) {
         // Update the customer's store credit with the fetched balance
         setProcessingCustomer({
@@ -1526,7 +1528,7 @@ export default function OrdersPage() {
         setIsCashbackModalOpen(true);
       }
     }
-  }, [fetcher.data, processingCustomer]);
+  }, [fetcher.data, processingCustomer, fetchingBalance]);
 
   // Handle response from processing all cashback
   useEffect(() => {
