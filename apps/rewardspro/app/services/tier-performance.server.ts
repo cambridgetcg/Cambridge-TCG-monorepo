@@ -190,16 +190,46 @@ async function fetchTierPerformanceMetrics(
     ltvResults.map(r => [r.tierId, r.avgLtv])
   );
 
-  // BATCH QUERY 3: Get order aggregates per tier using relation filter
-  // This uses aggregate queries instead of fetching all order records
+  // BATCH QUERY 2c: Get customer IDs per tier for order queries
+  // Data API adapter doesn't support Prisma relation filters (customer: { currentTierId: ... })
+  // So we need to fetch customer IDs first and use customerId: { in: [...] }
+  const customerIdsPerTier = await Promise.all(
+    tiers.map(async tier => {
+      const customers = await db.customer.findMany({
+        where: { shop, currentTierId: tier.id },
+        select: { id: true },
+        take: 10000, // Safety limit
+      });
+      return { tierId: tier.id, customerIds: customers.map(c => c.id) };
+    })
+  );
+  const customerIdsByTier = new Map<string, string[]>(
+    customerIdsPerTier.map(r => [r.tierId, r.customerIds])
+  );
+
+  // BATCH QUERY 3: Get order aggregates per tier using customerId filter
+  // Uses customerId: { in: [...] } instead of relation filter for Data API compatibility
   const orderAggregateResults = await Promise.all(
     tiers.map(async tier => {
+      const customerIds = customerIdsByTier.get(tier.id) || [];
+
+      // Skip if no customers in this tier
+      if (customerIds.length === 0) {
+        return {
+          tierId: tier.id,
+          revenue: 0,
+          cashback: 0,
+          orderCount: 0,
+          activeCustomerCount: 0,
+        };
+      }
+
       const [orderAggregate, activeCustomerCount] = await Promise.all([
         // Aggregate order metrics for this tier
         db.order.aggregate({
           where: {
             shop,
-            customer: { currentTierId: tier.id },
+            customerId: { in: customerIds },
             shopifyCreatedAt: {
               gte: currentMonthRange.start,
               lte: currentMonthRange.end,
@@ -215,7 +245,7 @@ async function fetchTierPerformanceMetrics(
         db.order.findMany({
           where: {
             shop,
-            customer: { currentTierId: tier.id },
+            customerId: { in: customerIds },
             shopifyCreatedAt: {
               gte: currentMonthRange.start,
               lte: currentMonthRange.end,
@@ -249,14 +279,21 @@ async function fetchTierPerformanceMetrics(
   );
 
   // BATCH QUERY 4: Calculate retention per tier
-  // Uses distinct order queries limited to specific tier via relation filter
+  // Uses customerId: { in: [...] } instead of relation filter for Data API compatibility
   const retentionResults = await Promise.all(
     tiers.map(async tier => {
+      const customerIds = customerIdsByTier.get(tier.id) || [];
+
+      // Skip if no customers in this tier
+      if (customerIds.length === 0) {
+        return { tierId: tier.id, retentionRate: 0 };
+      }
+
       // Get distinct customers who ordered last month for this tier
       const lastMonthCustomers = await db.order.findMany({
         where: {
           shop,
-          customer: { currentTierId: tier.id },
+          customerId: { in: customerIds },
           shopifyCreatedAt: {
             gte: previousMonthRange.start,
             lte: previousMonthRange.end,
