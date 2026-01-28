@@ -154,25 +154,51 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const campaignName = formData.get("campaignName") as string;
   const campaignGoal = formData.get("campaignGoal") as string;
+  const contentMode = formData.get("contentMode") as string;
   const templateId = formData.get("templateId") as string;
   const segmentId = formData.get("segmentId") as string;
   const scheduleType = formData.get("scheduleType") as string;
   const scheduledDate = formData.get("scheduledDate") as string;
   const scheduledTime = formData.get("scheduledTime") as string;
 
+  // Inline content fields
+  const inlineSubject = formData.get("inlineSubject") as string;
+  const inlinePreviewText = formData.get("inlinePreviewText") as string;
+  const inlineContent = formData.get("inlineContent") as string;
+
   if (!campaignName) {
     return json({ error: "Campaign name is required" }, { status: 400 });
   }
 
-  // Get template subject if selected (before atomic operation)
+  // Validate content based on mode
+  if (contentMode === "inline") {
+    if (!inlineSubject) {
+      return json({ error: "Subject line is required" }, { status: 400 });
+    }
+    if (!inlineContent) {
+      return json({ error: "Email content is required" }, { status: 400 });
+    }
+  }
+
+  // Determine subject and content based on mode
   let subject = campaignName;
-  if (templateId) {
+  let previewText = "";
+  let htmlContent: string | null = null;
+  let finalTemplateId: string | null = null;
+
+  if (contentMode === "inline") {
+    subject = inlineSubject;
+    previewText = inlinePreviewText || "";
+    htmlContent = inlineContent;
+  } else if (templateId) {
+    finalTemplateId = templateId;
     try {
       const template = await db.emailTemplate.findFirst({
         where: { id: templateId, shop },
       });
       if (template) {
         subject = template.subject || campaignName;
+        previewText = template.previewText || "";
       }
     } catch (e) {
       // Use campaign name as subject
@@ -206,8 +232,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           shop,
           name: campaignName,
           subject,
-          previewText: "",
-          templateId: templateId || null,
+          previewText,
+          htmlContent,
+          templateId: finalTemplateId,
           status,
           scheduledFor,
           sentAt: status === "sending" ? now : null,
@@ -260,13 +287,20 @@ export default function CreateCampaign() {
   // Form state
   const [campaignName, setCampaignName] = useState("");
   const [campaignGoal, setCampaignGoal] = useState("engagement");
+  const [contentMode, setContentMode] = useState<"template" | "inline">("template");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [scheduleType, setScheduleType] = useState("immediate");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("09:00");
 
-  const isValid = campaignName.trim().length > 0;
+  // Inline content state
+  const [inlineSubject, setInlineSubject] = useState("");
+  const [inlinePreviewText, setInlinePreviewText] = useState("");
+  const [inlineContent, setInlineContent] = useState("");
+
+  const isValid = campaignName.trim().length > 0 &&
+    (contentMode === "template" ? selectedTemplate !== "" : inlineSubject.trim().length > 0 && inlineContent.trim().length > 0);
 
   return (
     <Page
@@ -278,8 +312,15 @@ export default function CreateCampaign() {
         <Layout>
           {actionData?.error && (
             <Layout.Section>
-              <Banner tone="critical" title="Error">
-                <p>{actionData.error}</p>
+              <Banner
+                tone="critical"
+                title={(actionData as any).code === "LIMIT_EXCEEDED" ? "Campaign Limit Reached" : "Error"}
+                action={(actionData as any).code === "LIMIT_EXCEEDED" ? {
+                  content: "Upgrade Plan",
+                  url: "/app/billing",
+                } : undefined}
+              >
+                <p>{(actionData as any).message || actionData.error}</p>
               </Banner>
             </Layout.Section>
           )}
@@ -316,54 +357,137 @@ export default function CreateCampaign() {
             </Card>
           </Layout.Section>
 
-          {/* Email Template */}
+          {/* Email Content */}
           <Layout.Section>
             <Card>
               <BlockStack gap="400">
-                <InlineStack align="space-between" blockAlign="center">
-                  <Text as="h2" variant="headingMd">Email Template</Text>
-                  <Button
-                    size="slim"
-                    onClick={() => navigate("/app/marketing/templates/new")}
+                <Text as="h2" variant="headingMd">Email Content</Text>
+
+                {/* Content Mode Toggle */}
+                <InlineStack gap="300">
+                  <Box
+                    padding="300"
+                    background={contentMode === "template" ? "bg-surface-selected" : "bg-surface-secondary"}
+                    borderRadius="200"
+                    borderWidth="025"
+                    borderColor={contentMode === "template" ? "border-success" : "border"}
                   >
-                    Create New Template
-                  </Button>
+                    <InlineStack gap="200" blockAlign="center">
+                      <RadioButton
+                        label="Use Template"
+                        checked={contentMode === "template"}
+                        onChange={() => setContentMode("template")}
+                        name="contentMode"
+                      />
+                    </InlineStack>
+                  </Box>
+                  <Box
+                    padding="300"
+                    background={contentMode === "inline" ? "bg-surface-selected" : "bg-surface-secondary"}
+                    borderRadius="200"
+                    borderWidth="025"
+                    borderColor={contentMode === "inline" ? "border-success" : "border"}
+                  >
+                    <InlineStack gap="200" blockAlign="center">
+                      <RadioButton
+                        label="Write Content"
+                        checked={contentMode === "inline"}
+                        onChange={() => setContentMode("inline")}
+                        name="contentMode"
+                      />
+                    </InlineStack>
+                  </Box>
                 </InlineStack>
 
-                {data.templates.length === 0 ? (
-                  <Banner tone="info">
-                    <p>No email templates found. Create a template first to use in your campaign.</p>
-                  </Banner>
-                ) : (
-                  <BlockStack gap="300">
-                    {data.templates.map((template) => (
-                      <Box
-                        key={template.id}
-                        padding="400"
-                        background={selectedTemplate === template.id ? "bg-surface-selected" : "bg-surface-secondary"}
-                        borderRadius="200"
-                        borderWidth="025"
-                        borderColor={selectedTemplate === template.id ? "border-success" : "border"}
+                <input type="hidden" name="contentMode" value={contentMode} />
+
+                {/* Template Selection */}
+                {contentMode === "template" && (
+                  <>
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="p" variant="bodySm" tone="subdued">Select an existing template</Text>
+                      <Button
+                        size="slim"
+                        onClick={() => navigate("/app/marketing/templates/new")}
                       >
-                        <InlineStack gap="300" blockAlign="center">
-                          <RadioButton
-                            label=""
-                            checked={selectedTemplate === template.id}
-                            onChange={() => setSelectedTemplate(template.id)}
-                            name="templateRadio"
-                          />
-                          <BlockStack gap="100">
-                            <Text as="span" fontWeight="semibold">{template.name}</Text>
-                            <Text as="span" variant="bodySm" tone="subdued">
-                              Subject: {template.subject || "No subject set"}
-                            </Text>
-                          </BlockStack>
-                        </InlineStack>
-                      </Box>
-                    ))}
+                        Create New Template
+                      </Button>
+                    </InlineStack>
+
+                    {data.templates.length === 0 ? (
+                      <Banner tone="info">
+                        <p>No email templates found. Create a template or switch to "Write Content" mode.</p>
+                      </Banner>
+                    ) : (
+                      <BlockStack gap="300">
+                        {data.templates.map((template) => (
+                          <Box
+                            key={template.id}
+                            padding="400"
+                            background={selectedTemplate === template.id ? "bg-surface-selected" : "bg-surface-secondary"}
+                            borderRadius="200"
+                            borderWidth="025"
+                            borderColor={selectedTemplate === template.id ? "border-success" : "border"}
+                          >
+                            <InlineStack gap="300" blockAlign="center">
+                              <RadioButton
+                                label=""
+                                checked={selectedTemplate === template.id}
+                                onChange={() => setSelectedTemplate(template.id)}
+                                name="templateRadio"
+                              />
+                              <BlockStack gap="100">
+                                <Text as="span" fontWeight="semibold">{template.name}</Text>
+                                <Text as="span" variant="bodySm" tone="subdued">
+                                  Subject: {template.subject || "No subject set"}
+                                </Text>
+                              </BlockStack>
+                            </InlineStack>
+                          </Box>
+                        ))}
+                      </BlockStack>
+                    )}
+                    <input type="hidden" name="templateId" value={selectedTemplate} />
+                  </>
+                )}
+
+                {/* Inline Editor */}
+                {contentMode === "inline" && (
+                  <BlockStack gap="400">
+                    <TextField
+                      label="Subject Line"
+                      name="inlineSubject"
+                      value={inlineSubject}
+                      onChange={setInlineSubject}
+                      placeholder="e.g., Don't miss our Summer Sale!"
+                      autoComplete="off"
+                      requiredIndicator
+                    />
+                    <TextField
+                      label="Preview Text"
+                      name="inlinePreviewText"
+                      value={inlinePreviewText}
+                      onChange={setInlinePreviewText}
+                      placeholder="This appears next to the subject in inbox"
+                      autoComplete="off"
+                      helpText="Shown in email clients alongside the subject line"
+                    />
+                    <TextField
+                      label="Email Content (HTML)"
+                      name="inlineContent"
+                      value={inlineContent}
+                      onChange={setInlineContent}
+                      placeholder="<h1>Hello!</h1><p>Your email content here...</p>"
+                      autoComplete="off"
+                      multiline={8}
+                      requiredIndicator
+                      helpText="Enter HTML content for your email. Use basic HTML tags like <h1>, <p>, <a>, etc."
+                    />
+                    <Banner tone="info">
+                      <p>For rich email designs, consider creating a template in the Templates section first.</p>
+                    </Banner>
                   </BlockStack>
                 )}
-                <input type="hidden" name="templateId" value={selectedTemplate} />
               </BlockStack>
             </Card>
           </Layout.Section>
@@ -473,11 +597,22 @@ export default function CreateCampaign() {
                               name="scheduledTime"
                               options={[
                                 { label: "6:00 AM", value: "06:00" },
+                                { label: "7:00 AM", value: "07:00" },
+                                { label: "8:00 AM", value: "08:00" },
                                 { label: "9:00 AM", value: "09:00" },
+                                { label: "10:00 AM", value: "10:00" },
+                                { label: "11:00 AM", value: "11:00" },
                                 { label: "12:00 PM", value: "12:00" },
+                                { label: "1:00 PM", value: "13:00" },
+                                { label: "2:00 PM", value: "14:00" },
                                 { label: "3:00 PM", value: "15:00" },
+                                { label: "4:00 PM", value: "16:00" },
+                                { label: "5:00 PM", value: "17:00" },
                                 { label: "6:00 PM", value: "18:00" },
+                                { label: "7:00 PM", value: "19:00" },
+                                { label: "8:00 PM", value: "20:00" },
                                 { label: "9:00 PM", value: "21:00" },
+                                { label: "10:00 PM", value: "22:00" },
                               ]}
                               value={scheduledTime}
                               onChange={setScheduledTime}
@@ -505,9 +640,12 @@ export default function CreateCampaign() {
                       <Text as="span" fontWeight="semibold">{campaignName || "Not set"}</Text>
                     </InlineStack>
                     <InlineStack align="space-between">
-                      <Text as="span" tone="subdued">Template:</Text>
+                      <Text as="span" tone="subdued">Content:</Text>
                       <Text as="span" fontWeight="semibold">
-                        {data.templates.find(t => t.id === selectedTemplate)?.name || "None selected"}
+                        {contentMode === "template"
+                          ? (data.templates.find(t => t.id === selectedTemplate)?.name || "No template selected")
+                          : (inlineSubject || "Inline content")
+                        }
                       </Text>
                     </InlineStack>
                     <InlineStack align="space-between">

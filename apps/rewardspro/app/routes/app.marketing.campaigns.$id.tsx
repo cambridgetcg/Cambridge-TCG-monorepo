@@ -20,6 +20,7 @@ import {
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
+import { v4 as uuidv4 } from "uuid";
 
 interface CampaignMetrics {
   sent: number;
@@ -101,6 +102,45 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         where: { id, shop },
       });
       return redirect("/app/marketing/campaigns");
+    } catch (e: any) {
+      return json({ error: e.message }, { status: 500 });
+    }
+  }
+
+  if (intent === "duplicate") {
+    try {
+      // Fetch the original campaign
+      const original = await db.emailCampaign.findFirst({
+        where: { id, shop },
+      });
+
+      if (!original) {
+        return json({ error: "Campaign not found" }, { status: 404 });
+      }
+
+      // Create a copy with a new ID and reset status
+      const newId = uuidv4();
+      const now = new Date();
+
+      await db.emailCampaign.create({
+        data: {
+          id: newId,
+          shop,
+          name: `${original.name} (Copy)`,
+          subject: original.subject,
+          previewText: original.previewText,
+          templateId: original.templateId,
+          htmlContent: original.htmlContent,
+          status: "draft",
+          scheduledFor: null,
+          sentAt: null,
+          metrics: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+
+      return redirect(`/app/marketing/campaigns/${newId}`);
     } catch (e: any) {
       return json({ error: e.message }, { status: 500 });
     }
@@ -200,8 +240,18 @@ export default function CampaignDetail() {
             }
           : undefined
       }
-      secondaryActions={
-        isDraft
+      secondaryActions={[
+        {
+          content: "Duplicate",
+          onAction: () => {
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.innerHTML = '<input type="hidden" name="intent" value="duplicate" />';
+            document.body.appendChild(form);
+            form.submit();
+          },
+        },
+        ...(isDraft
           ? [
               {
                 content: "Delete",
@@ -217,8 +267,8 @@ export default function CampaignDetail() {
                 },
               },
             ]
-          : undefined
-      }
+          : []),
+      ]}
     >
       <Layout>
         {actionData?.error && (

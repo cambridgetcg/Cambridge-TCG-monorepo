@@ -35,7 +35,7 @@ import {
   AlertCircleIcon,
   CreditCardIcon,
 } from "~/utils/polaris-icons";
-import { authenticate, FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN } from "../shopify.server";
+import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import db from "../db.server";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { measureQuery, getDatabaseHealth, formatResponseTime } from "~/utils/database-health.server";
@@ -194,7 +194,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (!subscriptionName && authResult.billing) {
       try {
         const { hasActivePayment, appSubscriptions } = await authResult.billing.check({
-          plans: [FREE_PLAN, PRO_PLAN, MAX_PLAN, ULTRA_PLAN],
+          plans: [
+            // Current plans
+            FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN,
+            // Legacy plans
+            STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN,
+          ],
           isTest: process.env.NODE_ENV === 'development',
         });
 

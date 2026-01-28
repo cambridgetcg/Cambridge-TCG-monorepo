@@ -347,7 +347,7 @@ export async function sendCampaignEmails(
     return { sent: 0, failed: 0, errors: ["No valid recipients"] };
   }
 
-  // Send batch emails
+  // Send batch emails with custom args for webhook tracking
   const result = await sendgrid.sendBatchEmails(
     shop,
     validRecipients.map((r) => ({ email: r.email, name: r.name })),
@@ -355,6 +355,10 @@ export async function sendCampaignEmails(
       subject: campaign.subject || "Update from us",
       html: htmlContent,
       categories: ["campaign", campaignId],
+      customArgs: {
+        campaign_id: campaignId,
+        shop: shop,
+      },
     }
   );
 

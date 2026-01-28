@@ -499,14 +499,43 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Continue without order stats
     }
 
-    // Fetch billing data
-    const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+    // Fetch billing data - include ALL plans (current + legacy)
+    const {
+      FREE_PLAN,
+      PRO_PLAN,
+      PRO_ANNUAL_PLAN,
+      MAX_PLAN,
+      MAX_ANNUAL_PLAN,
+      ULTRA_PLAN,
+      ULTRA_ANNUAL_PLAN,
+      // Legacy plans for backward compatibility
+      MONTHLY_PLAN,
+      ANNUAL_PLAN,
+      STARTER_PLAN,
+      GROWTH_PLAN,
+      ENTERPRISE_PLAN,
+    } = await import("../shopify.server");
 
     let activeSubscription = null;
     if (billing) {
       try {
         const { hasActivePayment, appSubscriptions } = await billing.check({
-          plans: [FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN],
+          plans: [
+            // Current plans
+            FREE_PLAN,
+            PRO_PLAN,
+            PRO_ANNUAL_PLAN,
+            MAX_PLAN,
+            MAX_ANNUAL_PLAN,
+            ULTRA_PLAN,
+            ULTRA_ANNUAL_PLAN,
+            // Legacy plans
+            MONTHLY_PLAN,
+            ANNUAL_PLAN,
+            STARTER_PLAN,
+            GROWTH_PLAN,
+            ENTERPRISE_PLAN,
+          ],
           isTest: process.env.NODE_ENV === 'development',
         });
 
@@ -618,15 +647,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Determine plan based on active subscription using shared plan constants
-    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded; // 100
+    // Priority: activeSubscription > subscriptionInfo (GraphQL) > Free plan default
+    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded; // 50
     let planName = 'RewardsPro Free';
 
-    // Map subscription names to plan constants
+    // Try activeSubscription first (from billing.check)
     if (activeSubscription?.name) {
       const planConfig = MANAGED_PLANS[activeSubscription.name];
       if (planConfig) {
         planLimit = planConfig.ordersIncluded;
         planName = activeSubscription.name;
+      }
+    }
+    // Fallback to subscriptionInfo from GraphQL (more reliable source)
+    else if (subscriptionInfo?.name) {
+      const planConfig = MANAGED_PLANS[subscriptionInfo.name as string];
+      if (planConfig) {
+        planLimit = planConfig.ordersIncluded;
+        planName = subscriptionInfo.name;
+        console.log(`[Settings Page] Using subscriptionInfo for plan: ${planName}, limit: ${planLimit}`);
       }
     }
 

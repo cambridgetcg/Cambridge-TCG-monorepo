@@ -132,8 +132,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
-    // Redirect to marketing hub (campaigns list doesn't exist yet)
-    return redirect(`/app/marketing`);
+    // Redirect to the newly created campaign
+    return redirect(`/app/marketing/campaigns/${campaign.id}`);
   }
 
   if (action === "dismiss_recommendation") {
