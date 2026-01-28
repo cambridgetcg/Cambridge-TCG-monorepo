@@ -648,6 +648,7 @@ export default function BillingPage() {
 
   // Define plan UI configurations with both monthly and annual pricing
   // tierLevel: 0 = Free, 1 = Pro, 2 = Max, 3 = Ultra (used for upgrade/downgrade logic)
+  // Feature values sourced from plan-limits.ts
   const planCards = [
     {
       id: "free",
@@ -660,10 +661,10 @@ export default function BillingPage() {
       annualSavings: "",
       description: "Get started with the essentials and familiarise with the function",
       features: [
-        "100 orders/month",
+        "50 orders/month",
         "Up to 500 customers",
-        "Basic tier management",
-        "Store credit system",
+        "2 tiers, 1 tier product",
+        "50 emails/month",
         "Email support"
       ],
       recommended: false,
@@ -682,9 +683,9 @@ export default function BillingPage() {
       features: [
         "7-day free trial",
         "500 orders/month",
-        "Batch processing cashback",
-        "Priority support",
-        "Advanced analytics",
+        "Up to 5,000 customers",
+        "5 tiers, 3 tier products",
+        "500 emails/month",
         "$10 per 100 extra orders"
       ],
       recommended: false,
@@ -702,9 +703,9 @@ export default function BillingPage() {
       features: [
         "7-day free trial",
         "2,000 orders/month",
-        "Sell tier memberships",
-        "Advanced analytics",
-        "Phone support",
+        "Up to 25,000 customers",
+        "10 tiers, 10 tier products",
+        "2,000 emails/month",
         "$5 per 100 extra orders"
       ],
       recommended: true,
@@ -722,9 +723,9 @@ export default function BillingPage() {
       features: [
         "7-day free trial",
         "Unlimited orders",
-        "Full white label solution",
-        "A/B testing",
-        "Dedicated support",
+        "Unlimited customers",
+        "Unlimited tiers & products",
+        "Unlimited emails",
         "No overage charges"
       ],
       recommended: false,
@@ -1016,14 +1017,19 @@ export default function BillingPage() {
                       );
                     })}
 
-                    {/* Feature Rows */}
+                    {/* Feature Rows - Values from plan-limits.ts */}
                     {[
-                      { label: 'Monthly orders', values: ['100', '500', '2,000', '∞ Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Customer limit', values: ['500', '2,000', 'Unlimited', 'Unlimited'], icons: ['limit', 'limit', 'unlimited', 'unlimited'] },
+                      { label: 'Monthly orders', values: ['50', '500', '2,000', '∞ Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Customer sync limit', values: ['500', '5,000', '25,000', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Tiers', values: ['2', '5', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Tier products', values: ['1', '3', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Monthly emails', values: ['50', '500', '2,000', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Campaigns', values: ['1', '5', '25', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Automation flows', values: ['1', '3', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Active raffles', values: ['1', '3', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
+                      { label: 'Active challenges', values: ['1', '5', '15', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
                       { label: 'Store credit system', values: ['✓', '✓', '✓', '✓'], icons: ['check', 'check', 'check', 'check'] },
-                      { label: 'Batch cashback', values: ['—', '✓', '✓', '✓'], icons: ['x', 'check', 'check', 'check'] },
-                      { label: 'Sell tier memberships', values: ['—', '—', '✓', '✓'], icons: ['x', 'x', 'check', 'check'] },
-                      { label: 'Advanced analytics', values: ['—', '✓', '✓', '✓'], icons: ['x', 'check', 'check', 'check'] },
+                      { label: 'Advanced analytics', values: ['✓', '✓', '✓', '✓'], icons: ['check', 'check', 'check', 'check'] },
                       { label: 'Support', values: ['Email', 'Priority', 'Phone', 'Dedicated'], icons: ['text', 'text', 'text', 'text'] },
                       {
                         label: 'Free trial',
