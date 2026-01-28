@@ -2636,7 +2636,7 @@ export default function OrdersPage() {
           </Modal.Section>
         </Modal>
 
-        {/* Debug Processing Log Panel */}
+        {/* Processing Status Panel - Merchant Friendly */}
         {(processingLog.length > 0 || currentProcessingStep) && (
           <Modal
             open={true}
@@ -2644,20 +2644,26 @@ export default function OrdersPage() {
               setProcessingLog([]);
               setCurrentProcessingStep("");
             }}
-            title="Processing Debug Log"
+            title="Processing Status"
             size="large"
             sectioned
           >
             <Modal.Section>
               <BlockStack gap="400">
-                {/* Current Step */}
+                {/* Current Status - Green for success, red for failures */}
                 {currentProcessingStep && (
                   <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                     <InlineStack align="space-between">
                       <Text as="span" variant="bodyMd" fontWeight="semibold">
-                        Current Status:
+                        Status:
                       </Text>
-                      <Badge tone={currentProcessingStep.includes('failed') ? 'critical' : 'info'}>
+                      <Badge tone={
+                        currentProcessingStep.includes('failed') || currentProcessingStep.includes('Failed')
+                          ? 'critical'
+                          : currentProcessingStep.includes('Completed') || currentProcessingStep.includes('successful')
+                            ? 'success'
+                            : 'info'
+                      }>
                         {currentProcessingStep}
                       </Badge>
                     </InlineStack>
@@ -2679,7 +2685,7 @@ export default function OrdersPage() {
                   </Box>
                 )}
 
-                {/* Log Entries */}
+                {/* Activity Log - Merchant Friendly */}
                 <Box
                   padding="300"
                   background="bg-surface"
@@ -2688,24 +2694,60 @@ export default function OrdersPage() {
                   borderWidth="025"
                 >
                   <BlockStack gap="200">
-                    <Text as="h3" variant="headingSm">Debug Log:</Text>
+                    <Text as="h3" variant="headingSm">Activity Log</Text>
                     <Box maxHeight="400px" overflowY="auto">
                       <BlockStack gap="100">
                         {processingLog.map((log, index) => {
                           let tone: "base" | "success" | "critical" | "warning" | "subdued" = "subdued";
                           let icon = null;
 
+                          // Convert technical log to merchant-friendly message
+                          let friendlyMessage = log
+                            .replace(/\[SERVER\]\s*/g, '')
+                            .replace(/\[START\]\s*/g, '▶ ')
+                            .replace(/\[COMPLETE\]\s*/g, '✓ ')
+                            .replace(/\[SUCCESS\]\s*/g, '✓ ')
+                            .replace(/\[ERROR\]\s*/g, '✗ ')
+                            .replace(/\[FAIL\]\s*/g, '✗ ')
+                            .replace(/\[SKIP\]\s*/g, '⊘ Skipped: ')
+                            .replace(/\[WARNING\]\s*/g, '⚠ ')
+                            .replace(/\[ORDER \d+\/\d+\]\s*/g, '• ')
+                            .replace(/\[GRAPHQL\]\s*/g, '')
+                            .replace(/\[API\]\s*/g, '')
+                            .replace(/\[PARSE\]\s*/g, '')
+                            .replace(/\[DATA\]\s*/g, '')
+                            .replace(/\[IDS\]\s*/g, '')
+                            .replace(/\[CHECK\]\s*/g, '')
+                            .replace(/\[FETCH\]\s*/g, '')
+                            .replace(/\[DEBUG\]\s*/g, '')
+                            .replace(/\[CASHBACK\]\s*/g, 'Cashback: ')
+                            .replace(/\[CUSTOMER\]\s*/g, '')
+                            .replace(/\[CUSTOMER_ID\]\s*/g, '');
+
+                          // Skip overly technical messages
+                          if (friendlyMessage.includes('GID:') ||
+                              friendlyMessage.includes('mutation') ||
+                              friendlyMessage.includes('Response received') ||
+                              friendlyMessage.includes('Has data:') ||
+                              friendlyMessage.includes('Has errors:') ||
+                              friendlyMessage.includes('User errors:') ||
+                              friendlyMessage.includes('fetch result') ||
+                              friendlyMessage.includes('customerId:') ||
+                              friendlyMessage.includes('chars')) {
+                            return null; // Skip technical messages
+                          }
+
                           if (log.includes('[ERROR]') || log.includes('[FAIL]')) {
                             tone = "critical";
-                            icon = <Icon source={AlertTriangleIcon} />;
-                          } else if (log.includes('[SUCCESS]') || log.includes('[✓]')) {
+                            icon = <Icon source={AlertTriangleIcon} tone="critical" />;
+                          } else if (log.includes('[SUCCESS]') || log.includes('[✓]') || log.includes('[COMPLETE]')) {
                             tone = "success";
-                            icon = <Icon source={CheckCircleIcon} />;
+                            icon = <Icon source={CheckCircleIcon} tone="success" />;
                           } else if (log.includes('[SKIP]') || log.includes('[WARNING]')) {
                             tone = "warning";
-                            icon = <Icon source={InfoIcon} />;
-                          } else if (log.includes('[START]') || log.includes('[SERVER]')) {
-                            icon = <Icon source={RefreshIcon} />;
+                            icon = <Icon source={InfoIcon} tone="caution" />;
+                          } else if (log.includes('[START]')) {
+                            icon = <Icon source={RefreshIcon} tone="info" />;
                           }
 
                           return (
@@ -2718,12 +2760,12 @@ export default function OrdersPage() {
                                   tone={tone}
                                   breakWord
                                 >
-                                  {log}
+                                  {friendlyMessage}
                                 </Text>
                               </InlineStack>
                             </Box>
                           );
-                        })}
+                        }).filter(Boolean)}
                       </BlockStack>
                     </Box>
                   </BlockStack>
@@ -2736,11 +2778,11 @@ export default function OrdersPage() {
                       // Copy log to clipboard
                       const logText = processingLog.join('\n');
                       navigator.clipboard.writeText(logText).then(() => {
-                        showSuccess("Debug log copied to clipboard");
+                        showSuccess("Activity log copied to clipboard");
                       });
                     }}
                   >
-                    Copy Log
+                    Copy Activity Log
                   </Button>
                   <Button
                     variant="primary"
