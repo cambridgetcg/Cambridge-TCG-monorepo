@@ -1,0 +1,595 @@
+/**
+ * Rewards Hub Section Styles
+ * Comprehensive styling for the rewards landing page section
+ */
+
+/* ============================================
+   CSS CUSTOM PROPERTIES
+   ============================================ */
+
+.rp-rewards-hub {
+  --rp-hub-bg: #ffffff;
+  --rp-hub-text: #212B36;
+  --rp-hub-accent: #5C6AC4;
+  --rp-hub-card-bg: #f9fafb;
+  --rp-hub-border: rgba(0, 0, 0, 0.1);
+  --rp-hub-text-secondary: rgba(0, 0, 0, 0.6);
+  --rp-hub-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+  background: var(--rp-hub-bg);
+  color: var(--rp-hub-text);
+  padding: 48px 24px;
+  font-family: inherit;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.rp-rewards-hub__header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.rp-rewards-hub__title {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: var(--rp-hub-text);
+}
+
+.rp-rewards-hub__subtitle {
+  font-size: 16px;
+  color: var(--rp-hub-text-secondary);
+  margin: 0;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+.rp-rewards-hub__loading,
+.rp-rewards-hub__summary-loading,
+.rp-rewards-hub__section-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  color: var(--rp-hub-text-secondary);
+}
+
+.rp-rewards-hub__loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--rp-hub-border);
+  border-top-color: var(--rp-hub-accent);
+  border-radius: 50%;
+  animation: rp-hub-spin 0.8s linear infinite;
+}
+
+@keyframes rp-hub-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   ERROR STATE
+   ============================================ */
+
+.rp-rewards-hub__error {
+  text-align: center;
+  padding: 48px;
+}
+
+.rp-rewards-hub__error-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.rp-rewards-hub__error-text {
+  font-size: 16px;
+  color: var(--rp-hub-text-secondary);
+  margin-bottom: 24px;
+  display: block;
+}
+
+.rp-rewards-hub__retry-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--rp-hub-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.rp-rewards-hub__retry-btn:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   SUMMARY SECTION
+   ============================================ */
+
+.rp-rewards-hub__summary {
+  margin-bottom: 48px;
+}
+
+.rp-rewards-hub__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.rp-rewards-hub__stat-card {
+  background: var(--rp-hub-card-bg);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: var(--rp-hub-shadow);
+}
+
+.rp-rewards-hub__stat-card--progress {
+  grid-column: span 2;
+}
+
+.rp-rewards-hub__stat-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.rp-rewards-hub__stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--rp-hub-accent);
+  margin-bottom: 4px;
+}
+
+.rp-rewards-hub__stat-label {
+  font-size: 14px;
+  color: var(--rp-hub-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rp-rewards-hub__stat-bonus {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #2e7d32;
+  background: rgba(76, 175, 80, 0.1);
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.rp-rewards-hub__stat-sublabel {
+  font-size: 12px;
+  color: var(--rp-hub-text-secondary);
+  margin-top: 8px;
+}
+
+/* ============================================
+   PROGRESS BAR
+   ============================================ */
+
+.rp-rewards-hub__progress-bar {
+  height: 8px;
+  background: var(--rp-hub-border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.rp-rewards-hub__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rp-hub-accent), #4CAF50);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.rp-rewards-hub__progress-text {
+  font-size: 12px;
+  color: var(--rp-hub-text-secondary);
+}
+
+/* ============================================
+   ACTIVITY SECTIONS
+   ============================================ */
+
+.rp-rewards-hub__activities {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.rp-rewards-hub__section {
+  margin-bottom: 48px;
+}
+
+.rp-rewards-hub__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rp-hub-border);
+}
+
+.rp-rewards-hub__section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.rp-rewards-hub__section-icon {
+  font-size: 24px;
+}
+
+.rp-rewards-hub__view-all {
+  font-size: 14px;
+  color: var(--rp-hub-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.rp-rewards-hub__view-all:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+   CARD GRID
+   ============================================ */
+
+.rp-rewards-hub__card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.rp-rewards-hub__card {
+  background: var(--rp-hub-card-bg);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--rp-hub-shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.rp-rewards-hub__card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.rp-rewards-hub__card-image {
+  height: 160px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--rp-hub-border);
+}
+
+.rp-rewards-hub__card-icon {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  background: linear-gradient(135deg, var(--rp-hub-accent), #7c4dff);
+}
+
+.rp-rewards-hub__card-body {
+  padding: 20px;
+}
+
+.rp-rewards-hub__card-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--rp-hub-text);
+}
+
+.rp-rewards-hub__card-desc {
+  font-size: 14px;
+  color: var(--rp-hub-text-secondary);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.rp-rewards-hub__card-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--rp-hub-text-secondary);
+  margin-bottom: 12px;
+}
+
+.rp-rewards-hub__card-entries,
+.rp-rewards-hub__card-countdown {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rp-rewards-hub__card-cost {
+  font-size: 13px;
+  color: var(--rp-hub-accent);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.rp-rewards-hub__card-reward {
+  font-size: 13px;
+  color: #2e7d32;
+  background: rgba(76, 175, 80, 0.1);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.rp-rewards-hub__card-progress {
+  margin-bottom: 16px;
+}
+
+.rp-rewards-hub__card-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: var(--rp-hub-accent);
+  color: #ffffff;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.rp-rewards-hub__card-btn:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   RARITY BADGES
+   ============================================ */
+
+.rp-rewards-hub__rarities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.rp-rewards-hub__rarity {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.rp-rewards-hub__rarity--common {
+  background: rgba(158, 158, 158, 0.1);
+  color: #616161;
+}
+
+.rp-rewards-hub__rarity--uncommon {
+  background: rgba(76, 175, 80, 0.1);
+  color: #2e7d32;
+}
+
+.rp-rewards-hub__rarity--rare {
+  background: rgba(33, 150, 243, 0.1);
+  color: #1565c0;
+}
+
+.rp-rewards-hub__rarity--epic {
+  background: rgba(156, 39, 176, 0.1);
+  color: #7b1fa2;
+}
+
+.rp-rewards-hub__rarity--legendary {
+  background: rgba(255, 152, 0, 0.1);
+  color: #ef6c00;
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.rp-rewards-hub__section-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--rp-hub-card-bg);
+  border-radius: 16px;
+}
+
+.rp-rewards-hub__empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.rp-rewards-hub__empty-text {
+  font-size: 14px;
+  color: var(--rp-hub-text-secondary);
+}
+
+/* ============================================
+   GUEST VIEW
+   ============================================ */
+
+.rp-rewards-hub__guest {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.rp-rewards-hub__guest-content {
+  background: var(--rp-hub-card-bg);
+  border-radius: 24px;
+  padding: 48px 32px;
+  box-shadow: var(--rp-hub-shadow);
+}
+
+.rp-rewards-hub__guest-icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 24px;
+}
+
+.rp-rewards-hub__guest-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+}
+
+.rp-rewards-hub__guest-description {
+  font-size: 16px;
+  color: var(--rp-hub-text-secondary);
+  margin: 0 0 32px 0;
+  line-height: 1.6;
+}
+
+.rp-rewards-hub__guest-benefits {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.rp-rewards-hub__benefit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.rp-rewards-hub__benefit-icon {
+  font-size: 20px;
+}
+
+.rp-rewards-hub__guest-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.rp-rewards-hub__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.rp-rewards-hub__btn--primary {
+  background: var(--rp-hub-accent);
+  color: #ffffff;
+}
+
+.rp-rewards-hub__btn--primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.rp-rewards-hub__btn--secondary {
+  background: transparent;
+  color: var(--rp-hub-accent);
+  border: 2px solid var(--rp-hub-accent);
+}
+
+.rp-rewards-hub__btn--secondary:hover {
+  background: var(--rp-hub-accent);
+  color: #ffffff;
+}
+
+/* ============================================
+   NOSCRIPT
+   ============================================ */
+
+.rp-rewards-hub__noscript {
+  text-align: center;
+  padding: 48px;
+  color: var(--rp-hub-text-secondary);
+}
+
+.rp-rewards-hub__noscript a {
+  color: var(--rp-hub-accent);
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .rp-rewards-hub {
+    --rp-hub-bg: #1a1a1a;
+    --rp-hub-text: #ffffff;
+    --rp-hub-card-bg: #2d2d2d;
+    --rp-hub-border: rgba(255, 255, 255, 0.1);
+    --rp-hub-text-secondary: rgba(255, 255, 255, 0.7);
+    --rp-hub-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .rp-rewards-hub {
+    padding: 32px 16px;
+  }
+
+  .rp-rewards-hub__title {
+    font-size: 24px;
+  }
+
+  .rp-rewards-hub__summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rp-rewards-hub__stat-card--progress {
+    grid-column: span 2;
+  }
+
+  .rp-rewards-hub__card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rp-rewards-hub__guest-benefits {
+    grid-template-columns: 1fr;
+  }
+
+  .rp-rewards-hub__guest-actions {
+    flex-direction: column;
+  }
+
+  .rp-rewards-hub__btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .rp-rewards-hub__summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rp-rewards-hub__stat-card--progress {
+    grid-column: span 1;
+  }
+}

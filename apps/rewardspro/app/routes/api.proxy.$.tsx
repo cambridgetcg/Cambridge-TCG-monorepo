@@ -15,6 +15,7 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { getAuroraClient } from "../utils/aurora-data-api";
+import db from "../db.server";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
 // SECURITY: Use Redis-backed rate limiter for effective distributed rate limiting
 import { appProxyRateLimit } from "../utils/rate-limiter-redis";
@@ -255,6 +256,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           ss."widgetBackgroundColor",
           ss."widgetTextColor",
           ss."widgetAccentColor",
+          ss."widgetSecondaryTextColor",
           ss."widgetBorderRadius",
           ss."widgetFontFamily",
           ss."updatedAt" as "settingsUpdatedAt",
@@ -508,6 +510,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           backgroundColor: row.widgetBackgroundColor || '#FFFFFF',
           textColor: row.widgetTextColor || '#212B36',
           accentColor: row.widgetAccentColor || '#008060',
+          secondaryTextColor: row.widgetSecondaryTextColor || null, // null = auto-derive from mode
           borderRadius: row.widgetBorderRadius || 12,
           fontFamily: row.widgetFontFamily || 'inherit',
           // Settings version for cache invalidation - changes when merchant updates settings
@@ -543,6 +546,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           widgetBackgroundColor: row.widgetBackgroundColor,
           widgetTextColor: row.widgetTextColor,
           widgetAccentColor: row.widgetAccentColor,
+          widgetSecondaryTextColor: row.widgetSecondaryTextColor,
           widgetBorderRadius: row.widgetBorderRadius,
           widgetFontFamily: row.widgetFontFamily,
           settingsUpdatedAt: row.settingsUpdatedAt
@@ -579,13 +583,332 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // RAFFLES endpoint - List active raffles for storefront teasers
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "raffles") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({
+        success: false,
+        error: "Authentication required"
+      }, { status: 401, headers });
+    }
+
+    const customerId = url.searchParams.get("logged_in_customer_id");
+
+    try {
+      // Get active and public raffles
+      const raffles = await db.raffle.findMany({
+        where: {
+          shop,
+          status: "ACTIVE",
+          isPublic: true,
+          endsAt: { gt: new Date() },
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          startsAt: true,
+          endsAt: true,
+          entryCost: true,
+          maxEntriesPerCustomer: true,
+          _count: {
+            select: { entries: true },
+          },
+        },
+        orderBy: { endsAt: "asc" },
+        take: 10,
+      });
+
+      // Get customer entry counts if authenticated
+      let customerEntries: Record<string, number> = {};
+      if (customerId) {
+        const customer = await db.customer.findFirst({
+          where: { shop, shopifyCustomerId: customerId },
+          select: { id: true },
+        });
+
+        if (customer) {
+          const entries = await db.raffleEntry.groupBy({
+            by: ["raffleId"],
+            where: {
+              customerId: customer.id,
+              raffleId: { in: raffles.map(r => r.id) },
+            },
+            _sum: { quantity: true },
+          });
+          customerEntries = Object.fromEntries(
+            entries.map(e => [e.raffleId, e._sum.quantity || 0])
+          );
+        }
+      }
+
+      const formattedRaffles = raffles.map(raffle => ({
+        id: raffle.id,
+        name: raffle.name,
+        description: raffle.description,
+        imageUrl: raffle.imageUrl,
+        endDate: raffle.endsAt?.toISOString(),
+        entryCost: raffle.entryCost || 0,
+        totalEntries: raffle._count.entries,
+        status: "ACTIVE",
+        customerEntries: customerEntries[raffle.id] || 0,
+        maxEntriesPerCustomer: raffle.maxEntriesPerCustomer,
+      }));
+
+      return json({
+        success: true,
+        raffles: formattedRaffles,
+        isAuthenticated: !!customerId,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Raffles endpoint error:", error.message);
+      return json({
+        success: false,
+        error: "Failed to load raffles",
+        raffles: [],
+      }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MYSTERY-BOXES endpoint - List active mystery boxes for storefront teasers
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "mystery-boxes") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({
+        success: false,
+        error: "Authentication required"
+      }, { status: 401, headers });
+    }
+
+    try {
+      // Get active and public mystery boxes
+      const boxes = await db.mysteryBox.findMany({
+        where: {
+          shop,
+          status: "ACTIVE",
+          isPublic: true,
+          endsAt: { gt: new Date() },
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          startsAt: true,
+          endsAt: true,
+          openCost: true,
+          maxOpensPerCustomer: true,
+          rewards: {
+            select: {
+              rarity: true,
+              probability: true,
+            },
+            orderBy: { probability: "desc" },
+          },
+          _count: {
+            select: { opens: true },
+          },
+        },
+        orderBy: { endsAt: "asc" },
+        take: 10,
+      });
+
+      // Build rarity preview from rewards
+      const formattedBoxes = boxes.map(box => {
+        // Group rewards by rarity and sum probabilities
+        const rarityMap: Record<string, number> = {};
+        box.rewards.forEach(reward => {
+          const rarity = reward.rarity || "COMMON";
+          rarityMap[rarity] = (rarityMap[rarity] || 0) + Number(reward.probability || 0);
+        });
+
+        const rarityPreview = Object.entries(rarityMap)
+          .map(([rarity, chance]) => ({
+            rarity,
+            chance: Math.round(chance * 100) / 100, // Round to 2 decimal places
+          }))
+          .sort((a, b) => {
+            const order = ["LEGENDARY", "EPIC", "RARE", "UNCOMMON", "COMMON"];
+            return order.indexOf(a.rarity) - order.indexOf(b.rarity);
+          });
+
+        return {
+          id: box.id,
+          name: box.name,
+          description: box.description,
+          imageUrl: box.imageUrl,
+          pointsCost: box.openCost || 0,
+          maxOpensPerCustomer: box.maxOpensPerCustomer,
+          totalOpens: box._count.opens,
+          isActive: true,
+          rarityPreview,
+        };
+      });
+
+      return json({
+        success: true,
+        boxes: formattedBoxes,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Mystery boxes endpoint error:", error.message);
+      return json({
+        success: false,
+        error: "Failed to load mystery boxes",
+        boxes: [],
+      }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHALLENGES endpoint - List active challenges for storefront teasers
+  // Note: Challenges feature is in development, returns placeholder data
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "challenges") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({
+        success: false,
+        error: "Authentication required"
+      }, { status: 401, headers });
+    }
+
+    const customerId = url.searchParams.get("logged_in_customer_id");
+
+    try {
+      // Check if challenges are enabled via PointsConfig
+      const pointsConfig = await db.pointsConfig.findUnique({
+        where: { shop },
+        select: {
+          challengesEnabled: true,
+        },
+      });
+
+      if (!pointsConfig?.challengesEnabled) {
+        return json({
+          success: true,
+          enabled: false,
+          challenges: [],
+          message: "Challenges are not enabled for this store",
+        }, { headers });
+      }
+
+      // Challenges model doesn't exist yet - return empty for now
+      // When Challenge model is added, query will go here
+      return json({
+        success: true,
+        enabled: true,
+        challenges: [],
+        isAuthenticated: !!customerId,
+        message: "Challenges coming soon",
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Challenges endpoint error:", error.message);
+      return json({
+        success: false,
+        error: "Failed to load challenges",
+        challenges: [],
+      }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CUSTOMER-SUMMARY endpoint - Compact data for rewards hub CTA
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "customer-summary") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({
+        success: false,
+        error: "Authentication required"
+      }, { status: 401, headers });
+    }
+
+    const customerId = url.searchParams.get("logged_in_customer_id");
+
+    try {
+      // Count active activities for highlights
+      const [activeRaffles, activeMysteryBoxes] = await Promise.all([
+        db.raffle.count({
+          where: {
+            shop,
+            status: "ACTIVE",
+            isPublic: true,
+            endsAt: { gt: new Date() },
+          },
+        }),
+        db.mysteryBox.count({
+          where: {
+            shop,
+            status: "ACTIVE",
+            isPublic: true,
+            endsAt: { gt: new Date() },
+          },
+        }),
+      ]);
+
+      // Get customer data if authenticated
+      let customerData = null;
+      if (customerId) {
+        const customer = await db.customer.findFirst({
+          where: { shop, shopifyCustomerId: customerId },
+          select: {
+            pointsBalance: true,
+            storeCredit: true,
+            currentTier: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        });
+
+        if (customer) {
+          customerData = {
+            pointsBalance: Number(customer.pointsBalance || 0),
+            storeCredit: Number(customer.storeCredit || 0),
+            tierName: customer.currentTier?.name || "Member",
+          };
+        }
+      }
+
+      return json({
+        success: true,
+        customer: customerData,
+        activeRaffles,
+        activeChallenges: 0, // Challenges not yet implemented
+        mysteryBoxesAvailable: activeMysteryBoxes,
+        isAuthenticated: !!customerId,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Customer summary endpoint error:", error.message);
+      return json({
+        success: false,
+        error: "Failed to load summary",
+      }, { status: 500, headers });
+    }
+  }
+
   // 404 for unknown paths
   log.debug('Unknown path requested:', proxyPath);
   return json({
     success: false,
     error: "not_found",
     message: `Endpoint '${proxyPath}' not found`,
-    availablePaths: ["test", "membership"]
+    availablePaths: ["test", "membership", "raffles", "mystery-boxes", "challenges", "customer-summary"]
   }, { status: 404, headers });
 }
 

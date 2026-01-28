@@ -14,13 +14,17 @@ import {
   Button,
   SkeletonText,
   Icon,
+  Pressable,
 } from '@shopify/ui-extensions-react/customer-account';
 import { useSessionToken } from './hooks/useSessionToken';
 import { useApiClient } from './hooks/useApiClient';
 import { useAuthenticatedCustomer } from './hooks/useAuthenticatedCustomer';
+import { useRaffles } from './hooks/useRaffles';
+import { useMysteryBoxes } from './hooks/useMysteryBoxes';
+import { useChallenges } from './hooks/useChallenges';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
-import { PointsSection, type PointsData, type RedemptionResult } from './components';
+import { PointsSection, type PointsData, type RedemptionResult, RafflesTab, MysteryBoxesTab, ChallengesTab } from './components';
 import {
   safeBalance,
   safeCustomer,
@@ -1492,6 +1496,64 @@ function AllTiersCard({ tiers, currency, locale, currentSpending, translate }: A
 }
 
 // ============================================================================
+// Tab Navigation Component
+// ============================================================================
+
+type TabId = 'membership' | 'raffles' | 'boxes' | 'challenges';
+
+interface TabInfo {
+  id: TabId;
+  icon: string;
+  labelKey: string;
+  badge?: number;
+}
+
+interface TabNavigationProps {
+  tabs: TabInfo[];
+  activeTab: TabId;
+  onTabChange: (tabId: TabId) => void;
+  translate: (key: string, options?: Record<string, string>) => string;
+}
+
+function TabNavigation({ tabs, activeTab, onTabChange, translate }: TabNavigationProps) {
+  return (
+    <View border="base" cornerRadius="base" padding="tight" background="subdued">
+      <InlineStack spacing="tight" blockAlignment="center">
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTab;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => onTabChange(tab.id)}
+            >
+              <View
+                padding="tight"
+                cornerRadius="base"
+                background={isActive ? 'base' : undefined}
+                border={isActive ? 'base' : undefined}
+              >
+                <InlineStack spacing="extraTight" blockAlignment="center">
+                  <Text size="small">{tab.icon}</Text>
+                  <Text
+                    size="small"
+                    emphasis={isActive ? 'bold' : undefined}
+                  >
+                    {translate(tab.labelKey)}
+                  </Text>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <Badge tone="info">{tab.badge}</Badge>
+                  )}
+                </InlineStack>
+              </View>
+            </Pressable>
+          );
+        })}
+      </InlineStack>
+    </View>
+  );
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -1527,6 +1589,42 @@ function MembershipBlock() {
   const [error, setError] = useState<string | null>(null);
   const [showAllTiers, setShowAllTiers] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('membership');
+
+  // Rewards Activity Hooks
+  const {
+    raffles,
+    isEnabled: rafflesEnabled,
+    isLoading: rafflesLoading,
+    error: rafflesError,
+    pointsBalance: rafflesPointsBalance,
+    config: rafflesConfig,
+    fetchRaffles,
+    purchaseEntries,
+  } = useRaffles({ shopDomain });
+
+  const {
+    boxes,
+    isEnabled: boxesEnabled,
+    isLoading: boxesLoading,
+    error: boxesError,
+    pointsBalance: boxesPointsBalance,
+    config: boxesConfig,
+    fetchBoxes,
+    openBox,
+  } = useMysteryBoxes({ shopDomain });
+
+  const {
+    challenges,
+    isEnabled: challengesEnabled,
+    isLoading: challengesLoading,
+    error: challengesError,
+    pointsBalance: challengesPointsBalance,
+    config: challengesConfig,
+    message: challengesMessage,
+    fetchChallenges,
+    claimReward,
+  } = useChallenges({ shopDomain });
 
   const customerId = authCustomerId || tokenCustomerId;
   const isAuthenticated = authIsAuthenticated || tokenIsAuthenticated;
@@ -1593,6 +1691,16 @@ function MembershipBlock() {
   useEffect(() => {
     fetchLoyaltyData();
   }, [fetchLoyaltyData]);
+
+  // Fetch activity data when authenticated
+  useEffect(() => {
+    if (isAuthenticated && sessionToken && !isInEditor) {
+      // Fetch all activity data in parallel
+      fetchRaffles(sessionToken);
+      fetchBoxes(sessionToken);
+      fetchChallenges(sessionToken);
+    }
+  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchBoxes, fetchChallenges]);
 
   const handleRefresh = useCallback(() => {
     if (!isRefreshing) {
@@ -1735,6 +1843,36 @@ function MembershipBlock() {
   const isZeroCashbackTier = loyaltyData.tier?.cashbackPercent === 0 && !progress.isMaxTier;
   const hasHigherTiers = loyaltyData.allTiers?.some(t => t.cashbackPercent > 0) ?? false;
 
+  // Tab configuration - only show tabs for enabled features with data
+  const hasActivities = rafflesEnabled || boxesEnabled || challengesEnabled;
+  const tabs: TabInfo[] = [
+    { id: 'membership', icon: '⭐', labelKey: 'tabs.membership' },
+    ...(rafflesEnabled ? [{ id: 'raffles' as TabId, icon: '🎟️', labelKey: 'tabs.raffles', badge: raffles.filter(r => r.status === 'ACTIVE').length }] : []),
+    ...(boxesEnabled ? [{ id: 'boxes' as TabId, icon: '🎁', labelKey: 'tabs.boxes', badge: boxes.filter(b => b.status === 'ACTIVE').length }] : []),
+    ...(challengesEnabled ? [{ id: 'challenges' as TabId, icon: '🏆', labelKey: 'tabs.challenges', badge: challenges.filter(c => c.status === 'ACTIVE' || c.status === 'COMPLETED').length }] : []),
+  ];
+
+  // Handler for tab change
+  const handleTabChange = useCallback((tabId: TabId) => {
+    setActiveTab(tabId);
+  }, []);
+
+  // Handler callbacks for activities
+  const handlePurchaseEntries = useCallback(async (raffleId: string, quantity: number) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return purchaseEntries(sessionToken, raffleId, quantity);
+  }, [sessionToken, purchaseEntries]);
+
+  const handleOpenBox = useCallback(async (boxId: string) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return openBox(sessionToken, boxId);
+  }, [sessionToken, openBox]);
+
+  const handleClaimReward = useCallback(async (challengeId: string) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return claimReward(sessionToken, challengeId);
+  }, [sessionToken, claimReward]);
+
   return (
     <BlockStack spacing="base">
       {/* Welcome Header */}
@@ -1746,140 +1884,196 @@ function MembershipBlock() {
         isRefreshing={isRefreshing}
       />
 
-      {/* Preview Banner */}
-      {loyaltyData.isPreview && (
-        <Banner tone="info">
-          {loyaltyData.message || translate('membership.preview.mode')}
-        </Banner>
-      )}
-
-      {/* Stale Data Warning - when data is older than 15 minutes */}
-      <StaleDataBanner
-        lastUpdated={loyaltyData.lastUpdated}
-        translate={translate}
-      />
-
-      {/* Tier Change Banner - Show upgrade/downgrade celebrations */}
-      {tierChange && !isNewCustomer && (
-        <TierChangeBanner
-          tierChange={tierChange}
+      {/* Tab Navigation - only show if there are activities */}
+      {hasActivities && tabs.length > 1 && (
+        <TabNavigation
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
           translate={translate}
         />
       )}
 
-      {/* New Customer Welcome Card */}
-      {isNewCustomer ? (
-        <WelcomeCard
-          customer={customer}
-          tier={loyaltyData.tier}
-          currency={loyaltyData.currency}
+      {/* Tab Content */}
+      {activeTab === 'raffles' && rafflesEnabled && (
+        <RafflesTab
+          raffles={raffles}
+          isLoading={rafflesLoading}
+          error={rafflesError}
+          pointsBalance={rafflesPointsBalance}
+          config={rafflesConfig}
+          onPurchaseEntries={handlePurchaseEntries}
+          translate={translate}
           locale={locale}
-          translate={translate}
         />
-      ) : (
-        /* Membership Status Card - for existing customers */
-        loyaltyData.tier && (
-          <MembershipCard
-            tier={loyaltyData.tier}
-            benefits={benefits}
-            locale={locale}
+      )}
+
+      {activeTab === 'boxes' && boxesEnabled && (
+        <MysteryBoxesTab
+          boxes={boxes}
+          isLoading={boxesLoading}
+          error={boxesError}
+          pointsBalance={boxesPointsBalance}
+          config={boxesConfig}
+          onOpenBox={handleOpenBox}
+          translate={translate}
+          locale={locale}
+        />
+      )}
+
+      {activeTab === 'challenges' && challengesEnabled && (
+        <ChallengesTab
+          challenges={challenges}
+          isLoading={challengesLoading}
+          error={challengesError}
+          pointsBalance={challengesPointsBalance}
+          config={challengesConfig}
+          message={challengesMessage}
+          onClaimReward={handleClaimReward}
+          translate={translate}
+          locale={locale}
+        />
+      )}
+
+      {/* Membership Tab Content */}
+      {activeTab === 'membership' && (
+        <>
+          {/* Preview Banner */}
+          {loyaltyData.isPreview && (
+            <Banner tone="info">
+              {loyaltyData.message || translate('membership.preview.mode')}
+            </Banner>
+          )}
+
+          {/* Stale Data Warning - when data is older than 15 minutes */}
+          <StaleDataBanner
+            lastUpdated={loyaltyData.lastUpdated}
             translate={translate}
           />
-        )
-      )}
 
-      {/* Store Credit Balance - with pending cashback */}
-      <BalanceCardWithPending
-        balance={balance}
-        currency={loyaltyData.currency}
-        locale={locale}
-        translate={translate}
-        pendingCashback={loyaltyData.pendingCashback}
-      />
-
-      {/* Points Section - Reward Points engagement system */}
-      {loyaltyData.points?.enabled && (
-        <PointsSection
-          points={loyaltyData.points}
-          shopCurrency={loyaltyData.currency}
-          locale={locale}
-          translate={translate}
-          onRedeem={handleRedeemPoints}
-        />
-      )}
-
-      {/* Tier Progress - Different displays based on tier status and source */}
-      {progress.isMaxTier && loyaltyData.tier ? (
-        /* Max tier - show value reinforcement */
-        <MaxTierCard
-          tier={loyaltyData.tier}
-          stats={loyaltyData.stats}
-          maintenance={loyaltyData.maintenance}
-          currency={loyaltyData.currency}
-          locale={locale}
-          translate={translate}
-        />
-      ) : isZeroCashbackTier && hasHigherTiers && loyaltyData.tier ? (
-        /* Zero cashback starter tier - show encouraging progress card */
-        <StarterTierCard
-          tier={loyaltyData.tier}
-          progress={progress}
-          currency={loyaltyData.currency}
-          locale={locale}
-          translate={translate}
-        />
-      ) : loyaltyData.tier && loyaltyData.spendingProgress && loyaltyData.tier.sourceDetails?.type !== 'spending' ? (
-        /* Non-spending tier source - show dual progress */
-        <DualProgressCard
-          tier={loyaltyData.tier}
-          spendingProgress={loyaltyData.spendingProgress}
-          currency={loyaltyData.currency}
-          locale={locale}
-          translate={translate}
-        />
-      ) : (
-        /* Standard progress card */
-        <ProgressCard
-          progress={progress}
-          currency={loyaltyData.currency}
-          locale={locale}
-          translate={translate}
-          maintenance={loyaltyData.maintenance}
-        />
-      )}
-
-      {/* Recent Activity */}
-      {loyaltyData.recentTransactions && loyaltyData.recentTransactions.length > 0 && (
-        <ActivityCard
-          transactions={loyaltyData.recentTransactions}
-          currency={loyaltyData.currency}
-          locale={locale}
-          translate={translate}
-          variant="compact"
-        />
-      )}
-
-      {/* View All Tiers Toggle - hide for single-tier programs */}
-      {!isSingleTierProgram && loyaltyData.allTiers && loyaltyData.allTiers.length > 1 && (
-        <>
-          <Button
-            kind="plain"
-            onPress={() => setShowAllTiers(!showAllTiers)}
-          >
-            {showAllTiers
-              ? translate('membership.tiers.hide')
-              : translate('membership.tiers.viewAll')
-            }
-          </Button>
-
-          {showAllTiers && (
-            <AllTiersCard
-              tiers={loyaltyData.allTiers}
-              currency={loyaltyData.currency}
-              locale={locale}
-              currentSpending={loyaltyData.stats.totalSpent}
+          {/* Tier Change Banner - Show upgrade/downgrade celebrations */}
+          {tierChange && !isNewCustomer && (
+            <TierChangeBanner
+              tierChange={tierChange}
               translate={translate}
             />
+          )}
+
+          {/* New Customer Welcome Card */}
+          {isNewCustomer ? (
+            <WelcomeCard
+              customer={customer}
+              tier={loyaltyData.tier}
+              currency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+            />
+          ) : (
+            /* Membership Status Card - for existing customers */
+            loyaltyData.tier && (
+              <MembershipCard
+                tier={loyaltyData.tier}
+                benefits={benefits}
+                locale={locale}
+                translate={translate}
+              />
+            )
+          )}
+
+          {/* Store Credit Balance - with pending cashback */}
+          <BalanceCardWithPending
+            balance={balance}
+            currency={loyaltyData.currency}
+            locale={locale}
+            translate={translate}
+            pendingCashback={loyaltyData.pendingCashback}
+          />
+
+          {/* Points Section - Reward Points engagement system */}
+          {loyaltyData.points?.enabled && (
+            <PointsSection
+              points={loyaltyData.points}
+              shopCurrency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+              onRedeem={handleRedeemPoints}
+            />
+          )}
+
+          {/* Tier Progress - Different displays based on tier status and source */}
+          {progress.isMaxTier && loyaltyData.tier ? (
+            /* Max tier - show value reinforcement */
+            <MaxTierCard
+              tier={loyaltyData.tier}
+              stats={loyaltyData.stats}
+              maintenance={loyaltyData.maintenance}
+              currency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+            />
+          ) : isZeroCashbackTier && hasHigherTiers && loyaltyData.tier ? (
+            /* Zero cashback starter tier - show encouraging progress card */
+            <StarterTierCard
+              tier={loyaltyData.tier}
+              progress={progress}
+              currency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+            />
+          ) : loyaltyData.tier && loyaltyData.spendingProgress && loyaltyData.tier.sourceDetails?.type !== 'spending' ? (
+            /* Non-spending tier source - show dual progress */
+            <DualProgressCard
+              tier={loyaltyData.tier}
+              spendingProgress={loyaltyData.spendingProgress}
+              currency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+            />
+          ) : (
+            /* Standard progress card */
+            <ProgressCard
+              progress={progress}
+              currency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+              maintenance={loyaltyData.maintenance}
+            />
+          )}
+
+          {/* Recent Activity */}
+          {loyaltyData.recentTransactions && loyaltyData.recentTransactions.length > 0 && (
+            <ActivityCard
+              transactions={loyaltyData.recentTransactions}
+              currency={loyaltyData.currency}
+              locale={locale}
+              translate={translate}
+              variant="compact"
+            />
+          )}
+
+          {/* View All Tiers Toggle - hide for single-tier programs */}
+          {!isSingleTierProgram && loyaltyData.allTiers && loyaltyData.allTiers.length > 1 && (
+            <>
+              <Button
+                kind="plain"
+                onPress={() => setShowAllTiers(!showAllTiers)}
+              >
+                {showAllTiers
+                  ? translate('membership.tiers.hide')
+                  : translate('membership.tiers.viewAll')
+                }
+              </Button>
+
+              {showAllTiers && (
+                <AllTiersCard
+                  tiers={loyaltyData.allTiers}
+                  currency={loyaltyData.currency}
+                  locale={locale}
+                  currentSpending={loyaltyData.stats.totalSpent}
+                  translate={translate}
+                />
+              )}
+            </>
           )}
         </>
       )}

@@ -1387,7 +1387,8 @@
 
       // Calculate derived colors based on resolved theme mode
       const isDark = resolvedMode === 'DARK';
-      cssVars['--rp-text-secondary'] = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
+      // Use custom secondary text color if set, otherwise auto-derive from mode
+      cssVars['--rp-text-secondary'] = theme.secondaryTextColor || (isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)');
       cssVars['--rp-border-color'] = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)';
       cssVars['--rp-progress-bg'] = isDark ? 'rgba(255, 255, 255, 0.15)' : '#E1E3E5';
       cssVars['--rp-card-bg'] = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)';

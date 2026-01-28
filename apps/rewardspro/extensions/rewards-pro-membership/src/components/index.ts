@@ -6,3 +6,8 @@ export { ExpirationWarning, type ExpiringPointsInfo } from './ExpirationWarning'
 export { PointsBalance, type PointsBalanceInfo, type PointsCurrencyInfo } from './PointsBalance';
 export { PointsRedemption, type RedemptionTierInfo, type RedemptionResult } from './PointsRedemption';
 export { PointsTransactions, type PointsTransactionInfo } from './PointsTransactions';
+
+// Rewards Activity Tabs
+export { RafflesTab } from './RafflesTab';
+export { MysteryBoxesTab } from './MysteryBoxesTab';
+export { ChallengesTab } from './ChallengesTab';

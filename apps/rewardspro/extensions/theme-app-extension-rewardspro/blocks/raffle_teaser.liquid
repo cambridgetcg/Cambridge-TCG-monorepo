@@ -1,0 +1,181 @@
+<!-- Raffle Teaser Block -->
+{% comment %}
+  Displays active raffles as discovery teasers throughout the store:
+  - Shows featured or all active raffles
+  - Fetches real-time data from API for entry counts
+  - Links to customer account or rewards hub
+{% endcomment %}
+
+<div id="rp-raffle-teaser-{{ block.id }}"
+     class="rp-raffle-teaser"
+     data-block-id="{{ block.id }}"
+     data-shop-domain="{{ shop.permanent_domain }}"
+     data-api-endpoint="/apps/rewardspro/raffles"
+     data-display-mode="{{ block.settings.display_mode | default: 'featured' }}"
+     data-show-entry-count="{{ block.settings.show_entry_count | default: true }}"
+     data-show-countdown="{{ block.settings.show_countdown | default: true }}"
+     data-cta-text="{{ block.settings.cta_text | default: 'Enter Now' }}"
+     data-cta-url="{{ block.settings.cta_url | default: '/account' }}"
+     data-max-display="{{ block.settings.max_display | default: 1 }}"
+     {% if customer %}
+       data-customer-id="{{ customer.id }}"
+       data-authenticated="true"
+     {% else %}
+       data-authenticated="false"
+       data-guest-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In to Enter' }}"
+       data-guest-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+     {% endif %}
+     style="
+       {% if block.settings.background_color %}--rp-teaser-bg: {{ block.settings.background_color }};{% endif %}
+       {% if block.settings.text_color %}--rp-teaser-text: {{ block.settings.text_color }};{% endif %}
+       {% if block.settings.accent_color %}--rp-teaser-accent: {{ block.settings.accent_color }};{% endif %}
+     ">
+
+  {% comment %} Loading state - replaced by JavaScript {% endcomment %}
+  <div class="rp-raffle-teaser__loading">
+    <div class="rp-raffle-teaser__loading-spinner"></div>
+    <span>Loading raffles...</span>
+  </div>
+
+  {% comment %} Content placeholder - populated by JavaScript {% endcomment %}
+  <div class="rp-raffle-teaser__content" style="display: none;">
+    {% comment %} JavaScript will render raffle cards here {% endcomment %}
+  </div>
+
+  {% comment %} Empty state - shown when no active raffles {% endcomment %}
+  <div class="rp-raffle-teaser__empty" style="display: none;">
+    <span class="rp-raffle-teaser__empty-icon">{{ block.settings.empty_icon | default: '🎟️' }}</span>
+    <span class="rp-raffle-teaser__empty-text">{{ block.settings.empty_message | default: 'No active raffles right now' }}</span>
+  </div>
+
+  {% comment %} Error state {% endcomment %}
+  <div class="rp-raffle-teaser__error" style="display: none;">
+    <span>Unable to load raffles</span>
+  </div>
+</div>
+
+{% comment %} Fallback for browsers without JavaScript {% endcomment %}
+<noscript>
+  <div class="rp-raffle-teaser__noscript">
+    {% if customer %}
+      <a href="{{ block.settings.cta_url | default: '/account' }}">View available raffles</a>
+    {% else %}
+      <a href="{{ block.settings.guest_cta_url | default: '/account/login' }}">Sign in to enter raffles</a>
+    {% endif %}
+  </div>
+</noscript>
+
+{% schema %}
+{
+  "name": "Raffle Teaser",
+  "target": "section",
+  "stylesheet": "activity-teasers.css",
+  "javascript": "activity-teasers.js",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Display Settings"
+    },
+    {
+      "type": "select",
+      "id": "display_mode",
+      "label": "Display Mode",
+      "options": [
+        { "value": "featured", "label": "Featured Raffle Only" },
+        { "value": "all", "label": "All Active Raffles" }
+      ],
+      "default": "featured",
+      "info": "Show the most recent active raffle or all active raffles"
+    },
+    {
+      "type": "range",
+      "id": "max_display",
+      "label": "Maximum Raffles to Show",
+      "min": 1,
+      "max": 5,
+      "step": 1,
+      "default": 1,
+      "info": "Only applies when showing all active raffles"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_entry_count",
+      "label": "Show Entry Count",
+      "default": true,
+      "info": "Display total entries in the raffle"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_countdown",
+      "label": "Show Countdown",
+      "default": true,
+      "info": "Display time remaining until raffle ends"
+    },
+    {
+      "type": "header",
+      "content": "Call to Action"
+    },
+    {
+      "type": "text",
+      "id": "cta_text",
+      "label": "Button Text",
+      "default": "Enter Now"
+    },
+    {
+      "type": "url",
+      "id": "cta_url",
+      "label": "Button Link",
+      "default": "/account",
+      "info": "Where to send customers (account page or rewards hub)"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Guest Button Text",
+      "default": "Sign In to Enter"
+    },
+    {
+      "type": "url",
+      "id": "guest_cta_url",
+      "label": "Guest Button Link",
+      "default": "/account/login"
+    },
+    {
+      "type": "header",
+      "content": "Empty State"
+    },
+    {
+      "type": "text",
+      "id": "empty_icon",
+      "label": "Empty State Icon",
+      "default": "🎟️"
+    },
+    {
+      "type": "text",
+      "id": "empty_message",
+      "label": "Empty State Message",
+      "default": "No active raffles right now"
+    },
+    {
+      "type": "header",
+      "content": "Style Settings"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background Color"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent Color",
+      "info": "Used for buttons and highlights"
+    }
+  ]
+}
+{% endschema %}
