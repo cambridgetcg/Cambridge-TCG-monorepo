@@ -7,14 +7,11 @@ import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
 import * as Sentry from "@sentry/remix";
 import { initDatadog } from "./services/monitoring/datadog.service";
-import { initBetterStack, BetterStackService } from "./services/monitoring/betterstack.service";
 import { SentryService, createSmartSampler } from "./services/monitoring/sentry.service";
 
 // Initialize monitoring services
-// 1. Datadog: APM, distributed tracing, metrics
+// Datadog: APM, distributed tracing, metrics
 initDatadog();
-// 2. Better Stack: Log aggregation (cost-effective alternative to Datadog Logs)
-initBetterStack();
 
 // Initialize Sentry for server-side error tracking with enhanced configuration
 if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'true') {
@@ -118,14 +115,6 @@ export function handleError(
   const shopDomain = request.headers.get('x-shopify-shop-domain');
   const webhookTopic = request.headers.get('x-shopify-topic');
   const webhookId = request.headers.get('x-shopify-webhook-id');
-
-  // Log to Better Stack for centralized log aggregation
-  BetterStackService.error('Unhandled error', error instanceof Error ? error : undefined, {
-    url: url.pathname,
-    method: request.method,
-    shop: shopDomain || undefined,
-    webhookTopic: webhookTopic || undefined,
-  });
 
   // Capture with enhanced Sentry context
   if (SentryService.isEnabled()) {

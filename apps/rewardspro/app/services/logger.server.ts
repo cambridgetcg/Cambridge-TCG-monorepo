@@ -6,17 +6,9 @@
  * In development: Human-readable format
  *
  * Part of Crystal Polishing Plan - Phase 2.1
- *
- * Enhanced: Now forwards logs to Better Stack when BETTERSTACK_SOURCE_TOKEN is set.
- * This provides centralized log aggregation alongside Datadog APM.
  */
 
-import { BetterStackService } from './monitoring/betterstack.service';
-
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-// Feature flag for Better Stack forwarding
-const FORWARD_TO_BETTERSTACK = process.env.BETTERSTACK_SOURCE_TOKEN !== undefined;
 
 interface LogContext {
   shop?: string;
@@ -107,44 +99,19 @@ class Logger {
   debug(message: string, data?: unknown): void {
     if (process.env.LOG_LEVEL === 'debug' || process.env.NODE_ENV !== 'production') {
       console.log(this.format('debug', message, data));
-      // Forward to Better Stack for centralized logging
-      if (FORWARD_TO_BETTERSTACK) {
-        BetterStackService.debug(`[${this.prefix}] ${message}`, {
-          ...this.context,
-          ...(typeof data === 'object' && data !== null ? data as Record<string, unknown> : { data }),
-        });
-      }
     }
   }
 
   info(message: string, data?: unknown): void {
     console.log(this.format('info', message, data));
-    // Forward to Better Stack for centralized logging
-    if (FORWARD_TO_BETTERSTACK) {
-      BetterStackService.info(`[${this.prefix}] ${message}`, {
-        ...this.context,
-        ...(typeof data === 'object' && data !== null ? data as Record<string, unknown> : { data }),
-      });
-    }
   }
 
   warn(message: string, data?: unknown): void {
     console.warn(this.format('warn', message, data));
-    // Forward to Better Stack for centralized logging
-    if (FORWARD_TO_BETTERSTACK) {
-      BetterStackService.warn(`[${this.prefix}] ${message}`, {
-        ...this.context,
-        ...(typeof data === 'object' && data !== null ? data as Record<string, unknown> : { data }),
-      });
-    }
   }
 
   error(message: string, error?: Error | unknown): void {
     console.error(this.formatError('error', message, error));
-    // Forward to Better Stack for centralized logging
-    if (FORWARD_TO_BETTERSTACK) {
-      BetterStackService.error(`[${this.prefix}] ${message}`, error, this.context as Record<string, unknown>);
-    }
   }
 
   /**

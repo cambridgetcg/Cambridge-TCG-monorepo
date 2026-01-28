@@ -529,6 +529,18 @@ export class DataAPIModelProxy<T = any> {
       console.log(`[DataAPI] Auto-generated UUID for ${this.tableName}: ${dataWithId.id}`);
     }
 
+    // Auto-add timestamps if not provided
+    // This mimics Prisma's @default(now()) and @updatedAt behavior
+    const now = new Date().toISOString();
+    if (this.requiresTimestamps()) {
+      if (!dataWithId.createdAt) {
+        dataWithId.createdAt = now;
+      }
+      if (!dataWithId.updatedAt) {
+        dataWithId.updatedAt = now;
+      }
+    }
+
     const fields = Object.keys(dataWithId);
     const params: SqlParameter[] = [];
 
@@ -735,6 +747,114 @@ export class DataAPIModelProxy<T = any> {
   }
 
   /**
+   * Check if this table has createdAt/updatedAt timestamp fields
+   * Most tables with @default(now()) and @updatedAt in Prisma schema
+   */
+  private requiresTimestamps(): boolean {
+    // Tables that have createdAt and updatedAt fields
+    // This covers most models in the schema
+    const tablesWithTimestamps = [
+      // Core models
+      'Session',
+      'ShopSettings',
+      'Tier',
+      'TierProduct',
+      'Customer',
+      'StoreCreditLedger',
+      'TierChangeLog',
+      'UsageRecord',
+      'BillingHistory',
+      'Notification',
+      'MonthlyOrderUsage',
+      'MonthlyEmailUsage',
+      'Order',
+      'OrderLineItem',
+      'OrderRefund',
+      'OrderRefundLineItem',
+      'TierSubscription',
+      'SubscriptionBillingAttempt',
+      'SellingPlanGroup',
+      'SellingPlan',
+      'TierPurchase',
+      'TierPurchaseItem',
+      'CustomerTierState',
+      'ShopEntitlements',
+      'CronLock',
+      'SyncStatus',
+      // Email models
+      'EmailTemplate',
+      'EmailCampaign',
+      'EmailAutomation',
+      'EmailSettings',
+      'EmailEvent',
+      'SendGridDomain',
+      'AnalyticsRecommendation',
+      // Sync Job models
+      'CustomerSyncJob',
+      'StoreCreditSyncJob',
+      'OrderSyncJob',
+      // Trial abuse prevention
+      'TierTrialAuditLog',
+      // Points Engagement System
+      'PointsConfig',
+      'PointsLedger',
+      // Raffles System
+      'Raffle',
+      'RafflePrize',
+      'RaffleEntry',
+      'RaffleWinner',
+      // Mystery Box System
+      'MysteryBox',
+      'MysteryBoxReward',
+      'MysteryBoxOpen',
+      'MysteryBoxWinner',
+      // Third-Party Integration System
+      'Integration',
+      'IntegrationEvent',
+      'IntegrationWebhook',
+      'OAuthState',
+      'IntegrationPointsRule',
+      // Gift Card System
+      'GiftCardConfig',
+      'TierGiftCardSettings',
+      'IssuedGiftCard',
+      'GiftCardBundle',
+      // Klaviyo Integration System
+      'KlaviyoProfile',
+      'KlaviyoEvent',
+      'KlaviyoList',
+      'KlaviyoAutomationSettings',
+      // AI Feedback System
+      'AISession',
+      'AISessionAction',
+      'AISessionFeedback',
+      'AICodeMetric',
+      'AILearningPattern',
+      'AICodeQualitySignal',
+      'AIArchitectureHealth',
+      'AIInnovationTracker',
+      // Webhook models
+      'WebhookProcess',
+      'WebhookError',
+      'WebhookProcessed',
+      'DeadLetterQueue',
+      // Billing models
+      'BillingAuditLog',
+      'BillingSubscription',
+      'AppSubscription',
+      // Other models
+      'BulkOperationLog',
+      'ExchangeRate',
+      'SubscriptionPricingHistory',
+      'SubscriptionPricingConfig',
+      'SubscriptionRetry',
+      'SubscriptionEvent',
+      'ReconciliationLog',
+    ];
+    return tablesWithTimestamps.includes(this.tableName);
+  }
+
+  /**
    * Get the PostgreSQL enum type name for a field
    */
   private getEnumType(field: string): string {
@@ -862,13 +982,20 @@ export class DataAPIModelProxy<T = any> {
     where: Record<string, any>;
     data: Record<string, any>;
   }): Promise<T> {
-    const setFields = Object.keys(args.data);
+    // Auto-update updatedAt timestamp
+    // This mimics Prisma's @updatedAt behavior
+    const dataWithTimestamp = { ...args.data };
+    if (this.requiresTimestamps() && !dataWithTimestamp.updatedAt) {
+      dataWithTimestamp.updatedAt = new Date().toISOString();
+    }
+
+    const setFields = Object.keys(dataWithTimestamp);
     const whereFields = Object.keys(args.where);
     const params: SqlParameter[] = [];
 
     // Build SET clause with enum, timestamp, and JSON casting
     const setClauses = setFields.map((field, i) => {
-      const value = args.data[field];
+      const value = dataWithTimestamp[field];
 
       // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
       // Aurora Data API doesn't support array parameters directly
@@ -941,12 +1068,19 @@ export class DataAPIModelProxy<T = any> {
     where?: Record<string, any>;
     data: Record<string, any>;
   }): Promise<{ count: number }> {
-    const setFields = Object.keys(args.data);
+    // Auto-update updatedAt timestamp
+    // This mimics Prisma's @updatedAt behavior
+    const dataWithTimestamp = { ...args.data };
+    if (this.requiresTimestamps() && !dataWithTimestamp.updatedAt) {
+      dataWithTimestamp.updatedAt = new Date().toISOString();
+    }
+
+    const setFields = Object.keys(dataWithTimestamp);
     const params: SqlParameter[] = [];
 
     // Build SET clause with enum, timestamp, and JSON casting
     const setClauses = setFields.map((field, i) => {
-      const value = args.data[field];
+      const value = dataWithTimestamp[field];
 
       // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
       // Aurora Data API doesn't support array parameters directly

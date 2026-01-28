@@ -103,7 +103,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Rate-based gating: all features enabled, check limits only
     // Count active mystery boxes for limit check
     const activeBoxCount = await db.mysteryBox.count({
-      where: { shop, isActive: true },
+      where: { shop, status: 'ACTIVE' },
     });
 
     // Check limit access (rate-based gating)
@@ -198,7 +198,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const box = await atomicWithinLimit(
           shop,
           "maxActiveMysteryBoxes",
-          (tx) => tx.mysteryBox.count({ where: { shop, isActive: true } }),
+          (tx) => tx.mysteryBox.count({ where: { shop, status: 'ACTIVE' } }),
           async () => {
             return createMysteryBox({
               shop,
