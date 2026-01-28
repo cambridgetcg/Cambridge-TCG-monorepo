@@ -536,7 +536,9 @@ export class DataAPIModelProxy<T = any> {
       if (!dataWithId.createdAt) {
         dataWithId.createdAt = now;
       }
-      if (!dataWithId.updatedAt) {
+      // Only add updatedAt for tables that have the field
+      // Ledger tables (StoreCreditLedger, PointsLedger) only have createdAt
+      if (!dataWithId.updatedAt && !this.hasOnlyCreatedAt()) {
         dataWithId.updatedAt = now;
       }
     }
@@ -855,6 +857,18 @@ export class DataAPIModelProxy<T = any> {
   }
 
   /**
+   * Check if this table has ONLY createdAt (no updatedAt field)
+   * These are typically ledger/log tables where records are immutable after creation
+   */
+  private hasOnlyCreatedAt(): boolean {
+    const tablesWithOnlyCreatedAt = [
+      'StoreCreditLedger',  // Ledger entries are immutable
+      'PointsLedger',       // Ledger entries are immutable
+    ];
+    return tablesWithOnlyCreatedAt.includes(this.tableName);
+  }
+
+  /**
    * Get the PostgreSQL enum type name for a field
    */
   private getEnumType(field: string): string {
@@ -984,8 +998,9 @@ export class DataAPIModelProxy<T = any> {
   }): Promise<T> {
     // Auto-update updatedAt timestamp
     // This mimics Prisma's @updatedAt behavior
+    // Skip for ledger tables that don't have updatedAt field
     const dataWithTimestamp = { ...args.data };
-    if (this.requiresTimestamps() && !dataWithTimestamp.updatedAt) {
+    if (this.requiresTimestamps() && !dataWithTimestamp.updatedAt && !this.hasOnlyCreatedAt()) {
       dataWithTimestamp.updatedAt = new Date().toISOString();
     }
 
@@ -1070,8 +1085,9 @@ export class DataAPIModelProxy<T = any> {
   }): Promise<{ count: number }> {
     // Auto-update updatedAt timestamp
     // This mimics Prisma's @updatedAt behavior
+    // Skip for ledger tables that don't have updatedAt field
     const dataWithTimestamp = { ...args.data };
-    if (this.requiresTimestamps() && !dataWithTimestamp.updatedAt) {
+    if (this.requiresTimestamps() && !dataWithTimestamp.updatedAt && !this.hasOnlyCreatedAt()) {
       dataWithTimestamp.updatedAt = new Date().toISOString();
     }
 
