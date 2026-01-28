@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher, useNavigation } from "@remix-run/react";
+import { useLoaderData, useFetcher, useNavigation, useSearchParams } from "@remix-run/react";
 import { StaggerChildren, PageLoader, usePageAnimation } from "~/components/PageAnimation";
 export { ErrorBoundary } from "../components/ErrorBoundary";
 import {
@@ -1323,12 +1323,14 @@ export default function SettingsPage() {
   const currencyFetcher = useFetcher();
   const navigation = useNavigation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Toast notifications
   const { toast, showInfo, showSuccess, showError, hideToast } = useToast();
 
-  // Tab state
-  const [selectedTab, setSelectedTab] = useState(0);
+  // Tab state - support URL query param for direct navigation (e.g., ?tab=6 for subscription)
+  const initialTab = parseInt(searchParams.get("tab") || "0", 10);
+  const [selectedTab, setSelectedTab] = useState(isNaN(initialTab) ? 0 : Math.min(initialTab, 6));
 
   // Form state
   const [storeName, setStoreName] = useState(settings.storeName);

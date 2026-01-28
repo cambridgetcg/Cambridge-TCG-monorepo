@@ -379,6 +379,7 @@ export default function TiersPage() {
       <Page
         title="Loyalty Tiers"
         subtitle="Define membership tiers with spending thresholds and cashback rates"
+        backAction={{ url: "/app/members", content: "Members" }}
         primaryAction={{
           content: "Create Tier",
           icon: PlusIcon,

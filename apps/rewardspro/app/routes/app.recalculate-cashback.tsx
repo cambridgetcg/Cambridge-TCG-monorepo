@@ -102,7 +102,7 @@ export default function RecalculateCashbackPage() {
   return (
     <Page
       title="Recalculate Cashback"
-      backAction={{ url: "/app" }}
+      backAction={{ url: "/app/settings?tab=1", content: "Settings" }}
     >
       <Layout>
         <Layout.Section>

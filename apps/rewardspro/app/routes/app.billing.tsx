@@ -746,7 +746,7 @@ export default function BillingPage() {
       <Page
         title="Choose Your Plan"
         subtitle="Select the perfect plan for your business"
-        backAction={{ url: "/app" }}
+        backAction={{ url: "/app/settings?tab=6", content: "Settings" }}
       >
       <Layout>
         <Layout.Section>

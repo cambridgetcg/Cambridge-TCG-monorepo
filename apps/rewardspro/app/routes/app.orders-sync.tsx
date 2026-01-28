@@ -248,7 +248,7 @@ export default function OrdersSyncPage() {
       <Page
         title="Order Sync"
         subtitle="Import historical orders from Shopify"
-        backAction={{ url: "/app" }}
+        backAction={{ url: "/app/settings?tab=1", content: "Settings" }}
         primaryAction={{
           content: isSyncing ? "Syncing..." : "Sync Orders",
           onAction: () => setConfirmModalOpen(true),

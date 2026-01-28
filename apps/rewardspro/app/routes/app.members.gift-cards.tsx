@@ -555,7 +555,7 @@ export default function GiftCardsConfigPage() {
   if (tiers.length === 0) {
     return (
       <Frame>
-        <Page title="Gift Cards">
+        <Page title="Gift Cards" backAction={{ url: "/app/members", content: "Members" }}>
           <Layout>
             <Layout.Section>
               <Card>
@@ -600,6 +600,7 @@ export default function GiftCardsConfigPage() {
       <Page
         title="Gift Cards"
         subtitle="Configure tier-branded gift cards and membership bundles"
+        backAction={{ url: "/app/members", content: "Members" }}
         primaryAction={{
           content: "Save Settings",
           onAction: handleSaveConfig,

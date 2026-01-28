@@ -177,6 +177,7 @@ export default function MonitoringDashboard() {
     <Page
       title="System Monitoring"
       subtitle="Real-time health and performance metrics"
+      backAction={{ url: "/app", content: "Dashboard" }}
       primaryAction={{
         content: 'Refresh',
         icon: RefreshIcon,
@@ -380,7 +381,7 @@ export default function MonitoringDashboard() {
 
 export function ErrorBoundary() {
   return (
-    <Page title="Monitoring Dashboard">
+    <Page title="Monitoring Dashboard" backAction={{ url: "/app", content: "Dashboard" }}>
       <Card>
         <Box padding="400">
           <BlockStack gap="300">
