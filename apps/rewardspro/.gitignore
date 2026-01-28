@@ -53,6 +53,8 @@ APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
 # Keep only essential project files
 !README.md
 !LICENSE.md
+!PRODUCT_VISION.md
+!CLAUDE.md
 
 # Exclude CLAUDE.md files (AI context files)
 CLAUDE.md
