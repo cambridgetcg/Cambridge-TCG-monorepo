@@ -1931,14 +1931,25 @@ export default function OrdersPage() {
   }, [searchParams, setSearchParams, pagination]);
 
   // Show toast for action results (from fetcher)
+  // Exclude internal data-fetching actions that don't need user feedback
   useEffect(() => {
     if (fetcher.data) {
       const data = fetcher.data as any;
-      setToast({
-        active: true,
-        content: data.message || (data.success ? "Action completed" : "Action failed"),
-        error: data.failCount > 0 && data.successCount === 0 ? true : !data.success, // Success if any succeeded
-      });
+
+      // Skip toast for internal data fetches (these are not user-facing actions)
+      const internalActions = ['fetch-store-credit-balance'];
+      if (data.action && internalActions.includes(data.action)) {
+        return;
+      }
+
+      // Only show toast if there's a message or explicit success/failure
+      if (data.message || data.success !== undefined) {
+        setToast({
+          active: true,
+          content: data.message || (data.success ? "Action completed" : "Action failed"),
+          error: data.failCount > 0 && data.successCount === 0 ? true : !data.success,
+        });
+      }
     }
   }, [fetcher.data]);
 
@@ -1952,18 +1963,22 @@ export default function OrdersPage() {
         setProcessingLog(prev => [...prev, ...data.debugLog]);
       }
 
-      // Update processing status
+      // Update processing status for batch operations
       if (data.successCount !== undefined || data.failCount !== undefined) {
         setCurrentProcessingStep(
           `Completed: ${data.successCount || 0} successful, ${data.failCount || 0} failed`
         );
       }
 
-      setToast({
-        active: true,
-        content: data.message || (data.success ? "Action completed" : "Action failed"),
-        error: data.failCount > 0 && data.successCount === 0 ? true : !data.success, // Success if any succeeded
-      });
+      // Show toast only if there's feedback to show
+      // All user-facing actions should return a message
+      if (data.message || data.success !== undefined || data.error) {
+        setToast({
+          active: true,
+          content: data.message || data.error || (data.success ? "Action completed" : "Action failed"),
+          error: data.error ? true : (data.failCount > 0 && data.successCount === 0 ? true : !data.success),
+        });
+      }
 
       // Reset processing state
       setIsProcessingAll(false);
