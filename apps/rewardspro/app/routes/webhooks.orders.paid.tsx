@@ -930,20 +930,29 @@ async function processCashback(tx: any, params: {
     }
   }
 
-  // Check for tier product purchases in this order
-  const orderLineItems = await tx.orderLineItem.findMany({
+  // Get the Order record for tier product lookup
+  // NOTE: Must use orderId directly instead of relation filter for Data API compatibility
+  const orderRecord = await tx.order.findFirst({
     where: {
-      order: {
-        shop,
-        shopifyOrderId: order.id.toString()
-      },
-      isTierProduct: true
-    },
-    select: {
-      totalPrice: true,
-      title: true
+      shop,
+      shopifyOrderId: order.id.toString()
     }
   });
+
+  // Check for tier product purchases in this order
+  // Using orderId instead of relation filter (order: {...}) for Data API compatibility
+  const orderLineItems = orderRecord
+    ? await tx.orderLineItem.findMany({
+        where: {
+          orderId: orderRecord.id,
+          isTierProduct: true
+        },
+        select: {
+          totalPrice: true,
+          title: true
+        }
+      })
+    : [];
 
   for (const tierItem of orderLineItems) {
     const itemTotal = Number(tierItem.totalPrice);
@@ -970,14 +979,7 @@ async function processCashback(tx: any, params: {
     return;
   }
 
-  // Get the Order record we just created
-  const orderRecord = await tx.order.findFirst({
-    where: {
-      shop,
-      shopifyOrderId: order.id.toString()
-    }
-  });
-
+  // Verify Order record exists (was fetched earlier for tier product lookup)
   if (!orderRecord) {
     console.error('[OrderPaid] Order record not found after creation');
     return;
