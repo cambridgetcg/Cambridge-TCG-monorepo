@@ -13,25 +13,8 @@ import {
   PackageIcon,
 } from '@shopify/polaris-icons';
 
-// TierSource type for display
+// TierSource type for display (kept for prop type compatibility)
 type TierSource = 'MANUAL_OVERRIDE' | 'TIER_SUBSCRIPTION' | 'TIER_PURCHASE' | 'SPENDING_BASED' | 'NONE';
-
-// Helper to convert tier source to user-friendly label
-function getTierSourceLabel(source: TierSource | null): { label: string; tone: 'info' | 'success' | 'warning' | 'attention' } {
-  switch (source) {
-    case 'MANUAL_OVERRIDE':
-      return { label: 'Manual', tone: 'attention' };
-    case 'TIER_SUBSCRIPTION':
-      return { label: 'Subscription', tone: 'success' };
-    case 'TIER_PURCHASE':
-      return { label: 'Purchased', tone: 'info' };
-    case 'SPENDING_BASED':
-      return { label: 'Earned', tone: 'success' };
-    case 'NONE':
-    default:
-      return { label: '', tone: 'info' };
-  }
-}
 
 interface CustomerHeroStatsProps {
   storeCredit: string | number;
@@ -54,8 +37,6 @@ export function CustomerHeroStats({
   tierSource,
   tierExpiry,
 }: CustomerHeroStatsProps) {
-  const tierSourceInfo = getTierSourceLabel(tierSource || null);
-
   // Calculate days remaining if there's an expiry
   let expiryText: string | null = null;
   if (tierExpiry) {
@@ -84,7 +65,7 @@ export function CustomerHeroStats({
       icon: StarIcon,
       tone: tierName ? 'highlight' as const : 'subdued' as const,
       tab: 0,
-      badge: tierSourceInfo.label ? tierSourceInfo : null,
+      badge: null, // Removed tier source badge to prevent UI distortion
     },
     {
       label: 'Cashback Rate',

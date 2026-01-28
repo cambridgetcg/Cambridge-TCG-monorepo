@@ -211,6 +211,7 @@ export class OrderSyncService {
   private options: Required<OrderSyncOptions>;
   private rateLimiter: RateLimiter;
   private startTime: number = 0;
+  private jobId: string | null = null;
 
   constructor(admin: AdminApiContext, options: OrderSyncOptions) {
     this.admin = admin;
@@ -228,11 +229,72 @@ export class OrderSyncService {
   }
 
   /**
+   * Create an OrderSyncJob record to track this sync operation
+   */
+  private async createSyncJob(): Promise<string> {
+    try {
+      const job = await db.orderSyncJob.create({
+        data: {
+          id: uuidv4(),
+          shop: this.options.shop,
+          status: 'IN_PROGRESS',
+          startDate: this.options.startDate,
+          endDate: this.options.endDate,
+          startedAt: new Date(),
+          lastActivityAt: new Date(),
+          triggeredBy: 'SETTINGS_PAGE',
+          batchSize: this.options.batchSize,
+          processedCount: 0,
+          createdCount: 0,
+          updatedCount: 0,
+          skippedCount: 0,
+          errorCount: 0,
+        }
+      });
+      console.log(`[Order Sync] Created sync job: ${job.id}`);
+      return job.id;
+    } catch (error) {
+      console.warn('[Order Sync] Failed to create sync job record:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Update the sync job with final status
+   */
+  private async completeSyncJob(progress: OrderSyncProgress, success: boolean): Promise<void> {
+    if (!this.jobId) return;
+
+    try {
+      await db.orderSyncJob.update({
+        where: { id: this.jobId },
+        data: {
+          status: success ? 'COMPLETED' : 'FAILED',
+          completedAt: new Date(),
+          lastActivityAt: new Date(),
+          processedCount: progress.processed,
+          createdCount: progress.successful,
+          updatedCount: 0, // We track successful, not separate create/update
+          skippedCount: progress.skipped,
+          errorCount: progress.failed,
+          totalOrders: progress.total || progress.processed,
+        }
+      });
+      console.log(`[Order Sync] Updated sync job ${this.jobId} - status: ${success ? 'COMPLETED' : 'FAILED'}`);
+    } catch (error) {
+      console.warn('[Order Sync] Failed to update sync job record:', error);
+    }
+  }
+
+  /**
    * Sync all orders from Shopify to local database
    */
   async syncAllOrders(): Promise<OrderSyncResult> {
     console.log("[Order Sync] Starting sync service");
     this.startTime = Date.now();
+
+    // Create a sync job record to track this operation
+    this.jobId = await this.createSyncJob();
 
     const progress: OrderSyncProgress = {
       total: 0,
@@ -388,6 +450,9 @@ export class OrderSyncService {
         errors: progress.errors.length
       });
 
+      // Update the sync job with completion status
+      await this.completeSyncJob(progress, progress.successful > 0);
+
       return {
         success: progress.successful > 0,
         message: this.generateSyncMessage(progress),
@@ -406,6 +471,9 @@ export class OrderSyncService {
       });
 
       const duration = Date.now() - this.startTime;
+
+      // Update the sync job with failure status
+      await this.completeSyncJob(progress, false);
 
       return {
         success: false,
