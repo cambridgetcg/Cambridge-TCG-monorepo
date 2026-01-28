@@ -1225,7 +1225,11 @@ export class DataAPIModelProxy<T = any> {
           if (Array.isArray(inValues) && inValues.length > 0) {
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
             // Check if this field is an enum type that needs casting
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'financialStatus', 'fulfillmentStatus'];
+            // Must include 'status' for RaffleStatus, MysteryBoxStatus, etc.
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+                               'evaluationPeriod', 'financialStatus', 'fulfillmentStatus', 'status',
+                               'purchaseType', 'duration', 'currency', 'billingInterval', 'deliveryInterval',
+                               'lastPaymentStatus', 'discountType', 'eventType'];
             if (enumFields.includes(key)) {
               // Cast enum types explicitly for PostgreSQL
               conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
@@ -1251,7 +1255,7 @@ export class DataAPIModelProxy<T = any> {
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });
-      
+
       if (conditions.length > 0) {
         sql += ` WHERE ${conditions.join(" AND ")}`;
       }
@@ -1351,7 +1355,11 @@ export class DataAPIModelProxy<T = any> {
           if (Array.isArray(inValues) && inValues.length > 0) {
             const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
             // Check if this field is an enum type that needs casting
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType', 'evaluationPeriod', 'financialStatus', 'fulfillmentStatus'];
+            // Must include 'status' for RaffleStatus, MysteryBoxStatus, etc.
+            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+                               'evaluationPeriod', 'financialStatus', 'fulfillmentStatus', 'status',
+                               'purchaseType', 'duration', 'currency', 'billingInterval', 'deliveryInterval',
+                               'lastPaymentStatus', 'discountType', 'eventType'];
             if (enumFields.includes(key)) {
               // Cast enum types explicitly for PostgreSQL
               conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
@@ -1377,7 +1385,7 @@ export class DataAPIModelProxy<T = any> {
           params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
         }
       });
-      
+
       if (conditions.length > 0) {
         sql += ` WHERE ${conditions.join(" AND ")}`;
       }
