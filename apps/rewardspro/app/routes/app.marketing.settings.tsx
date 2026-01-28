@@ -24,6 +24,7 @@ import {
   Icon,
   List,
   Collapsible,
+  ProgressBar,
 } from "@shopify/polaris";
 import {
   CheckCircleIcon,
@@ -37,6 +38,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
+import { getEmailUsageStats, type EmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
 
 // ============================================
@@ -105,6 +107,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Get marketing mode info
   const marketingModeInfo = await getMarketingModeInfo(shop);
 
+  // Get email usage stats
+  const emailUsageStats = await getEmailUsageStats(shop);
+
   return json({
     shop,
     emailSettings,
@@ -113,6 +118,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     domains,
     sendgridConfigured,
     marketingModeInfo,
+    emailUsageStats,
   });
 };
 
@@ -525,6 +531,88 @@ export default function EmailSettings() {
                     </BlockStack>
                   </Banner>
                 )}
+              </BlockStack>
+            </Card>
+          </Layout.Section>
+
+          {/* Email Usage Stats */}
+          <Layout.Section>
+            <Card>
+              <BlockStack gap="400">
+                <InlineStack align="space-between" blockAlign="center">
+                  <Text variant="headingMd" as="h3">
+                    Email Usage
+                  </Text>
+                  <Badge tone={data.emailUsageStats.percentage >= 90 ? "critical" : data.emailUsageStats.percentage >= 75 ? "warning" : "success"}>
+                    {data.emailUsageStats.planName}
+                  </Badge>
+                </InlineStack>
+
+                <BlockStack gap="200">
+                  <InlineStack align="space-between">
+                    <Text as="p" variant="bodyMd">
+                      {data.emailUsageStats.limit >= 999999
+                        ? `${data.emailUsageStats.totalEmails.toLocaleString()} emails sent this month`
+                        : `${data.emailUsageStats.totalEmails.toLocaleString()} of ${data.emailUsageStats.limit.toLocaleString()} emails used`}
+                    </Text>
+                    {data.emailUsageStats.limit < 999999 && (
+                      <Text as="p" variant="bodyMd" tone="subdued">
+                        {data.emailUsageStats.remaining.toLocaleString()} remaining
+                      </Text>
+                    )}
+                  </InlineStack>
+
+                  {data.emailUsageStats.limit < 999999 && (
+                    <ProgressBar
+                      progress={data.emailUsageStats.percentage}
+                      size="small"
+                      tone={data.emailUsageStats.percentage >= 90 ? "critical" : data.emailUsageStats.percentage >= 75 ? "warning" : "primary"}
+                    />
+                  )}
+                </BlockStack>
+
+                {data.emailUsageStats.isLocked && (
+                  <Banner tone="critical" title="Email Sending Paused">
+                    <p>Your email sending is currently paused. Contact support for assistance.</p>
+                  </Banner>
+                )}
+
+                {data.emailUsageStats.percentage >= 90 && data.emailUsageStats.limit < 999999 && !data.emailUsageStats.isLocked && (
+                  <Banner tone="warning" title="Approaching Email Limit">
+                    <p>
+                      You've used {data.emailUsageStats.percentage}% of your monthly email allowance.
+                      Consider upgrading your plan for more emails.
+                    </p>
+                  </Banner>
+                )}
+
+                <Divider />
+
+                <BlockStack gap="200">
+                  <Text variant="headingSm" as="h4">
+                    Usage Breakdown
+                  </Text>
+                  <InlineStack gap="600">
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Campaign</Text>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        {data.emailUsageStats.campaignEmails.toLocaleString()}
+                      </Text>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Automation</Text>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        {data.emailUsageStats.automationEmails.toLocaleString()}
+                      </Text>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Transactional</Text>
+                      <Text as="p" variant="bodyMd" fontWeight="semibold">
+                        {data.emailUsageStats.transactionalEmails.toLocaleString()}
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                </BlockStack>
               </BlockStack>
             </Card>
           </Layout.Section>

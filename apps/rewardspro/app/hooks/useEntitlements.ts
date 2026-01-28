@@ -20,7 +20,9 @@ import type { ShopEntitlements } from "@prisma/client";
 import type { AppLoaderData } from "~/routes/app";
 
 // Feature keys that map to ShopEntitlements columns
+// SYNCED with server: app/services/entitlements.server.ts (2026-01-24)
 export type FeatureKey =
+  // Core features
   | 'apiAccess'
   | 'webhooks'
   | 'whiteLabel'
@@ -33,33 +35,106 @@ export type FeatureKey =
   | 'subscriptionTiers'
   | 'purchasableTiers'
   | 'exportData'
-  | 'customRewards';
+  | 'customRewards'
+  // Integration features (P1)
+  | 'integrationKlaviyo'
+  | 'integrationSendgrid'
+  | 'integrationJudgeme'
+  | 'integrationSlack'
+  | 'integrationRecharge'
+  | 'integrationGorgias'
+  | 'integrationZapier'
+  // Gamification features (P2)
+  | 'raffles'
+  | 'mysteryBoxes'
+  | 'challenges'
+  // Marketing features (P3)
+  | 'marketingCampaigns'
+  | 'marketingAutomation'
+  | 'aiRecommendations'
+  // Analytics features (P4)
+  | 'rfmSegmentation'
+  | 'programImpact'
+  | 'realtimeAnalytics'
+  | 'cohortAnalysis';
 
 // Limit keys that map to ShopEntitlements columns
-export type LimitKey = 'maxTiers' | 'maxOrders' | 'maxEmails';
+// SYNCED with server: app/services/entitlements.server.ts (2026-01-24)
+export type LimitKey =
+  // Core limits
+  | 'maxTiers'
+  | 'maxOrders'
+  | 'maxEmails'
+  // Synced limits from plan-limits.ts (P0)
+  | 'maxAutomations'
+  | 'maxCustomersSync'
+  | 'maxTierProducts'
+  | 'maxHistoricalDays'
+  // Gamification limits (P2)
+  | 'maxActiveRaffles'
+  | 'maxActiveMysteryBoxes'
+  | 'maxActiveChallenges'
+  // Marketing limits (P3)
+  | 'maxCampaigns'
+  | 'maxAutomationFlows';
 
 // Re-export for backwards compatibility
 export type EntitlementsLoaderData = AppLoaderData;
 
 // Default entitlements for when data is not available (Free plan)
+// RATE-BASED GATING MODEL: All features enabled, limits differentiate plans
+// SYNCED with server: app/services/entitlements.server.ts (2026-01-24)
 const DEFAULT_ENTITLEMENTS: Partial<ShopEntitlements> = {
   effectivePlan: 'RewardsPro Free',
-  featureApiAccess: false,
-  featureWebhooks: false,
-  featureWhiteLabel: false,
-  featureAdvancedReport: false,
-  featureCustomEmail: false,
-  featureAnnualEval: false,
-  featureBulkOps: false,
-  featureCustomBranding: false,
-  featurePrioritySupport: false,
-  featureSubscriptionTiers: false,
-  featurePurchasableTiers: false,
-  featureExportData: false,
-  featureCustomRewards: false,
+  // ALL FEATURES ENABLED - rate-based model differentiates by limits
+  // Core features
+  featureApiAccess: true,
+  featureWebhooks: true,
+  featureWhiteLabel: true,
+  featureAdvancedReport: true,
+  featureCustomEmail: true,
+  featureAnnualEval: true,
+  featureBulkOps: true,
+  featureCustomBranding: true,
+  featurePrioritySupport: true,
+  featureSubscriptionTiers: true,
+  featurePurchasableTiers: true,
+  featureExportData: true,
+  featureCustomRewards: true,
+  // Integration features (P1) - ALL ENABLED
+  featureIntegrationKlaviyo: true,
+  featureIntegrationSendgrid: true,
+  featureIntegrationJudgeme: true,
+  featureIntegrationSlack: true,
+  featureIntegrationRecharge: true,
+  featureIntegrationGorgias: true,
+  featureIntegrationZapier: true,
+  // Gamification features (P2) - ALL ENABLED
+  featureRaffles: true,
+  featureMysteryBoxes: true,
+  featureChallenges: true,
+  // Marketing features (P3) - ALL ENABLED
+  featureMarketingCampaigns: true,
+  featureMarketingAutomation: true,
+  featureAiRecommendations: true,
+  // Analytics features (P4) - ALL ENABLED
+  featureRfmSegmentation: true,
+  featureProgramImpact: true,
+  featureRealtimeAnalytics: true,
+  featureCohortAnalysis: true,
+  // LIMITS - Free tier minimums (these differentiate the plans)
   limitMaxTiers: 2,
   limitMaxOrders: 50,
-  limitMaxEmails: 0,
+  limitMaxEmails: 50,
+  limitMaxAutomations: 1,
+  limitMaxCustomersSync: 500,
+  limitMaxTierProducts: 1,
+  limitMaxHistoricalDays: 7,
+  limitMaxActiveRaffles: 1,
+  limitMaxActiveMysteryBoxes: 1,
+  limitMaxActiveChallenges: 1,
+  limitMaxCampaigns: 1,
+  limitMaxAutomationFlows: 1,
 };
 
 /**
@@ -140,7 +215,7 @@ export function useEntitlements() {
     isApproachingLimit,
     getUsagePercentage,
 
-    // Convenience feature checks
+    // Convenience feature checks - Core
     hasApiAccess: hasFeature('apiAccess'),
     hasWebhooks: hasFeature('webhooks'),
     hasWhiteLabel: hasFeature('whiteLabel'),
@@ -155,10 +230,50 @@ export function useEntitlements() {
     hasExportData: hasFeature('exportData'),
     hasCustomRewards: hasFeature('customRewards'),
 
-    // Convenience limit getters
+    // Convenience feature checks - Integrations (P1)
+    hasIntegrationKlaviyo: hasFeature('integrationKlaviyo'),
+    hasIntegrationSendgrid: hasFeature('integrationSendgrid'),
+    hasIntegrationJudgeme: hasFeature('integrationJudgeme'),
+    hasIntegrationSlack: hasFeature('integrationSlack'),
+    hasIntegrationRecharge: hasFeature('integrationRecharge'),
+    hasIntegrationGorgias: hasFeature('integrationGorgias'),
+    hasIntegrationZapier: hasFeature('integrationZapier'),
+
+    // Convenience feature checks - Gamification (P2)
+    hasRaffles: hasFeature('raffles'),
+    hasMysteryBoxes: hasFeature('mysteryBoxes'),
+    hasChallenges: hasFeature('challenges'),
+
+    // Convenience feature checks - Marketing (P3)
+    hasMarketingCampaigns: hasFeature('marketingCampaigns'),
+    hasMarketingAutomation: hasFeature('marketingAutomation'),
+    hasAiRecommendations: hasFeature('aiRecommendations'),
+
+    // Convenience feature checks - Analytics (P4)
+    hasRfmSegmentation: hasFeature('rfmSegmentation'),
+    hasProgramImpact: hasFeature('programImpact'),
+    hasRealtimeAnalytics: hasFeature('realtimeAnalytics'),
+    hasCohortAnalysis: hasFeature('cohortAnalysis'),
+
+    // Convenience limit getters - Core
     maxTiers: getLimit('maxTiers'),
     maxOrders: getLimit('maxOrders'),
     maxEmails: getLimit('maxEmails'),
+
+    // Convenience limit getters - Extended
+    maxAutomations: getLimit('maxAutomations'),
+    maxCustomersSync: getLimit('maxCustomersSync'),
+    maxTierProducts: getLimit('maxTierProducts'),
+    maxHistoricalDays: getLimit('maxHistoricalDays'),
+
+    // Convenience limit getters - Gamification (P2)
+    maxActiveRaffles: getLimit('maxActiveRaffles'),
+    maxActiveMysteryBoxes: getLimit('maxActiveMysteryBoxes'),
+    maxActiveChallenges: getLimit('maxActiveChallenges'),
+
+    // Convenience limit getters - Marketing (P3)
+    maxCampaigns: getLimit('maxCampaigns'),
+    maxAutomationFlows: getLimit('maxAutomationFlows'),
   };
 }
 

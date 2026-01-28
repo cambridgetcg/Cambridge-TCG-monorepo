@@ -21,41 +21,22 @@ import {
   testConnection,
 } from "~/services/integrations/integration-manager.server";
 import type { IntegrationProvider } from "@prisma/client";
-import { checkFeatureAccess, type FeatureKey } from "~/utils/require-feature.server";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// INTEGRATION FEATURE GATING
+// INTEGRATION ACCESS (RATE-BASED MODEL)
 // ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Map provider to required feature key
- * Only providers with feature flags are mapped; others are allowed by default
- */
-const PROVIDER_FEATURE_MAP: Partial<Record<IntegrationProvider, FeatureKey>> = {
-  // Pro+ integrations
-  KLAVIYO: 'integrationKlaviyo',
-  JUDGE_ME: 'integrationJudgeme',
-  SLACK: 'integrationSlack',
-  // Max+ integrations
-  RECHARGE: 'integrationRecharge',
-  GORGIAS: 'integrationGorgias',
-  ZAPIER: 'integrationZapier',
-  // Note: SendGrid uses direct API, not the integration system
-};
 
 /**
  * Check if shop has access to a specific integration provider
+ * Rate-based model: All plans have access to all integrations
+ * Limits (like API call counts) differentiate plans
  */
 async function checkIntegrationAccess(
-  shop: string,
-  provider: IntegrationProvider
+  _shop: string,
+  _provider: IntegrationProvider
 ): Promise<{ hasAccess: boolean; error?: object }> {
-  const featureKey = PROVIDER_FEATURE_MAP[provider];
-  if (!featureKey) {
-    // Provider not in feature map - allow by default (not gated)
-    return { hasAccess: true };
-  }
-  return checkFeatureAccess(shop, featureKey);
+  // Rate-based model: All integrations enabled for all plans
+  return { hasAccess: true };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

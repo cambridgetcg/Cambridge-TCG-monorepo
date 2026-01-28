@@ -28,8 +28,6 @@ import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { useState, useCallback } from "react";
-import { checkFeatureAccess, requireMarketingAutomation } from "~/utils/require-feature.server";
-import { FeatureLockedCard } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // AUTOMATION TEMPLATES - Merchant Focused
@@ -118,9 +116,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Check plan access for marketing automation feature
-  const planAccess = await checkFeatureAccess(shop, 'marketingAutomation');
-
   // Guard: Redirect Klaviyo mode users to main Marketing Hub
   const guardRedirect = await guardInHouseRoute(shop);
   if (guardRedirect) return guardRedirect;
@@ -169,12 +164,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       totalOpened,
       openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
     },
-    planAccess: {
-      hasAccess: planAccess.hasAccess,
-      currentPlan: planAccess.error?.currentPlan,
-      requiredPlan: planAccess.error?.requiredPlan,
-      message: planAccess.error?.message,
-    },
   });
 };
 
@@ -186,9 +175,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Enforce feature access
-  await requireMarketingAutomation(shop);
-
+  // Rate-based model: All plans can use automations (limits differentiate)
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
 
@@ -364,36 +351,6 @@ export default function AutomationWorkflows() {
   const handleTabChange = useCallback((selectedTabIndex: number) => {
     setSelectedTab(selectedTabIndex);
   }, []);
-
-  // If plan doesn't have access to marketing automation feature
-  if (!data.planAccess.hasAccess) {
-    return (
-      <Page
-        title="Email Automations"
-        backAction={{
-          content: "Marketing Hub",
-          onAction: () => navigate("/app/marketing"),
-        }}
-      >
-        <Layout>
-          <Layout.Section>
-            <FeatureLockedCard
-              feature="Email Automations"
-              description="Set up automated email workflows that trigger based on customer behavior. Welcome new members, celebrate tier upgrades, and re-engage inactive customers automatically."
-              requiredPlan={data.planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
-              benefits={[
-                "Automated welcome sequences",
-                "Tier upgrade celebrations",
-                "Win-back campaigns for inactive customers",
-                "Birthday and anniversary rewards",
-                "Behavioral trigger workflows",
-              ]}
-            />
-          </Layout.Section>
-        </Layout>
-      </Page>
-    );
-  }
 
   const handleCreateAutomation = (templateId: string) => {
     const formData = new FormData();

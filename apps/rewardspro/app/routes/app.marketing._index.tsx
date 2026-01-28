@@ -47,9 +47,7 @@ import { KlaviyoMarketingDashboard } from "~/components/KlaviyoMarketingDashboar
 import { SubscriptionCard } from "~/components/Billing/UpgradePrompt";
 import type { MarketingHubMode } from "@prisma/client";
 import {
-  checkFeatureAccess,
   checkLimitAccess,
-  requireMarketingCampaigns,
 } from "~/utils/require-feature.server";
 
 // ============================================
@@ -178,12 +176,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Check plan access for marketing features
-  const [campaignsAccess, automationAccess, aiAccess] = await Promise.all([
-    checkFeatureAccess(shop, 'marketingCampaigns'),
-    checkFeatureAccess(shop, 'marketingAutomation'),
-    checkFeatureAccess(shop, 'aiRecommendations'),
-  ]);
+  // Rate-based model: All plans have access to all marketing features
+  // Limits differentiate plans (e.g., maxCampaigns, maxEmails)
 
   // Count existing campaigns for limit check
   let campaignCount = 0;
@@ -429,20 +423,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json<LoaderData>({
     shop,
     isConfigured,
-    // Plan Access
+    // Plan Access - Rate-based model: All features enabled for all plans
     planAccess: {
-      campaigns: {
-        hasAccess: campaignsAccess.hasAccess,
-        requiredPlan: campaignsAccess.error?.requiredPlan,
-      },
-      automation: {
-        hasAccess: automationAccess.hasAccess,
-        requiredPlan: automationAccess.error?.requiredPlan,
-      },
-      aiRecommendations: {
-        hasAccess: aiAccess.hasAccess,
-        requiredPlan: aiAccess.error?.requiredPlan,
-      },
+      campaigns: { hasAccess: true },
+      automation: { hasAccess: true },
+      aiRecommendations: { hasAccess: true },
     },
     campaignLimitAccess: {
       canCreate: campaignLimitAccess.hasAccess,
@@ -490,9 +475,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   switch (intent) {
     case "setMarketingMode": {
-      // Enforce feature access for marketing campaigns
-      await requireMarketingCampaigns(shop);
-
+      // Rate-based model: All plans can set marketing mode
       const mode = formData.get("mode") as MarketingHubMode;
 
       // If selecting Klaviyo but not connected, redirect to connect page

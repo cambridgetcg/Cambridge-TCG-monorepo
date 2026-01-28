@@ -32,14 +32,14 @@ import {
   transitionStatus,
   type MysteryBoxStatus,
 } from "../services/mystery-box-management.server";
+import { checkLimitAccess } from "~/utils/require-feature.server";
 import {
-  checkFeatureAccess,
-  checkLimitAccess,
-  requireMysteryBoxes,
-  requireWithinActiveMysteryBoxLimit,
-} from "~/utils/require-feature.server";
+  atomicWithinLimit,
+  LimitExceededError,
+} from "~/utils/atomic-limit-control.server";
 import db from "~/db.server";
-import { FeatureLockedCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+import { UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+// NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
 // TYPE DEFINITIONS
@@ -47,12 +47,7 @@ import { FeatureLockedCard, UsageUpgradePrompt } from "~/components/Billing/Upgr
 
 interface LoaderData {
   mysteryBoxesEnabled: boolean;
-  planAccess: {
-    hasAccess: boolean;
-    currentPlan?: string;
-    requiredPlan?: string;
-    message?: string;
-  };
+  // Rate-based gating: all features enabled, only limits differentiate plans
   limitAccess: {
     canCreate: boolean;
     current: number;
@@ -105,15 +100,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
-    // Check plan access for mystery boxes feature
-    const planAccess = await checkFeatureAccess(shop, 'mysteryBoxes');
-
+    // Rate-based gating: all features enabled, check limits only
     // Count active mystery boxes for limit check
     const activeBoxCount = await db.mysteryBox.count({
       where: { shop, isActive: true },
     });
 
-    // Check limit access
+    // Check limit access (rate-based gating)
     const limitAccess = await checkLimitAccess(shop, 'maxActiveMysteryBoxes', activeBoxCount);
 
     // Fetch config and features
@@ -130,12 +123,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json<LoaderData>({
       mysteryBoxesEnabled: features.mysteryBoxes,
-      planAccess: {
-        hasAccess: planAccess.hasAccess,
-        currentPlan: planAccess.error?.currentPlan,
-        requiredPlan: planAccess.error?.requiredPlan,
-        message: planAccess.error?.message,
-      },
+      // Rate-based gating: only limits, no feature access check
       limitAccess: {
         canCreate: limitAccess.hasAccess,
         current: activeBoxCount,
@@ -181,8 +169,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     if (intent === "enableFeature") {
-      // Enforce feature access before enabling
-      await requireMysteryBoxes(shop);
+      // Rate-based gating: all plans can enable
       await updatePointsConfig(shop, { mysteryBoxesEnabled: true });
       return json<ActionData>({ success: true, message: "Mystery Boxes enabled" });
     }
@@ -193,15 +180,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     if (intent === "create") {
-      // Enforce feature access
-      await requireMysteryBoxes(shop);
-
-      // Count active mystery boxes and enforce limit
-      const activeBoxCount = await db.mysteryBox.count({
-        where: { shop, isActive: true },
-      });
-      await requireWithinActiveMysteryBoxLimit(shop, activeBoxCount);
-
       const name = formData.get("name") as string;
       const openCost = parseInt(formData.get("openCost") as string) || 100;
       const maxOpensPerCustomer = parseInt(formData.get("maxOpensPerCustomer") as string) || 5;
@@ -213,32 +191,49 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json<ActionData>({ success: false, error: "Name is required" }, { status: 400 });
       }
 
-      const box = await createMysteryBox({
-        shop,
-        name,
-        openCost,
-        maxOpensPerCustomer,
-        maxOpensTotal: maxOpensTotal ? parseInt(maxOpensTotal) : null,
-        startsAt,
-        endsAt,
-      });
+      try {
+        // Atomic mystery box creation with limit check
+        // This prevents TOCTOU race conditions where two concurrent requests
+        // could both pass the limit check and create boxes exceeding the limit
+        const box = await atomicWithinLimit(
+          shop,
+          "maxActiveMysteryBoxes",
+          (tx) => tx.mysteryBox.count({ where: { shop, isActive: true } }),
+          async () => {
+            return createMysteryBox({
+              shop,
+              name,
+              openCost,
+              maxOpensPerCustomer,
+              maxOpensTotal: maxOpensTotal ? parseInt(maxOpensTotal) : null,
+              startsAt,
+              endsAt,
+            });
+          }
+        );
 
-      return json<ActionData>({
-        success: true,
-        message: "Mystery box created",
-        boxId: box.id,
-      });
+        return json<ActionData>({
+          success: true,
+          message: "Mystery box created",
+          boxId: box.id,
+        });
+      } catch (error) {
+        if (error instanceof LimitExceededError) {
+          return error.toJsonResponse();
+        }
+        throw error;
+      }
     }
 
     if (intent === "delete") {
-      await requireMysteryBoxes(shop);
+      // Rate-based gating: no feature check needed
       const boxId = formData.get("boxId") as string;
       await deleteMysteryBox(boxId, shop);
       return json<ActionData>({ success: true, message: "Mystery box deleted" });
     }
 
     if (intent === "updateStatus") {
-      await requireMysteryBoxes(shop);
+      // Rate-based gating: no feature check needed
       const boxId = formData.get("boxId") as string;
       const newStatus = formData.get("status") as MysteryBoxStatus;
       await transitionStatus(boxId, shop, newStatus);
@@ -260,7 +255,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function MysteryBoxes() {
-  const { mysteryBoxesEnabled, planAccess, limitAccess, pointsConfig, boxes, stats } = useLoaderData<LoaderData>();
+  // Rate-based gating: all features enabled, only limits differentiate plans
+  const { mysteryBoxesEnabled, limitAccess, pointsConfig, boxes, stats } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -360,34 +356,7 @@ export default function MysteryBoxes() {
     setCreateModalOpen(true);
   }, []);
 
-  // If plan doesn't have access to mystery boxes feature
-  if (!planAccess.hasAccess) {
-    return (
-      <Frame>
-        <Page
-          title="Mystery Boxes"
-          backAction={{ content: "Points", url: "/app/rewards" }}
-        >
-          <Layout>
-            <Layout.Section>
-              <FeatureLockedCard
-                feature="Mystery Boxes"
-                description="Create exciting mystery boxes that customers can open using their points. Each box contains randomized rewards with configurable probabilities."
-                requiredPlan={planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
-                benefits={[
-                  "Create unlimited mystery box events",
-                  "Configurable reward rarities (Common to Legendary)",
-                  "Customizable opening costs",
-                  "Per-customer and total open limits",
-                  "Detailed engagement analytics",
-                ]}
-              />
-            </Layout.Section>
-          </Layout>
-        </Page>
-      </Frame>
-    );
-  }
+  // Rate-based gating: all plans have access to mystery boxes, limits differentiate
 
   // If feature not enabled, show setup prompt
   if (!mysteryBoxesEnabled) {

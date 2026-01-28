@@ -18,47 +18,94 @@
 // PLAN DEFINITIONS
 // ============================================
 
+/**
+ * RATE-BASED GATING MODEL
+ * All plans have access to all features - differentiation is through LIMITS only.
+ * This drives upgrade value: users experience the product, then need more capacity.
+ *
+ * Key principle: Free tier gets minimal but functional limits (taste the value)
+ */
 export const PLAN_LIMITS = {
   'RewardsPro Free': {
-    orders: 100,
+    // Core limits - minimal but functional
+    orders: 50,
     tiers: 2,
     automations: 1,
-    customersSync: 1000,
-    historicalDataDays: 30,
-    tierProducts: 2,
-    emailNotifications: false,
-    advancedAnalytics: false,
-    apiAccess: false,
+    customersSync: 500,
+    historicalDataDays: 7,
+    tierProducts: 1,
+    emails: 50,
+    // Gamification limits
+    activeRaffles: 1,
+    activeMysteryBoxes: 1,
+    activeChallenges: 1,
+    // Marketing limits
+    campaigns: 1,
+    automationFlows: 1,
+    // All features enabled (rate-based model)
+    emailNotifications: true,
+    advancedAnalytics: true,
+    apiAccess: true,
   },
   'RewardsPro Pro': {
+    // Core limits - moderate for growing businesses
     orders: 500,
     tiers: 5,
     automations: 5,
-    customersSync: 10000,
-    historicalDataDays: 90,
-    tierProducts: 5,
+    customersSync: 5000,
+    historicalDataDays: 30,
+    tierProducts: 3,
+    emails: 500,
+    // Gamification limits
+    activeRaffles: 3,
+    activeMysteryBoxes: 2,
+    activeChallenges: 5,
+    // Marketing limits
+    campaigns: 5,
+    automationFlows: 3,
+    // All features enabled
     emailNotifications: true,
-    advancedAnalytics: false,
-    apiAccess: false,
+    advancedAnalytics: true,
+    apiAccess: true,
   },
   'RewardsPro Max': {
+    // Core limits - high for scale
     orders: 2000,
     tiers: 10,
     automations: 20,
-    customersSync: 50000,
-    historicalDataDays: 365,
+    customersSync: 25000,
+    historicalDataDays: 90,
     tierProducts: 10,
+    emails: 2000,
+    // Gamification limits
+    activeRaffles: 10,
+    activeMysteryBoxes: 5,
+    activeChallenges: 15,
+    // Marketing limits
+    campaigns: 25,
+    automationFlows: 10,
+    // All features enabled
     emailNotifications: true,
     advancedAnalytics: true,
-    apiAccess: false,
+    apiAccess: true,
   },
   'RewardsPro Ultra': {
+    // Unlimited everything
     orders: Infinity,
     tiers: Infinity,
     automations: Infinity,
     customersSync: Infinity,
     historicalDataDays: Infinity,
     tierProducts: Infinity,
+    emails: Infinity,
+    // Gamification limits - unlimited
+    activeRaffles: Infinity,
+    activeMysteryBoxes: Infinity,
+    activeChallenges: Infinity,
+    // Marketing limits - unlimited
+    campaigns: Infinity,
+    automationFlows: Infinity,
+    // All features enabled
     emailNotifications: true,
     advancedAnalytics: true,
     apiAccess: true,
@@ -73,9 +120,22 @@ export type PlanName = keyof typeof PLAN_LIMITS;
 export type PlanLimit = keyof typeof PLAN_LIMITS[PlanName];
 
 // Numeric limits only (for threshold checking)
-export type NumericPlanLimit = 'orders' | 'tiers' | 'automations' | 'customersSync' | 'historicalDataDays' | 'tierProducts';
+// Rate-based model: these are the key differentiators between plans
+export type NumericPlanLimit =
+  | 'orders'
+  | 'tiers'
+  | 'automations'
+  | 'customersSync'
+  | 'historicalDataDays'
+  | 'tierProducts'
+  | 'emails'
+  | 'activeRaffles'
+  | 'activeMysteryBoxes'
+  | 'activeChallenges'
+  | 'campaigns'
+  | 'automationFlows';
 
-// Boolean features
+// Boolean features - all enabled for all plans in rate-based model
 export type FeaturePlanLimit = 'emailNotifications' | 'advancedAnalytics' | 'apiAccess';
 
 // ============================================
@@ -184,7 +244,50 @@ export function getHistoricalDataLimit(planName: string | null | undefined): num
 }
 
 /**
+ * Gets the email limit for a plan.
+ */
+export function getEmailLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'emails');
+}
+
+/**
+ * Gets the active raffles limit for a plan.
+ */
+export function getActiveRafflesLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'activeRaffles');
+}
+
+/**
+ * Gets the active mystery boxes limit for a plan.
+ */
+export function getActiveMysteryBoxesLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'activeMysteryBoxes');
+}
+
+/**
+ * Gets the active challenges limit for a plan.
+ */
+export function getActiveChallengesLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'activeChallenges');
+}
+
+/**
+ * Gets the campaigns limit for a plan.
+ */
+export function getCampaignsLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'campaigns');
+}
+
+/**
+ * Gets the automation flows limit for a plan.
+ */
+export function getAutomationFlowsLimit(planName: string | null | undefined): number {
+  return getPlanLimit(planName, 'automationFlows');
+}
+
+/**
  * Checks if a plan has a specific feature enabled.
+ * In the rate-based model, all features return true for all plans.
  */
 export function hasPlanFeature(
   planName: string | null | undefined,

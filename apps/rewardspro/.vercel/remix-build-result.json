@@ -54,6 +54,7 @@
       "routes/api.cron.klaviyo-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.admin.entitlements": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -64,6 +65,7 @@
       "routes/api.credit-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.gitbook-assistant": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.ai-feedback.seed": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.klaviyo.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -74,6 +76,7 @@
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.members.export": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.usage": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.sentry-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.email.domain": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.integrations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -548,6 +551,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.admin.entitlements": {
+        "id": "routes/api.admin.entitlements",
+        "parentId": "root",
+        "file": "app/routes/api.admin.entitlements.tsx",
+        "path": "api/admin/entitlements",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.credit-sync.status": {
         "id": "routes/api.credit-sync.status",
         "parentId": "root",
@@ -638,6 +650,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.ai-feedback.seed": {
+        "id": "routes/api.ai-feedback.seed",
+        "parentId": "root",
+        "file": "app/routes/api.ai-feedback.seed.tsx",
+        "path": "api/ai-feedback/seed",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.billing.callback": {
         "id": "routes/api.billing.callback",
         "parentId": "root",
@@ -724,6 +745,15 @@
         "parentId": "root",
         "file": "app/routes/api.billing.usage.tsx",
         "path": "api/billing/usage",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.sentry-events": {
+        "id": "routes/api.sentry-events",
+        "parentId": "root",
+        "file": "app/routes/api.sentry-events.tsx",
+        "path": "api/sentry-events",
         "config": {
           "runtime": "nodejs"
         }
@@ -1393,9 +1423,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/Users/yu/Desktop/rewardspro-production/app",
+    "appDirectory": "/Users/yu/Desktop/ecosystem/growth/customer-success/retention/rewardspro/app",
     "basename": "/",
-    "buildDirectory": "/Users/yu/Desktop/rewardspro-production/build",
+    "buildDirectory": "/Users/yu/Desktop/ecosystem/growth/customer-success/retention/rewardspro/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,
@@ -1677,6 +1707,12 @@
         "file": "routes/api.subscription-action.tsx",
         "path": "api/subscription-action"
       },
+      "routes/api.admin.entitlements": {
+        "id": "routes/api.admin.entitlements",
+        "parentId": "root",
+        "file": "routes/api.admin.entitlements.tsx",
+        "path": "api/admin/entitlements"
+      },
       "routes/api.credit-sync.status": {
         "id": "routes/api.credit-sync.status",
         "parentId": "root",
@@ -1737,6 +1773,12 @@
         "file": "routes/api.order-sync.status.tsx",
         "path": "api/order-sync/status"
       },
+      "routes/api.ai-feedback.seed": {
+        "id": "routes/api.ai-feedback.seed",
+        "parentId": "root",
+        "file": "routes/api.ai-feedback.seed.tsx",
+        "path": "api/ai-feedback/seed"
+      },
       "routes/api.billing.callback": {
         "id": "routes/api.billing.callback",
         "parentId": "root",
@@ -1796,6 +1838,12 @@
         "parentId": "root",
         "file": "routes/api.billing.usage.tsx",
         "path": "api/billing/usage"
+      },
+      "routes/api.sentry-events": {
+        "id": "routes/api.sentry-events",
+        "parentId": "root",
+        "file": "routes/api.sentry-events.tsx",
+        "path": "api/sentry-events"
       },
       "routes/api.cron.metrics": {
         "id": "routes/api.cron.metrics",

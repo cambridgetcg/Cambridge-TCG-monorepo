@@ -11,6 +11,11 @@ export interface ManagedPlan {
   isFree?: boolean;
 }
 
+/**
+ * RATE-BASED GATING MODEL
+ * All plans have access to all features - differentiation is through LIMITS.
+ * Features listed here emphasize capacity/limits rather than feature availability.
+ */
 export const MANAGED_PLANS: Record<string, ManagedPlan> = {
   // Free plan - Hidden from billing pages but still functional for existing users
   "RewardsPro Free": {
@@ -18,15 +23,16 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Free",
     price: 0,
     interval: "month",
-    ordersIncluded: 100,
+    ordersIncluded: 50,
     overageRate: 0,
     features: [
-      "Up to 500 customers",
-      "Up to 100 orders/month",
-      "Basic tier management",
-      "Store credit system",
-      "Email support",
-      "Basic analytics"
+      "All features included",
+      "50 orders/month",
+      "500 customers",
+      "50 emails/month",
+      "2 membership tiers",
+      "7 days analytics history",
+      "Email support"
     ],
     isFree: true
   },
@@ -38,11 +44,12 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 500,
     overageRate: 0.10, // $10 per 100 orders = $0.10 per order
     features: [
-      "Up to 2,000 total customers",
-      "Up to 500 orders/month",
-      "$10 per 100 additional orders",
-      "Batch processing cashback",
-      "1,000 emails/month",
+      "All features included",
+      "500 orders/month",
+      "5,000 customers",
+      "500 emails/month",
+      "5 membership tiers",
+      "30 days analytics history",
       "Priority support"
     ],
     isFree: false
@@ -55,14 +62,14 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 500,
     overageRate: 0.10,
     features: [
-      "Up to 2,000 total customers",
-      "Up to 500 orders/month",
-      "$10 per 100 additional orders",
-      "Batch processing cashback",
-      "1,000 emails/month",
+      "All features included",
+      "500 orders/month",
+      "5,000 customers",
+      "500 emails/month",
+      "5 membership tiers",
+      "30 days analytics history",
       "Priority support",
-      "💰 Save $132/year (28% discount)",
-      "🗓️ $28/month when billed annually"
+      "💰 Save $132/year (28% discount)"
     ],
     isFree: false
   },
@@ -74,13 +81,13 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 2000,
     overageRate: 0.05, // $5 per 100 orders = $0.05 per order
     features: [
-      "Unlimited customers",
-      "Up to 2,000 orders/month",
-      "$5 per 100 additional orders",
-      "Sell tier memberships",
-      "White label email",
-      "5,000 emails/month",
-      "Advanced analytics"
+      "All features included",
+      "2,000 orders/month",
+      "25,000 customers",
+      "2,000 emails/month",
+      "10 membership tiers",
+      "90 days analytics history",
+      "Advanced support"
     ],
     isFree: false
   },
@@ -92,15 +99,14 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 2000,
     overageRate: 0.05,
     features: [
-      "Unlimited customers",
-      "Up to 2,000 orders/month",
-      "$5 per 100 additional orders",
-      "Sell tier memberships",
-      "White label email",
-      "5,000 emails/month",
-      "Advanced analytics",
-      "💰 Save $492/year (27% discount)",
-      "🗓️ $108/month when billed annually"
+      "All features included",
+      "2,000 orders/month",
+      "25,000 customers",
+      "2,000 emails/month",
+      "10 membership tiers",
+      "90 days analytics history",
+      "Advanced support",
+      "💰 Save $492/year (27% discount)"
     ],
     isFree: false
   },
@@ -112,12 +118,12 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 999999, // Effectively unlimited
     overageRate: 0,
     features: [
-      "Unlimited everything",
-      "Unlimited customers",
+      "All features included",
       "Unlimited orders",
+      "Unlimited customers",
       "Unlimited emails",
-      "Full white label solution",
-      "Custom SMTP integration",
+      "Unlimited tiers",
+      "Unlimited analytics history",
       "Dedicated support"
     ],
     isFree: false
@@ -130,15 +136,14 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     ordersIncluded: 999999,
     overageRate: 0,
     features: [
-      "Unlimited everything",
-      "Unlimited customers",
+      "All features included",
       "Unlimited orders",
+      "Unlimited customers",
       "Unlimited emails",
-      "Full white label solution",
-      "Custom SMTP integration",
+      "Unlimited tiers",
+      "Unlimited analytics history",
       "Dedicated support",
-      "💰 Save $1,692/year (28% discount)",
-      "🗓️ $358/month when billed annually"
+      "💰 Save $1,692/year (28% discount)"
     ],
     isFree: false
   }
@@ -150,61 +155,94 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
  * @returns Order limit for the plan, defaults to 100 (Free plan)
  */
 export function getPlanOrderLimit(planName: string | null | undefined): number {
-  if (!planName) return 100; // Default to Free plan limit
+  if (!planName) return 50; // Default to Free plan limit
 
   const plan = MANAGED_PLANS[planName];
-  return plan?.ordersIncluded ?? 100; // Default to Free plan if not found
+  return plan?.ordersIncluded ?? 50; // Default to Free plan if not found
 }
 
+/**
+ * Plan comparison table - RATE-BASED MODEL
+ * All plans have access to all features - differentiation is through LIMITS
+ * This drives upgrade value by showing capacity differences
+ */
 export const PLAN_COMPARISON = [
   {
-    feature: "Customers",
-    free: "500 max",
-    pro: "2,000 max",
-    max: "Unlimited",
+    feature: "Orders/Month",
+    free: "50",
+    pro: "500",
+    max: "2,000",
     ultra: "Unlimited",
   },
   {
-    feature: "Orders Included",
-    free: "100/month",
-    pro: "500/month",
-    max: "2,000/month",
+    feature: "Customer Sync",
+    free: "500",
+    pro: "5,000",
+    max: "25,000",
     ultra: "Unlimited",
   },
   {
-    feature: "Overage Rate",
-    free: "Not available",
-    pro: "$10/100 orders",
-    max: "$5/100 orders",
-    ultra: "None",
+    feature: "Membership Tiers",
+    free: "2",
+    pro: "5",
+    max: "10",
+    ultra: "Unlimited",
   },
   {
-    feature: "Batch Processing",
-    free: "—",
+    feature: "Tier Products",
+    free: "1",
+    pro: "3",
+    max: "10",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "Emails/Month",
+    free: "50",
+    pro: "500",
+    max: "2,000",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "Active Raffles",
+    free: "1",
+    pro: "3",
+    max: "10",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "Active Challenges",
+    free: "1",
+    pro: "5",
+    max: "15",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "Campaigns",
+    free: "1",
+    pro: "5",
+    max: "25",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "Automations",
+    free: "1",
+    pro: "5",
+    max: "20",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "Analytics History",
+    free: "7 days",
+    pro: "30 days",
+    max: "90 days",
+    ultra: "Unlimited",
+  },
+  {
+    feature: "All Features",
+    free: "✓",
     pro: "✓",
     max: "✓",
     ultra: "✓",
-  },
-  {
-    feature: "Tier Memberships",
-    free: "—",
-    pro: "—",
-    max: "✓",
-    ultra: "✓",
-  },
-  {
-    feature: "Email Marketing",
-    free: "—",
-    pro: "1,000/month",
-    max: "5,000/month",
-    ultra: "Unlimited",
-  },
-  {
-    feature: "White Label",
-    free: "—",
-    pro: "—",
-    max: "✓",
-    ultra: "✓ Full",
   },
   {
     feature: "Support",
@@ -212,7 +250,7 @@ export const PLAN_COMPARISON = [
     pro: "Priority",
     max: "Advanced",
     ultra: "Dedicated",
-  }
+  },
 ];
 
 // Helper function to get plan details
@@ -245,7 +283,7 @@ export function calculateUsageMetrics(
   planDetails?: ManagedPlan
 ): UsageMetrics {
   const currentUsage = monthlyOrderUsage?.orderCount || 0;
-  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 100;
+  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 50;
   const projectedUsage = monthlyOrderUsage?.projectedOrders || 0;
 
   const usagePercentage = Math.min(Math.round((currentUsage / planLimit) * 100), 100);

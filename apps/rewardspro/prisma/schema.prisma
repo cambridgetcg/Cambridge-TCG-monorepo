@@ -1413,6 +1413,40 @@ model MonthlyOrderUsage {
   @@index([shop, isLocked])
 }
 
+// Monthly email usage tracking (rate-based gating)
+model MonthlyEmailUsage {
+  id   String @id @default(uuid())
+  shop String
+
+  // Period tracking
+  year  Int // e.g., 2025
+  month Int // 1-12
+
+  // Usage tracking
+  emailCount Int    @default(0)
+  planLimit  Int // 50 for free, 500 for pro, 2000 for max, unlimited for ultra
+  planName   String // Current plan name
+
+  // Breakdown by type
+  campaignEmails Int @default(0) // Marketing campaigns
+  automationEmails Int @default(0) // Triggered automations
+  transactionalEmails Int @default(0) // Order confirmations, etc.
+
+  // Lock state (for plan enforcement - soft limit)
+  isLocked   Boolean   @default(false)
+  lockedAt   DateTime? // When sending was blocked
+  lockReason String? // Why emails were blocked
+
+  // Metadata
+  lastEmailDate DateTime? // Last email sent
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([shop, year, month])
+  @@index([shop, year, month])
+  @@index([shop, isLocked])
+}
+
 // ============================================
 // SUBSCRIPTION MODELS
 // ============================================

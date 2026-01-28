@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 import { query } from "../services/db/rds-data";
 import { csvHeader, csvRow } from "../utils/csv";
 import db from "../db.server";
+import { getEntitlements } from "../services/entitlements.server";
 
 /**
  * SECURITY: Audit logging for data exports
@@ -49,15 +50,17 @@ async function logExportAudit(
   }
 }
 
-async function* iterateTransactions(shopId: string, batchSize = 5000) {
+async function* iterateTransactions(shopId: string, minDate: Date | null, batchSize = 5000) {
   let lastCreatedAt: string | null = null;
   let lastId: string | null = null;
+  const minDateStr = minDate ? minDate.toISOString() : null;
 
   while (true) {
     const rows = await query<any>(
       `SELECT id, "createdAt", "customerId", total_price, cashback_amount
          FROM "Order"
         WHERE shop = :shopId
+          AND (:minDateStr IS NULL OR "createdAt" >= :minDateStr)
           AND (
             :lastCreatedAt IS NULL
             OR "createdAt" > :lastCreatedAt
@@ -67,6 +70,7 @@ async function* iterateTransactions(shopId: string, batchSize = 5000) {
         LIMIT :batch`,
       {
         shopId,
+        minDateStr,
         lastCreatedAt,
         lastId,
         batch: batchSize,
@@ -86,6 +90,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response("Unauthorized", { status: 401 });
   }
 
+  // Rate-based model: All plans have access to analytics exports
+  // Historical data is limited by plan via maxHistoricalDays limit
+  const entitlements = await getEntitlements(session.shop);
+  const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
+
+  // Calculate minimum date based on historical days limit
+  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
+  let minDate: Date | null = null;
+  if (maxHistoricalDays < 999999) {
+    minDate = new Date();
+    minDate.setDate(minDate.getDate() - maxHistoricalDays);
+  }
+
   // SECURITY: Extract request metadata for audit trail
   const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
                     request.headers.get('x-real-ip') ||
@@ -97,6 +114,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     ipAddress,
     userAgent,
     requestedAt: new Date().toISOString(),
+    dateRange: minDate ? `Last ${maxHistoricalDays} days` : 'All time',
+    maxHistoricalDays,
   }).catch(err => console.error('[AUDIT:DATA_EXPORT] Logging failed:', err));
 
   const cols = ["id", "createdAt", "customerId", "total_price", "cashback_amount"];
@@ -105,7 +124,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     start(controller) {
       controller.enqueue(csvHeader(cols));
       (async () => {
-        for await (const row of iterateTransactions(session.shop)) {
+        for await (const row of iterateTransactions(session.shop, minDate)) {
           controller.enqueue(csvRow(row, cols));
         }
         controller.close();

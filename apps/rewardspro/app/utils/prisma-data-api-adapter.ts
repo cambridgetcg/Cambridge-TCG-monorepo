@@ -1616,6 +1616,7 @@ export function createDataAPIPrismaClient() {
           billingHistory: new DataAPIModelProxy("BillingHistory", txAuroraClient),
           notification: new DataAPIModelProxy("Notification", txAuroraClient),
           monthlyOrderUsage: new DataAPIModelProxy("MonthlyOrderUsage", txAuroraClient),
+          monthlyEmailUsage: new DataAPIModelProxy("MonthlyEmailUsage", txAuroraClient),
           order: new DataAPIModelProxy("Order", txAuroraClient),
           orderLineItem: new DataAPIModelProxy("OrderLineItem", txAuroraClient),
           orderRefund: new DataAPIModelProxy("OrderRefund", txAuroraClient),
@@ -1847,6 +1848,7 @@ export function createDataAPIPrismaClient() {
     billingHistory: new DataAPIModelProxy("BillingHistory", client),
     notification: new DataAPIModelProxy("Notification", client),
     monthlyOrderUsage: new DataAPIModelProxy("MonthlyOrderUsage", client),
+    monthlyEmailUsage: new DataAPIModelProxy("MonthlyEmailUsage", client),
 
     // Order models
     order: new DataAPIModelProxy("Order", client),

@@ -55,7 +55,7 @@ export const PLAN_CONFIGS: Record<string, Omit<PlanConfig, 'isTest'>> = {
     planId: "free",
     planName: "RewardsPro Free",
     price: 0,
-    orderLimit: 100,
+    orderLimit: 50,
     description: "Free plan with basic features"
   },
   pro: {
@@ -471,7 +471,7 @@ export async function cancelSubscription(
     });
 
     // Downgrade to free plan
-    await updatePlanLimit(shop, "RewardsPro Free", 100);
+    await updatePlanLimit(shop, "RewardsPro Free", 50);
 
     console.log(`[BillingService] Subscription cancelled for ${shop}`);
 

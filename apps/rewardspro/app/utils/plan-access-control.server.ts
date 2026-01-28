@@ -5,6 +5,7 @@
 
 import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
+import { getOrderLimit } from "~/constants/plan-limits";
 
 export interface AccessCheckResult {
   hasAccess: boolean;
@@ -223,20 +224,10 @@ export async function updatePlanLimit(
 
 /**
  * Get plan limit for a given plan name
- * Uses canonical values from PLAN_ORDER_LIMITS (single source of truth)
+ * Delegates to plan-limits.ts (single source of truth)
  */
 export function getPlanLimit(planName: string): number {
-  // Import canonical values from entitlements service
-  // These match plan-limits.ts: Free=50, Pro=500, Max=5000, Ultra/Enterprise=unlimited
-  const limits: Record<string, number> = {
-    'RewardsPro Free': 50,
-    'RewardsPro Pro': 500,
-    'RewardsPro Max': 5000,
-    'RewardsPro Ultra': 999999, // Effectively unlimited
-    'RewardsPro Enterprise': 999999 // Effectively unlimited
-  };
-
-  return limits[planName] || 50; // Default to Free plan limit
+  return getOrderLimit(planName);
 }
 
 /**

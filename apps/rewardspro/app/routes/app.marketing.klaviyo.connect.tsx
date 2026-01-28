@@ -13,19 +13,12 @@ import {
   buildRedirectUri,
   isOAuthConfigured,
 } from "~/services/klaviyo-oauth.server";
-import { requireIntegrationKlaviyo } from "~/utils/require-feature.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Check feature access - requires Pro+ plan
-  try {
-    await requireIntegrationKlaviyo(shop);
-  } catch {
-    console.log(`[Klaviyo OAuth] Access denied for shop: ${shop} - requires Pro+ plan`);
-    return redirect("/app/marketing/klaviyo?error=feature_not_available&required_plan=Pro");
-  }
+  // Rate-based model: All plans have access to Klaviyo integration
 
   // Check if OAuth is configured
   if (!isOAuthConfigured()) {

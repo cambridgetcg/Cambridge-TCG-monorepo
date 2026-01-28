@@ -79,6 +79,7 @@ import { TierPerformanceChart } from "../components/analytics/TierPerformanceCha
 import { getTierStyle, sortTiersByPriority, formatTierName } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
 import {
@@ -291,6 +292,10 @@ interface AnalyticsData {
     status: string;
   }>;
 
+  // Rate-based limit: Historical data access limited by plan
+  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited
+  maxHistoricalDays: number;
+
   // NEW: Insight Engine Data
   aiInsights: AnalyticsInsight[];
   healthScore: HealthScore | null;
@@ -386,15 +391,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const shop = session.shop;
 
+  // Rate-based model: All plans have access to analytics
+  // Historical data is limited by plan via maxHistoricalDays limit
+
   try {
-    // Fetch minimal data for UI structure and recommendations
-    const [shopSettings, tiers] = await Promise.all([
+    // Fetch minimal data for UI structure, recommendations, and entitlements
+    const [shopSettings, tiers, entitlements] = await Promise.all([
       db.shopSettings.findUnique({ where: { shop } }),
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
       }),
+      getEntitlements(shop),
     ]);
+
+    // Get the plan's historical days limit
+    // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
+    const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
 
     // Debug: Log shopSettings to verify advancedAnalyticsEnabled is being returned
     console.log('[Analytics Loader] shopSettings:', JSON.stringify({
@@ -694,6 +707,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           : null,
         advancedAnalyticsEnabled: (shopSettings as any).advancedAnalyticsEnabled ?? false,
       } : null,
+
+      // Rate-based limits: Historical data access limited by plan
+      // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited
+      maxHistoricalDays,
 
       // Auto-calculated business metrics
       autoCalculatedMetrics: {
@@ -1757,6 +1774,20 @@ export default function AnalyticsPage() {
       subtitle="Track your loyalty program performance"
     >
       <Layout>
+        {/* Historical Data Limit Notice - Rate-based gating */}
+        {data.maxHistoricalDays < 999999 && (
+          <Layout.Section>
+            <Banner tone="info" title="Historical Data Access">
+              <p>
+                Your current plan provides access to {data.maxHistoricalDays} days of historical data.
+                {data.maxHistoricalDays <= 7 && " Upgrade to Pro for 30 days, Max for 90 days, or Ultra for unlimited historical data."}
+                {data.maxHistoricalDays > 7 && data.maxHistoricalDays <= 30 && " Upgrade to Max for 90 days or Ultra for unlimited historical data."}
+                {data.maxHistoricalDays > 30 && data.maxHistoricalDays <= 90 && " Upgrade to Ultra for unlimited historical data."}
+              </p>
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Tabbed Content */}
         <Layout.Section>
           <Card>

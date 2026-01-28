@@ -41,19 +41,20 @@ export const BillingConfig: BillingConfigType = {
   useNewBilling: process.env.USE_NEW_BILLING === 'true',
   isDevelopment: process.env.NODE_ENV === 'development',
 
-  // Plan definitions
+  // Plan definitions - RATE-BASED MODEL
+  // All plans have access to all features - differentiation is through LIMITS
   plans: {
     free: {
       name: "RewardsPro Free",
       price: "0.00",
-      orderLimit: 100,
+      orderLimit: 50,
       features: [
-        "Up to 500 customers",
-        "Up to 100 orders/month",
-        "Basic tier management",
-        "Store credit system",
-        "Email support",
-        "Basic analytics"
+        "All features included",
+        "50 orders/month",
+        "500 customers",
+        "50 emails/month",
+        "2 membership tiers",
+        "7 days analytics history"
       ]
     },
     pro: {
@@ -61,15 +62,15 @@ export const BillingConfig: BillingConfigType = {
       price: "39.00",
       orderLimit: 500,
       usageRate: "0.10", // $0.10 per order over limit ($10 per 100 orders)
-      usageCap: "200.00", // Max $200 additional charges
-      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $200/month)",
+      usageCap: "50.00", // Max $50 additional charges
+      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $50/month)",
       features: [
-        "Up to 2,000 total customers",
-        "Up to 500 orders/month",
-        "$10 per 100 additional orders",
-        "Batch processing cashback",
-        "1,000 emails/month",
-        "Priority support"
+        "All features included",
+        "500 orders/month",
+        "5,000 customers",
+        "500 emails/month",
+        "5 membership tiers",
+        "30 days analytics history"
       ],
       trialDays: 7
     },
@@ -78,17 +79,16 @@ export const BillingConfig: BillingConfigType = {
       price: "336.00", // $28/month billed annually - 28% discount
       orderLimit: 500,
       usageRate: "0.10",
-      usageCap: "200.00",
-      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $200/month)",
+      usageCap: "50.00",
+      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $50/month)",
       features: [
-        "Up to 2,000 total customers",
-        "Up to 500 orders/month",
-        "$10 per 100 additional orders",
-        "Batch processing cashback",
-        "1,000 emails/month",
-        "Priority support",
-        "💰 Save $132/year (28% discount)",
-        "🗓️ $28/month when billed annually"
+        "All features included",
+        "500 orders/month",
+        "5,000 customers",
+        "500 emails/month",
+        "5 membership tiers",
+        "30 days analytics history",
+        "💰 Save $132/year (28% discount)"
       ],
       trialDays: 7
     },
@@ -97,16 +97,15 @@ export const BillingConfig: BillingConfigType = {
       price: "149.00",
       orderLimit: 2000,
       usageRate: "0.05", // $0.05 per order over limit ($5 per 100 orders)
-      usageCap: "500.00", // Max $500 additional charges
-      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)",
+      usageCap: "100.00", // Max $100 additional charges
+      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $100/month)",
       features: [
-        "Unlimited customers",
-        "Up to 2,000 orders/month",
-        "$5 per 100 additional orders",
-        "Sell tier memberships",
-        "White label email",
-        "5,000 emails/month",
-        "Advanced analytics"
+        "All features included",
+        "2,000 orders/month",
+        "25,000 customers",
+        "2,000 emails/month",
+        "10 membership tiers",
+        "90 days analytics history"
       ],
       trialDays: 7
     },
@@ -115,18 +114,16 @@ export const BillingConfig: BillingConfigType = {
       price: "1296.00", // $108/month billed annually - 27% discount
       orderLimit: 2000,
       usageRate: "0.05",
-      usageCap: "500.00",
-      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)",
+      usageCap: "100.00",
+      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $100/month)",
       features: [
-        "Unlimited customers",
-        "Up to 2,000 orders/month",
-        "$5 per 100 additional orders",
-        "Sell tier memberships",
-        "White label email",
-        "5,000 emails/month",
-        "Advanced analytics",
-        "💰 Save $492/year (27% discount)",
-        "🗓️ $108/month when billed annually"
+        "All features included",
+        "2,000 orders/month",
+        "25,000 customers",
+        "2,000 emails/month",
+        "10 membership tiers",
+        "90 days analytics history",
+        "💰 Save $492/year (27% discount)"
       ],
       trialDays: 7
     },
@@ -135,12 +132,12 @@ export const BillingConfig: BillingConfigType = {
       price: "499.00",
       orderLimit: 999999, // Effectively unlimited
       features: [
-        "Unlimited everything",
-        "Unlimited customers",
+        "All features included",
         "Unlimited orders",
+        "Unlimited customers",
         "Unlimited emails",
-        "Full white label solution",
-        "Custom SMTP integration",
+        "Unlimited tiers",
+        "Unlimited analytics history",
         "Dedicated support"
       ],
       trialDays: 14
@@ -150,15 +147,14 @@ export const BillingConfig: BillingConfigType = {
       price: "4296.00", // $358/month billed annually - 28% discount
       orderLimit: 999999,
       features: [
-        "Unlimited everything",
-        "Unlimited customers",
+        "All features included",
         "Unlimited orders",
+        "Unlimited customers",
         "Unlimited emails",
-        "Full white label solution",
-        "Custom SMTP integration",
+        "Unlimited tiers",
+        "Unlimited analytics history",
         "Dedicated support",
-        "💰 Save $1,692/year (28% discount)",
-        "🗓️ $358/month when billed annually"
+        "💰 Save $1,692/year (28% discount)"
       ],
       trialDays: 14
     },

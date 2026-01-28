@@ -69,6 +69,35 @@ For day-to-day development, use these guides:
 - Maintain 8px spacing grid
 - Use sentence case for all UI text
 
+### Design Tokens (Updated 2026-01-24)
+
+**Single Source of Truth for Tier Colors**: `app/utils/tier-styles.ts`
+
+```typescript
+// Get tier style in TypeScript
+import { getTierStyle, getTierCSSVar } from '~/utils/tier-styles';
+
+const style = getTierStyle('gold');
+// Returns: { color: '#F59E0B', gradientFrom, gradientTo, badgeTone, ... }
+```
+
+```css
+/* Use tier CSS variables */
+.my-tier-element {
+  color: var(--rp-tier-gold);
+  background: linear-gradient(135deg,
+    var(--rp-tier-gold-gradient-from),
+    var(--rp-tier-gold-gradient-to)
+  );
+}
+```
+
+**Namespace Convention**: All RewardsPro tokens use `--rp-*` prefix:
+- `--rp-tier-*` for tier colors
+- `--rp-color-*` for semantic colors
+- `--rp-space-*` for spacing
+- `--rp-shadow-*` for shadows
+
 ### Global Ready
 
 - Plan for 50% text expansion
@@ -134,16 +163,20 @@ const color = 'var(--p-color-text-success)';
 
 ### Need to implement...
 
-| Pattern | Location |
-|---------|----------|
-| Customer detail view | `CustomerDetailModal.tsx` |
-| Tier badges | `TierBadge` in `SemanticReactComponents.tsx` |
-| Money display | `MoneyDisplay` in `SemanticReactComponents.tsx` |
-| Loading states | `LoadingSkeleton` in `SemanticReactComponents.tsx` |
-| Error handling | `PolarisSemanticExamples.tsx` |
-| Responsive layout | `useResponsiveBalance` in `BalancedReactComponents.tsx` |
-| Form validation | `SemanticField` in `SemanticReactComponents.tsx` |
-| Empty states | `SemanticEmptyState` in `SemanticReactComponents.tsx` |
+| Pattern | Location | Notes |
+|---------|----------|-------|
+| **Tier badges** | `app/components/TierBadge.tsx` | Primary implementation, uses tier-styles.ts |
+| **Tier colors/styling** | `app/utils/tier-styles.ts` | Single source of truth for all tier colors |
+| Customer detail view | `app/components/CustomerDetailModal.tsx` | |
+| Money display | `MoneyDisplay` in `SemanticReactComponents.tsx` | |
+| Loading states | `LoadingSkeleton` in `DesignSystem/index.tsx` | Also in SemanticReactComponents |
+| Error handling | `PolarisSemanticExamples.tsx` | |
+| Responsive layout | `useResponsiveBalance` in `BalancedReactComponents.tsx` | |
+| Form validation | `SemanticField` in `SemanticReactComponents.tsx` | |
+| Empty states | `SemanticEmptyState` in `SemanticReactComponents.tsx` | |
+
+> **Note**: The `app/components/renaissance/` directory contains a deprecated design system.
+> Use Polaris components and the standard components above instead.
 
 ---
 

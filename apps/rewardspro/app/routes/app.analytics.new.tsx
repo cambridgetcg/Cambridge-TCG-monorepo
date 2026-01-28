@@ -28,6 +28,7 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { analytics } from "../services/analytics/aggregator.service";
 import { ClientOnly } from "../components/charts/ClientOnly";
@@ -64,15 +65,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  // Get shop settings
-  const shopSettings = await db.shopSettings.findUnique({
-    where: { shop: session.shop },
-  }).catch(() => null);
+  // Rate-based model: All plans have access to analytics
+  // Historical data is limited by plan via maxHistoricalDays limit
 
-  // Date range (last 30 days by default)
+  // Get shop settings and entitlements in parallel
+  const [shopSettings, entitlements] = await Promise.all([
+    db.shopSettings.findUnique({
+      where: { shop: session.shop },
+    }).catch(() => null),
+    getEntitlements(session.shop),
+  ]);
+
+  // Enforce historical days limit based on plan
+  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
+  const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
+  const requestedDays = 30; // Default request
+  const allowedDays = Math.min(requestedDays, maxHistoricalDays);
+
+  // Date range (limited by plan's maxHistoricalDays)
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 30);
+  startDate.setDate(startDate.getDate() - allowedDays);
   const range = { start: startDate, end: endDate };
 
   // Fetch analytics data in parallel

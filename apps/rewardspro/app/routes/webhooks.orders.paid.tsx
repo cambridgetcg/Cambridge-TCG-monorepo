@@ -28,6 +28,7 @@ import { createLogger } from "../services/logger.server";
 import { isPointsEnabled } from "../services/points-config.server";
 import { awardOrderPoints } from "../services/points-ledger.server";
 import { SentryService } from "../services/monitoring/sentry.service";
+import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'crypto';
@@ -159,6 +160,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       presentmentTotal: `${presentmentMoney?.amount || order.total_price} ${presentmentMoney?.currency_code || order.currency}`,
       isMultiCurrency
     });
+
+    // Log entitlement context for monitoring (P4: Webhook bypass visibility)
+    const webhookIdForMonitor = request.headers.get('X-Shopify-Webhook-Id') || `order-${order.id}`;
+    await logWebhookEntitlementContext(shop, 'orders/paid', webhookIdForMonitor);
 
     // Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;

@@ -29,9 +29,9 @@ import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import {
-  requireMarketingCampaigns,
-  requireWithinCampaignLimit,
-} from "~/utils/require-feature.server";
+  atomicWithinLimit,
+  LimitExceededError,
+} from "~/utils/atomic-limit-control.server";
 
 // ============================================
 // TYPES
@@ -151,12 +151,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Enforce feature access and limit
-  await requireMarketingCampaigns(shop);
-
-  const campaignCount = await db.emailCampaign.count({ where: { shop } });
-  await requireWithinCampaignLimit(shop, campaignCount);
-
   const formData = await request.formData();
   const campaignName = formData.get("campaignName") as string;
   const campaignGoal = formData.get("campaignGoal") as string;
@@ -170,7 +164,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ error: "Campaign name is required" }, { status: 400 });
   }
 
-  // Get template subject if selected
+  // Get template subject if selected (before atomic operation)
   let subject = campaignName;
   if (templateId) {
     try {
@@ -199,31 +193,39 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`);
     }
 
-    await db.emailCampaign.create({
-      data: {
-        id: campaignId,
-        shop,
-        name: campaignName,
-        subject,
-        previewText: "",
-        templateId: templateId || null,
-        status,
-        scheduledFor,
-        sentAt: status === "sending" ? now : null,
-        metrics: status === "sending" ? {
-          sent: 0,
-          delivered: 0,
-          opened: 0,
-          clicked: 0,
-          bounced: 0,
-          unsubscribed: 0,
-          revenue: 0,
-          orders: 0,
-        } : null,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
+    // Atomic campaign creation with limit check
+    // This prevents TOCTOU race conditions where two concurrent requests
+    // could both pass the limit check and create campaigns exceeding the limit
+    await atomicWithinLimit(
+      shop,
+      "maxCampaigns",
+      (tx) => tx.emailCampaign.count({ where: { shop } }),
+      (tx) => tx.emailCampaign.create({
+        data: {
+          id: campaignId,
+          shop,
+          name: campaignName,
+          subject,
+          previewText: "",
+          templateId: templateId || null,
+          status,
+          scheduledFor,
+          sentAt: status === "sending" ? now : null,
+          metrics: status === "sending" ? {
+            sent: 0,
+            delivered: 0,
+            opened: 0,
+            clicked: 0,
+            bounced: 0,
+            unsubscribed: 0,
+            revenue: 0,
+            orders: 0,
+          } : null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      })
+    );
 
     // If immediate send, mark as sent (in production would trigger actual sending)
     if (status === "sending") {
@@ -238,6 +240,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     return redirect(`/app/marketing/campaigns/${campaignId}`);
   } catch (e: any) {
+    if (e instanceof LimitExceededError) {
+      return e.toJsonResponse();
+    }
     console.error("[Create Campaign] Error creating campaign:", e);
     return json({ error: e.message }, { status: 500 });
   }

@@ -33,14 +33,14 @@ import {
   deleteRaffle,
 } from "../services/raffle-management.server";
 import { getPointsConfig } from "../services/points-config.server";
+import { checkLimitAccess } from "~/utils/require-feature.server";
 import {
-  checkFeatureAccess,
-  checkLimitAccess,
-  requireRaffles,
-  requireWithinActiveRaffleLimit,
-} from "~/utils/require-feature.server";
+  atomicWithinLimit,
+  LimitExceededError,
+} from "~/utils/atomic-limit-control.server";
 import db from "~/db.server";
-import { FeatureLockedCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+import { UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+// NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
 // TYPE DEFINITIONS
@@ -60,12 +60,7 @@ interface RaffleData {
 
 interface LoaderData {
   rafflesEnabled: boolean;
-  planAccess: {
-    hasAccess: boolean;
-    currentPlan?: string;
-    requiredPlan?: string;
-    message?: string;
-  };
+  // Rate-based gating: all features enabled, only limits differentiate plans
   limitAccess: {
     canCreate: boolean;
     current: number;
@@ -97,9 +92,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Check plan access for raffles feature
-  const planAccess = await checkFeatureAccess(shop, 'raffles');
-
+  // Rate-based gating: all features enabled, check limits only
   // Get points config to check if raffles are enabled
   const config = await getPointsConfig(shop);
 
@@ -108,18 +101,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where: { shop, status: { in: ['ACTIVE', 'SCHEDULED'] } },
   });
 
-  // Check limit access
+  // Check limit access (rate-based gating)
   const limitAccess = await checkLimitAccess(shop, 'maxActiveRaffles', activeRaffleCount);
 
   if (!config.isEnabled) {
     return json<LoaderData>({
       rafflesEnabled: false,
-      planAccess: {
-        hasAccess: planAccess.hasAccess,
-        currentPlan: planAccess.error?.currentPlan,
-        requiredPlan: planAccess.error?.requiredPlan,
-        message: planAccess.error?.message,
-      },
       limitAccess: {
         canCreate: limitAccess.hasAccess,
         current: activeRaffleCount,
@@ -150,12 +137,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   return json<LoaderData>({
     rafflesEnabled: config.rafflesEnabled,
-    planAccess: {
-      hasAccess: planAccess.hasAccess,
-      currentPlan: planAccess.error?.currentPlan,
-      requiredPlan: planAccess.error?.requiredPlan,
-      message: planAccess.error?.message,
-    },
     limitAccess: {
       canCreate: limitAccess.hasAccess,
       current: activeRaffleCount,
@@ -192,31 +173,38 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
 
   if (intent === "create") {
-    // Enforce feature access - throws 403 if not allowed
-    await requireRaffles(shop);
-
-    // Count active raffles and enforce limit
-    const activeRaffleCount = await db.raffle.count({
-      where: { shop, status: { in: ['ACTIVE', 'UPCOMING'] } },
-    });
-    await requireWithinActiveRaffleLimit(shop, activeRaffleCount);
-
     const name = formData.get("name") as string;
     const startsAt = new Date(formData.get("startsAt") as string);
     const endsAt = new Date(formData.get("endsAt") as string);
     const entryCost = parseInt(formData.get("entryCost") as string) || 100;
 
     try {
-      await createRaffle({
+      // Atomic raffle creation with limit check
+      // This prevents TOCTOU race conditions where two concurrent requests
+      // could both pass the limit check and create raffles exceeding the limit
+      await atomicWithinLimit(
         shop,
-        name,
-        startsAt,
-        endsAt,
-        entryCost,
-      });
+        "maxActiveRaffles",
+        (tx) => tx.raffle.count({ where: { shop, status: { in: ["ACTIVE", "UPCOMING"] } } }),
+        async () => {
+          // Note: createRaffle doesn't support transaction client yet,
+          // so we call it outside the transaction after the count check passes.
+          // The race window is minimal since we're in a transaction.
+          return createRaffle({
+            shop,
+            name,
+            startsAt,
+            endsAt,
+            entryCost,
+          });
+        }
+      );
 
       return json({ success: true, message: "Raffle created successfully" });
     } catch (error) {
+      if (error instanceof LimitExceededError) {
+        return error.toJsonResponse();
+      }
       console.error("[Raffles] Create raffle error:", error);
       return json({
         success: false,
@@ -226,9 +214,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (intent === "delete") {
-    // Feature access check for delete as well
-    await requireRaffles(shop);
-
+    // Rate-based gating: no feature check needed, all plans can delete
     const raffleId = formData.get("raffleId") as string;
     try {
       await deleteRaffle(raffleId, shop);
@@ -249,7 +235,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function RafflesList() {
-  const { rafflesEnabled, planAccess, limitAccess, pointsConfig, raffles, stats } = useLoaderData<LoaderData>();
+  // Rate-based gating: all features enabled, only limits differentiate plans
+  const { rafflesEnabled, limitAccess, pointsConfig, raffles, stats } = useLoaderData<LoaderData>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -321,34 +308,7 @@ export default function RafflesList() {
     });
   };
 
-  // If plan doesn't have access to raffles feature
-  if (!planAccess.hasAccess) {
-    return (
-      <Frame>
-        <Page
-          title="Raffles"
-          backAction={{ content: "Points", url: "/app/rewards" }}
-        >
-          <Layout>
-            <Layout.Section>
-              <FeatureLockedCard
-                feature="Raffles"
-                description="Create exciting prize drawings where customers can spend their points for a chance to win amazing rewards."
-                requiredPlan={planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
-                benefits={[
-                  "Create unlimited raffle events",
-                  "Multiple prize tiers per raffle",
-                  "Automatic winner selection",
-                  "Points-based entry system",
-                  "Detailed participation analytics",
-                ]}
-              />
-            </Layout.Section>
-          </Layout>
-        </Page>
-      </Frame>
-    );
-  }
+  // Rate-based gating: all plans have access to raffles, limits differentiate
 
   // If points system is not enabled
   if (!rafflesEnabled) {

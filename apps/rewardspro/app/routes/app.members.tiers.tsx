@@ -32,6 +32,10 @@ import {
   PackageIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
+import {
+  atomicTierCreate,
+  LimitExceededError,
+} from "~/utils/atomic-limit-control.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
@@ -133,7 +137,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const cashbackPercent = Number(formData.get("cashbackPercent"));
     const evaluationPeriod = formData.get("evaluationPeriod") as "ANNUAL" | "LIFETIME";
 
-    // Validate inputs
+    // Validate inputs first (before transaction)
     if (!name || name.trim().length === 0) {
       return json({ error: "Name is required" }, { status: 400 });
     }
@@ -144,7 +148,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: "Cashback must be between 0 and 100" }, { status: 400 });
     }
 
-    // Check for duplicate
+    // Check for duplicate (before transaction to fail fast)
     const existing = await db.tier.findFirst({
       where: { shop, name: name.trim() },
     });
@@ -153,22 +157,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: `A tier named "${name}" already exists` }, { status: 400 });
     }
 
-    // Create tier
+    // Generate tier ID
     const storeName = shop.split(".")[0];
     const tierId = `${storeName}-${name.trim().toLowerCase().replace(/\s+/g, "-")}`;
 
-    await db.tier.create({
-      data: {
+    // Atomic tier creation with limit check
+    // This prevents TOCTOU race conditions where two concurrent requests
+    // could both pass the limit check and create tiers exceeding the limit
+    try {
+      await atomicTierCreate(shop, {
         id: tierId,
-        shop,
         name: name.trim(),
         minSpend,
         cashbackPercent,
         evaluationPeriod,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
+      });
+    } catch (error) {
+      if (error instanceof LimitExceededError) {
+        return error.toJsonResponse();
+      }
+      throw error;
+    }
 
     return json({ success: true, message: "Tier created successfully" });
   }

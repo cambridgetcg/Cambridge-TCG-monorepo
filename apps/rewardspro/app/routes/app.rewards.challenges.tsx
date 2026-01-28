@@ -19,8 +19,6 @@ import {
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
-import { checkFeatureAccess, requireChallenges } from "~/utils/require-feature.server";
-import { FeatureLockedCard } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -28,12 +26,6 @@ import { FeatureLockedCard } from "~/components/Billing/UpgradePrompt";
 
 interface LoaderData {
   challengesEnabled: boolean;
-  planAccess: {
-    hasAccess: boolean;
-    currentPlan?: string;
-    requiredPlan?: string;
-    message?: string;
-  };
   pointsConfig: {
     currencyName: string;
     currencyIcon: string;
@@ -79,9 +71,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const shop = session.shop;
     console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
-    // Check plan access for challenges feature
-    const planAccess = await checkFeatureAccess(shop, 'challenges');
-
     // Fetch config and features
     const [config, features] = await Promise.all([
       getPointsConfig(shop),
@@ -96,12 +85,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     return json<LoaderData>({
       challengesEnabled: features.challenges,
-      planAccess: {
-        hasAccess: planAccess.hasAccess,
-        currentPlan: planAccess.error?.currentPlan,
-        requiredPlan: planAccess.error?.requiredPlan,
-        message: planAccess.error?.message,
-      },
       pointsConfig: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
@@ -135,8 +118,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     if (intent === "enableFeature") {
-      // Enforce feature access before enabling
-      await requireChallenges(shop);
+      // Rate-based model: All plans can enable challenges (limits differentiate)
       await updatePointsConfig(shop, { challengesEnabled: true });
       return json<ActionData>({ success: true, message: "Challenges enabled" });
     }
@@ -199,36 +181,6 @@ export default function ChallengesPage() {
     formData.append("intent", "disableFeature");
     submit(formData, { method: "post" });
   };
-
-  // If plan doesn't have access to challenges feature
-  if (!data.planAccess.hasAccess) {
-    return (
-      <Frame>
-        <Page
-          title="Challenges"
-          subtitle="Create goal-based engagement activities for your customers"
-          backAction={{ content: "Points", url: "/app/rewards" }}
-        >
-          <Layout>
-            <Layout.Section>
-              <FeatureLockedCard
-                feature="Challenges"
-                description="Create goal-based challenges where customers earn rewards by completing specific objectives like spending thresholds, purchase counts, or buying from specific collections."
-                requiredPlan={data.planAccess.requiredPlan?.toLowerCase().includes('max') ? 'max' : 'pro'}
-                benefits={[
-                  "Spending goal challenges",
-                  "Purchase count objectives",
-                  "Collection-based challenges",
-                  "Streak and consistency rewards",
-                  "Detailed progress tracking",
-                ]}
-              />
-            </Layout.Section>
-          </Layout>
-        </Page>
-      </Frame>
-    );
-  }
 
   // Feature not enabled state
   if (!data.challengesEnabled) {

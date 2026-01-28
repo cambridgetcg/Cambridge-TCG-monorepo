@@ -24,6 +24,11 @@ import {
   trackCashbackEarned,
   syncCustomerToKlaviyo,
 } from "./klaviyo-events.server";
+import {
+  checkEmailLimit,
+  recordEmailSent,
+  type EmailType,
+} from "./email-usage-control.server";
 
 // ============================================
 // TYPES
@@ -140,6 +145,16 @@ export async function sendTransactionalEmail(
   shop: string,
   params: SendEmailParams
 ): Promise<EmailResult> {
+  // Check email limit before sending
+  const usageCheck = await checkEmailLimit(shop, 1);
+  if (!usageCheck.allowed) {
+    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
+    return {
+      success: false,
+      error: usageCheck.message,
+    };
+  }
+
   const providerType = await getEmailProviderType(shop);
 
   switch (providerType) {
@@ -149,6 +164,8 @@ export async function sendTransactionalEmail(
       console.log(
         "[EmailProvider] Transactional emails in KLAVIYO mode handled by flows"
       );
+      // Record the email even for Klaviyo (flow will send it)
+      await recordEmailSent(shop, 1, "transactional");
       return { success: true };
 
     case "HYBRID":
@@ -168,6 +185,10 @@ export async function sendTransactionalEmail(
           categories: params.categories,
           customArgs: params.customArgs,
         });
+        if (result) {
+          // Record successful email send
+          await recordEmailSent(shop, 1, "transactional");
+        }
         return { success: result, messageId: result ? "sent" : undefined };
       } catch (error) {
         return {
@@ -185,6 +206,13 @@ export async function sendWelcomeEmailUnified(
   shop: string,
   params: WelcomeEmailParams
 ): Promise<boolean> {
+  // Check email limit before sending
+  const usageCheck = await checkEmailLimit(shop, 1);
+  if (!usageCheck.allowed) {
+    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
+    return false;
+  }
+
   const { customer, storeName, tierName, cashbackPercent } = params;
   const providerType = await getEmailProviderType(shop);
 
@@ -205,6 +233,8 @@ export async function sendWelcomeEmailUnified(
 
   // For pure Klaviyo mode, the flow handles the email
   if (providerType === "KLAVIYO") {
+    // Record the email (Klaviyo flow will send it)
+    await recordEmailSent(shop, 1, "transactional");
     return true;
   }
 
@@ -227,6 +257,8 @@ export async function sendWelcomeEmailUnified(
       cashbackPercent: cashbackPercent || customer.currentTier?.cashbackPercent,
     });
 
+    // Record successful email send
+    await recordEmailSent(shop, 1, "transactional");
     return true;
   } catch (error) {
     console.error("[EmailProvider] Failed to send welcome email:", error);
@@ -241,6 +273,13 @@ export async function sendTierUpgradeEmailUnified(
   shop: string,
   params: TierUpgradeEmailParams
 ): Promise<boolean> {
+  // Check email limit before sending
+  const usageCheck = await checkEmailLimit(shop, 1);
+  if (!usageCheck.allowed) {
+    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
+    return false;
+  }
+
   const { customer, previousTier, newTier, qualifyingOrderId } = params;
   const providerType = await getEmailProviderType(shop);
 
@@ -273,6 +312,8 @@ export async function sendTierUpgradeEmailUnified(
 
   // For pure Klaviyo mode, the flow handles the email
   if (providerType === "KLAVIYO") {
+    // Record the email (Klaviyo flow will send it)
+    await recordEmailSent(shop, 1, "transactional");
     return true;
   }
 
@@ -300,6 +341,8 @@ export async function sendTierUpgradeEmailUnified(
       newCashbackPercent: newTier.cashbackPercent,
     });
 
+    // Record successful email send
+    await recordEmailSent(shop, 1, "transactional");
     return true;
   } catch (error) {
     console.error("[EmailProvider] Failed to send tier upgrade email:", error);
@@ -375,6 +418,18 @@ export async function sendBatchMarketingEmails(
   shop: string,
   params: BatchEmailParams
 ): Promise<EmailResult> {
+  const recipientCount = params.recipients.length;
+
+  // Check email limit before sending batch
+  const usageCheck = await checkEmailLimit(shop, recipientCount);
+  if (!usageCheck.allowed) {
+    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
+    return {
+      success: false,
+      error: usageCheck.message,
+    };
+  }
+
   const useKlaviyo = await shouldUseKlaviyoForMarketing(shop);
 
   if (useKlaviyo) {
@@ -383,6 +438,8 @@ export async function sendBatchMarketingEmails(
     console.log(
       "[EmailProvider] Batch marketing emails should use Klaviyo campaigns"
     );
+    // Record the emails (Klaviyo will handle sending)
+    await recordEmailSent(shop, recipientCount, "campaign");
     return { success: true };
   }
 
@@ -399,6 +456,11 @@ export async function sendBatchMarketingEmails(
       params.text,
       params.categories
     );
+
+    if (result > 0) {
+      // Record successful email sends
+      await recordEmailSent(shop, result, "campaign");
+    }
 
     return { success: result > 0 };
   } catch (error) {
