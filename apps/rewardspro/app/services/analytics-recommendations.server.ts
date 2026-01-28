@@ -89,9 +89,21 @@ export class AnalyticsRecommendationsService {
 
   /**
    * Get average order value for revenue calculations
+   * Uses configured store metric if available, otherwise calculates from order history
    */
-  private async getAverageOrderValue(): Promise<number> {
+  private async getAverageOrderValue(): Promise<{ value: number; source: 'configured' | 'calculated' | 'default' }> {
     try {
+      // First check for configured AOV in store metrics
+      const shopSettings = await db.shopSettings.findUnique({
+        where: { shop: this.shop },
+        select: { averageOrderValue: true },
+      });
+
+      if (shopSettings?.averageOrderValue && Number(shopSettings.averageOrderValue) > 0) {
+        return { value: Number(shopSettings.averageOrderValue), source: 'configured' };
+      }
+
+      // Fall back to calculating from order history
       const customers = await db.customer.findMany({
         where: {
           shop: this.shop,
@@ -102,14 +114,17 @@ export class AnalyticsRecommendationsService {
         take: 1000,
       });
 
-      if (customers.length === 0) return 50;
+      if (customers.length === 0) {
+        return { value: 50, source: 'default' };
+      }
 
       const totalSpent = customers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0);
       const totalOrders = customers.reduce((sum, c) => sum + (c.orderCount || 0), 0);
 
-      return totalOrders > 0 ? totalSpent / totalOrders : 50;
+      const calculated = totalOrders > 0 ? totalSpent / totalOrders : 50;
+      return { value: calculated, source: 'calculated' };
     } catch {
-      return 50;
+      return { value: 50, source: 'default' };
     }
   }
 
@@ -240,7 +255,7 @@ export class AnalyticsRecommendationsService {
 
     if (inactiveCustomers.length > 10) {
       const avgSpent = inactiveCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / inactiveCustomers.length;
-      const predictedRevenue = inactiveCustomers.length * inactiveRate.rate * avgOrderValue;
+      const predictedRevenue = inactiveCustomers.length * inactiveRate.rate * avgOrderValue.value;
 
       insights.push({
         type: 'inactive_customers',
@@ -266,7 +281,8 @@ export class AnalyticsRecommendationsService {
             value: 15
           },
           conversionRateSource: inactiveRate.isHistorical ? 'historical' : 'benchmark',
-          avgOrderValue: Math.round(avgOrderValue),
+          avgOrderValue: Math.round(avgOrderValue.value),
+          avgOrderValueSource: avgOrderValue.source,
         },
         predictedRevenue,
         affectedCount: inactiveCustomers.length,
@@ -393,7 +409,7 @@ export class AnalyticsRecommendationsService {
 
       // Revenue = redeemed credits + additional spend (customers typically spend more than credit value)
       const avgBalance = totalExpiringValue / uniqueCustomers.length;
-      const multiplier = avgOrderValue > avgBalance ? 1.5 : 1.2;
+      const multiplier = avgOrderValue.value > avgBalance ? 1.5 : 1.2;
       const predictedRevenue = totalExpiringValue * expiringRate.rate * multiplier;
 
       insights.push({
@@ -531,7 +547,7 @@ export class AnalyticsRecommendationsService {
 
       if (upcomingBirthdays.length > 0) {
         const avgCustomerSpent = upcomingBirthdays.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / upcomingBirthdays.length;
-        const predictedRevenue = upcomingBirthdays.length * birthdayRate.rate * avgOrderValue;
+        const predictedRevenue = upcomingBirthdays.length * birthdayRate.rate * avgOrderValue.value;
 
         insights.push({
           type: 'birthday_upcoming',
@@ -585,7 +601,7 @@ export class AnalyticsRecommendationsService {
     if (lowBalanceCustomers.length > 0) {
       const totalDormant = lowBalanceCustomers.reduce((sum, c) => sum + Number(c.storeCredit || 0), 0);
       const avgBalance = totalDormant / lowBalanceCustomers.length;
-      const predictedRevenue = lowBalanceCustomers.length * lowBalanceRate.rate * (avgBalance + avgOrderValue);
+      const predictedRevenue = lowBalanceCustomers.length * lowBalanceRate.rate * (avgBalance + avgOrderValue.value);
 
       insights.push({
         type: 'low_balance_reengagement',
@@ -609,7 +625,8 @@ export class AnalyticsRecommendationsService {
           conversionRateSource: lowBalanceRate.isHistorical ? 'historical' : 'benchmark',
           dormantRewards: Math.round(totalDormant),
           avgBalance: Math.round(avgBalance),
-          avgOrderValue: Math.round(avgOrderValue),
+          avgOrderValue: Math.round(avgOrderValue.value),
+          avgOrderValueSource: avgOrderValue.source,
         },
         predictedRevenue,
         affectedCount: lowBalanceCustomers.length,

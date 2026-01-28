@@ -257,6 +257,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           ss."widgetAccentColor",
           ss."widgetBorderRadius",
           ss."widgetFontFamily",
+          ss."updatedAt" as "settingsUpdatedAt",
 
           -- Points configuration
           pc."isEnabled" as "points_enabled",
@@ -509,6 +510,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           accentColor: row.widgetAccentColor || '#008060',
           borderRadius: row.widgetBorderRadius || 12,
           fontFamily: row.widgetFontFamily || 'inherit',
+          // Settings version for cache invalidation - changes when merchant updates settings
+          version: row.settingsUpdatedAt ? new Date(row.settingsUpdatedAt).getTime() : 0,
         },
         settings: {
           currency: row.storeCurrency || 'USD',
@@ -541,7 +544,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           widgetTextColor: row.widgetTextColor,
           widgetAccentColor: row.widgetAccentColor,
           widgetBorderRadius: row.widgetBorderRadius,
-          widgetFontFamily: row.widgetFontFamily
+          widgetFontFamily: row.widgetFontFamily,
+          settingsUpdatedAt: row.settingsUpdatedAt
         },
         themeInResponse: responseData.theme
       });

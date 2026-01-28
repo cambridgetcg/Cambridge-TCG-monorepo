@@ -26,7 +26,7 @@
        data-shop-currency="{{ shop.currency }}"
        data-api-endpoint="/apps/rewardspro/membership"
        data-enable-api="{{ block.settings.enable_api_calls | default: true }}"
-       data-cache-duration="{{ block.settings.cache_duration | default: 120 }}">
+       data-cache-duration="{{ block.settings.cache_duration | default: 30 }}">
     {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
     <div class="rp-widget-loading">Loading rewards...</div>
   </div>
@@ -79,12 +79,12 @@
       "type": "range",
       "id": "cache_duration",
       "label": "Cache duration (seconds)",
-      "min": 60,
-      "max": 600,
+      "min": 30,
+      "max": 300,
       "step": 30,
-      "default": 120,
+      "default": 30,
       "unit": "sec",
-      "info": "How long to cache customer data (2 minutes recommended for balance of freshness and performance)"
+      "info": "How long to cache customer data. Lower values = faster theme updates, higher values = better performance. 30 seconds recommended."
     },
     {
       "type": "header",

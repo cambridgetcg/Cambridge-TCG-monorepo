@@ -536,33 +536,84 @@ export class InsightEngine {
         }
       }
 
-      // ROI check
-      if (cashbackStats.influencedRevenue > 0) {
-        const roiRatio = (cashbackStats.spent / cashbackStats.influencedRevenue) * 100;
+      // ROI check - enhanced with target comparison
+      const roiStats = await this.getROIStats();
 
-        if (roiRatio > 5) {
-          insights.push({
-            id: `cashback-roi-${Date.now()}`,
-            type: 'recommendation',
-            category: 'cashback',
-            severity: 'warning',
-            title: 'Cashback Profitability',
-            description: `Cashback cost is ${roiRatio.toFixed(1)}% of influenced revenue. Review rates for profitability.`,
-            metric: 'cashback_roi',
-            value: roiRatio,
-            action: {
-              label: 'Review Cashback Rates',
-              href: '/app/settings/cashback',
-              priority: 'medium',
-            },
-            context: {
-              explanation: 'High cashback costs relative to revenue may impact program sustainability.',
-              benchmark: 3,
-              benchmarkLabel: 'Target ratio',
-            },
-            confidence: 0.85,
-            createdAt: new Date(),
-          });
+      if (cashbackStats.influencedRevenue > 0) {
+        // If target ROI is configured, compare actual vs target
+        if (roiStats.targetROI !== null && roiStats.roiGap !== null) {
+          if (roiStats.meetsTarget && roiStats.roiGap >= 50) {
+            // Exceeding target significantly - positive insight
+            insights.push({
+              id: `roi-exceeding-target-${Date.now()}`,
+              type: 'milestone',
+              category: 'cashback',
+              severity: 'positive',
+              title: 'ROI Exceeds Target',
+              description: `Your loyalty program ROI of ${roiStats.actualROI.toFixed(0)}% exceeds your ${roiStats.targetROI}% target by ${roiStats.roiGap.toFixed(0)} percentage points!`,
+              metric: 'actual_vs_target_roi',
+              value: roiStats.actualROI,
+              context: {
+                explanation: 'Your loyalty program is delivering strong returns. Consider reinvesting some gains into customer engagement.',
+                benchmark: roiStats.targetROI,
+                benchmarkLabel: 'Your target ROI',
+              },
+              confidence: 0.9,
+              createdAt: new Date(),
+            });
+          } else if (!roiStats.meetsTarget && roiStats.roiGap < -25) {
+            // Below target significantly - warning
+            insights.push({
+              id: `roi-below-target-${Date.now()}`,
+              type: 'recommendation',
+              category: 'cashback',
+              severity: 'warning',
+              title: 'ROI Below Target',
+              description: `Current ROI of ${roiStats.actualROI.toFixed(0)}% is ${Math.abs(roiStats.roiGap).toFixed(0)} points below your ${roiStats.targetROI}% target.`,
+              metric: 'actual_vs_target_roi',
+              value: roiStats.actualROI,
+              action: {
+                label: 'Review Cashback Rates',
+                href: '/app/members/tiers',
+                priority: 'high',
+              },
+              context: {
+                explanation: 'Consider adjusting tier cashback percentages or running targeted campaigns to improve program efficiency.',
+                benchmark: roiStats.targetROI,
+                benchmarkLabel: 'Your target ROI',
+              },
+              confidence: 0.85,
+              createdAt: new Date(),
+            });
+          }
+        } else {
+          // No target configured - use benchmark-based check
+          const roiRatio = (cashbackStats.spent / cashbackStats.influencedRevenue) * 100;
+
+          if (roiRatio > 5) {
+            insights.push({
+              id: `cashback-roi-${Date.now()}`,
+              type: 'recommendation',
+              category: 'cashback',
+              severity: 'warning',
+              title: 'Cashback Profitability',
+              description: `Cashback cost is ${roiRatio.toFixed(1)}% of influenced revenue. Review rates for profitability.`,
+              metric: 'cashback_roi',
+              value: roiRatio,
+              action: {
+                label: 'Review Cashback Rates',
+                href: '/app/members/tiers',
+                priority: 'medium',
+              },
+              context: {
+                explanation: 'High cashback costs relative to revenue may impact program sustainability. Set a target ROI in Settings > Store Metrics for personalized tracking.',
+                benchmark: 3,
+                benchmarkLabel: 'Industry benchmark',
+              },
+              confidence: 0.85,
+              createdAt: new Date(),
+            });
+          }
         }
       }
     } catch (error) {
@@ -791,13 +842,33 @@ export class InsightEngine {
     try {
       const stats = await this.getROIStats();
 
-      // Cashback ROI (+/- 25 points)
-      if (stats.cashbackROI > 5) {
-        score += 25;
-        factors.push('Excellent cashback ROI');
-      } else if (stats.cashbackROI < 1) {
-        score -= 25;
-        factors.push('Poor cashback ROI');
+      // Target ROI comparison (if configured) - prioritize this over benchmark
+      if (stats.targetROI !== null && stats.meetsTarget !== null) {
+        if (stats.meetsTarget && stats.roiGap !== null && stats.roiGap >= 50) {
+          score += 25;
+          factors.push(`Exceeding target ROI by ${Math.round(stats.roiGap)}%`);
+        } else if (stats.meetsTarget) {
+          score += 15;
+          factors.push('Meeting target ROI');
+        } else if (stats.roiGap !== null && stats.roiGap > -50) {
+          score -= 10;
+          factors.push(`${Math.abs(Math.round(stats.roiGap))}% below target ROI`);
+        } else {
+          score -= 25;
+          factors.push('Significantly below target ROI');
+        }
+      } else {
+        // Fallback to benchmark-based scoring if no target configured
+        if (stats.cashbackROI > 5) {
+          score += 25;
+          factors.push('Excellent cashback ROI (5x+)');
+        } else if (stats.cashbackROI > 3) {
+          score += 15;
+          factors.push('Good cashback ROI (3-5x)');
+        } else if (stats.cashbackROI < 1) {
+          score -= 25;
+          factors.push('Poor cashback ROI (<1x)');
+        }
       }
 
       // Customer LTV growth (+/- 25 points)
@@ -1093,12 +1164,93 @@ export class InsightEngine {
     };
   }
 
-  private async getROIStats(): Promise<{ cashbackROI: number; ltvGrowth: number }> {
-    // Simplified ROI calculation
-    return {
-      cashbackROI: 3.5, // Would calculate from actual data
-      ltvGrowth: 0.05, // Would compare LTV over time
-    };
+  private async getROIStats(): Promise<{
+    cashbackROI: number;
+    ltvGrowth: number;
+    targetROI: number | null;
+    actualROI: number;
+    roiGap: number | null;
+    meetsTarget: boolean | null;
+  }> {
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+    try {
+      // Fetch shop settings for target ROI and cashback stats in parallel
+      const [shopSettings, cashbackStats, currentLTV, previousLTV] = await Promise.all([
+        db.shopSettings.findUnique({
+          where: { shop: this.shop },
+          select: { targetRoiPercent: true, averageProfitMargin: true },
+        }),
+        this.getCashbackStats(),
+        // Current period average LTV
+        db.customer.aggregate({
+          where: {
+            shop: this.shop,
+            createdAt: { gte: sixtyDaysAgo },
+            totalSpent: { gt: 0 },
+          },
+          _avg: { totalSpent: true },
+        }),
+        // Previous period average LTV
+        db.customer.aggregate({
+          where: {
+            shop: this.shop,
+            createdAt: { gte: ninetyDaysAgo, lt: sixtyDaysAgo },
+            totalSpent: { gt: 0 },
+          },
+          _avg: { totalSpent: true },
+        }),
+      ]);
+
+      const targetROI = shopSettings?.targetRoiPercent
+        ? Number(shopSettings.targetRoiPercent)
+        : null;
+
+      // Calculate actual ROI: (revenue - cashback cost) / cashback cost * 100
+      // ROI formula: ((Return - Investment) / Investment) * 100
+      // Here: Investment = cashback spent, Return = influenced revenue
+      let actualROI = 0;
+      if (cashbackStats.spent > 0) {
+        actualROI = ((cashbackStats.influencedRevenue - cashbackStats.spent) / cashbackStats.spent) * 100;
+      }
+
+      // For backward compatibility, also express as multiplier (cashbackROI)
+      // cashbackROI = influencedRevenue / spent (e.g., 3.5x means $3.50 revenue per $1 spent)
+      const cashbackROI = cashbackStats.spent > 0
+        ? cashbackStats.influencedRevenue / cashbackStats.spent
+        : 0;
+
+      // Calculate LTV growth
+      const currentLTVValue = toNumber(currentLTV._avg?.totalSpent);
+      const previousLTVValue = toNumber(previousLTV._avg?.totalSpent);
+      const ltvGrowth = previousLTVValue > 0
+        ? (currentLTVValue - previousLTVValue) / previousLTVValue
+        : 0;
+
+      // Calculate ROI gap (how far from target)
+      const roiGap = targetROI !== null ? actualROI - targetROI : null;
+      const meetsTarget = targetROI !== null ? actualROI >= targetROI : null;
+
+      return {
+        cashbackROI,
+        ltvGrowth,
+        targetROI,
+        actualROI,
+        roiGap,
+        meetsTarget,
+      };
+    } catch (error) {
+      console.error('[InsightEngine] Error calculating ROI stats:', error);
+      return {
+        cashbackROI: 0,
+        ltvGrowth: 0,
+        targetROI: null,
+        actualROI: 0,
+        roiGap: null,
+        meetsTarget: null,
+      };
+    }
   }
 
   private async getGrowthStats(): Promise<{ memberGrowthRate: number; revenueGrowthRate: number }> {

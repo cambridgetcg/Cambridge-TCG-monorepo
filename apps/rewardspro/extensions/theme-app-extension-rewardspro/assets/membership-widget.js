@@ -20,8 +20,8 @@
     API_MAX_RETRIES: 3,           // Max retry attempts for failed requests
     API_RETRY_BASE_MS: 1000,      // Base delay for exponential backoff (1s)
     API_RETRY_MAX_MS: 10000,      // Max retry delay (10s)
-    DEFAULT_CACHE_DURATION_S: 120, // Default cache TTL (2 minutes)
-    CACHE_VERSION: 1              // Cache schema version for invalidation
+    DEFAULT_CACHE_DURATION_S: 30, // Default cache TTL (30 seconds - reduced for faster theme updates)
+    CACHE_VERSION: 2              // Cache schema version for invalidation (bump to force re-fetch)
   };
 
   // ============================================
@@ -146,7 +146,7 @@
         api: {
           endpoint: dataset.apiEndpoint,
           enabled: dataset.enableApi !== 'false',
-          cacheDuration: parseInt(dataset.cacheDuration) || 60 // seconds (aligned with server 30s + 15s stale-while-revalidate)
+          cacheDuration: parseInt(dataset.cacheDuration) || CONFIG.DEFAULT_CACHE_DURATION_S // seconds (30s default for fast theme updates)
         },
 
         // Guest configuration
@@ -445,10 +445,12 @@
         const cache = {
           data: data,
           timestamp: Date.now(),
-          version: CONFIG.CACHE_VERSION  // MULTIPLICATION: Version for future invalidation
+          version: CONFIG.CACHE_VERSION,  // MULTIPLICATION: Version for future invalidation
+          // Store theme version for cache invalidation when merchant updates settings
+          themeVersion: data.theme?.version || 0
         };
         localStorage.setItem(key, JSON.stringify(cache));
-        log.debug('Data cached (version:', CONFIG.CACHE_VERSION, ')');
+        log.debug('Data cached (version:', CONFIG.CACHE_VERSION, ', themeVersion:', cache.themeVersion, ')');
       } catch (error) {
         log.error('Cache write error:', error.message);
       }
