@@ -11,3 +11,6 @@ export { PointsTransactions, type PointsTransactionInfo } from './PointsTransact
 export { RafflesTab } from './RafflesTab';
 export { MysteryBoxesTab } from './MysteryBoxesTab';
 export { ChallengesTab } from './ChallengesTab';
+
+// Upgrade Section
+export { UpgradeSection, type UpgradeOptionsInfo, type UpgradeProduct } from './UpgradeSection';

@@ -24,7 +24,7 @@ import { useMysteryBoxes } from './hooks/useMysteryBoxes';
 import { useChallenges } from './hooks/useChallenges';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
-import { PointsSection, type PointsData, type RedemptionResult, RafflesTab, MysteryBoxesTab, ChallengesTab } from './components';
+import { PointsSection, type PointsData, type RedemptionResult, RafflesTab, MysteryBoxesTab, ChallengesTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
 import {
   safeBalance,
   safeCustomer,
@@ -194,6 +194,8 @@ interface LoyaltyData {
   dataFreshness?: DataFreshnessInfo;
   // Points system data
   points?: PointsData | null;
+  // Upgrade options for tier products
+  upgradeOptions?: UpgradeOptionsInfo | null;
   // Legacy fields for backward compatibility
   totalEarned?: number;
   progressToNextTier?: number;
@@ -323,6 +325,38 @@ function getMockData(): LoyaltyData {
     progressToNextTier: 65,
     amountToNextTier: 350,
     nextTier: { name: 'Platinum Member', cashbackPercent: 10, minSpend: 1000 },
+    // Mock upgrade options
+    upgradeOptions: {
+      available: true,
+      shopDomain: 'preview-store.myshopify.com',
+      products: [
+        {
+          id: 'mock-upgrade-1',
+          tierName: 'Platinum Member',
+          tierCashback: 10,
+          tierIcon: '💎',
+          tierColor: '#E5E4E2',
+          productHandle: 'platinum-membership-monthly',
+          productUrl: 'https://preview-store.myshopify.com/products/platinum-membership-monthly',
+          duration: 'MONTHLY' as const,
+          price: 9.99,
+          currency: 'USD',
+        },
+        {
+          id: 'mock-upgrade-2',
+          tierName: 'Platinum Member',
+          tierCashback: 10,
+          tierIcon: '💎',
+          tierColor: '#E5E4E2',
+          productHandle: 'platinum-membership-annual',
+          productUrl: 'https://preview-store.myshopify.com/products/platinum-membership-annual',
+          duration: 'ANNUAL' as const,
+          price: 99.99,
+          currency: 'USD',
+        },
+      ],
+      message: 'Upgrade to Platinum Member for 10% cashback!',
+    },
     // Mock points data
     points: {
       enabled: true,
@@ -2037,6 +2071,18 @@ function MembershipBlock() {
               locale={locale}
               translate={translate}
               maintenance={loyaltyData.maintenance}
+            />
+          )}
+
+          {/* Upgrade Section - Tier Products for higher tiers */}
+          {loyaltyData.upgradeOptions && (
+            <UpgradeSection
+              upgradeOptions={loyaltyData.upgradeOptions}
+              currentTierName={loyaltyData.tier?.name || null}
+              isMaxTier={progress.isMaxTier}
+              translate={translate}
+              currency={loyaltyData.currency}
+              locale={locale}
             />
           )}
 

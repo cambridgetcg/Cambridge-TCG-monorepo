@@ -403,7 +403,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     log.debug(`[${requestId}] Next tier: ${nextTier?.name || 'none'}, Progress: ${progressToNextTier.toFixed(0)}%`);
 
     // Step 10-13: Batch fetch transactions, shop settings, tier purchase, orders, pending cashback, and tier changes (parallel)
-    const [transactions, shopSettings, activeTierPurchase, recentOrders, pendingCashbackOrders, recentTierChangeLog] = await Promise.all([
+    const [transactions, shopSettings, activeTierPurchase, recentOrders, pendingCashbackOrders, recentTierChangeLog, tierUpgradeProducts] = await Promise.all([
       // Transactions (last 50 for pagination in frontend)
       db.storeCreditLedger.findMany({
         where: {
@@ -491,6 +491,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
           triggerType: true,
           createdAt: true
         }
+      }),
+      // Tier products for upgrade options (tiers higher than current)
+      db.tierProduct.findMany({
+        where: {
+          shop,
+          deletedAt: null,
+          isActive: true,
+          tier: {
+            isActive: true,
+            minSpend: { gt: tier?.minSpend || 0 }
+          }
+        },
+        select: {
+          id: true,
+          productHandle: true,
+          duration: true,
+          price: true,
+          currency: true,
+          tier: {
+            select: {
+              id: true,
+              name: true,
+              cashbackPercent: true,
+              minSpend: true,
+              icon: true,
+              color: true
+            }
+          }
+        },
+        orderBy: {
+          tier: { minSpend: 'asc' }
+        },
+        take: 6 // Max 2 tiers x 3 durations = 6 products
       })
     ]);
 
@@ -873,6 +906,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
         customerUpdatedAt: customer.updatedAt.toISOString(),
         tierStateUpdatedAt: tierState?.updatedAt?.toISOString() || null,
         progressCalculatedAt: tierState?.progressCalculatedAt?.toISOString() || null
+      },
+
+      // Tier upgrade options - purchasable tier products for higher tiers
+      upgradeOptions: tierUpgradeProducts.length > 0 ? {
+        available: true,
+        shopDomain: shop,
+        products: tierUpgradeProducts.map(tp => ({
+          id: tp.id,
+          tierName: tp.tier.name,
+          tierCashback: typeof tp.tier.cashbackPercent === 'object' && 'toNumber' in tp.tier.cashbackPercent
+            ? (tp.tier.cashbackPercent as any).toNumber()
+            : Number(tp.tier.cashbackPercent),
+          tierIcon: tp.tier.icon || '⭐',
+          tierColor: tp.tier.color || '#FFD700',
+          productHandle: tp.productHandle,
+          productUrl: `https://${shop}/products/${tp.productHandle}`,
+          duration: tp.duration || 'MONTHLY',
+          price: typeof tp.price === 'object' && 'toNumber' in tp.price
+            ? (tp.price as any).toNumber()
+            : Number(tp.price),
+          currency: tp.currency || 'USD'
+        })),
+        message: isMaxTier
+          ? null
+          : `Upgrade to ${tierUpgradeProducts[0]?.tier.name || 'the next tier'} for more cashback!`
+      } : {
+        available: false,
+        products: [],
+        message: isMaxTier ? "You're at the highest tier!" : null
       }
     };
 
