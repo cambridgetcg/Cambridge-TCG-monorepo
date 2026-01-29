@@ -10,7 +10,9 @@ import {
   Divider,
   SkeletonText,
 } from '@shopify/ui-extensions-react/customer-account';
-import type { MysteryBoxInfo, OpenBoxResult, MysteryBoxReward } from '../hooks/useMysteryBoxes';
+import type { MysteryBoxInfo, OpenBoxResult, MysteryBoxReward, MysteryBoxHistoryEntry } from '../hooks/useMysteryBoxes';
+import { MysteryBoxImage } from './CardImage';
+import { HistorySection, MysteryBoxHistoryItem } from './HistorySection';
 
 // ============================================
 // TYPES
@@ -22,7 +24,10 @@ interface MysteryBoxesTabProps {
   error: string | null;
   pointsBalance: number;
   config: { currencyName: string; currencyIcon: string } | null;
+  history: MysteryBoxHistoryEntry[];
+  historyLoading: boolean;
   onOpenBox: (boxId: string) => Promise<OpenBoxResult>;
+  onFetchHistory: () => void;
   translate: (key: string, options?: Record<string, string>) => string;
   locale: string;
 }
@@ -167,15 +172,21 @@ function MysteryBoxCard({
   const endTime = formatTimeRemaining(box.endsAt, translate);
 
   return (
-    <View border="base" cornerRadius="base" padding="base" background="base">
-      <BlockStack spacing="base">
-        {/* Header */}
-        <InlineStack spacing="tight" blockAlignment="center">
-          <Text size="medium" emphasis="bold">
-            🎁 {box.name}
-          </Text>
-          {isActive && <Badge tone="success">{translate('mysteryBoxes.active')}</Badge>}
-        </InlineStack>
+    <View border="base" cornerRadius="base" padding="none" background="base" overflow="hidden">
+      <BlockStack spacing="none">
+        {/* Image */}
+        <MysteryBoxImage imageUrl={box.imageUrl} name={box.name} />
+
+        {/* Content */}
+        <View padding="base">
+          <BlockStack spacing="base">
+            {/* Header */}
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="medium" emphasis="bold">
+                🎁 {box.name}
+              </Text>
+              {isActive && <Badge tone="success">{translate('mysteryBoxes.active')}</Badge>}
+            </InlineStack>
 
         {/* Description */}
         {box.description && (
@@ -245,6 +256,8 @@ function MysteryBoxCard({
             </Button>
           </>
         )}
+          </BlockStack>
+        </View>
       </BlockStack>
     </View>
   );
@@ -260,8 +273,12 @@ export function MysteryBoxesTab({
   error,
   pointsBalance,
   config,
+  history,
+  historyLoading,
   onOpenBox,
+  onFetchHistory,
   translate,
+  locale,
 }: MysteryBoxesTabProps) {
   const [openingBoxId, setOpeningBoxId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -359,6 +376,28 @@ export function MysteryBoxesTab({
           />
         ))
       )}
+
+      {/* History Section */}
+      <HistorySection
+        title={translate('mysteryBoxes.historyTitle')}
+        isLoading={historyLoading}
+        hasItems={history.length > 0}
+        onExpand={onFetchHistory}
+        translate={translate}
+      >
+        {history.map((entry) => (
+          <MysteryBoxHistoryItem
+            key={entry.id}
+            boxName={entry.boxName}
+            rewardName={entry.rewardName}
+            rarity={entry.rarity}
+            pointsSpent={entry.pointsSpent}
+            openedAt={entry.openedAt}
+            locale={locale}
+            translate={translate}
+          />
+        ))}
+      </HistorySection>
     </BlockStack>
   );
 }

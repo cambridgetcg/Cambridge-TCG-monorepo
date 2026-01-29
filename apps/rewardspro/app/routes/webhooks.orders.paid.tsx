@@ -461,6 +461,55 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             order,
           });
 
+          // Step 4.6: Process challenge progress (Challenges Engagement System)
+          if (order.customer?.id) {
+            try {
+              const { processOrderForChallenges } = await import("~/services/challenge-progress.server");
+              const dbCustomerForChallenge = await db.customer.findFirst({
+                where: {
+                  shop: shop!,
+                  shopifyCustomerId: order.customer.id.toString()
+                },
+                select: { id: true }
+              });
+
+              if (dbCustomerForChallenge) {
+                // Calculate order amount for challenge progress
+                const orderAmount = parseFloat(order.subtotal_price || order.total_price || '0');
+                const orderData = {
+                  id: order.id.toString(),
+                  name: order.name,
+                  amount: orderAmount,
+                  lineItems: (order.line_items || []).map((item: any) => ({
+                    productId: item.product_id?.toString(),
+                    variantId: item.variant_id?.toString(),
+                    quantity: item.quantity,
+                    price: parseFloat(item.price || '0'),
+                  })),
+                };
+
+                const challengeResults = await processOrderForChallenges(
+                  shop!,
+                  dbCustomerForChallenge.id,
+                  orderData
+                );
+
+                if (challengeResults.length > 0) {
+                  console.log(`[OrderPaid] Challenge progress updated for ${challengeResults.length} challenge(s):`,
+                    challengeResults.map(r => ({
+                      challengeId: r.challengeId,
+                      newProgress: r.newProgress,
+                      completed: r.completed,
+                    }))
+                  );
+                }
+              }
+            } catch (challengeError) {
+              // Non-fatal - log but don't fail the webhook
+              console.error(`[OrderPaid] Challenge progress processing failed (non-fatal):`, challengeError);
+            }
+          }
+
           // Check for tier progression
           if (order.customer?.id) {
             console.log(`[OrderPaid] Looking for customer with shopifyCustomerId: ${order.customer.id}`);

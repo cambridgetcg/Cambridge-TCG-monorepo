@@ -36,6 +36,18 @@ export interface ClaimChallengeResult {
   error?: string;
 }
 
+export interface ChallengeHistoryEntry {
+  id: string;
+  challengeName: string;
+  objectiveType: string;
+  targetValue: number;
+  finalProgress: number;
+  rewardDescription: string;
+  status: string;
+  completedAt: string | null;
+  claimedAt: string | null;
+}
+
 export interface ChallengesData {
   enabled: boolean;
   authenticated: boolean;
@@ -60,7 +72,10 @@ interface UseChallengesReturn {
   pointsBalance: number;
   config: { currencyName: string; currencyIcon: string } | null;
   message: string | null;
+  history: ChallengeHistoryEntry[];
+  historyLoading: boolean;
   fetchChallenges: (sessionToken: string) => Promise<void>;
+  fetchHistory: (sessionToken: string) => Promise<void>;
   claimReward: (sessionToken: string, challengeId: string) => Promise<ClaimChallengeResult>;
 }
 
@@ -76,6 +91,8 @@ export function useChallenges({ shopDomain }: UseChallengesProps): UseChallenges
   const [pointsBalance, setPointsBalance] = useState(0);
   const [config, setConfig] = useState<{ currencyName: string; currencyIcon: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [history, setHistory] = useState<ChallengeHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const apiClient = useApiClient({
     baseUrl: '/api/customer-account/challenges',
@@ -105,6 +122,27 @@ export function useChallenges({ shopDomain }: UseChallengesProps): UseChallenges
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  }, [apiClient]);
+
+  const fetchHistory = useCallback(async (sessionToken: string) => {
+    logger.debug('useChallenges: Fetching history');
+    setHistoryLoading(true);
+
+    try {
+      const response = await apiClient.get<{ history: ChallengeHistoryEntry[] }>(
+        sessionToken,
+        '?action=history'
+      );
+
+      if (response.success && response.data) {
+        setHistory(response.data.history || []);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('useChallenges: Error fetching history:', errorMessage);
+    } finally {
+      setHistoryLoading(false);
     }
   }, [apiClient]);
 
@@ -154,7 +192,10 @@ export function useChallenges({ shopDomain }: UseChallengesProps): UseChallenges
     pointsBalance,
     config,
     message,
+    history,
+    historyLoading,
     fetchChallenges,
+    fetchHistory,
     claimReward,
   };
 }

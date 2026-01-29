@@ -5,15 +5,18 @@
  *
  * GET: Get active challenges and customer's progress
  * POST: Claim challenge completion rewards
- *
- * NOTE: Challenge backend model is not yet implemented. This API returns
- * placeholder responses and will be populated when services are ready.
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { getPointsConfig } from "../services/points-config.server";
 import { getPointsBalance } from "../services/points-ledger.server";
+import {
+  getCustomerActiveChallenges,
+  getCustomerChallengeHistory,
+} from "../services/challenge-progress.server";
+import { claimChallengeReward } from "../services/challenge-claim.server";
+import db from "../db.server";
 
 const LOG_PREFIX = "[api.customer-account.challenges]";
 
@@ -28,7 +31,7 @@ const corsHeaders = {
 };
 
 // ============================================
-// TYPES (Future implementation)
+// TYPES
 // ============================================
 
 export interface ChallengeObjectiveType {
@@ -36,24 +39,43 @@ export interface ChallengeObjectiveType {
 }
 
 export interface ChallengeReward {
-  type: "POINTS" | "STORE_CREDIT" | "DISCOUNT" | "TIER_UPGRADE";
-  value: number;
+  type: string;
+  value: number | string;
   description: string;
 }
 
 export interface CustomerChallenge {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   imageUrl: string | null;
   objectiveType: ChallengeObjectiveType["type"];
   targetValue: number;
   currentProgress: number;
   progressPercent: number;
-  reward: ChallengeReward;
+  reward: ChallengeReward | null;
   startsAt: string;
   endsAt: string;
-  status: "ACTIVE" | "COMPLETED" | "CLAIMED" | "EXPIRED";
+  status: "ACTIVE" | "COMPLETED" | "CLAIMED" | "EXPIRED" | "IN_PROGRESS";
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Get objective type icon for display
+ */
+function getObjectiveIcon(type: string): string {
+  switch (type) {
+    case "SPENDING": return "💰";
+    case "ORDER_COUNT": return "📦";
+    case "REFERRAL": return "👥";
+    case "PRODUCT_PURCHASE": return "🛍️";
+    case "REVIEW": return "⭐";
+    case "STREAK": return "🔥";
+    default: return "🎯";
+  }
 }
 
 // ============================================
@@ -72,6 +94,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const url = new URL(request.url);
     const shop = url.searchParams.get("shop");
     const customerId = url.searchParams.get("customerId");
+    const action = url.searchParams.get("action") || "available";
 
     if (!shop) {
       return json({ error: "Shop parameter required" }, { status: 400, headers: corsHeaders });
@@ -102,24 +125,103 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }, { headers: corsHeaders });
     }
 
+    // Verify customer exists
+    const customer = await db.customer.findFirst({
+      where: { id: customerId, shop },
+      select: { id: true },
+    });
+
+    if (!customer) {
+      return json({
+        enabled: true,
+        authenticated: false,
+        challenges: [],
+        message: "Customer not found",
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
     // Get points balance for display
     const balance = await getPointsBalance(shop, customerId);
 
-    // TODO: Replace with actual challenge service calls once Challenge model is implemented
-    // const challenges = await getCustomerChallenges(shop, customerId);
+    // Handle different actions
+    if (action === "history") {
+      const history = await getCustomerChallengeHistory(shop, customerId, 20);
 
-    // For now, return empty challenges list (feature is enabled but no challenges created yet)
+      return json({
+        enabled: true,
+        authenticated: true,
+        history: history.map((c) => ({
+          id: c.id,
+          challengeId: c.challengeId,
+          name: c.name,
+          description: c.description,
+          imageUrl: c.imageUrl,
+          objectiveType: c.objectiveType,
+          objectiveIcon: getObjectiveIcon(c.objectiveType),
+          targetValue: c.targetValue,
+          currentProgress: c.currentProgress,
+          progressPercent: c.progressPercent,
+          reward: c.reward,
+          status: c.status,
+          completedAt: c.completedAt,
+          claimedAt: c.claimedAt,
+        })),
+        pointsBalance: balance.available,
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Default: Get active challenges with customer's progress
+    const challenges = await getCustomerActiveChallenges(shop, customerId);
+
+    // Sort challenges: COMPLETED first, then IN_PROGRESS, then by progress
+    const sortedChallenges = [...challenges].sort((a, b) => {
+      const statusOrder = { COMPLETED: 0, IN_PROGRESS: 1, CLAIMED: 2, EXPIRED: 3 };
+      const aOrder = statusOrder[a.status] ?? 4;
+      const bOrder = statusOrder[b.status] ?? 4;
+
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return b.progressPercent - a.progressPercent;
+    });
+
+    // Transform to API response format
+    const formattedChallenges: CustomerChallenge[] = sortedChallenges.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      imageUrl: c.imageUrl,
+      objectiveType: c.objectiveType as ChallengeObjectiveType["type"],
+      objectiveIcon: getObjectiveIcon(c.objectiveType),
+      targetValue: c.targetValue,
+      currentProgress: c.currentProgress,
+      progressPercent: c.progressPercent,
+      reward: c.reward,
+      startsAt: c.startsAt,
+      endsAt: c.endsAt,
+      status: c.status as CustomerChallenge["status"],
+      completedAt: c.completedAt,
+      claimedAt: c.claimedAt,
+    }));
+
     return json({
       enabled: true,
       authenticated: true,
-      challenges: [] as CustomerChallenge[],
+      challenges: formattedChallenges,
       pointsBalance: balance.available,
       config: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
       },
-      // Indicate that the feature is available but no challenges exist yet
-      message: "No active challenges at the moment. Check back soon!",
+      message: challenges.length === 0
+        ? "No active challenges at the moment. Check back soon!"
+        : null,
     }, { headers: corsHeaders });
   } catch (error) {
     console.error(`${LOG_PREFIX} Error:`, error);
@@ -172,13 +274,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400, headers: corsHeaders });
       }
 
-      // TODO: Implement claim logic once Challenge model is ready
-      // const result = await claimChallengeReward({ shop, customerId, challengeId });
+      const result = await claimChallengeReward(shop, customerId, challengeId);
+
+      if (!result.success) {
+        return json({
+          success: false,
+          error: result.error,
+        }, { status: 400, headers: corsHeaders });
+      }
+
+      // Get updated points balance
+      const balance = await getPointsBalance(shop, customerId);
 
       return json({
-        success: false,
-        error: "Challenge claiming is not yet available",
-      }, { status: 501, headers: corsHeaders });
+        success: true,
+        rewardType: result.rewardType,
+        rewardValue: result.rewardValue,
+        newBalance: balance.available,
+        message: result.message,
+      }, { headers: corsHeaders });
     }
 
     return json({ error: "Unknown intent" }, { status: 400, headers: corsHeaders });

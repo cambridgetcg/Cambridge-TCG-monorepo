@@ -33,6 +33,17 @@ export interface RaffleEntryResult {
   error?: string;
 }
 
+export interface RaffleHistoryEntry {
+  id: string;
+  raffleName: string;
+  entriesCount: number;
+  pointsSpent: number;
+  enteredAt: string;
+  raffleStatus: string;
+  isWinner: boolean;
+  prize?: string;
+}
+
 export interface RafflesData {
   enabled: boolean;
   authenticated: boolean;
@@ -55,7 +66,10 @@ interface UseRafflesReturn {
   error: string | null;
   pointsBalance: number;
   config: { currencyName: string; currencyIcon: string } | null;
+  history: RaffleHistoryEntry[];
+  historyLoading: boolean;
   fetchRaffles: (sessionToken: string) => Promise<void>;
+  fetchHistory: (sessionToken: string) => Promise<void>;
   purchaseEntries: (
     sessionToken: string,
     raffleId: string,
@@ -74,6 +88,8 @@ export function useRaffles({ shopDomain }: UseRafflesProps): UseRafflesReturn {
   const [error, setError] = useState<string | null>(null);
   const [pointsBalance, setPointsBalance] = useState(0);
   const [config, setConfig] = useState<{ currencyName: string; currencyIcon: string } | null>(null);
+  const [history, setHistory] = useState<RaffleHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const apiClient = useApiClient({
     baseUrl: '/api/customer-account/raffles',
@@ -102,6 +118,27 @@ export function useRaffles({ shopDomain }: UseRafflesProps): UseRafflesReturn {
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  }, [apiClient]);
+
+  const fetchHistory = useCallback(async (sessionToken: string) => {
+    logger.debug('useRaffles: Fetching history');
+    setHistoryLoading(true);
+
+    try {
+      const response = await apiClient.get<{ history: RaffleHistoryEntry[] }>(
+        sessionToken,
+        '?action=history'
+      );
+
+      if (response.success && response.data) {
+        setHistory(response.data.history || []);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('useRaffles: Error fetching history:', errorMessage);
+    } finally {
+      setHistoryLoading(false);
     }
   }, [apiClient]);
 
@@ -152,7 +189,10 @@ export function useRaffles({ shopDomain }: UseRafflesProps): UseRafflesReturn {
     error,
     pointsBalance,
     config,
+    history,
+    historyLoading,
     fetchRaffles,
+    fetchHistory,
     purchaseEntries,
   };
 }

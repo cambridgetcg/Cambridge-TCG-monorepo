@@ -1633,7 +1633,10 @@ function MembershipBlock() {
     error: rafflesError,
     pointsBalance: rafflesPointsBalance,
     config: rafflesConfig,
+    history: rafflesHistory,
+    historyLoading: rafflesHistoryLoading,
     fetchRaffles,
+    fetchHistory: fetchRafflesHistory,
     purchaseEntries,
   } = useRaffles({ shopDomain });
 
@@ -1644,7 +1647,10 @@ function MembershipBlock() {
     error: boxesError,
     pointsBalance: boxesPointsBalance,
     config: boxesConfig,
+    history: boxesHistory,
+    historyLoading: boxesHistoryLoading,
     fetchBoxes,
+    fetchHistory: fetchBoxesHistory,
     openBox,
   } = useMysteryBoxes({ shopDomain });
 
@@ -1656,7 +1662,10 @@ function MembershipBlock() {
     pointsBalance: challengesPointsBalance,
     config: challengesConfig,
     message: challengesMessage,
+    history: challengesHistory,
+    historyLoading: challengesHistoryLoading,
     fetchChallenges,
+    fetchHistory: fetchChallengesHistory,
     claimReward,
   } = useChallenges({ shopDomain });
 
@@ -1936,7 +1945,10 @@ function MembershipBlock() {
           error={rafflesError}
           pointsBalance={rafflesPointsBalance}
           config={rafflesConfig}
+          history={rafflesHistory}
+          historyLoading={rafflesHistoryLoading}
           onPurchaseEntries={handlePurchaseEntries}
+          onFetchHistory={() => sessionToken && fetchRafflesHistory(sessionToken)}
           translate={translate}
           locale={locale}
         />
@@ -1949,7 +1961,10 @@ function MembershipBlock() {
           error={boxesError}
           pointsBalance={boxesPointsBalance}
           config={boxesConfig}
+          history={boxesHistory}
+          historyLoading={boxesHistoryLoading}
           onOpenBox={handleOpenBox}
+          onFetchHistory={() => sessionToken && fetchBoxesHistory(sessionToken)}
           translate={translate}
           locale={locale}
         />
@@ -1963,7 +1978,10 @@ function MembershipBlock() {
           pointsBalance={challengesPointsBalance}
           config={challengesConfig}
           message={challengesMessage}
+          history={challengesHistory}
+          historyLoading={challengesHistoryLoading}
           onClaimReward={handleClaimReward}
+          onFetchHistory={() => sessionToken && fetchChallengesHistory(sessionToken)}
           translate={translate}
           locale={locale}
         />

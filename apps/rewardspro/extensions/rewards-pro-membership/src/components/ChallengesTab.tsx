@@ -10,7 +10,9 @@ import {
   Divider,
   SkeletonText,
 } from '@shopify/ui-extensions-react/customer-account';
-import type { ChallengeInfo, ClaimChallengeResult } from '../hooks/useChallenges';
+import type { ChallengeInfo, ClaimChallengeResult, ChallengeHistoryEntry } from '../hooks/useChallenges';
+import { ChallengeImage } from './CardImage';
+import { HistorySection, ChallengeHistoryItem } from './HistorySection';
 
 // ============================================
 // TYPES
@@ -23,7 +25,10 @@ interface ChallengesTabProps {
   pointsBalance: number;
   config: { currencyName: string; currencyIcon: string } | null;
   message: string | null;
+  history: ChallengeHistoryEntry[];
+  historyLoading: boolean;
   onClaimReward: (challengeId: string) => Promise<ClaimChallengeResult>;
+  onFetchHistory: () => void;
   translate: (key: string, options?: Record<string, string>) => string;
   locale: string;
 }
@@ -164,19 +169,29 @@ function ChallengeCard({
   const isExpired = challenge.status === 'EXPIRED';
 
   return (
-    <View border="base" cornerRadius="base" padding="base" background="base">
-      <BlockStack spacing="base">
-        {/* Header */}
-        <InlineStack spacing="tight" blockAlignment="center">
-          <Text size="medium" emphasis="bold">
-            {objectiveIcon} {challenge.name}
-          </Text>
-          {!isActive && (
-            <Badge tone={getStatusBadgeTone(challenge.status)}>
-              {translate(`challenges.status.${challenge.status.toLowerCase()}`)}
-            </Badge>
-          )}
-        </InlineStack>
+    <View border="base" cornerRadius="base" padding="none" background="base" overflow="hidden">
+      <BlockStack spacing="none">
+        {/* Image */}
+        <ChallengeImage
+          imageUrl={challenge.imageUrl}
+          name={challenge.name}
+          objectiveType={challenge.objectiveType}
+        />
+
+        {/* Content */}
+        <View padding="base">
+          <BlockStack spacing="base">
+            {/* Header */}
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="medium" emphasis="bold">
+                {objectiveIcon} {challenge.name}
+              </Text>
+              {!isActive && (
+                <Badge tone={getStatusBadgeTone(challenge.status)}>
+                  {translate(`challenges.status.${challenge.status.toLowerCase()}`)}
+                </Badge>
+              )}
+            </InlineStack>
 
         {/* Description */}
         {challenge.description && (
@@ -251,6 +266,8 @@ function ChallengeCard({
             </Text>
           </InlineStack>
         )}
+          </BlockStack>
+        </View>
       </BlockStack>
     </View>
   );
@@ -267,8 +284,12 @@ export function ChallengesTab({
   pointsBalance,
   config,
   message,
+  history,
+  historyLoading,
   onClaimReward,
+  onFetchHistory,
   translate,
+  locale,
 }: ChallengesTabProps) {
   const [claimingChallengeId, setClaimingChallengeId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -408,6 +429,28 @@ export function ChallengesTab({
           )}
         </>
       )}
+
+      {/* History Section */}
+      <HistorySection
+        title={translate('challenges.historyTitle')}
+        isLoading={historyLoading}
+        hasItems={history.length > 0}
+        onExpand={onFetchHistory}
+        translate={translate}
+      >
+        {history.map((entry) => (
+          <ChallengeHistoryItem
+            key={entry.id}
+            challengeName={entry.challengeName}
+            objectiveType={entry.objectiveType}
+            rewardDescription={entry.rewardDescription}
+            status={entry.status}
+            completedAt={entry.completedAt}
+            locale={locale}
+            translate={translate}
+          />
+        ))}
+      </HistorySection>
     </BlockStack>
   );
 }

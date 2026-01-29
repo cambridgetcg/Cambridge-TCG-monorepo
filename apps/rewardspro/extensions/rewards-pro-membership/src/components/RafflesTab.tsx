@@ -10,7 +10,9 @@ import {
   Divider,
   SkeletonText,
 } from '@shopify/ui-extensions-react/customer-account';
-import type { RaffleInfo, RaffleEntryResult } from '../hooks/useRaffles';
+import type { RaffleInfo, RaffleEntryResult, RaffleHistoryEntry } from '../hooks/useRaffles';
+import { RaffleImage } from './CardImage';
+import { HistorySection, RaffleHistoryItem } from './HistorySection';
 
 // ============================================
 // TYPES
@@ -22,7 +24,10 @@ interface RafflesTabProps {
   error: string | null;
   pointsBalance: number;
   config: { currencyName: string; currencyIcon: string } | null;
+  history: RaffleHistoryEntry[];
+  historyLoading: boolean;
   onPurchaseEntries: (raffleId: string, quantity: number) => Promise<RaffleEntryResult>;
+  onFetchHistory: () => void;
   translate: (key: string, options?: Record<string, string>) => string;
   locale: string;
 }
@@ -105,15 +110,21 @@ function RaffleCard({
   const endTime = formatTimeRemaining(raffle.endsAt, translate);
 
   return (
-    <View border="base" cornerRadius="base" padding="base" background="base">
-      <BlockStack spacing="base">
-        {/* Header */}
-        <InlineStack spacing="tight" blockAlignment="center">
-          <Text size="medium" emphasis="bold">
-            🎟️ {raffle.name}
-          </Text>
-          {isActive && <Badge tone="success">{translate('raffles.active')}</Badge>}
-        </InlineStack>
+    <View border="base" cornerRadius="base" padding="none" background="base" overflow="hidden">
+      <BlockStack spacing="none">
+        {/* Image */}
+        <RaffleImage imageUrl={raffle.imageUrl} name={raffle.name} />
+
+        {/* Content */}
+        <View padding="base">
+          <BlockStack spacing="base">
+            {/* Header */}
+            <InlineStack spacing="tight" blockAlignment="center">
+              <Text size="medium" emphasis="bold">
+                🎟️ {raffle.name}
+              </Text>
+              {isActive && <Badge tone="success">{translate('raffles.active')}</Badge>}
+            </InlineStack>
 
         {/* Description */}
         {raffle.description && (
@@ -187,6 +198,8 @@ function RaffleCard({
             </InlineStack>
           </>
         )}
+          </BlockStack>
+        </View>
       </BlockStack>
     </View>
   );
@@ -202,8 +215,12 @@ export function RafflesTab({
   error,
   pointsBalance,
   config,
+  history,
+  historyLoading,
   onPurchaseEntries,
+  onFetchHistory,
   translate,
+  locale,
 }: RafflesTabProps) {
   const [purchasingRaffleId, setPurchasingRaffleId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -293,6 +310,29 @@ export function RafflesTab({
           />
         ))
       )}
+
+      {/* History Section */}
+      <HistorySection
+        title={translate('raffles.historyTitle')}
+        isLoading={historyLoading}
+        hasItems={history.length > 0}
+        onExpand={onFetchHistory}
+        translate={translate}
+      >
+        {history.map((entry) => (
+          <RaffleHistoryItem
+            key={entry.id}
+            raffleName={entry.raffleName}
+            entriesCount={entry.entriesCount}
+            pointsSpent={entry.pointsSpent}
+            enteredAt={entry.enteredAt}
+            isWinner={entry.isWinner}
+            prize={entry.prize}
+            locale={locale}
+            translate={translate}
+          />
+        ))}
+      </HistorySection>
     </BlockStack>
   );
 }

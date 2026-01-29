@@ -42,6 +42,16 @@ export interface OpenBoxResult {
   error?: string;
 }
 
+export interface MysteryBoxHistoryEntry {
+  id: string;
+  boxName: string;
+  rewardName: string;
+  rewardType: string;
+  rarity: string;
+  pointsSpent: number;
+  openedAt: string;
+}
+
 export interface MysteryBoxesData {
   enabled: boolean;
   authenticated: boolean;
@@ -64,7 +74,10 @@ interface UseMysteryBoxesReturn {
   error: string | null;
   pointsBalance: number;
   config: { currencyName: string; currencyIcon: string } | null;
+  history: MysteryBoxHistoryEntry[];
+  historyLoading: boolean;
   fetchBoxes: (sessionToken: string) => Promise<void>;
+  fetchHistory: (sessionToken: string) => Promise<void>;
   openBox: (sessionToken: string, boxId: string) => Promise<OpenBoxResult>;
 }
 
@@ -79,6 +92,8 @@ export function useMysteryBoxes({ shopDomain }: UseMysteryBoxesProps): UseMyster
   const [error, setError] = useState<string | null>(null);
   const [pointsBalance, setPointsBalance] = useState(0);
   const [config, setConfig] = useState<{ currencyName: string; currencyIcon: string } | null>(null);
+  const [history, setHistory] = useState<MysteryBoxHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const apiClient = useApiClient({
     baseUrl: '/api/customer-account/mystery-boxes',
@@ -107,6 +122,27 @@ export function useMysteryBoxes({ shopDomain }: UseMysteryBoxesProps): UseMyster
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  }, [apiClient]);
+
+  const fetchHistory = useCallback(async (sessionToken: string) => {
+    logger.debug('useMysteryBoxes: Fetching history');
+    setHistoryLoading(true);
+
+    try {
+      const response = await apiClient.get<{ history: MysteryBoxHistoryEntry[] }>(
+        sessionToken,
+        '?action=history'
+      );
+
+      if (response.success && response.data) {
+        setHistory(response.data.history || []);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('useMysteryBoxes: Error fetching history:', errorMessage);
+    } finally {
+      setHistoryLoading(false);
     }
   }, [apiClient]);
 
@@ -155,7 +191,10 @@ export function useMysteryBoxes({ shopDomain }: UseMysteryBoxesProps): UseMyster
     error,
     pointsBalance,
     config,
+    history,
+    historyLoading,
     fetchBoxes,
+    fetchHistory,
     openBox,
   };
 }

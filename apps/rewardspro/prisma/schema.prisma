@@ -472,6 +472,9 @@ model Customer {
   mysteryBoxOpens MysteryBoxOpen[]   @relation("MysteryBoxOpens")
   mysteryBoxWins  MysteryBoxWinner[] @relation("MysteryBoxWins")
 
+  // Challenges System
+  challengeParticipants ChallengeParticipant[] @relation("ChallengeParticipants")
+
   @@unique([shop, shopifyCustomerId]) // Prevent duplicate customers per shop
   @@index([shop]) // Speed up queries by shop
   @@index([email]) // Speed up queries by email
@@ -3344,6 +3347,194 @@ enum MysteryBoxDeliveryStatus {
   DELIVERED
   FAILED
   CLAIMED
+}
+
+// ============================================
+// CHALLENGES SYSTEM
+// ============================================
+// Goal-based engagement activities for customers
+// Customers complete objectives (spending, orders, referrals) to earn rewards
+
+model Challenge {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String
+  description String? @db.Text
+  imageUrl    String?
+
+  // Status & Timing
+  status   ChallengeStatus @default(DRAFT)
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Objective Configuration
+  objectiveType   ChallengeObjectiveType
+  targetValue     Int // e.g., 500 (dollars), 5 (orders), 3 (referrals)
+  objectiveConfig Json? // Additional config per type
+  // SPENDING: { "minOrderValue": 50, "excludeDiscounted": true }
+  // ORDER_COUNT: { "minOrderValue": 10 }
+  // REFERRAL: { "requirePurchase": true, "minPurchaseValue": 25 }
+  // PRODUCT_PURCHASE: { "productIds": ["gid://..."], "collectionIds": ["gid://..."], "quantity": 1 }
+  // REVIEW: { "productIds": ["gid://..."], "minRating": 4 }
+  // STREAK: { "streakType": "ORDER", "periodDays": 7 }
+
+  // Access Control
+  tierRestrictions Json? // { "allowedTierIds": ["tier1", "tier2"] }
+  minimumTierId    String? // Minimum tier required
+  isPublic         Boolean @default(true)
+
+  // Denormalized Statistics
+  totalParticipants   Int @default(0)
+  completedCount      Int @default(0)
+  claimedCount        Int @default(0)
+  totalRewardsAwarded Int @default(0) // Total value of rewards given
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reward       ChallengeReward?
+  participants ChallengeParticipant[]
+  progressLogs ChallengeProgressLog[]
+
+  @@index([shop])
+  @@index([shop, status])
+  @@index([status, startsAt])
+  @@index([status, endsAt])
+  @@index([shop, objectiveType])
+}
+
+model ChallengeReward {
+  id          String @id @default(uuid())
+  challengeId String @unique
+
+  // Reward Configuration
+  rewardType  ChallengeRewardType
+  rewardValue Json
+  // POINTS: { "amount": 500 }
+  // STORE_CREDIT: { "amount": 2500 } // in cents
+  // DISCOUNT: { "type": "percentage" | "fixed", "value": 10, "maxUses": 1, "minOrderValue": 50 }
+  // TIER_UPGRADE: { "tierId": "...", "durationDays": 30 } // null = permanent
+  // CUSTOM: { "description": "...", "fulfillmentInstructions": "..." }
+
+  // Display
+  description String // Human-readable reward description
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId])
+}
+
+model ChallengeParticipant {
+  id          String @id @default(uuid())
+  challengeId String
+  customerId  String
+  shop        String
+
+  // Progress Tracking
+  currentProgress Int @default(0) // Current value towards target
+  progressPercent Int @default(0) // Pre-calculated percentage (0-100)
+
+  // Status
+  status      ChallengeParticipantStatus @default(IN_PROGRESS)
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  // Reward Delivery (when claimed)
+  rewardDelivered     Boolean  @default(false)
+  rewardDeliveryId    String? // Points ledger ID, discount code, etc.
+  rewardDeliveryNotes String?  @db.Text
+
+  // Metadata
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  challenge    Challenge              @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  customer     Customer               @relation("ChallengeParticipants", fields: [customerId], references: [id], onDelete: Cascade)
+  progressLogs ChallengeProgressLog[]
+
+  @@unique([challengeId, customerId])
+  @@index([challengeId])
+  @@index([customerId])
+  @@index([shop, customerId])
+  @@index([challengeId, status])
+  @@index([status, completedAt])
+}
+
+model ChallengeProgressLog {
+  id            String @id @default(uuid())
+  challengeId   String
+  participantId String
+  shop          String
+
+  // Progress Details
+  progressDelta      Int // Amount added (can be negative for corrections)
+  newProgress        Int // Progress value after this update
+  newProgressPercent Int // Percentage after this update
+
+  // Source Reference
+  sourceType String  // "ORDER", "REFERRAL", "REVIEW", "STREAK", "MANUAL"
+  sourceId   String? // Order ID, referral ID, etc.
+
+  // Metadata
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  challenge   Challenge            @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participant ChallengeParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId])
+  @@index([participantId])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+}
+
+// Challenge Status Lifecycle
+enum ChallengeStatus {
+  DRAFT // Being configured
+  SCHEDULED // Ready, waiting for start time
+  ACTIVE // Accepting participants and progress
+  CLOSED // No new participants, existing can complete
+  COMPLETED // All processing done
+  CANCELLED // Cancelled
+}
+
+// Challenge Objective Types
+enum ChallengeObjectiveType {
+  SPENDING // Spend X amount
+  ORDER_COUNT // Place X orders
+  REFERRAL // Refer X friends (who purchase)
+  PRODUCT_PURCHASE // Buy specific products/collections
+  REVIEW // Submit X product reviews
+  STREAK // Maintain X-day purchase streak
+}
+
+// Challenge Reward Types
+enum ChallengeRewardType {
+  POINTS // Points credited to balance
+  STORE_CREDIT // Store credit issued
+  DISCOUNT // Discount code generated
+  TIER_UPGRADE // Temporary or permanent tier upgrade
+  CUSTOM // Manual fulfillment required
+}
+
+// Challenge Participant Status
+enum ChallengeParticipantStatus {
+  IN_PROGRESS // Working on challenge
+  COMPLETED // Met target, awaiting claim
+  CLAIMED // Reward has been claimed
+  EXPIRED // Challenge ended before completion
 }
 
 // ============================================

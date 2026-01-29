@@ -12,5 +12,29 @@ export { RafflesTab } from './RafflesTab';
 export { MysteryBoxesTab } from './MysteryBoxesTab';
 export { ChallengesTab } from './ChallengesTab';
 
+// Shared Components
+export {
+  CardImage,
+  RaffleImage,
+  MysteryBoxImage,
+  ChallengeImage,
+  type CardImageProps,
+  type RaffleImageProps,
+  type MysteryBoxImageProps,
+  type ChallengeImageProps,
+} from './CardImage';
+
+// History Components
+export {
+  HistorySection,
+  RaffleHistoryItem,
+  MysteryBoxHistoryItem,
+  ChallengeHistoryItem,
+  type HistorySectionProps,
+  type RaffleHistoryItemProps,
+  type MysteryBoxHistoryItemProps,
+  type ChallengeHistoryItemProps,
+} from './HistorySection';
+
 // Upgrade Section
 export { UpgradeSection, type UpgradeOptionsInfo, type UpgradeProduct } from './UpgradeSection';
