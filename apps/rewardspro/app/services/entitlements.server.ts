@@ -574,18 +574,31 @@ export async function hasFeature(shop: string, feature: FeatureKey): Promise<boo
  */
 export async function getLimit(shop: string, limit: LimitKey): Promise<number> {
   const LOG_PREFIX = "[Entitlements.getLimit]";
-  const entitlements = await getEntitlements(shop);
+  let entitlements = await getEntitlements(shop);
   const columnName = `limit${capitalize(limit)}` as keyof ShopEntitlements;
-  const value = entitlements[columnName];
-  const result = typeof value === 'number' ? value : 0;
+  let value = entitlements[columnName];
+  let result = typeof value === 'number' ? value : 0;
 
   // Debug logging for limit checks
   console.log(`${LOG_PREFIX} shop=${shop} limit=${limit} column=${columnName} value=${value} result=${result} plan=${entitlements.effectivePlan}`);
 
-  // CRITICAL: Flag potential configuration issues
-  if (result === 0 && ['maxActiveRaffles', 'maxActiveMysteryBoxes', 'maxActiveChallenges', 'maxCampaigns', 'maxAutomationFlows'].includes(limit)) {
-    console.error(`${LOG_PREFIX} CRITICAL: ${limit}=0 for ${shop} on plan ${entitlements.effectivePlan}. All plans should have >=1. Entitlements may need refresh.`);
-    console.error(`${LOG_PREFIX} Entitlements debug: hasOverride=${entitlements.hasOverride}, planSource=${entitlements.planSource}, lastResolvedAt=${entitlements.lastResolvedAt}`);
+  // CRITICAL: Auto-refresh when limit is 0 for non-Free plans
+  // This self-heals shops with stale entitlements from before migration
+  const criticalLimits = ['maxActiveRaffles', 'maxActiveMysteryBoxes', 'maxActiveChallenges', 'maxCampaigns', 'maxAutomationFlows'];
+  if (result === 0 && criticalLimits.includes(limit) && entitlements.effectivePlan !== FREE_PLAN) {
+    console.warn(`${LOG_PREFIX} CRITICAL: ${limit}=0 for ${shop} on plan ${entitlements.effectivePlan}. Triggering auto-refresh...`);
+    console.warn(`${LOG_PREFIX} Entitlements debug: hasOverride=${entitlements.hasOverride}, planSource=${entitlements.planSource}, lastResolvedAt=${entitlements.lastResolvedAt}`);
+
+    try {
+      // Refresh entitlements to get correct values from plan definition
+      entitlements = await refreshEntitlements(shop);
+      value = entitlements[columnName];
+      result = typeof value === 'number' ? value : 0;
+      console.log(`${LOG_PREFIX} Auto-refresh complete for ${shop}: ${limit}=${result}`);
+    } catch (error) {
+      console.error(`${LOG_PREFIX} Auto-refresh failed for ${shop}:`, error);
+      // Continue with 0 - better to fail safe than crash
+    }
   }
 
   return result;
