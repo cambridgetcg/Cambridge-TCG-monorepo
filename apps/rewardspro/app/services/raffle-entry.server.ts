@@ -10,6 +10,7 @@
 import db from "../db.server";
 import { spendPoints, earnPoints, getPointsBalance, adjustPoints } from "./points-ledger.server";
 import { checkRaffleEligibility, type RaffleStatus } from "./raffle-management.server";
+import { trackRaffleEntered, trackPointsSpent } from "./klaviyo-events.server";
 
 const LOG_PREFIX = "[RaffleEntry]";
 
@@ -192,6 +193,50 @@ export async function purchaseRaffleEntries(
     const newBalance = await getPointsBalance(shop, customerId);
 
     console.log(`${LOG_PREFIX} Successfully purchased ${quantity} entries for raffle ${raffleId}`);
+
+    // 10. Dispatch Klaviyo events for marketing automation
+    // Run async without blocking the response
+    (async () => {
+      try {
+        // Get customer with tier for event tracking
+        const customer = await db.customer.findUnique({
+          where: { id: customerId },
+          include: { currentTier: true },
+        });
+
+        if (customer?.email) {
+          // Track raffle entry event
+          await trackRaffleEntered(
+            shop,
+            { ...customer, pointsBalance: newBalance },
+            {
+              id: raffle.id,
+              name: raffle.name,
+              endsAt: raffle.endsAt,
+              entryCount: entry.entriesCount,
+              totalEntries: raffle.totalEntries + quantity,
+            },
+            quantity,
+            pointsCost
+          );
+
+          // Track points spent event
+          await trackPointsSpent(
+            shop,
+            { ...customer, pointsBalance: newBalance },
+            pointsCost,
+            "raffle",
+            {
+              raffleName: raffle.name,
+              raffleId: raffle.id,
+            }
+          );
+        }
+      } catch (error) {
+        console.error(`${LOG_PREFIX} Error dispatching Klaviyo events:`, error);
+        // Don't throw - marketing events should not block the main flow
+      }
+    })();
 
     return {
       success: true,

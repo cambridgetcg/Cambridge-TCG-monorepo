@@ -429,6 +429,145 @@ export default function CreateAutomation() {
                       </InlineGrid>
 
                       <Divider />
+                      <Text variant="headingSm" fontWeight="semibold">
+                        Rewards Engagement Triggers
+                      </Text>
+
+                      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+                        <div onClick={() => setTrigger("raffle_entered")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "raffle_entered" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "raffle_entered"}
+                                  onChange={() => setTrigger("raffle_entered")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Raffle Entry
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer enters a raffle
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("raffle_won")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "raffle_won" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "raffle_won"}
+                                  onChange={() => setTrigger("raffle_won")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Raffle Win
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer wins a raffle prize
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("raffle_ending")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "raffle_ending" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "raffle_ending"}
+                                  onChange={() => setTrigger("raffle_ending")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Raffle Ending Soon
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Reminder when a raffle is about to close
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("mystery_box_opened")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "mystery_box_opened" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "mystery_box_opened"}
+                                  onChange={() => setTrigger("mystery_box_opened")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Mystery Box Opened
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer opens a mystery box
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("mystery_box_won")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "mystery_box_won" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "mystery_box_won"}
+                                  onChange={() => setTrigger("mystery_box_won")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Mystery Box Prize
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer wins a prize
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("rewards_dormant")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "rewards_dormant" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "rewards_dormant"}
+                                  onChange={() => setTrigger("rewards_dormant")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Rewards Dormant
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Customer hasn't used rewards in a while
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+                      </InlineGrid>
+
+                      <Divider />
 
                       <Text variant="headingMd" as="h3">
                         Conditions (Optional)
@@ -601,6 +740,11 @@ export default function CreateAutomation() {
                               { label: "Birthday Special Offer", value: "birthday" },
                               { label: "We Miss You", value: "winback" },
                               { label: "Cashback Earned Notification", value: "cashback_earned" },
+                              { label: "Raffle Entry Confirmation", value: "raffle_entry" },
+                              { label: "Raffle Win Announcement", value: "raffle_win" },
+                              { label: "Raffle Ending Reminder", value: "raffle_ending" },
+                              { label: "Mystery Box Reveal", value: "mystery_box_reveal" },
+                              { label: "Rewards Re-Engagement", value: "rewards_dormant" },
                             ]}
                             value={template}
                             onChange={setTemplate}
@@ -706,6 +850,12 @@ export default function CreateAutomation() {
                               {trigger === "inactive" && "Inactive Customer"}
                               {trigger === "cashback_earned" && "Cashback Earned"}
                               {trigger === "points_milestone" && "Points Milestone"}
+                              {trigger === "raffle_entered" && "Raffle Entry"}
+                              {trigger === "raffle_won" && "Raffle Win"}
+                              {trigger === "raffle_ending" && "Raffle Ending Soon"}
+                              {trigger === "mystery_box_opened" && "Mystery Box Opened"}
+                              {trigger === "mystery_box_won" && "Mystery Box Prize"}
+                              {trigger === "rewards_dormant" && "Rewards Dormant"}
                             </Text>
                           </InlineStack>
                           {tierFilter && (

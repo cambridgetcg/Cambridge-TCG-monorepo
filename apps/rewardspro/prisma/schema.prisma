@@ -136,6 +136,7 @@ model ShopSettings {
   widgetBackgroundColor String?         @default("#FFFFFF") // Widget background
   widgetTextColor       String?         @default("#212B36") // Main text color
   widgetAccentColor     String?         @default("#008060") // Success/highlight color
+  widgetSecondaryTextColor String? // Secondary/muted text color (null = auto-derive from mode)
   widgetBorderRadius    Int?            @default(12) // Border radius in pixels
   widgetFontFamily      String?         @default("inherit") // Font family
 
@@ -2779,6 +2780,28 @@ model KlaviyoAutomationSettings {
   balanceReminderCooldownDays Int @default(14)
   winBackCooldownDays         Int @default(30)
   tierNudgeCooldownDays       Int @default(14)
+
+  // ============================================
+  // Rewards Engagement Event Toggles
+  // ============================================
+
+  // Points events
+  sendPointsEvents     Boolean @default(true) // Points earned/spent/milestone
+
+  // Raffle events
+  sendRaffleEvents     Boolean @default(true) // Raffle entry/win/ending soon
+
+  // Mystery box events
+  sendMysteryBoxEvents Boolean @default(true) // Mystery box open/win
+
+  // General rewards engagement
+  sendRewardsEngagement Boolean @default(true) // Challenges, bonus events, dormancy
+
+  // Rewards engagement timing
+  rewardsDormancyDays      Int @default(30)  // Days without rewards activity
+  raffleReminderHours      Int @default(24)  // Hours before raffle ends
+  highPointsThreshold      Int @default(500) // Points balance to trigger reminder
+  highPointsDormancyDays   Int @default(14)  // Days without spend
 
   // Scheduling
   scheduledJobTime String @default("06:00") // HH:MM in shop timezone

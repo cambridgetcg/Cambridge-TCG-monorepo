@@ -56,6 +56,40 @@ export const KLAVIYO_EVENTS = {
   CUSTOMER_BECAME_CHAMPION: "RewardsPro Customer Became Champion",
   CUSTOMER_BECAME_LOYAL: "RewardsPro Customer Became Loyal",
   CUSTOMER_AT_RISK: "RewardsPro Customer At Risk",
+
+  // ============================================
+  // REWARDS ENGAGEMENT EVENTS (Marketing-Rewards Integration)
+  // ============================================
+
+  // Points Events
+  POINTS_EARNED: "RewardsPro Points Earned",
+  POINTS_SPENT: "RewardsPro Points Spent",
+  POINTS_MILESTONE: "RewardsPro Points Milestone Reached",
+  POINTS_BALANCE_LOW: "RewardsPro Points Balance Low",
+
+  // Raffle Events
+  RAFFLE_ENTERED: "RewardsPro Raffle Entry",
+  RAFFLE_WON: "RewardsPro Raffle Won",
+  RAFFLE_ENDING_SOON: "RewardsPro Raffle Ending Soon",
+  RAFFLE_NEW_AVAILABLE: "RewardsPro New Raffle Available",
+
+  // Mystery Box Events
+  MYSTERY_BOX_OPENED: "RewardsPro Mystery Box Opened",
+  MYSTERY_BOX_WON: "RewardsPro Mystery Box Prize Won",
+  MYSTERY_BOX_NEW_AVAILABLE: "RewardsPro New Mystery Box Available",
+
+  // Challenge Events (future)
+  CHALLENGE_STARTED: "RewardsPro Challenge Started",
+  CHALLENGE_COMPLETED: "RewardsPro Challenge Completed",
+  CHALLENGE_PROGRESS: "RewardsPro Challenge Progress Update",
+
+  // Bonus Events
+  BONUS_EVENT_STARTED: "RewardsPro Bonus Event Started",
+  BONUS_EVENT_ENDING: "RewardsPro Bonus Event Ending Soon",
+
+  // Engagement Triggers
+  REWARDS_DORMANT: "RewardsPro Rewards Engagement Needed",
+  HIGH_POINTS_NO_ACTIVITY: "RewardsPro High Balance No Activity",
 } as const;
 
 export type KlaviyoEventName = (typeof KLAVIYO_EVENTS)[keyof typeof KLAVIYO_EVENTS];
@@ -210,10 +244,15 @@ function isEventEnabled(
     sendCashbackAdjusted?: boolean;
     sendCustomerBecameChampion?: boolean;
     sendCustomerBecameLoyal?: boolean;
+    // Rewards engagement event toggles
+    sendRewardsEngagement?: boolean;
+    sendRaffleEvents?: boolean;
+    sendMysteryBoxEvents?: boolean;
+    sendPointsEvents?: boolean;
   },
   eventType: KlaviyoEventName
 ): boolean {
-  const mapping: Record<KlaviyoEventName, keyof typeof settings> = {
+  const mapping: Partial<Record<KlaviyoEventName, keyof typeof settings>> = {
     [KLAVIYO_EVENTS.CUSTOMER_ENROLLED]: "sendCustomerEnrolled",
     [KLAVIYO_EVENTS.CUSTOMER_BIRTHDAY]: "sendCustomerBirthday",
     [KLAVIYO_EVENTS.CUSTOMER_ANNIVERSARY]: "sendCustomerAnniversary",
@@ -237,6 +276,37 @@ function isEventEnabled(
     [KLAVIYO_EVENTS.REWARD_AVAILABLE]: "sendBalanceReminder",
     [KLAVIYO_EVENTS.AT_RISK]: "sendWinBack",
     [KLAVIYO_EVENTS.REFERRAL_COMPLETED]: "sendCustomerEnrolled",
+
+    // Rewards Engagement Events - grouped by feature
+    // Points events
+    [KLAVIYO_EVENTS.POINTS_EARNED]: "sendPointsEvents",
+    [KLAVIYO_EVENTS.POINTS_SPENT]: "sendPointsEvents",
+    [KLAVIYO_EVENTS.POINTS_MILESTONE]: "sendPointsEvents",
+    [KLAVIYO_EVENTS.POINTS_BALANCE_LOW]: "sendPointsEvents",
+
+    // Raffle events
+    [KLAVIYO_EVENTS.RAFFLE_ENTERED]: "sendRaffleEvents",
+    [KLAVIYO_EVENTS.RAFFLE_WON]: "sendRaffleEvents",
+    [KLAVIYO_EVENTS.RAFFLE_ENDING_SOON]: "sendRaffleEvents",
+    [KLAVIYO_EVENTS.RAFFLE_NEW_AVAILABLE]: "sendRaffleEvents",
+
+    // Mystery box events
+    [KLAVIYO_EVENTS.MYSTERY_BOX_OPENED]: "sendMysteryBoxEvents",
+    [KLAVIYO_EVENTS.MYSTERY_BOX_WON]: "sendMysteryBoxEvents",
+    [KLAVIYO_EVENTS.MYSTERY_BOX_NEW_AVAILABLE]: "sendMysteryBoxEvents",
+
+    // Challenge events (use rewards engagement toggle)
+    [KLAVIYO_EVENTS.CHALLENGE_STARTED]: "sendRewardsEngagement",
+    [KLAVIYO_EVENTS.CHALLENGE_COMPLETED]: "sendRewardsEngagement",
+    [KLAVIYO_EVENTS.CHALLENGE_PROGRESS]: "sendRewardsEngagement",
+
+    // Bonus events (use rewards engagement toggle)
+    [KLAVIYO_EVENTS.BONUS_EVENT_STARTED]: "sendRewardsEngagement",
+    [KLAVIYO_EVENTS.BONUS_EVENT_ENDING]: "sendRewardsEngagement",
+
+    // Re-engagement triggers
+    [KLAVIYO_EVENTS.REWARDS_DORMANT]: "sendRewardsEngagement",
+    [KLAVIYO_EVENTS.HIGH_POINTS_NO_ACTIVITY]: "sendRewardsEngagement",
   };
 
   const settingKey = mapping[eventType];
@@ -836,6 +906,499 @@ export async function trackSegmentChanged(
       current_tier: customer.currentTier?.name || "None",
       cashback_balance: customer.cashbackBalance,
       cashback_percent: customer.currentTier?.cashbackPercent || 0,
+    },
+  });
+}
+
+// ============================================
+// REWARDS ENGAGEMENT EVENTS
+// ============================================
+
+/**
+ * Track points earned event
+ */
+export async function trackPointsEarned(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  pointsEarned: number,
+  source: string,
+  sourceDetails?: {
+    orderId?: string;
+    raffleId?: string;
+    mysteryBoxId?: string;
+    challengeId?: string;
+    bonusEventName?: string;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.POINTS_EARNED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `points_earned_${customer.id}_${Date.now()}`,
+    value: pointsEarned,
+    properties: {
+      $value: pointsEarned,
+      points_earned: pointsEarned,
+      source,
+      new_balance: customer.pointsBalance,
+      lifetime_points: customer.lifetimePoints,
+      current_tier: customer.currentTier?.name || "None",
+      tier_multiplier: customer.currentTier?.pointsMultiplier || 1,
+      ...sourceDetails,
+    },
+  });
+}
+
+/**
+ * Track points spent event
+ */
+export async function trackPointsSpent(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  pointsSpent: number,
+  spentOn: "raffle" | "mystery_box" | "redemption" | "premium_spin" | "other",
+  details?: {
+    raffleName?: string;
+    raffleId?: string;
+    mysteryBoxName?: string;
+    mysteryBoxId?: string;
+    redemptionValue?: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.POINTS_SPENT,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `points_spent_${customer.id}_${Date.now()}`,
+    value: pointsSpent,
+    properties: {
+      $value: pointsSpent,
+      points_spent: pointsSpent,
+      spent_on: spentOn,
+      new_balance: customer.pointsBalance,
+      current_tier: customer.currentTier?.name || "None",
+      ...details,
+    },
+  });
+}
+
+/**
+ * Track points milestone reached
+ */
+export async function trackPointsMilestone(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  milestone: number,
+  milestoneName?: string
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.POINTS_MILESTONE,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `points_milestone_${customer.id}_${milestone}`,
+    properties: {
+      milestone_reached: milestone,
+      milestone_name: milestoneName || `${milestone} Points`,
+      current_balance: customer.pointsBalance,
+      lifetime_points: customer.lifetimePoints,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track raffle entry event
+ */
+export async function trackRaffleEntered(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  raffle: {
+    id: string;
+    name: string;
+    endsAt: Date;
+    entryCount: number;
+    totalEntries: number;
+  },
+  entriesThisPurchase: number,
+  pointsSpent: number
+): Promise<boolean> {
+  const daysUntilDraw = Math.ceil(
+    (raffle.endsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.RAFFLE_ENTERED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `raffle_entry_${customer.id}_${raffle.id}_${Date.now()}`,
+    properties: {
+      raffle_id: raffle.id,
+      raffle_name: raffle.name,
+      entries_purchased: entriesThisPurchase,
+      total_entries: raffle.entryCount,
+      points_spent: pointsSpent,
+      raffle_ends_at: raffle.endsAt.toISOString(),
+      days_until_draw: daysUntilDraw,
+      total_participants: raffle.totalEntries,
+      points_balance_after: customer.pointsBalance,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track raffle won event
+ */
+export async function trackRaffleWon(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  raffle: {
+    id: string;
+    name: string;
+  },
+  prize: {
+    id: string;
+    name: string;
+    type: string;
+    value?: number;
+    valueDescription?: string;
+  },
+  winDetails: {
+    entriesEntered: number;
+    totalParticipants: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.RAFFLE_WON,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `raffle_won_${customer.id}_${raffle.id}_${prize.id}`,
+    value: prize.value,
+    properties: {
+      $value: prize.value,
+      raffle_id: raffle.id,
+      raffle_name: raffle.name,
+      prize_id: prize.id,
+      prize_name: prize.name,
+      prize_type: prize.type,
+      prize_value: prize.value,
+      prize_description: prize.valueDescription,
+      entries_entered: winDetails.entriesEntered,
+      total_participants: winDetails.totalParticipants,
+      current_tier: customer.currentTier?.name || "None",
+      lifetime_raffle_wins: 1, // Will need to query from DB if tracking
+    },
+  });
+}
+
+/**
+ * Track raffle ending soon event (for reminder flows)
+ */
+export async function trackRaffleEndingSoon(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  raffle: {
+    id: string;
+    name: string;
+    endsAt: Date;
+    entryCost: number;
+    prizes: Array<{ name: string; type: string }>;
+  },
+  customerEntries: number,
+  hoursRemaining: number
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.RAFFLE_ENDING_SOON,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `raffle_ending_${customer.id}_${raffle.id}_${hoursRemaining}h`,
+    properties: {
+      raffle_id: raffle.id,
+      raffle_name: raffle.name,
+      hours_remaining: hoursRemaining,
+      ends_at: raffle.endsAt.toISOString(),
+      customer_entries: customerEntries,
+      has_entered: customerEntries > 0,
+      entry_cost: raffle.entryCost,
+      prizes_available: raffle.prizes.map((p) => p.name),
+      prizes_count: raffle.prizes.length,
+      points_balance: customer.pointsBalance,
+      can_afford_entry: customer.pointsBalance >= raffle.entryCost,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track mystery box opened event
+ */
+export async function trackMysteryBoxOpened(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  mysteryBox: {
+    id: string;
+    name: string;
+    openCost: number;
+  },
+  pointsSpent: number
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.MYSTERY_BOX_OPENED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `mystery_box_open_${customer.id}_${mysteryBox.id}_${Date.now()}`,
+    properties: {
+      mystery_box_id: mysteryBox.id,
+      mystery_box_name: mysteryBox.name,
+      points_spent: pointsSpent,
+      open_cost: mysteryBox.openCost,
+      points_balance_after: customer.pointsBalance,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track mystery box prize won event
+ */
+export async function trackMysteryBoxWon(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  mysteryBox: {
+    id: string;
+    name: string;
+  },
+  reward: {
+    id: string;
+    name: string;
+    type: string;
+    rarity: string;
+    value?: number;
+    valueDescription?: string;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.MYSTERY_BOX_WON,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `mystery_box_won_${customer.id}_${mysteryBox.id}_${reward.id}_${Date.now()}`,
+    value: reward.value,
+    properties: {
+      $value: reward.value,
+      mystery_box_id: mysteryBox.id,
+      mystery_box_name: mysteryBox.name,
+      reward_id: reward.id,
+      reward_name: reward.name,
+      reward_type: reward.type,
+      reward_rarity: reward.rarity,
+      reward_value: reward.value,
+      reward_description: reward.valueDescription,
+      current_tier: customer.currentTier?.name || "None",
+      is_jackpot: reward.rarity === "LEGENDARY" || reward.rarity === "EPIC",
+    },
+  });
+}
+
+/**
+ * Track new raffle available event
+ */
+export async function trackNewRaffleAvailable(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  raffle: {
+    id: string;
+    name: string;
+    description?: string;
+    startsAt: Date;
+    endsAt: Date;
+    entryCost: number;
+    prizes: Array<{ name: string; type: string; value?: number }>;
+  }
+): Promise<boolean> {
+  const daysToEnter = Math.ceil(
+    (raffle.endsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.RAFFLE_NEW_AVAILABLE,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `raffle_new_${customer.id}_${raffle.id}`,
+    properties: {
+      raffle_id: raffle.id,
+      raffle_name: raffle.name,
+      raffle_description: raffle.description,
+      starts_at: raffle.startsAt.toISOString(),
+      ends_at: raffle.endsAt.toISOString(),
+      days_to_enter: daysToEnter,
+      entry_cost: raffle.entryCost,
+      prizes: raffle.prizes,
+      top_prize: raffle.prizes[0]?.name,
+      total_prizes: raffle.prizes.length,
+      points_balance: customer.pointsBalance,
+      can_afford_entry: customer.pointsBalance >= raffle.entryCost,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track new mystery box available event
+ */
+export async function trackNewMysteryBoxAvailable(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  mysteryBox: {
+    id: string;
+    name: string;
+    description?: string;
+    openCost: number;
+    rewards: Array<{ name: string; rarity: string }>;
+  }
+): Promise<boolean> {
+  const rarityDistribution = mysteryBox.rewards.reduce(
+    (acc, r) => {
+      acc[r.rarity] = (acc[r.rarity] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.MYSTERY_BOX_NEW_AVAILABLE,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `mystery_box_new_${customer.id}_${mysteryBox.id}`,
+    properties: {
+      mystery_box_id: mysteryBox.id,
+      mystery_box_name: mysteryBox.name,
+      mystery_box_description: mysteryBox.description,
+      open_cost: mysteryBox.openCost,
+      rewards_count: mysteryBox.rewards.length,
+      rarity_distribution: rarityDistribution,
+      has_legendary: rarityDistribution["LEGENDARY"] > 0,
+      has_epic: rarityDistribution["EPIC"] > 0,
+      points_balance: customer.pointsBalance,
+      can_afford: customer.pointsBalance >= mysteryBox.openCost,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track bonus event started (double points, etc.)
+ */
+export async function trackBonusEventStarted(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  bonusEvent: {
+    id: string;
+    name: string;
+    multiplier: number;
+    startsAt: Date;
+    endsAt: Date;
+    description?: string;
+  }
+): Promise<boolean> {
+  const hoursRemaining = Math.ceil(
+    (bonusEvent.endsAt.getTime() - Date.now()) / (1000 * 60 * 60)
+  );
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.BONUS_EVENT_STARTED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `bonus_event_start_${customer.id}_${bonusEvent.id}`,
+    properties: {
+      event_id: bonusEvent.id,
+      event_name: bonusEvent.name,
+      multiplier: bonusEvent.multiplier,
+      multiplier_text: `${bonusEvent.multiplier}x Points`,
+      starts_at: bonusEvent.startsAt.toISOString(),
+      ends_at: bonusEvent.endsAt.toISOString(),
+      hours_remaining: hoursRemaining,
+      description: bonusEvent.description,
+      current_tier: customer.currentTier?.name || "None",
+      effective_multiplier:
+        bonusEvent.multiplier * (customer.currentTier?.pointsMultiplier || 1),
+    },
+  });
+}
+
+/**
+ * Track rewards dormancy event (customer hasn't engaged with rewards in X days)
+ */
+export async function trackRewardsDormant(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  dormancyDays: number,
+  availableRewards: {
+    activeRaffles: number;
+    activeMysteryBoxes: number;
+    activeChallenges: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.REWARDS_DORMANT,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `rewards_dormant_${customer.id}_${dormancyDays}d`,
+    properties: {
+      days_since_engagement: dormancyDays,
+      points_balance: customer.pointsBalance,
+      has_points: customer.pointsBalance > 0,
+      active_raffles: availableRewards.activeRaffles,
+      active_mystery_boxes: availableRewards.activeMysteryBoxes,
+      active_challenges: availableRewards.activeChallenges,
+      has_rewards_available:
+        availableRewards.activeRaffles > 0 ||
+        availableRewards.activeMysteryBoxes > 0,
+      current_tier: customer.currentTier?.name || "None",
+      lifetime_points: customer.lifetimePoints,
+    },
+  });
+}
+
+/**
+ * Track high points balance with no recent activity
+ */
+export async function trackHighPointsNoActivity(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  daysSinceLastSpend: number,
+  suggestedRedemption?: {
+    type: "raffle" | "mystery_box" | "redemption";
+    name: string;
+    cost: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.HIGH_POINTS_NO_ACTIVITY,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `high_points_dormant_${customer.id}_${daysSinceLastSpend}d`,
+    properties: {
+      points_balance: customer.pointsBalance,
+      days_since_spend: daysSinceLastSpend,
+      suggested_redemption: suggestedRedemption,
+      can_afford_suggested: suggestedRedemption
+        ? customer.pointsBalance >= suggestedRedemption.cost
+        : false,
+      current_tier: customer.currentTier?.name || "None",
+      potential_value_unused: customer.pointsBalance, // Could calculate redemption value
     },
   });
 }

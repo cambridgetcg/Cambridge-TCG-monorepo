@@ -11,6 +11,7 @@
 import db from "../db.server";
 import { spendPoints, earnPoints, getPointsBalance } from "./points-ledger.server";
 import { checkMysteryBoxEligibility } from "./mystery-box-management.server";
+import { trackMysteryBoxOpened, trackMysteryBoxWon, trackPointsSpent } from "./klaviyo-events.server";
 import type { MysteryBoxReward, MysteryBoxOpen, MysteryBoxWinner } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxOpen]";
@@ -230,6 +231,65 @@ export async function openMysteryBox(
     console.log(
       `${LOG_PREFIX} Successfully opened box for customer ${customerId}, won: ${reward.name} (${reward.rarity})`
     );
+
+    // 9. Dispatch Klaviyo events for marketing automation
+    // Run async without blocking the response
+    (async () => {
+      try {
+        // Get customer with tier for event tracking
+        const customer = await db.customer.findUnique({
+          where: { id: customerId },
+          include: { currentTier: true },
+        });
+
+        if (customer?.email) {
+          // Track mystery box opened event
+          await trackMysteryBoxOpened(
+            shop,
+            { ...customer, pointsBalance: newBalance.available },
+            {
+              id: box.id,
+              name: box.name,
+              openCost: box.openCost,
+            },
+            box.openCost
+          );
+
+          // Track mystery box prize won event
+          await trackMysteryBoxWon(
+            shop,
+            { ...customer, pointsBalance: newBalance.available },
+            {
+              id: box.id,
+              name: box.name,
+            },
+            {
+              id: reward.id,
+              name: reward.name,
+              type: reward.rewardType,
+              rarity: reward.rarity,
+              value: (reward.rewardValue as Record<string, unknown>)?.amount as number,
+              valueDescription: reward.description || undefined,
+            }
+          );
+
+          // Track points spent event
+          await trackPointsSpent(
+            shop,
+            { ...customer, pointsBalance: newBalance.available },
+            box.openCost,
+            "mystery_box",
+            {
+              mysteryBoxName: box.name,
+              mysteryBoxId: box.id,
+            }
+          );
+        }
+      } catch (error) {
+        console.error(`${LOG_PREFIX} Error dispatching Klaviyo events:`, error);
+        // Don't throw - marketing events should not block the main flow
+      }
+    })();
 
     return {
       success: true,

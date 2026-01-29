@@ -113,6 +113,32 @@ export interface RewardsProProfileProperties {
   rewardspro_birthday_month: number | null;
   rewardspro_birthday_day: number | null;
 
+  // ============================================
+  // Rewards Engagement Properties (Marketing Integration)
+  // ============================================
+
+  // Points Activity
+  rewardspro_lifetime_points: number;
+  rewardspro_points_earned_30d: number;
+  rewardspro_points_spent_30d: number;
+
+  // Raffle Engagement
+  rewardspro_total_raffle_entries: number;
+  rewardspro_total_raffle_wins: number;
+  rewardspro_active_raffle_entries: number;
+  rewardspro_last_raffle_entry_date: string | null;
+
+  // Mystery Box Engagement
+  rewardspro_total_mystery_box_opens: number;
+  rewardspro_total_mystery_box_wins: number;
+  rewardspro_last_mystery_box_date: string | null;
+
+  // Engagement Score & Activity
+  rewardspro_rewards_engagement_score: number; // 0-100 composite score
+  rewardspro_is_rewards_active: boolean; // Activity in last 30 days
+  rewardspro_days_since_rewards_activity: number | null;
+  rewardspro_engagement_level: "HIGH" | "MEDIUM" | "LOW" | "DORMANT";
+
   // Shop
   shop: string;
 }
@@ -611,9 +637,94 @@ export function buildProfileProperties(
     rewardspro_birthday_month: birthdayMonth,
     rewardspro_birthday_day: birthdayDay,
 
+    // ============================================
+    // Rewards Engagement Properties (Marketing Integration)
+    // ============================================
+    // Note: These properties require rewards activity data to be passed in
+    // via the rewardsActivity parameter. If not provided, defaults are used.
+
+    // Points Activity
+    rewardspro_lifetime_points: customer.lifetimePoints || 0,
+    rewardspro_points_earned_30d: 0, // Requires aggregation query
+    rewardspro_points_spent_30d: 0, // Requires aggregation query
+
+    // Raffle Engagement (defaults - populate via rewardsActivity if available)
+    rewardspro_total_raffle_entries: 0,
+    rewardspro_total_raffle_wins: 0,
+    rewardspro_active_raffle_entries: 0,
+    rewardspro_last_raffle_entry_date: null,
+
+    // Mystery Box Engagement (defaults - populate via rewardsActivity if available)
+    rewardspro_total_mystery_box_opens: 0,
+    rewardspro_total_mystery_box_wins: 0,
+    rewardspro_last_mystery_box_date: null,
+
+    // Engagement Score & Activity (calculated from activity data)
+    rewardspro_rewards_engagement_score: calculateEngagementScore(customer, daysSinceLastOrder),
+    rewardspro_is_rewards_active: (customer.lifetimePoints || 0) > 0 && daysSinceLastOrder !== null && daysSinceLastOrder < 30,
+    rewardspro_days_since_rewards_activity: daysSinceLastOrder, // Use order activity as proxy
+    rewardspro_engagement_level: getEngagementLevel(customer, daysSinceLastOrder),
+
     // Shop
     shop,
   };
+}
+
+/**
+ * Calculate engagement score (0-100) based on customer activity
+ */
+function calculateEngagementScore(
+  customer: Customer,
+  daysSinceLastOrder: number | null
+): number {
+  let score = 0;
+
+  // Points balance contribution (max 20 points)
+  const pointsBalance = customer.pointsBalance || 0;
+  score += Math.min(20, Math.floor(pointsBalance / 50));
+
+  // Order frequency (max 30 points)
+  if (customer.ordersCount >= 10) score += 30;
+  else if (customer.ordersCount >= 5) score += 20;
+  else if (customer.ordersCount >= 2) score += 10;
+
+  // Recency (max 30 points)
+  if (daysSinceLastOrder !== null) {
+    if (daysSinceLastOrder <= 7) score += 30;
+    else if (daysSinceLastOrder <= 14) score += 25;
+    else if (daysSinceLastOrder <= 30) score += 20;
+    else if (daysSinceLastOrder <= 60) score += 10;
+  }
+
+  // Lifetime spend (max 20 points)
+  if (customer.lifetimeSpend >= 1000) score += 20;
+  else if (customer.lifetimeSpend >= 500) score += 15;
+  else if (customer.lifetimeSpend >= 100) score += 10;
+
+  return Math.min(100, score);
+}
+
+/**
+ * Get engagement level based on activity metrics
+ */
+function getEngagementLevel(
+  customer: Customer,
+  daysSinceLastOrder: number | null
+): "HIGH" | "MEDIUM" | "LOW" | "DORMANT" {
+  const hasPoints = (customer.pointsBalance || 0) > 0;
+  const hasRecentActivity = daysSinceLastOrder !== null && daysSinceLastOrder <= 30;
+  const hasOrders = customer.ordersCount > 0;
+
+  if (hasRecentActivity && hasPoints && customer.ordersCount >= 3) {
+    return "HIGH";
+  }
+  if (hasRecentActivity || (hasPoints && hasOrders)) {
+    return "MEDIUM";
+  }
+  if (daysSinceLastOrder !== null && daysSinceLastOrder > 60) {
+    return "DORMANT";
+  }
+  return "LOW";
 }
 
 /**

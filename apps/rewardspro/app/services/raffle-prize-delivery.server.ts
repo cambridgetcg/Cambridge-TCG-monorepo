@@ -12,6 +12,7 @@
 import db from "../db.server";
 import { earnPoints } from "./points-ledger.server";
 import { updateWinnerDeliveryStatus, markWinnerNotified } from "./raffle-drawing.server";
+import { trackRaffleWon } from "./klaviyo-events.server";
 import type { RafflePrizeType } from "./raffle-management.server";
 
 const LOG_PREFIX = "[RafflePrizeDelivery]";
@@ -173,6 +174,46 @@ export async function deliverPrize(
       if (!options?.skipNotification) {
         await markWinnerNotified(winnerId);
       }
+
+      // Dispatch Klaviyo win event for marketing automation
+      // Run async without blocking
+      (async () => {
+        try {
+          const fullCustomer = await db.customer.findUnique({
+            where: { id: customerId },
+            include: { currentTier: true },
+          });
+
+          // Get entry info for win details
+          const entry = await db.raffleEntry.findFirst({
+            where: { raffleId: raffle.id, customerId },
+          });
+
+          if (fullCustomer?.email) {
+            await trackRaffleWon(
+              shop,
+              fullCustomer,
+              {
+                id: raffle.id,
+                name: raffle.name,
+              },
+              {
+                id: prize.id,
+                name: prize.name,
+                type: prizeType,
+                value: prizeValue.amount || prizeValue.value,
+                valueDescription: prize.description,
+              },
+              {
+                entriesEntered: entry?.entriesCount || 1,
+                totalParticipants: raffle.uniqueEntrants || 1,
+              }
+            );
+          }
+        } catch (error) {
+          console.error(`${LOG_PREFIX} Error dispatching Klaviyo win event:`, error);
+        }
+      })();
     } else if (result.requiresManualAction) {
       await updateWinnerDeliveryStatus(winnerId, "PENDING", {
         deliveryNotes: result.manualActionReason,
