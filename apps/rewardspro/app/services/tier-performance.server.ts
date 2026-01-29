@@ -392,3 +392,172 @@ export async function getTierPerformanceMetrics(
     60000 // 60 second cache
   );
 }
+
+// ============================================
+// MONTHLY TIER REVENUE (HISTORICAL DATA)
+// ============================================
+
+export interface MonthlyTierRevenue {
+  month: string; // e.g., "Jan"
+  tiers: {
+    tierName: string;
+    tierId: string;
+    revenue: number;
+    orderFrequency: number;
+    revenuePerOrder: number;
+    grossProfit: number;
+  }[];
+}
+
+/**
+ * Fetch historical tier revenue for the last 12 months
+ * Uses aggregate queries per month for efficiency
+ */
+async function fetchMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue[]> {
+  console.log(`[Tier Revenue] Fetching monthly historical data for ${shop}`);
+
+  const now = new Date();
+
+  // Get all tiers first
+  const tiers = await db.tier.findMany({
+    where: { shop },
+    orderBy: { minSpend: 'asc' },
+    select: { id: true, name: true },
+  });
+
+  if (tiers.length === 0) {
+    console.log('[Tier Revenue] No tiers found');
+    return [];
+  }
+
+  // Get profit margin for gross profit calculation
+  const shopSettings = await db.shopSettings.findUnique({
+    where: { shop },
+    select: { averageProfitMargin: true },
+  });
+  const profitMargin = shopSettings?.averageProfitMargin
+    ? Number(shopSettings.averageProfitMargin)
+    : 40;
+
+  // Get all customer IDs by tier (needed for Data API compatibility)
+  const customerIdsByTier = new Map<string, string[]>();
+  await Promise.all(
+    tiers.map(async (tier) => {
+      const customers = await db.customer.findMany({
+        where: { shop, currentTierId: tier.id },
+        select: { id: true },
+        take: 10000, // Safety limit
+      });
+      customerIdsByTier.set(tier.id, customers.map(c => c.id));
+    })
+  );
+
+  // Build month ranges for the last 12 months
+  const monthRanges: Array<{ start: Date; end: Date; name: string }> = [];
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+    monthRanges.push({
+      start: date,
+      end: endOfMonth,
+      name: date.toLocaleDateString('en-US', { month: 'short' }),
+    });
+  }
+
+  // Fetch revenue data for each tier for each month
+  // This is O(tiers × months) queries, but each is a simple aggregate
+  const monthlyData: MonthlyTierRevenue[] = await Promise.all(
+    monthRanges.map(async (monthRange) => {
+      const tierData = await Promise.all(
+        tiers.map(async (tier) => {
+          const customerIds = customerIdsByTier.get(tier.id) || [];
+
+          if (customerIds.length === 0) {
+            return {
+              tierName: tier.name,
+              tierId: tier.id,
+              revenue: 0,
+              orderFrequency: 0,
+              revenuePerOrder: 0,
+              grossProfit: 0,
+            };
+          }
+
+          // Aggregate order data for this tier in this month
+          const [orderAggregate, activeCustomers] = await Promise.all([
+            db.order.aggregate({
+              where: {
+                shop,
+                customerId: { in: customerIds },
+                shopifyCreatedAt: {
+                  gte: monthRange.start,
+                  lte: monthRange.end,
+                },
+                financialStatus: {
+                  in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'],
+                },
+              },
+              _sum: { netAmount: true },
+              _count: true,
+            }),
+            db.order.findMany({
+              where: {
+                shop,
+                customerId: { in: customerIds },
+                shopifyCreatedAt: {
+                  gte: monthRange.start,
+                  lte: monthRange.end,
+                },
+                financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
+              },
+              distinct: ['customerId'],
+              select: { customerId: true },
+            }),
+          ]);
+
+          const revenue = Number(orderAggregate._sum.netAmount || 0);
+          const orderCount = orderAggregate._count || 0;
+          const activeCustomerCount = activeCustomers.length;
+
+          const orderFrequency = activeCustomerCount > 0
+            ? orderCount / activeCustomerCount
+            : 0;
+          const revenuePerOrder = orderCount > 0
+            ? revenue / orderCount
+            : 0;
+          const grossProfit = revenue * (profitMargin / 100);
+
+          return {
+            tierName: tier.name,
+            tierId: tier.id,
+            revenue: Math.round(revenue * 100) / 100,
+            orderFrequency: Math.round(orderFrequency * 100) / 100,
+            revenuePerOrder: Math.round(revenuePerOrder * 100) / 100,
+            grossProfit: Math.round(grossProfit * 100) / 100,
+          };
+        })
+      );
+
+      return {
+        month: monthRange.name,
+        tiers: tierData,
+      };
+    })
+  );
+
+  console.log(`[Tier Revenue] Fetched ${monthlyData.length} months of data`);
+  return monthlyData;
+}
+
+/**
+ * Get monthly tier revenue with caching (5 minute cache)
+ */
+export async function getMonthlyTierRevenue(shop: string): Promise<MonthlyTierRevenue[]> {
+  const cacheKey = `tier-revenue-monthly:${shop}`;
+
+  return getCachedOrCompute(
+    cacheKey,
+    () => fetchMonthlyTierRevenue(shop),
+    300000 // 5 minute cache (historical data changes less frequently)
+  );
+}
