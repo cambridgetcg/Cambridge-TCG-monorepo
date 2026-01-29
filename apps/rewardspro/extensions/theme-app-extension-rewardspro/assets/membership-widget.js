@@ -753,15 +753,21 @@
       let isMaxTier = false;
       let progressStats = '';
       let amountRemaining = 0;
+      let showTierProgress = false;
+      let nextTierTarget = 0;
 
       try {
         if (tierProgress) {
           progressPercent = tierProgress.progressPercent || 0;
           const currentSpending = tierProgress.currentSpending || 0;
-          const nextTierTarget = tierProgress.nextTierTarget || 0;
+          nextTierTarget = tierProgress.nextTierTarget || 0;
           nextTierName = tierProgress.nextTierName || '';
           isMaxTier = tierProgress.isMaxTier || false;
           amountRemaining = tierProgress.amountRemaining || 0;
+
+          // Only show tier progress if there are meaningful tiers configured
+          // Show when: max tier achieved OR there's a valid next tier to progress toward
+          showTierProgress = isMaxTier || (nextTierTarget > 0 && nextTierName);
 
           // Format progress stats for display
           const currentSpendingFormatted = this.formatCurrency(currentSpending);
@@ -771,7 +777,7 @@
             ? 'Max tier reached'
             : `${currentSpendingFormatted} / ${nextTierTargetFormatted}`;
 
-          log.debug('Tier progress calculated', { progressPercent, nextTierName, isMaxTier });
+          log.debug('Tier progress calculated', { progressPercent, nextTierName, isMaxTier, showTierProgress });
         }
       } catch (e) {
         log.error('Error calculating tier progress:', e.message);
@@ -825,6 +831,7 @@
                 <div class="rp-auth-c__card-value">${cashbackPercent}%</div>
                 <div class="rp-auth-c__card-label">Cashback</div>
               </div>
+              ${showTierProgress ? `
               <div class="rp-auth-c__card">
                 <div class="rp-auth-c__card-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -834,16 +841,19 @@
                 <div class="rp-auth-c__card-value">${progressPercent}%</div>
                 <div class="rp-auth-c__card-label">Progress</div>
               </div>
+              ` : ''}
             </div>
+            ${showTierProgress ? `
             <div class="rp-auth-c__progress">
               <div class="rp-auth-c__progress-header">
-                <span class="rp-auth-c__progress-label">${isMaxTier ? 'Max Tier Achieved' : 'Next Tier Progress'}</span>
+                <span class="rp-auth-c__progress-label">${isMaxTier ? 'Max Tier Achieved' : `Progress to ${nextTierName}`}</span>
                 <span class="rp-auth-c__progress-value">${isMaxTier ? '100%' : this.formatCurrency(amountRemaining) + ' to go'}</span>
               </div>
               <div class="rp-auth-c__progress-bar">
                 <div class="rp-auth-c__progress-fill" style="width: ${progressPercent}%"></div>
               </div>
             </div>
+            ` : ''}
 
             ${this.renderPointsSection()}
 
