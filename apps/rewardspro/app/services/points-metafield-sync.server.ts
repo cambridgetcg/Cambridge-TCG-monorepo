@@ -24,6 +24,10 @@ interface PointsMetafieldData {
   bonusName: string | null;
   bonusEndsAt: string | null;
   enabled: boolean;
+  // Feature flags
+  rafflesEnabled: boolean;
+  mysteryBoxesEnabled: boolean;
+  challengesEnabled: boolean;
 }
 
 /**
@@ -79,6 +83,9 @@ export async function syncPointsConfigMetafield(
         bonusName: null,
         bonusEndsAt: null,
         enabled: false,
+        rafflesEnabled: false,
+        mysteryBoxesEnabled: false,
+        challengesEnabled: false,
       });
     }
 
@@ -98,6 +105,10 @@ export async function syncPointsConfigMetafield(
       bonusName,
       bonusEndsAt,
       enabled: config.isEnabled,
+      // Feature flags - only enabled if points system is also enabled
+      rafflesEnabled: config.isEnabled && config.rafflesEnabled,
+      mysteryBoxesEnabled: config.isEnabled && config.mysteryBoxesEnabled,
+      challengesEnabled: config.isEnabled && config.challengesEnabled,
     };
 
     return await setShopMetafields(admin, shopGid, metafieldData);
@@ -190,6 +201,28 @@ async function setShopMetafields(
       namespace: "rewardspro",
       key: "points_enabled",
       value: String(data.enabled),
+      type: "boolean",
+    },
+    // Feature flags
+    {
+      ownerId: shopGid,
+      namespace: "rewardspro",
+      key: "raffles_enabled",
+      value: String(data.rafflesEnabled),
+      type: "boolean",
+    },
+    {
+      ownerId: shopGid,
+      namespace: "rewardspro",
+      key: "mystery_boxes_enabled",
+      value: String(data.mysteryBoxesEnabled),
+      type: "boolean",
+    },
+    {
+      ownerId: shopGid,
+      namespace: "rewardspro",
+      key: "challenges_enabled",
+      value: String(data.challengesEnabled),
       type: "boolean",
     },
   ];

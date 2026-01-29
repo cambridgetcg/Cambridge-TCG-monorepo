@@ -176,6 +176,13 @@
 
         const data = await fetchWithTimeout(url.toString());
 
+        // Feature disabled - hide entire section
+        if (data.enabled === false) {
+          log.debug('Raffles feature is disabled');
+          section.style.display = 'none';
+          return;
+        }
+
         if (data.success && data.raffles?.length > 0) {
           this.renderRaffles(section, data.raffles.slice(0, this.config.maxItems));
         } else {
@@ -198,6 +205,13 @@
 
         const data = await fetchWithTimeout(url.toString());
 
+        // Feature disabled - hide entire section
+        if (data.enabled === false) {
+          log.debug('Mystery boxes feature is disabled');
+          section.style.display = 'none';
+          return;
+        }
+
         if (data.success && data.boxes?.length > 0) {
           this.renderMysteryBoxes(section, data.boxes.slice(0, this.config.maxItems));
         } else {
@@ -219,6 +233,13 @@
         url.searchParams.append('shop', this.config.shopDomain);
 
         const data = await fetchWithTimeout(url.toString());
+
+        // Feature disabled - hide entire section
+        if (data.enabled === false) {
+          log.debug('Challenges feature is disabled');
+          section.style.display = 'none';
+          return;
+        }
 
         if (data.success && data.challenges?.length > 0) {
           this.renderChallenges(section, data.challenges.slice(0, this.config.maxItems));

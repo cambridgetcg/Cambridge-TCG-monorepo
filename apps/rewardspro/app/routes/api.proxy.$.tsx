@@ -22,6 +22,7 @@ import { appProxyRateLimit } from "../utils/rate-limiter-redis";
 // Points system imports
 import { getActiveEvents } from "../services/points-bonus-events.server";
 import { getRedemptionTiers } from "../services/points-redemption.server";
+import { getEnabledFeatures } from "../services/points-config.server";
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity
@@ -584,6 +585,80 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  // FEATURE-FLAGS endpoint - Unified feature state for storefront
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "feature-flags") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({
+        success: false,
+        error: "Authentication required"
+      }, { status: 401, headers });
+    }
+
+    try {
+      const features = await getEnabledFeatures(shop);
+
+      // Count active items for each feature (for highlighting in UI)
+      const [activeRaffles, activeMysteryBoxes] = await Promise.all([
+        features.raffles
+          ? db.raffle.count({
+              where: {
+                shop,
+                status: "ACTIVE",
+                isPublic: true,
+                endsAt: { gt: new Date() },
+              },
+            })
+          : 0,
+        features.mysteryBoxes
+          ? db.mysteryBox.count({
+              where: {
+                shop,
+                status: "ACTIVE",
+                isPublic: true,
+                endsAt: { gt: new Date() },
+              },
+            })
+          : 0,
+      ]);
+
+      return json({
+        success: true,
+        features: {
+          pointsSystem: features.pointsSystem,
+          raffles: features.raffles,
+          mysteryBoxes: features.mysteryBoxes,
+          challenges: features.challenges,
+          spinWheel: features.spinWheel,
+          scratchCards: features.scratchCards,
+        },
+        counts: {
+          activeRaffles,
+          activeMysteryBoxes,
+          activeChallenges: 0, // Not yet implemented
+        },
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Feature flags endpoint error:", error.message);
+      return json({
+        success: false,
+        error: "Failed to load feature flags",
+        features: {
+          pointsSystem: false,
+          raffles: false,
+          mysteryBoxes: false,
+          challenges: false,
+          spinWheel: false,
+          scratchCards: false,
+        },
+      }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   // RAFFLES endpoint - List active raffles for storefront teasers
   // ═══════════════════════════════════════════════════════════════════════
   if (proxyPath === "raffles") {
@@ -599,6 +674,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const customerId = url.searchParams.get("logged_in_customer_id");
 
     try {
+      // Check if raffles feature is enabled
+      const features = await getEnabledFeatures(shop);
+      if (!features.raffles) {
+        return json({
+          success: true,
+          enabled: false,
+          raffles: [],
+          message: "Raffles are not enabled for this store",
+        }, { headers });
+      }
+
       // Get active and public raffles
       const raffles = await db.raffle.findMany({
         where: {
@@ -662,6 +748,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       return json({
         success: true,
+        enabled: true,
         raffles: formattedRaffles,
         isAuthenticated: !!customerId,
       }, { headers });
@@ -690,6 +777,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     try {
+      // Check if mystery boxes feature is enabled
+      const features = await getEnabledFeatures(shop);
+      if (!features.mysteryBoxes) {
+        return json({
+          success: true,
+          enabled: false,
+          boxes: [],
+          message: "Mystery boxes are not enabled for this store",
+        }, { headers });
+      }
+
       // Get active and public mystery boxes
       const boxes = await db.mysteryBox.findMany({
         where: {
@@ -756,6 +854,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       return json({
         success: true,
+        enabled: true,
         boxes: formattedBoxes,
       }, { headers });
 
@@ -839,24 +938,31 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const customerId = url.searchParams.get("logged_in_customer_id");
 
     try {
-      // Count active activities for highlights
+      // Get feature enablement state
+      const features = await getEnabledFeatures(shop);
+
+      // Count active activities for highlights (only if features are enabled)
       const [activeRaffles, activeMysteryBoxes] = await Promise.all([
-        db.raffle.count({
-          where: {
-            shop,
-            status: "ACTIVE",
-            isPublic: true,
-            endsAt: { gt: new Date() },
-          },
-        }),
-        db.mysteryBox.count({
-          where: {
-            shop,
-            status: "ACTIVE",
-            isPublic: true,
-            endsAt: { gt: new Date() },
-          },
-        }),
+        features.raffles
+          ? db.raffle.count({
+              where: {
+                shop,
+                status: "ACTIVE",
+                isPublic: true,
+                endsAt: { gt: new Date() },
+              },
+            })
+          : 0,
+        features.mysteryBoxes
+          ? db.mysteryBox.count({
+              where: {
+                shop,
+                status: "ACTIVE",
+                isPublic: true,
+                endsAt: { gt: new Date() },
+              },
+            })
+          : 0,
       ]);
 
       // Get customer data if authenticated
@@ -886,6 +992,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       return json({
         success: true,
+        features: {
+          pointsSystem: features.pointsSystem,
+          raffles: features.raffles,
+          mysteryBoxes: features.mysteryBoxes,
+          challenges: features.challenges,
+        },
         customer: customerData,
         activeRaffles,
         activeChallenges: 0, // Challenges not yet implemented
@@ -908,7 +1020,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     success: false,
     error: "not_found",
     message: `Endpoint '${proxyPath}' not found`,
-    availablePaths: ["test", "membership", "raffles", "mystery-boxes", "challenges", "customer-summary"]
+    availablePaths: ["test", "membership", "feature-flags", "raffles", "mystery-boxes", "challenges", "customer-summary"]
   }, { status: 404, headers });
 }
 

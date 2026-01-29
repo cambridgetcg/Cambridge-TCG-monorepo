@@ -310,6 +310,13 @@
     render() {
       const data = this.state.data;
 
+      // Feature disabled check
+      if (data && data.enabled === false) {
+        log.debug('Raffles feature is disabled for this store');
+        this.showEmpty();
+        return;
+      }
+
       if (!data?.raffles || data.raffles.length === 0) {
         this.showEmpty();
         return;
@@ -398,6 +405,13 @@
     render() {
       const data = this.state.data;
 
+      // Feature disabled check
+      if (data && data.enabled === false) {
+        log.debug('Mystery boxes feature is disabled for this store');
+        this.showEmpty();
+        return;
+      }
+
       if (!data?.boxes || data.boxes.length === 0) {
         this.showEmpty();
         return;
@@ -484,6 +498,13 @@
 
     render() {
       const data = this.state.data;
+
+      // Feature disabled check
+      if (data && data.enabled === false) {
+        log.debug('Challenges feature is disabled for this store');
+        this.showEmpty();
+        return;
+      }
 
       if (!data?.challenges || data.challenges.length === 0) {
         this.showEmpty();

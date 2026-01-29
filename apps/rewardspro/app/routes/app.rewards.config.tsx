@@ -35,6 +35,7 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getPointsConfig, updatePointsConfig } from "../services/points-config.server";
+import { syncPointsConfigMetafield } from "../services/points-metafield-sync.server";
 import type { PointsRoundingMode } from "@prisma/client";
 import type { CurrencyIconType } from "../services/points-config.server";
 import { IconPicker, type IconPickerValue } from "../components/IconPicker";
@@ -140,7 +141,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
@@ -219,6 +220,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         streakBonusEnabled,
         streakBonusMultiplier,
       });
+
+      // Sync points config to shop metafields for theme access
+      // This allows theme blocks to read feature flags without API calls
+      const syncResult = await syncPointsConfigMetafield(admin, shop);
+      if (!syncResult.success) {
+        console.warn("[PointsConfig] Metafield sync warning:", syncResult.error);
+        // Don't fail the save - metafield sync is non-critical
+      }
 
       return json({ success: true, message: "Configuration saved" });
     } catch (error) {
