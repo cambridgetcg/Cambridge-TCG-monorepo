@@ -541,10 +541,12 @@ export async function getEntitlements(shop: string): Promise<ShopEntitlements> {
   // Create default entitlements if not found
   if (!entitlements) {
     console.log(`${LOG_PREFIX} No entitlements found, creating defaults for ${shop}`);
+    // Filter out unmigrated columns to prevent "column does not exist" errors
+    const safeDefaults = filterUnmigratedColumns(DEFAULT_ENTITLEMENTS);
     entitlements = await db.shopEntitlements.create({
       data: {
         shop,
-        ...DEFAULT_ENTITLEMENTS,
+        ...safeDefaults,
         lastResolvedAt: new Date(),
       },
     });
@@ -650,6 +652,11 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   // Get plan features
   const planFeatures = PLAN_FEATURES[effectivePlan] || PLAN_FEATURES[FREE_PLAN];
 
+  // Filter out columns that haven't been migrated to production yet
+  // This prevents "column does not exist" errors with Aurora Data API
+  const safePlanFeatures = filterUnmigratedColumns(planFeatures);
+  const safeDefaultEntitlements = filterUnmigratedColumns(DEFAULT_ENTITLEMENTS);
+
   // Check for existing entitlements with overrides
   const existing = await db.shopEntitlements.findUnique({
     where: { shop },
@@ -670,7 +677,7 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
     Object.assign(updateData, {
       effectivePlan,
       planSource,
-      ...planFeatures,
+      ...safePlanFeatures,
     });
   }
 
@@ -679,8 +686,8 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
     where: { shop },
     create: {
       shop,
-      ...DEFAULT_ENTITLEMENTS,
-      ...planFeatures,
+      ...safeDefaultEntitlements,
+      ...safePlanFeatures,
       effectivePlan,
       planSource,
       lastResolvedAt: new Date(),
@@ -734,29 +741,36 @@ export async function setOverride(
     Object.assign(updateData, planFeatures);
   }
 
-  // Apply individual feature overrides
+  // Apply individual feature overrides (filter out unmigrated columns)
   if (overrides.features) {
     for (const [key, value] of Object.entries(overrides.features)) {
       const columnName = `feature${capitalize(key)}`;
-      updateData[columnName] = value;
+      if (!UNMIGRATED_COLUMNS.has(columnName)) {
+        updateData[columnName] = value;
+      }
     }
   }
 
-  // Apply individual limit overrides
+  // Apply individual limit overrides (filter out unmigrated columns)
   if (overrides.limits) {
     for (const [key, value] of Object.entries(overrides.limits)) {
       const columnName = `limit${capitalize(key)}`;
-      updateData[columnName] = value;
+      if (!UNMIGRATED_COLUMNS.has(columnName)) {
+        updateData[columnName] = value;
+      }
     }
   }
 
   // Ensure we have default entitlements first
   await getEntitlements(shop);
 
+  // Filter out any unmigrated columns from the final update data
+  const safeUpdateData = filterUnmigratedColumns(updateData);
+
   // Update with overrides
   const entitlements = await db.shopEntitlements.update({
     where: { shop },
-    data: updateData,
+    data: safeUpdateData,
   });
 
   // Update cache (now Redis-backed for immediate propagation)
@@ -828,6 +842,58 @@ export function getCacheBackend(): 'redis' | 'memory' {
 // Helper: Capitalize first letter
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Columns added in migrations that may not exist in production yet.
+ * These are filtered out during upsert operations to prevent errors.
+ *
+ * TODO: Remove this filtering after these migrations are confirmed applied:
+ * - 20260123000000_add_integration_features_and_sync_limits
+ * - 20260123000001_add_gamification_marketing_analytics_features
+ *
+ * To check if migration is applied, run in production DB:
+ * SELECT column_name FROM information_schema.columns WHERE table_name = 'ShopEntitlements';
+ */
+const UNMIGRATED_COLUMNS = new Set([
+  // From 20260123000000_add_integration_features_and_sync_limits
+  'featureIntegrationKlaviyo',
+  'featureIntegrationSendgrid',
+  'featureIntegrationJudgeme',
+  'featureIntegrationSlack',
+  'featureIntegrationRecharge',
+  'featureIntegrationGorgias',
+  'featureIntegrationZapier',
+  // From 20260123000001_add_gamification_marketing_analytics_features
+  'featureRaffles',
+  'featureMysteryBoxes',
+  'featureChallenges',
+  'featureMarketingCampaigns',
+  'featureMarketingAutomation',
+  'featureAiRecommendations',
+  'featureRfmSegmentation',
+  'featureProgramImpact',
+  'featureRealtimeAnalytics',
+  'featureCohortAnalysis',
+  'limitMaxActiveRaffles',
+  'limitMaxActiveMysteryBoxes',
+  'limitMaxActiveChallenges',
+  'limitMaxCampaigns',
+  'limitMaxAutomationFlows',
+]);
+
+/**
+ * Filter out columns that haven't been migrated to production yet
+ * This prevents "column does not exist" errors when using Aurora Data API
+ */
+function filterUnmigratedColumns<T extends Record<string, unknown>>(data: T): Partial<T> {
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!UNMIGRATED_COLUMNS.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  return filtered as Partial<T>;
 }
 
 // Helper: Normalize plan names to canonical form
