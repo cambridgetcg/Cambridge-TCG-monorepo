@@ -574,31 +574,28 @@ export async function hasFeature(shop: string, feature: FeatureKey): Promise<boo
  */
 export async function getLimit(shop: string, limit: LimitKey): Promise<number> {
   const LOG_PREFIX = "[Entitlements.getLimit]";
-  let entitlements = await getEntitlements(shop);
+  const entitlements = await getEntitlements(shop);
   const columnName = `limit${capitalize(limit)}` as keyof ShopEntitlements;
-  let value = entitlements[columnName];
-  let result = typeof value === 'number' ? value : 0;
+  const value = entitlements[columnName];
 
-  // Debug logging for limit checks
-  console.log(`${LOG_PREFIX} shop=${shop} limit=${limit} column=${columnName} value=${value} result=${result} plan=${entitlements.effectivePlan}`);
+  // If value exists in DB, use it
+  if (typeof value === 'number') {
+    console.log(`${LOG_PREFIX} shop=${shop} limit=${limit} value=${value} plan=${entitlements.effectivePlan} source=database`);
+    return value;
+  }
 
-  // CRITICAL: Auto-refresh when limit is 0 for non-Free plans
-  // This self-heals shops with stale entitlements from before migration
+  // Value is undefined - column likely doesn't exist in DB (unmigrated)
+  // Fall back to PLAN_FEATURES for this plan
+  const planFeatures = PLAN_FEATURES[entitlements.effectivePlan] || PLAN_FEATURES[FREE_PLAN];
+  const fallbackValue = planFeatures[columnName as keyof typeof planFeatures];
+  const result = typeof fallbackValue === 'number' ? fallbackValue : 0;
+
+  console.log(`${LOG_PREFIX} shop=${shop} limit=${limit} value=${value} fallback=${result} plan=${entitlements.effectivePlan} source=plan_features`);
+
+  // Log warning for critical limits with 0 value (shouldn't happen for paid plans)
   const criticalLimits = ['maxActiveRaffles', 'maxActiveMysteryBoxes', 'maxActiveChallenges', 'maxCampaigns', 'maxAutomationFlows'];
   if (result === 0 && criticalLimits.includes(limit) && entitlements.effectivePlan !== FREE_PLAN) {
-    console.warn(`${LOG_PREFIX} CRITICAL: ${limit}=0 for ${shop} on plan ${entitlements.effectivePlan}. Triggering auto-refresh...`);
-    console.warn(`${LOG_PREFIX} Entitlements debug: hasOverride=${entitlements.hasOverride}, planSource=${entitlements.planSource}, lastResolvedAt=${entitlements.lastResolvedAt}`);
-
-    try {
-      // Refresh entitlements to get correct values from plan definition
-      entitlements = await refreshEntitlements(shop);
-      value = entitlements[columnName];
-      result = typeof value === 'number' ? value : 0;
-      console.log(`${LOG_PREFIX} Auto-refresh complete for ${shop}: ${limit}=${result}`);
-    } catch (error) {
-      console.error(`${LOG_PREFIX} Auto-refresh failed for ${shop}:`, error);
-      // Continue with 0 - better to fail safe than crash
-    }
+    console.warn(`${LOG_PREFIX} WARNING: ${limit}=0 for ${shop} on plan ${entitlements.effectivePlan}. Check PLAN_FEATURES definition.`);
   }
 
   return result;
@@ -861,18 +858,41 @@ function capitalize(str: string): string {
  * Columns added in migrations that may not exist in production yet.
  * These are filtered out during upsert operations to prevent errors.
  *
- * Migrations applied 2026-01-23:
- * - 20260123000000_add_integration_features_and_sync_limits
- * - 20260123000001_add_gamification_marketing_analytics_features
- *
- * To check if a migration is applied, run in production DB:
+ * IMPORTANT: Run migrations on production before removing columns from this set!
+ * To check if migration is applied, run in production DB:
  * SELECT column_name FROM information_schema.columns WHERE table_name = 'ShopEntitlements';
  */
-// All columns have been migrated as of 2026-01-23
-// Keeping the set structure for future migrations
 const UNMIGRATED_COLUMNS = new Set<string>([
-  // Add new columns here when creating migrations that add ShopEntitlements columns
-  // Remove them after confirming production migration is applied
+  // From 20260123000000_add_integration_features_and_sync_limits
+  // Feature flags
+  'featureIntegrationKlaviyo',
+  'featureIntegrationSendgrid',
+  'featureIntegrationJudgeme',
+  'featureIntegrationSlack',
+  'featureIntegrationRecharge',
+  'featureIntegrationGorgias',
+  'featureIntegrationZapier',
+  // Limit columns (these were missing from original list!)
+  'limitMaxAutomations',
+  'limitMaxCustomersSync',
+  'limitMaxTierProducts',
+  'limitMaxHistoricalDays',
+  // From 20260123000001_add_gamification_marketing_analytics_features
+  'featureRaffles',
+  'featureMysteryBoxes',
+  'featureChallenges',
+  'featureMarketingCampaigns',
+  'featureMarketingAutomation',
+  'featureAiRecommendations',
+  'featureRfmSegmentation',
+  'featureProgramImpact',
+  'featureRealtimeAnalytics',
+  'featureCohortAnalysis',
+  'limitMaxActiveRaffles',
+  'limitMaxActiveMysteryBoxes',
+  'limitMaxActiveChallenges',
+  'limitMaxCampaigns',
+  'limitMaxAutomationFlows',
 ]);
 
 /**
