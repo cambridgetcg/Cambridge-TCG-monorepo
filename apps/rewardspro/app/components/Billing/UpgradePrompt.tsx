@@ -27,6 +27,7 @@ import {
   StarIcon,
   ChartVerticalIcon,
   CreditCardIcon,
+  ArrowUpIcon,
 } from '~/utils/polaris-icons';
 
 // ============================================
@@ -553,5 +554,377 @@ export function FeatureLockedCard({
         </Button>
       </BlockStack>
     </Card>
+  );
+}
+
+// ============================================
+// LIMIT HINT - SUBTLE UPGRADE NUDGES
+// ============================================
+
+export type LimitHintVariant = 'inline' | 'badge' | 'tooltip' | 'contextual';
+
+export interface LimitHintProps {
+  /** Current usage count */
+  current: number;
+  /** Maximum limit for current plan */
+  limit: number;
+  /** Resource name (singular, e.g., "raffle", "campaign") */
+  resource: string;
+  /** What the next tier offers (optional, auto-calculated if not provided) */
+  nextTierLimit?: number;
+  /** Name of next tier (optional) */
+  nextTierName?: string;
+  /** Visual variant */
+  variant?: LimitHintVariant;
+  /** Show only when approaching limit (default: 60%) */
+  showThreshold?: number;
+  /** Always show regardless of threshold */
+  alwaysShow?: boolean;
+  /** Compact mode - smaller text */
+  compact?: boolean;
+}
+
+/**
+ * LimitHint - Provides subtle, subconscious upgrade nudges
+ *
+ * Shows usage context without being pushy. Designed to plant
+ * the seed of "I could do more with a higher plan" without
+ * interrupting the user's workflow.
+ *
+ * Variants:
+ * - inline: Small progress bar with usage count
+ * - badge: Compact badge showing "2/3"
+ * - tooltip: Icon with hover tooltip
+ * - contextual: Shows comparison with next tier
+ */
+export function LimitHint({
+  current,
+  limit,
+  resource,
+  nextTierLimit,
+  nextTierName,
+  variant = 'inline',
+  showThreshold = 60,
+  alwaysShow = false,
+  compact = false,
+}: LimitHintProps) {
+  const navigate = useNavigate();
+
+  // Calculate usage percentage
+  const percentage = limit > 0 ? Math.min((current / limit) * 100, 100) : 0;
+  const isApproaching = percentage >= showThreshold;
+  const isAtLimit = current >= limit;
+  const hasRoom = current < limit;
+  const remaining = Math.max(limit - current, 0);
+
+  // Don't show if under threshold and not forced
+  if (!alwaysShow && !isApproaching && percentage < showThreshold) {
+    return null;
+  }
+
+  // Auto-calculate next tier info if not provided
+  const upgradeTierName = nextTierName || 'Pro';
+  const upgradeTierLimit = nextTierLimit || limit * 3; // Rough estimate
+
+  // Color based on usage
+  const getProgressColor = () => {
+    if (isAtLimit) return '#dc2626'; // red
+    if (percentage >= 80) return '#f59e0b'; // amber
+    if (percentage >= 60) return '#eab308'; // yellow
+    return '#22c55e'; // green
+  };
+
+  const getTone = (): 'success' | 'warning' | 'critical' | 'info' => {
+    if (isAtLimit) return 'critical';
+    if (percentage >= 80) return 'warning';
+    if (percentage >= 60) return 'info';
+    return 'success';
+  };
+
+  // Inline variant - small progress indicator
+  if (variant === 'inline') {
+    return (
+      <Box
+        paddingInline="300"
+        paddingBlock="150"
+        background={isAtLimit ? 'bg-surface-critical-subdued' : 'bg-surface-secondary'}
+        borderRadius="200"
+      >
+        <InlineStack gap="300" blockAlign="center" wrap={false}>
+          <div style={{
+            width: compact ? '60px' : '80px',
+            height: '6px',
+            backgroundColor: '#e5e7eb',
+            borderRadius: '3px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${percentage}%`,
+              height: '100%',
+              backgroundColor: getProgressColor(),
+              borderRadius: '3px',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          <Text as="span" variant={compact ? 'bodySm' : 'bodyMd'} tone="subdued">
+            {current}/{limit} {resource}{limit !== 1 ? 's' : ''}
+          </Text>
+          {isAtLimit && (
+            <Button
+              size="slim"
+              variant="plain"
+              onClick={() => navigate('/app/billing')}
+            >
+              <InlineStack gap="100" blockAlign="center">
+                <Icon source={ArrowUpIcon} tone="info" />
+                <span>Upgrade</span>
+              </InlineStack>
+            </Button>
+          )}
+        </InlineStack>
+      </Box>
+    );
+  }
+
+  // Badge variant - compact count display
+  if (variant === 'badge') {
+    return (
+      <InlineStack gap="200" blockAlign="center">
+        <Badge tone={getTone()}>
+          {current}/{limit}
+        </Badge>
+        {isAtLimit && (
+          <Button
+            size="slim"
+            variant="plain"
+            onClick={() => navigate('/app/billing')}
+          >
+            Upgrade
+          </Button>
+        )}
+      </InlineStack>
+    );
+  }
+
+  // Contextual variant - shows comparison with next tier
+  if (variant === 'contextual') {
+    return (
+      <Box
+        padding="300"
+        background={isAtLimit ? 'bg-surface-critical-subdued' : 'bg-surface-secondary'}
+        borderRadius="200"
+      >
+        <BlockStack gap="200">
+          <InlineStack align="space-between" blockAlign="center">
+            <InlineStack gap="200" blockAlign="center">
+              <div style={{
+                width: '100px',
+                height: '6px',
+                backgroundColor: '#e5e7eb',
+                borderRadius: '3px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${percentage}%`,
+                  height: '100%',
+                  backgroundColor: getProgressColor(),
+                  borderRadius: '3px'
+                }} />
+              </div>
+              <Text as="span" variant="bodySm">
+                {current} of {limit} {resource}{limit !== 1 ? 's' : ''} used
+              </Text>
+            </InlineStack>
+            <Badge tone={getTone()}>
+              {remaining} left
+            </Badge>
+          </InlineStack>
+
+          {/* Subtle comparison with next tier */}
+          {percentage >= 50 && (
+            <InlineStack align="space-between" blockAlign="center">
+              <Text as="span" variant="bodySm" tone="subdued">
+                {upgradeTierName} includes {upgradeTierLimit} {resource}{upgradeTierLimit !== 1 ? 's' : ''}
+              </Text>
+              <Button
+                size="slim"
+                variant="plain"
+                onClick={() => navigate('/app/billing')}
+              >
+                Compare plans
+              </Button>
+            </InlineStack>
+          )}
+        </BlockStack>
+      </Box>
+    );
+  }
+
+  // Tooltip variant - minimal with hover info (default fallback)
+  return (
+    <InlineStack gap="100" blockAlign="center">
+      <div
+        style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: getProgressColor()
+        }}
+        title={`${current}/${limit} ${resource}s used`}
+      />
+      <Text as="span" variant="bodySm" tone="subdued">
+        {current}/{limit}
+      </Text>
+    </InlineStack>
+  );
+}
+
+// ============================================
+// PAGE HEADER LIMIT STATUS
+// ============================================
+
+export interface PageLimitStatusProps {
+  /** Current usage count */
+  current: number;
+  /** Maximum limit */
+  limit: number;
+  /** Resource name (singular) */
+  resource: string;
+  /** What action is limited (e.g., "create", "add") */
+  action?: string;
+  /** Next tier limit for comparison */
+  nextTierLimit?: number;
+  /** Next tier name */
+  nextTierName?: string;
+}
+
+/**
+ * PageLimitStatus - Shows limit status in page headers
+ *
+ * Designed to appear next to page titles or action buttons,
+ * providing context about current usage without blocking actions.
+ */
+export function PageLimitStatus({
+  current,
+  limit,
+  resource,
+  action = 'create',
+  nextTierLimit,
+  nextTierName = 'Pro',
+}: PageLimitStatusProps) {
+  const navigate = useNavigate();
+  const isAtLimit = current >= limit;
+  const remaining = Math.max(limit - current, 0);
+  const percentage = limit > 0 ? (current / limit) * 100 : 0;
+
+  // Only show when at 50% or more
+  if (percentage < 50) {
+    return null;
+  }
+
+  const getMessage = () => {
+    if (isAtLimit) {
+      return `You've reached your ${resource} limit`;
+    }
+    if (remaining === 1) {
+      return `You can ${action} 1 more ${resource}`;
+    }
+    return `You can ${action} ${remaining} more ${resource}s`;
+  };
+
+  return (
+    <InlineStack gap="200" blockAlign="center">
+      <Box
+        paddingInline="200"
+        paddingBlock="100"
+        background={isAtLimit ? 'bg-surface-critical-subdued' : 'bg-surface-secondary'}
+        borderRadius="150"
+      >
+        <Text as="span" variant="bodySm" tone={isAtLimit ? 'critical' : 'subdued'}>
+          {getMessage()}
+        </Text>
+      </Box>
+      {isAtLimit && nextTierLimit && (
+        <Button
+          size="slim"
+          variant="plain"
+          onClick={() => navigate('/app/billing')}
+        >
+          {nextTierName} allows {nextTierLimit}
+        </Button>
+      )}
+    </InlineStack>
+  );
+}
+
+// ============================================
+// CREATE BUTTON WITH LIMIT AWARENESS
+// ============================================
+
+export interface LimitAwareButtonProps {
+  /** Current usage count */
+  current: number;
+  /** Maximum limit */
+  limit: number;
+  /** Resource name (singular) */
+  resource: string;
+  /** Button click handler (only called if within limit) */
+  onClick: () => void;
+  /** Button text */
+  children: React.ReactNode;
+  /** Button variant */
+  variant?: 'primary' | 'secondary' | 'tertiary';
+  /** Next tier info for upgrade messaging */
+  nextTierLimit?: number;
+  nextTierName?: string;
+}
+
+/**
+ * LimitAwareButton - Create button that handles limit state
+ *
+ * When within limit: Normal button
+ * When at limit: Changes to upgrade prompt
+ */
+export function LimitAwareButton({
+  current,
+  limit,
+  resource,
+  onClick,
+  children,
+  variant = 'primary',
+  nextTierLimit,
+  nextTierName = 'Pro',
+}: LimitAwareButtonProps) {
+  const navigate = useNavigate();
+  const isAtLimit = current >= limit;
+  const remaining = Math.max(limit - current, 0);
+
+  if (isAtLimit) {
+    return (
+      <InlineStack gap="200" blockAlign="center">
+        <Button
+          variant={variant}
+          onClick={() => navigate('/app/billing')}
+        >
+          Upgrade to Add More
+        </Button>
+        <Text as="span" variant="bodySm" tone="subdued">
+          {nextTierName} allows {nextTierLimit || limit * 3} {resource}s
+        </Text>
+      </InlineStack>
+    );
+  }
+
+  return (
+    <InlineStack gap="300" blockAlign="center">
+      <Button variant={variant} onClick={onClick}>
+        {children}
+      </Button>
+      {remaining <= 2 && remaining > 0 && (
+        <Text as="span" variant="bodySm" tone="subdued">
+          {remaining} slot{remaining !== 1 ? 's' : ''} remaining
+        </Text>
+      )}
+    </InlineStack>
   );
 }

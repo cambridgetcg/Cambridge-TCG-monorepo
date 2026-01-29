@@ -38,7 +38,7 @@ import {
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
 import db from "~/db.server";
-import { UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+import { UsageUpgradePrompt, LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 // NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
@@ -605,7 +605,19 @@ export default function MysteryBoxes() {
         ]}
       >
         <Layout>
-          {/* Usage Warning */}
+          {/* Subtle limit status hint (shows when 50%+ used) */}
+          <Layout.Section>
+            <PageLimitStatus
+              current={limitAccess.current}
+              limit={limitAccess.max}
+              resource="mystery box"
+              action="create"
+              nextTierLimit={limitAccess.max * 3}
+              nextTierName="Pro"
+            />
+          </Layout.Section>
+
+          {/* Usage Warning - shows when at limit */}
           {!limitAccess.canCreate && (
             <Layout.Section>
               <UsageUpgradePrompt
@@ -628,9 +640,22 @@ export default function MysteryBoxes() {
                 </BlockStack>
               </Card>
               <Card>
-                <BlockStack gap="100">
-                  <Text variant="bodySm" tone="subdued" as="p">Active</Text>
-                  <Text variant="headingLg" as="p">{stats.activeBoxes}</Text>
+                <BlockStack gap="200">
+                  <BlockStack gap="100">
+                    <Text variant="bodySm" tone="subdued" as="p">Active</Text>
+                    <Text variant="headingLg" as="p">{stats.activeBoxes}</Text>
+                  </BlockStack>
+                  {/* Subtle limit indicator */}
+                  <LimitHint
+                    current={limitAccess.current}
+                    limit={limitAccess.max}
+                    resource="active box"
+                    variant="inline"
+                    showThreshold={50}
+                    compact
+                    nextTierLimit={limitAccess.max * 3}
+                    nextTierName="Pro"
+                  />
                 </BlockStack>
               </Card>
               <Card>

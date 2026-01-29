@@ -41,6 +41,7 @@ import db from "~/db.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
 import { getEmailUsageStats, type EmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
+import { LimitHint } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPES
@@ -576,6 +577,19 @@ export default function EmailSettings() {
                       Consider upgrading your plan for more emails.
                     </p>
                   </Banner>
+                )}
+
+                {/* Subtle contextual hint when at 50%+ but below 90% warning threshold */}
+                {data.emailUsageStats.percentage >= 50 && data.emailUsageStats.percentage < 90 && data.emailUsageStats.limit < 999999 && (
+                  <LimitHint
+                    current={data.emailUsageStats.totalEmails}
+                    limit={data.emailUsageStats.limit}
+                    resource="email"
+                    variant="contextual"
+                    showThreshold={50}
+                    nextTierLimit={data.emailUsageStats.limit * 4}
+                    nextTierName="Pro"
+                  />
                 )}
 
                 <Divider />

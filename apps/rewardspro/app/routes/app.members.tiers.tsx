@@ -42,6 +42,8 @@ import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
 import { TierEmptyStateV1B } from "../components/TierEmptyStateVariations";
+import { checkLimitAccess } from "~/utils/require-feature.server";
+import { LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -63,6 +65,12 @@ interface LoaderData {
   } | null;
   tierDistribution: Record<string, number>;
   hasAnnualEval: boolean;
+  limitAccess: {
+    canCreate: boolean;
+    current: number;
+    max: number;
+    message?: string;
+  };
 }
 
 // ============================================
@@ -76,6 +84,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Fetch entitlements for feature flags
   const entitlements = await getEntitlements(shop);
   const hasAnnualEval = entitlements.featureAnnualEval;
+
+  // Check tier limit for rate-based gating
+  const tierCount = await db.tier.count({ where: { shop } });
+  const limitAccess = await checkLimitAccess(shop, 'maxTiers', tierCount);
 
   // Fetch tiers and settings
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
@@ -119,6 +131,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       : null,
     tierDistribution,
     hasAnnualEval,
+    limitAccess: {
+      canCreate: limitAccess.hasAccess,
+      current: tierCount,
+      max: limitAccess.error?.maxLimit ?? 999999,
+      message: limitAccess.error?.message,
+    },
   });
 };
 
@@ -387,6 +405,18 @@ export default function TiersPage() {
         }}
       >
         <Layout>
+          {/* Subtle limit status hint (shows when 50%+ used) */}
+          <Layout.Section>
+            <PageLimitStatus
+              current={data.limitAccess.current}
+              limit={data.limitAccess.max}
+              resource="tier"
+              action="create"
+              nextTierLimit={data.limitAccess.max * 2}
+              nextTierName="Pro"
+            />
+          </Layout.Section>
+
           {/* Loyalty Tiers Management */}
           <Layout.Section>
             <Card>

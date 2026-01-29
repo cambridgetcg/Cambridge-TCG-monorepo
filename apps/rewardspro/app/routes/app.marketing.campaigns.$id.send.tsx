@@ -28,12 +28,27 @@ interface Campaign {
   previewText: string;
   status: string;
   templateId: string | null;
+  // Recommendation-based targeting
+  segmentRules?: {
+    fromRecommendation?: boolean;
+    recommendationType?: string;
+    targetCustomerIds?: string[];
+    criteria?: any[];
+  };
+  metadata?: {
+    source?: string;
+    recommendationId?: string;
+    recommendationType?: string;
+    affectedCount?: number;
+    predictedRevenue?: number;
+  };
 }
 
 interface AudienceStats {
   total: number;
   withEmail: number;
   reachable: number;
+  recommendedSegment: number; // Number of customers from recommendation
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -67,6 +82,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       previewText: dbCampaign.previewText || "",
       status: dbCampaign.status,
       templateId: dbCampaign.templateId,
+      segmentRules: dbCampaign.segmentRules as Campaign['segmentRules'],
+      metadata: dbCampaign.metadata as Campaign['metadata'],
     };
   } catch (e: any) {
     if (e instanceof Response) throw e;
@@ -75,7 +92,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   // Get audience stats
-  let audienceStats: AudienceStats = { total: 0, withEmail: 0, reachable: 0 };
+  let audienceStats: AudienceStats = { total: 0, withEmail: 0, reachable: 0, recommendedSegment: 0 };
   try {
     const customers = await db.customer.findMany({
       where: { shop },
@@ -83,6 +100,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     audienceStats.total = customers.length;
     audienceStats.withEmail = customers.filter((c) => c.email).length;
     audienceStats.reachable = audienceStats.withEmail; // Simplified - would check subscription status
+
+    // Calculate recommended segment count if campaign is from recommendation
+    const segmentRules = campaign?.segmentRules as Campaign['segmentRules'];
+    if (segmentRules?.fromRecommendation && segmentRules.targetCustomerIds?.length) {
+      // Count how many of the target customers have valid emails
+      const targetCustomers = await db.customer.findMany({
+        where: {
+          shop,
+          id: { in: segmentRules.targetCustomerIds },
+          email: { not: null },
+        },
+        select: { id: true },
+      });
+      audienceStats.recommendedSegment = targetCustomers.length;
+    }
   } catch (e) {
     // Table might not exist
   }
@@ -142,6 +174,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     try {
       // Get audience filter from form
       const sendToAll = formData.get("sendToAll") === "true";
+      const sendToRecommended = formData.get("sendToRecommended") === "true";
       const selectedTiers = formData.getAll("selectedTiers") as string[];
 
       // Update campaign status to sending
@@ -157,7 +190,34 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       // Get recipients based on filter
       let recipients: Array<{ email: string; name?: string; customerId?: string }> = [];
 
-      if (sendToAll) {
+      if (sendToRecommended) {
+        // Get the campaign to access targetCustomerIds
+        const campaignData = await db.emailCampaign.findFirst({
+          where: { id, shop },
+          select: { segmentRules: true },
+        });
+        const segmentRules = campaignData?.segmentRules as any;
+        const targetCustomerIds = segmentRules?.targetCustomerIds || [];
+
+        if (targetCustomerIds.length > 0) {
+          // Get customers from the recommendation segment
+          const customers = await db.customer.findMany({
+            where: {
+              shop,
+              id: { in: targetCustomerIds },
+              email: { not: null },
+            },
+            select: { id: true, email: true, firstName: true, lastName: true },
+          });
+          recipients = customers
+            .filter((c) => c.email)
+            .map((c) => ({
+              email: c.email!,
+              name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
+              customerId: c.id,
+            }));
+        }
+      } else if (sendToAll) {
         // Get all customers with email
         const customers = await db.customer.findMany({
           where: { shop, email: { not: null } },
@@ -255,7 +315,17 @@ export default function SendCampaign() {
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("09:00");
   const [selectedTiers, setSelectedTiers] = useState<string[]>([]);
-  const [sendToAll, setSendToAll] = useState(true);
+
+  // Check if campaign is from a recommendation
+  const isFromRecommendation = campaign.segmentRules?.fromRecommendation;
+  const hasRecommendedSegment = (campaign.segmentRules?.targetCustomerIds?.length ?? 0) > 0;
+
+  // Default to recommended segment if available, otherwise all
+  const [audienceType, setAudienceType] = useState<"recommended" | "all" | "tiers">(
+    isFromRecommendation && hasRecommendedSegment ? "recommended" : "all"
+  );
+  const sendToAll = audienceType === "all";
+  const sendToRecommended = audienceType === "recommended";
 
   const handleTierToggle = (tierId: string) => {
     if (selectedTiers.includes(tierId)) {
@@ -266,12 +336,28 @@ export default function SendCampaign() {
   };
 
   const getEstimatedRecipients = () => {
+    if (sendToRecommended) {
+      return audienceStats.recommendedSegment;
+    }
     if (sendToAll) {
       return audienceStats.reachable;
     }
     return tiers
       .filter((t) => selectedTiers.includes(t.id))
       .reduce((sum, t) => sum + t.customerCount, 0);
+  };
+
+  // Helper to get recommendation type label
+  const getRecommendationTypeLabel = (type?: string) => {
+    const labels: Record<string, string> = {
+      inactive_customers: "Re-engagement",
+      tier_upgrade_opportunity: "Tier Upgrade",
+      expiring_rewards: "Reward Expiry",
+      vip_at_risk: "VIP Retention",
+      birthday_upcoming: "Birthday",
+      low_balance_reengagement: "Balance Reminder",
+    };
+    return labels[type || ""] || type || "Analytics";
   };
 
   return (
@@ -317,6 +403,28 @@ export default function SendCampaign() {
           </Card>
         </Layout.Section>
 
+        {/* Recommendation Context Banner */}
+        {isFromRecommendation && (
+          <Layout.Section>
+            <Banner
+              title="Campaign from Analytics Recommendation"
+              tone="info"
+            >
+              <BlockStack gap="200">
+                <Text as="p" variant="bodySm">
+                  This campaign was created from a <strong>{getRecommendationTypeLabel(campaign.metadata?.recommendationType)}</strong> recommendation.
+                  {campaign.metadata?.affectedCount && (
+                    <> It targets <strong>{campaign.metadata.affectedCount} customers</strong> identified by analytics.</>
+                  )}
+                  {campaign.metadata?.predictedRevenue && (
+                    <> Predicted revenue: <strong>${campaign.metadata.predictedRevenue.toLocaleString()}</strong>.</>
+                  )}
+                </Text>
+              </BlockStack>
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Audience Selection */}
         <Layout.Section>
           <Card>
@@ -325,13 +433,26 @@ export default function SendCampaign() {
                 Audience
               </Text>
 
-              <Checkbox
-                label="Send to all reachable customers"
-                checked={sendToAll}
-                onChange={setSendToAll}
-              />
+              {/* Recommended Segment Option (if from recommendation) */}
+              {isFromRecommendation && hasRecommendedSegment && (
+                <Checkbox
+                  label={`Send to recommended segment (${audienceStats.recommendedSegment} customers from analytics)`}
+                  checked={audienceType === "recommended"}
+                  onChange={(checked) => setAudienceType(checked ? "recommended" : "all")}
+                />
+              )}
 
-              {!sendToAll && tiers.length > 0 && (
+              {/* All Customers Option */}
+              {(!isFromRecommendation || !hasRecommendedSegment || audienceType !== "recommended") && (
+                <Checkbox
+                  label="Send to all reachable customers"
+                  checked={audienceType === "all"}
+                  onChange={(checked) => setAudienceType(checked ? "all" : "tiers")}
+                />
+              )}
+
+              {/* Tier Selection */}
+              {audienceType === "tiers" && tiers.length > 0 && (
                 <BlockStack gap="200">
                   <Text as="p" variant="bodySm" tone="subdued">
                     Select tiers to target:
@@ -351,7 +472,9 @@ export default function SendCampaign() {
 
               <InlineStack align="space-between">
                 <Text as="span">Estimated recipients:</Text>
-                <Badge tone="info">{getEstimatedRecipients().toLocaleString()}</Badge>
+                <Badge tone={sendToRecommended ? "success" : "info"}>
+                  {getEstimatedRecipients().toLocaleString()} {sendToRecommended && "(targeted)"}
+                </Badge>
               </InlineStack>
             </BlockStack>
           </Card>
@@ -432,6 +555,7 @@ export default function SendCampaign() {
             <Form method="post">
               {/* Audience filter data */}
               <input type="hidden" name="sendToAll" value={sendToAll.toString()} />
+              <input type="hidden" name="sendToRecommended" value={sendToRecommended.toString()} />
               {selectedTiers.map((tierId) => (
                 <input key={tierId} type="hidden" name="selectedTiers" value={tierId} />
               ))}

@@ -39,7 +39,7 @@ import {
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
 import db from "~/db.server";
-import { UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+import { UsageUpgradePrompt, LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 // NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
@@ -394,7 +394,19 @@ export default function RafflesList() {
         }}
       >
         <Layout>
-          {/* Usage Warning */}
+          {/* Subtle limit status hint (shows when 50%+ used) */}
+          <Layout.Section>
+            <PageLimitStatus
+              current={limitAccess.current}
+              limit={limitAccess.max}
+              resource="raffle"
+              action="create"
+              nextTierLimit={limitAccess.max * 3}
+              nextTierName="Pro"
+            />
+          </Layout.Section>
+
+          {/* Usage Warning - shows when at limit */}
           {!limitAccess.canCreate && (
             <Layout.Section>
               <UsageUpgradePrompt
@@ -435,13 +447,26 @@ export default function RafflesList() {
                 borderColor="border"
                 minWidth="150px"
               >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Active Raffles
-                  </Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {stats.activeRaffles}
-                  </Text>
+                <BlockStack gap="200">
+                  <BlockStack gap="100">
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      Active Raffles
+                    </Text>
+                    <Text as="p" variant="headingLg" fontWeight="bold">
+                      {stats.activeRaffles}
+                    </Text>
+                  </BlockStack>
+                  {/* Subtle limit indicator */}
+                  <LimitHint
+                    current={limitAccess.current}
+                    limit={limitAccess.max}
+                    resource="active raffle"
+                    variant="inline"
+                    showThreshold={50}
+                    compact
+                    nextTierLimit={limitAccess.max * 3}
+                    nextTierName="Pro"
+                  />
                 </BlockStack>
               </Box>
               <Box

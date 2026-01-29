@@ -118,6 +118,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
     });
 
+    // Get recommendation data if from a recommendation
+    let segmentRules: any = {};
+    let metadata: any = {};
+
+    if (recommendationId) {
+      const recommendationsService = new AnalyticsRecommendationsService(shop);
+      const recommendation = await recommendationsService.getRecommendationById(recommendationId);
+
+      if (recommendation) {
+        const segmentPayload = recommendation.segmentPayload as any;
+        segmentRules = {
+          fromRecommendation: true,
+          recommendationType: recommendation.type,
+          targetCustomerIds: segmentPayload?.customerIds || [],
+          criteria: segmentPayload?.criteria || [],
+        };
+        metadata = {
+          source: 'analytics_recommendation',
+          recommendationId,
+          recommendationType: recommendation.type,
+          affectedCount: recommendation.affectedCount,
+          predictedRevenue: recommendation.predictedRevenue,
+        };
+      }
+    }
+
     // Create campaign
     const campaign = await db.emailCampaign.create({
       data: {
@@ -127,7 +153,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         templateId: template.id,
         status: sendImmediately ? 'scheduled' : 'draft',
         scheduledFor: sendImmediately ? new Date() : null,
-        segmentRules: {},
+        segmentRules,
+        metadata,
         metrics: {},
       },
     });

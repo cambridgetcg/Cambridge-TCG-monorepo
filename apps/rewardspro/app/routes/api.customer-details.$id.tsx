@@ -2,6 +2,11 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import {
+  getCustomerOrderSummary,
+  getCustomerDetailedOrders,
+  getActivityStatusBadge,
+} from "../services/customer-order-summary.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -96,74 +101,54 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       }
     });
     
-    // Fetch recent orders from Shopify using GraphQL
-    let orders = [];
-    try {
-      const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
-      
-      const ordersQuery = `#graphql
-        query GetCustomerOrders($customerId: ID!) {
-          customer(id: $customerId) {
-            orders(first: 10, reverse: true) {
-              edges {
-                node {
-                  id
-                  name
-                  createdAt
-                  displayFinancialStatus
-                  displayFulfillmentStatus
-                  totalPriceSet {
-                    shopMoney {
-                      amount
-                      currencyCode
-                    }
-                  }
-                  lineItems(first: 5) {
-                    edges {
-                      node {
-                        title
-                        quantity
-                        originalTotalSet {
-                          shopMoney {
-                            amount
-                            currencyCode
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      `;
-      
-      const response = await admin.graphql(ordersQuery, {
-        variables: { customerId: gidCustomerId }
-      });
-      
-      const responseJson = await response.json() as any;
-      
-      if (responseJson.data?.customer?.orders?.edges) {
-        orders = responseJson.data.customer.orders.edges.map((edge: any) => ({
-          id: edge.node.id,
-          name: edge.node.name,
-          createdAt: edge.node.createdAt,
-          financialStatus: edge.node.displayFinancialStatus,
-          fulfillmentStatus: edge.node.displayFulfillmentStatus,
-          total: edge.node.totalPriceSet?.shopMoney,
-          lineItems: edge.node.lineItems?.edges?.map((item: any) => ({
-            title: item.node.title,
-            quantity: item.node.quantity,
-            total: item.node.originalTotalSet?.shopMoney
-          })) || []
-        }));
-      }
-    } catch (error) {
-      console.error("Error fetching orders from Shopify:", error);
-      // Continue without orders if GraphQL fails
-    }
+    // Fetch orders from local database (richer data: cashback, tier at order time, etc.)
+    const { orders: localOrders, totalCount: ordersTotalCount } = await getCustomerDetailedOrders(
+      session.shop,
+      customer.id,
+      { limit: 50, includeLineItems: true }
+    );
+
+    // Get order summary metrics
+    const orderSummary = await getCustomerOrderSummary(session.shop, customer.id);
+
+    // Format orders with line items from local database
+    const orders = await Promise.all(
+      localOrders.map(async (order) => {
+        // Get line items for this order
+        const lineItems = await db.orderLineItem.findMany({
+          where: { orderId: order.id },
+          take: 10,
+          orderBy: { createdAt: "asc" },
+        });
+
+        return {
+          id: order.id,
+          shopifyOrderId: order.shopifyOrderId,
+          name: order.shopifyOrderName,
+          createdAt: order.createdAt.toISOString(),
+          financialStatus: order.financialStatus,
+          fulfillmentStatus: order.fulfillmentStatus || "UNFULFILLED",
+          total: {
+            amount: order.totalPrice.toString(),
+            currencyCode: order.currency,
+          },
+          netAmount: order.netAmount,
+          totalRefunded: order.totalRefunded,
+          cashbackAmount: order.cashbackAmount,
+          cashbackPercent: order.cashbackPercent,
+          tierNameAtOrder: order.tierNameAtOrder,
+          lineItems: lineItems.map((item) => ({
+            title: item.title,
+            quantity: item.quantity,
+            total: {
+              amount: Number(item.totalPrice).toString(),
+              currencyCode: order.currency,
+            },
+            isTierProduct: item.isTierProduct,
+          })),
+        };
+      })
+    );
     
     // Get shop settings for currency formatting
     const shopSettings = await db.shopSettings.findUnique({
@@ -223,6 +208,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         resolutionReason: tierState.resolutionReason,
       } : null,
       orders,
+      ordersTotalCount,
+      // Order summary metrics for customer management
+      orderSummary: orderSummary ? {
+        orderCount: orderSummary.orderCount,
+        totalSpent: orderSummary.totalSpent,
+        totalRefunded: orderSummary.totalRefunded,
+        netSpent: orderSummary.netSpent,
+        averageOrderValue: orderSummary.averageOrderValue,
+        totalCashbackEarned: orderSummary.totalCashbackEarned,
+        firstOrderDate: orderSummary.firstOrderDate?.toISOString() || null,
+        lastOrderDate: orderSummary.lastOrderDate?.toISOString() || null,
+        daysSinceLastOrder: orderSummary.daysSinceLastOrder,
+        activityStatus: orderSummary.activityStatus,
+        activityBadge: getActivityStatusBadge(orderSummary.activityStatus),
+      } : null,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency,
         currencyDisplayType: shopSettings.currencyDisplayType

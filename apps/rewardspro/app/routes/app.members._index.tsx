@@ -101,6 +101,11 @@ import {
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings, getShopTiers } from "../services/shop-data-provider.server";
 import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
+import {
+  getCustomerOrderSummariesBatch,
+  type CustomerOrderSummary,
+  type ActivityStatus,
+} from "../services/customer-order-summary.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -135,6 +140,15 @@ interface Customer {
     expiresAt: string | null;
     daysRemaining: number | null;
   };
+  // Order summary metrics for customer management
+  orderSummary?: {
+    orderCount: number;
+    totalSpent: number;
+    averageOrderValue: number;
+    lastOrderDate: string | null;
+    daysSinceLastOrder: number | null;
+    activityStatus: ActivityStatus;
+  } | null;
 }
 
 interface LoaderData {
@@ -172,6 +186,14 @@ interface LoaderData {
       tierSource: TierSource;
       lastTierChange: any;
       membershipStatus: any;
+      orderSummary: {
+        orderCount: number;
+        totalSpent: number;
+        averageOrderValue: number;
+        lastOrderDate: string | null;
+        daysSinceLastOrder: number | null;
+        activityStatus: ActivityStatus;
+      } | null;
     }>;
   }>;
   statsData: Promise<{
@@ -224,6 +246,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       hasManualOverride: false,
       tierSource: 'NONE' as TierSource,
       lastTierChange: null,
+      orderSummary: null,
     }));
 
     const totalPages = Math.ceil(totalCount / pageSize);
@@ -257,9 +280,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       creditMin?: string;
       creditMax?: string;
       hasOverride?: string;
+      activityFilter?: string;
     }
   ) {
-    const { searchQuery, tierFilter, page, pageSize, sortKey, sortDirection, creditMin, creditMax, hasOverride } = options;
+    const { searchQuery, tierFilter, page, pageSize, sortKey, sortDirection, creditMin, creditMax, hasOverride, activityFilter } = options;
     const offset = (page - 1) * pageSize;
 
     // Build where clause for filters
@@ -322,6 +346,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       whereClause.id = { in: customerIdsWithOverride };
     }
 
+    // Activity filter - filter by customer order activity status
+    if (activityFilter && activityFilter !== "all") {
+      const now = new Date();
+      const ACTIVITY_THRESHOLDS = {
+        ACTIVE: 30, // Ordered within 30 days
+        AT_RISK: 60, // Ordered 30-60 days ago
+        NEW_CUSTOMER: 7, // Joined within 7 days
+      };
+
+      switch (activityFilter) {
+        case "active":
+          // Last order within 30 days
+          whereClause.lastOrderDate = {
+            gte: new Date(now.getTime() - ACTIVITY_THRESHOLDS.ACTIVE * 24 * 60 * 60 * 1000),
+          };
+          break;
+
+        case "at_risk":
+          // Last order 30-60 days ago
+          whereClause.lastOrderDate = {
+            lt: new Date(now.getTime() - ACTIVITY_THRESHOLDS.ACTIVE * 24 * 60 * 60 * 1000),
+            gte: new Date(now.getTime() - ACTIVITY_THRESHOLDS.AT_RISK * 24 * 60 * 60 * 1000),
+          };
+          break;
+
+        case "dormant":
+          // Last order more than 60 days ago
+          whereClause.lastOrderDate = {
+            lt: new Date(now.getTime() - ACTIVITY_THRESHOLDS.AT_RISK * 24 * 60 * 60 * 1000),
+          };
+          break;
+
+        case "new":
+          // Joined within 7 days, no orders
+          whereClause.orderCount = 0;
+          whereClause.createdAt = {
+            gte: new Date(now.getTime() - ACTIVITY_THRESHOLDS.NEW_CUSTOMER * 24 * 60 * 60 * 1000),
+          };
+          break;
+
+        case "never_ordered":
+          // No orders
+          whereClause.orderCount = 0;
+          break;
+      }
+    }
+
     // Execute both queries in parallel for maximum efficiency
     const [customers, totalCount] = await Promise.all([
       // Fetch only the customers for current page (using take/skip)
@@ -342,42 +413,47 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   /**
-   * PHASE 2: Fetch enhanced metadata (tier state, last tier change) - streams in after render
+   * PHASE 2: Fetch enhanced metadata (tier state, last tier change, order summary) - streams in after render
    *
    * UPDATED: Now uses CustomerTierState as single source of truth for:
    * - hasManualOverride (O(1) boolean lookup instead of TierChangeLog scan)
    * - tierSource (MANUAL_OVERRIDE, TIER_SUBSCRIPTION, TIER_PURCHASE, SPENDING_BASED, NONE)
    * - membershipStatus (from purchaseExpiresAt, subscriptionExpiresAt)
+   * - orderSummary (order count, activity status, etc.)
    *
    * Still uses TierChangeLog for lastTierChange (audit trail)
    */
   async function fetchEnhancedCustomerMetadata(
-    customerIds: string[]
+    customerIds: string[],
+    shop: string
   ) {
     if (customerIds.length === 0) {
       return { enhancedData: {} };
     }
 
-    // Batch fetch CustomerTierState for all customers in ONE query (O(1) per customer)
-    const allTierStates = await db.customerTierState.findMany({
-      where: {
-        customerId: { in: customerIds }
-      }
-    });
+    // Batch fetch CustomerTierState, TierChangeLog, and Order Summaries in parallel
+    const [allTierStates, allTierChanges, orderSummariesMap] = await Promise.all([
+      // Batch fetch CustomerTierState for all customers in ONE query (O(1) per customer)
+      db.customerTierState.findMany({
+        where: {
+          customerId: { in: customerIds }
+        }
+      }),
+      // Batch fetch most recent tier change log for each customer (for lastTierChange display)
+      db.tierChangeLog.findMany({
+        where: {
+          customerId: { in: customerIds }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      // Batch fetch order summaries for all customers
+      getCustomerOrderSummariesBatch(shop, customerIds),
+    ]);
 
-    // Create lookup map for O(1) access
+    // Create lookup map for O(1) access to tier states
     const tierStateByCustomer = new Map<string, typeof allTierStates[0]>();
     allTierStates.forEach(state => {
       tierStateByCustomer.set(state.customerId, state);
-    });
-
-    // Batch fetch most recent tier change log for each customer (for lastTierChange display)
-    // We still need TierChangeLog for the audit trail / history display
-    const allTierChanges = await db.tierChangeLog.findMany({
-      where: {
-        customerId: { in: customerIds }
-      },
-      orderBy: { createdAt: 'desc' }
     });
 
     // Group tier changes by customer ID, keeping only the most recent one
@@ -462,11 +538,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
       }
 
+      // Get order summary for this customer
+      const orderSummary = orderSummariesMap.get(customerId);
+
       enhancedData[customerId] = {
         hasManualOverride: hasManualOverrideStatus,
         tierSource,
         lastTierChange,
         membershipStatus,
+        orderSummary: orderSummary ? {
+          orderCount: orderSummary.orderCount,
+          totalSpent: orderSummary.totalSpent,
+          averageOrderValue: orderSummary.averageOrderValue,
+          lastOrderDate: orderSummary.lastOrderDate?.toISOString() || null,
+          daysSinceLastOrder: orderSummary.daysSinceLastOrder,
+          activityStatus: orderSummary.activityStatus,
+        } : null,
       };
     });
 
@@ -541,6 +628,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const creditMin = url.searchParams.get("creditMin") || "";
     const creditMax = url.searchParams.get("creditMax") || "";
     const hasOverride = url.searchParams.get("hasOverride") || "all";
+    const activityFilter = url.searchParams.get("activity") || "all";
 
     // ============================================
     // OPTIMIZED: Parallel fetch with database-level pagination
@@ -549,7 +637,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log('[Customers Loader] Shop:', shop);
     console.log('[Customers Loader] Search:', searchQuery, 'Tier:', tierFilter);
     console.log('[Customers Loader] Page:', page, 'PageSize:', pageSize);
-    console.log('[Customers Loader] Filters - CreditMin:', creditMin, 'CreditMax:', creditMax, 'HasOverride:', hasOverride);
+    console.log('[Customers Loader] Filters - CreditMin:', creditMin, 'CreditMax:', creditMax, 'HasOverride:', hasOverride, 'Activity:', activityFilter);
 
     // Fetch shell data and paginated customers in parallel (CACHED via shop-data-provider)
     const [tiers, shopSettings, entitlements, paginatedResult] = await Promise.all([
@@ -567,6 +655,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         creditMin,
         creditMax,
         hasOverride,
+        activityFilter,
       }),
     ]);
 
@@ -602,7 +691,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // PHASE 2: Defer enhanced metadata (streams in after render)
     // ============================================
     const customerIds = customers.map(c => c.id);
-    const enhancedMetadataPromise = fetchEnhancedCustomerMetadata(customerIds);
+    const enhancedMetadataPromise = fetchEnhancedCustomerMetadata(customerIds, shop);
 
     // ============================================
     // STATS: Defer for non-critical data (uses optimized COUNT queries)
@@ -2133,6 +2222,39 @@ function CustomersTableContent({
           </BlockStack>
         </IndexTable.Cell>
         <IndexTable.Cell>
+          <BlockStack gap="100">
+            {customer.orderSummary ? (
+              <>
+                <InlineStack gap="200" align="start">
+                  <Badge tone={
+                    customer.orderSummary.activityStatus === 'active' ? 'success' :
+                    customer.orderSummary.activityStatus === 'at_risk' ? 'warning' :
+                    customer.orderSummary.activityStatus === 'dormant' ? 'critical' :
+                    customer.orderSummary.activityStatus === 'new' ? 'info' :
+                    'attention'
+                  }>
+                    {customer.orderSummary.activityStatus === 'active' ? 'Active' :
+                     customer.orderSummary.activityStatus === 'at_risk' ? 'At Risk' :
+                     customer.orderSummary.activityStatus === 'dormant' ? 'Dormant' :
+                     customer.orderSummary.activityStatus === 'new' ? 'New' :
+                     'No Orders'}
+                  </Badge>
+                </InlineStack>
+                <Text variant="bodySm" tone="subdued" as="span">
+                  {customer.orderSummary.orderCount} order{customer.orderSummary.orderCount !== 1 ? 's' : ''}
+                  {customer.orderSummary.lastOrderDate && customer.orderSummary.daysSinceLastOrder !== null && (
+                    <> · {customer.orderSummary.daysSinceLastOrder === 0 ? 'Today' :
+                          customer.orderSummary.daysSinceLastOrder === 1 ? '1 day ago' :
+                          `${customer.orderSummary.daysSinceLastOrder}d ago`}</>
+                  )}
+                </Text>
+              </>
+            ) : (
+              <Text variant="bodySm" tone="subdued" as="span">—</Text>
+            )}
+          </BlockStack>
+        </IndexTable.Cell>
+        <IndexTable.Cell>
           <div style={{ textAlign: 'right' }}>
             <StoreCreditDisplay
               amount={customer.storeCredit}
@@ -2143,6 +2265,16 @@ function CustomersTableContent({
         </IndexTable.Cell>
         <IndexTable.Cell>
           <InlineStack gap="200" align="end">
+            <Button
+              size="slim"
+              variant="plain"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewCustomer(customer.id, 2); // 2 = Orders tab
+              }}
+            >
+              Orders
+            </Button>
             <Button
               size="slim"
               onClick={(e) => {
@@ -2184,6 +2316,7 @@ function CustomersTableContent({
             headings={[
               { title: 'Customer' },
               { title: 'Tier' },
+              { title: 'Activity' },
               { title: 'Store Credit', alignment: 'end' },
               { title: 'Actions', alignment: 'end' },
             ]}
@@ -2314,6 +2447,7 @@ export default function Customers() {
   const [creditMinFilter, setCreditMinFilter] = useState(searchParams.get("creditMin") || "");
   const [creditMaxFilter, setCreditMaxFilter] = useState(searchParams.get("creditMax") || "");
   const [hasOverrideFilter, setHasOverrideFilter] = useState(searchParams.get("hasOverride") || "all");
+  const [activityFilter, setActivityFilter] = useState(searchParams.get("activity") || "all");
   const [showFilters, setShowFilters] = useState(false);
 
   // Animation refs
@@ -2377,6 +2511,7 @@ export default function Customers() {
     setCreditMinFilter("");
     setCreditMaxFilter("");
     setHasOverrideFilter("all");
+    setActivityFilter("all");
     const newParams = new URLSearchParams();
     newParams.set("pageSize", String(pageSize));
     setSearchParams(newParams);
@@ -2414,6 +2549,19 @@ export default function Customers() {
     setSearchParams(newParams);
   }, [searchParams, setSearchParams]);
 
+  // Handle activity filter
+  const handleActivityFilterChange = useCallback((value: string) => {
+    setActivityFilter(value);
+    const newParams = new URLSearchParams(searchParams);
+    if (value !== "all") {
+      newParams.set("activity", value);
+    } else {
+      newParams.delete("activity");
+    }
+    newParams.set("page", "1");
+    setSearchParams(newParams);
+  }, [searchParams, setSearchParams]);
+
   // Count active filters
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -2421,8 +2569,9 @@ export default function Customers() {
     if (creditMinFilter) count++;
     if (creditMaxFilter) count++;
     if (hasOverrideFilter !== "all") count++;
+    if (activityFilter !== "all") count++;
     return count;
-  }, [tierFilter, creditMinFilter, creditMaxFilter, hasOverrideFilter]);
+  }, [tierFilter, creditMinFilter, creditMaxFilter, hasOverrideFilter, activityFilter]);
 
   // Handle page size change
   const handlePageSizeChange = useCallback((value: string) => {
@@ -2791,6 +2940,7 @@ export default function Customers() {
               expiresAt: null,
               daysRemaining: null,
             },
+            orderSummary: enhancedData[customer.id]?.orderSummary ?? null,
           }));
 
           setEnhancedCustomers(merged);
@@ -3155,6 +3305,27 @@ export default function Customers() {
                         />
                       </BlockStack>
 
+                      {/* Activity Filter */}
+                      <BlockStack gap="200">
+                        <Text variant="bodyMd" fontWeight="semibold" as="p">
+                          Customer Activity
+                        </Text>
+                        <ChoiceList
+                          title=""
+                          titleHidden
+                          choices={[
+                            { label: "All activity levels", value: "all" },
+                            { label: "Active (ordered in 30 days)", value: "active" },
+                            { label: "At Risk (30-60 days)", value: "at_risk" },
+                            { label: "Dormant (60+ days)", value: "dormant" },
+                            { label: "New (no orders yet)", value: "new" },
+                            { label: "Never ordered", value: "never_ordered" },
+                          ]}
+                          selected={[activityFilter]}
+                          onChange={([value]) => handleActivityFilterChange(value)}
+                        />
+                      </BlockStack>
+
                       <Divider />
 
                       {/* Apply/Clear Buttons */}
@@ -3163,8 +3334,10 @@ export default function Customers() {
                           setCreditMinFilter("");
                           setCreditMaxFilter("");
                           setHasOverrideFilter("all");
+                          setActivityFilter("all");
                           handleCreditRangeChange("", "");
                           handleOverrideFilterChange("all");
+                          handleActivityFilterChange("all");
                         }} variant="plain">
                           Reset filters
                         </Button>
@@ -3203,6 +3376,15 @@ export default function Customers() {
                   {hasOverrideFilter !== "all" && (
                     <Tag onRemove={() => handleOverrideFilterChange("all")}>
                       Override: {hasOverrideFilter === "yes" ? "Has Override" : "No Override"}
+                    </Tag>
+                  )}
+                  {activityFilter !== "all" && (
+                    <Tag onRemove={() => handleActivityFilterChange("all")}>
+                      Activity: {activityFilter === "active" ? "Active" :
+                                 activityFilter === "at_risk" ? "At Risk" :
+                                 activityFilter === "dormant" ? "Dormant" :
+                                 activityFilter === "new" ? "New" :
+                                 activityFilter === "never_ordered" ? "Never Ordered" : activityFilter}
                     </Tag>
                   )}
                 </InlineStack>

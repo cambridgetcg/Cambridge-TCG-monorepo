@@ -24,6 +24,8 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
+import { checkLimitAccess } from "~/utils/require-feature.server";
+import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPES
@@ -38,6 +40,12 @@ interface Tier {
 interface LoaderData {
   shop: string;
   tiers: Tier[];
+  limitAccess: {
+    canCreate: boolean;
+    current: number;
+    max: number;
+    message?: string;
+  };
 }
 
 type AutomationStep = 1 | 2 | 3 | 4;
@@ -56,6 +64,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const guardRedirect = await guardInHouseRoute(shop);
   if (guardRedirect) return guardRedirect;
 
+  // Check automation limit for rate-based gating
+  const automationCount = await db.emailAutomation.count({ where: { shop } });
+  const limitAccess = await checkLimitAccess(shop, 'maxAutomations', automationCount);
+
   // Fetch tiers for the shop
   const tiers = await db.tier.findMany({
     where: { shop },
@@ -70,6 +82,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json<LoaderData>({
     shop,
     tiers,
+    limitAccess: {
+      canCreate: limitAccess.hasAccess,
+      current: automationCount,
+      max: limitAccess.error?.maxLimit ?? 999999,
+      message: limitAccess.error?.message,
+    },
   });
 };
 
@@ -152,6 +170,18 @@ export default function CreateAutomation() {
       }}
     >
       <Layout>
+        {/* Subtle limit status hint (shows when 50%+ used) */}
+        <Layout.Section>
+          <PageLimitStatus
+            current={data.limitAccess.current}
+            limit={data.limitAccess.max}
+            resource="automation"
+            action="create"
+            nextTierLimit={data.limitAccess.max * 4}
+            nextTierName="Pro"
+          />
+        </Layout.Section>
+
         <Layout.Section>
           <Card>
             <BlockStack gap="500">
@@ -568,6 +598,145 @@ export default function CreateAutomation() {
                       </InlineGrid>
 
                       <Divider />
+                      <Text variant="headingSm" fontWeight="semibold">
+                        Gift Card & Store Credit Triggers
+                      </Text>
+
+                      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
+                        <div onClick={() => setTrigger("gift_card_purchased")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "gift_card_purchased" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "gift_card_purchased"}
+                                  onChange={() => setTrigger("gift_card_purchased")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Gift Card Purchased
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer buys a gift card
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("gift_card_received")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "gift_card_received" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "gift_card_received"}
+                                  onChange={() => setTrigger("gift_card_received")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Gift Card Received
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer receives a gift card
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("store_credit_earned")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "store_credit_earned" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "store_credit_earned"}
+                                  onChange={() => setTrigger("store_credit_earned")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Store Credit Earned
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Triggered when customer earns store credit
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("store_credit_converted")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "store_credit_converted" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "store_credit_converted"}
+                                  onChange={() => setTrigger("store_credit_converted")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Credit Converted
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Store credit converted to gift card
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("store_credit_milestone")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "store_credit_milestone" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "store_credit_milestone"}
+                                  onChange={() => setTrigger("store_credit_milestone")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Store Credit Milestone
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Customer reaches credit balance milestone
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+
+                        <div onClick={() => setTrigger("store_credit_balance_reminder")} style={{ cursor: "pointer" }}>
+                          <Card background={trigger === "store_credit_balance_reminder" ? "bg-surface-brand" : "bg-surface"}>
+                            <BlockStack gap="300">
+                              <InlineStack gap="300" blockAlign="start">
+                                <RadioButton
+                                  label=""
+                                  checked={trigger === "store_credit_balance_reminder"}
+                                  onChange={() => setTrigger("store_credit_balance_reminder")}
+                                />
+                                <BlockStack gap="200">
+                                  <Text variant="headingSm" fontWeight="semibold">
+                                    Balance Reminder
+                                  </Text>
+                                  <Text variant="bodySm" tone="subdued">
+                                    Remind about unused store credit
+                                  </Text>
+                                </BlockStack>
+                              </InlineStack>
+                            </BlockStack>
+                          </Card>
+                        </div>
+                      </InlineGrid>
+
+                      <Divider />
 
                       <Text variant="headingMd" as="h3">
                         Conditions (Optional)
@@ -745,6 +914,12 @@ export default function CreateAutomation() {
                               { label: "Raffle Ending Reminder", value: "raffle_ending" },
                               { label: "Mystery Box Reveal", value: "mystery_box_reveal" },
                               { label: "Rewards Re-Engagement", value: "rewards_dormant" },
+                              { label: "Gift Card Purchase Thank You", value: "gift_card_purchased" },
+                              { label: "Gift Card Received", value: "gift_card_received" },
+                              { label: "Store Credit Earned", value: "store_credit_earned" },
+                              { label: "Credit Converted Confirmation", value: "store_credit_converted" },
+                              { label: "Store Credit Milestone", value: "store_credit_milestone" },
+                              { label: "Store Credit Reminder", value: "store_credit_balance_reminder" },
                             ]}
                             value={template}
                             onChange={setTemplate}
@@ -856,6 +1031,12 @@ export default function CreateAutomation() {
                               {trigger === "mystery_box_opened" && "Mystery Box Opened"}
                               {trigger === "mystery_box_won" && "Mystery Box Prize"}
                               {trigger === "rewards_dormant" && "Rewards Dormant"}
+                              {trigger === "gift_card_purchased" && "Gift Card Purchased"}
+                              {trigger === "gift_card_received" && "Gift Card Received"}
+                              {trigger === "store_credit_earned" && "Store Credit Earned"}
+                              {trigger === "store_credit_converted" && "Credit Converted to Gift Card"}
+                              {trigger === "store_credit_milestone" && "Store Credit Milestone"}
+                              {trigger === "store_credit_balance_reminder" && "Balance Reminder"}
                             </Text>
                           </InlineStack>
                           {tierFilter && (

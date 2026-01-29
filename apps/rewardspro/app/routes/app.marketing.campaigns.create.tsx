@@ -32,6 +32,8 @@ import {
   atomicWithinLimit,
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
+import { checkLimitAccess } from "~/utils/require-feature.server";
+import { LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPES
@@ -53,6 +55,12 @@ interface LoaderData {
   shop: string;
   templates: Template[];
   segments: Segment[];
+  limitAccess: {
+    canCreate: boolean;
+    current: number;
+    max: number;
+    message?: string;
+  };
 }
 
 // ============================================
@@ -71,6 +79,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Guard: Redirect Klaviyo mode users to main Marketing Hub
     const guardRedirect = await guardInHouseRoute(shop);
     if (guardRedirect) return guardRedirect;
+
+    // Check campaign limit for rate-based gating
+    const campaignCount = await db.emailCampaign.count({ where: { shop } });
+    const limitAccess = await checkLimitAccess(shop, 'maxCampaigns', campaignCount);
 
     // Fetch email templates
     let templates: Template[] = [];
@@ -134,6 +146,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       shop,
       templates,
       segments,
+      limitAccess: {
+        canCreate: limitAccess.hasAccess,
+        current: campaignCount,
+        max: limitAccess.error?.maxLimit ?? 999999,
+        message: limitAccess.error?.message,
+      },
     });
   } catch (error: any) {
     console.error("[Create Campaign] ========== LOADER ERROR ==========");
@@ -310,6 +328,18 @@ export default function CreateCampaign() {
     >
       <Form method="post">
         <Layout>
+          {/* Subtle limit status hint (shows when 50%+ used) */}
+          <Layout.Section>
+            <PageLimitStatus
+              current={data.limitAccess.current}
+              limit={data.limitAccess.max}
+              resource="campaign"
+              action="create"
+              nextTierLimit={data.limitAccess.max * 5}
+              nextTierName="Pro"
+            />
+          </Layout.Section>
+
           {actionData?.error && (
             <Layout.Section>
               <Banner

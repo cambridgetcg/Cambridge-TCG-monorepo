@@ -2865,8 +2865,8 @@ export default function AnalyticsPage() {
                                   </BlockStack>
                                 </div>
 
-                                {/* Action Buttons - Hidden until marketing page is ready */}
-                                {/* <InlineStack gap="200" align="end">
+                                {/* Action Buttons */}
+                                <InlineStack gap="200" align="end">
                                   <Button onClick={() => navigate(`/app/marketing/campaigns/smart-create?recommendationId=${recommendation.id}`)}>
                                     View Details
                                   </Button>
@@ -2876,7 +2876,7 @@ export default function AnalyticsPage() {
                                   >
                                     Create Campaign
                                   </Button>
-                                </InlineStack> */}
+                                </InlineStack>
                               </BlockStack>
                             </Box>
                           </Card>

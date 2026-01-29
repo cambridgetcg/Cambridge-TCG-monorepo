@@ -101,6 +101,7 @@ interface CustomerDetails {
   } | null;
   orders: Array<{
     id: string;
+    shopifyOrderId?: string;
     name: string;
     createdAt: string;
     financialStatus: string;
@@ -109,6 +110,11 @@ interface CustomerDetails {
       amount: string;
       currencyCode: string;
     };
+    netAmount?: number;
+    totalRefunded?: number;
+    cashbackAmount?: number | null;
+    cashbackPercent?: number | null;
+    tierNameAtOrder?: string | null;
     lineItems: Array<{
       title: string;
       quantity: number;
@@ -116,8 +122,27 @@ interface CustomerDetails {
         amount: string;
         currencyCode: string;
       };
+      isTierProduct?: boolean;
     }>;
   }>;
+  ordersTotalCount?: number;
+  // Order summary metrics for customer management
+  orderSummary?: {
+    orderCount: number;
+    totalSpent: number;
+    totalRefunded: number;
+    netSpent: number;
+    averageOrderValue: number;
+    totalCashbackEarned: number;
+    firstOrderDate: string | null;
+    lastOrderDate: string | null;
+    daysSinceLastOrder: number | null;
+    activityStatus: "active" | "at_risk" | "dormant" | "new" | "never_ordered";
+    activityBadge: {
+      tone: "success" | "warning" | "critical" | "info" | "attention";
+      label: string;
+    };
+  } | null;
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
@@ -458,11 +483,64 @@ export function CustomerDetailModal({
               {selectedTab === 2 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
+                    {/* Order Summary Metrics */}
+                    {details.orderSummary && (
+                      <Card>
+                        <BlockStack gap="300">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <Text variant="headingMd" as="h3">Order Summary</Text>
+                            {details.orderSummary.activityBadge && (
+                              <Badge tone={details.orderSummary.activityBadge.tone as any}>
+                                {details.orderSummary.activityBadge.label}
+                              </Badge>
+                            )}
+                          </InlineStack>
+                          <Divider />
+                          <InlineStack gap="600" wrap={false}>
+                            <BlockStack gap="100">
+                              <Text as="span" variant="bodySm" tone="subdued">Total Orders</Text>
+                              <Text as="span" variant="headingMd" fontWeight="bold">
+                                {details.orderSummary.orderCount}
+                              </Text>
+                            </BlockStack>
+                            <BlockStack gap="100">
+                              <Text as="span" variant="bodySm" tone="subdued">Total Spent</Text>
+                              <Text as="span" variant="headingMd" fontWeight="bold">
+                                {formatAmount(details.orderSummary.totalSpent)}
+                              </Text>
+                            </BlockStack>
+                            <BlockStack gap="100">
+                              <Text as="span" variant="bodySm" tone="subdued">Avg. Order</Text>
+                              <Text as="span" variant="headingMd" fontWeight="bold">
+                                {formatAmount(details.orderSummary.averageOrderValue)}
+                              </Text>
+                            </BlockStack>
+                            <BlockStack gap="100">
+                              <Text as="span" variant="bodySm" tone="subdued">Cashback Earned</Text>
+                              <Text as="span" variant="headingMd" fontWeight="bold" tone="success">
+                                {formatAmount(details.orderSummary.totalCashbackEarned)}
+                              </Text>
+                            </BlockStack>
+                            <BlockStack gap="100">
+                              <Text as="span" variant="bodySm" tone="subdued">Last Order</Text>
+                              <Text as="span" variant="headingMd" fontWeight="bold">
+                                {details.orderSummary.lastOrderDate
+                                  ? details.orderSummary.daysSinceLastOrder === 0
+                                    ? "Today"
+                                    : `${details.orderSummary.daysSinceLastOrder}d ago`
+                                  : "Never"}
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+                        </BlockStack>
+                      </Card>
+                    )}
+
                     {/* Page size selector and pagination info */}
                     {details.orders.length > 0 && (
                       <InlineStack align="space-between" blockAlign="center">
                         <Text as="span" variant="bodyMd">
-                          Showing {Math.min(ordersPageSize, details.orders.length)} of {details.orders.length} orders
+                          Showing {Math.min(ordersPageSize, details.orders.length)} of {details.ordersTotalCount || details.orders.length} orders
                         </Text>
                         <Select
                           label="Items per page"
