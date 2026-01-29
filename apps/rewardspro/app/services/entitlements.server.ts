@@ -848,38 +848,18 @@ function capitalize(str: string): string {
  * Columns added in migrations that may not exist in production yet.
  * These are filtered out during upsert operations to prevent errors.
  *
- * TODO: Remove this filtering after these migrations are confirmed applied:
+ * Migrations applied 2026-01-23:
  * - 20260123000000_add_integration_features_and_sync_limits
  * - 20260123000001_add_gamification_marketing_analytics_features
  *
- * To check if migration is applied, run in production DB:
+ * To check if a migration is applied, run in production DB:
  * SELECT column_name FROM information_schema.columns WHERE table_name = 'ShopEntitlements';
  */
-const UNMIGRATED_COLUMNS = new Set([
-  // From 20260123000000_add_integration_features_and_sync_limits
-  'featureIntegrationKlaviyo',
-  'featureIntegrationSendgrid',
-  'featureIntegrationJudgeme',
-  'featureIntegrationSlack',
-  'featureIntegrationRecharge',
-  'featureIntegrationGorgias',
-  'featureIntegrationZapier',
-  // From 20260123000001_add_gamification_marketing_analytics_features
-  'featureRaffles',
-  'featureMysteryBoxes',
-  'featureChallenges',
-  'featureMarketingCampaigns',
-  'featureMarketingAutomation',
-  'featureAiRecommendations',
-  'featureRfmSegmentation',
-  'featureProgramImpact',
-  'featureRealtimeAnalytics',
-  'featureCohortAnalysis',
-  'limitMaxActiveRaffles',
-  'limitMaxActiveMysteryBoxes',
-  'limitMaxActiveChallenges',
-  'limitMaxCampaigns',
-  'limitMaxAutomationFlows',
+// All columns have been migrated as of 2026-01-23
+// Keeping the set structure for future migrations
+const UNMIGRATED_COLUMNS = new Set<string>([
+  // Add new columns here when creating migrations that add ShopEntitlements columns
+  // Remove them after confirming production migration is applied
 ]);
 
 /**
