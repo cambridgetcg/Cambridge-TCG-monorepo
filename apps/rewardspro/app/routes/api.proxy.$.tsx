@@ -257,7 +257,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           ss."widgetBackgroundColor",
           ss."widgetTextColor",
           ss."widgetAccentColor",
-          ss."widgetSecondaryTextColor",
+          -- NOTE: widgetSecondaryTextColor not yet migrated to production
           ss."widgetBorderRadius",
           ss."widgetFontFamily",
           ss."updatedAt" as "settingsUpdatedAt",
@@ -511,7 +511,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           backgroundColor: row.widgetBackgroundColor || '#FFFFFF',
           textColor: row.widgetTextColor || '#212B36',
           accentColor: row.widgetAccentColor || '#008060',
-          secondaryTextColor: row.widgetSecondaryTextColor || null, // null = auto-derive from mode
+          secondaryTextColor: null, // Not yet migrated to production
           borderRadius: row.widgetBorderRadius || 12,
           fontFamily: row.widgetFontFamily || 'inherit',
           // Settings version for cache invalidation - changes when merchant updates settings
@@ -547,7 +547,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           widgetBackgroundColor: row.widgetBackgroundColor,
           widgetTextColor: row.widgetTextColor,
           widgetAccentColor: row.widgetAccentColor,
-          widgetSecondaryTextColor: row.widgetSecondaryTextColor,
           widgetBorderRadius: row.widgetBorderRadius,
           widgetFontFamily: row.widgetFontFamily,
           settingsUpdatedAt: row.settingsUpdatedAt
