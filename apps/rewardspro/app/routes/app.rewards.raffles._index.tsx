@@ -178,6 +178,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const endsAt = new Date(formData.get("endsAt") as string);
     const entryCost = parseInt(formData.get("entryCost") as string) || 100;
 
+    // Import refreshEntitlements dynamically to avoid circular deps
+    const { refreshEntitlements, getLimit, getEffectivePlan } = await import("~/services/entitlements.server");
+
+    // Pre-check: If limit is 0, try refreshing entitlements first
+    // This handles cases where entitlements are stale or were created with old defaults
+    const currentLimit = await getLimit(shop, "maxActiveRaffles");
+    const currentPlan = await getEffectivePlan(shop);
+    console.log(`${LOG_PREFIX} Pre-create check: limit=${currentLimit} plan=${currentPlan}`);
+
+    if (currentLimit === 0) {
+      console.log(`${LOG_PREFIX} Limit is 0, attempting to refresh entitlements for ${shop}`);
+      await refreshEntitlements(shop);
+      const newLimit = await getLimit(shop, "maxActiveRaffles");
+      console.log(`${LOG_PREFIX} After refresh: limit=${newLimit}`);
+    }
+
     try {
       // Atomic raffle creation with limit check
       // This prevents TOCTOU race conditions where two concurrent requests

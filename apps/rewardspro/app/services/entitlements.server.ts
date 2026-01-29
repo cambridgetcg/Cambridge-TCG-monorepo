@@ -522,11 +522,16 @@ const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
  * Uses Redis cache if available, falls back to memory cache in local dev
  */
 export async function getEntitlements(shop: string): Promise<ShopEntitlements> {
+  const LOG_PREFIX = "[Entitlements.get]";
+
   // Check cache first (now Redis-backed for cross-instance consistency)
   const cached = await getCachedEntitlements(shop);
   if (cached) {
+    console.log(`${LOG_PREFIX} Cache HIT for ${shop}: plan=${cached.effectivePlan}, mysteryBoxLimit=${cached.limitMaxActiveMysteryBoxes}, raffleLimit=${cached.limitMaxActiveRaffles}`);
     return cached;
   }
+
+  console.log(`${LOG_PREFIX} Cache MISS for ${shop}, querying database...`);
 
   // Query database
   let entitlements = await db.shopEntitlements.findUnique({
@@ -535,7 +540,7 @@ export async function getEntitlements(shop: string): Promise<ShopEntitlements> {
 
   // Create default entitlements if not found
   if (!entitlements) {
-    console.log(`[Entitlements] Creating default entitlements for ${shop}`);
+    console.log(`${LOG_PREFIX} No entitlements found, creating defaults for ${shop}`);
     entitlements = await db.shopEntitlements.create({
       data: {
         shop,
@@ -543,6 +548,8 @@ export async function getEntitlements(shop: string): Promise<ShopEntitlements> {
         lastResolvedAt: new Date(),
       },
     });
+  } else {
+    console.log(`${LOG_PREFIX} Database returned: plan=${entitlements.effectivePlan}, mysteryBoxLimit=${entitlements.limitMaxActiveMysteryBoxes}, raffleLimit=${entitlements.limitMaxActiveRaffles}, planSource=${entitlements.planSource}`);
   }
 
   // Update cache (now Redis-backed)
@@ -564,10 +571,22 @@ export async function hasFeature(shop: string, feature: FeatureKey): Promise<boo
  * Get a numeric limit for a shop
  */
 export async function getLimit(shop: string, limit: LimitKey): Promise<number> {
+  const LOG_PREFIX = "[Entitlements.getLimit]";
   const entitlements = await getEntitlements(shop);
   const columnName = `limit${capitalize(limit)}` as keyof ShopEntitlements;
   const value = entitlements[columnName];
-  return typeof value === 'number' ? value : 0;
+  const result = typeof value === 'number' ? value : 0;
+
+  // Debug logging for limit checks
+  console.log(`${LOG_PREFIX} shop=${shop} limit=${limit} column=${columnName} value=${value} result=${result} plan=${entitlements.effectivePlan}`);
+
+  // CRITICAL: Flag potential configuration issues
+  if (result === 0 && ['maxActiveRaffles', 'maxActiveMysteryBoxes', 'maxActiveChallenges', 'maxCampaigns', 'maxAutomationFlows'].includes(limit)) {
+    console.error(`${LOG_PREFIX} CRITICAL: ${limit}=0 for ${shop} on plan ${entitlements.effectivePlan}. All plans should have >=1. Entitlements may need refresh.`);
+    console.error(`${LOG_PREFIX} Entitlements debug: hasOverride=${entitlements.hasOverride}, planSource=${entitlements.planSource}, lastResolvedAt=${entitlements.lastResolvedAt}`);
+  }
+
+  return result;
 }
 
 /**

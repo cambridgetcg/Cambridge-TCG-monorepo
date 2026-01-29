@@ -217,13 +217,16 @@ model ShopEntitlements {
   limitMaxHistoricalDays Int @default(30)   // Free: 30, Pro: 90, Max: 365, Ultra: 999999
 
   // Numeric limits - Gamification (P2)
-  limitMaxActiveRaffles    Int @default(0) // Free: 0, Pro: 2, Max: 5, Ultra: 999999
-  limitMaxActiveMysteryBoxes Int @default(0) // Free: 0, Pro: 0, Max: 3, Ultra: 999999
-  limitMaxActiveChallenges Int @default(0) // Free: 0, Pro: 3, Max: 10, Ultra: 999999
+  // IMPORTANT: All plans get at least 1 (rate-based gating model)
+  // See app/constants/plan-limits.ts for canonical values
+  limitMaxActiveRaffles    Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
+  limitMaxActiveMysteryBoxes Int @default(1) // Free: 1, Pro: 2, Max: 5, Ultra: 999999
+  limitMaxActiveChallenges Int @default(1) // Free: 1, Pro: 5, Max: 15, Ultra: 999999
 
   // Numeric limits - Marketing (P3)
-  limitMaxCampaigns      Int @default(0) // Free: 0, Pro: 5, Max: 20, Ultra: 999999
-  limitMaxAutomationFlows Int @default(0) // Free: 0, Pro: 0, Max: 5, Ultra: 999999
+  // IMPORTANT: All plans get at least 1 (rate-based gating model)
+  limitMaxCampaigns      Int @default(1) // Free: 1, Pro: 5, Max: 25, Ultra: 999999
+  limitMaxAutomationFlows Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
 
   // Override support (for custom deals / grandfathered plans)
   hasOverride    Boolean   @default(false)
@@ -2802,6 +2805,20 @@ model KlaviyoAutomationSettings {
   raffleReminderHours      Int @default(24)  // Hours before raffle ends
   highPointsThreshold      Int @default(500) // Points balance to trigger reminder
   highPointsDormancyDays   Int @default(14)  // Days without spend
+
+  // ============================================
+  // Gift Card & Store Credit Event Toggles
+  // ============================================
+
+  // Gift card events
+  sendGiftCardEvents Boolean @default(true) // Gift card purchased/received/redeemed/expiring
+
+  // Store credit events
+  sendStoreCreditEvents Boolean @default(true) // Credit earned/spent/converted/milestone/reminder
+
+  // Gift card/store credit timing
+  giftCardExpiryWarningDays Int @default(7)   // Days before gift card expires
+  storeCreditReminderDays   Int @default(30)  // Days of unused store credit
 
   // Scheduling
   scheduledJobTime String @default("06:00") // HH:MM in shop timezone

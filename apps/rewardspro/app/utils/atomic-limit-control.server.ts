@@ -110,11 +110,23 @@ export async function atomicWithinLimit<T>(
   countFn: (tx: TransactionClient) => Promise<number>,
   createFn: (tx: TransactionClient) => Promise<T>
 ): Promise<T> {
+  const LOG_PREFIX = "[atomicWithinLimit]";
+
   // Get limit first (cached, so OK to call outside transaction)
   const maxLimit = await getLimit(shop, limit);
+  const currentPlan = await getEffectivePlan(shop);
+
+  console.log(`${LOG_PREFIX} shop=${shop} limit=${limit} maxLimit=${maxLimit} plan=${currentPlan}`);
+
+  // CRITICAL: A limit of 0 means no access - this is likely a configuration error
+  // All plans should have at least 1 for gamification features
+  if (maxLimit === 0) {
+    console.error(`${LOG_PREFIX} CRITICAL: limit=${limit} returned 0 for shop=${shop} on plan=${currentPlan}. This may indicate stale entitlements.`);
+  }
 
   // Unlimited case (999999) - skip transaction overhead
   if (maxLimit >= 999999) {
+    console.log(`${LOG_PREFIX} Unlimited - skipping transaction`);
     // Use db directly since we don't need atomicity for unlimited
     return createFn(db as unknown as TransactionClient);
   }
@@ -124,12 +136,15 @@ export async function atomicWithinLimit<T>(
     // Count inside transaction to get consistent view
     const currentCount = await countFn(tx);
 
+    console.log(`${LOG_PREFIX} Transaction: currentCount=${currentCount} maxLimit=${maxLimit} willBlock=${currentCount >= maxLimit}`);
+
     // Check limit
     if (currentCount >= maxLimit) {
-      const currentPlan = await getEffectivePlan(shop);
+      console.warn(`${LOG_PREFIX} BLOCKED: ${limit} limit exceeded (${currentCount}/${maxLimit}) for ${shop} on ${currentPlan}`);
       throw new LimitExceededError(limit, currentCount, maxLimit, currentPlan);
     }
 
+    console.log(`${LOG_PREFIX} ALLOWED: Creating resource within limit`);
     // Within limit - proceed with creation
     return createFn(tx);
   });
