@@ -163,7 +163,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         uniqueOpeners: box.uniqueOpeners,
         totalSpent: box.totalSpent,
       },
-      rewards: box.rewards.map((r: any) => ({
+      rewards: (box.rewards || []).map((r: any) => ({
         id: r.id,
         name: r.name,
         description: r.description,
