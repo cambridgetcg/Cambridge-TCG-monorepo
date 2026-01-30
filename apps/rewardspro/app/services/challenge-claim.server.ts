@@ -3,10 +3,12 @@
  *
  * Handles reward delivery when customers claim completed challenges.
  * Supports multiple reward types: points, store credit, discounts, tier upgrades.
+ * Integrates with the mission gamification system for XP, streaks, and combos.
  */
 
 import db from "../db.server";
 import { earnPoints } from "./points-ledger.server";
+import { createClaimEvent } from "./mission-events.server";
 import type { ChallengeRewardType, RewardValue } from "./challenge-management.server";
 
 const LOG_PREFIX = "[ChallengeClaim]";
@@ -41,16 +43,9 @@ export async function claimChallengeReward(
     `${LOG_PREFIX} Claiming reward for customer ${customerId} on challenge ${challengeId}`
   );
 
-  // Get the participant record
-  const participant = await db.challengeParticipant.findUnique({
-    where: {
-      challengeId_customerId: { challengeId, customerId },
-    },
-    include: {
-      challenge: {
-        include: { reward: true },
-      },
-    },
+  // Get the participant record (Data API doesn't support include, fetch separately)
+  const participant = await db.challengeParticipant.findFirst({
+    where: { challengeId, customerId },
   });
 
   if (!participant) {
@@ -60,8 +55,21 @@ export async function claimChallengeReward(
     };
   }
 
+  // Fetch challenge and reward separately
+  const [challenge, reward] = await Promise.all([
+    db.challenge.findUnique({ where: { id: challengeId } }),
+    db.challengeReward.findFirst({ where: { challengeId } }),
+  ]);
+
+  if (!challenge) {
+    return {
+      success: false,
+      error: "Challenge not found",
+    };
+  }
+
   // Verify challenge belongs to shop
-  if (participant.challenge.shop !== shop) {
+  if (challenge.shop !== shop) {
     return {
       success: false,
       error: "Challenge not found",
@@ -84,7 +92,6 @@ export async function claimChallengeReward(
   }
 
   // Get the reward
-  const reward = participant.challenge.reward;
   if (!reward) {
     return {
       success: false,
@@ -105,7 +112,7 @@ export async function claimChallengeReward(
           shop,
           customerId,
           challengeId,
-          participant.challenge.name,
+          challenge.name,
           rewardValue.amount || 0
         );
         break;
@@ -115,7 +122,7 @@ export async function claimChallengeReward(
           shop,
           customerId,
           challengeId,
-          participant.challenge.name,
+          challenge.name,
           rewardValue.amount || 0
         );
         break;
@@ -125,7 +132,7 @@ export async function claimChallengeReward(
           shop,
           customerId,
           challengeId,
-          participant.challenge.name,
+          challenge.name,
           rewardValue
         );
         break;
@@ -135,7 +142,7 @@ export async function claimChallengeReward(
           shop,
           customerId,
           challengeId,
-          participant.challenge.name,
+          challenge.name,
           rewardValue
         );
         break;
@@ -145,7 +152,7 @@ export async function claimChallengeReward(
           shop,
           customerId,
           challengeId,
-          participant.challenge.name,
+          challenge.name,
           rewardValue
         );
         break;
@@ -188,9 +195,30 @@ export async function claimChallengeReward(
       },
     });
 
+    // Create a claim-specific event for the reward reveal animation
+    // Note: XP, streak, and combo were already processed on mission COMPLETION
+    // (in challenge-progress.server.ts), this is just for the claim animation
+    try {
+      await createClaimEvent(
+        shop,
+        customerId,
+        challengeId,
+        challenge.name,
+        reward.description
+      );
+    } catch (eventError) {
+      // Log but don't fail the claim if event creation fails
+      console.error(`${LOG_PREFIX} Claim event creation error (non-fatal):`, eventError);
+    }
+
     console.log(
       `${LOG_PREFIX} Successfully claimed reward for customer ${customerId}`
     );
+
+    return {
+      ...deliveryResult,
+      rewardType,
+    };
   }
 
   return {
@@ -215,36 +243,31 @@ async function deliverPointsReward(
 ): Promise<ClaimResult> {
   console.log(`${LOG_PREFIX} Delivering ${amount} points to customer ${customerId}`);
 
-  // Use the points ledger to award points
-  const result = await earnPoints({
-    shop,
-    customerId,
-    amount,
-    type: "CHALLENGE_COMPLETED",
-    description: `Completed challenge: ${challengeName}`,
-    challengeId,
-  });
+  try {
+    // Use the points ledger to award points
+    // earnPoints throws on error, so we wrap in try/catch
+    const transaction = await earnPoints({
+      shop,
+      customerId,
+      amount,
+      type: "CHALLENGE_COMPLETED",
+      description: `Completed challenge: ${challengeName}`,
+      challengeId,
+    });
 
-  if (!result.success) {
+    return {
+      success: true,
+      rewardValue: amount,
+      deliveryId: transaction.id,
+      newBalance: transaction.balance,
+      message: `Earned ${amount} points`,
+    };
+  } catch (error) {
     return {
       success: false,
-      error: result.error || "Failed to award points",
+      error: error instanceof Error ? error.message : "Failed to award points",
     };
   }
-
-  // Get updated balance
-  const customer = await db.customer.findFirst({
-    where: { id: customerId, shop },
-    select: { pointsBalance: true },
-  });
-
-  return {
-    success: true,
-    rewardValue: amount,
-    deliveryId: result.ledgerId,
-    newBalance: customer ? Number(customer.pointsBalance) : undefined,
-    message: `Earned ${amount} points`,
-  };
 }
 
 /**

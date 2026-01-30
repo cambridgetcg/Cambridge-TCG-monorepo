@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -16,46 +16,100 @@ import {
   Toast,
   Frame,
   Divider,
+  Tabs,
+  ProgressBar,
+  Box,
+  Icon,
 } from "@shopify/polaris";
+import { ClockIcon, StarFilledIcon, PersonIcon, CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
+import db from "../db.server";
+import { getMissionAnalytics } from "../services/mission-stats.server";
 
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
 
+interface MissionData {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  cadence: string;
+  rarity: string;
+  category: string;
+  objectiveType: string;
+  targetValue: number;
+  xpReward: number;
+  iconEmoji: string | null;
+  totalParticipants: number;
+  completedCount: number;
+  claimedCount: number;
+  startsAt: string;
+  endsAt: string;
+  reward: {
+    type: string;
+    description: string;
+  } | null;
+}
+
 interface LoaderData {
-  challengesEnabled: boolean;
+  missionsEnabled: boolean;
   pointsConfig: {
     currencyName: string;
     currencyIcon: string;
     currencyPlural: string;
   };
-  challenges: Array<{
-    id: string;
-    name: string;
-    status: string;
-    objectiveType: string;
-    targetValue: number;
-    totalParticipants: number;
-    completedCount: number;
-    startsAt: string;
-    endsAt: string;
-  }>;
+  missions: {
+    daily: MissionData[];
+    weekly: MissionData[];
+    monthly: MissionData[];
+    special: MissionData[];
+  };
   stats: {
-    totalChallenges: number;
-    activeChallenges: number;
+    totalMissions: number;
+    activeMissions: number;
     totalParticipants: number;
     totalCompletions: number;
+    totalXpAwarded: number;
+    completionRate: number;
   };
+  analytics: {
+    totalCustomersWithXp: number;
+    averageLevel: number;
+    maxLevel: number;
+    activeStreaks: number;
+    averageStreak: number;
+    longestStreak: number;
+  } | null;
 }
 
 interface ActionData {
   success: boolean;
   message?: string;
   error?: string;
-  challengeId?: string;
+  missionId?: string;
 }
+
+// ============================================
+// RARITY CONFIG
+// ============================================
+
+const RARITY_CONFIG: Record<string, { tone: "info" | "success" | "warning" | "attention" | "critical"; label: string }> = {
+  COMMON: { tone: "info", label: "Common" },
+  UNCOMMON: { tone: "success", label: "Uncommon" },
+  RARE: { tone: "attention", label: "Rare" },
+  EPIC: { tone: "warning", label: "Epic" },
+  LEGENDARY: { tone: "critical", label: "Legendary" },
+};
+
+const CADENCE_CONFIG: Record<string, { label: string; icon: string }> = {
+  DAILY: { label: "Daily", icon: "D" },
+  WEEKLY: { label: "Weekly", icon: "W" },
+  MONTHLY: { label: "Monthly", icon: "M" },
+  SPECIAL: { label: "Special", icon: "S" },
+};
 
 // ============================================
 // LOADER
@@ -77,26 +131,161 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       getEnabledFeatures(shop),
     ]);
 
-    // TODO: Replace with actual challenge service calls once implemented
-    // const [challenges, stats] = await Promise.all([
-    //   getChallenges(shop),
-    //   getChallengeStats(shop),
-    // ]);
+    // Check if missions/challenges are enabled
+    const missionsEnabled = features.challenges;
+
+    if (!missionsEnabled) {
+      return json<LoaderData>({
+        missionsEnabled: false,
+        pointsConfig: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+          currencyPlural: config.currencyNamePlural,
+        },
+        missions: { daily: [], weekly: [], monthly: [], special: [] },
+        stats: {
+          totalMissions: 0,
+          activeMissions: 0,
+          totalParticipants: 0,
+          totalCompletions: 0,
+          totalXpAwarded: 0,
+          completionRate: 0,
+        },
+        analytics: null,
+      });
+    }
+
+    // Fetch challenges with rewards (using separate queries for Data API compatibility)
+    const now = new Date();
+    const challenges = await db.challenge.findMany({
+      where: { shop },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    // Fetch rewards for all challenges
+    const challengeIds = challenges.map((c: { id: string }) => c.id);
+    const rewards = challengeIds.length > 0
+      ? await db.challengeReward.findMany({
+          where: { challengeId: { in: challengeIds } },
+        })
+      : [];
+
+    const rewardMap = new Map(
+      rewards.map((r: { challengeId: string; rewardType: string; description: string }) => [r.challengeId, r])
+    );
+
+    // Transform and group by cadence
+    const missions: LoaderData["missions"] = {
+      daily: [],
+      weekly: [],
+      monthly: [],
+      special: [],
+    };
+
+    let totalParticipants = 0;
+    let totalCompletions = 0;
+    let activeMissions = 0;
+
+    for (const challenge of challenges) {
+      const c = challenge as {
+        id: string;
+        name: string;
+        description: string | null;
+        status: string;
+        cadence: string;
+        rarity: string;
+        category: string;
+        objectiveType: string;
+        targetValue: number;
+        xpReward: number;
+        iconEmoji: string | null;
+        totalParticipants: number;
+        completedCount: number;
+        claimedCount: number;
+        startsAt: Date;
+        endsAt: Date;
+      };
+
+      const reward = rewardMap.get(c.id) as { rewardType: string; description: string } | undefined;
+
+      const missionData: MissionData = {
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        status: c.status,
+        cadence: c.cadence || "SPECIAL",
+        rarity: c.rarity || "COMMON",
+        category: c.category || "CHALLENGE",
+        objectiveType: c.objectiveType,
+        targetValue: c.targetValue,
+        xpReward: c.xpReward || 10,
+        iconEmoji: c.iconEmoji,
+        totalParticipants: c.totalParticipants,
+        completedCount: c.completedCount,
+        claimedCount: c.claimedCount,
+        startsAt: c.startsAt.toISOString(),
+        endsAt: c.endsAt.toISOString(),
+        reward: reward ? {
+          type: reward.rewardType,
+          description: reward.description,
+        } : null,
+      };
+
+      // Add to appropriate cadence group
+      const cadenceKey = (c.cadence || "SPECIAL").toLowerCase() as keyof typeof missions;
+      if (cadenceKey in missions) {
+        missions[cadenceKey].push(missionData);
+      } else {
+        missions.special.push(missionData);
+      }
+
+      // Aggregate stats
+      totalParticipants += c.totalParticipants;
+      totalCompletions += c.completedCount;
+      if (c.status === "ACTIVE" && c.startsAt <= now && c.endsAt >= now) {
+        activeMissions++;
+      }
+    }
+
+    // Calculate completion rate
+    const completionRate = totalParticipants > 0
+      ? Math.round((totalCompletions / totalParticipants) * 100)
+      : 0;
+
+    // Fetch mission analytics
+    let analytics = null;
+    try {
+      const missionAnalytics = await getMissionAnalytics(shop);
+      analytics = {
+        totalCustomersWithXp: missionAnalytics.totalCustomersWithXp,
+        averageLevel: missionAnalytics.averageLevel,
+        maxLevel: missionAnalytics.maxLevel,
+        activeStreaks: missionAnalytics.activeStreaks,
+        averageStreak: missionAnalytics.averageStreak,
+        longestStreak: missionAnalytics.longestStreak,
+      };
+    } catch (e) {
+      console.warn(`${LOG_PREFIX} Failed to fetch mission analytics:`, e);
+    }
 
     return json<LoaderData>({
-      challengesEnabled: features.challenges,
+      missionsEnabled: true,
       pointsConfig: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
         currencyPlural: config.currencyNamePlural,
       },
-      challenges: [], // Placeholder - will be populated when services are implemented
+      missions,
       stats: {
-        totalChallenges: 0,
-        activeChallenges: 0,
-        totalParticipants: 0,
-        totalCompletions: 0,
+        totalMissions: challenges.length,
+        activeMissions,
+        totalParticipants,
+        totalCompletions,
+        totalXpAwarded: analytics?.totalCustomersWithXp ? (analytics.totalCustomersWithXp * analytics.averageLevel * 100) : 0,
+        completionRate,
       },
+      analytics,
     });
   } catch (error) {
     console.error(`${LOG_PREFIX} LOADER ERROR:`, error);
@@ -118,17 +307,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     if (intent === "enableFeature") {
-      // Rate-based model: All plans can enable challenges (limits differentiate)
       await updatePointsConfig(shop, { challengesEnabled: true });
-      return json<ActionData>({ success: true, message: "Challenges enabled" });
+      return json<ActionData>({ success: true, message: "Missions enabled" });
     }
 
     if (intent === "disableFeature") {
       await updatePointsConfig(shop, { challengesEnabled: false });
-      return json<ActionData>({ success: true, message: "Challenges disabled" });
+      return json<ActionData>({ success: true, message: "Missions disabled" });
     }
 
-    // TODO: Add create, delete, and transition actions once services are implemented
+    if (intent === "deleteMission") {
+      const missionId = formData.get("missionId") as string;
+      if (!missionId) {
+        return json<ActionData>({ success: false, error: "Mission ID required" });
+      }
+
+      // Soft delete by marking as archived
+      await db.challenge.update({
+        where: { id: missionId },
+        data: { status: "ARCHIVED" },
+      });
+
+      return json<ActionData>({ success: true, message: "Mission archived" });
+    }
 
     return json<ActionData>({ success: false, error: "Unknown action" });
   } catch (error) {
@@ -141,19 +342,137 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 // ============================================
+// MISSION CARD COMPONENT
+// ============================================
+
+function MissionCard({ mission }: { mission: MissionData }) {
+  const rarityConfig = RARITY_CONFIG[mission.rarity] || RARITY_CONFIG.COMMON;
+  const cadenceConfig = CADENCE_CONFIG[mission.cadence] || CADENCE_CONFIG.SPECIAL;
+  const completionRate = mission.totalParticipants > 0
+    ? Math.round((mission.completedCount / mission.totalParticipants) * 100)
+    : 0;
+
+  const isActive = mission.status === "ACTIVE";
+  const endsAt = new Date(mission.endsAt);
+  const now = new Date();
+  const daysRemaining = Math.max(0, Math.ceil((endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+  return (
+    <Card>
+      <BlockStack gap="300">
+        {/* Header */}
+        <InlineStack align="space-between" blockAlign="start">
+          <InlineStack gap="200" blockAlign="center">
+            <Text as="span" variant="headingLg">
+              {mission.iconEmoji || "🎯"}
+            </Text>
+            <BlockStack gap="100">
+              <Text as="h3" variant="headingMd">{mission.name}</Text>
+              <InlineStack gap="100">
+                <Badge tone={rarityConfig.tone}>{rarityConfig.label}</Badge>
+                <Badge>{cadenceConfig.label}</Badge>
+                <Badge tone={isActive ? "success" : "info"}>{mission.status}</Badge>
+              </InlineStack>
+            </BlockStack>
+          </InlineStack>
+          <BlockStack gap="100" inlineAlign="end">
+            <Text as="p" variant="bodyMd" tone="subdued">+{mission.xpReward} XP</Text>
+            {isActive && daysRemaining <= 3 && (
+              <Badge tone="warning">{`${daysRemaining}d left`}</Badge>
+            )}
+          </BlockStack>
+        </InlineStack>
+
+        {/* Description */}
+        {mission.description && (
+          <Text as="p" tone="subdued">{mission.description}</Text>
+        )}
+
+        {/* Progress */}
+        <BlockStack gap="100">
+          <InlineStack align="space-between">
+            <Text as="p" variant="bodySm" tone="subdued">
+              {mission.completedCount} / {mission.totalParticipants} completed
+            </Text>
+            <Text as="p" variant="bodySm" tone="subdued">{completionRate}%</Text>
+          </InlineStack>
+          <ProgressBar progress={completionRate} size="small" tone="primary" />
+        </BlockStack>
+
+        {/* Stats */}
+        <Divider />
+        <InlineStack gap="400" align="start">
+          <InlineStack gap="100" blockAlign="center">
+            <Icon source={PersonIcon} tone="subdued" />
+            <Text as="span" variant="bodySm" tone="subdued">
+              {mission.totalParticipants} participants
+            </Text>
+          </InlineStack>
+          <InlineStack gap="100" blockAlign="center">
+            <Icon source={CheckCircleIcon} tone="subdued" />
+            <Text as="span" variant="bodySm" tone="subdued">
+              {mission.claimedCount} claimed
+            </Text>
+          </InlineStack>
+          {mission.reward && (
+            <InlineStack gap="100" blockAlign="center">
+              <Icon source={StarFilledIcon} tone="subdued" />
+              <Text as="span" variant="bodySm" tone="subdued">
+                {mission.reward.description}
+              </Text>
+            </InlineStack>
+          )}
+        </InlineStack>
+      </BlockStack>
+    </Card>
+  );
+}
+
+// ============================================
 // COMPONENT
 // ============================================
 
-export default function ChallengesPage() {
+export default function MissionsPage() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
+  const [selectedTab, setSelectedTab] = useState(0);
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastError, setToastError] = useState(false);
+
+  // Tab configuration
+  const tabs = [
+    { id: "all", content: "All Missions", panelID: "all-missions" },
+    { id: "daily", content: `Daily (${data.missions.daily.length})`, panelID: "daily-missions" },
+    { id: "weekly", content: `Weekly (${data.missions.weekly.length})`, panelID: "weekly-missions" },
+    { id: "monthly", content: `Monthly (${data.missions.monthly.length})`, panelID: "monthly-missions" },
+    { id: "special", content: `Special (${data.missions.special.length})`, panelID: "special-missions" },
+  ];
+
+  // Get missions for current tab
+  const getCurrentMissions = useCallback((): MissionData[] => {
+    switch (tabs[selectedTab].id) {
+      case "daily":
+        return data.missions.daily;
+      case "weekly":
+        return data.missions.weekly;
+      case "monthly":
+        return data.missions.monthly;
+      case "special":
+        return data.missions.special;
+      default:
+        return [
+          ...data.missions.daily,
+          ...data.missions.weekly,
+          ...data.missions.monthly,
+          ...data.missions.special,
+        ];
+    }
+  }, [selectedTab, data.missions, tabs]);
 
   // Show toast on action completion
   useEffect(() => {
@@ -183,29 +502,29 @@ export default function ChallengesPage() {
   };
 
   // Feature not enabled state
-  if (!data.challengesEnabled) {
+  if (!data.missionsEnabled) {
     return (
       <Frame>
         <Page
-          title="Challenges"
-          subtitle="Create goal-based engagement activities for your customers"
+          title="Missions"
+          subtitle="Gamified challenges with XP, streaks, and combos"
           backAction={{ content: "Points", url: "/app/rewards" }}
         >
           <Layout>
             <Layout.Section>
               <Card>
                 <EmptyState
-                  heading="Enable Challenges"
+                  heading="Enable Missions"
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                   action={{
-                    content: "Enable Challenges",
+                    content: "Enable Missions",
                     onAction: handleEnableFeature,
                     loading: isSubmitting,
                   }}
                 >
                   <p>
-                    Create challenges where customers earn rewards by completing specific goals
-                    like spending thresholds, purchase counts, or buying from specific collections.
+                    Create gamified missions where customers earn XP, build streaks,
+                    and unlock rewards by completing daily, weekly, and monthly challenges.
                   </p>
                 </EmptyState>
               </Card>
@@ -223,20 +542,22 @@ export default function ChallengesPage() {
     );
   }
 
-  // Main challenges page (placeholder for now)
+  const currentMissions = getCurrentMissions();
+
+  // Main missions page
   return (
     <Frame>
       <Page
-        title="Challenges"
-        subtitle="Create goal-based engagement activities for your customers"
+        title="Missions"
+        subtitle="Gamified challenges with XP, streaks, and combos"
         backAction={{ content: "Points", url: "/app/rewards" }}
         primaryAction={{
-          content: "Create Challenge",
-          disabled: true, // TODO: Enable when services are implemented
+          content: "Create Mission",
+          url: "/app/rewards/challenges/new",
         }}
         secondaryActions={[
           {
-            content: "Disable Challenges",
+            content: "Disable Missions",
             onAction: handleDisableFeature,
             destructive: true,
           },
@@ -248,20 +569,8 @@ export default function ChallengesPage() {
             <InlineStack gap="400" wrap={false}>
               <Card>
                 <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Total Challenges</Text>
-                  <Text as="p" variant="heading2xl">{data.stats.totalChallenges}</Text>
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Active</Text>
-                  <Text as="p" variant="heading2xl">{data.stats.activeChallenges}</Text>
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Participants</Text>
-                  <Text as="p" variant="heading2xl">{data.stats.totalParticipants}</Text>
+                  <Text as="h3" variant="headingMd">Active Missions</Text>
+                  <Text as="p" variant="heading2xl">{data.stats.activeMissions}</Text>
                 </BlockStack>
               </Card>
               <Card>
@@ -270,47 +579,80 @@ export default function ChallengesPage() {
                   <Text as="p" variant="heading2xl">{data.stats.totalCompletions}</Text>
                 </BlockStack>
               </Card>
+              <Card>
+                <BlockStack gap="200">
+                  <Text as="h3" variant="headingMd">Completion Rate</Text>
+                  <Text as="p" variant="heading2xl">{data.stats.completionRate}%</Text>
+                </BlockStack>
+              </Card>
+              {data.analytics && (
+                <Card>
+                  <BlockStack gap="200">
+                    <Text as="h3" variant="headingMd">Active Streaks</Text>
+                    <Text as="p" variant="heading2xl">{data.analytics.activeStreaks}</Text>
+                  </BlockStack>
+                </Card>
+              )}
             </InlineStack>
           </Layout.Section>
+
+          {/* Analytics Banner */}
+          {data.analytics && data.analytics.totalCustomersWithXp > 0 && (
+            <Layout.Section>
+              <Banner title="Mission System Analytics" tone="info">
+                <InlineStack gap="400" wrap>
+                  <Text as="span">
+                    {data.analytics.totalCustomersWithXp} customers earning XP
+                  </Text>
+                  <Text as="span">
+                    Avg Level: {data.analytics.averageLevel}
+                  </Text>
+                  <Text as="span">
+                    Max Level: {data.analytics.maxLevel}
+                  </Text>
+                  <Text as="span">
+                    Avg Streak: {data.analytics.averageStreak} days
+                  </Text>
+                  <Text as="span">
+                    Longest Streak: {data.analytics.longestStreak} days
+                  </Text>
+                </InlineStack>
+              </Banner>
+            </Layout.Section>
+          )}
 
           <Layout.Section>
             <Divider />
           </Layout.Section>
 
-          {/* Coming Soon Banner */}
+          {/* Tabs */}
           <Layout.Section>
-            <Banner
-              title="Challenges Module - Coming Soon"
-              tone="info"
-            >
-              <BlockStack gap="200">
-                <Text as="p">
-                  The Challenges module is currently being developed. Soon you'll be able to create
-                  engaging challenges for your customers with various objective types:
-                </Text>
-                <InlineStack gap="200" wrap>
-                  <Badge tone="info">Spending Goals</Badge>
-                  <Badge tone="info">Purchase Counts</Badge>
-                  <Badge tone="info">Collection Challenges</Badge>
-                  <Badge tone="info">Streak Challenges</Badge>
-                  <Badge tone="info">Referral Goals</Badge>
-                  <Badge tone="info">Milestone Achievements</Badge>
-                </InlineStack>
-              </BlockStack>
-            </Banner>
-          </Layout.Section>
-
-          {/* Empty State */}
-          <Layout.Section>
-            <Card>
-              <EmptyState
-                heading="No Challenges Yet"
-                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-              >
-                <p>
-                  Challenge creation will be available soon. Check back for updates!
-                </p>
-              </EmptyState>
+            <Card padding="0">
+              <Tabs tabs={tabs} selected={selectedTab} onSelect={setSelectedTab}>
+                <Box padding="400">
+                  {currentMissions.length === 0 ? (
+                    <EmptyState
+                      heading="No Missions Yet"
+                      image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      action={{
+                        content: "Create Mission",
+                        url: "/app/rewards/challenges/new",
+                      }}
+                    >
+                      <p>
+                        Create your first {tabs[selectedTab].id !== "all" ? tabs[selectedTab].id : ""} mission
+                        to engage your customers with gamified challenges.
+                      </p>
+                    </EmptyState>
+                  ) : (
+                    <BlockStack gap="400">
+                      {currentMissions.map((mission) => (
+                        <MissionCard key={mission.id} mission={mission} />
+                      ))}
+                    </BlockStack>
+                  )}
+                </Box>
+              </Tabs>
             </Card>
           </Layout.Section>
         </Layout>

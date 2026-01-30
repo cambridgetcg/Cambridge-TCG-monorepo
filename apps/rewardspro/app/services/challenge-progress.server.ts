@@ -4,6 +4,9 @@
  * Handles progress tracking, auto-enrollment, and completion detection
  * for customer challenges. This service is called from webhooks and
  * other event sources to update customer progress.
+ *
+ * Integrates with the mission gamification system to award XP, update
+ * streaks/combos, and trigger celebration animations on completion.
  */
 
 import db from "../db.server";
@@ -12,6 +15,7 @@ import type {
   ChallengeParticipantStatus,
   ObjectiveConfig,
 } from "./challenge-management.server";
+import { processMissionCompletion, type MissionCompletionResult } from "./mission-stats.server";
 
 const LOG_PREFIX = "[ChallengeProgress]";
 
@@ -196,6 +200,20 @@ export async function updateChallengeProgress(
       where: { id: challengeId },
       data: { completedCount: { increment: 1 } },
     });
+
+    // Process mission gamification (XP, streak, combo, events)
+    // This awards XP and creates the completion event for animations
+    try {
+      const missionResult = await processMissionCompletion(shop, customerId, challengeId);
+      console.log(
+        `${LOG_PREFIX} Mission processing complete: +${missionResult.xpResult.xpEarned + missionResult.xpResult.bonusXp} XP, ` +
+          `streak=${missionResult.streakInfo.currentStreak}, combo=${missionResult.comboInfo.todayComboCount}`
+      );
+    } catch (missionError) {
+      // Log but don't fail the progress update if mission processing fails
+      console.error(`${LOG_PREFIX} Mission processing error (non-fatal):`, missionError);
+    }
+
     console.log(
       `${LOG_PREFIX} Customer ${customerId} completed challenge ${challengeId}!`
     );

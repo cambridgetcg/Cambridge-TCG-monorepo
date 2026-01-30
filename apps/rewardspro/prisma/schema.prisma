@@ -475,6 +475,9 @@ model Customer {
   // Challenges System
   challengeParticipants ChallengeParticipant[] @relation("ChallengeParticipants")
 
+  // Mission System (Gamification)
+  missionStats CustomerMissionStats? @relation("MissionStats")
+
   @@unique([shop, shopifyCustomerId]) // Prevent duplicate customers per shop
   @@index([shop]) // Speed up queries by shop
   @@index([email]) // Speed up queries by email
@@ -2883,6 +2886,31 @@ model PointsConfig {
   streakBonusEnabled    Boolean @default(false)
   streakBonusMultiplier Decimal @default(0.1) @db.Decimal(3, 2) // +10% per day, max varies
 
+  // ============================================
+  // MISSION SYSTEM SETTINGS (Gamification)
+  // ============================================
+
+  // Master Toggle
+  missionsEnabled Boolean @default(false)
+
+  // XP Configuration
+  xpEnabled       Boolean @default(true) // Enable XP system
+  xpPerLevel      Int     @default(100) // Base XP required per level
+  xpLevelScaling  Decimal @default(1.2) @db.Decimal(3, 2) // XP multiplier per level (+20%)
+
+  // Mission Streak Configuration (consecutive days completing missions)
+  missionStreakBonusEnabled Boolean @default(true)
+  missionStreakBonusPercent Int     @default(10) // +10% XP per streak day
+  maxMissionStreakBonus     Int     @default(100) // Max +100% bonus
+
+  // Mission Combo Configuration (multiple missions same day)
+  comboEnabled       Boolean @default(true)
+  comboBonusPercent  Int     @default(25) // +25% XP per additional mission
+  maxComboBonus      Int     @default(100) // Max +100% bonus
+
+  // Mission Reset Time (shop timezone)
+  missionResetHour Int @default(0) // Hour (0-23) when daily missions reset
+
   // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3385,6 +3413,33 @@ model Challenge {
   minimumTierId    String? // Minimum tier required
   isPublic         Boolean @default(true)
 
+  // ============================================
+  // MISSION SYSTEM FIELDS (Gamification)
+  // ============================================
+
+  // Mission Cadence - determines reset behavior
+  cadence MissionCadence @default(SPECIAL)
+
+  // Gamification Attributes
+  rarity   MissionRarity   @default(COMMON)
+  category MissionCategory @default(CHALLENGE)
+  xpReward Int             @default(10) // Experience points awarded
+
+  // Template Reference (for recurring missions)
+  templateId String?
+  template   MissionTemplate? @relation(fields: [templateId], references: [id])
+
+  // Streak/Combo Eligibility
+  comboEligible  Boolean @default(true) // Can contribute to daily combo
+  streakEligible Boolean @default(true) // Can contribute to streak
+
+  // Display Customization
+  iconEmoji String? @default("🎯") // Mission icon
+  sortOrder Int     @default(0) // Display order within cadence
+
+  // Scheduling (for recurring)
+  nextResetAt DateTime? // When this mission instance expires/resets
+
   // Denormalized Statistics
   totalParticipants   Int @default(0)
   completedCount      Int @default(0)
@@ -3405,6 +3460,9 @@ model Challenge {
   @@index([status, startsAt])
   @@index([status, endsAt])
   @@index([shop, objectiveType])
+  @@index([shop, cadence, status])
+  @@index([shop, category])
+  @@index([templateId])
 }
 
 model ChallengeReward {
@@ -3500,6 +3558,136 @@ model ChallengeProgressLog {
   @@index([createdAt])
 }
 
+// ============================================
+// MISSION SYSTEM MODELS (Gamification)
+// ============================================
+
+// Template for recurring missions (Daily/Weekly/Monthly)
+// Instances are generated from templates by the scheduler
+model MissionTemplate {
+  id   String @id @default(uuid())
+  shop String
+
+  // Basic Info
+  name        String
+  description String? @db.Text
+  imageUrl    String?
+
+  // Objective Configuration (same as Challenge)
+  objectiveType   ChallengeObjectiveType
+  targetValue     Int
+  objectiveConfig Json?
+
+  // Cadence & Gamification
+  cadence  MissionCadence
+  rarity   MissionRarity   @default(COMMON)
+  category MissionCategory @default(CHALLENGE)
+  xpReward Int             @default(10)
+
+  // Reward Configuration
+  rewardType        ChallengeRewardType
+  rewardValue       Json
+  rewardDescription String
+
+  // Display
+  iconEmoji String @default("🎯")
+  sortOrder Int    @default(0)
+
+  // Access Control
+  tierRestrictions Json? // { "allowedTierIds": ["tier1", "tier2"] }
+
+  // Active State
+  isActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - challenges generated from this template
+  instances Challenge[]
+
+  @@unique([shop, name])
+  @@index([shop, isActive, cadence])
+  @@index([shop, category])
+}
+
+// Customer mission statistics (denormalized for performance)
+// Tracks XP, levels, streaks, combos per customer
+model CustomerMissionStats {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String @unique
+
+  // XP & Levels
+  totalXp       Int @default(0)
+  currentLevel  Int @default(1)
+  xpToNextLevel Int @default(100) // Calculated based on level scaling
+
+  // Mission Completion Counts
+  totalCompleted   Int @default(0)
+  dailyCompleted   Int @default(0)
+  weeklyCompleted  Int @default(0)
+  monthlyCompleted Int @default(0)
+
+  // Streak Tracking (consecutive days with mission completion)
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastMissionDate DateTime? // Last date a mission was completed
+
+  // Daily Combo (multiple missions same day = bonus XP)
+  todayComboCount  Int       @default(0)
+  lastComboResetAt DateTime? // When combo was last reset
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customer         Customer                 @relation("MissionStats", fields: [customerId], references: [id], onDelete: Cascade)
+  completionEvents MissionCompletionEvent[]
+
+  @@index([shop, customerId])
+  @@index([shop, currentStreak])
+  @@index([shop, totalXp])
+  @@index([shop, currentLevel])
+}
+
+// Mission completion events for triggering animations
+// Consumed by storefront to show celebrations
+model MissionCompletionEvent {
+  id          String @id @default(uuid())
+  shop        String
+  customerId  String
+  challengeId String
+
+  // Event Type
+  eventType MissionEventType
+
+  // XP Earned
+  xpEarned Int @default(0)
+  bonusXp  Int @default(0) // From streak + combo bonuses
+
+  // Animation Triggers
+  triggersConfetti   Boolean @default(false) // Confetti particle burst
+  triggersLevelUp    Boolean @default(false) // Full level-up celebration
+  triggersStreakFire Boolean @default(false) // Streak fire animation
+
+  // Event Payload (extra data for rendering)
+  payload Json? // { streakCount, comboCount, newLevel, etc. }
+
+  // Acknowledgment State (consumed by storefront)
+  acknowledged Boolean @default(false)
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  stats CustomerMissionStats? @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@index([shop, customerId, acknowledged])
+  @@index([createdAt])
+}
+
 // Challenge Status Lifecycle
 enum ChallengeStatus {
   DRAFT // Being configured
@@ -3535,6 +3723,46 @@ enum ChallengeParticipantStatus {
   COMPLETED // Met target, awaiting claim
   CLAIMED // Reward has been claimed
   EXPIRED // Challenge ended before completion
+}
+
+// ============================================
+// MISSION SYSTEM ENUMS (Gamification)
+// ============================================
+
+// Mission Cadence - when missions reset/recur
+enum MissionCadence {
+  DAILY // Reset every 24 hours at configured time
+  WEEKLY // Reset every 7 days
+  MONTHLY // Reset at month start
+  SPECIAL // One-time promotional, no reset
+}
+
+// Mission Rarity - visual distinction and difficulty
+enum MissionRarity {
+  COMMON // Gray border, easy missions
+  UNCOMMON // Green border, medium difficulty
+  RARE // Blue border, harder missions
+  EPIC // Purple border, challenging
+  LEGENDARY // Gold gradient border, very hard
+}
+
+// Mission Category - groups missions by merchant value
+enum MissionCategory {
+  SHOPPING // Purchase missions (direct revenue)
+  DISCOVERY // Try new products (basket expansion)
+  SOCIAL // Referrals, reviews (acquisition/UGC)
+  STREAK // Consecutive activity (retention)
+  CHALLENGE // One-time achievements
+}
+
+// Mission Completion Event Type - for animation triggers
+enum MissionEventType {
+  COMPLETE // Mission objective met
+  CLAIM // Reward claimed
+  MILESTONE // Progress milestone hit
+  STREAK // Streak milestone reached
+  COMBO // Combo bonus triggered
+  LEVEL_UP // Customer leveled up
 }
 
 // ============================================

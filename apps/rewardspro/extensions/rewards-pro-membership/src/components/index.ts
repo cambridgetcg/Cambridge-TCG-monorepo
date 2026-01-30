@@ -11,6 +11,7 @@ export { PointsTransactions, type PointsTransactionInfo } from './PointsTransact
 export { RafflesTab } from './RafflesTab';
 export { MysteryBoxesTab } from './MysteryBoxesTab';
 export { ChallengesTab } from './ChallengesTab';
+export { MissionsTab } from './MissionsTab';
 
 // Shared Components
 export {
