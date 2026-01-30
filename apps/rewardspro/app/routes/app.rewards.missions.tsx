@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, useNavigate } from "@remix-run/react";
 import { useState, useEffect, useCallback } from "react";
 import {
   Page,
@@ -438,6 +438,7 @@ export default function MissionsPage() {
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
+  const navigate = useNavigate();
   const isSubmitting = navigation.state === "submitting";
 
   const [selectedTab, setSelectedTab] = useState(0);
@@ -554,7 +555,7 @@ export default function MissionsPage() {
         backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Create Mission",
-          url: "/app/rewards/missions/new",
+          onAction: () => navigate("/app/rewards/missions/new"),
         }}
         secondaryActions={[
           {
@@ -637,7 +638,7 @@ export default function MissionsPage() {
                       image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                       action={{
                         content: "Create Mission",
-                        url: "/app/rewards/missions/new",
+                        onAction: () => navigate("/app/rewards/missions/new"),
                       }}
                     >
                       <p>
