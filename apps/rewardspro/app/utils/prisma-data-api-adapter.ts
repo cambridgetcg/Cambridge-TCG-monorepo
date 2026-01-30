@@ -1844,6 +1844,15 @@ export function createDataAPIPrismaClient() {
           mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", txAuroraClient),
           mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", txAuroraClient),
 
+          // Challenge/Mission System
+          challenge: new DataAPIModelProxy("Challenge", txAuroraClient),
+          challengeReward: new DataAPIModelProxy("ChallengeReward", txAuroraClient),
+          challengeParticipant: new DataAPIModelProxy("ChallengeParticipant", txAuroraClient),
+          challengeProgressLog: new DataAPIModelProxy("ChallengeProgressLog", txAuroraClient),
+          missionTemplate: new DataAPIModelProxy("MissionTemplate", txAuroraClient),
+          customerMissionStats: new DataAPIModelProxy("CustomerMissionStats", txAuroraClient),
+          missionCompletionEvent: new DataAPIModelProxy("MissionCompletionEvent", txAuroraClient),
+
           // Third-Party Integration System
           integration: new DataAPIModelProxy("Integration", txAuroraClient),
           integrationEvent: new DataAPIModelProxy("IntegrationEvent", txAuroraClient),
@@ -2077,6 +2086,15 @@ export function createDataAPIPrismaClient() {
     mysteryBoxReward: new DataAPIModelProxy("MysteryBoxReward", client),
     mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", client),
     mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", client),
+
+    // Challenge/Mission System
+    challenge: new DataAPIModelProxy("Challenge", client),
+    challengeReward: new DataAPIModelProxy("ChallengeReward", client),
+    challengeParticipant: new DataAPIModelProxy("ChallengeParticipant", client),
+    challengeProgressLog: new DataAPIModelProxy("ChallengeProgressLog", client),
+    missionTemplate: new DataAPIModelProxy("MissionTemplate", client),
+    customerMissionStats: new DataAPIModelProxy("CustomerMissionStats", client),
+    missionCompletionEvent: new DataAPIModelProxy("MissionCompletionEvent", client),
 
     // Third-Party Integration System
     integration: new DataAPIModelProxy("Integration", client),
