@@ -299,7 +299,7 @@ class FeatureRegistry {
         const config = await db.pointsConfig.findUnique({ where: { shop } });
         return config?.challengesEnabled ?? false;
       },
-      routes: { admin: '/app/rewards/challenges', storefront: '/challenges' },
+      routes: { admin: '/app/rewards/missions', storefront: '/challenges' },
       hooks: ['challenge.joined', 'challenge.progress', 'challenge.completed', 'challenge.claimed'],
     });
 

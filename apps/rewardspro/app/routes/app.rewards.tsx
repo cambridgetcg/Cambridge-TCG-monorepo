@@ -9,7 +9,7 @@ import { ChartVerticalIcon, GiftCardIcon, PackageIcon, TargetIcon } from "@shopi
  * - Overview (points dashboard)
  * - Raffles (raffle management)
  * - Mystery Boxes (mystery box management)
- * - Challenges (challenge system)
+ * - Missions (challenge/mission system)
  *
  * Uses pathless layout pattern - this file renders the secondary nav
  * and an Outlet for child routes.
@@ -19,7 +19,7 @@ export default function RewardsLayout() {
     { label: "Overview", to: "/app/rewards", icon: ChartVerticalIcon },
     { label: "Raffles", to: "/app/rewards/raffles", icon: GiftCardIcon },
     { label: "Mystery Boxes", to: "/app/rewards/mystery-boxes", icon: PackageIcon },
-    { label: "Challenges", to: "/app/rewards/challenges", icon: TargetIcon },
+    { label: "Missions", to: "/app/rewards/missions", icon: TargetIcon },
   ];
 
   return (

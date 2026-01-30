@@ -705,7 +705,7 @@ export default function PointsOverview() {
                             <Badge size="small">Purchase Counts</Badge>
                             <Badge size="small">Streaks</Badge>
                           </InlineStack>
-                          <Button url="/app/rewards/challenges" size="slim">
+                          <Button url="/app/rewards/missions" size="slim">
                             View Challenges
                           </Button>
                         </BlockStack>
@@ -741,11 +741,11 @@ export default function PointsOverview() {
                             </Grid.Cell>
                           </Grid>
                           <InlineStack gap="200">
-                            <Button url="/app/rewards/challenges" size="slim">
+                            <Button url="/app/rewards/missions" size="slim">
                               Manage Challenges
                             </Button>
                             {moduleStats.challenges.activeChallenges === 0 && (
-                              <Button url="/app/rewards/challenges" size="slim" variant="primary">
+                              <Button url="/app/rewards/missions" size="slim" variant="primary">
                                 Create Challenge
                               </Button>
                             )}
