@@ -928,3 +928,284 @@ export function LimitAwareButton({
     </InlineStack>
   );
 }
+
+// ============================================
+// LIMIT EXCEEDED MODAL
+// ============================================
+
+import { Modal } from '@shopify/polaris';
+
+export interface LimitExceededModalProps {
+  /** Whether the modal is open */
+  open: boolean;
+  /** Close handler */
+  onClose: () => void;
+  /** Resource that was limited */
+  resource: string;
+  /** Current count */
+  current: number;
+  /** Maximum limit for current plan */
+  limit: number;
+  /** Current plan name */
+  currentPlan?: string;
+  /** Action that was attempted */
+  action?: string;
+  /** Custom title */
+  title?: string;
+}
+
+// Plan upgrade incentives - what each upgrade offers
+// Prices from app/constants/billing.constants.ts
+// Limits from PLAN_COMPARISON in same file
+const UPGRADE_INCENTIVES: Record<string, {
+  name: string;
+  price: string;
+  incentives: {
+    mysteryBoxes: number;
+    raffles: number;
+    challenges: number;
+    campaigns: number;
+    automationFlows: number;
+  };
+  highlight: string;
+}> = {
+  pro: {
+    name: 'Pro',
+    price: '$39/mo',
+    incentives: {
+      mysteryBoxes: 2,
+      raffles: 3,
+      challenges: 5,
+      campaigns: 5,
+      automationFlows: 5,
+    },
+    highlight: 'Perfect for growing stores',
+  },
+  max: {
+    name: 'Max',
+    price: '$149/mo',
+    incentives: {
+      mysteryBoxes: 5,
+      raffles: 10,
+      challenges: 15,
+      campaigns: 25,
+      automationFlows: 20,
+    },
+    highlight: 'Best for scaling businesses',
+  },
+  ultra: {
+    name: 'Ultra',
+    price: '$499/mo',
+    incentives: {
+      mysteryBoxes: 999999,
+      raffles: 999999,
+      challenges: 999999,
+      campaigns: 999999,
+      automationFlows: 999999,
+    },
+    highlight: 'Unlimited everything',
+  },
+};
+
+// Map resource names to incentive keys
+const RESOURCE_TO_INCENTIVE_KEY: Record<string, keyof typeof UPGRADE_INCENTIVES['pro']['incentives']> = {
+  'mystery box': 'mysteryBoxes',
+  'mystery boxes': 'mysteryBoxes',
+  'active mystery box': 'mysteryBoxes',
+  'active mystery boxes': 'mysteryBoxes',
+  'raffle': 'raffles',
+  'raffles': 'raffles',
+  'active raffle': 'raffles',
+  'active raffles': 'raffles',
+  'challenge': 'challenges',
+  'challenges': 'challenges',
+  'active challenge': 'challenges',
+  'active challenges': 'challenges',
+  'campaign': 'campaigns',
+  'campaigns': 'campaigns',
+  'automation flow': 'automationFlows',
+  'automation flows': 'automationFlows',
+  'automation': 'automationFlows',
+};
+
+/**
+ * LimitExceededModal - Shows when user hits a rate limit during an action
+ *
+ * Provides clear messaging about what happened and incentives to upgrade.
+ * Designed to convert limit encounters into upgrade opportunities.
+ */
+export function LimitExceededModal({
+  open,
+  onClose,
+  resource,
+  current,
+  limit,
+  currentPlan = 'Free',
+  action = 'create',
+  title,
+}: LimitExceededModalProps) {
+  const navigate = useNavigate();
+  const currentTier = getPlanTier(currentPlan);
+
+  // Determine the upgrade path
+  const getNextTier = (): 'pro' | 'max' | 'ultra' => {
+    if (currentTier === 'free') return 'pro';
+    if (currentTier === 'pro') return 'max';
+    return 'ultra';
+  };
+
+  const nextTier = getNextTier();
+  const upgradeInfo = UPGRADE_INCENTIVES[nextTier];
+
+  // Get the specific incentive for this resource
+  const resourceKey = RESOURCE_TO_INCENTIVE_KEY[resource.toLowerCase()] || 'mysteryBoxes';
+  const nextTierLimit = upgradeInfo.incentives[resourceKey];
+
+  // Format the limit for display
+  const formatLimit = (n: number) => n >= 999999 ? 'Unlimited' : n.toString();
+
+  const handleUpgrade = () => {
+    navigate('/app/billing');
+    onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title || `${resource.charAt(0).toUpperCase() + resource.slice(1)} Limit Reached`}
+      primaryAction={{
+        content: `Upgrade to ${upgradeInfo.name}`,
+        onAction: handleUpgrade,
+      }}
+      secondaryActions={[
+        {
+          content: 'Maybe Later',
+          onAction: onClose,
+        },
+      ]}
+    >
+      <Modal.Section>
+        <BlockStack gap="400">
+          {/* Current status */}
+          <Box
+            padding="400"
+            background="bg-surface-critical-subdued"
+            borderRadius="200"
+          >
+            <BlockStack gap="200">
+              <InlineStack gap="200" blockAlign="center">
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Text as="span" variant="headingLg">🚫</Text>
+                </div>
+                <BlockStack gap="050">
+                  <Text variant="headingMd" as="h3">
+                    You've used all {limit} {resource}{limit !== 1 ? 's' : ''} on your plan
+                  </Text>
+                  <Text variant="bodySm" tone="subdued" as="p">
+                    Your {currentPlan} plan includes {limit} {resource}{limit !== 1 ? 's' : ''}.
+                    Upgrade to {action} more.
+                  </Text>
+                </BlockStack>
+              </InlineStack>
+            </BlockStack>
+          </Box>
+
+          {/* Upgrade incentive */}
+          <Box
+            padding="400"
+            background="bg-surface-success-subdued"
+            borderRadius="200"
+          >
+            <BlockStack gap="300">
+              <InlineStack align="space-between" blockAlign="center">
+                <InlineStack gap="200" blockAlign="center">
+                  <Badge tone="success">{upgradeInfo.name}</Badge>
+                  <Text variant="headingMd" as="h3">
+                    Get {formatLimit(nextTierLimit)} {resource}{nextTierLimit !== 1 ? 's' : ''}
+                  </Text>
+                </InlineStack>
+                <Text variant="bodyMd" fontWeight="semibold" as="span">
+                  {upgradeInfo.price}
+                </Text>
+              </InlineStack>
+
+              <Text variant="bodySm" tone="success" as="p">
+                {upgradeInfo.highlight}
+              </Text>
+
+              {/* All incentives for this tier */}
+              <Box paddingBlockStart="200">
+                <Text variant="bodySm" fontWeight="semibold" as="p">
+                  What's included in {upgradeInfo.name}:
+                </Text>
+                <Box paddingBlockStart="200">
+                  <InlineStack gap="200" wrap>
+                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.mysteryBoxes)} Mystery Boxes</Badge>
+                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.raffles)} Raffles</Badge>
+                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.challenges)} Challenges</Badge>
+                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.campaigns)} Campaigns</Badge>
+                  </InlineStack>
+                </Box>
+              </Box>
+            </BlockStack>
+          </Box>
+
+          {/* Social proof / urgency */}
+          <Box
+            padding="300"
+            background="bg-surface-secondary"
+            borderRadius="200"
+          >
+            <InlineStack gap="200" blockAlign="center">
+              <Text as="span" variant="headingLg">💡</Text>
+              <Text variant="bodySm" as="p">
+                <strong>Pro tip:</strong> Stores using multiple gamification features see
+                <strong> 2.3x higher customer retention</strong> on average.
+              </Text>
+            </InlineStack>
+          </Box>
+        </BlockStack>
+      </Modal.Section>
+    </Modal>
+  );
+}
+
+// ============================================
+// LIMIT EXCEEDED TOAST WITH UPGRADE LINK
+// ============================================
+
+export interface LimitExceededToastInfo {
+  /** Resource that was limited */
+  resource: string;
+  /** Current count */
+  current: number;
+  /** Maximum limit */
+  limit: number;
+  /** Current plan */
+  currentPlan: string;
+}
+
+/**
+ * Helper to get toast content for limit exceeded errors
+ */
+export function getLimitExceededToastContent(info: LimitExceededToastInfo): {
+  content: string;
+  action?: { content: string; url: string };
+} {
+  return {
+    content: `${info.resource.charAt(0).toUpperCase() + info.resource.slice(1)} limit reached (${info.current}/${info.limit})`,
+    action: {
+      content: 'Upgrade',
+      url: '/app/billing',
+    },
+  };
+}
