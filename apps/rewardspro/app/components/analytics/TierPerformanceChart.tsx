@@ -431,7 +431,7 @@ export const TierPerformanceChart = memo(function TierPerformanceChart({
   formatAmount,
 }: TierPerformanceChartProps) {
   const [highlightedTier, setHighlightedTier] = useState<number | null>(null);
-  const [selectedTab, setSelectedTab] = useState(0);
+  const [selectedTab, setSelectedTab] = useState(1); // Default to Quick Compare tab
   const [selectedMetrics] = useState<MetricKey[]>(['ltv', 'aov', 'retention']);
 
   const tabs = [

@@ -16,12 +16,19 @@ import { json } from "@remix-run/node";
 import db from "../db.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
+import {
+  sendTierExpirationWarningEmail,
+  sendTierExpiredEmail,
+} from "../services/email-notifications.server";
 import * as crypto from "crypto";
 import { Decimal } from "decimal.js";
 
 // Configuration
 const DOWNGRADE_GRACE_PERIOD_DAYS = 30;
 const DOWNGRADE_WARNING_DAYS = 7;
+
+// Tier purchase expiration warning configuration
+const EXPIRATION_WARNING_DAYS = [7, 1]; // Send warnings at 7 days and 1 day before expiry
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -79,6 +86,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const results = {
     expiredMemberships: 0,
+    expirationWarnings: 0,
     downgradeWarnings: 0,
     downgrades: 0,
     errors: 0,
@@ -179,9 +187,137 @@ export async function loader({ request }: LoaderFunctionArgs) {
         });
 
         log('info', `Processed expired purchase for customer ${purchase.customerId}`);
+
+        // Send expiration notification email
+        if (!isDryRun && purchase.customer?.email) {
+          try {
+            await sendTierExpiredEmail(purchase.shop, {
+              customerId: purchase.customerId,
+              email: purchase.customer.email,
+              firstName: purchase.customer.firstName,
+              expiredTierName: purchase.tier?.name || 'Premium',
+              newTierName: null, // Will be resolved by tier resolution
+            });
+          } catch (emailError: any) {
+            log('warn', `Failed to send expiration email for ${purchase.customerId}`, { error: emailError.message });
+          }
+        }
       } catch (error: any) {
         log('error', `Failed to process purchase ${purchase.id}`, { error: error.message });
         results.errors++;
+      }
+    }
+
+    // 4.5. Send expiration warning emails for upcoming expirations
+    for (const warningDays of EXPIRATION_WARNING_DAYS) {
+      const warningDate = new Date();
+      warningDate.setDate(warningDate.getDate() + warningDays);
+      const warningDateStart = new Date(warningDate);
+      warningDateStart.setHours(0, 0, 0, 0);
+      const warningDateEnd = new Date(warningDate);
+      warningDateEnd.setHours(23, 59, 59, 999);
+
+      // Find purchases expiring on this warning date that haven't been warned
+      const expiringPurchases = await db.tierPurchase.findMany({
+        where: {
+          status: 'ACTIVE',
+          endDate: {
+            gte: warningDateStart,
+            lte: warningDateEnd
+          }
+        },
+        include: {
+          customer: true,
+          tier: true,
+          tierProduct: true
+        }
+      });
+
+      log('info', `Found ${expiringPurchases.length} tier purchases expiring in ${warningDays} day(s)`);
+
+      for (const purchase of expiringPurchases) {
+        try {
+          // Check if we've already sent this warning level
+          const warningKey = `EXPIRATION_WARNING_${warningDays}D`;
+          const existingWarning = await db.emailEvent.findFirst({
+            where: {
+              shop: purchase.shop,
+              eventType: 'TIER_EXPIRATION_WARNING',
+              customerEmail: purchase.customer?.email || '',
+              metadata: {
+                path: '$.daysUntilExpiry',
+                equals: warningDays
+              },
+              createdAt: {
+                gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Within last 24 hours
+              }
+            }
+          });
+
+          if (existingWarning) {
+            log('info', `Already sent ${warningDays}-day warning to ${purchase.customer?.email}, skipping`);
+            continue;
+          }
+
+          if (!isDryRun && purchase.customer?.email && purchase.tier) {
+            // Get tier benefits for the email
+            const tierBenefits: string[] = [];
+            if (purchase.tier.cashbackPercent > 0) {
+              tierBenefits.push(`${purchase.tier.cashbackPercent}% cashback on purchases`);
+            }
+            if (purchase.tier.pointsMultiplier && purchase.tier.pointsMultiplier > 1) {
+              tierBenefits.push(`${purchase.tier.pointsMultiplier}x points multiplier`);
+            }
+            if (purchase.tier.benefits) {
+              const benefits = typeof purchase.tier.benefits === 'string'
+                ? JSON.parse(purchase.tier.benefits)
+                : purchase.tier.benefits;
+              if (Array.isArray(benefits)) {
+                tierBenefits.push(...benefits.slice(0, 3)); // Add up to 3 custom benefits
+              }
+            }
+
+            const emailResult = await sendTierExpirationWarningEmail(purchase.shop, {
+              customerId: purchase.customerId,
+              email: purchase.customer.email,
+              firstName: purchase.customer.firstName,
+              tierName: purchase.tier.name,
+              tierBenefits,
+              daysUntilExpiry: warningDays,
+              expirationDate: purchase.endDate!,
+              // Could add renewal URL if tier product is still active
+              renewalUrl: purchase.tierProduct?.isActive
+                ? `https://${purchase.shop.replace('.myshopify.com', '')}.myshopify.com/products/${purchase.tierProduct.productHandle}`
+                : undefined
+            });
+
+            if (emailResult.success && !emailResult.skipped) {
+              results.expirationWarnings++;
+              results.details.push({
+                type: 'expiration_warning',
+                customerId: purchase.customerId,
+                tierName: purchase.tier.name,
+                daysUntilExpiry: warningDays,
+                shop: purchase.shop
+              });
+
+              log('info', `Sent ${warningDays}-day expiration warning to ${purchase.customer.email}`);
+            }
+          } else if (isDryRun && purchase.customer?.email) {
+            results.expirationWarnings++;
+            results.details.push({
+              type: 'expiration_warning',
+              customerId: purchase.customerId,
+              tierName: purchase.tier?.name,
+              daysUntilExpiry: warningDays,
+              shop: purchase.shop,
+              dryRun: true
+            });
+          }
+        } catch (error: any) {
+          log('error', `Failed to send expiration warning for purchase ${purchase.id}`, { error: error.message });
+          results.errors++;
+        }
       }
     }
 
@@ -361,6 +497,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // 7. Log summary
     const summary = {
       expiredMemberships: results.expiredMemberships,
+      expirationWarnings: results.expirationWarnings,
       downgradeWarnings: results.downgradeWarnings,
       downgrades: results.downgrades,
       consistencyRepairs,

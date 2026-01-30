@@ -21,6 +21,11 @@ import {
   type CreateGiftCardInput,
 } from "./shopify-gift-card.adapter";
 import type { GiftCardBundleType, GiftCardStatus } from "@prisma/client";
+import {
+  trackGiftCardPurchased,
+  trackStoreCreditConverted,
+} from "~/services/klaviyo-events.server";
+import { isKlaviyoEnabled } from "~/services/klaviyo.server";
 
 const logger = createLogger("GiftCardService");
 
@@ -295,6 +300,35 @@ export class GiftCardService {
         totalValue,
         bonusValue,
       });
+
+      // Dispatch Klaviyo event for marketing automation (non-blocking)
+      (async () => {
+        try {
+          if (await isKlaviyoEnabled(input.shop)) {
+            if (input.purchaserInternalId) {
+              const purchaser = await db.customer.findUnique({
+                where: { id: input.purchaserInternalId },
+                include: { currentTier: true },
+              });
+
+              if (purchaser?.email) {
+                await trackGiftCardPurchased(input.shop, purchaser, {
+                  id: issuedGiftCard.id,
+                  code: `****${result.lastFourDigits || "****"}`,
+                  initialAmount: totalValue,
+                  recipientEmail: input.recipient?.email,
+                  recipientName: input.recipient?.name,
+                  message: input.recipient?.message,
+                  tierBranded: !!templateSuffix,
+                  tierName: purchaserTierName,
+                });
+              }
+            }
+          }
+        } catch (klaviyoError) {
+          serviceLogger.error("Failed to track Klaviyo gift card event (non-fatal)", klaviyoError);
+        }
+      })();
 
       return {
         success: true,
@@ -599,6 +633,32 @@ export class GiftCardService {
         issuedGiftCardId: issuedGiftCard.id,
         amount: input.amount,
       });
+
+      // Dispatch Klaviyo event for marketing automation (non-blocking)
+      (async () => {
+        try {
+          if (await isKlaviyoEnabled(input.shop)) {
+            const customer = await db.customer.findUnique({
+              where: { id: input.customerId },
+              include: { currentTier: true },
+            });
+
+            if (customer?.email) {
+              const newCreditBalance = Number(customer.storeCredit) - input.amount;
+              await trackStoreCreditConverted(input.shop, customer, {
+                creditAmount: input.amount,
+                giftCardCode: `****${giftCardResult.lastFourDigits || "****"}`,
+                giftCardId: issuedGiftCard.id,
+                bonusAmount: 0, // No bonus for conversion
+                tierBonus: false,
+                newCreditBalance: newCreditBalance < 0 ? 0 : newCreditBalance,
+              });
+            }
+          }
+        } catch (klaviyoError) {
+          serviceLogger.error("Failed to track Klaviyo conversion event (non-fatal)", klaviyoError);
+        }
+      })();
 
       return {
         success: true,

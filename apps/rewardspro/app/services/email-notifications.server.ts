@@ -733,3 +733,286 @@ export async function sendStreakMilestoneEmail(
     return { success: false, error: error.message };
   }
 }
+
+// ============================================
+// TIER PURCHASE EXPIRATION EMAILS
+// ============================================
+
+/**
+ * Tier purchase expiration warning data
+ */
+interface TierExpirationWarningEmailData {
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  tierName: string;
+  tierBenefits: string[];
+  daysUntilExpiry: number;
+  expirationDate: Date;
+  renewalUrl?: string;
+}
+
+/**
+ * Send email warning about tier purchase expiring soon
+ * Called from tier-maintenance cron job
+ *
+ * @param shop - Shop domain
+ * @param data - Expiration warning data
+ */
+export async function sendTierExpirationWarningEmail(
+  shop: string,
+  data: TierExpirationWarningEmailData
+): Promise<EmailNotificationResult> {
+  console.log(`[EmailNotifications] Attempting to send tier expiration warning to customer ${data.customerId}`);
+
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!data.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  // Check email usage limit (rate-based gating)
+  const usageCheck = await checkEmailLimit(shop, 1);
+  if (!usageCheck.allowed) {
+    console.log(`[EmailNotifications] Email limit reached for shop ${shop}: ${usageCheck.message}`);
+    return { success: true, skipped: true, reason: usageCheck.message };
+  }
+
+  try {
+    const storeName = await getShopName(shop);
+    const customerName = data.firstName || "Valued Customer";
+
+    const expiryDate = data.expirationDate.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const urgencyColor = data.daysUntilExpiry <= 3 ? "#e74c3c" : "#f39c12";
+    const urgencyText = data.daysUntilExpiry === 1 ? "tomorrow" : `in ${data.daysUntilExpiry} days`;
+
+    // Build benefits list HTML
+    const benefitsHtml = data.tierBenefits.length > 0
+      ? `
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Benefits you'll lose:</p>
+          <ul style="margin: 0; padding-left: 20px; color: #666;">
+            ${data.tierBenefits.map(b => `<li style="margin: 5px 0;">${b}</li>`).join('')}
+          </ul>
+        </div>
+      `
+      : '';
+
+    const subject = `⚠️ Your ${data.tierName} membership expires ${urgencyText}`;
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: ${urgencyColor};">Don't lose your ${data.tierName} benefits, ${customerName}!</h2>
+
+        <div style="background-color: ${urgencyColor}; padding: 25px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Membership Expiring</p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 28px; font-weight: bold;">
+            ${data.tierName}
+          </p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 18px;">
+            ${urgencyText} • ${expiryDate}
+          </p>
+        </div>
+
+        <p style="font-size: 16px; color: #666; line-height: 1.6;">
+          Your ${data.tierName} membership is about to expire. Act now to keep enjoying your exclusive benefits!
+        </p>
+
+        ${benefitsHtml}
+
+        ${data.renewalUrl ? `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${data.renewalUrl}" style="background-color: ${urgencyColor}; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+            Renew My Membership
+          </a>
+        </div>
+        ` : ''}
+
+        <p style="color: #999; font-size: 12px; text-align: center; margin-top: 30px;">
+          Questions? Reply to this email or contact our support team.
+          <br>- The ${storeName} Team
+        </p>
+      </div>
+    `;
+
+    const result = await sendgrid.sendTransactionalEmail(shop, {
+      to: data.email,
+      subject,
+      html: htmlContent,
+    });
+
+    if (result.success) {
+      console.log(`[EmailNotifications] ✅ Tier expiration warning email sent to ${data.email}`);
+
+      // Record email sent for usage tracking
+      await recordEmailSent(shop, 1, "transactional");
+
+      // Log email event
+      try {
+        await db.emailEvent.create({
+          data: {
+            id: crypto.randomUUID(),
+            shop,
+            eventType: "TIER_EXPIRATION_WARNING",
+            customerEmail: data.email,
+            metadata: {
+              customerId: data.customerId,
+              tierName: data.tierName,
+              daysUntilExpiry: data.daysUntilExpiry,
+              expirationDate: data.expirationDate.toISOString(),
+              status: "SENT",
+            },
+            createdAt: new Date(),
+          },
+        });
+      } catch (e) {
+        console.log(`[EmailNotifications] Could not log email event`);
+      }
+
+      return { success: true };
+    } else {
+      if (result.error?.includes("Maximum credits exceeded")) {
+        console.error(`[EmailNotifications] ⚠️ ALERT: SendGrid credits exhausted!`);
+      }
+      console.error(`[EmailNotifications] ❌ Failed to send tier expiration warning: ${result.error}`);
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending tier expiration warning email:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Tier expired notification data
+ */
+interface TierExpiredEmailData {
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  expiredTierName: string;
+  newTierName: string | null;
+  renewalUrl?: string;
+}
+
+/**
+ * Send email notifying customer their tier has expired
+ * Called from tier-maintenance cron job after expiration
+ *
+ * @param shop - Shop domain
+ * @param data - Expiration notification data
+ */
+export async function sendTierExpiredEmail(
+  shop: string,
+  data: TierExpiredEmailData
+): Promise<EmailNotificationResult> {
+  console.log(`[EmailNotifications] Attempting to send tier expired notification to customer ${data.customerId}`);
+
+  if (!(await isEmailEnabled(shop))) {
+    return { success: true, skipped: true, reason: "Email not enabled" };
+  }
+
+  if (!data.email) {
+    return { success: true, skipped: true, reason: "No email address" };
+  }
+
+  // Check email usage limit (rate-based gating)
+  const usageCheck = await checkEmailLimit(shop, 1);
+  if (!usageCheck.allowed) {
+    console.log(`[EmailNotifications] Email limit reached for shop ${shop}: ${usageCheck.message}`);
+    return { success: true, skipped: true, reason: usageCheck.message };
+  }
+
+  try {
+    const storeName = await getShopName(shop);
+    const customerName = data.firstName || "Valued Customer";
+
+    const newTierText = data.newTierName
+      ? `You've been moved to <strong>${data.newTierName}</strong> tier.`
+      : `Your tier membership has been removed.`;
+
+    const subject = `Your ${data.expiredTierName} membership has expired`;
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #666;">We miss you, ${customerName}!</h2>
+
+        <div style="background-color: #95a5a6; padding: 25px; border-radius: 10px; text-align: center; margin: 20px 0;">
+          <p style="color: white; margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Membership Expired</p>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 28px; font-weight: bold;">
+            ${data.expiredTierName}
+          </p>
+        </div>
+
+        <p style="font-size: 16px; color: #666; line-height: 1.6;">
+          Your ${data.expiredTierName} membership has expired. ${newTierText}
+        </p>
+
+        <p style="font-size: 16px; color: #666; line-height: 1.6;">
+          Don't worry - you can renew anytime to get back your exclusive benefits!
+        </p>
+
+        ${data.renewalUrl ? `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${data.renewalUrl}" style="background-color: #3498db; color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+            Renew My Membership
+          </a>
+        </div>
+        ` : ''}
+
+        <p style="color: #999; font-size: 12px; text-align: center; margin-top: 30px;">
+          - The ${storeName} Team
+        </p>
+      </div>
+    `;
+
+    const result = await sendgrid.sendTransactionalEmail(shop, {
+      to: data.email,
+      subject,
+      html: htmlContent,
+    });
+
+    if (result.success) {
+      console.log(`[EmailNotifications] ✅ Tier expired email sent to ${data.email}`);
+
+      // Record email sent for usage tracking
+      await recordEmailSent(shop, 1, "transactional");
+
+      // Log email event
+      try {
+        await db.emailEvent.create({
+          data: {
+            id: crypto.randomUUID(),
+            shop,
+            eventType: "TIER_EXPIRED",
+            customerEmail: data.email,
+            metadata: {
+              customerId: data.customerId,
+              expiredTierName: data.expiredTierName,
+              newTierName: data.newTierName,
+              status: "SENT",
+            },
+            createdAt: new Date(),
+          },
+        });
+      } catch (e) {
+        console.log(`[EmailNotifications] Could not log email event`);
+      }
+
+      return { success: true };
+    } else {
+      console.error(`[EmailNotifications] ❌ Failed to send tier expired email: ${result.error}`);
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error(`[EmailNotifications] ❌ Error sending tier expired email:`, error);
+    return { success: false, error: error.message };
+  }
+}

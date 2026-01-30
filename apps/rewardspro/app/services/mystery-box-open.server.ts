@@ -12,7 +12,19 @@ import db from "../db.server";
 import { spendPoints, earnPoints, getPointsBalance } from "./points-ledger.server";
 import { checkMysteryBoxEligibility } from "./mystery-box-management.server";
 import { trackMysteryBoxOpened, trackMysteryBoxWon, trackPointsSpent } from "./klaviyo-events.server";
-import type { MysteryBoxReward, MysteryBoxOpen, MysteryBoxWinner } from "@prisma/client";
+import {
+  processPsychologyOnOpen,
+  calculateNearMiss,
+  processFreeOpen,
+  type PsychologyContext,
+  type BoxOpenResult,
+  type CelebrationEvent,
+  type NearMissInfo,
+  type PsychologyBonuses,
+} from "./mystery-box-psychology.server";
+import { getPityInfo, calculatePityMinimumRarity } from "./mystery-box-streak.server";
+import { calculateDiscountedCost, getBestBonusEvent } from "./mystery-box-bonus-events.server";
+import type { MysteryBoxReward, MysteryBoxOpen, MysteryBoxWinner, MysteryBoxRarity } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxOpen]";
 
@@ -66,6 +78,35 @@ export interface OpenHistoryEntry {
   pointsSpent: number;
   openedAt: Date;
   deliveryStatus: string;
+}
+
+// Enhanced result with psychology data
+export interface EnhancedOpenResult {
+  success: boolean;
+  error?: string;
+  openId?: string;
+  winnerId?: string;
+  reward?: {
+    id: string;
+    name: string;
+    type: string;
+    rarity: string;
+    value: Record<string, unknown>;
+    actualValue?: number; // After bonuses applied
+  };
+  pointsSpent: number;
+  originalCost: number;
+  discountApplied: number;
+  newBalance: number;
+  bonuses: PsychologyBonuses;
+  nearMiss: NearMissInfo | null;
+  pityProgress: {
+    current: number;
+    threshold: number;
+    message: string;
+  };
+  celebrations: CelebrationEvent[];
+  isFreeOpen: boolean;
 }
 
 // ============================================
@@ -521,4 +562,463 @@ export async function getRecentWinners(
     deliveryStatus: w.deliveryStatus,
     openedAt: w.open.openedAt,
   }));
+}
+
+// ============================================
+// PSYCHOLOGY-ENHANCED OPENING
+// ============================================
+
+const RARITY_ORDER: MysteryBoxRarity[] = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"];
+
+/**
+ * Select reward with pity system override
+ * If pity is triggered, force selection of minimum rarity
+ */
+export function selectRewardWithPity(
+  rewards: MysteryBoxReward[],
+  minimumRarity: "COMMON" | "UNCOMMON" | "RARE"
+): { reward: MysteryBoxReward | null; randomValue: number } {
+  // Filter available rewards
+  const available = rewards.filter(
+    (r) => r.quantity === null || r.quantityWon < r.quantity
+  );
+
+  if (available.length === 0) {
+    return { reward: null, randomValue: 0 };
+  }
+
+  // If pity triggered, filter to minimum rarity or above
+  const minRarityIndex = RARITY_ORDER.indexOf(minimumRarity);
+  const eligibleRewards =
+    minimumRarity === "COMMON"
+      ? available
+      : available.filter(
+          (r) => RARITY_ORDER.indexOf(r.rarity as MysteryBoxRarity) >= minRarityIndex
+        );
+
+  // If no eligible rewards after pity filter, fall back to all available
+  const selectionPool = eligibleRewards.length > 0 ? eligibleRewards : available;
+
+  // Calculate total probability
+  const totalProbability = selectionPool.reduce(
+    (sum, r) => sum + Number(r.probability),
+    0
+  );
+
+  if (totalProbability <= 0) {
+    const randomIndex = Math.floor(Math.random() * selectionPool.length);
+    return { reward: selectionPool[randomIndex], randomValue: Math.random() };
+  }
+
+  // Generate random value
+  const randomValue = Math.random();
+  const scaledRandom = randomValue * totalProbability;
+
+  // CDF selection
+  let cumulative = 0;
+  for (const reward of selectionPool) {
+    cumulative += Number(reward.probability);
+    if (scaledRandom <= cumulative) {
+      return { reward, randomValue };
+    }
+  }
+
+  return { reward: selectionPool[selectionPool.length - 1], randomValue };
+}
+
+/**
+ * Open a mystery box with psychology features
+ *
+ * Enhanced process:
+ * 1. Check if this is a free open
+ * 2. Apply bonus event discounts
+ * 3. Check pity system for guaranteed rarity
+ * 4. Select reward with pity override
+ * 5. Calculate near-miss for psychology effect
+ * 6. Process psychology (streaks, activity feed, celebrations)
+ * 7. Apply bonus multipliers to reward value
+ */
+export async function openMysteryBoxEnhanced(input: {
+  shop: string;
+  customerId: string;
+  boxId: string;
+  isFreeOpen?: boolean;
+}): Promise<EnhancedOpenResult> {
+  const { shop, customerId, boxId, isFreeOpen = false } = input;
+
+  console.log(
+    `${LOG_PREFIX} openMysteryBoxEnhanced: customer=${customerId}, box=${boxId}, free=${isFreeOpen}`
+  );
+
+  try {
+    // 1. Get the box with rewards and customer
+    const [box, customer] = await Promise.all([
+      db.mysteryBox.findFirst({
+        where: { id: boxId, shop },
+        include: {
+          rewards: {
+            orderBy: { position: "asc" },
+          },
+        },
+      }),
+      db.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true, firstName: true, lastName: true, email: true },
+      }),
+    ]);
+
+    if (!box) {
+      return {
+        success: false,
+        error: "Mystery box not found",
+        pointsSpent: 0,
+        originalCost: 0,
+        discountApplied: 0,
+        newBalance: 0,
+        bonuses: {
+          streak: { applied: false, multiplier: 1, days: 0 },
+          luckyStreak: { applied: false, multiplier: 1, count: 0 },
+          event: null,
+          totalMultiplier: 1,
+        },
+        nearMiss: null,
+        pityProgress: { current: 0, threshold: 10, message: "" },
+        celebrations: [],
+        isFreeOpen,
+      };
+    }
+
+    // 2. Validate box is active and timing is correct
+    if (box.status !== "ACTIVE") {
+      return {
+        success: false,
+        error: "Mystery box is not accepting opens",
+        pointsSpent: 0,
+        originalCost: box.openCost,
+        discountApplied: 0,
+        newBalance: 0,
+        bonuses: {
+          streak: { applied: false, multiplier: 1, days: 0 },
+          luckyStreak: { applied: false, multiplier: 1, count: 0 },
+          event: null,
+          totalMultiplier: 1,
+        },
+        nearMiss: null,
+        pityProgress: { current: 0, threshold: box.pityThreshold, message: "" },
+        celebrations: [],
+        isFreeOpen,
+      };
+    }
+
+    const now = new Date();
+    if (now < box.startsAt || now > box.endsAt) {
+      return {
+        success: false,
+        error: now < box.startsAt ? "Mystery box has not started yet" : "Mystery box has ended",
+        pointsSpent: 0,
+        originalCost: box.openCost,
+        discountApplied: 0,
+        newBalance: 0,
+        bonuses: {
+          streak: { applied: false, multiplier: 1, days: 0 },
+          luckyStreak: { applied: false, multiplier: 1, count: 0 },
+          event: null,
+          totalMultiplier: 1,
+        },
+        nearMiss: null,
+        pityProgress: { current: 0, threshold: box.pityThreshold, message: "" },
+        celebrations: [],
+        isFreeOpen,
+      };
+    }
+
+    // 3. Check customer hasn't exceeded max opens
+    const existingOpens = await db.mysteryBoxOpen.count({
+      where: { boxId, customerId },
+    });
+
+    if (existingOpens >= box.maxOpensPerCustomer) {
+      return {
+        success: false,
+        error: `You can only open this box ${box.maxOpensPerCustomer} times`,
+        pointsSpent: 0,
+        originalCost: box.openCost,
+        discountApplied: 0,
+        newBalance: 0,
+        bonuses: {
+          streak: { applied: false, multiplier: 1, days: 0 },
+          luckyStreak: { applied: false, multiplier: 1, count: 0 },
+          event: null,
+          totalMultiplier: 1,
+        },
+        nearMiss: null,
+        pityProgress: { current: 0, threshold: box.pityThreshold, message: "" },
+        celebrations: [],
+        isFreeOpen,
+      };
+    }
+
+    // 4. Get bonus event and calculate cost
+    const bonusResult = await getBestBonusEvent({ shop, boxId, customerId });
+    const discountedCost = isFreeOpen
+      ? 0
+      : calculateDiscountedCost(box.openCost, bonusResult.discountPercent);
+
+    // 5. Check customer has sufficient points (unless free open)
+    const balance = await getPointsBalance(shop, customerId);
+    if (!isFreeOpen && balance.available < discountedCost) {
+      return {
+        success: false,
+        error: `Insufficient points. Need ${discountedCost}, have ${balance.available}`,
+        pointsSpent: 0,
+        originalCost: box.openCost,
+        discountApplied: box.openCost - discountedCost,
+        newBalance: balance.available,
+        bonuses: {
+          streak: { applied: false, multiplier: 1, days: 0 },
+          luckyStreak: { applied: false, multiplier: 1, count: 0 },
+          event: bonusResult.event
+            ? {
+                applied: true,
+                name: bonusResult.event.name,
+                discount: bonusResult.discountPercent,
+                multiplier: bonusResult.bonusMultiplier,
+              }
+            : null,
+          totalMultiplier: 1,
+        },
+        nearMiss: null,
+        pityProgress: { current: 0, threshold: box.pityThreshold, message: "" },
+        celebrations: [],
+        isFreeOpen,
+      };
+    }
+
+    // 6. Check pity system
+    const pityInfo = await getPityInfo(customerId, box.pityThreshold);
+    const minimumRarity = box.enablePitySystem
+      ? calculatePityMinimumRarity(pityInfo.commonsSinceRare, box.pityThreshold)
+      : "COMMON";
+    const pityTriggered = box.enablePitySystem && pityInfo.willTrigger;
+
+    // 7. Select reward with pity override
+    const { reward, randomValue } = selectRewardWithPity(box.rewards, minimumRarity);
+
+    if (!reward) {
+      return {
+        success: false,
+        error: "No rewards available",
+        pointsSpent: 0,
+        originalCost: box.openCost,
+        discountApplied: 0,
+        newBalance: balance.available,
+        bonuses: {
+          streak: { applied: false, multiplier: 1, days: 0 },
+          luckyStreak: { applied: false, multiplier: 1, count: 0 },
+          event: null,
+          totalMultiplier: 1,
+        },
+        nearMiss: null,
+        pityProgress: { current: pityInfo.commonsSinceRare, threshold: box.pityThreshold, message: "" },
+        celebrations: [],
+        isFreeOpen,
+      };
+    }
+
+    // 8. Calculate near-miss
+    const nearMiss = calculateNearMiss(
+      reward.rarity as MysteryBoxRarity,
+      box.rewards.map((r) => ({
+        id: r.id,
+        name: r.name,
+        rarity: r.rarity as MysteryBoxRarity,
+        probability: Number(r.probability),
+      })),
+      randomValue
+    );
+
+    // 9. Build psychology context
+    const psychologyContext: PsychologyContext = {
+      shop,
+      customerId,
+      boxId,
+      boxName: box.name,
+      firstName: customer?.firstName || null,
+      lastName: customer?.lastName || null,
+      originalCost: box.openCost,
+      dailyFreeOpens: box.dailyFreeOpens,
+      pityThreshold: box.pityThreshold,
+      enableStreakBonuses: box.enableStreakBonuses,
+      enablePitySystem: box.enablePitySystem,
+      enableLuckyStreak: box.enableLuckyStreak,
+      enableActivityFeed: box.enableActivityFeed,
+    };
+
+    // 10. Process psychology (updates streaks, logs activity, gets celebrations)
+    const psychologyResult = await processPsychologyOnOpen(
+      psychologyContext,
+      reward.rarity as MysteryBoxRarity,
+      reward.name
+    );
+
+    // 11. Create opening record with psychology tracking
+    const isNewOpener = existingOpens === 0;
+
+    const open = await db.mysteryBoxOpen.create({
+      data: {
+        boxId,
+        customerId,
+        shop,
+        pointsSpent: discountedCost,
+        streakDay: psychologyResult.streakInfo.currentStreak,
+        streakBonusApplied: psychologyResult.bonuses.streak.applied
+          ? psychologyResult.bonuses.streak.multiplier
+          : null,
+        luckyStreakCount: psychologyResult.bonuses.luckyStreak.count,
+        luckyStreakBonus: psychologyResult.bonuses.luckyStreak.applied
+          ? psychologyResult.bonuses.luckyStreak.multiplier
+          : null,
+        bonusEventId: psychologyResult.bonusEventId,
+        discountApplied: box.openCost - discountedCost,
+        isFreeOpen,
+        pityTriggered,
+        nearMissRewardId: nearMiss?.rewardId || null,
+      },
+    });
+
+    // 12. Spend points (if not free)
+    if (!isFreeOpen && discountedCost > 0) {
+      await spendPoints({
+        shop,
+        customerId,
+        amount: discountedCost,
+        type: "MYSTERY_BOX_OPEN",
+        description: `Opened "${box.name}" mystery box`,
+        mysteryBoxOpenId: open.id,
+      });
+    }
+
+    // 13. Create winner record
+    const winner = await db.mysteryBoxWinner.create({
+      data: {
+        boxId,
+        openId: open.id,
+        rewardId: reward.id,
+        customerId,
+        shop,
+        deliveryStatus: "PENDING",
+      },
+    });
+
+    // 14. Update reward quantity
+    await db.mysteryBoxReward.update({
+      where: { id: reward.id },
+      data: { quantityWon: { increment: 1 } },
+    });
+
+    // 15. Update box statistics
+    await db.mysteryBox.update({
+      where: { id: boxId },
+      data: {
+        totalOpens: { increment: 1 },
+        uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
+        totalSpent: { increment: discountedCost },
+        updatedAt: new Date(),
+      },
+    });
+
+    // 16. Get updated balance
+    const newBalance = await getPointsBalance(shop, customerId);
+
+    console.log(
+      `${LOG_PREFIX} Successfully opened box for customer ${customerId}, won: ${reward.name} (${reward.rarity}), pity=${pityTriggered}`
+    );
+
+    // 17. Calculate actual reward value after bonuses
+    const rewardValue = reward.rewardValue as Record<string, unknown>;
+    const baseValue = (rewardValue?.amount as number) || 0;
+    const actualValue = Math.round(baseValue * psychologyResult.bonuses.totalMultiplier);
+
+    // 18. Dispatch Klaviyo events (async, non-blocking)
+    (async () => {
+      try {
+        if (customer?.email) {
+          const customerWithBalance = { ...customer, pointsBalance: newBalance.available };
+          await trackMysteryBoxOpened(
+            shop,
+            customerWithBalance as any,
+            { id: box.id, name: box.name, openCost: discountedCost },
+            discountedCost
+          );
+          await trackMysteryBoxWon(
+            shop,
+            customerWithBalance as any,
+            { id: box.id, name: box.name },
+            {
+              id: reward.id,
+              name: reward.name,
+              type: reward.rewardType,
+              rarity: reward.rarity,
+              value: actualValue,
+              valueDescription: reward.description || undefined,
+            }
+          );
+          if (!isFreeOpen) {
+            await trackPointsSpent(
+              shop,
+              customerWithBalance as any,
+              discountedCost,
+              "mystery_box",
+              { mysteryBoxName: box.name, mysteryBoxId: box.id }
+            );
+          }
+        }
+      } catch (error) {
+        console.error(`${LOG_PREFIX} Error dispatching Klaviyo events:`, error);
+      }
+    })();
+
+    return {
+      success: true,
+      openId: open.id,
+      winnerId: winner.id,
+      reward: {
+        id: reward.id,
+        name: reward.name,
+        type: reward.rewardType,
+        rarity: reward.rarity,
+        value: rewardValue,
+        actualValue,
+      },
+      pointsSpent: discountedCost,
+      originalCost: box.openCost,
+      discountApplied: box.openCost - discountedCost,
+      newBalance: newBalance.available,
+      bonuses: psychologyResult.bonuses,
+      nearMiss,
+      pityProgress: psychologyResult.pityProgress,
+      celebrations: psychologyResult.celebrations,
+      isFreeOpen,
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Error in enhanced open:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      pointsSpent: 0,
+      originalCost: 0,
+      discountApplied: 0,
+      newBalance: 0,
+      bonuses: {
+        streak: { applied: false, multiplier: 1, days: 0 },
+        luckyStreak: { applied: false, multiplier: 1, count: 0 },
+        event: null,
+        totalMultiplier: 1,
+      },
+      nearMiss: null,
+      pityProgress: { current: 0, threshold: 10, message: "" },
+      celebrations: [],
+      isFreeOpen: false,
+    };
+  }
 }

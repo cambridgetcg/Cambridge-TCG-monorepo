@@ -111,6 +111,9 @@
       if (this.root.dataset.initialized === 'true') return;
       this.root.dataset.initialized = 'true';
 
+      // Bind action listeners (for both guests and authenticated users)
+      this.bindActionListeners();
+
       if (!this.config.isAuthenticated) {
         log.debug('Guest user, showing guest view');
         return;
@@ -320,21 +323,34 @@
     renderRaffles(section, raffles) {
       const content = section.querySelector('.rp-rewards-hub__section-content');
       const loading = section.querySelector('.rp-rewards-hub__section-loading');
+      const isAuthenticated = this.config.isAuthenticated;
 
-      const html = raffles.map(raffle => `
-        <div class="rp-rewards-hub__card">
-          ${raffle.imageUrl ? `<div class="rp-rewards-hub__card-image" style="background-image: url('${escapeHtml(raffle.imageUrl)}')"></div>` : ''}
-          <div class="rp-rewards-hub__card-body">
-            <h3 class="rp-rewards-hub__card-title">${escapeHtml(raffle.name)}</h3>
-            <div class="rp-rewards-hub__card-meta">
-              <span class="rp-rewards-hub__card-entries">${raffle.totalEntries || 0} entries</span>
-              ${raffle.endDate ? `<span class="rp-rewards-hub__card-countdown" data-countdown="${raffle.endDate}">${formatCountdown(raffle.endDate)}</span>` : ''}
+      const html = raffles.map(raffle => {
+        const hasEntries = raffle.customerEntries > 0;
+        const maxReached = raffle.maxEntriesPerCustomer && raffle.customerEntries >= raffle.maxEntriesPerCustomer;
+        const buttonText = !isAuthenticated ? 'Sign In to Enter'
+          : maxReached ? 'Max Entries Reached'
+          : hasEntries ? `Entered (${raffle.customerEntries})`
+          : 'Enter Now';
+        const isDisabled = !isAuthenticated || maxReached;
+
+        return `
+          <div class="rp-rewards-hub__card">
+            ${raffle.imageUrl ? `<div class="rp-rewards-hub__card-image" style="background-image: url('${escapeHtml(raffle.imageUrl)}')"></div>` : ''}
+            <div class="rp-rewards-hub__card-body">
+              <h3 class="rp-rewards-hub__card-title">${escapeHtml(raffle.name)}</h3>
+              <div class="rp-rewards-hub__card-meta">
+                <span class="rp-rewards-hub__card-entries">${raffle.totalEntries || 0} entries</span>
+                ${raffle.endDate ? `<span class="rp-rewards-hub__card-countdown" data-countdown="${raffle.endDate}">${formatCountdown(raffle.endDate)}</span>` : ''}
+              </div>
+              ${raffle.entryCost > 0 ? `<div class="rp-rewards-hub__card-cost">${raffle.entryCost} points per entry</div>` : ''}
+              <button class="rp-rewards-hub__card-btn" data-raffle-enter="${raffle.id}" ${isDisabled ? 'disabled' : ''}>
+                ${buttonText}
+              </button>
             </div>
-            ${raffle.entryCost > 0 ? `<div class="rp-rewards-hub__card-cost">${raffle.entryCost} points per entry</div>` : ''}
-            <a href="/account" class="rp-rewards-hub__card-btn">Enter Now</a>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       content.innerHTML = `<div class="rp-rewards-hub__card-grid">${html}</div>`;
       loading.style.display = 'none';
@@ -346,11 +362,23 @@
     renderMysteryBoxes(section, boxes) {
       const content = section.querySelector('.rp-rewards-hub__section-content');
       const loading = section.querySelector('.rp-rewards-hub__section-loading');
+      const isAuthenticated = this.config.isAuthenticated;
 
       const html = boxes.map(box => {
         const rarityHtml = box.rarityPreview?.map(r => `
           <span class="rp-rewards-hub__rarity rp-rewards-hub__rarity--${r.rarity.toLowerCase()}">${r.rarity}: ${r.chance}%</span>
         `).join('') || '';
+
+        // Determine action button
+        let actionHtml = '';
+        if (!isAuthenticated) {
+          actionHtml = '<a href="/account/login" class="rp-rewards-hub__card-btn">Sign In to Open</a>';
+        } else if (box.canOpen === false) {
+          // Max opens reached or other restriction
+          actionHtml = `<button class="rp-rewards-hub__card-btn" disabled>${box.reason || 'Unavailable'}</button>`;
+        } else {
+          actionHtml = `<button class="rp-rewards-hub__card-btn" data-mystery-box-open="${box.id}">Open Now</button>`;
+        }
 
         return `
           <div class="rp-rewards-hub__card">
@@ -360,7 +388,7 @@
               ${box.description ? `<p class="rp-rewards-hub__card-desc">${escapeHtml(box.description)}</p>` : ''}
               ${rarityHtml ? `<div class="rp-rewards-hub__rarities">${rarityHtml}</div>` : ''}
               ${box.pointsCost > 0 ? `<div class="rp-rewards-hub__card-cost">${box.pointsCost} points to open</div>` : ''}
-              <a href="/account" class="rp-rewards-hub__card-btn">Open Now</a>
+              ${actionHtml}
             </div>
           </div>
         `;
@@ -374,14 +402,32 @@
     renderChallenges(section, challenges) {
       const content = section.querySelector('.rp-rewards-hub__section-content');
       const loading = section.querySelector('.rp-rewards-hub__section-loading');
+      const isAuthenticated = this.config.isAuthenticated;
 
       const html = challenges.map(challenge => {
         const progress = challenge.userProgress;
-        const percent = progress ? Math.min(100, Math.round((progress.current / progress.target) * 100)) : 0;
+        const percent = progress ? Math.min(100, progress.percent || Math.round((progress.current / progress.target) * 100)) : 0;
+        const status = progress?.status;
+
+        // Determine action/status display
+        let actionHtml = '';
+        if (!isAuthenticated) {
+          actionHtml = '<a href="/account/login" class="rp-rewards-hub__card-btn">Sign In to Join</a>';
+        } else if (status === 'COMPLETED') {
+          // Completed but not claimed - show claim button
+          actionHtml = `<button class="rp-rewards-hub__card-btn rp-rewards-hub__card-btn--claim" data-challenge-claim="${challenge.id}">Claim Reward</button>`;
+        } else if (status === 'CLAIMED') {
+          actionHtml = '<div class="rp-rewards-hub__card-status rp-rewards-hub__card-status--claimed">✓ Claimed</div>';
+        } else if (status === 'IN_PROGRESS') {
+          actionHtml = '<div class="rp-rewards-hub__card-status">In Progress</div>';
+        } else {
+          // Not started - show join button (inline action)
+          actionHtml = `<button class="rp-rewards-hub__card-btn" data-challenge-join="${challenge.id}">Join Challenge</button>`;
+        }
 
         return `
           <div class="rp-rewards-hub__card">
-            <div class="rp-rewards-hub__card-icon">🏆</div>
+            ${challenge.imageUrl ? `<div class="rp-rewards-hub__card-image" style="background-image: url('${escapeHtml(challenge.imageUrl)}')"></div>` : '<div class="rp-rewards-hub__card-icon">🏆</div>'}
             <div class="rp-rewards-hub__card-body">
               <h3 class="rp-rewards-hub__card-title">${escapeHtml(challenge.name)}</h3>
               ${challenge.description ? `<p class="rp-rewards-hub__card-desc">${escapeHtml(challenge.description)}</p>` : ''}
@@ -394,7 +440,8 @@
                 </div>
               ` : ''}
               ${challenge.reward ? `<div class="rp-rewards-hub__card-reward">🎁 ${escapeHtml(challenge.reward.description)}</div>` : ''}
-              <a href="/account" class="rp-rewards-hub__card-btn">View Details</a>
+              ${challenge.endsAt ? `<div class="rp-rewards-hub__card-countdown" data-countdown="${challenge.endsAt}">${formatCountdown(challenge.endsAt)}</div>` : ''}
+              ${actionHtml}
             </div>
           </div>
         `;
@@ -403,6 +450,8 @@
       content.innerHTML = `<div class="rp-rewards-hub__card-grid">${html}</div>`;
       loading.style.display = 'none';
       content.style.display = '';
+
+      this.startCountdowns(content);
     }
 
     showSectionEmpty(section) {
@@ -447,6 +496,242 @@
     destroy() {
       this.countdownIntervals.forEach(clearInterval);
       this.countdownIntervals = [];
+    }
+
+    // Action Handlers
+
+    async enterRaffle(raffleId, quantity = 1) {
+      const button = this.root.querySelector(`[data-raffle-enter="${raffleId}"]`);
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Entering...';
+      }
+
+      try {
+        const response = await fetch('/apps/rewardspro/raffles/enter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            raffleId,
+            quantity,
+            logged_in_customer_id: this.config.customerId,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          this.showToast(`Entered raffle! You now have ${result.totalEntries} entries.`, 'success');
+          this.updatePointsDisplay(result.newPointsBalance);
+          // Refresh raffle data
+          await this.loadRaffles();
+        } else {
+          this.showToast(result.error || 'Failed to enter raffle', 'error');
+          // Re-enable button on error
+          if (button) {
+            button.disabled = false;
+            button.textContent = 'Enter Now';
+          }
+        }
+      } catch (error) {
+        log.error('Raffle entry error:', error);
+        this.showToast('Failed to enter raffle. Please try again.', 'error');
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'Enter Now';
+        }
+      }
+    }
+
+    async claimChallenge(challengeId) {
+      const button = this.root.querySelector(`[data-challenge-claim="${challengeId}"]`);
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Claiming...';
+      }
+
+      try {
+        const response = await fetch('/apps/rewardspro/challenges/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challengeId,
+            logged_in_customer_id: this.config.customerId,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const rewardDesc = result.reward?.description || 'Reward claimed!';
+          this.showToast(rewardDesc, 'success');
+          this.updatePointsDisplay(result.newPointsBalance);
+          // Refresh challenge data
+          await this.loadChallenges();
+        } else {
+          this.showToast(result.error || 'Failed to claim reward', 'error');
+          if (button) {
+            button.disabled = false;
+            button.textContent = 'Claim Reward';
+          }
+        }
+      } catch (error) {
+        log.error('Challenge claim error:', error);
+        this.showToast('Failed to claim reward. Please try again.', 'error');
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'Claim Reward';
+        }
+      }
+    }
+
+    async joinChallenge(challengeId) {
+      const button = this.root.querySelector(`[data-challenge-join="${challengeId}"]`);
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Joining...';
+      }
+
+      try {
+        const response = await fetch('/apps/rewardspro/challenges/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challengeId,
+            logged_in_customer_id: this.config.customerId,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          if (result.alreadyJoined) {
+            this.showToast('You have already joined this challenge!', 'info');
+          } else {
+            this.showToast(`Joined "${result.challenge?.name || 'challenge'}"! Start making progress.`, 'success');
+          }
+          // Refresh challenge data
+          await this.loadChallenges();
+        } else {
+          this.showToast(result.error || 'Failed to join challenge', 'error');
+          if (button) {
+            button.disabled = false;
+            button.textContent = 'Join Challenge';
+          }
+        }
+      } catch (error) {
+        log.error('Challenge join error:', error);
+        this.showToast('Failed to join challenge. Please try again.', 'error');
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'Join Challenge';
+        }
+      }
+    }
+
+    async openMysteryBox(boxId) {
+      const button = this.root.querySelector(`[data-mystery-box-open="${boxId}"]`);
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Opening...';
+      }
+
+      try {
+        const response = await fetch('/apps/rewardspro/mystery-boxes/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            boxId,
+            logged_in_customer_id: this.config.customerId,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const rewardName = result.reward?.name || 'a reward';
+          const rarity = result.reward?.rarity || '';
+          this.showToast(`You won ${rewardName}! ${rarity ? `(${rarity})` : ''}`, 'success');
+          this.updatePointsDisplay(result.newPointsBalance);
+          // Refresh mystery box data
+          await this.loadMysteryBoxes();
+        } else {
+          this.showToast(result.error || 'Failed to open mystery box', 'error');
+          if (button) {
+            button.disabled = false;
+            button.textContent = 'Open Now';
+          }
+        }
+      } catch (error) {
+        log.error('Mystery box open error:', error);
+        this.showToast('Failed to open mystery box. Please try again.', 'error');
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'Open Now';
+        }
+      }
+    }
+
+    showToast(message, type = 'info') {
+      // Remove any existing toast
+      const existing = document.querySelector('.rp-toast');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = `rp-toast rp-toast--${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      // Auto-remove after 4 seconds
+      setTimeout(() => {
+        toast.classList.add('rp-toast--hiding');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    updatePointsDisplay(newBalance) {
+      if (typeof newBalance !== 'number') return;
+
+      const balanceEl = this.root.querySelector('.rp-rewards-hub__stat-value');
+      if (balanceEl) {
+        balanceEl.textContent = newBalance.toLocaleString();
+      }
+    }
+
+    bindActionListeners() {
+      this.root.addEventListener('click', async (e) => {
+        // Handle raffle entry
+        const raffleBtn = e.target.closest('[data-raffle-enter]');
+        if (raffleBtn && !raffleBtn.disabled) {
+          e.preventDefault();
+          await this.enterRaffle(raffleBtn.dataset.raffleEnter);
+          return;
+        }
+
+        // Handle challenge claim
+        const claimBtn = e.target.closest('[data-challenge-claim]');
+        if (claimBtn && !claimBtn.disabled) {
+          e.preventDefault();
+          await this.claimChallenge(claimBtn.dataset.challengeClaim);
+          return;
+        }
+
+        // Handle challenge join
+        const joinBtn = e.target.closest('[data-challenge-join]');
+        if (joinBtn && !joinBtn.disabled) {
+          e.preventDefault();
+          await this.joinChallenge(joinBtn.dataset.challengeJoin);
+          return;
+        }
+
+        // Handle mystery box open
+        const openBtn = e.target.closest('[data-mystery-box-open]');
+        if (openBtn && !openBtn.disabled) {
+          e.preventDefault();
+          await this.openMysteryBox(openBtn.dataset.mysteryBoxOpen);
+          return;
+        }
+      });
     }
   }
 

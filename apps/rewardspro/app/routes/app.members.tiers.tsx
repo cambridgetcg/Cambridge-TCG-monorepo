@@ -57,6 +57,14 @@ interface Tier {
   evaluationPeriod: "ANNUAL" | "LIFETIME";
 }
 
+interface TierProductCoverage {
+  tierId: string;
+  productCount: number;
+  hasMontly: boolean;
+  hasAnnual: boolean;
+  hasLifetime: boolean;
+}
+
 interface LoaderData {
   tiers: Tier[];
   shopSettings: {
@@ -64,7 +72,9 @@ interface LoaderData {
     currencyDisplayType: string;
   } | null;
   tierDistribution: Record<string, number>;
+  tierProductCoverage: Record<string, TierProductCoverage>;
   hasAnnualEval: boolean;
+  hasPurchasableTiers: boolean;
   limitAccess: {
     canCreate: boolean;
     current: number;
@@ -89,10 +99,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const tierCount = await db.tier.count({ where: { shop } });
   const limitAccess = await checkLimitAccess(shop, 'maxTiers', tierCount);
 
-  // Fetch tiers and settings
+  // Fetch tiers, settings, customers, and tier products
   // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
-  // Instead, fetch only currentTierId and count in memory
-  const [tiers, shopSettings, customersWithTiers] = await Promise.all([
+  // Instead, fetch only needed fields and count in memory
+  const [tiers, shopSettings, customersWithTiers, tierProducts] = await Promise.all([
     db.tier.findMany({
       where: { shop },
       orderBy: { minSpend: "asc" },
@@ -105,6 +115,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where: { shop },
       select: { currentTierId: true },
     }),
+    // Fetch tier products for coverage info
+    db.tierProduct.findMany({
+      where: { shop, deletedAt: null },
+      select: { tierId: true, duration: true },
+    }),
   ]);
 
   // Count tier distribution in memory
@@ -113,6 +128,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (customer.currentTierId) {
       tierDistribution[customer.currentTierId] = (tierDistribution[customer.currentTierId] || 0) + 1;
     }
+  }
+
+  // Build tier product coverage map
+  const tierProductCoverage: Record<string, TierProductCoverage> = {};
+  for (const product of tierProducts) {
+    if (!tierProductCoverage[product.tierId]) {
+      tierProductCoverage[product.tierId] = {
+        tierId: product.tierId,
+        productCount: 0,
+        hasMontly: false,
+        hasAnnual: false,
+        hasLifetime: false,
+      };
+    }
+    tierProductCoverage[product.tierId].productCount++;
+    if (product.duration === 'MONTHLY') tierProductCoverage[product.tierId].hasMontly = true;
+    if (product.duration === 'ANNUAL') tierProductCoverage[product.tierId].hasAnnual = true;
+    if (product.duration === 'LIFETIME') tierProductCoverage[product.tierId].hasLifetime = true;
   }
 
   return json<LoaderData>({
@@ -130,7 +163,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         }
       : null,
     tierDistribution,
+    tierProductCoverage,
     hasAnnualEval,
+    hasPurchasableTiers: entitlements.featurePurchasableTiers,
     limitAccess: {
       canCreate: limitAccess.hasAccess,
       current: tierCount,
@@ -430,6 +465,8 @@ export default function TiersPage() {
                         .sort((a, b) => a.minSpend - b.minSpend)
                         .map((tier) => {
                           const customerCount = data.tierDistribution[tier.id] || 0;
+                          const productCoverage = data.tierProductCoverage[tier.id];
+                          const hasProducts = productCoverage && productCoverage.productCount > 0;
 
                           return (
                             <Box
@@ -477,6 +514,14 @@ export default function TiersPage() {
                                             {customerCount === 1 ? "customer" : "customers"}
                                           </Badge>
                                         )}
+                                        {hasProducts ? (
+                                          <Badge tone="success" icon={PackageIcon}>
+                                            {productCoverage.productCount}{" "}
+                                            {productCoverage.productCount === 1 ? "product" : "products"}
+                                          </Badge>
+                                        ) : data.hasPurchasableTiers ? (
+                                          <Badge tone="attention">No products</Badge>
+                                        ) : null}
                                       </InlineStack>
 
                                       <InlineStack gap="400" wrap={false}>
@@ -515,6 +560,17 @@ export default function TiersPage() {
                                 <Box background="bg-surface-secondary" borderRadius="200">
                                   <Box padding="400">
                                     <InlineStack gap="200">
+                                      {data.hasPurchasableTiers && (
+                                        <Link to={`/app/members/products?tier=${tier.id}`}>
+                                          <Button
+                                            size="slim"
+                                            icon={PackageIcon}
+                                            variant={hasProducts ? "secondary" : "primary"}
+                                          >
+                                            {hasProducts ? "Products" : "Create Product"}
+                                          </Button>
+                                        </Link>
+                                      )}
                                       <Button
                                         size="slim"
                                         icon={EditIcon}

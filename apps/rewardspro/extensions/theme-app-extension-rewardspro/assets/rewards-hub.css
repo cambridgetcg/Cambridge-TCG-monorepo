@@ -347,14 +347,48 @@
   color: #ffffff;
   text-align: center;
   text-decoration: none;
+  border: none;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
-  transition: opacity 0.2s;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
-.rp-rewards-hub__card-btn:hover {
+.rp-rewards-hub__card-btn:hover:not(:disabled) {
   opacity: 0.9;
+}
+
+.rp-rewards-hub__card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Claim button highlight */
+.rp-rewards-hub__card-btn--claim {
+  background: var(--rp-hub-success, #10b981);
+  animation: rp-pulse 2s infinite;
+}
+
+@keyframes rp-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+
+/* Status badges */
+.rp-rewards-hub__card-status {
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--rp-hub-card-bg, #f3f4f6);
+  text-align: center;
+  font-weight: 500;
+  color: var(--rp-hub-text-secondary);
+}
+
+.rp-rewards-hub__card-status--claimed {
+  background: var(--rp-hub-success, #10b981);
+  color: white;
 }
 
 /* ============================================
@@ -529,6 +563,67 @@
 
 .rp-rewards-hub__noscript a {
   color: var(--rp-hub-accent);
+}
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+
+.rp-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10000;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: rp-toast-in 0.3s ease;
+}
+
+.rp-toast--success {
+  background: var(--rp-hub-success, #10b981);
+  color: white;
+}
+
+.rp-toast--error {
+  background: var(--rp-hub-error, #ef4444);
+  color: white;
+}
+
+.rp-toast--info {
+  background: var(--rp-hub-accent, #5C6AC4);
+  color: white;
+}
+
+.rp-toast--hiding {
+  animation: rp-toast-out 0.3s ease forwards;
+}
+
+@keyframes rp-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes rp-toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
 }
 
 /* ============================================

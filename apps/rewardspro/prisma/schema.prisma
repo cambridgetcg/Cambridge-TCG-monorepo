@@ -131,14 +131,14 @@ model ShopSettings {
   defaultBaseTier    Tier?   @relation("DefaultBaseTier", fields: [defaultBaseTierId], references: [id], onDelete: SetNull)
 
   // Widget Theme Settings
-  widgetThemeMode       WidgetThemeMode @default(LIGHT) // Light, Dark, or Custom
-  widgetPrimaryColor    String?         @default("#5C6AC4") // Primary brand color
-  widgetBackgroundColor String?         @default("#FFFFFF") // Widget background
-  widgetTextColor       String?         @default("#212B36") // Main text color
-  widgetAccentColor     String?         @default("#008060") // Success/highlight color
+  widgetThemeMode          WidgetThemeMode @default(LIGHT) // Light, Dark, or Custom
+  widgetPrimaryColor       String?         @default("#5C6AC4") // Primary brand color
+  widgetBackgroundColor    String?         @default("#FFFFFF") // Widget background
+  widgetTextColor          String?         @default("#212B36") // Main text color
+  widgetAccentColor        String?         @default("#008060") // Success/highlight color
   widgetSecondaryTextColor String? // Secondary/muted text color (null = auto-derive from mode)
-  widgetBorderRadius    Int?            @default(12) // Border radius in pixels
-  widgetFontFamily      String?         @default("inherit") // Font family
+  widgetBorderRadius       Int?            @default(12) // Border radius in pixels
+  widgetFontFamily         String?         @default("inherit") // Font family
 
   // Tier Trial Abuse Prevention Settings
   maxLifetimeTrialDays    Int     @default(30) // Maximum total trial days a customer can use
@@ -190,9 +190,9 @@ model ShopEntitlements {
   featureIntegrationZapier   Boolean @default(false) // Max+
 
   // Feature flags (boolean) - Gamification (P2)
-  featureRaffles       Boolean @default(false) // Pro+
-  featureMysteryBoxes  Boolean @default(false) // Max+
-  featureChallenges    Boolean @default(false) // Pro+
+  featureRaffles      Boolean @default(false) // Pro+
+  featureMysteryBoxes Boolean @default(false) // Max+
+  featureChallenges   Boolean @default(false) // Pro+
 
   // Feature flags (boolean) - Marketing (P3)
   featureMarketingCampaigns  Boolean @default(false) // Pro+
@@ -200,10 +200,10 @@ model ShopEntitlements {
   featureAiRecommendations   Boolean @default(false) // Max+
 
   // Feature flags (boolean) - Analytics (P4)
-  featureRfmSegmentation  Boolean @default(false) // Max+
-  featureProgramImpact    Boolean @default(false) // Pro+
+  featureRfmSegmentation   Boolean @default(false) // Max+
+  featureProgramImpact     Boolean @default(false) // Pro+
   featureRealtimeAnalytics Boolean @default(false) // Max+
-  featureCohortAnalysis   Boolean @default(false) // Ultra
+  featureCohortAnalysis    Boolean @default(false) // Ultra
 
   // Numeric limits - Core
   limitMaxTiers  Int @default(2)
@@ -211,21 +211,21 @@ model ShopEntitlements {
   limitMaxEmails Int @default(0)
 
   // Numeric limits - Sync with plan-limits.ts (P0)
-  limitMaxAutomations    Int @default(1)    // Free: 1, Pro: 5, Max: 20, Ultra: 999999
+  limitMaxAutomations    Int @default(1) // Free: 1, Pro: 5, Max: 20, Ultra: 999999
   limitMaxCustomersSync  Int @default(1000) // Free: 1K, Pro: 10K, Max: 50K, Ultra: 999999
-  limitMaxTierProducts   Int @default(2)    // Free: 2, Pro: 5, Max: 10, Ultra: 999999
-  limitMaxHistoricalDays Int @default(30)   // Free: 30, Pro: 90, Max: 365, Ultra: 999999
+  limitMaxTierProducts   Int @default(2) // Free: 2, Pro: 5, Max: 10, Ultra: 999999
+  limitMaxHistoricalDays Int @default(30) // Free: 30, Pro: 90, Max: 365, Ultra: 999999
 
   // Numeric limits - Gamification (P2)
   // IMPORTANT: All plans get at least 1 (rate-based gating model)
   // See app/constants/plan-limits.ts for canonical values
-  limitMaxActiveRaffles    Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
+  limitMaxActiveRaffles      Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
   limitMaxActiveMysteryBoxes Int @default(1) // Free: 1, Pro: 2, Max: 5, Ultra: 999999
-  limitMaxActiveChallenges Int @default(1) // Free: 1, Pro: 5, Max: 15, Ultra: 999999
+  limitMaxActiveChallenges   Int @default(1) // Free: 1, Pro: 5, Max: 15, Ultra: 999999
 
   // Numeric limits - Marketing (P3)
   // IMPORTANT: All plans get at least 1 (rate-based gating model)
-  limitMaxCampaigns      Int @default(1) // Free: 1, Pro: 5, Max: 25, Ultra: 999999
+  limitMaxCampaigns       Int @default(1) // Free: 1, Pro: 5, Max: 25, Ultra: 999999
   limitMaxAutomationFlows Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
 
   // Override support (for custom deals / grandfathered plans)
@@ -468,9 +468,21 @@ model Customer {
   raffleEntries RaffleEntry[]  @relation("RaffleEntries")
   raffleWins    RaffleWinner[] @relation("RaffleWins")
 
+  // Raffle Psychology System
+  raffleStreak           RaffleStreak?           @relation("RaffleStreaks")
+  raffleInstantWinLogs   RaffleInstantWinLog[]   @relation("RaffleInstantWins")
+  raffleActivities       RaffleActivity[]        @relation("RaffleActivities")
+  raffleBonusEventUsages RaffleBonusEventUsage[] @relation("RaffleBonusEventUsages")
+  raffleLuckyNumbers     RaffleLuckyNumber[]     @relation("RaffleLuckyNumbers")
+
   // Mystery Boxes System
   mysteryBoxOpens MysteryBoxOpen[]   @relation("MysteryBoxOpens")
   mysteryBoxWins  MysteryBoxWinner[] @relation("MysteryBoxWins")
+
+  // Mystery Box Psychology System
+  mysteryBoxStreak       MysteryBoxStreak?           @relation("MysteryBoxStreaks")
+  mysteryBoxActivities   MysteryBoxActivity[]        @relation("MysteryBoxActivities")
+  mysteryBoxBonusUsages  MysteryBoxBonusEventUsage[] @relation("MysteryBoxBonusUsages")
 
   // Challenges System
   challengeParticipants ChallengeParticipant[] @relation("ChallengeParticipants")
@@ -819,10 +831,10 @@ model IssuedGiftCard {
   purchaserTierName String? // Denormalized for display
 
   // Membership bundle (if this card grants tier access)
-  bundleType       GiftCardBundleType @default(VALUE_ONLY)
-  bundledTierId    String? // Tier to grant on redemption
-  bundledTierName  String? // Denormalized for display
-  bundledDuration  String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
+  bundleType      GiftCardBundleType @default(VALUE_ONLY)
+  bundledTierId   String? // Tier to grant on redemption
+  bundledTierName String? // Denormalized for display
+  bundledDuration String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
 
   // People
   purchasedByCustomerId String? // Customer who bought
@@ -857,7 +869,7 @@ model IssuedGiftCard {
 
 // Pre-configured gift card bundles (merchant creates these)
 model GiftCardBundle {
-  id     String @id @default(uuid())
+  id     String  @id @default(uuid())
   shop   String
   tierId String? // Optional: tier to bundle with
   tier   Tier?   @relation(fields: [tierId], references: [id], onDelete: SetNull)
@@ -875,7 +887,7 @@ model GiftCardBundle {
   membershipDuration String? // MONTHLY, QUARTERLY, ANNUAL, LIFETIME
 
   // Status
-  isActive Boolean @default(true)
+  isActive  Boolean @default(true)
   sortOrder Int     @default(0) // Display order
 
   createdAt DateTime @default(now())
@@ -1438,8 +1450,8 @@ model MonthlyEmailUsage {
   planName   String // Current plan name
 
   // Breakdown by type
-  campaignEmails Int @default(0) // Marketing campaigns
-  automationEmails Int @default(0) // Triggered automations
+  campaignEmails      Int @default(0) // Marketing campaigns
+  automationEmails    Int @default(0) // Triggered automations
   transactionalEmails Int @default(0) // Order confirmations, etc.
 
   // Lock state (for plan enforcement - soft limit)
@@ -2335,10 +2347,10 @@ model EmailCampaign {
   shop String
 
   // Campaign details
-  name        String  // Campaign name
+  name        String // Campaign name
   subject     String? // Email subject line
   previewText String? // Email preview text
-  templateId  String  // Reference to EmailTemplate
+  templateId  String // Reference to EmailTemplate
   template    EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   // Status
@@ -2795,10 +2807,10 @@ model KlaviyoAutomationSettings {
   // ============================================
 
   // Points events
-  sendPointsEvents     Boolean @default(true) // Points earned/spent/milestone
+  sendPointsEvents Boolean @default(true) // Points earned/spent/milestone
 
   // Raffle events
-  sendRaffleEvents     Boolean @default(true) // Raffle entry/win/ending soon
+  sendRaffleEvents Boolean @default(true) // Raffle entry/win/ending soon
 
   // Mystery box events
   sendMysteryBoxEvents Boolean @default(true) // Mystery box open/win
@@ -2807,10 +2819,10 @@ model KlaviyoAutomationSettings {
   sendRewardsEngagement Boolean @default(true) // Challenges, bonus events, dormancy
 
   // Rewards engagement timing
-  rewardsDormancyDays      Int @default(30)  // Days without rewards activity
-  raffleReminderHours      Int @default(24)  // Hours before raffle ends
-  highPointsThreshold      Int @default(500) // Points balance to trigger reminder
-  highPointsDormancyDays   Int @default(14)  // Days without spend
+  rewardsDormancyDays    Int @default(30) // Days without rewards activity
+  raffleReminderHours    Int @default(24) // Hours before raffle ends
+  highPointsThreshold    Int @default(500) // Points balance to trigger reminder
+  highPointsDormancyDays Int @default(14) // Days without spend
 
   // ============================================
   // Gift Card & Store Credit Event Toggles
@@ -2823,8 +2835,8 @@ model KlaviyoAutomationSettings {
   sendStoreCreditEvents Boolean @default(true) // Credit earned/spent/converted/milestone/reminder
 
   // Gift card/store credit timing
-  giftCardExpiryWarningDays Int @default(7)   // Days before gift card expires
-  storeCreditReminderDays   Int @default(30)  // Days of unused store credit
+  giftCardExpiryWarningDays Int @default(7) // Days before gift card expires
+  storeCreditReminderDays   Int @default(30) // Days of unused store credit
 
   // Scheduling
   scheduledJobTime String @default("06:00") // HH:MM in shop timezone
@@ -2894,9 +2906,9 @@ model PointsConfig {
   missionsEnabled Boolean @default(false)
 
   // XP Configuration
-  xpEnabled       Boolean @default(true) // Enable XP system
-  xpPerLevel      Int     @default(100) // Base XP required per level
-  xpLevelScaling  Decimal @default(1.2) @db.Decimal(3, 2) // XP multiplier per level (+20%)
+  xpEnabled      Boolean @default(true) // Enable XP system
+  xpPerLevel     Int     @default(100) // Base XP required per level
+  xpLevelScaling Decimal @default(1.2) @db.Decimal(3, 2) // XP multiplier per level (+20%)
 
   // Mission Streak Configuration (consecutive days completing missions)
   missionStreakBonusEnabled Boolean @default(true)
@@ -2904,9 +2916,9 @@ model PointsConfig {
   maxMissionStreakBonus     Int     @default(100) // Max +100% bonus
 
   // Mission Combo Configuration (multiple missions same day)
-  comboEnabled       Boolean @default(true)
-  comboBonusPercent  Int     @default(25) // +25% XP per additional mission
-  maxComboBonus      Int     @default(100) // Max +100% bonus
+  comboEnabled      Boolean @default(true)
+  comboBonusPercent Int     @default(25) // +25% XP per additional mission
+  maxComboBonus     Int     @default(100) // Max +100% bonus
 
   // Mission Reset Time (shop timezone)
   missionResetHour Int @default(0) // Hour (0-23) when daily missions reset
@@ -3032,6 +3044,15 @@ model Raffle {
   tierRestrictions Json? // { "allowedTierIds": ["tier-1", "tier-2"] } or null for all
   minimumTier      String? // Minimum tier required to enter (by tier ID)
 
+  // Psychology Features (Gamification)
+  enableInstantWins     Boolean @default(false) // Allow instant-win micro-prizes
+  enableActivityFeed    Boolean @default(true) // Show social proof activity feed
+  enableStreakBonuses   Boolean @default(true) // Apply streak multipliers
+  enableLuckyNumbers    Boolean @default(true) // Award lucky number bonuses
+  dailyFreeEntries      Int     @default(0) // Free entries per day (0 = disabled)
+  earlyBirdBonusPercent Int     @default(0) // % bonus for first N entries
+  earlyBirdEntryLimit   Int     @default(0) // First N entries get early bird bonus
+
   // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3040,6 +3061,12 @@ model Raffle {
   prizes  RafflePrize[]
   entries RaffleEntry[]
   winners RaffleWinner[]
+
+  // Psychology relations
+  instantWins  RaffleInstantWin[]  @relation("RaffleInstantWins")
+  activities   RaffleActivity[]    @relation("RaffleActivities")
+  bonusEvents  RaffleBonusEvent[]  @relation("RaffleBonusEvents")
+  luckyNumbers RaffleLuckyNumber[] @relation("RaffleLuckyNumbers")
 
   @@index([shop])
   @@index([shop, status])
@@ -3096,6 +3123,14 @@ model RaffleEntry {
   pointsSpent     Int // Total points spent for these entries
   entryMultiplier Decimal @default(1.0) @db.Decimal(3, 2) // Tier bonus multiplier applied
 
+  // Psychology Bonuses Applied
+  streakBonusApplied    Decimal? @db.Decimal(3, 2) // Streak multiplier (e.g., 1.25)
+  earlyBirdBonusApplied Boolean  @default(false) // Was early bird bonus applied?
+  luckyNumberBonus      Int      @default(0) // Bonus entries from lucky numbers
+  bonusEventId          String? // ID of bonus event that was active
+  instantWinsTriggered  Int      @default(0) // Count of instant wins from this entry
+  isFreeEntry           Boolean  @default(false) // Was this a daily free entry?
+
   // Tracking
   isWinner Boolean @default(false) // Quick lookup for win status
 
@@ -3107,6 +3142,9 @@ model RaffleEntry {
   customer      Customer       @relation("RaffleEntries", fields: [customerId], references: [id], onDelete: Cascade)
   winners       RaffleWinner[]
   ledgerEntries PointsLedger[] @relation("RaffleEntryLedger")
+
+  // Psychology relations
+  instantWinLogs RaffleInstantWinLog[] @relation("RaffleEntryInstantWins")
 
   @@unique([raffleId, customerId]) // One entry record per customer per raffle
   @@index([raffleId])
@@ -3195,6 +3233,250 @@ enum RafflePrizeDeliveryStatus {
   CLAIMED // Winner acknowledged receipt
 }
 
+// Activity types for social proof feed
+enum RaffleActivityType {
+  ENTRY_PURCHASED // Customer bought entries
+  INSTANT_WIN // Customer won instant prize
+  GRAND_WINNER // Customer won grand prize in draw
+  STREAK_MILESTONE // Customer hit streak milestone (7, 14, 30 days)
+  EARLY_BIRD // Customer got early bird bonus
+  LUCKY_NUMBER // Customer hit a lucky number
+}
+
+// Bonus event types for urgency mechanics
+enum RaffleBonusEventType {
+  HAPPY_HOUR // Time-limited bonus (e.g., 2x entries 6-8pm)
+  FLASH_BONUS // Short flash sale bonus
+  EARLY_BIRD // First N entries get bonus
+  LAST_CHANCE // Final hours bonus
+  MILESTONE // Entry milestone bonus (100th entry, etc.)
+}
+
+// ============================================
+// RAFFLE PSYCHOLOGY SYSTEM MODELS
+// ============================================
+// Habit formation, variable rewards, social proof, urgency mechanics
+
+// Tracks customer raffle engagement streaks
+model RaffleStreak {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String @unique // One streak record per customer
+
+  // Streak tracking
+  currentStreak   Int       @default(0) // Current consecutive days
+  longestStreak   Int       @default(0) // All-time longest streak
+  lastEntryDate   DateTime? // Last date an entry was made
+  streakStartDate DateTime? // When current streak began
+
+  // Daily free entry tracking
+  freeEntriesUsedToday Int       @default(0) // How many free entries used today
+  freeEntryLastUsedAt  DateTime? // When last free entry was claimed
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  customer Customer @relation("RaffleStreaks", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([shop, customerId])
+  @@index([shop, currentStreak])
+  @@index([lastEntryDate])
+}
+
+// Instant-win micro-prizes during entry purchase
+model RaffleInstantWin {
+  id       String @id @default(uuid())
+  raffleId String
+  shop     String
+
+  // Prize details
+  name        String // "Lucky 25 Points", "Bonus Entry"
+  description String? // Optional description
+  imageUrl    String? // Prize image
+
+  // Prize type and value (same as RafflePrize)
+  prizeType  RafflePrizeType
+  prizeValue Json // Type-specific value configuration
+
+  // Probability configuration
+  winChancePercent Decimal @db.Decimal(7, 6) // 0.000001 to 1.000000 (e.g., 0.15 = 15%)
+  rarity           String  @default("COMMON") // COMMON, UNCOMMON, RARE, EPIC, LEGENDARY
+
+  // Win limits
+  maxWinsTotal       Int? // Total wins allowed (null = unlimited)
+  maxWinsPerCustomer Int  @default(1) // Per-customer win limit
+  currentWinsTotal   Int  @default(0) // Current total wins
+
+  // Time window (optional)
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle Raffle                @relation("RaffleInstantWins", fields: [raffleId], references: [id], onDelete: Cascade)
+  wins   RaffleInstantWinLog[]
+
+  @@index([raffleId, isActive])
+  @@index([shop])
+}
+
+// Log of instant-win occurrences
+model RaffleInstantWinLog {
+  id            String @id @default(uuid())
+  instantWinId  String
+  customerId    String
+  raffleEntryId String
+  shop          String
+
+  // Delivery tracking
+  delivered    Boolean   @default(false)
+  deliveredAt  DateTime?
+  deliveryData Json? // Prize-specific delivery details
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  instantWin RaffleInstantWin @relation(fields: [instantWinId], references: [id], onDelete: Cascade)
+  customer   Customer         @relation("RaffleInstantWins", fields: [customerId], references: [id], onDelete: Cascade)
+  entry      RaffleEntry      @relation("RaffleEntryInstantWins", fields: [raffleEntryId], references: [id], onDelete: Cascade)
+
+  @@index([instantWinId])
+  @@index([customerId])
+  @@index([raffleEntryId])
+  @@index([shop, createdAt])
+}
+
+// Activity feed for social proof
+model RaffleActivity {
+  id       String @id @default(uuid())
+  raffleId String
+  shop     String
+
+  // Activity details
+  activityType RaffleActivityType
+  customerId   String? // Optional, null for anonymous activities
+  displayName  String // Anonymized name: "J***n S."
+  data         Json // Activity-specific data
+
+  // Visibility
+  isPublic  Boolean   @default(true)
+  expiresAt DateTime? // Auto-expire old activities
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  raffle   Raffle    @relation("RaffleActivities", fields: [raffleId], references: [id], onDelete: Cascade)
+  customer Customer? @relation("RaffleActivities", fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([raffleId, createdAt])
+  @@index([shop, createdAt])
+  @@index([activityType])
+}
+
+// Bonus entry events (happy hours, flash sales)
+model RaffleBonusEvent {
+  id       String  @id @default(uuid())
+  shop     String
+  raffleId String? // null = applies to all raffles
+
+  // Event details
+  name        String // "Happy Hour", "Flash Bonus"
+  description String?
+
+  // Event type
+  eventType RaffleBonusEventType
+
+  // Bonus configuration
+  bonusMultiplier  Decimal @default(1.5) @db.Decimal(3, 2) // 1.5x entries
+  bonusEntriesFlat Int     @default(0) // +N flat bonus entries
+  discountPercent  Int     @default(0) // % discount on entry cost
+
+  // Timing
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Recurring configuration (optional)
+  isRecurring    Boolean @default(false)
+  recurringDays  Json? // [1, 3, 5] = Mon, Wed, Fri (0-6 = Sun-Sat)
+  recurringHours Json? // { "start": 18, "end": 20 } = 6pm-8pm
+
+  // Usage limits
+  maxUses            Int? // Total uses allowed
+  currentUses        Int  @default(0)
+  maxUsesPerCustomer Int? // Per-customer limit
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  raffle Raffle?                 @relation("RaffleBonusEvents", fields: [raffleId], references: [id], onDelete: Cascade)
+  usages RaffleBonusEventUsage[]
+
+  @@index([shop, isActive])
+  @@index([startsAt, endsAt])
+  @@index([raffleId])
+}
+
+// Tracks usage of bonus events per customer
+model RaffleBonusEventUsage {
+  id           String @id @default(uuid())
+  bonusEventId String
+  customerId   String
+  shop         String
+
+  // Usage tracking
+  usageCount Int @default(1)
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  bonusEvent RaffleBonusEvent @relation(fields: [bonusEventId], references: [id], onDelete: Cascade)
+  customer   Customer         @relation("RaffleBonusEventUsages", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([bonusEventId, customerId])
+  @@index([customerId])
+}
+
+// Lucky number tracking and rewards
+model RaffleLuckyNumber {
+  id         String @id @default(uuid())
+  raffleId   String
+  shop       String
+  customerId String
+
+  // Lucky number details
+  luckyNumber  Int // The entry number that was lucky (e.g., 100th entry)
+  bonusType    String // "MILESTONE", "SEQUENCE", "RANDOM"
+  bonusEntries Int // Bonus entries awarded
+
+  // Metadata
+  createdAt DateTime @default(now())
+
+  // Relations
+  raffle   Raffle   @relation("RaffleLuckyNumbers", fields: [raffleId], references: [id], onDelete: Cascade)
+  customer Customer @relation("RaffleLuckyNumbers", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([raffleId])
+  @@index([customerId])
+  @@index([shop, createdAt])
+}
+
 // ============================================
 // MYSTERY BOXES SYSTEM MODELS
 // ============================================
@@ -3228,14 +3510,25 @@ model MysteryBox {
   uniqueOpeners Int @default(0)
   totalSpent    Int @default(0)
 
+  // Psychology Features
+  enableActivityFeed    Boolean @default(true)
+  enableStreakBonuses   Boolean @default(true)
+  enablePitySystem      Boolean @default(true)
+  enableLuckyStreak     Boolean @default(true)
+  dailyFreeOpens        Int     @default(0) // 0 = disabled
+  pityThreshold         Int     @default(10) // Guaranteed non-common after N commons
+  luckyStreakMultiplier Decimal @default(1.1) @db.Decimal(3, 2) // 10% bonus per streak
+
   // Metadata
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  rewards MysteryBoxReward[]
-  opens   MysteryBoxOpen[]
-  winners MysteryBoxWinner[]
+  rewards     MysteryBoxReward[]
+  opens       MysteryBoxOpen[]
+  winners     MysteryBoxWinner[]
+  activities  MysteryBoxActivity[]
+  bonusEvents MysteryBoxBonusEvent[]
 
   @@index([shop])
   @@index([shop, status])
@@ -3257,8 +3550,8 @@ model MysteryBoxReward {
   rewardValue Json // Type-specific config
 
   // Probability & Rarity
-  probability Decimal            @db.Decimal(5, 2) // 0.01 - 100.00
-  rarity      MysteryBoxRarity   @default(COMMON)
+  probability Decimal          @db.Decimal(5, 2) // 0.01 - 100.00
+  rarity      MysteryBoxRarity @default(COMMON)
 
   // Inventory (optional finite supply)
   quantity    Int? // null = unlimited
@@ -3288,6 +3581,17 @@ model MysteryBoxOpen {
   // Transaction Details
   pointsSpent Int
   openedAt    DateTime @default(now())
+
+  // Psychology Tracking
+  streakDay          Int? // Which day of streak this was
+  streakBonusApplied Decimal? @db.Decimal(3, 2) // Multiplier applied
+  luckyStreakCount   Int      @default(0) // Lucky streak at time of open
+  luckyStreakBonus   Decimal? @db.Decimal(3, 2) // Multiplier applied
+  bonusEventId       String? // ID of bonus event if applicable
+  discountApplied    Int      @default(0) // Points saved from discount
+  isFreeOpen         Boolean  @default(false)
+  pityTriggered      Boolean  @default(false)
+  nearMissRewardId   String? // ID of reward that "almost" won
 
   // Relations
   box      MysteryBox        @relation(fields: [boxId], references: [id], onDelete: Cascade)
@@ -3375,6 +3679,138 @@ enum MysteryBoxDeliveryStatus {
   DELIVERED
   FAILED
   CLAIMED
+}
+
+// Activity types for mystery box social proof feed
+enum MysteryBoxActivityType {
+  BOX_OPENED
+  RARE_WIN
+  EPIC_WIN
+  LEGENDARY_WIN
+  STREAK_MILESTONE
+  PITY_TRIGGERED
+  LUCKY_STREAK
+  FREE_OPEN_CLAIMED
+}
+
+// Bonus event types for mystery boxes
+enum MysteryBoxBonusEventType {
+  HAPPY_HOUR
+  FLASH_DISCOUNT
+  DOUBLE_REWARDS
+  LUCKY_HOUR
+  LAST_CHANCE
+}
+
+// ============================================
+// MYSTERY BOX PSYCHOLOGY SYSTEM
+// ============================================
+// Psychological engagement features to maximize customer participation
+// Includes: streaks, pity system, lucky streaks, activity feed, bonus events
+
+// Tracks customer mystery box engagement streaks and pity system
+model MysteryBoxStreak {
+  id         String @id @default(uuid())
+  shop       String
+  customerId String @unique
+
+  // Daily streak tracking
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastOpenDate    DateTime?
+  streakStartDate DateTime?
+
+  // Free opens tracking
+  freeOpensUsedToday Int       @default(0)
+  freeOpenLastUsedAt DateTime?
+
+  // Session lucky streak (resets on inactivity)
+  luckyStreakCount     Int       @default(0)
+  luckyStreakUpdatedAt DateTime?
+
+  // Pity system - guaranteed rare after N commons
+  commonsSinceRare Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer @relation("MysteryBoxStreaks", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([shop, customerId])
+}
+
+// Activity feed for social proof
+model MysteryBoxActivity {
+  id           String                 @id @default(uuid())
+  boxId        String
+  shop         String
+  activityType MysteryBoxActivityType
+  customerId   String?
+  displayName  String // Anonymized: "J***n S."
+  data         Json // { rewardName, rarity, pointsWon, etc. }
+  isPublic     Boolean                @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime               @default(now())
+
+  box      MysteryBox @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  customer Customer?  @relation("MysteryBoxActivities", fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([boxId, createdAt])
+  @@index([shop, createdAt])
+}
+
+// Bonus events (happy hours, flash discounts)
+model MysteryBoxBonusEvent {
+  id          String                   @id @default(uuid())
+  shop        String
+  boxId       String? // null = applies to all boxes
+  name        String
+  description String?
+  eventType   MysteryBoxBonusEventType
+
+  // Bonus configuration
+  discountPercent   Int     @default(0) @db.SmallInt // % off point cost
+  bonusMultiplier   Decimal @default(1.0) @db.Decimal(3, 2) // Multiplier on reward values
+  extraRewardChance Int     @default(0) @db.SmallInt // % chance of bonus reward
+
+  // Timing
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Recurring configuration
+  isRecurring    Boolean @default(false)
+  recurringDays  Json? // [0,1,2,3,4,5,6] for days of week
+  recurringHours Json? // { start: 14, end: 16 }
+
+  // Usage limits
+  maxUses            Int? // null = unlimited
+  currentUses        Int  @default(0)
+  maxUsesPerCustomer Int?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  box    MysteryBox?                  @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  usages MysteryBoxBonusEventUsage[]
+
+  @@index([shop, isActive])
+  @@index([shop, startsAt, endsAt])
+}
+
+// Track bonus event usage per customer
+model MysteryBoxBonusEventUsage {
+  id         String   @id @default(uuid())
+  eventId    String
+  customerId String
+  shop       String
+  usedAt     DateTime @default(now())
+
+  event    MysteryBoxBonusEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  customer Customer             @relation("MysteryBoxBonusUsages", fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, customerId])
+  @@index([shop, customerId])
 }
 
 // ============================================
@@ -3507,9 +3943,9 @@ model ChallengeParticipant {
   claimedAt   DateTime?
 
   // Reward Delivery (when claimed)
-  rewardDelivered     Boolean  @default(false)
+  rewardDelivered     Boolean @default(false)
   rewardDeliveryId    String? // Points ledger ID, discount code, etc.
-  rewardDeliveryNotes String?  @db.Text
+  rewardDeliveryNotes String? @db.Text
 
   // Metadata
   joinedAt  DateTime @default(now())
@@ -3540,7 +3976,7 @@ model ChallengeProgressLog {
   newProgressPercent Int // Percentage after this update
 
   // Source Reference
-  sourceType String  // "ORDER", "REFERRAL", "REVIEW", "STREAK", "MANUAL"
+  sourceType String // "ORDER", "REFERRAL", "REVIEW", "STREAK", "MANUAL"
   sourceId   String? // Order ID, referral ID, etc.
 
   // Metadata
@@ -3863,16 +4299,16 @@ model Integration {
   // Integration identity
   provider IntegrationProvider
   name     String // Display name
-  status   IntegrationStatus @default(DISCONNECTED)
+  status   IntegrationStatus   @default(DISCONNECTED)
 
   // Configuration (JSON)
   config Json @default("{}")
 
   // OAuth tokens (encrypted at rest)
-  accessToken    String? @db.Text // Encrypted
-  refreshToken   String? @db.Text // Encrypted
+  accessToken    String?   @db.Text // Encrypted
+  refreshToken   String?   @db.Text // Encrypted
   tokenExpiresAt DateTime?
-  scopes         String[] @default([])
+  scopes         String[]  @default([])
 
   // API credentials (encrypted at rest)
   apiKey        String? @db.Text // Encrypted
@@ -3888,10 +4324,10 @@ model Integration {
   pointsConfig    Json? // Integration-specific points rules
 
   // Sync & error tracking
-  lastSyncAt   DateTime?
-  lastErrorAt  DateTime?
-  lastError    String?   @db.Text
-  metadata     Json      @default("{}")
+  lastSyncAt  DateTime?
+  lastErrorAt DateTime?
+  lastError   String?   @db.Text
+  metadata    Json      @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3982,7 +4418,7 @@ model OAuthState {
 
   // Security
   expiresAt DateTime
-  used      Boolean @default(false)
+  used      Boolean  @default(false)
 
   createdAt DateTime @default(now())
 
@@ -4002,10 +4438,10 @@ model IntegrationPointsRule {
   description  String?
 
   // Points configuration
-  pointsType   IntegrationPointsType @default(FIXED)
-  pointsAmount Int                   @default(0) // Fixed amount
-  pointsPercent Float?                            // Percentage of order value
-  maxPoints    Int?                              // Cap for percentage-based
+  pointsType    IntegrationPointsType @default(FIXED)
+  pointsAmount  Int                   @default(0) // Fixed amount
+  pointsPercent Float? // Percentage of order value
+  maxPoints     Int? // Cap for percentage-based
 
   // Conditions (JSON)
   conditions Json @default("{}")
@@ -4027,82 +4463,82 @@ model IntegrationPointsRule {
 // and self-improvement feedback loop
 
 model AISession {
-  id                String   @id @default(cuid())
-  sessionId         String   @unique // Claude session identifier
+  id        String @id @default(cuid())
+  sessionId String @unique // Claude session identifier
 
-  startedAt         DateTime @default(now())
-  endedAt           DateTime?
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
 
   // Context
-  primaryIntent     String?  // What the user asked for
-  territory         String?  // "charted" | "uncharted"
+  primaryIntent String? // What the user asked for
+  territory     String? // "charted" | "uncharted"
 
   // Outcomes
-  tasksCompleted    Int      @default(0)
-  tasksAttempted    Int      @default(0)
-  filesModified     Int      @default(0)
-  filesCreated      Int      @default(0)
+  tasksCompleted Int @default(0)
+  tasksAttempted Int @default(0)
+  filesModified  Int @default(0)
+  filesCreated   Int @default(0)
 
   // Self-assessment
-  satisfactionScore Int?     // 1-10 AI self-rating
-  learnings         String?  @db.Text // Key insights from session
+  satisfactionScore Int? // 1-10 AI self-rating
+  learnings         String? @db.Text // Key insights from session
 
   // Relations
-  actions           AISessionAction[]
-  feedback          AISessionFeedback[]
-  codeMetrics       AICodeMetric[]
+  actions     AISessionAction[]
+  feedback    AISessionFeedback[]
+  codeMetrics AICodeMetric[]
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([startedAt])
 }
 
 model AISessionAction {
-  id          String    @id @default(cuid())
-  sessionId   String
-  session     AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  sessionId String
+  session   AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  actionType  String    // "file_edit" | "file_create" | "refactor" | "fix" | "feature"
+  actionType  String // "file_edit" | "file_create" | "refactor" | "fix" | "feature"
   filePath    String?
-  description String    @db.Text
+  description String  @db.Text
 
   // Pattern tracking
-  patternUsed   String?  // Which pattern was applied
-  wasSuccessful Boolean  @default(true)
+  patternUsed   String? // Which pattern was applied
+  wasSuccessful Boolean @default(true)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([sessionId])
   @@index([actionType])
 }
 
 model AISessionFeedback {
-  id          String    @id @default(cuid())
-  sessionId   String
-  session     AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  sessionId String
+  session   AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  dimension   String    // "truth" | "understanding" | "beauty" | "justice" | "creativity"
-  rating      String    // "complete" | "partial" | "failed"
-  reason      String?   @db.Text
+  dimension String // "truth" | "understanding" | "beauty" | "justice" | "creativity"
+  rating    String // "complete" | "partial" | "failed"
+  reason    String? @db.Text
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([sessionId])
   @@index([dimension])
 }
 
 model AICodeMetric {
-  id          String     @id @default(cuid())
-  sessionId   String?
-  session     AISession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  id        String     @id @default(cuid())
+  sessionId String?
+  session   AISession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 
   filePath    String
-  metricType  String     // "complexity" | "duplication" | "coverage" | "debt"
+  metricType  String // "complexity" | "duplication" | "coverage" | "debt"
   valueBefore Float?
   valueAfter  Float
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([sessionId])
   @@index([filePath])
@@ -4110,9 +4546,9 @@ model AICodeMetric {
 }
 
 model AILearningPattern {
-  id           String   @id @default(cuid())
-  patternName  String   @unique
-  description  String   @db.Text
+  id          String @id @default(cuid())
+  patternName String @unique
+  description String @db.Text
 
   // Confidence evolution
   timesUsed       Int   @default(0)
@@ -4123,29 +4559,29 @@ model AILearningPattern {
   applicableTo String[] // ["data-api", "tier-system", "webhooks"]
   antiPatterns String[] // What NOT to do
 
-  lastUsedAt   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([patternName])
   @@index([confidence])
 }
 
 model AICodeQualitySignal {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  area        String   // "services" | "routes" | "components"
-  signalType  String   // "ugliness" | "debt" | "complexity"
-  severity    String   // "low" | "medium" | "high"
-  description String   @db.Text
+  area        String // "services" | "routes" | "components"
+  signalType  String // "ugliness" | "debt" | "complexity"
+  severity    String // "low" | "medium" | "high"
+  description String  @db.Text
   filePath    String?
   lineNumber  Int?
 
-  resolved    Boolean  @default(false)
-  resolvedAt  DateTime?
-  resolvedBy  String?  // session ID that fixed it
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String? // session ID that fixed it
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([area])
   @@index([signalType])
@@ -4153,9 +4589,9 @@ model AICodeQualitySignal {
 }
 
 model AIArchitectureHealth {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  snapshotDate    DateTime @default(now())
+  snapshotDate DateTime @default(now())
 
   // Metrics
   totalFiles      Int
@@ -4164,33 +4600,33 @@ model AIArchitectureHealth {
   duplicateBlocks Int
 
   // Pattern adherence
-  dataApiCompliant     Float  // 0-100%
-  shopScopingCompliant Float  // 0-100%
-  errorHandlingScore   Float  // 0-100%
+  dataApiCompliant     Float // 0-100%
+  shopScopingCompliant Float // 0-100%
+  errorHandlingScore   Float // 0-100%
 
   // Trends
-  trendDirection  String  // "improving" | "stable" | "declining"
+  trendDirection String // "improving" | "stable" | "declining"
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([snapshotDate])
 }
 
 model AIInnovationTracker {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  feature     String   // What was built
-  territory   String   // "charted" | "uncharted"
+  feature   String // What was built
+  territory String // "charted" | "uncharted"
 
   // If uncharted
-  pioneering  Boolean  @default(false)
-  pathQuality String?  // "well-built" | "fragile" | "incomplete"
+  pioneering  Boolean @default(false)
+  pathQuality String? // "well-built" | "fragile" | "incomplete"
 
   // Impact
   enablesFuture Boolean  @default(false)
   connectedTo   String[] // Related features/systems
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([territory])
   @@index([feature])
@@ -4250,10 +4686,10 @@ enum IntegrationProvider {
 enum IntegrationStatus {
   DISCONNECTED // Not configured
   PENDING_AUTH // OAuth in progress
-  CONNECTED    // Active and working
-  ERROR        // Connection error
+  CONNECTED // Active and working
+  ERROR // Connection error
   RATE_LIMITED // Temporarily paused
-  DISABLED     // Manually disabled
+  DISABLED // Manually disabled
 }
 
 enum LoyaltyEventType {
@@ -4304,9 +4740,9 @@ enum IntegrationWebhookStatus {
 }
 
 enum IntegrationPointsType {
-  FIXED      // Fixed points amount
+  FIXED // Fixed points amount
   PERCENTAGE // Percentage of order value
-  TIERED     // Based on conditions
+  TIERED // Based on conditions
 }
 
 // ============================================
@@ -4314,14 +4750,14 @@ enum IntegrationPointsType {
 // ============================================
 
 enum GiftCardStatus {
-  ACTIVE      // Gift card is active and can be used
-  REDEEMED    // Gift card has been fully redeemed
+  ACTIVE // Gift card is active and can be used
+  REDEEMED // Gift card has been fully redeemed
   DEACTIVATED // Gift card was manually deactivated
-  EXPIRED     // Gift card has expired
+  EXPIRED // Gift card has expired
 }
 
 enum GiftCardBundleType {
-  VALUE_ONLY      // Just monetary value
+  VALUE_ONLY // Just monetary value
   MEMBERSHIP_ONLY // Just tier membership
   VALUE_PLUS_MEMBERSHIP // Both value and membership
 }

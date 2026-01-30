@@ -3,8 +3,17 @@
  *
  * Provides mystery box data and opening functionality for the customer account extension.
  *
- * GET: Get available mystery boxes and customer's open status
- * POST: Open a mystery box
+ * GET Actions:
+ * - available (default): Get available mystery boxes with customer status
+ * - history: Get customer's opening history
+ * - psychology: Get full psychology state (streak, pity, bonuses, activity feed)
+ * - streak: Get streak info only
+ * - activity: Get activity feed only
+ * - bonus-events: Get active bonus events
+ *
+ * POST Intents:
+ * - open: Open a mystery box (enhanced with psychology)
+ * - free-open: Claim a daily free open
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
@@ -14,8 +23,21 @@ import { getPointsBalance } from "../services/points-ledger.server";
 import {
   getCustomerAvailableBoxes,
   getCustomerOpenHistory,
-  openMysteryBox,
+  openMysteryBoxEnhanced,
 } from "../services/mystery-box-open.server";
+import {
+  getPsychologyDashboard,
+  calculatePreOpenBonuses,
+  processFreeOpen,
+  type PsychologyContext,
+} from "../services/mystery-box-psychology.server";
+import {
+  getMysteryBoxStreak,
+  canClaimFreeOpen,
+} from "../services/mystery-box-streak.server";
+import { getActivityFeed, getRecentWinners } from "../services/mystery-box-activity-feed.server";
+import { getActiveBonusEvents, getBestBonusEvent } from "../services/mystery-box-bonus-events.server";
+import db from "../db.server";
 
 const LOG_PREFIX = "[api.customer-account.mystery-boxes]";
 
@@ -54,7 +76,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Get points config to check if mystery boxes are enabled
     const config = await getPointsConfig(shop);
 
-    if (!config.isEnabled || !config.mysteryBoxEnabled) {
+    if (!config.isEnabled || !config.mysteryBoxesEnabled) {
       return json({
         enabled: false,
         boxes: [],
@@ -98,9 +120,299 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }, { headers: corsHeaders });
     }
 
-    // Default: Get available mystery boxes with customer status
+    // Psychology: Get full psychology dashboard
+    if (action === "psychology") {
+      const boxId = url.searchParams.get("boxId") || undefined;
+
+      // Get box-specific config if boxId provided
+      let pityThreshold = 10;
+      if (boxId) {
+        const box = await db.mysteryBox.findFirst({
+          where: { id: boxId, shop },
+          select: { pityThreshold: true },
+        });
+        if (box) {
+          pityThreshold = box.pityThreshold;
+        }
+      }
+
+      const dashboard = await getPsychologyDashboard({
+        shop,
+        customerId,
+        boxId,
+        pityThreshold,
+      });
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        psychology: {
+          streak: {
+            currentStreak: dashboard.streak.currentStreak,
+            longestStreak: dashboard.streak.longestStreak,
+            bonusPercent: dashboard.streak.bonusPercent,
+            bonusMultiplier: dashboard.streak.bonusMultiplier,
+            lastOpenDate: dashboard.streak.lastOpenDate?.toISOString() || null,
+            streakEmoji: dashboard.streak.streakEmoji,
+            streakLabel: dashboard.streak.streakLabel,
+            hoursUntilStreakLoss: dashboard.streak.hoursUntilStreakLoss,
+            freeOpensAvailable: dashboard.streak.freeOpensAvailable,
+            canClaimFreeOpen: dashboard.streak.canClaimFreeOpen,
+          },
+          luckyStreak: dashboard.luckyStreak,
+          pity: {
+            commonsSinceRare: dashboard.pity.commonsSinceRare,
+            threshold: dashboard.pity.threshold,
+            progress: dashboard.pity.progress,
+            willTrigger: dashboard.pity.willTrigger,
+            minimumRarity: dashboard.pity.minimumRarity,
+          },
+          bonusEvents: dashboard.bonusEvents.map((e) => ({
+            id: e.id,
+            name: e.name,
+            description: e.description,
+            eventType: e.eventType,
+            discountPercent: e.discountPercent,
+            bonusMultiplier: e.bonusMultiplier,
+            endsAt: e.endsAt.toISOString(),
+            timeRemaining: e.timeRemaining,
+            secondsRemaining: e.secondsRemaining,
+          })),
+          bestBonusEvent: dashboard.bestBonusEvent
+            ? {
+                id: dashboard.bestBonusEvent.id,
+                name: dashboard.bestBonusEvent.name,
+                discountPercent: dashboard.bestBonusEvent.discountPercent,
+                bonusMultiplier: dashboard.bestBonusEvent.bonusMultiplier,
+                timeRemaining: dashboard.bestBonusEvent.timeRemaining,
+              }
+            : null,
+          activities: dashboard.activities.map((a) => ({
+            id: a.id,
+            activityType: a.activityType,
+            displayName: a.displayName,
+            data: a.data,
+            timeAgo: a.timeAgo,
+            emoji: a.emoji,
+            createdAt: a.createdAt.toISOString(),
+          })),
+        },
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Streak: Get streak info only
+    if (action === "streak") {
+      const streakInfo = await getMysteryBoxStreak(shop, customerId);
+
+      // Check if free open is available (need to get a box for dailyFreeOpens config)
+      const boxes = await db.mysteryBox.findMany({
+        where: { shop, status: "ACTIVE", isPublic: true },
+        select: { dailyFreeOpens: true },
+        take: 1,
+      });
+      const dailyFreeOpens = boxes[0]?.dailyFreeOpens || 0;
+      const canClaimFree = await canClaimFreeOpen(customerId, dailyFreeOpens);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        streak: {
+          currentStreak: streakInfo.currentStreak,
+          longestStreak: streakInfo.longestStreak,
+          bonusPercent: streakInfo.bonusPercent,
+          bonusMultiplier: streakInfo.bonusMultiplier,
+          lastOpenDate: streakInfo.lastOpenDate?.toISOString() || null,
+          streakEmoji: streakInfo.streakEmoji,
+          streakLabel: streakInfo.streakLabel,
+          hoursUntilStreakLoss: streakInfo.hoursUntilStreakLoss,
+          freeOpensAvailable: streakInfo.freeOpensAvailable,
+          canClaimFreeOpen: canClaimFree,
+        },
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Activity: Get activity feed only
+    if (action === "activity") {
+      const boxId = url.searchParams.get("boxId") || undefined;
+      const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+
+      const activities = await getActivityFeed({ shop, boxId, limit });
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        activities: activities.map((a) => ({
+          id: a.id,
+          activityType: a.activityType,
+          displayName: a.displayName,
+          data: a.data,
+          timeAgo: a.timeAgo,
+          emoji: a.emoji,
+          createdAt: a.createdAt.toISOString(),
+        })),
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Bonus events: Get active bonus events
+    if (action === "bonus-events") {
+      const boxId = url.searchParams.get("boxId") || undefined;
+
+      const [events, bestEvent] = await Promise.all([
+        getActiveBonusEvents({ shop, boxId }),
+        getBestBonusEvent({ shop, boxId, customerId }),
+      ]);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        bonusEvents: events.map((e) => ({
+          id: e.id,
+          name: e.name,
+          description: e.description,
+          eventType: e.eventType,
+          discountPercent: e.discountPercent,
+          bonusMultiplier: e.bonusMultiplier,
+          endsAt: e.endsAt.toISOString(),
+          timeRemaining: e.timeRemaining,
+          secondsRemaining: e.secondsRemaining,
+        })),
+        bestBonusEvent: bestEvent.event
+          ? {
+              id: bestEvent.event.id,
+              name: bestEvent.event.name,
+              discountPercent: bestEvent.discountPercent,
+              bonusMultiplier: bestEvent.bonusMultiplier,
+              timeRemaining: bestEvent.event.timeRemaining,
+            }
+          : null,
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Pre-open: Calculate bonuses before opening (for UI preview)
+    if (action === "pre-open") {
+      const boxId = url.searchParams.get("boxId");
+      if (!boxId) {
+        return json({ error: "boxId is required for pre-open" }, { status: 400, headers: corsHeaders });
+      }
+
+      const box = await db.mysteryBox.findFirst({
+        where: { id: boxId, shop },
+      });
+
+      if (!box) {
+        return json({ error: "Mystery box not found" }, { status: 404, headers: corsHeaders });
+      }
+
+      const customer = await db.customer.findUnique({
+        where: { id: customerId },
+        select: { firstName: true, lastName: true },
+      });
+
+      const context: PsychologyContext = {
+        shop,
+        customerId,
+        boxId,
+        boxName: box.name,
+        firstName: customer?.firstName || null,
+        lastName: customer?.lastName || null,
+        originalCost: box.openCost,
+        dailyFreeOpens: box.dailyFreeOpens,
+        pityThreshold: box.pityThreshold,
+        enableStreakBonuses: box.enableStreakBonuses,
+        enablePitySystem: box.enablePitySystem,
+        enableLuckyStreak: box.enableLuckyStreak,
+        enableActivityFeed: box.enableActivityFeed,
+      };
+
+      const preOpen = await calculatePreOpenBonuses(context);
+      const canClaimFree = await canClaimFreeOpen(customerId, box.dailyFreeOpens);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        preOpen: {
+          originalCost: box.openCost,
+          discountedCost: preOpen.discountedCost,
+          discountPercent: preOpen.discountPercent,
+          bonusMultiplier: preOpen.bonusMultiplier,
+          streakBonus: preOpen.streakBonus,
+          luckyStreakBonus: preOpen.luckyStreakBonus,
+          eventBonus: preOpen.eventBonus
+            ? {
+                id: preOpen.eventBonus.id,
+                name: preOpen.eventBonus.name,
+                discountPercent: preOpen.eventBonus.discountPercent,
+                timeRemaining: preOpen.eventBonus.timeRemaining,
+              }
+            : null,
+          pityWillTrigger: preOpen.pityWillTrigger,
+          minimumRarity: preOpen.minimumRarity,
+          canClaimFreeOpen: canClaimFree,
+        },
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Recent winners: Get recent winners for social proof
+    if (action === "recent-winners") {
+      const boxId = url.searchParams.get("boxId");
+      if (!boxId) {
+        return json({ error: "boxId is required for recent-winners" }, { status: 400, headers: corsHeaders });
+      }
+
+      const limit = parseInt(url.searchParams.get("limit") || "5", 10);
+      const winners = await getRecentWinners({ boxId, shop, limit });
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        recentWinners: winners.map((w) => ({
+          id: w.id,
+          activityType: w.activityType,
+          displayName: w.displayName,
+          data: w.data,
+          timeAgo: w.timeAgo,
+          emoji: w.emoji,
+          createdAt: w.createdAt.toISOString(),
+        })),
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Default: Get available mystery boxes with customer status (enhanced with psychology)
     const boxes = await getCustomerAvailableBoxes(shop, customerId);
     const balance = await getPointsBalance(shop, customerId);
+    const streakInfo = await getMysteryBoxStreak(shop, customerId);
+
+    // Get free open availability based on the first active box's config
+    const activeBoxConfigs = await db.mysteryBox.findMany({
+      where: { shop, status: "ACTIVE", isPublic: true },
+      select: { id: true, dailyFreeOpens: true },
+    });
+    const dailyFreeOpens = activeBoxConfigs[0]?.dailyFreeOpens || 0;
+    const canClaimFree = dailyFreeOpens > 0 ? await canClaimFreeOpen(customerId, dailyFreeOpens) : false;
 
     return json({
       enabled: true,
@@ -123,6 +435,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         uniqueOpeners: box.uniqueOpeners,
       })),
       pointsBalance: balance.available,
+      streak: {
+        currentStreak: streakInfo.currentStreak,
+        bonusPercent: streakInfo.bonusPercent,
+        streakEmoji: streakInfo.streakEmoji,
+        streakLabel: streakInfo.streakLabel,
+        freeOpensAvailable: streakInfo.freeOpensAvailable,
+        canClaimFreeOpen: canClaimFree,
+      },
       config: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
@@ -163,14 +483,84 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Check if points/mystery boxes are enabled
     const config = await getPointsConfig(shop);
-    if (!config.isEnabled || !config.mysteryBoxEnabled) {
+    if (!config.isEnabled || !config.mysteryBoxesEnabled) {
       return json({
         success: false,
         error: "Mystery boxes are not enabled for this store",
       }, { status: 400, headers: corsHeaders });
     }
 
-    // Open mystery box
+    // Free open: Claim a daily free mystery box open
+    if (intent === "free-open") {
+      if (!boxId) {
+        return json({
+          success: false,
+          error: "boxId is required for free-open",
+        }, { status: 400, headers: corsHeaders });
+      }
+
+      // Get box configuration
+      const box = await db.mysteryBox.findFirst({
+        where: { id: boxId, shop },
+      });
+
+      if (!box) {
+        return json({
+          success: false,
+          error: "Mystery box not found",
+        }, { status: 404, headers: corsHeaders });
+      }
+
+      if (box.dailyFreeOpens <= 0) {
+        return json({
+          success: false,
+          error: "This mystery box does not offer free opens",
+        }, { status: 400, headers: corsHeaders });
+      }
+
+      // Check eligibility for free open
+      const canClaim = await canClaimFreeOpen(customerId, box.dailyFreeOpens);
+      if (!canClaim) {
+        return json({
+          success: false,
+          error: "No free opens available today. Come back tomorrow!",
+        }, { status: 400, headers: corsHeaders });
+      }
+
+      // Process the free open using enhanced function
+      const result = await openMysteryBoxEnhanced({
+        shop,
+        customerId,
+        boxId,
+        isFreeOpen: true,
+      });
+
+      if (result.success) {
+        return json({
+          success: true,
+          openId: result.openId,
+          winnerId: result.winnerId,
+          reward: result.reward,
+          pointsSpent: 0,
+          originalCost: result.originalCost,
+          discountApplied: result.originalCost, // Full discount for free open
+          newBalance: result.newBalance,
+          bonuses: result.bonuses,
+          nearMiss: result.nearMiss,
+          pityProgress: result.pityProgress,
+          celebrations: result.celebrations,
+          isFreeOpen: true,
+          message: `Free open! You won: ${result.reward?.name}!`,
+        }, { headers: corsHeaders });
+      } else {
+        return json({
+          success: false,
+          error: result.error,
+        }, { status: 400, headers: corsHeaders });
+      }
+    }
+
+    // Open mystery box (enhanced with psychology)
     if (intent === "open" || !intent) {
       if (!boxId) {
         return json({
@@ -179,10 +569,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400, headers: corsHeaders });
       }
 
-      const result = await openMysteryBox({
+      const result = await openMysteryBoxEnhanced({
         shop,
         customerId,
         boxId,
+        isFreeOpen: false,
       });
 
       if (result.success) {
@@ -190,15 +581,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           success: true,
           openId: result.openId,
           winnerId: result.winnerId,
-          reward: {
-            name: result.rewardName,
-            type: result.rewardType,
-            value: result.rewardValue,
-            rarity: result.rarity,
-          },
+          reward: result.reward,
           pointsSpent: result.pointsSpent,
+          originalCost: result.originalCost,
+          discountApplied: result.discountApplied,
           newBalance: result.newBalance,
-          message: `You won: ${result.rewardName}!`,
+          bonuses: result.bonuses,
+          nearMiss: result.nearMiss,
+          pityProgress: result.pityProgress,
+          celebrations: result.celebrations,
+          isFreeOpen: result.isFreeOpen,
+          message: `You won: ${result.reward?.name}!`,
         }, { headers: corsHeaders });
       } else {
         return json({

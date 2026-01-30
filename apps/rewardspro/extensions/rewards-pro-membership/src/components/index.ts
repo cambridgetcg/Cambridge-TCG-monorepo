@@ -13,6 +13,18 @@ export { MysteryBoxesTab } from './MysteryBoxesTab';
 export { ChallengesTab } from './ChallengesTab';
 export { MissionsTab } from './MissionsTab';
 
+// Raffle Psychology Components
+export { RaffleStreakBanner, type RaffleStreakInfo as RafflePsychologyStreakInfo } from './RaffleStreakBanner';
+export { RaffleActivityFeed, type ActivityFeedItem } from './RaffleActivityFeed';
+export { RaffleBonusEventBanner, RaffleBonusEventList, type BonusEventInfo } from './RaffleBonusEventBanner';
+export {
+  InstantWinReveal,
+  PurchaseResultDisplay,
+  type InstantWin,
+  type InstantWinPrize,
+  type CelebrationEvent,
+} from './InstantWinReveal';
+
 // Shared Components
 export {
   CardImage,

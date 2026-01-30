@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData, useRevalidator, useFetcher } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, useRevalidator, useFetcher, useSearchParams } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import {
   Page,
@@ -67,6 +67,10 @@ import {
   type DeletionWarning,
   type RestoreResult,
 } from "../services/tier-products/tier-product-deletion.server";
+import {
+  getTierProductQuickStats,
+  type TierProductSummary,
+} from "../services/tier-product-analytics.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -100,6 +104,13 @@ interface DeletedTierProduct extends TierProduct {
   daysUntilPermanentDelete: number;
 }
 
+interface TierProductQuickStats {
+  totalProducts: number;
+  totalActiveMemberships: number;
+  monthlyRevenue: number;
+  expiringThisWeek: number;
+}
+
 interface LoaderData {
   tiers: Array<{
     id: string;
@@ -120,6 +131,7 @@ interface LoaderData {
   currentPlan: string;
   hasAnnualEval: boolean; // Feature flag from entitlements
   hasPurchasableTiers: boolean; // Feature flag from entitlements
+  analytics: TierProductQuickStats; // Tier product analytics
 }
 
 // ============================================
@@ -186,10 +198,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const hasAnnualEval = entitlements.featureAnnualEval;
     const hasPurchasableTiers = entitlements.featurePurchasableTiers;
 
-    // Fetch tiers, shop settings, and tier distribution
+    // Fetch tiers, shop settings, tier distribution, and analytics
     // DATA API COMPATIBLE: groupBy is not supported by Aurora Data API adapter
     // Instead, fetch only currentTierId and count in memory
-    const [tiers, shopSettings, customersWithTiers] = await Promise.all([
+    const [tiers, shopSettings, customersWithTiers, analytics] = await Promise.all([
       db.tier.findMany({
         where: { shop },
         orderBy: { minSpend: 'asc' },
@@ -202,6 +214,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: { shop },
         select: { currentTierId: true }
       }),
+      // Fetch tier product analytics
+      getTierProductQuickStats(shop),
     ]);
 
     // Count tier distribution in memory
@@ -434,6 +448,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       currentPlan,
       hasAnnualEval,
       hasPurchasableTiers,
+      analytics,
     });
   } catch (error) {
     console.error("[TierProducts] Loader error:", error);
@@ -1714,11 +1729,31 @@ export default function TierProducts() {
     annualDiscount: "15",
   });
   const { toast, showSuccess, showError, hideToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Note: Tier management states moved to app.members.tiers.tsx
 
   const isLoading = navigation.state === "submitting";
   const isRefreshing = navigation.state === "loading";
+
+  // Handle tier query parameter from tiers page navigation
+  // Opens create modal with tier pre-selected when navigating from tiers page
+  useEffect(() => {
+    const tierParam = searchParams.get("tier");
+    if (tierParam && data.tiers.some(t => t.id === tierParam)) {
+      // Check if this tier already has products
+      const tierHasProducts = data.tierProducts.some(p => p.tierId === tierParam);
+
+      if (!tierHasProducts && data.canCreateProducts) {
+        // Pre-select tier and open create modal
+        setSelectedTier(tierParam);
+        setModalActive(true);
+      }
+
+      // Clear the query param to prevent re-triggering
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, data.tiers, data.tierProducts, data.canCreateProducts, setSearchParams]);
 
   // Automatically revalidate when navigation completes (after create/update/delete)
   useEffect(() => {
@@ -2028,6 +2063,93 @@ export default function TierProducts() {
                 feature="Purchasable Tier Products"
                 upgradeMessage="Upgrade to Max plan or higher to create products that customers can purchase to unlock tier benefits. This feature allows you to sell tier memberships as one-time purchases or recurring subscriptions."
               />
+            </Layout.Section>
+          )}
+
+          {/* Analytics Summary */}
+          {data.tierProducts.length > 0 && (
+            <Layout.Section>
+              <Card>
+                <Box padding="400">
+                  <BlockStack gap="400">
+                    <Text variant="headingMd" as="h2">
+                      Tier Product Performance
+                    </Text>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(4, 1fr)',
+                      gap: '16px'
+                    }}>
+                      {/* Active Memberships */}
+                      <div style={{
+                        padding: '16px',
+                        borderRadius: '8px',
+                        background: 'var(--p-color-bg-surface-secondary)',
+                        textAlign: 'center'
+                      }}>
+                        <Text variant="headingXl" as="p" fontWeight="bold">
+                          {data.analytics.totalActiveMemberships}
+                        </Text>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Active Memberships
+                        </Text>
+                      </div>
+                      {/* Monthly Revenue */}
+                      <div style={{
+                        padding: '16px',
+                        borderRadius: '8px',
+                        background: 'var(--p-color-bg-surface-secondary)',
+                        textAlign: 'center'
+                      }}>
+                        <Text variant="headingXl" as="p" fontWeight="bold">
+                          {formatAmount(data.analytics.monthlyRevenue)}
+                        </Text>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Last 30 Days Revenue
+                        </Text>
+                      </div>
+                      {/* Total Products */}
+                      <div style={{
+                        padding: '16px',
+                        borderRadius: '8px',
+                        background: 'var(--p-color-bg-surface-secondary)',
+                        textAlign: 'center'
+                      }}>
+                        <Text variant="headingXl" as="p" fontWeight="bold">
+                          {data.analytics.totalProducts}
+                        </Text>
+                        <Text variant="bodySm" tone="subdued" as="p">
+                          Tier Products
+                        </Text>
+                      </div>
+                      {/* Expiring Soon */}
+                      <div style={{
+                        padding: '16px',
+                        borderRadius: '8px',
+                        background: data.analytics.expiringThisWeek > 0
+                          ? 'var(--p-color-bg-fill-warning)'
+                          : 'var(--p-color-bg-surface-secondary)',
+                        textAlign: 'center'
+                      }}>
+                        <Text variant="headingXl" as="p" fontWeight="bold">
+                          {data.analytics.expiringThisWeek}
+                        </Text>
+                        <Text variant="bodySm" tone={data.analytics.expiringThisWeek > 0 ? 'caution' : 'subdued'} as="p">
+                          Expiring This Week
+                        </Text>
+                      </div>
+                    </div>
+                    {data.analytics.expiringThisWeek > 0 && (
+                      <Banner tone="warning">
+                        <p>
+                          {data.analytics.expiringThisWeek} membership{data.analytics.expiringThisWeek > 1 ? 's are' : ' is'} expiring
+                          in the next 7 days. Customers will receive email notifications.
+                        </p>
+                      </Banner>
+                    )}
+                  </BlockStack>
+                </Box>
+              </Card>
             </Layout.Section>
           )}
 

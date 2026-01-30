@@ -139,6 +139,28 @@ export interface RewardsProProfileProperties {
   rewardspro_days_since_rewards_activity: number | null;
   rewardspro_engagement_level: "HIGH" | "MEDIUM" | "LOW" | "DORMANT";
 
+  // ============================================
+  // Gift Card & Store Credit Properties (Marketing Integration)
+  // ============================================
+
+  // Store Credit (Cashback)
+  rewardspro_store_credit_balance: number;
+  rewardspro_total_store_credit_earned: number;
+  rewardspro_total_store_credit_spent: number;
+  rewardspro_store_credit_earned_30d: number;
+  rewardspro_store_credit_conversion_available: boolean;
+  rewardspro_last_store_credit_earned_date: string | null;
+  rewardspro_last_store_credit_spent_date: string | null;
+
+  // Gift Cards
+  rewardspro_active_gift_cards_count: number;
+  rewardspro_total_gift_card_balance: number;
+  rewardspro_gift_cards_purchased_count: number;
+  rewardspro_gift_cards_received_count: number;
+  rewardspro_has_expiring_gift_cards: boolean;
+  rewardspro_next_gift_card_expiry_date: string | null;
+  rewardspro_last_gift_card_activity_date: string | null;
+
   // Shop
   shop: string;
 }
@@ -664,6 +686,30 @@ export function buildProfileProperties(
     rewardspro_is_rewards_active: (customer.lifetimePoints || 0) > 0 && daysSinceLastOrder !== null && daysSinceLastOrder < 30,
     rewardspro_days_since_rewards_activity: daysSinceLastOrder, // Use order activity as proxy
     rewardspro_engagement_level: getEngagementLevel(customer, daysSinceLastOrder),
+
+    // ============================================
+    // Gift Card & Store Credit Properties (Marketing Integration)
+    // ============================================
+    // Note: These properties require gift card data to be passed via extension
+    // If not provided, defaults are used. Full data comes from buildExtendedProfileProperties.
+
+    // Store Credit (uses existing cashback fields as baseline)
+    rewardspro_store_credit_balance: customer.storeCredit || customer.cashbackBalance,
+    rewardspro_total_store_credit_earned: customer.totalCashbackEarned || 0,
+    rewardspro_total_store_credit_spent: customer.totalCashbackRedeemed || 0,
+    rewardspro_store_credit_earned_30d: 0, // Requires aggregation query
+    rewardspro_store_credit_conversion_available: (customer.storeCredit || customer.cashbackBalance) > 0,
+    rewardspro_last_store_credit_earned_date: null, // Requires ledger query
+    rewardspro_last_store_credit_spent_date: null, // Requires ledger query
+
+    // Gift Cards (defaults - populate via giftCardData if available)
+    rewardspro_active_gift_cards_count: 0,
+    rewardspro_total_gift_card_balance: 0,
+    rewardspro_gift_cards_purchased_count: 0,
+    rewardspro_gift_cards_received_count: 0,
+    rewardspro_has_expiring_gift_cards: false,
+    rewardspro_next_gift_card_expiry_date: null,
+    rewardspro_last_gift_card_activity_date: null,
 
     // Shop
     shop,

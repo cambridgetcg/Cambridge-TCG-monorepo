@@ -85,6 +85,7 @@ type ShopSettings = {
   widgetBackgroundColor: string | null;
   widgetTextColor: string | null;
   widgetAccentColor: string | null;
+  widgetSecondaryTextColor: string | null;
   widgetBorderRadius: number | null;
   widgetFontFamily: string | null;
   // Store Business Metrics
@@ -1182,6 +1183,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       formData.get("widgetAccentColor") as string,
       DEFAULT_WIDGET_COLORS.accent
     );
+    // Secondary text color is optional - empty string means "auto-derive from mode"
+    const widgetSecondaryTextColorRaw = formData.get("widgetSecondaryTextColor") as string;
+    const widgetSecondaryTextColor = widgetSecondaryTextColorRaw && widgetSecondaryTextColorRaw.trim()
+      ? sanitizeColor(widgetSecondaryTextColorRaw, null)
+      : null;
 
     // Validate border radius bounds
     const widgetBorderRadiusRaw = parseInt(formData.get("widgetBorderRadius") as string);
@@ -1197,6 +1203,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       widgetBackgroundColor,
       widgetTextColor,
       widgetAccentColor,
+      widgetSecondaryTextColor,
       widgetBorderRadius,
       widgetFontFamily
     });
@@ -1263,6 +1270,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         widgetBackgroundColor,
         widgetTextColor,
         widgetAccentColor,
+        widgetSecondaryTextColor,
         widgetBorderRadius,
         widgetFontFamily,
         // Store business metrics
@@ -1414,6 +1422,7 @@ export default function SettingsPage() {
   const [widgetBackgroundColor, setWidgetBackgroundColor] = useState(settings.widgetBackgroundColor || "#FFFFFF");
   const [widgetTextColor, setWidgetTextColor] = useState(settings.widgetTextColor || "#212B36");
   const [widgetAccentColor, setWidgetAccentColor] = useState(settings.widgetAccentColor || "#008060");
+  const [widgetSecondaryTextColor, setWidgetSecondaryTextColor] = useState(settings.widgetSecondaryTextColor || "");
   const [widgetBorderRadius, setWidgetBorderRadius] = useState(settings.widgetBorderRadius || 12);
   const [widgetFontFamily, setWidgetFontFamily] = useState(settings.widgetFontFamily || "inherit");
 
@@ -1493,6 +1502,7 @@ export default function SettingsPage() {
       widgetBackgroundColor !== (settings.widgetBackgroundColor || "#FFFFFF") ||
       widgetTextColor !== (settings.widgetTextColor || "#212B36") ||
       widgetAccentColor !== (settings.widgetAccentColor || "#008060") ||
+      widgetSecondaryTextColor !== (settings.widgetSecondaryTextColor || "") ||
       widgetBorderRadius !== (settings.widgetBorderRadius || 12) ||
       widgetFontFamily !== (settings.widgetFontFamily || "inherit") ||
       averageProfitMargin !== (settings.averageProfitMargin?.toString() || "") ||
@@ -1502,7 +1512,7 @@ export default function SettingsPage() {
       targetRoiPercent !== (settings.targetRoiPercent?.toString() || "");
 
     setHasUnsavedChanges(hasChanges);
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetSecondaryTextColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
 
   // Handle currency fetch response
   useEffect(() => {
@@ -1579,6 +1589,7 @@ export default function SettingsPage() {
     formData.append("widgetBackgroundColor", widgetBackgroundColor);
     formData.append("widgetTextColor", widgetTextColor);
     formData.append("widgetAccentColor", widgetAccentColor);
+    formData.append("widgetSecondaryTextColor", widgetSecondaryTextColor);
     formData.append("widgetBorderRadius", String(widgetBorderRadius));
     formData.append("widgetFontFamily", widgetFontFamily);
     // Store business metrics
@@ -1590,7 +1601,7 @@ export default function SettingsPage() {
     // Don't submit timezone - it's synced from Shopify
 
     fetcher.submit(formData, { method: "post" });
-  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetSecondaryTextColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
 
   // Handle reset
   const handleReset = useCallback(() => {
@@ -1613,6 +1624,7 @@ export default function SettingsPage() {
     setWidgetBackgroundColor(settings.widgetBackgroundColor || "#FFFFFF");
     setWidgetTextColor(settings.widgetTextColor || "#212B36");
     setWidgetAccentColor(settings.widgetAccentColor || "#008060");
+    setWidgetSecondaryTextColor(settings.widgetSecondaryTextColor || "");
     setWidgetBorderRadius(settings.widgetBorderRadius || 12);
     setWidgetFontFamily(settings.widgetFontFamily || "inherit");
     // Store metrics reset
@@ -2959,6 +2971,23 @@ export default function SettingsPage() {
                             />
                           </FormLayout.Group>
                           <FormLayout.Group>
+                            <ColorPickerFieldInline
+                              label="Secondary Text"
+                              color={widgetSecondaryTextColor || (widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)")}
+                              onChange={setWidgetSecondaryTextColor}
+                            />
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              <Text as="span" variant="bodySm" tone="subdued">Labels</Text>
+                              <Button
+                                size="slim"
+                                onClick={() => setWidgetSecondaryTextColor("")}
+                                disabled={!widgetSecondaryTextColor}
+                              >
+                                {widgetSecondaryTextColor ? "Reset to Auto" : "Auto (default)"}
+                              </Button>
+                            </div>
+                          </FormLayout.Group>
+                          <FormLayout.Group>
                             <Select
                               label="Border Radius"
                               options={[
@@ -2986,6 +3015,11 @@ export default function SettingsPage() {
                       )}
 
                       {/* Widget Preview - Matches actual storefront widget */}
+                      {/* Secondary text color: use custom if set, else auto-derive from mode */}
+                      {(() => {
+                        const previewSecondaryColor = widgetSecondaryTextColor || (widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)");
+                        const previewSecondaryLighter = widgetSecondaryTextColor || (widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)");
+                        return (
                       <Box padding="400" background="bg-surface-secondary" borderRadius="200">
                         <BlockStack gap="300">
                           <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
@@ -3037,7 +3071,7 @@ export default function SettingsPage() {
                               {/* Balance Hero */}
                               <div style={{ textAlign: "center", marginBottom: "16px" }}>
                                 <div style={{
-                                  color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)",
+                                  color: previewSecondaryColor,
                                   fontSize: "11px",
                                   textTransform: "uppercase",
                                   letterSpacing: "0.5px",
@@ -3068,7 +3102,7 @@ export default function SettingsPage() {
                                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                                   </svg>
                                   <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>Gold</div>
-                                  <div style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)", fontSize: "10px" }}>Tier</div>
+                                  <div style={{ color: previewSecondaryLighter, fontSize: "10px" }}>Tier</div>
                                 </div>
 
                                 {/* Cashback Card */}
@@ -3083,7 +3117,7 @@ export default function SettingsPage() {
                                     <path d="M12 6v6l4 2"/>
                                   </svg>
                                   <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>{DEMO_VALUES.WIDGET_PREVIEW.cashbackPercent}%</div>
-                                  <div style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)", fontSize: "10px" }}>Cashback</div>
+                                  <div style={{ color: previewSecondaryLighter, fontSize: "10px" }}>Cashback</div>
                                 </div>
 
                                 {/* Progress Card */}
@@ -3097,7 +3131,7 @@ export default function SettingsPage() {
                                     <path d="M12 20V10M18 20V4M6 20v-4"/>
                                   </svg>
                                   <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>{DEMO_VALUES.WIDGET_PREVIEW.progress}%</div>
-                                  <div style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)", fontSize: "10px" }}>Progress</div>
+                                  <div style={{ color: previewSecondaryLighter, fontSize: "10px" }}>Progress</div>
                                 </div>
                               </div>
 
@@ -3109,7 +3143,7 @@ export default function SettingsPage() {
                                   marginBottom: "6px",
                                   fontSize: "11px"
                                 }}>
-                                  <span style={{ color: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)" }}>Next Tier Progress</span>
+                                  <span style={{ color: previewSecondaryColor }}>Next Tier Progress</span>
                                   <span style={{ color: widgetAccentColor, fontWeight: 500 }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.amountRemaining, { storeCurrency, currencyDisplayType })} to go</span>
                                 </div>
                                 <div style={{
@@ -3130,6 +3164,8 @@ export default function SettingsPage() {
                           </div>
                         </BlockStack>
                       </Box>
+                        );
+                      })()}
                     </BlockStack>
                   )}
 

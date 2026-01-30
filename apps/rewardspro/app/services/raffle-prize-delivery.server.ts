@@ -13,6 +13,8 @@ import db from "../db.server";
 import { earnPoints } from "./points-ledger.server";
 import { updateWinnerDeliveryStatus, markWinnerNotified } from "./raffle-drawing.server";
 import { trackRaffleWon } from "./klaviyo-events.server";
+import { createRaffleDraftOrder } from "./raffle-draft-order.server";
+import { getFirstVariantId } from "./product-search.server";
 import type { RafflePrizeType } from "./raffle-management.server";
 
 const LOG_PREFIX = "[RafflePrizeDelivery]";
@@ -27,6 +29,8 @@ export interface DeliveryResult {
   discountCode?: string;
   storeCreditId?: string;
   pointsLedgerId?: string;
+  draftOrderId?: string;
+  draftOrderUrl?: string;
   requiresManualAction?: boolean;
   manualActionReason?: string;
 }
@@ -44,6 +48,10 @@ interface PrizeValue {
   productId?: string;
   variantId?: string;
   quantity?: number;
+  productTitle?: string;
+  productImage?: string;
+  price?: string;
+  sku?: string;
   // CUSTOM
   fulfillmentInstructions?: string;
 }
@@ -168,6 +176,8 @@ export async function deliverPrize(
         discountCode: result.discountCode,
         storeCreditId: result.storeCreditId,
         pointsLedgerId: result.pointsLedgerId,
+        draftOrderId: result.draftOrderId,
+        draftOrderUrl: result.draftOrderUrl,
       });
 
       // Mark as notified (in a real implementation, this would send an email)
@@ -455,7 +465,7 @@ async function deliverPointsPrize(
 
 /**
  * Deliver a PRODUCT prize
- * Creates a draft order or marks for manual fulfillment
+ * Creates a draft order for the winner or marks for manual fulfillment
  */
 async function deliverProductPrize(
   winnerId: string,
@@ -467,12 +477,7 @@ async function deliverProductPrize(
 ): Promise<DeliveryResult> {
   console.log(`${LOG_PREFIX} Delivering PRODUCT prize`);
 
-  // Product prizes typically require manual fulfillment
-  // In a full implementation, you could create a draft order via Shopify API
-
-  const productId = prizeValue.productId;
-  const variantId = prizeValue.variantId;
-  const quantity = prizeValue.quantity || 1;
+  const { productId, variantId, quantity = 1, productTitle } = prizeValue;
 
   if (!productId) {
     return {
@@ -483,13 +488,82 @@ async function deliverProductPrize(
     };
   }
 
-  // For now, mark as requiring manual action
-  // A full implementation would create a draft order here
-  return {
-    success: true,
-    requiresManualAction: true,
-    manualActionReason: `Create order for product ${productId} (variant: ${variantId || "default"}, qty: ${quantity})`,
-  };
+  // If no admin API context, fall back to manual fulfillment
+  if (!admin) {
+    console.log(`${LOG_PREFIX} No admin context, marking for manual fulfillment`);
+    return {
+      success: true,
+      requiresManualAction: true,
+      manualActionReason: `Create order for ${productTitle || productId} (qty: ${quantity})`,
+    };
+  }
+
+  try {
+    // Get customer's Shopify ID for the draft order
+    const customer = await db.customer.findUnique({
+      where: { id: customerId },
+      select: { shopifyCustomerId: true, email: true },
+    });
+
+    if (!customer?.shopifyCustomerId) {
+      console.log(`${LOG_PREFIX} Customer has no Shopify ID, marking for manual fulfillment`);
+      return {
+        success: true,
+        requiresManualAction: true,
+        manualActionReason: `Customer has no Shopify ID. Create order for ${productTitle || productId} (qty: ${quantity})`,
+      };
+    }
+
+    // Resolve variant ID if not provided
+    let resolvedVariantId = variantId;
+    if (!resolvedVariantId) {
+      console.log(`${LOG_PREFIX} No variant specified, fetching first variant`);
+      resolvedVariantId = await getFirstVariantId(admin, productId);
+
+      if (!resolvedVariantId) {
+        return {
+          success: true,
+          requiresManualAction: true,
+          manualActionReason: `Could not determine variant. Create order for ${productTitle || productId} (qty: ${quantity})`,
+        };
+      }
+    }
+
+    // Create draft order with 100% discount (free prize)
+    const result = await createRaffleDraftOrder(admin, {
+      customerId: `gid://shopify/Customer/${customer.shopifyCustomerId}`,
+      productId,
+      variantId: resolvedVariantId,
+      quantity,
+      raffleName,
+      winnerId,
+      customerEmail: customer.email || undefined,
+    });
+
+    if (result.success) {
+      console.log(`${LOG_PREFIX} Created draft order: ${result.draftOrderName}`);
+      return {
+        success: true,
+        draftOrderId: result.draftOrderId,
+        draftOrderUrl: result.draftOrderAdminUrl,
+      };
+    }
+
+    // Draft order creation failed, fall back to manual
+    console.log(`${LOG_PREFIX} Draft order creation failed: ${result.error}`);
+    return {
+      success: true,
+      requiresManualAction: true,
+      manualActionReason: `Draft order failed: ${result.error}. Create order for ${productTitle || productId} (qty: ${quantity})`,
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Error creating draft order:`, error);
+    return {
+      success: true,
+      requiresManualAction: true,
+      manualActionReason: `Error: ${error instanceof Error ? error.message : "Unknown"}. Create order for ${productTitle || productId} (qty: ${quantity})`,
+    };
+  }
 }
 
 /**

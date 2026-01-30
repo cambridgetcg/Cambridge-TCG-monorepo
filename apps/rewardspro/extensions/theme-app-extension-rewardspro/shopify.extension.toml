@@ -18,3 +18,23 @@ module = "./blocks/membership_widget.liquid"
 [[extensions.targeting]]
 target = "section"
 module = "./blocks/points_earning_preview.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/rewards_hub_section.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/rewards_hub_cta.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/raffle_teaser.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/mystery_box_teaser.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/challenge_teaser.liquid"

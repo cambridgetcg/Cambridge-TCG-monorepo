@@ -90,6 +90,27 @@ export const KLAVIYO_EVENTS = {
   // Engagement Triggers
   REWARDS_DORMANT: "RewardsPro Rewards Engagement Needed",
   HIGH_POINTS_NO_ACTIVITY: "RewardsPro High Balance No Activity",
+
+  // ============================================
+  // GIFT CARD & STORE CREDIT EVENTS (Marketing-Gift Cards Integration)
+  // ============================================
+
+  // Gift Card Events
+  GIFT_CARD_PURCHASED: "RewardsPro Gift Card Purchased",
+  GIFT_CARD_RECEIVED: "RewardsPro Gift Card Received",
+  GIFT_CARD_REDEEMED: "RewardsPro Gift Card Redeemed",
+  GIFT_CARD_BALANCE_LOW: "RewardsPro Gift Card Balance Low",
+  GIFT_CARD_EXPIRING: "RewardsPro Gift Card Expiring Soon",
+
+  // Store Credit Events
+  STORE_CREDIT_EARNED: "RewardsPro Store Credit Earned",
+  STORE_CREDIT_SPENT: "RewardsPro Store Credit Spent",
+  STORE_CREDIT_CONVERTED: "RewardsPro Store Credit Converted",
+  STORE_CREDIT_MILESTONE: "RewardsPro Store Credit Milestone",
+  STORE_CREDIT_BALANCE_REMINDER: "RewardsPro Store Credit Balance Reminder",
+
+  // Cashback Events (enhanced)
+  CASHBACK_MILESTONE: "RewardsPro Cashback Milestone Reached",
 } as const;
 
 export type KlaviyoEventName = (typeof KLAVIYO_EVENTS)[keyof typeof KLAVIYO_EVENTS];
@@ -249,6 +270,9 @@ function isEventEnabled(
     sendRaffleEvents?: boolean;
     sendMysteryBoxEvents?: boolean;
     sendPointsEvents?: boolean;
+    // Gift card & store credit event toggles
+    sendGiftCardEvents?: boolean;
+    sendStoreCreditEvents?: boolean;
   },
   eventType: KlaviyoEventName
 ): boolean {
@@ -307,6 +331,23 @@ function isEventEnabled(
     // Re-engagement triggers
     [KLAVIYO_EVENTS.REWARDS_DORMANT]: "sendRewardsEngagement",
     [KLAVIYO_EVENTS.HIGH_POINTS_NO_ACTIVITY]: "sendRewardsEngagement",
+
+    // Gift card events
+    [KLAVIYO_EVENTS.GIFT_CARD_PURCHASED]: "sendGiftCardEvents",
+    [KLAVIYO_EVENTS.GIFT_CARD_RECEIVED]: "sendGiftCardEvents",
+    [KLAVIYO_EVENTS.GIFT_CARD_REDEEMED]: "sendGiftCardEvents",
+    [KLAVIYO_EVENTS.GIFT_CARD_BALANCE_LOW]: "sendGiftCardEvents",
+    [KLAVIYO_EVENTS.GIFT_CARD_EXPIRING]: "sendGiftCardEvents",
+
+    // Store credit events
+    [KLAVIYO_EVENTS.STORE_CREDIT_EARNED]: "sendStoreCreditEvents",
+    [KLAVIYO_EVENTS.STORE_CREDIT_SPENT]: "sendStoreCreditEvents",
+    [KLAVIYO_EVENTS.STORE_CREDIT_CONVERTED]: "sendStoreCreditEvents",
+    [KLAVIYO_EVENTS.STORE_CREDIT_MILESTONE]: "sendStoreCreditEvents",
+    [KLAVIYO_EVENTS.STORE_CREDIT_BALANCE_REMINDER]: "sendStoreCreditEvents",
+
+    // Cashback milestone (uses cashback toggle)
+    [KLAVIYO_EVENTS.CASHBACK_MILESTONE]: "sendCashbackEarned",
   };
 
   const settingKey = mapping[eventType];
@@ -1399,6 +1440,412 @@ export async function trackHighPointsNoActivity(
         : false,
       current_tier: customer.currentTier?.name || "None",
       potential_value_unused: customer.pointsBalance, // Could calculate redemption value
+    },
+  });
+}
+
+// ============================================
+// GIFT CARD & STORE CREDIT EVENTS
+// ============================================
+
+/**
+ * Track gift card purchased event
+ */
+export async function trackGiftCardPurchased(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  giftCard: {
+    id: string;
+    code: string;
+    initialAmount: number;
+    recipientEmail?: string;
+    recipientName?: string;
+    message?: string;
+    expiresAt?: Date;
+    tierBranded?: boolean;
+    tierName?: string;
+  }
+): Promise<boolean> {
+  const isSelfPurchase = !giftCard.recipientEmail || giftCard.recipientEmail === customer.email;
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.GIFT_CARD_PURCHASED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `gift_card_purchased_${giftCard.id}`,
+    value: giftCard.initialAmount,
+    properties: {
+      $value: giftCard.initialAmount,
+      gift_card_id: giftCard.id,
+      gift_card_code: giftCard.code,
+      amount: giftCard.initialAmount,
+      is_self_purchase: isSelfPurchase,
+      recipient_email: giftCard.recipientEmail,
+      recipient_name: giftCard.recipientName,
+      gift_message: giftCard.message,
+      expires_at: giftCard.expiresAt?.toISOString(),
+      is_tier_branded: giftCard.tierBranded || false,
+      tier_name: giftCard.tierName,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track gift card received event (for recipient)
+ */
+export async function trackGiftCardReceived(
+  shop: string,
+  recipientEmail: string,
+  giftCard: {
+    id: string;
+    code: string;
+    initialAmount: number;
+    senderName?: string;
+    message?: string;
+    expiresAt?: Date;
+    tierBranded?: boolean;
+    tierName?: string;
+  },
+  recipientCustomerId?: string
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.GIFT_CARD_RECEIVED,
+    email: recipientEmail,
+    customerId: recipientCustomerId,
+    uniqueId: `gift_card_received_${giftCard.id}`,
+    value: giftCard.initialAmount,
+    properties: {
+      $value: giftCard.initialAmount,
+      gift_card_id: giftCard.id,
+      gift_card_code: giftCard.code,
+      amount: giftCard.initialAmount,
+      sender_name: giftCard.senderName,
+      gift_message: giftCard.message,
+      expires_at: giftCard.expiresAt?.toISOString(),
+      is_tier_branded: giftCard.tierBranded || false,
+      tier_name: giftCard.tierName,
+      redemption_url: `https://${shop}/account/gift-cards`,
+    },
+  });
+}
+
+/**
+ * Track gift card redeemed event
+ */
+export async function trackGiftCardRedeemed(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  redemption: {
+    giftCardId: string;
+    giftCardCode: string;
+    amountRedeemed: number;
+    remainingBalance: number;
+    orderId?: string;
+    orderNumber?: string;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.GIFT_CARD_REDEEMED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `gift_card_redeemed_${redemption.giftCardId}_${Date.now()}`,
+    orderId: redemption.orderId,
+    value: redemption.amountRedeemed,
+    properties: {
+      $value: redemption.amountRedeemed,
+      gift_card_id: redemption.giftCardId,
+      gift_card_code: redemption.giftCardCode,
+      amount_redeemed: redemption.amountRedeemed,
+      remaining_balance: redemption.remainingBalance,
+      is_fully_redeemed: redemption.remainingBalance === 0,
+      order_id: redemption.orderId,
+      order_number: redemption.orderNumber,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track gift card balance low event
+ */
+export async function trackGiftCardBalanceLow(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  giftCard: {
+    id: string;
+    code: string;
+    remainingBalance: number;
+    initialAmount: number;
+    expiresAt?: Date;
+  }
+): Promise<boolean> {
+  const percentRemaining = Math.round(
+    (giftCard.remainingBalance / giftCard.initialAmount) * 100
+  );
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.GIFT_CARD_BALANCE_LOW,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `gift_card_low_${giftCard.id}_${giftCard.remainingBalance}`,
+    properties: {
+      gift_card_id: giftCard.id,
+      gift_card_code: giftCard.code,
+      remaining_balance: giftCard.remainingBalance,
+      initial_amount: giftCard.initialAmount,
+      percent_remaining: percentRemaining,
+      expires_at: giftCard.expiresAt?.toISOString(),
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track gift card expiring soon event
+ */
+export async function trackGiftCardExpiring(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  giftCard: {
+    id: string;
+    code: string;
+    remainingBalance: number;
+    expiresAt: Date;
+    daysUntilExpiry: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.GIFT_CARD_EXPIRING,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `gift_card_expiring_${giftCard.id}_${giftCard.daysUntilExpiry}d`,
+    properties: {
+      gift_card_id: giftCard.id,
+      gift_card_code: giftCard.code,
+      remaining_balance: giftCard.remainingBalance,
+      expires_at: giftCard.expiresAt.toISOString(),
+      days_until_expiry: giftCard.daysUntilExpiry,
+      urgency_level: giftCard.daysUntilExpiry <= 3 ? "critical" : giftCard.daysUntilExpiry <= 7 ? "high" : "medium",
+      current_tier: customer.currentTier?.name || "None",
+      use_it_url: `https://${shop}/account/gift-cards`,
+    },
+  });
+}
+
+/**
+ * Track store credit earned event
+ */
+export async function trackStoreCreditEarned(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  credit: {
+    amount: number;
+    source: "cashback" | "refund" | "adjustment" | "tier_bonus" | "promotion" | "referral" | "gift_card_conversion";
+    newBalance: number;
+    orderId?: string;
+    orderNumber?: string;
+    description?: string;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.STORE_CREDIT_EARNED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `store_credit_earned_${customer.id}_${Date.now()}`,
+    orderId: credit.orderId,
+    value: credit.amount,
+    properties: {
+      $value: credit.amount,
+      credit_amount: credit.amount,
+      source: credit.source,
+      new_balance: credit.newBalance,
+      order_id: credit.orderId,
+      order_number: credit.orderNumber,
+      description: credit.description,
+      current_tier: customer.currentTier?.name || "None",
+      cashback_percent: customer.currentTier?.cashbackPercent || 0,
+      total_earned: customer.totalCashbackEarned,
+    },
+  });
+}
+
+/**
+ * Track store credit spent event
+ */
+export async function trackStoreCreditSpent(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  spend: {
+    amount: number;
+    newBalance: number;
+    orderId?: string;
+    orderNumber?: string;
+    orderTotal?: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.STORE_CREDIT_SPENT,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `store_credit_spent_${customer.id}_${Date.now()}`,
+    orderId: spend.orderId,
+    value: spend.amount,
+    properties: {
+      $value: spend.amount,
+      credit_spent: spend.amount,
+      new_balance: spend.newBalance,
+      order_id: spend.orderId,
+      order_number: spend.orderNumber,
+      order_total: spend.orderTotal,
+      percent_of_order: spend.orderTotal ? Math.round((spend.amount / spend.orderTotal) * 100) : null,
+      current_tier: customer.currentTier?.name || "None",
+      total_redeemed: customer.totalCashbackRedeemed,
+    },
+  });
+}
+
+/**
+ * Track store credit converted to gift card event
+ */
+export async function trackStoreCreditConverted(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  conversion: {
+    creditAmount: number;
+    giftCardCode: string;
+    giftCardId: string;
+    bonusAmount?: number;
+    tierBonus?: boolean;
+    newCreditBalance: number;
+  }
+): Promise<boolean> {
+  const totalValue = conversion.creditAmount + (conversion.bonusAmount || 0);
+
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.STORE_CREDIT_CONVERTED,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `store_credit_converted_${conversion.giftCardId}`,
+    value: totalValue,
+    properties: {
+      $value: totalValue,
+      credit_converted: conversion.creditAmount,
+      bonus_amount: conversion.bonusAmount || 0,
+      total_gift_card_value: totalValue,
+      gift_card_code: conversion.giftCardCode,
+      gift_card_id: conversion.giftCardId,
+      tier_bonus_applied: conversion.tierBonus || false,
+      new_credit_balance: conversion.newCreditBalance,
+      current_tier: customer.currentTier?.name || "None",
+    },
+  });
+}
+
+/**
+ * Track store credit milestone reached event
+ */
+export async function trackStoreCreditMilestone(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  milestone: {
+    amount: number;
+    milestoneName?: string;
+    totalEarned: number;
+    currentBalance: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.STORE_CREDIT_MILESTONE,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `store_credit_milestone_${customer.id}_${milestone.amount}`,
+    properties: {
+      milestone_amount: milestone.amount,
+      milestone_name: milestone.milestoneName || `$${milestone.amount} Earned`,
+      total_earned: milestone.totalEarned,
+      current_balance: milestone.currentBalance,
+      current_tier: customer.currentTier?.name || "None",
+      cashback_percent: customer.currentTier?.cashbackPercent || 0,
+    },
+  });
+}
+
+/**
+ * Track store credit balance reminder event
+ */
+export async function trackStoreCreditBalanceReminder(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  balance: {
+    creditBalance: number;
+    daysSinceLastUse: number;
+    conversionAvailable?: boolean;
+    conversionBonusPercent?: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.STORE_CREDIT_BALANCE_REMINDER,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `store_credit_reminder_${customer.id}_${balance.daysSinceLastUse}d`,
+    properties: {
+      credit_balance: balance.creditBalance,
+      days_since_last_use: balance.daysSinceLastUse,
+      can_convert_to_gift_card: balance.conversionAvailable || false,
+      conversion_bonus_percent: balance.conversionBonusPercent || 0,
+      potential_bonus: balance.conversionAvailable
+        ? Math.round(balance.creditBalance * (balance.conversionBonusPercent || 0) / 100)
+        : 0,
+      current_tier: customer.currentTier?.name || "None",
+      shop_url: `https://${shop}`,
+    },
+  });
+}
+
+/**
+ * Track cashback milestone reached event
+ */
+export async function trackCashbackMilestone(
+  shop: string,
+  customer: Customer & { currentTier?: Tier | null },
+  milestone: {
+    amount: number;
+    milestoneName?: string;
+    totalEarned: number;
+    currentBalance: number;
+    ordersCount: number;
+  }
+): Promise<boolean> {
+  return dispatchKlaviyoEvent({
+    shop,
+    eventType: KLAVIYO_EVENTS.CASHBACK_MILESTONE,
+    email: customer.email,
+    customerId: customer.id,
+    uniqueId: `cashback_milestone_${customer.id}_${milestone.amount}`,
+    value: milestone.amount,
+    properties: {
+      $value: milestone.amount,
+      milestone_amount: milestone.amount,
+      milestone_name: milestone.milestoneName || `$${milestone.amount} Cashback Earned`,
+      total_cashback_earned: milestone.totalEarned,
+      current_balance: milestone.currentBalance,
+      orders_count: milestone.ordersCount,
+      current_tier: customer.currentTier?.name || "None",
+      cashback_percent: customer.currentTier?.cashbackPercent || 0,
+      average_cashback_per_order: milestone.ordersCount > 0
+        ? Math.round(milestone.totalEarned / milestone.ordersCount * 100) / 100
+        : 0,
     },
   });
 }
