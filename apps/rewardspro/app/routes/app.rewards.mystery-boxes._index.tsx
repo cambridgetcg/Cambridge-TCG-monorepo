@@ -38,7 +38,8 @@ import {
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
 import db from "~/db.server";
-import { UsageUpgradePrompt, LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import { UsageUpgradePrompt, LimitHint, PageLimitStatus, LimitExceededModal } from "~/components/Billing/UpgradePrompt";
+import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 // NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
@@ -84,6 +85,12 @@ interface ActionData {
   message?: string;
   error?: string;
   boxId?: string;
+  // Limit exceeded info for upgrade modal
+  code?: string;
+  limit?: string;
+  currentCount?: number;
+  maxLimit?: number;
+  currentPlan?: string;
 }
 
 // ============================================
@@ -282,6 +289,7 @@ export default function MysteryBoxes() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastError, setToastError] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [limitExceededModalOpen, setLimitExceededModalOpen] = useState(false);
 
   // Form state for create modal
   const [formName, setFormName] = useState("");
@@ -291,7 +299,7 @@ export default function MysteryBoxes() {
   const [formStartsAt, setFormStartsAt] = useState("");
   const [formEndsAt, setFormEndsAt] = useState("");
 
-  // Show toast on action completion
+  // Show toast on action completion, or limit exceeded modal
   useEffect(() => {
     if (actionData) {
       if (actionData.success) {
@@ -308,6 +316,10 @@ export default function MysteryBoxes() {
           setFormStartsAt("");
           setFormEndsAt("");
         }
+      } else if (actionData.code === 'LIMIT_EXCEEDED') {
+        // Show upgrade modal instead of toast for limit exceeded
+        setCreateModalOpen(false);
+        setLimitExceededModalOpen(true);
       } else if (actionData.error) {
         setToastMessage(actionData.error);
         setToastError(true);
@@ -380,7 +392,7 @@ export default function MysteryBoxes() {
       <Frame>
         <Page
           title="Mystery Boxes"
-          backAction={{ content: "Points", url: "/app/rewards" }}
+          backAction={{ content: "Rewards", url: "/app/rewards" }}
         >
           <Layout>
             <Layout.Section>
@@ -416,6 +428,17 @@ export default function MysteryBoxes() {
         {toastActive && (
           <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
         )}
+
+        {/* Limit Exceeded Upgrade Modal */}
+        <LimitExceededModal
+          open={limitExceededModalOpen}
+          onClose={() => setLimitExceededModalOpen(false)}
+          resource="active mystery box"
+          current={actionData?.currentCount || limitAccess.current}
+          limit={actionData?.maxLimit || limitAccess.max}
+          currentPlan={actionData?.currentPlan || 'Free'}
+          action="create"
+        />
       </Frame>
     );
   }
@@ -426,7 +449,7 @@ export default function MysteryBoxes() {
       <Frame>
         <Page
           title="Mystery Boxes"
-          backAction={{ content: "Points", url: "/app/rewards" }}
+          backAction={{ content: "Rewards", url: "/app/rewards" }}
           primaryAction={{
             content: "Create Mystery Box",
             onAction: openCreateModal,
@@ -512,80 +535,91 @@ export default function MysteryBoxes() {
               </Card>
             </Layout.Section>
           </Layout>
-
-          {/* Create Modal */}
-          <Modal
-            open={createModalOpen}
-            onClose={() => setCreateModalOpen(false)}
-            title="Create Mystery Box"
-            primaryAction={{
-              content: "Create",
-              onAction: handleCreateSubmit,
-              loading: isSubmitting,
-              disabled: !formName,
-            }}
-            secondaryActions={[
-              {
-                content: "Cancel",
-                onAction: () => setCreateModalOpen(false),
-              },
-            ]}
-          >
-            <Modal.Section>
-              <FormLayout>
-                <TextField
-                  label="Box Name"
-                  value={formName}
-                  onChange={setFormName}
-                  autoComplete="off"
-                  placeholder="Golden Mystery Box"
-                />
-                <TextField
-                  label={`Cost (${pointsConfig.currencyPlural})`}
-                  type="number"
-                  value={formOpenCost}
-                  onChange={setFormOpenCost}
-                  autoComplete="off"
-                  helpText={`How many ${pointsConfig.currencyPlural.toLowerCase()} to open this box`}
-                />
-                <TextField
-                  label="Max Opens Per Customer"
-                  type="number"
-                  value={formMaxOpensPerCustomer}
-                  onChange={setFormMaxOpensPerCustomer}
-                  autoComplete="off"
-                />
-                <TextField
-                  label="Max Total Opens (optional)"
-                  type="number"
-                  value={formMaxOpensTotal}
-                  onChange={setFormMaxOpensTotal}
-                  autoComplete="off"
-                  placeholder="Unlimited"
-                  helpText="Leave empty for unlimited"
-                />
-                <TextField
-                  label="Start Date"
-                  type="datetime-local"
-                  value={formStartsAt}
-                  onChange={setFormStartsAt}
-                  autoComplete="off"
-                />
-                <TextField
-                  label="End Date"
-                  type="datetime-local"
-                  value={formEndsAt}
-                  onChange={setFormEndsAt}
-                  autoComplete="off"
-                />
-              </FormLayout>
-            </Modal.Section>
-          </Modal>
-
-          {toastActive && (
-            <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
-          )}
         </Page>
+
+        {/* Create Modal - shared by all views */}
+        <Modal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          title="Create Mystery Box"
+          primaryAction={{
+            content: "Create",
+            onAction: handleCreateSubmit,
+            loading: isSubmitting,
+            disabled: !formName,
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: () => setCreateModalOpen(false),
+            },
+          ]}
+        >
+          <Modal.Section>
+            <FormLayout>
+              <TextField
+                label="Box Name"
+                value={formName}
+                onChange={setFormName}
+                autoComplete="off"
+                placeholder="Golden Mystery Box"
+              />
+              <TextField
+                label={`Cost (${pointsConfig.currencyPlural})`}
+                type="number"
+                value={formOpenCost}
+                onChange={setFormOpenCost}
+                autoComplete="off"
+                helpText={`How many ${pointsConfig.currencyPlural.toLowerCase()} to open this box`}
+              />
+              <TextField
+                label="Max Opens Per Customer"
+                type="number"
+                value={formMaxOpensPerCustomer}
+                onChange={setFormMaxOpensPerCustomer}
+                autoComplete="off"
+              />
+              <TextField
+                label="Max Total Opens (optional)"
+                type="number"
+                value={formMaxOpensTotal}
+                onChange={setFormMaxOpensTotal}
+                autoComplete="off"
+                placeholder="Unlimited"
+                helpText="Leave empty for unlimited"
+              />
+              <TextField
+                label="Start Date"
+                type="datetime-local"
+                value={formStartsAt}
+                onChange={setFormStartsAt}
+                autoComplete="off"
+              />
+              <TextField
+                label="End Date"
+                type="datetime-local"
+                value={formEndsAt}
+                onChange={setFormEndsAt}
+                autoComplete="off"
+              />
+            </FormLayout>
+          </Modal.Section>
+        </Modal>
+
+        {toastActive && (
+          <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
+        )}
+
+        {/* Limit Exceeded Upgrade Modal */}
+        <LimitExceededModal
+          open={limitExceededModalOpen}
+          onClose={() => setLimitExceededModalOpen(false)}
+          resource="active mystery box"
+          current={actionData?.currentCount || limitAccess.current}
+          limit={actionData?.maxLimit || limitAccess.max}
+          currentPlan={actionData?.currentPlan || 'Free'}
+          action="create"
+        />
       </Frame>
     );
   }
@@ -607,7 +641,7 @@ export default function MysteryBoxes() {
     <Frame>
       <Page
         title="Mystery Boxes"
-        backAction={{ content: "Points", url: "/app/rewards" }}
+        backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Create Mystery Box",
           onAction: openCreateModal,
@@ -649,19 +683,17 @@ export default function MysteryBoxes() {
           {/* Stats Cards */}
           <Layout.Section>
             <InlineStack gap="400" wrap>
-              <Card>
-                <BlockStack gap="100">
-                  <Text variant="bodySm" tone="subdued" as="p">Total Boxes</Text>
-                  <Text variant="headingLg" as="p">{stats.totalBoxes}</Text>
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="200">
-                  <BlockStack gap="100">
-                    <Text variant="bodySm" tone="subdued" as="p">Active</Text>
-                    <Text variant="headingLg" as="p">{stats.activeBoxes}</Text>
-                  </BlockStack>
-                  {/* Subtle limit indicator */}
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Total Boxes"
+                  value={stats.totalBoxes}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Active"
+                  value={stats.activeBoxes}
+                >
                   <LimitHint
                     current={limitAccess.current}
                     limit={limitAccess.max}
@@ -672,22 +704,20 @@ export default function MysteryBoxes() {
                     nextTierLimit={limitAccess.max * 3}
                     nextTierName="Pro"
                   />
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="100">
-                  <Text variant="bodySm" tone="subdued" as="p">Total Opens</Text>
-                  <Text variant="headingLg" as="p">{formatNumber(stats.totalOpens)}</Text>
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="100">
-                  <Text variant="bodySm" tone="subdued" as="p">{pointsConfig.currencyPlural} Spent</Text>
-                  <Text variant="headingLg" as="p">
-                    {pointsConfig.currencyIcon} {formatNumber(stats.totalPointsSpent)}
-                  </Text>
-                </BlockStack>
-              </Card>
+                </ModuleStatsCard>
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Total Opens"
+                  value={formatNumber(stats.totalOpens)}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label={`${pointsConfig.currencyPlural} Spent`}
+                  value={`${pointsConfig.currencyIcon} ${formatNumber(stats.totalPointsSpent)}`}
+                />
+              </div>
             </InlineStack>
           </Layout.Section>
 
@@ -778,6 +808,17 @@ export default function MysteryBoxes() {
         {toastActive && (
           <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
         )}
+
+        {/* Limit Exceeded Upgrade Modal */}
+        <LimitExceededModal
+          open={limitExceededModalOpen}
+          onClose={() => setLimitExceededModalOpen(false)}
+          resource="active mystery box"
+          current={actionData?.currentCount || limitAccess.current}
+          limit={actionData?.maxLimit || limitAccess.max}
+          currentPlan={actionData?.currentPlan || 'Free'}
+          action="create"
+        />
       </Page>
     </Frame>
   );

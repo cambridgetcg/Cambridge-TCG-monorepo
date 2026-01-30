@@ -23,6 +23,7 @@ import {
 } from "@shopify/polaris";
 import { ClockIcon, StarFilledIcon, PersonIcon, CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
+import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
 import db from "../db.server";
 import { getMissionAnalytics } from "../services/mission-stats.server";
@@ -508,7 +509,7 @@ export default function MissionsPage() {
         <Page
           title="Missions"
           subtitle="Gamified challenges with XP, streaks, and combos"
-          backAction={{ content: "Points", url: "/app/rewards" }}
+          backAction={{ content: "Rewards", url: "/app/rewards" }}
         >
           <Layout>
             <Layout.Section>
@@ -550,7 +551,7 @@ export default function MissionsPage() {
       <Page
         title="Missions"
         subtitle="Gamified challenges with XP, streaks, and combos"
-        backAction={{ content: "Points", url: "/app/rewards" }}
+        backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Create Mission",
           url: "/app/rewards/challenges/new",
@@ -566,32 +567,32 @@ export default function MissionsPage() {
         <Layout>
           {/* Stats Cards */}
           <Layout.Section>
-            <InlineStack gap="400" wrap={false}>
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Active Missions</Text>
-                  <Text as="p" variant="heading2xl">{data.stats.activeMissions}</Text>
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Completions</Text>
-                  <Text as="p" variant="heading2xl">{data.stats.totalCompletions}</Text>
-                </BlockStack>
-              </Card>
-              <Card>
-                <BlockStack gap="200">
-                  <Text as="h3" variant="headingMd">Completion Rate</Text>
-                  <Text as="p" variant="heading2xl">{data.stats.completionRate}%</Text>
-                </BlockStack>
-              </Card>
+            <InlineStack gap="400" wrap>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Active Missions"
+                  value={data.stats.activeMissions}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Completions"
+                  value={data.stats.totalCompletions}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Completion Rate"
+                  value={`${data.stats.completionRate}%`}
+                />
+              </div>
               {data.analytics && (
-                <Card>
-                  <BlockStack gap="200">
-                    <Text as="h3" variant="headingMd">Active Streaks</Text>
-                    <Text as="p" variant="heading2xl">{data.analytics.activeStreaks}</Text>
-                  </BlockStack>
-                </Card>
+                <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                  <ModuleStatsCard
+                    label="Active Streaks"
+                    value={data.analytics.activeStreaks}
+                  />
+                </div>
               )}
             </InlineStack>
           </Layout.Section>

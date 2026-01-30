@@ -641,6 +641,16 @@ export function ActionBanner({
   );
 }
 
+// ============================================
+// RE-EXPORT MODULE COMPONENTS
+// ============================================
+
+// Module Stats Card - unified stats display for rewards modules
+export { ModuleStatsCard, ModuleStatsRow } from './ModuleStatsCard';
+
+// Feature Toggle Card - unified toggle for config pages
+export { FeatureToggleCard, FeatureTogglesList } from './FeatureToggleCard';
+
 // Export all components
 export default {
   MetricCard,

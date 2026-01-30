@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, Link } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useLoaderData, useSubmit, useNavigation, useActionData, Link } from "@remix-run/react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Page,
   Layout,
@@ -39,7 +39,8 @@ import {
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
 import db from "~/db.server";
-import { UsageUpgradePrompt, LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import { UsageUpgradePrompt, LimitHint, PageLimitStatus, LimitExceededModal } from "~/components/Billing/UpgradePrompt";
+import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 // NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
@@ -253,6 +254,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function RafflesList() {
   // Rate-based gating: all features enabled, only limits differentiate plans
   const { rafflesEnabled, limitAccess, pointsConfig, raffles, stats } = useLoaderData<LoaderData>();
+  const actionData = useActionData<{ success?: boolean; error?: string; code?: string; currentCount?: number; maxLimit?: number; currentPlan?: string }>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -260,6 +262,12 @@ export default function RafflesList() {
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [limitExceededModalOpen, setLimitExceededModalOpen] = useState(false);
+  const [limitExceededInfo, setLimitExceededInfo] = useState<{
+    current: number;
+    limit: number;
+    currentPlan: string;
+  } | null>(null);
 
   // Form state for creating a raffle
   const [raffleName, setRaffleName] = useState("");
@@ -273,6 +281,27 @@ export default function RafflesList() {
 
   const dismissToast = useCallback(() => setToastActive(false), []);
 
+  // Handle action response for limit exceeded
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.code === 'LIMIT_EXCEEDED') {
+        // Show upgrade modal instead of toast
+        setLimitExceededInfo({
+          current: actionData.currentCount || limitAccess.current,
+          limit: actionData.maxLimit || limitAccess.max,
+          currentPlan: actionData.currentPlan || 'Free',
+        });
+        setLimitExceededModalOpen(true);
+      } else if (actionData.success) {
+        setToastMessage("Raffle created successfully!");
+        setToastActive(true);
+      } else if (actionData.error) {
+        setToastMessage(actionData.error);
+        setToastActive(true);
+      }
+    }
+  }, [actionData, limitAccess]);
+
   const handleCreateRaffle = useCallback(() => {
     const formData = new FormData();
     formData.append("intent", "create");
@@ -285,8 +314,7 @@ export default function RafflesList() {
     setShowCreateModal(false);
     setRaffleName("");
     setEntryCost("100");
-    setToastMessage("Raffle created successfully!");
-    setToastActive(true);
+    // Toast/modal will be shown by useEffect based on actionData
   }, [raffleName, startDate, endDate, entryCost, submit]);
 
   const handleDeleteRaffle = useCallback((raffleId: string) => {
@@ -332,7 +360,7 @@ export default function RafflesList() {
       <Frame>
         <Page
           title="Raffles"
-          backAction={{ content: "Points", url: "/app/rewards" }}
+          backAction={{ content: "Rewards", url: "/app/rewards" }}
         >
           <Layout>
             <Layout.Section>
@@ -402,7 +430,7 @@ export default function RafflesList() {
       <Page
         title="Raffles"
         subtitle="Create and manage point-based raffles"
-        backAction={{ content: "Points", url: "/app/rewards" }}
+        backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Create Raffle",
           icon: PlusIcon,
@@ -437,42 +465,18 @@ export default function RafflesList() {
 
           {/* Stats Cards */}
           <Layout.Section>
-            <InlineStack gap="400" wrap={false}>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Total Raffles
-                  </Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {stats.totalRaffles}
-                  </Text>
-                </BlockStack>
-              </Box>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="200">
-                  <BlockStack gap="100">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Active Raffles
-                    </Text>
-                    <Text as="p" variant="headingLg" fontWeight="bold">
-                      {stats.activeRaffles}
-                    </Text>
-                  </BlockStack>
-                  {/* Subtle limit indicator */}
+            <InlineStack gap="400" wrap>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Total Raffles"
+                  value={stats.totalRaffles}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Active Raffles"
+                  value={stats.activeRaffles}
+                >
                   <LimitHint
                     current={limitAccess.current}
                     limit={limitAccess.max}
@@ -483,42 +487,20 @@ export default function RafflesList() {
                     nextTierLimit={limitAccess.max * 3}
                     nextTierName="Pro"
                   />
-                </BlockStack>
-              </Box>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Total Entries
-                  </Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {stats.totalEntries.toLocaleString()}
-                  </Text>
-                </BlockStack>
-              </Box>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Points Pool
-                  </Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {pointsConfig.currencyIcon} {stats.totalPrizePoolValue.toLocaleString()}
-                  </Text>
-                </BlockStack>
-              </Box>
+                </ModuleStatsCard>
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Total Entries"
+                  value={stats.totalEntries.toLocaleString()}
+                />
+              </div>
+              <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
+                <ModuleStatsCard
+                  label="Points Pool"
+                  value={`${pointsConfig.currencyIcon} ${stats.totalPrizePoolValue.toLocaleString()}`}
+                />
+              </div>
             </InlineStack>
           </Layout.Section>
 
@@ -629,6 +611,17 @@ export default function RafflesList() {
         {toastActive && (
           <Toast content={toastMessage} onDismiss={dismissToast} />
         )}
+
+        {/* Limit Exceeded Upgrade Modal */}
+        <LimitExceededModal
+          open={limitExceededModalOpen}
+          onClose={() => setLimitExceededModalOpen(false)}
+          resource="active raffle"
+          current={limitExceededInfo?.current || limitAccess.current}
+          limit={limitExceededInfo?.limit || limitAccess.max}
+          currentPlan={limitExceededInfo?.currentPlan || 'Free'}
+          action="create"
+        />
       </Page>
     </Frame>
   );

@@ -32,6 +32,7 @@ import {
   StarIcon,
   HeartIcon,
 } from "~/utils/polaris-icons";
+import { FeatureTogglesList } from "~/components/DesignSystem/FeatureToggleCard";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getPointsConfig, updatePointsConfig } from "../services/points-config.server";
@@ -411,7 +412,7 @@ export default function PointsConfiguration() {
     <Frame>
       <Page
         title="Points Configuration"
-        backAction={{ url: "/app/rewards" }}
+        backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Save",
           onAction: handleSave,
@@ -571,355 +572,58 @@ export default function PointsConfiguration() {
                   Enable or disable individual engagement features
                 </Text>
                 <Divider />
-                <BlockStack gap="200">
-                  {/* Raffles */}
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: '8px',
-                    border: '1px solid #e1e3e5'
-                  }}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" blockAlign="center">
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          backgroundColor: rafflesEnabled ? '#e3f1df' : '#f1f1f1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.15s ease'
-                        }}>
-                          <Icon source={GiftCardIcon} tone={rafflesEnabled ? 'success' : 'subdued'} />
-                        </div>
-                        <BlockStack gap="050">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">Raffles</Text>
-                          <Text variant="bodySm" tone="subdued" as="span">Allow customers to enter raffles for prizes</Text>
-                        </BlockStack>
-                      </InlineStack>
-                      <InlineStack gap="300" blockAlign="center">
-                        <Badge tone={rafflesEnabled ? 'success' : undefined}>
-                          {rafflesEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            backgroundColor: rafflesEnabled ? '#008060' : '#8c9196',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onClick={() => setRafflesEnabled(!rafflesEnabled)}
-                        >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            backgroundColor: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: rafflesEnabled ? '26px' : '2px',
-                            transition: 'left 0.15s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }} />
-                        </div>
-                      </InlineStack>
-                    </InlineStack>
-                  </div>
-
-                  {/* Mystery Boxes */}
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: '8px',
-                    border: '1px solid #e1e3e5'
-                  }}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" blockAlign="center">
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          backgroundColor: mysteryBoxesEnabled ? '#e3f1df' : '#f1f1f1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.15s ease'
-                        }}>
-                          <Icon source={ConfettiIcon} tone={mysteryBoxesEnabled ? 'success' : 'subdued'} />
-                        </div>
-                        <BlockStack gap="050">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">Mystery Boxes</Text>
-                          <Text variant="bodySm" tone="subdued" as="span">Offer mystery box rewards with tiered prizes</Text>
-                        </BlockStack>
-                      </InlineStack>
-                      <InlineStack gap="300" blockAlign="center">
-                        <Badge tone={mysteryBoxesEnabled ? 'success' : undefined}>
-                          {mysteryBoxesEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            backgroundColor: mysteryBoxesEnabled ? '#008060' : '#8c9196',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onClick={() => setMysteryBoxesEnabled(!mysteryBoxesEnabled)}
-                        >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            backgroundColor: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: mysteryBoxesEnabled ? '26px' : '2px',
-                            transition: 'left 0.15s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }} />
-                        </div>
-                      </InlineStack>
-                    </InlineStack>
-                  </div>
-
-                  {/* Spin Wheel */}
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: '8px',
-                    border: '1px solid #e1e3e5'
-                  }}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" blockAlign="center">
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          backgroundColor: spinWheelEnabled ? '#e3f1df' : '#f1f1f1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.15s ease'
-                        }}>
-                          <Icon source={PlayIcon} tone={spinWheelEnabled ? 'success' : 'subdued'} />
-                        </div>
-                        <BlockStack gap="050">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">Spin Wheel</Text>
-                          <Text variant="bodySm" tone="subdued" as="span">Daily and premium spin wheel for rewards</Text>
-                        </BlockStack>
-                      </InlineStack>
-                      <InlineStack gap="300" blockAlign="center">
-                        <Badge tone={spinWheelEnabled ? 'success' : undefined}>
-                          {spinWheelEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            backgroundColor: spinWheelEnabled ? '#008060' : '#8c9196',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onClick={() => setSpinWheelEnabled(!spinWheelEnabled)}
-                        >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            backgroundColor: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: spinWheelEnabled ? '26px' : '2px',
-                            transition: 'left 0.15s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }} />
-                        </div>
-                      </InlineStack>
-                    </InlineStack>
-                  </div>
-
-                  {/* Challenges */}
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: '8px',
-                    border: '1px solid #e1e3e5'
-                  }}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" blockAlign="center">
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          backgroundColor: challengesEnabled ? '#e3f1df' : '#f1f1f1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.15s ease'
-                        }}>
-                          <Icon source={TargetIcon} tone={challengesEnabled ? 'success' : 'subdued'} />
-                        </div>
-                        <BlockStack gap="050">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">Challenges</Text>
-                          <Text variant="bodySm" tone="subdued" as="span">Create challenges for bonus points</Text>
-                        </BlockStack>
-                      </InlineStack>
-                      <InlineStack gap="300" blockAlign="center">
-                        <Badge tone={challengesEnabled ? 'success' : undefined}>
-                          {challengesEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            backgroundColor: challengesEnabled ? '#008060' : '#8c9196',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onClick={() => setChallengesEnabled(!challengesEnabled)}
-                        >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            backgroundColor: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: challengesEnabled ? '26px' : '2px',
-                            transition: 'left 0.15s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }} />
-                        </div>
-                      </InlineStack>
-                    </InlineStack>
-                  </div>
-
-                  {/* Scratch Cards */}
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: '8px',
-                    border: '1px solid #e1e3e5'
-                  }}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" blockAlign="center">
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          backgroundColor: scratchCardsEnabled ? '#e3f1df' : '#f1f1f1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.15s ease'
-                        }}>
-                          <Icon source={StarIcon} tone={scratchCardsEnabled ? 'success' : 'subdued'} />
-                        </div>
-                        <BlockStack gap="050">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">Scratch Cards</Text>
-                          <Text variant="bodySm" tone="subdued" as="span">Instant-win scratch card rewards</Text>
-                        </BlockStack>
-                      </InlineStack>
-                      <InlineStack gap="300" blockAlign="center">
-                        <Badge tone={scratchCardsEnabled ? 'success' : undefined}>
-                          {scratchCardsEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            backgroundColor: scratchCardsEnabled ? '#008060' : '#8c9196',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onClick={() => setScratchCardsEnabled(!scratchCardsEnabled)}
-                        >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            backgroundColor: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: scratchCardsEnabled ? '26px' : '2px',
-                            transition: 'left 0.15s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }} />
-                        </div>
-                      </InlineStack>
-                    </InlineStack>
-                  </div>
-
-                  {/* Giveback Pools */}
-                  <div style={{
-                    padding: '12px 16px',
-                    backgroundColor: '#fafafa',
-                    borderRadius: '8px',
-                    border: '1px solid #e1e3e5'
-                  }}>
-                    <InlineStack align="space-between" blockAlign="center">
-                      <InlineStack gap="300" blockAlign="center">
-                        <div style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '8px',
-                          backgroundColor: givebackPoolsEnabled ? '#e3f1df' : '#f1f1f1',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'background-color 0.15s ease'
-                        }}>
-                          <Icon source={HeartIcon} tone={givebackPoolsEnabled ? 'success' : 'subdued'} />
-                        </div>
-                        <BlockStack gap="050">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">Giveback Pools</Text>
-                          <Text variant="bodySm" tone="subdued" as="span">Let customers donate points to charity</Text>
-                        </BlockStack>
-                      </InlineStack>
-                      <InlineStack gap="300" blockAlign="center">
-                        <Badge tone={givebackPoolsEnabled ? 'success' : undefined}>
-                          {givebackPoolsEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '28px',
-                            borderRadius: '14px',
-                            backgroundColor: givebackPoolsEnabled ? '#008060' : '#8c9196',
-                            position: 'relative',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s ease'
-                          }}
-                          onClick={() => setGivebackPoolsEnabled(!givebackPoolsEnabled)}
-                        >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            backgroundColor: 'white',
-                            position: 'absolute',
-                            top: '2px',
-                            left: givebackPoolsEnabled ? '26px' : '2px',
-                            transition: 'left 0.15s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                          }} />
-                        </div>
-                      </InlineStack>
-                    </InlineStack>
-                  </div>
-                </BlockStack>
+                <FeatureTogglesList
+                  toggles={[
+                    {
+                      id: 'raffles',
+                      icon: GiftCardIcon,
+                      title: 'Raffles',
+                      description: 'Allow customers to enter raffles for prizes',
+                      enabled: rafflesEnabled,
+                      onChange: setRafflesEnabled,
+                    },
+                    {
+                      id: 'mysteryBoxes',
+                      icon: ConfettiIcon,
+                      title: 'Mystery Boxes',
+                      description: 'Offer mystery box rewards with tiered prizes',
+                      enabled: mysteryBoxesEnabled,
+                      onChange: setMysteryBoxesEnabled,
+                    },
+                    {
+                      id: 'spinWheel',
+                      icon: PlayIcon,
+                      title: 'Spin Wheel',
+                      description: 'Daily and premium spin wheel for rewards',
+                      enabled: spinWheelEnabled,
+                      onChange: setSpinWheelEnabled,
+                    },
+                    {
+                      id: 'challenges',
+                      icon: TargetIcon,
+                      title: 'Challenges',
+                      description: 'Create challenges for bonus points',
+                      enabled: challengesEnabled,
+                      onChange: setChallengesEnabled,
+                    },
+                    {
+                      id: 'scratchCards',
+                      icon: StarIcon,
+                      title: 'Scratch Cards',
+                      description: 'Instant-win scratch card rewards',
+                      enabled: scratchCardsEnabled,
+                      onChange: setScratchCardsEnabled,
+                    },
+                    {
+                      id: 'givebackPools',
+                      icon: HeartIcon,
+                      title: 'Giveback Pools',
+                      description: 'Let customers donate points to charity',
+                      enabled: givebackPoolsEnabled,
+                      onChange: setGivebackPoolsEnabled,
+                    },
+                  ]}
+                />
               </BlockStack>
             </Card>
           </Layout.Section>
