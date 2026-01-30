@@ -22,12 +22,15 @@ function insightCacheKey(shop: string, type: string): string {
 }
 
 // Helper to safely convert Decimal/number values (Data API returns plain numbers, Prisma returns Decimal objects)
+// Uses Number() which calls valueOf() - more reliable than .toNumber() which can fail in minified builds
 function toNumber(value: any): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
   if (typeof value === 'string') return parseFloat(value) || 0;
-  if (typeof value.toNumber === 'function') return value.toNumber();
-  return Number(value) || 0;
+  // Use Number() instead of .toNumber() - it works via valueOf() and is more reliable
+  // .toNumber() can fail in minified code due to prototype chain issues
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
 }
 
 // ============================================================================

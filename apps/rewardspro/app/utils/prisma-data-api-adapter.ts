@@ -866,6 +866,8 @@ export class DataAPIModelProxy<T = any> {
       'PointsLedger',       // Ledger entries are immutable
       'WebhookError',       // Error logs are immutable (no updatedAt in schema)
       'OrderLineItem',      // Line items are immutable (no updatedAt in schema)
+      'OrderRefund',        // Refund records are immutable (no updatedAt in schema)
+      'OrderRefundLineItem', // Refund line items are immutable (no updatedAt in schema)
     ];
     return tablesWithOnlyCreatedAt.includes(this.tableName);
   }
