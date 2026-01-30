@@ -39,6 +39,7 @@ import {
   CheckIcon,
   XIcon,
 } from "~/utils/polaris-icons";
+import { ProductPicker, type SelectedProduct } from "~/components/ProductPicker";
 import { authenticate } from "../shopify.server";
 import {
   getRaffleWithDetails,
@@ -340,6 +341,17 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         prizeValue = {
           fulfillmentInstructions: formData.get("customInstructions") as string,
         };
+      } else if (prizeType === "PRODUCT") {
+        prizeValue = {
+          productId: formData.get("productId") as string,
+          variantId: formData.get("variantId") as string,
+          quantity: parseInt(formData.get("productQuantityPerWinner") as string) || 1,
+          // Cached for display
+          productTitle: formData.get("productTitle") as string,
+          productImage: formData.get("productImage") as string || undefined,
+          price: formData.get("productPrice") as string,
+          sku: formData.get("productSku") as string || undefined,
+        };
       }
 
       await createRafflePrize({
@@ -502,7 +514,62 @@ export default function RaffleDetail() {
     storeCreditAmount: "500",
     pointsAmount: "100",
     customInstructions: "",
+    // Product fields
+    selectedProduct: null as SelectedProduct | null,
+    productQuantity: "1",
   });
+
+  // Product picker modal state
+  const [showProductPicker, setShowProductPicker] = useState(false);
+
+  // Product search handler
+  const handleProductSearch = useCallback(async (query: string) => {
+    const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`);
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    return data.products;
+  }, []);
+
+  // Browse products (no search required)
+  const handleProductBrowse = useCallback(async () => {
+    const response = await fetch(`/api/products/search?browse=1`);
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    return data.products;
+  }, []);
+
+  // Get collections for filtering
+  const handleGetCollections = useCallback(async () => {
+    const response = await fetch(`/api/products/search?collections=1`);
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    return data.collections;
+  }, []);
+
+  // Get products in a specific collection
+  const handleGetCollectionProducts = useCallback(async (collectionId: string) => {
+    const response = await fetch(`/api/products/search?collection=${encodeURIComponent(collectionId)}`);
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    return data.products;
+  }, []);
+
+  // Handle product selection
+  const handleProductSelect = useCallback((product: SelectedProduct) => {
+    setPrizeForm((prev) => ({
+      ...prev,
+      selectedProduct: product,
+      name: prev.name || product.title, // Auto-fill name if empty
+    }));
+  }, []);
 
   // Show toast on action result
   useEffect(() => {
@@ -561,6 +628,14 @@ export default function RaffleDetail() {
       formData.append("pointsAmount", prizeForm.pointsAmount);
     } else if (prizeForm.prizeType === "CUSTOM") {
       formData.append("customInstructions", prizeForm.customInstructions);
+    } else if (prizeForm.prizeType === "PRODUCT" && prizeForm.selectedProduct) {
+      formData.append("productId", prizeForm.selectedProduct.productId);
+      formData.append("variantId", prizeForm.selectedProduct.variantId);
+      formData.append("productTitle", prizeForm.selectedProduct.title);
+      formData.append("productImage", prizeForm.selectedProduct.image || "");
+      formData.append("productPrice", prizeForm.selectedProduct.price);
+      formData.append("productSku", prizeForm.selectedProduct.sku || "");
+      formData.append("productQuantityPerWinner", prizeForm.productQuantity);
     }
 
     submit(formData, { method: "post" });
@@ -581,6 +656,8 @@ export default function RaffleDetail() {
       storeCreditAmount: "500",
       pointsAmount: "100",
       customInstructions: "",
+      selectedProduct: null,
+      productQuantity: "1",
     });
   };
 
@@ -1338,10 +1415,11 @@ export default function RaffleDetail() {
                     { label: "Discount Code", value: "DISCOUNT" },
                     { label: "Store Credit", value: "STORE_CREDIT" },
                     { label: "Points", value: "POINTS" },
+                    { label: "Product", value: "PRODUCT" },
                     { label: "Custom Prize", value: "CUSTOM" },
                   ]}
                   value={prizeForm.prizeType}
-                  onChange={(v) => setPrizeForm({ ...prizeForm, prizeType: v as RafflePrizeType })}
+                  onChange={(v) => setPrizeForm({ ...prizeForm, prizeType: v as RafflePrizeType, selectedProduct: null })}
                 />
               )}
 
@@ -1399,6 +1477,51 @@ export default function RaffleDetail() {
                 />
               )}
 
+              {prizeForm.prizeType === "PRODUCT" && !editingPrize && (
+                <BlockStack gap="300">
+                  <Button onClick={() => setShowProductPicker(true)}>
+                    {prizeForm.selectedProduct
+                      ? `Change Product: ${prizeForm.selectedProduct.title}`
+                      : "Select Product"}
+                  </Button>
+                  {prizeForm.selectedProduct && (
+                    <Box
+                      background="bg-surface-secondary"
+                      padding="300"
+                      borderRadius="200"
+                    >
+                      <InlineStack gap="300" blockAlign="center">
+                        <Thumbnail
+                          source={prizeForm.selectedProduct.image || ""}
+                          alt={prizeForm.selectedProduct.title}
+                          size="small"
+                        />
+                        <BlockStack gap="100">
+                          <Text as="span" fontWeight="semibold">
+                            {prizeForm.selectedProduct.title}
+                          </Text>
+                          {prizeForm.selectedProduct.variantTitle && (
+                            <Text as="span" tone="subdued">
+                              {prizeForm.selectedProduct.variantTitle}
+                            </Text>
+                          )}
+                          <Text as="span">${prizeForm.selectedProduct.price}</Text>
+                        </BlockStack>
+                      </InlineStack>
+                    </Box>
+                  )}
+                  <TextField
+                    label="Quantity per winner"
+                    type="number"
+                    value={prizeForm.productQuantity}
+                    onChange={(v) => setPrizeForm({ ...prizeForm, productQuantity: v })}
+                    min={1}
+                    helpText="Number of this product each winner receives"
+                    autoComplete="off"
+                  />
+                </BlockStack>
+              )}
+
               <InlineStack gap="400">
                 <TextField
                   label="Quantity Available"
@@ -1429,6 +1552,17 @@ export default function RaffleDetail() {
             onDismiss={hideToast}
           />
         )}
+
+        {/* Product Picker Modal */}
+        <ProductPicker
+          open={showProductPicker}
+          onClose={() => setShowProductPicker(false)}
+          onSelect={handleProductSelect}
+          onSearch={handleProductSearch}
+          onBrowse={handleProductBrowse}
+          onGetCollections={handleGetCollections}
+          onGetCollectionProducts={handleGetCollectionProducts}
+        />
       </Page>
     </Frame>
   );
