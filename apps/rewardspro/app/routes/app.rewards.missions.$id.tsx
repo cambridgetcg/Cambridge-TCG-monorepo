@@ -36,6 +36,12 @@ import {
   type ChallengeObjectiveType,
   type ChallengeRewardType,
 } from "../services/challenge-management.server";
+import {
+  TEMPLATES_BY_CADENCE,
+  calculateMissionDates,
+  type MissionTemplate,
+  type MissionCadence,
+} from "../constants/mission-templates";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -71,6 +77,12 @@ interface LoaderData {
     currencyName: string;
     currencyIcon: string;
     currencyPlural: string;
+  };
+  templates?: {
+    daily: MissionTemplate[];
+    weekly: MissionTemplate[];
+    monthly: MissionTemplate[];
+    special: MissionTemplate[];
   };
 }
 
@@ -137,6 +149,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
           currencyName: config.currencyName,
           currencyIcon: config.currencyIcon,
           currencyPlural: config.currencyNamePlural,
+        },
+        templates: {
+          daily: TEMPLATES_BY_CADENCE.DAILY,
+          weekly: TEMPLATES_BY_CADENCE.WEEKLY,
+          monthly: TEMPLATES_BY_CADENCE.MONTHLY,
+          special: TEMPLATES_BY_CADENCE.SPECIAL,
         },
       });
     }
@@ -379,6 +397,37 @@ export default function ChallengeDetailPage() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastError, setToastError] = useState(false);
 
+  // Template selection state (for new missions)
+  const [selectedCadence, setSelectedCadence] = useState<MissionCadence>("DAILY");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+
+  // Apply template to form
+  const applyTemplate = useCallback((template: MissionTemplate) => {
+    setName(template.name);
+    setDescription(template.description);
+    setObjectiveType(template.objectiveType);
+    setTargetValue(template.targetValue.toString());
+    setRewardType(template.rewardType);
+    setRewardDescription(template.rewardDescription);
+    setRewardAmount((template.rewardValue as any).amount?.toString() || "100");
+    setSelectedTemplateId(template.id);
+
+    // Calculate appropriate dates based on cadence
+    const { startsAt: newStartsAt, endsAt: newEndsAt } = calculateMissionDates(
+      template.cadence,
+      template.durationDays
+    );
+    setStartsAt(newStartsAt.toISOString().slice(0, 16));
+    setEndsAt(newEndsAt.toISOString().slice(0, 16));
+
+    setToastMessage(`Applied "${template.name}" template`);
+    setToastError(false);
+    setToastActive(true);
+  }, []);
+
+  // Get templates for current cadence
+  const currentTemplates = data.templates?.[selectedCadence.toLowerCase() as keyof typeof data.templates] || [];
+
   // Show toast on action result
   useEffect(() => {
     if (actionData) {
@@ -549,6 +598,102 @@ export default function ChallengeDetailPage() {
                       </Text>
                     </BlockStack>
                   </InlineStack>
+                </BlockStack>
+              </Card>
+            </Layout.Section>
+          )}
+
+          {/* Template Selector (for new missions) */}
+          {data.isNew && data.templates && (
+            <Layout.Section>
+              <Card>
+                <BlockStack gap="400">
+                  <BlockStack gap="200">
+                    <Text as="h2" variant="headingMd">
+                      Start from a Template
+                    </Text>
+                    <Text as="p" tone="subdued">
+                      Choose a pre-configured mission template or create a custom mission below.
+                    </Text>
+                  </BlockStack>
+
+                  {/* Cadence Tabs */}
+                  <InlineStack gap="200" wrap>
+                    {(["DAILY", "WEEKLY", "MONTHLY", "SPECIAL"] as MissionCadence[]).map((cadence) => (
+                      <Button
+                        key={cadence}
+                        pressed={selectedCadence === cadence}
+                        onClick={() => setSelectedCadence(cadence)}
+                        size="slim"
+                      >
+                        {cadence.charAt(0) + cadence.slice(1).toLowerCase()}
+                      </Button>
+                    ))}
+                  </InlineStack>
+
+                  <Divider />
+
+                  {/* Template List */}
+                  <BlockStack gap="300">
+                    {currentTemplates.map((template) => (
+                      <Box
+                        key={template.id}
+                        padding="300"
+                        borderWidth="025"
+                        borderColor={selectedTemplateId === template.id ? "border-success" : "border"}
+                        borderRadius="200"
+                        background={selectedTemplateId === template.id ? "bg-surface-success" : "bg-surface"}
+                      >
+                        <InlineStack gap="400" align="space-between" blockAlign="center">
+                          <InlineStack gap="300" blockAlign="center">
+                            <Text as="span" variant="headingMd">
+                              {template.iconEmoji}
+                            </Text>
+                            <BlockStack gap="100">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                  {template.name}
+                                </Text>
+                                <Badge
+                                  tone={
+                                    template.rarity === "LEGENDARY" ? "critical" :
+                                    template.rarity === "EPIC" ? "warning" :
+                                    template.rarity === "RARE" ? "attention" :
+                                    template.rarity === "UNCOMMON" ? "success" :
+                                    "info"
+                                  }
+                                  size="small"
+                                >
+                                  {template.rarity}
+                                </Badge>
+                              </InlineStack>
+                              <Text as="span" tone="subdued" variant="bodySm">
+                                {template.description}
+                              </Text>
+                              <InlineStack gap="200">
+                                <Badge size="small">
+                                  {OBJECTIVE_TYPES.find(o => o.value === template.objectiveType)?.label || template.objectiveType}
+                                </Badge>
+                                <Badge size="small" tone="success">
+                                  {template.rewardDescription}
+                                </Badge>
+                                <Badge size="small" tone="info">
+                                  +{template.xpReward} XP
+                                </Badge>
+                              </InlineStack>
+                            </BlockStack>
+                          </InlineStack>
+                          <Button
+                            onClick={() => applyTemplate(template)}
+                            variant={selectedTemplateId === template.id ? "primary" : "secondary"}
+                            size="slim"
+                          >
+                            {selectedTemplateId === template.id ? "Applied" : "Use Template"}
+                          </Button>
+                        </InlineStack>
+                      </Box>
+                    ))}
+                  </BlockStack>
                 </BlockStack>
               </Card>
             </Layout.Section>
