@@ -480,14 +480,15 @@ export async function reorderRewards(
 /**
  * Validate that reward probabilities sum to 100%
  */
-export function validateProbabilities(rewards: MysteryBoxReward[]): {
+export function validateProbabilities(rewards: MysteryBoxReward[] | undefined | null): {
   valid: boolean;
   total: number;
   errors: string[];
 } {
   const errors: string[] = [];
 
-  if (rewards.length === 0) {
+  // Handle undefined/null rewards
+  if (!rewards || rewards.length === 0) {
     return { valid: false, total: 0, errors: ["No rewards configured"] };
   }
 
