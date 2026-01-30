@@ -2,9 +2,20 @@
  * Customer Account Raffles API
  *
  * Provides raffle data and entry purchase functionality for the customer account extension.
+ * Includes psychology features: streaks, instant wins, activity feed, bonus events.
  *
- * GET: Get available raffles and customer's entry status
- * POST: Purchase raffle entries
+ * GET:
+ *   - ?action=available (default): Get available raffles
+ *   - ?action=status&raffleId=X: Get specific raffle status
+ *   - ?action=history: Get customer's raffle history
+ *   - ?action=psychology&raffleId=X: Get psychology dashboard data
+ *   - ?action=streak: Get customer's streak info
+ *   - ?action=activity&raffleId=X: Get activity feed
+ *   - ?action=bonus-events: Get active bonus events
+ *
+ * POST:
+ *   - intent=purchase: Purchase raffle entries
+ *   - intent=free-entry: Claim daily free entry
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
@@ -17,7 +28,15 @@ import {
   getCustomerRaffleStatus,
   getCustomerRaffleHistory,
   purchaseRaffleEntries,
+  claimDailyFreeEntry,
 } from "../services/raffle-entry.server";
+import {
+  getPsychologyDashboard,
+  getPsychologyState,
+} from "../services/raffle-psychology.server";
+import { getRaffleStreakInfo } from "../services/raffle-streak.server";
+import { getActivityFeed, getShopActivityFeed } from "../services/raffle-activity-feed.server";
+import { getActiveBonusEvents } from "../services/raffle-bonus-events.server";
 
 const LOG_PREFIX = "[api.customer-account.raffles]";
 
@@ -127,7 +146,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     if (action === "history") {
-      // Get customer's raffle history
+      // Get customer's raffle history (includes prize details for winners)
       const history = await getCustomerRaffleHistory(shop, customerId, {
         limit: 20,
         includeCompleted: true,
@@ -137,8 +156,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         enabled: true,
         authenticated: true,
         history: history.map((h) => ({
-          ...h,
-          createdAt: h.createdAt.toISOString(),
+          id: h.entryId,
+          raffleName: h.raffleName,
+          entriesCount: h.entriesCount,
+          pointsSpent: h.pointsSpent,
+          enteredAt: h.createdAt.toISOString(),
+          raffleStatus: h.raffleStatus,
+          isWinner: h.isWinner,
+          // Enhanced prize details for winners
+          prize: h.prize
+            ? {
+                ...h.prize,
+                deliveredAt: h.prize.deliveredAt?.toISOString() || null,
+              }
+            : null,
         })),
         config: {
           currencyName: config.currencyName,
@@ -147,9 +178,99 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       }, { headers: corsHeaders });
     }
 
-    // Default: Get available raffles with customer status
-    const raffles = await getCustomerAvailableRaffles(shop, customerId);
-    const balance = await getPointsBalance(shop, customerId);
+    // ============================================
+    // PSYCHOLOGY ACTIONS
+    // ============================================
+
+    if (action === "psychology") {
+      // Get full psychology dashboard data
+      const dashboard = await getPsychologyDashboard(shop, customerId, raffleId || undefined);
+      const balance = await getPointsBalance(shop, customerId);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        psychology: {
+          streak: dashboard.streak,
+          activeBonusEvents: dashboard.activeBonusEvents.map((e) => ({
+            ...e,
+            startsAt: e.startsAt.toISOString(),
+            endsAt: e.endsAt.toISOString(),
+          })),
+          activityFeed: dashboard.activityFeed.map((a) => ({
+            ...a,
+            createdAt: a.createdAt.toISOString(),
+          })),
+          upcomingMilestones: dashboard.upcomingMilestones,
+        },
+        pointsBalance: balance,
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    if (action === "streak") {
+      // Get customer's streak info
+      const streakInfo = await getRaffleStreakInfo(shop, customerId);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        streak: streakInfo,
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    if (action === "activity") {
+      // Get activity feed (for specific raffle or shop-wide)
+      const activities = raffleId
+        ? await getActivityFeed(raffleId, 20)
+        : await getShopActivityFeed(shop, 20);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        activities: activities.map((a) => ({
+          ...a,
+          createdAt: a.createdAt.toISOString(),
+        })),
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    if (action === "bonus-events") {
+      // Get active bonus events
+      const events = await getActiveBonusEvents(shop, raffleId || undefined);
+
+      return json({
+        enabled: true,
+        authenticated: true,
+        bonusEvents: events.map((e) => ({
+          ...e,
+          startsAt: e.startsAt.toISOString(),
+          endsAt: e.endsAt.toISOString(),
+        })),
+        config: {
+          currencyName: config.currencyName,
+          currencyIcon: config.currencyIcon,
+        },
+      }, { headers: corsHeaders });
+    }
+
+    // Default: Get available raffles with customer status and psychology state
+    const [raffles, balance, psychologyState] = await Promise.all([
+      getCustomerAvailableRaffles(shop, customerId),
+      getPointsBalance(shop, customerId),
+      getPsychologyState(shop, customerId),
+    ]);
 
     return json({
       enabled: true,
@@ -160,6 +281,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         endsAt: r.endsAt.toISOString(),
       })),
       pointsBalance: balance,
+      // Include psychology state for quick access
+      psychology: {
+        streak: psychologyState.streak,
+        hasActiveBonusEvents: psychologyState.hasActiveBonusEvents,
+        bestBonusEvent: psychologyState.bestBonusEvent
+          ? {
+              ...psychologyState.bestBonusEvent,
+              startsAt: psychologyState.bestBonusEvent.startsAt.toISOString(),
+              endsAt: psychologyState.bestBonusEvent.endsAt.toISOString(),
+            }
+          : null,
+      },
       config: {
         currencyName: config.currencyName,
         currencyIcon: config.currencyIcon,
@@ -239,6 +372,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
 
       if (result.success) {
+        // Build message with bonus info
+        let message = `Successfully purchased ${result.entriesCount} ${result.entriesCount === 1 ? "entry" : "entries"}!`;
+        if (result.finalEntries && result.finalEntries > result.entriesCount!) {
+          message += ` +${result.finalEntries - result.entriesCount!} bonus entries!`;
+        }
+
         return json({
           success: true,
           entryId: result.entryId,
@@ -246,7 +385,57 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           totalEntriesCount: result.totalEntriesCount,
           pointsSpent: result.pointsSpent,
           newBalance: result.newBalance,
-          message: `Successfully purchased ${result.entriesCount} ${result.entriesCount === 1 ? "entry" : "entries"}!`,
+          message,
+          // Psychology data
+          finalEntries: result.finalEntries,
+          bonuses: result.bonuses,
+          instantWins: result.instantWins?.map((w) => ({
+            won: w.won,
+            prize: w.prize
+              ? {
+                  name: w.prize.name,
+                  rarity: w.prize.rarity,
+                  prizeType: w.prize.prizeType,
+                }
+              : null,
+            nearMiss: w.nearMiss
+              ? {
+                  name: w.nearMiss.name,
+                  rarity: w.nearMiss.rarity,
+                }
+              : null,
+            message: w.message,
+          })),
+          streakInfo: result.streakInfo,
+          celebrations: result.celebrations,
+        }, { headers: corsHeaders });
+      } else {
+        return json({
+          success: false,
+          error: result.error,
+        }, { status: 400, headers: corsHeaders });
+      }
+    }
+
+    // Claim free entry
+    if (intent === "free-entry") {
+      if (!raffleId) {
+        return json({
+          success: false,
+          error: "raffleId is required",
+        }, { status: 400, headers: corsHeaders });
+      }
+
+      const result = await claimDailyFreeEntry(shop, customerId, raffleId);
+
+      if (result.success) {
+        return json({
+          success: true,
+          entryId: result.entryId,
+          entriesCount: 1,
+          totalEntriesCount: result.totalEntriesCount,
+          pointsSpent: 0,
+          message: "Free entry claimed!",
         }, { headers: corsHeaders });
       } else {
         return json({

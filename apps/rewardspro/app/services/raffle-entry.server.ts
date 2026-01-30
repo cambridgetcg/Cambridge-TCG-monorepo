@@ -5,12 +5,21 @@
  * - Purchasing entries with points
  * - Validating eligibility
  * - Tracking entries and updating stats
+ * - Psychology bonuses (streaks, instant wins, lucky numbers)
  */
 
 import db from "../db.server";
 import { spendPoints, earnPoints, getPointsBalance, adjustPoints } from "./points-ledger.server";
 import { checkRaffleEligibility, type RaffleStatus } from "./raffle-management.server";
 import { trackRaffleEntered, trackPointsSpent } from "./klaviyo-events.server";
+import {
+  processPsychologyBonuses,
+  type AppliedBonuses,
+  type CelebrationEvent,
+} from "./raffle-psychology.server";
+import type { RaffleStreakInfo } from "./raffle-streak.server";
+import type { InstantWinResult } from "./raffle-instant-win.server";
+import { claimFreeEntry } from "./raffle-streak.server";
 
 const LOG_PREFIX = "[RaffleEntry]";
 
@@ -34,6 +43,12 @@ export interface PurchaseEntriesResult {
   totalEntriesCount?: number;
   pointsSpent?: number;
   newBalance?: number;
+  // Psychology enhancements
+  bonuses?: AppliedBonuses;
+  instantWins?: InstantWinResult[];
+  streakInfo?: RaffleStreakInfo;
+  celebrations?: CelebrationEvent[];
+  finalEntries?: number; // Entries after bonuses applied
 }
 
 export interface CustomerRaffleStatus {
@@ -127,19 +142,36 @@ export async function purchaseRaffleEntries(
       }
     }
 
-    // 4. Calculate points cost
-    const pointsCost = raffle.entryCost * quantity;
+    // 4. Calculate base points cost
+    const basePointsCost = raffle.entryCost * quantity;
 
     // 5. Check customer has sufficient points
     const currentBalance = await getPointsBalance(shop, customerId);
-    if (currentBalance < pointsCost) {
+    if (currentBalance < basePointsCost) {
       return {
         success: false,
-        error: `Insufficient points. You need ${pointsCost} but only have ${currentBalance}`,
+        error: `Insufficient points. You need ${basePointsCost} but only have ${currentBalance}`,
       };
     }
 
-    // 6. Process the purchase in a transaction-like manner
+    // 6. Process psychology bonuses
+    const psychologyResult = await processPsychologyBonuses(
+      {
+        shop,
+        customerId,
+        raffleId,
+        raffleName: raffle.name,
+        currentTotalEntries: raffle.totalEntries,
+      },
+      quantity,
+      tierMultiplier
+    );
+
+    // Final entries after bonuses (can be higher than base)
+    const finalEntries = psychologyResult.finalEntries;
+    const pointsCost = basePointsCost; // Points cost stays based on base entries
+
+    // 7. Process the purchase in a transaction-like manner
     // First, create/update the entry record
     let entry;
     const isNewEntrant = !existingEntry;
@@ -149,8 +181,18 @@ export async function purchaseRaffleEntries(
       entry = await db.raffleEntry.update({
         where: { id: existingEntry.id },
         data: {
-          entriesCount: existingEntry.entriesCount + quantity,
+          entriesCount: existingEntry.entriesCount + finalEntries,
           pointsSpent: existingEntry.pointsSpent + pointsCost,
+          // Track psychology bonuses applied
+          streakBonusApplied: psychologyResult.bonuses.streak.applied
+            ? psychologyResult.bonuses.streak.multiplier
+            : null,
+          earlyBirdBonusApplied: psychologyResult.bonuses.earlyBird.applied,
+          luckyNumberBonus: psychologyResult.bonuses.luckyNumber.bonusEntries,
+          bonusEventId: psychologyResult.bonuses.bonusEvent.eventId,
+          instantWinsTriggered: {
+            increment: psychologyResult.instantWins.filter((w) => w.won).length,
+          },
         },
       });
     } else {
@@ -160,10 +202,18 @@ export async function purchaseRaffleEntries(
           raffleId,
           customerId,
           shop,
-          entriesCount: quantity,
+          entriesCount: finalEntries,
           pointsSpent: pointsCost,
           entryMultiplier: tierMultiplier,
           isWinner: false,
+          // Track psychology bonuses applied
+          streakBonusApplied: psychologyResult.bonuses.streak.applied
+            ? psychologyResult.bonuses.streak.multiplier
+            : null,
+          earlyBirdBonusApplied: psychologyResult.bonuses.earlyBird.applied,
+          luckyNumberBonus: psychologyResult.bonuses.luckyNumber.bonusEntries,
+          bonusEventId: psychologyResult.bonuses.bonusEvent.eventId,
+          instantWinsTriggered: psychologyResult.instantWins.filter((w) => w.won).length,
         },
       });
     }
@@ -178,11 +228,11 @@ export async function purchaseRaffleEntries(
       raffleEntryId: entry.id,
     });
 
-    // 8. Update raffle statistics
+    // 8. Update raffle statistics (use finalEntries which includes bonuses)
     await db.raffle.update({
       where: { id: raffleId },
       data: {
-        totalEntries: raffle.totalEntries + quantity,
+        totalEntries: raffle.totalEntries + finalEntries,
         uniqueEntrants: isNewEntrant ? raffle.uniqueEntrants + 1 : raffle.uniqueEntrants,
         totalPrizePool: raffle.totalPrizePool + pointsCost,
         updatedAt: new Date(),
@@ -193,6 +243,10 @@ export async function purchaseRaffleEntries(
     const newBalance = await getPointsBalance(shop, customerId);
 
     console.log(`${LOG_PREFIX} Successfully purchased ${quantity} entries for raffle ${raffleId}`);
+
+    console.log(
+      `${LOG_PREFIX} Successfully purchased ${quantity} entries (${finalEntries} with bonuses) for raffle ${raffleId}`
+    );
 
     // 10. Dispatch Klaviyo events for marketing automation
     // Run async without blocking the response
@@ -214,9 +268,9 @@ export async function purchaseRaffleEntries(
               name: raffle.name,
               endsAt: raffle.endsAt,
               entryCount: entry.entriesCount,
-              totalEntries: raffle.totalEntries + quantity,
+              totalEntries: raffle.totalEntries + finalEntries,
             },
-            quantity,
+            finalEntries, // Include bonus entries in tracking
             pointsCost
           );
 
@@ -229,6 +283,7 @@ export async function purchaseRaffleEntries(
             {
               raffleName: raffle.name,
               raffleId: raffle.id,
+              bonusEntries: finalEntries - quantity, // Track bonus entries separately
             }
           );
         }
@@ -245,6 +300,12 @@ export async function purchaseRaffleEntries(
       totalEntriesCount: entry.entriesCount,
       pointsSpent: pointsCost,
       newBalance,
+      // Psychology data
+      finalEntries,
+      bonuses: psychologyResult.bonuses,
+      instantWins: psychologyResult.instantWins,
+      streakInfo: psychologyResult.streakInfo,
+      celebrations: psychologyResult.celebrations,
     };
   } catch (error) {
     console.error(`${LOG_PREFIX} Error purchasing entries:`, error);
@@ -354,7 +415,33 @@ export async function getCustomerAvailableRaffles(
 }
 
 /**
+ * Prize details returned for winners in history
+ */
+export interface RaffleHistoryPrize {
+  id: string;
+  name: string;
+  description: string | null;
+  prizeType: RafflePrizeType;
+  prizeValue: {
+    // DISCOUNT
+    type?: "percentage" | "fixed";
+    value?: number;
+    // STORE_CREDIT / POINTS
+    amount?: number;
+    // PRODUCT
+    productTitle?: string;
+    quantity?: number;
+    // CUSTOM
+    fulfillmentInstructions?: string;
+  };
+  deliveryStatus: string;
+  deliveredAt: Date | null;
+  discountCode: string | null;
+}
+
+/**
  * Get a customer's raffle entry history
+ * Enhanced to include prize details for winners
  */
 export async function getCustomerRaffleHistory(
   shop: string,
@@ -368,6 +455,7 @@ export async function getCustomerRaffleHistory(
   entriesCount: number;
   pointsSpent: number;
   isWinner: boolean;
+  prize: RaffleHistoryPrize | null;
   createdAt: Date;
 }>> {
   console.log(`${LOG_PREFIX} getCustomerRaffleHistory: customer=${customerId}`);
@@ -391,6 +479,36 @@ export async function getCustomerRaffleHistory(
   });
   const raffleMap = new Map(raffles.map((r: any) => [r.id, r]));
 
+  // Get winner records for this customer's winning entries
+  const winningEntryIds = entries
+    .filter((e: any) => e.isWinner)
+    .map((e: any) => e.id);
+
+  let winnerMap = new Map<string, any>();
+  let prizeMap = new Map<string, any>();
+
+  if (winningEntryIds.length > 0) {
+    // Fetch winner records
+    const winners = await db.raffleWinner.findMany({
+      where: {
+        raffleEntryId: { in: winningEntryIds },
+        shop,
+      },
+    });
+
+    // Create map of entryId -> winner
+    winnerMap = new Map(winners.map((w: any) => [w.raffleEntryId, w]));
+
+    // Fetch prize details for winners
+    const prizeIds = winners.map((w: any) => w.rafflePrizeId);
+    if (prizeIds.length > 0) {
+      const prizes = await db.rafflePrize.findMany({
+        where: { id: { in: prizeIds } },
+      });
+      prizeMap = new Map(prizes.map((p: any) => [p.id, p]));
+    }
+  }
+
   // Filter if not including completed
   let filteredEntries = entries;
   if (!options?.includeCompleted) {
@@ -402,6 +520,32 @@ export async function getCustomerRaffleHistory(
 
   return filteredEntries.map((entry: any) => {
     const raffle = raffleMap.get(entry.raffleId);
+    const winner = winnerMap.get(entry.id);
+    const prize = winner ? prizeMap.get(winner.rafflePrizeId) : null;
+
+    // Build prize details if winner
+    let prizeDetails: RaffleHistoryPrize | null = null;
+    if (entry.isWinner && prize) {
+      const prizeValue = prize.prizeValue as any || {};
+      prizeDetails = {
+        id: prize.id,
+        name: prize.name,
+        description: prize.description,
+        prizeType: prize.prizeType as RafflePrizeType,
+        prizeValue: {
+          type: prizeValue.type,
+          value: prizeValue.value,
+          amount: prizeValue.amount,
+          productTitle: prizeValue.productTitle,
+          quantity: prizeValue.quantity,
+          fulfillmentInstructions: prizeValue.fulfillmentInstructions,
+        },
+        deliveryStatus: winner?.deliveryStatus || "PENDING",
+        deliveredAt: winner?.deliveredAt || null,
+        discountCode: winner?.discountCode || null,
+      };
+    }
+
     return {
       entryId: entry.id,
       raffleId: entry.raffleId,
@@ -410,6 +554,7 @@ export async function getCustomerRaffleHistory(
       entriesCount: entry.entriesCount,
       pointsSpent: entry.pointsSpent,
       isWinner: entry.isWinner,
+      prize: prizeDetails,
       createdAt: entry.createdAt,
     };
   });
@@ -468,4 +613,122 @@ export async function refundRaffleEntries(
   console.log(`${LOG_PREFIX} Refunded ${refundedCount} entries, total ${totalPointsRefunded} points`);
 
   return { refundedCount, totalPointsRefunded };
+}
+
+// ============================================
+// FREE ENTRY CLAIMING
+// ============================================
+
+/**
+ * Claim a daily free entry for a raffle
+ * Uses the streak system's free entry tracking
+ */
+export async function claimDailyFreeEntry(
+  shop: string,
+  customerId: string,
+  raffleId: string
+): Promise<PurchaseEntriesResult> {
+  console.log(`${LOG_PREFIX} claimDailyFreeEntry: customer=${customerId}, raffle=${raffleId}`);
+
+  try {
+    // 1. Get the raffle
+    const raffle = await db.raffle.findFirst({
+      where: { id: raffleId, shop },
+    });
+
+    if (!raffle) {
+      return { success: false, error: "Raffle not found" };
+    }
+
+    // 2. Check raffle allows free entries
+    if (raffle.dailyFreeEntries <= 0) {
+      return { success: false, error: "Free entries are not enabled for this raffle" };
+    }
+
+    // 3. Check raffle status and timing
+    if (raffle.status !== "ACTIVE") {
+      return { success: false, error: "Raffle is not accepting entries" };
+    }
+
+    const now = new Date();
+    if (now < raffle.startsAt) {
+      return { success: false, error: "Raffle has not started yet" };
+    }
+    if (now > raffle.endsAt) {
+      return { success: false, error: "Raffle has ended" };
+    }
+
+    // 4. Check entry limits
+    const existingEntry = await db.raffleEntry.findFirst({
+      where: { raffleId, customerId },
+    });
+
+    const currentEntries = existingEntry?.entriesCount || 0;
+    if (currentEntries >= raffle.maxEntriesPerCustomer) {
+      return {
+        success: false,
+        error: "You have reached the maximum entries for this raffle",
+      };
+    }
+
+    // 5. Try to claim free entry from streak system
+    const claimResult = await claimFreeEntry(shop, customerId);
+    if (!claimResult.success) {
+      return { success: false, error: claimResult.message };
+    }
+
+    // 6. Create/update entry record (free entry = 0 points, 1 entry)
+    let entry;
+    const isNewEntrant = !existingEntry;
+
+    if (existingEntry) {
+      entry = await db.raffleEntry.update({
+        where: { id: existingEntry.id },
+        data: {
+          entriesCount: existingEntry.entriesCount + 1,
+          isFreeEntry: true, // Mark that this entry includes free entries
+        },
+      });
+    } else {
+      entry = await db.raffleEntry.create({
+        data: {
+          raffleId,
+          customerId,
+          shop,
+          entriesCount: 1,
+          pointsSpent: 0,
+          entryMultiplier: 1,
+          isWinner: false,
+          isFreeEntry: true,
+        },
+      });
+    }
+
+    // 7. Update raffle statistics
+    await db.raffle.update({
+      where: { id: raffleId },
+      data: {
+        totalEntries: raffle.totalEntries + 1,
+        uniqueEntrants: isNewEntrant ? raffle.uniqueEntrants + 1 : raffle.uniqueEntrants,
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log(`${LOG_PREFIX} Successfully claimed free entry for raffle ${raffleId}`);
+
+    return {
+      success: true,
+      entryId: entry.id,
+      entriesCount: 1,
+      totalEntriesCount: entry.entriesCount,
+      pointsSpent: 0,
+      finalEntries: 1,
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Error claiming free entry:`, error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An error occurred",
+    };
+  }
 }
