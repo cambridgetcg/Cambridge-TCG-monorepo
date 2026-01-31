@@ -15,6 +15,7 @@
       "routes/api.cron.store-credit-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.subscription-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.cancelled": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.mystery-boxes": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.dismiss-customer-account-block": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.tier-subscription.created": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -22,17 +23,21 @@
       "routes/webhooks.app-subscriptions-update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.billing-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.webhook-reconciliation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.gift-cards": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.customer-account.missions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.subscription-expiry": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.raffles": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.setup-customer-metafield": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-diagnostics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-sync-verify": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.mystery-box-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.points-maintenance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-recalculation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.points": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-account.points.redeem": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.mission-generator": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-subscriptions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.app.scopes_update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.tier-maintenance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -52,11 +57,13 @@
       "routes/api.credit-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.exchange-rates": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.klaviyo-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.mission-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.admin.entitlements": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.raffle-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.storefront.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -67,16 +74,19 @@
       "routes/api.order-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.ai-feedback.seed": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.cron.raffle-draw": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.klaviyo.callback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.points-analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.webhook-register": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.paid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.shop.update": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.products.search": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.compliance": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.members.export": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.billing.usage": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.sentry-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/webhooks.sendgrid": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.email.domain": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.integrations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -141,7 +151,11 @@
       "routes/app.rewards.mystery-boxes.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.raffles._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.raffles.$id.bonus-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.challenges.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.missions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.missions.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -198,6 +212,15 @@
         "parentId": "root",
         "file": "app/routes/webhooks.tier-subscription.cancelled.tsx",
         "path": "webhooks/tier-subscription/cancelled",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-account.mystery-boxes": {
+        "id": "routes/api.customer-account.mystery-boxes",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.mystery-boxes.tsx",
+        "path": "api/customer-account/mystery-boxes",
         "config": {
           "runtime": "nodejs"
         }
@@ -265,11 +288,29 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.customer-account.challenges": {
+        "id": "routes/api.customer-account.challenges",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.challenges.tsx",
+        "path": "api/customer-account/challenges",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.customer-account.gift-cards": {
         "id": "routes/api.customer-account.gift-cards",
         "parentId": "root",
         "file": "app/routes/api.customer-account.gift-cards.tsx",
         "path": "api/customer-account/gift-cards",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.customer-account.missions": {
+        "id": "routes/api.customer-account.missions",
+        "parentId": "root",
+        "file": "app/routes/api.customer-account.missions.tsx",
+        "path": "api/customer-account/missions",
         "config": {
           "runtime": "nodejs"
         }
@@ -328,6 +369,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.mystery-box-status": {
+        "id": "routes/api.cron.mystery-box-status",
+        "parentId": "root",
+        "file": "app/routes/api.cron.mystery-box-status.tsx",
+        "path": "api/cron/mystery-box-status",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.cron.points-maintenance": {
         "id": "routes/api.cron.points-maintenance",
         "parentId": "root",
@@ -361,6 +411,15 @@
         "file": "app/routes/api.customer-account.points.redeem.tsx",
         "path": "redeem",
         "config": {}
+      },
+      "routes/api.cron.mission-generator": {
+        "id": "routes/api.cron.mission-generator",
+        "parentId": "root",
+        "file": "app/routes/api.cron.mission-generator.tsx",
+        "path": "api/cron/mission-generator",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/api.customer-subscriptions": {
         "id": "routes/api.customer-subscriptions",
@@ -533,6 +592,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.mission-status": {
+        "id": "routes/api.cron.mission-status",
+        "parentId": "root",
+        "file": "app/routes/api.cron.mission-status.tsx",
+        "path": "api/cron/mission-status",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.customer-sync.start": {
         "id": "routes/api.customer-sync.start",
         "parentId": "root",
@@ -574,6 +642,15 @@
         "parentId": "root",
         "file": "app/routes/api.cron.monthly-reset.tsx",
         "path": "api/cron/monthly-reset",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.cron.raffle-status": {
+        "id": "routes/api.cron.raffle-status",
+        "parentId": "root",
+        "file": "app/routes/api.cron.raffle-status.tsx",
+        "path": "api/cron/raffle-status",
         "config": {
           "runtime": "nodejs"
         }
@@ -668,6 +745,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.cron.raffle-draw": {
+        "id": "routes/api.cron.raffle-draw",
+        "parentId": "root",
+        "file": "app/routes/api.cron.raffle-draw.tsx",
+        "path": "api/cron/raffle-draw",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.klaviyo.callback": {
         "id": "routes/api.klaviyo.callback",
         "parentId": "root",
@@ -722,6 +808,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.products.search": {
+        "id": "routes/api.products.search",
+        "parentId": "root",
+        "file": "app/routes/api.products.search.tsx",
+        "path": "api/products/search",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/webhooks.compliance": {
         "id": "routes/webhooks.compliance",
         "parentId": "root",
@@ -754,6 +849,15 @@
         "parentId": "root",
         "file": "app/routes/api.sentry-events.tsx",
         "path": "api/sentry-events",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/webhooks.sendgrid": {
+        "id": "routes/webhooks.sendgrid",
+        "parentId": "root",
+        "file": "app/routes/webhooks.sendgrid.tsx",
+        "path": "webhooks/sendgrid",
         "config": {
           "runtime": "nodejs"
         }
@@ -1348,6 +1452,13 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.rewards.raffles.$id.bonus-events": {
+        "id": "routes/app.rewards.raffles.$id.bonus-events",
+        "parentId": "routes/app.rewards.raffles.$id",
+        "file": "app/routes/app.rewards.raffles.$id.bonus-events.tsx",
+        "path": "bonus-events",
+        "config": {}
+      },
       "routes/app.rewards.challenges": {
         "id": "routes/app.rewards.challenges",
         "parentId": "routes/app.rewards",
@@ -1356,6 +1467,29 @@
         "config": {
           "runtime": "nodejs"
         }
+      },
+      "routes/app.rewards.challenges.$id": {
+        "id": "routes/app.rewards.challenges.$id",
+        "parentId": "routes/app.rewards.challenges",
+        "file": "app/routes/app.rewards.challenges.$id.tsx",
+        "path": ":id",
+        "config": {}
+      },
+      "routes/app.rewards.missions": {
+        "id": "routes/app.rewards.missions",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.missions.tsx",
+        "path": "missions",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.rewards.missions.$id": {
+        "id": "routes/app.rewards.missions.$id",
+        "parentId": "routes/app.rewards.missions",
+        "file": "app/routes/app.rewards.missions.$id.tsx",
+        "path": ":id",
+        "config": {}
       },
       "routes/app.rewards._index": {
         "id": "routes/app.rewards._index",
@@ -1473,6 +1607,12 @@
         "file": "routes/webhooks.tier-subscription.cancelled.tsx",
         "path": "webhooks/tier-subscription/cancelled"
       },
+      "routes/api.customer-account.mystery-boxes": {
+        "id": "routes/api.customer-account.mystery-boxes",
+        "parentId": "root",
+        "file": "routes/api.customer-account.mystery-boxes.tsx",
+        "path": "api/customer-account/mystery-boxes"
+      },
       "routes/api.dismiss-customer-account-block": {
         "id": "routes/api.dismiss-customer-account-block",
         "parentId": "root",
@@ -1515,11 +1655,23 @@
         "file": "routes/api.cron.webhook-reconciliation.tsx",
         "path": "api/cron/webhook-reconciliation"
       },
+      "routes/api.customer-account.challenges": {
+        "id": "routes/api.customer-account.challenges",
+        "parentId": "root",
+        "file": "routes/api.customer-account.challenges.tsx",
+        "path": "api/customer-account/challenges"
+      },
       "routes/api.customer-account.gift-cards": {
         "id": "routes/api.customer-account.gift-cards",
         "parentId": "root",
         "file": "routes/api.customer-account.gift-cards.tsx",
         "path": "api/customer-account/gift-cards"
+      },
+      "routes/api.customer-account.missions": {
+        "id": "routes/api.customer-account.missions",
+        "parentId": "root",
+        "file": "routes/api.customer-account.missions.tsx",
+        "path": "api/customer-account/missions"
       },
       "routes/api.cron.subscription-expiry": {
         "id": "routes/api.cron.subscription-expiry",
@@ -1557,6 +1709,12 @@
         "file": "routes/api.subscription-sync-verify.tsx",
         "path": "api/subscription-sync-verify"
       },
+      "routes/api.cron.mystery-box-status": {
+        "id": "routes/api.cron.mystery-box-status",
+        "parentId": "root",
+        "file": "routes/api.cron.mystery-box-status.tsx",
+        "path": "api/cron/mystery-box-status"
+      },
       "routes/api.cron.points-maintenance": {
         "id": "routes/api.cron.points-maintenance",
         "parentId": "root",
@@ -1580,6 +1738,12 @@
         "parentId": "routes/api.customer-account.points",
         "file": "routes/api.customer-account.points.redeem.tsx",
         "path": "redeem"
+      },
+      "routes/api.cron.mission-generator": {
+        "id": "routes/api.cron.mission-generator",
+        "parentId": "root",
+        "file": "routes/api.cron.mission-generator.tsx",
+        "path": "api/cron/mission-generator"
       },
       "routes/api.customer-subscriptions": {
         "id": "routes/api.customer-subscriptions",
@@ -1695,6 +1859,12 @@
         "file": "routes/api.cron.klaviyo-events.tsx",
         "path": "api/cron/klaviyo-events"
       },
+      "routes/api.cron.mission-status": {
+        "id": "routes/api.cron.mission-status",
+        "parentId": "root",
+        "file": "routes/api.cron.mission-status.tsx",
+        "path": "api/cron/mission-status"
+      },
       "routes/api.customer-sync.start": {
         "id": "routes/api.customer-sync.start",
         "parentId": "root",
@@ -1724,6 +1894,12 @@
         "parentId": "root",
         "file": "routes/api.cron.monthly-reset.tsx",
         "path": "api/cron/monthly-reset"
+      },
+      "routes/api.cron.raffle-status": {
+        "id": "routes/api.cron.raffle-status",
+        "parentId": "root",
+        "file": "routes/api.cron.raffle-status.tsx",
+        "path": "api/cron/raffle-status"
       },
       "routes/api.cron.usage-billing": {
         "id": "routes/api.cron.usage-billing",
@@ -1785,6 +1961,12 @@
         "file": "routes/api.billing.callback.tsx",
         "path": "api/billing/callback"
       },
+      "routes/api.cron.raffle-draw": {
+        "id": "routes/api.cron.raffle-draw",
+        "parentId": "root",
+        "file": "routes/api.cron.raffle-draw.tsx",
+        "path": "api/cron/raffle-draw"
+      },
       "routes/api.klaviyo.callback": {
         "id": "routes/api.klaviyo.callback",
         "parentId": "root",
@@ -1821,6 +2003,12 @@
         "file": "routes/webhooks.shop.update.tsx",
         "path": "webhooks/shop/update"
       },
+      "routes/api.products.search": {
+        "id": "routes/api.products.search",
+        "parentId": "root",
+        "file": "routes/api.products.search.tsx",
+        "path": "api/products/search"
+      },
       "routes/webhooks.compliance": {
         "id": "routes/webhooks.compliance",
         "parentId": "root",
@@ -1844,6 +2032,12 @@
         "parentId": "root",
         "file": "routes/api.sentry-events.tsx",
         "path": "api/sentry-events"
+      },
+      "routes/webhooks.sendgrid": {
+        "id": "routes/webhooks.sendgrid",
+        "parentId": "root",
+        "file": "routes/webhooks.sendgrid.tsx",
+        "path": "webhooks/sendgrid"
       },
       "routes/api.cron.metrics": {
         "id": "routes/api.cron.metrics",
@@ -2267,11 +2461,35 @@
         "file": "routes/app.rewards.raffles.$id.tsx",
         "path": "raffles/:id"
       },
+      "routes/app.rewards.raffles.$id.bonus-events": {
+        "id": "routes/app.rewards.raffles.$id.bonus-events",
+        "parentId": "routes/app.rewards.raffles.$id",
+        "file": "routes/app.rewards.raffles.$id.bonus-events.tsx",
+        "path": "bonus-events"
+      },
       "routes/app.rewards.challenges": {
         "id": "routes/app.rewards.challenges",
         "parentId": "routes/app.rewards",
         "file": "routes/app.rewards.challenges.tsx",
         "path": "challenges"
+      },
+      "routes/app.rewards.challenges.$id": {
+        "id": "routes/app.rewards.challenges.$id",
+        "parentId": "routes/app.rewards.challenges",
+        "file": "routes/app.rewards.challenges.$id.tsx",
+        "path": ":id"
+      },
+      "routes/app.rewards.missions": {
+        "id": "routes/app.rewards.missions",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.missions.tsx",
+        "path": "missions"
+      },
+      "routes/app.rewards.missions.$id": {
+        "id": "routes/app.rewards.missions.$id",
+        "parentId": "routes/app.rewards.missions",
+        "file": "routes/app.rewards.missions.$id.tsx",
+        "path": ":id"
       },
       "routes/app.rewards._index": {
         "id": "routes/app.rewards._index",
