@@ -196,7 +196,7 @@ async function getResourceUsage(shop: string): Promise<{
     }),
     db.customer.count({ where: { shop } }),
     db.raffle.count({
-      where: { shop, status: { in: ["ACTIVE", "UPCOMING"] } },
+      where: { shop, status: { in: ["ACTIVE", "SCHEDULED"] } },
     }),
     db.emailCampaign.count({
       where: { shop, status: { in: ["DRAFT", "SCHEDULED", "SENDING"] } },

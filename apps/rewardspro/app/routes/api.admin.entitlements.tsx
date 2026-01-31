@@ -115,9 +115,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
       db.tier.count({ where: { shop } }),
       db.tierProduct.count({ where: { shop } }),
       db.emailAutomation?.count({ where: { shop } }) ?? Promise.resolve(0),
-      // Active raffles (ACTIVE or UPCOMING status)
+      // Active raffles (ACTIVE or SCHEDULED status)
       db.raffle?.count({
-        where: { shop, status: { in: ['ACTIVE', 'UPCOMING'] } },
+        where: { shop, status: { in: ['ACTIVE', 'SCHEDULED'] } },
       }) ?? Promise.resolve(0),
       // Active mystery boxes (isActive = true)
       db.mysteryBox?.count({

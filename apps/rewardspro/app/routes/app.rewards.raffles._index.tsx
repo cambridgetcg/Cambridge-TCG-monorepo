@@ -202,7 +202,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await atomicWithinLimit(
         shop,
         "maxActiveRaffles",
-        (tx) => tx.raffle.count({ where: { shop, status: { in: ["ACTIVE", "UPCOMING"] } } }),
+        (tx) => tx.raffle.count({ where: { shop, status: { in: ["ACTIVE", "SCHEDULED"] } } }),
         async () => {
           // Note: createRaffle doesn't support transaction client yet,
           // so we call it outside the transaction after the count check passes.

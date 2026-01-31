@@ -580,7 +580,64 @@ export async function checkRaffleEligibility(
     };
   }
 
-  // TODO: Check tier restrictions if set
+  // Check tier restrictions
+  if (raffle.tierRestrictions || raffle.minimumTier) {
+    const { resolveEffectiveTier } = await import("./tier-resolution.server");
+    const tierResult = await resolveEffectiveTier(shop, customerId);
+
+    // Check allowedTierIds list
+    if (raffle.tierRestrictions) {
+      const restrictions = raffle.tierRestrictions as { allowedTierIds?: string[] };
+      if (restrictions.allowedTierIds?.length) {
+        if (!tierResult.effectiveTierId) {
+          return {
+            eligible: false,
+            reason: "You need a membership tier to enter this raffle",
+            currentEntries,
+            maxEntries: raffle.maxEntriesPerCustomer,
+          };
+        }
+        if (!restrictions.allowedTierIds.includes(tierResult.effectiveTierId)) {
+          return {
+            eligible: false,
+            reason: "This raffle is restricted to specific tiers",
+            currentEntries,
+            maxEntries: raffle.maxEntriesPerCustomer,
+          };
+        }
+      }
+    }
+
+    // Check minimumTier requirement
+    if (raffle.minimumTier) {
+      if (!tierResult.effectiveTierId) {
+        const minimumTier = await db.tier.findUnique({ where: { id: raffle.minimumTier } });
+        return {
+          eligible: false,
+          reason: `Requires ${minimumTier?.name || 'a membership'} tier or above`,
+          currentEntries,
+          maxEntries: raffle.maxEntriesPerCustomer,
+        };
+      }
+
+      if (tierResult.effectiveTierId !== raffle.minimumTier) {
+        // Check tier hierarchy - compare minSpend values
+        const [customerTier, minimumTier] = await Promise.all([
+          db.tier.findUnique({ where: { id: tierResult.effectiveTierId } }),
+          db.tier.findUnique({ where: { id: raffle.minimumTier } }),
+        ]);
+
+        if (!customerTier || !minimumTier || customerTier.minSpend < minimumTier.minSpend) {
+          return {
+            eligible: false,
+            reason: `Requires ${minimumTier?.name || 'higher'} tier or above`,
+            currentEntries,
+            maxEntries: raffle.maxEntriesPerCustomer,
+          };
+        }
+      }
+    }
+  }
 
   return {
     eligible: true,
