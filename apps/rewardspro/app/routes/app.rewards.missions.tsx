@@ -454,6 +454,11 @@ export default function MissionsPage() {
   const navigate = useNavigate();
   const isSubmitting = navigation.state === "submitting";
 
+  // Debug logging for navigation
+  useEffect(() => {
+    console.log("[MissionsPage] Component mounted, navigation state:", navigation.state);
+  }, [navigation.state]);
+
   const [selectedTab, setSelectedTab] = useState(0);
   const [toastActive, setToastActive] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -568,7 +573,10 @@ export default function MissionsPage() {
         backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Create Mission",
-          onAction: () => navigate("/app/rewards/missions/new"),
+          onAction: () => {
+            console.log("[MissionsPage] Create Mission clicked, navigating to /app/rewards/missions/new");
+            navigate("/app/rewards/missions/new");
+          },
         }}
         secondaryActions={[
           {
@@ -651,7 +659,10 @@ export default function MissionsPage() {
                       image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                       action={{
                         content: "Create Mission",
-                        onAction: () => navigate("/app/rewards/missions/new"),
+                        onAction: () => {
+                          console.log("[MissionsPage] Create Mission (EmptyState) clicked, navigating to /app/rewards/missions/new");
+                          navigate("/app/rewards/missions/new");
+                        },
                       }}
                     >
                       <p>

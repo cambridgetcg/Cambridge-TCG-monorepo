@@ -233,36 +233,50 @@ export async function createChallenge(
   input: CreateChallengeInput
 ): Promise<ChallengeWithDetails> {
   console.log(`${LOG_PREFIX} Creating challenge: ${input.name} for shop ${input.shop}`);
-
-  const challenge = await db.challenge.create({
-    data: {
-      shop: input.shop,
-      name: input.name,
-      description: input.description,
-      imageUrl: input.imageUrl,
-      status: "DRAFT",
-      startsAt: input.startsAt,
-      endsAt: input.endsAt,
-      objectiveType: input.objectiveType,
-      targetValue: input.targetValue,
-      objectiveConfig: input.objectiveConfig ?? undefined,
-      tierRestrictions: input.tierRestrictions ?? undefined,
-      minimumTierId: input.minimumTierId,
-      isPublic: input.isPublic ?? true,
-    },
-    include: { reward: true },
+  console.log(`${LOG_PREFIX} Create input:`, {
+    shop: input.shop,
+    name: input.name,
+    objectiveType: input.objectiveType,
+    targetValue: input.targetValue,
+    startsAt: input.startsAt?.toISOString(),
+    endsAt: input.endsAt?.toISOString(),
+    isPublic: input.isPublic,
   });
 
-  console.log(`${LOG_PREFIX} Created challenge ${challenge.id}`);
+  try {
+    const challenge = await db.challenge.create({
+      data: {
+        shop: input.shop,
+        name: input.name,
+        description: input.description,
+        imageUrl: input.imageUrl,
+        status: "DRAFT",
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        objectiveType: input.objectiveType,
+        targetValue: input.targetValue,
+        objectiveConfig: input.objectiveConfig ?? undefined,
+        tierRestrictions: input.tierRestrictions ?? undefined,
+        minimumTierId: input.minimumTierId,
+        isPublic: input.isPublic ?? true,
+      },
+      include: { reward: true },
+    });
 
-  return {
-    ...challenge,
-    status: challenge.status as ChallengeStatus,
-    objectiveType: challenge.objectiveType as ChallengeObjectiveType,
-    objectiveConfig: challenge.objectiveConfig as ObjectiveConfig | null,
-    tierRestrictions: challenge.tierRestrictions as { allowedTierIds: string[] } | null,
-    reward: null,
-  };
+    console.log(`${LOG_PREFIX} Created challenge ${challenge.id}`);
+
+    return {
+      ...challenge,
+      status: challenge.status as ChallengeStatus,
+      objectiveType: challenge.objectiveType as ChallengeObjectiveType,
+      objectiveConfig: challenge.objectiveConfig as ObjectiveConfig | null,
+      tierRestrictions: challenge.tierRestrictions as { allowedTierIds: string[] } | null,
+      reward: null,
+    };
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Error creating challenge:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -370,13 +384,15 @@ export async function deleteChallenge(
  * Set or update a challenge's reward
  */
 export async function setChallengeReward(
-  input: CreateChallengeRewardInput
+  challengeId: string,
+  shop: string,
+  rewardData: { rewardType: ChallengeRewardType; rewardValue: RewardValue; description: string }
 ): Promise<ChallengeWithDetails> {
-  console.log(`${LOG_PREFIX} Setting reward for challenge ${input.challengeId}`);
+  console.log(`${LOG_PREFIX} Setting reward for challenge ${challengeId} (shop: ${shop})`);
 
-  // Verify challenge exists
-  const challenge = await db.challenge.findUnique({
-    where: { id: input.challengeId },
+  // Verify challenge exists and belongs to shop
+  const challenge = await db.challenge.findFirst({
+    where: { id: challengeId, shop },
     include: { reward: true },
   });
 
@@ -389,25 +405,25 @@ export async function setChallengeReward(
     await db.challengeReward.update({
       where: { id: challenge.reward.id },
       data: {
-        rewardType: input.rewardType,
-        rewardValue: input.rewardValue,
-        description: input.description,
+        rewardType: rewardData.rewardType,
+        rewardValue: rewardData.rewardValue,
+        description: rewardData.description,
       },
     });
   } else {
     await db.challengeReward.create({
       data: {
-        challengeId: input.challengeId,
-        rewardType: input.rewardType,
-        rewardValue: input.rewardValue,
-        description: input.description,
+        challengeId: challengeId,
+        rewardType: rewardData.rewardType,
+        rewardValue: rewardData.rewardValue,
+        description: rewardData.description,
       },
     });
   }
 
   // Return updated challenge
   const updated = await db.challenge.findUnique({
-    where: { id: input.challengeId },
+    where: { id: challengeId },
     include: { reward: true },
   });
 

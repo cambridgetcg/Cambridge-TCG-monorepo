@@ -134,14 +134,21 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const isNew = id === "new";
 
   console.log(`${LOG_PREFIX} Loader starting for: ${id} (isNew: ${isNew})`);
+  console.log(`${LOG_PREFIX} Request URL: ${request.url}`);
 
   try {
+    console.log(`${LOG_PREFIX} Authenticating...`);
     const { session } = await authenticate.admin(request);
     const shop = session.shop;
+    console.log(`${LOG_PREFIX} Authenticated for shop: ${shop}`);
 
+    console.log(`${LOG_PREFIX} Fetching points config...`);
     const config = await getPointsConfig(shop);
+    console.log(`${LOG_PREFIX} Points config fetched: ${config.currencyName}`);
 
     if (isNew) {
+      console.log(`${LOG_PREFIX} Returning new mission form with templates`);
+      console.log(`${LOG_PREFIX} Template counts: daily=${TEMPLATES_BY_CADENCE.DAILY.length}, weekly=${TEMPLATES_BY_CADENCE.WEEKLY.length}, monthly=${TEMPLATES_BY_CADENCE.MONTHLY.length}, special=${TEMPLATES_BY_CADENCE.SPECIAL.length}`);
       return json<LoaderData>({
         isNew: true,
         challenge: null,
@@ -221,21 +228,26 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 // ============================================
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  console.log(`${LOG_PREFIX} Action starting...`);
+  const id = params.id!;
+  console.log(`${LOG_PREFIX} Action starting for id: ${id}`);
+  console.log(`${LOG_PREFIX} Request method: ${request.method}`);
 
   try {
+    console.log(`${LOG_PREFIX} Action: Authenticating...`);
     const { session } = await authenticate.admin(request);
     const shop = session.shop;
-    const id = params.id!;
     const isNew = id === "new";
+    console.log(`${LOG_PREFIX} Action: Authenticated for shop: ${shop}, isNew: ${isNew}`);
 
     const formData = await request.formData();
     const intent = formData.get("intent") as string;
 
     console.log(`${LOG_PREFIX} Action intent: ${intent}`);
+    console.log(`${LOG_PREFIX} Form data keys:`, Array.from(formData.keys()));
 
     switch (intent) {
       case "create": {
+        console.log(`${LOG_PREFIX} Action: Processing create mission...`);
         const name = formData.get("name") as string;
         const description = formData.get("description") as string || undefined;
         const objectiveType = formData.get("objectiveType") as ChallengeObjectiveType;
@@ -244,13 +256,25 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         const endsAt = new Date(formData.get("endsAt") as string);
         const isPublic = formData.get("isPublic") === "true";
 
+        console.log(`${LOG_PREFIX} Create data:`, {
+          name,
+          description: description?.substring(0, 50),
+          objectiveType,
+          targetValue,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          isPublic,
+        });
+
         if (!name || !objectiveType || !targetValue || !startsAt || !endsAt) {
+          console.log(`${LOG_PREFIX} Create validation failed - missing fields`);
           return json<ActionData>({
             success: false,
             error: "Please fill in all required fields",
           });
         }
 
+        console.log(`${LOG_PREFIX} Calling createChallenge service...`);
         const challenge = await createChallenge({
           shop,
           name,
@@ -261,6 +285,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           endsAt,
           isPublic,
         });
+        console.log(`${LOG_PREFIX} Challenge created: ${challenge.id}`);
 
         return redirect(`/app/rewards/missions/${challenge.id}`);
       }
