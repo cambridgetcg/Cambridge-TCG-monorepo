@@ -20,6 +20,10 @@ import {
   ProgressBar,
   Box,
   Icon,
+  Modal,
+  FormLayout,
+  TextField,
+  Select,
 } from "@shopify/polaris";
 import { ClockIcon, StarFilledIcon, PersonIcon, CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
@@ -27,6 +31,13 @@ import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
 import db from "../db.server";
 import { getMissionAnalytics } from "../services/mission-stats.server";
+import { createChallenge } from "../services/challenge-management.server";
+import {
+  TEMPLATES_BY_CADENCE,
+  calculateMissionDates,
+  type MissionTemplate,
+  type MissionCadence,
+} from "../constants/mission-templates";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -345,6 +356,40 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json<ActionData>({ success: true, message: "Mission archived" });
     }
 
+    if (intent === "createMission") {
+      const name = formData.get("name") as string;
+      const description = formData.get("description") as string || undefined;
+      const objectiveType = formData.get("objectiveType") as string;
+      const targetValue = parseInt(formData.get("targetValue") as string, 10);
+      const cadence = (formData.get("cadence") as string) || "SPECIAL";
+      const rarity = (formData.get("rarity") as string) || "COMMON";
+      const xpReward = parseInt(formData.get("xpReward") as string, 10) || 10;
+
+      if (!name || !objectiveType || !targetValue) {
+        return json<ActionData>({ success: false, error: "Please fill in all required fields" });
+      }
+
+      // Calculate dates based on cadence
+      const { startsAt, endsAt } = calculateMissionDates(cadence as MissionCadence, 7);
+
+      const challenge = await createChallenge({
+        shop,
+        name,
+        description,
+        objectiveType: objectiveType as any,
+        targetValue,
+        startsAt,
+        endsAt,
+        isPublic: true,
+        cadence: cadence as any,
+        rarity: rarity as any,
+        category: "CHALLENGE",
+        xpReward,
+      });
+
+      return json<ActionData>({ success: true, message: "Mission created", missionId: challenge.id });
+    }
+
     return json<ActionData>({ success: false, error: "Unknown action" });
   } catch (error) {
     console.error(`${LOG_PREFIX} ACTION ERROR:`, error);
@@ -464,6 +509,16 @@ export default function MissionsPage() {
   const [toastMessage, setToastMessage] = useState("");
   const [toastError, setToastError] = useState(false);
 
+  // Create modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [missionName, setMissionName] = useState("");
+  const [missionDescription, setMissionDescription] = useState("");
+  const [missionObjective, setMissionObjective] = useState("SPENDING");
+  const [missionTarget, setMissionTarget] = useState("100");
+  const [missionCadence, setMissionCadence] = useState<MissionCadence>("DAILY");
+  const [missionRarity, setMissionRarity] = useState("COMMON");
+  const [missionXpReward, setMissionXpReward] = useState("10");
+
   // Tab configuration
   const tabs = [
     { id: "all", content: "All Missions", panelID: "all-missions" },
@@ -521,6 +576,46 @@ export default function MissionsPage() {
     submit(formData, { method: "post" });
   };
 
+  // Create mission handler
+  const handleCreateMission = useCallback(() => {
+    if (!missionName.trim()) {
+      setToastMessage("Mission name is required");
+      setToastError(true);
+      setToastActive(true);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("intent", "createMission");
+    formData.append("name", missionName);
+    formData.append("description", missionDescription);
+    formData.append("objectiveType", missionObjective);
+    formData.append("targetValue", missionTarget);
+    formData.append("cadence", missionCadence);
+    formData.append("rarity", missionRarity);
+    formData.append("xpReward", missionXpReward);
+    submit(formData, { method: "post" });
+    setShowCreateModal(false);
+    resetCreateForm();
+  }, [missionName, missionDescription, missionObjective, missionTarget, missionCadence, missionRarity, missionXpReward, submit]);
+
+  // Reset create form
+  const resetCreateForm = useCallback(() => {
+    setMissionName("");
+    setMissionDescription("");
+    setMissionObjective("SPENDING");
+    setMissionTarget("100");
+    setMissionCadence("DAILY");
+    setMissionRarity("COMMON");
+    setMissionXpReward("10");
+  }, []);
+
+  // Close modal and reset
+  const handleCloseCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    resetCreateForm();
+  }, [resetCreateForm]);
+
   // Feature not enabled state
   if (!data.missionsEnabled) {
     return (
@@ -573,10 +668,7 @@ export default function MissionsPage() {
         backAction={{ content: "Rewards", url: "/app/rewards" }}
         primaryAction={{
           content: "Create Mission",
-          onAction: () => {
-            console.log("[MissionsPage] Create Mission clicked, navigating to /app/rewards/missions/new");
-            navigate("/app/rewards/missions/new");
-          },
+          onAction: () => setShowCreateModal(true),
         }}
         secondaryActions={[
           {
@@ -659,10 +751,7 @@ export default function MissionsPage() {
                       image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                       action={{
                         content: "Create Mission",
-                        onAction: () => {
-                          console.log("[MissionsPage] Create Mission (EmptyState) clicked, navigating to /app/rewards/missions/new");
-                          navigate("/app/rewards/missions/new");
-                        },
+                        onAction: () => setShowCreateModal(true),
                       }}
                     >
                       <p>
@@ -683,6 +772,96 @@ export default function MissionsPage() {
           </Layout.Section>
         </Layout>
       </Page>
+
+      {/* Create Mission Modal */}
+      <Modal
+        open={showCreateModal}
+        onClose={handleCloseCreateModal}
+        title="Create Mission"
+        primaryAction={{
+          content: "Create Mission",
+          onAction: handleCreateMission,
+          loading: isSubmitting,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: handleCloseCreateModal,
+          },
+        ]}
+      >
+        <Modal.Section>
+          <FormLayout>
+            <TextField
+              label="Mission Name"
+              value={missionName}
+              onChange={setMissionName}
+              autoComplete="off"
+              placeholder="e.g., Weekend Warrior"
+            />
+            <TextField
+              label="Description"
+              value={missionDescription}
+              onChange={setMissionDescription}
+              autoComplete="off"
+              multiline={2}
+              placeholder="Describe what customers need to do..."
+            />
+            <Select
+              label="Objective Type"
+              options={[
+                { label: "Spending Amount", value: "SPENDING" },
+                { label: "Order Count", value: "ORDER_COUNT" },
+                { label: "Product Purchase", value: "PRODUCT_PURCHASE" },
+                { label: "Referral", value: "REFERRAL" },
+                { label: "Review", value: "REVIEW" },
+                { label: "Social Share", value: "SOCIAL_SHARE" },
+              ]}
+              value={missionObjective}
+              onChange={setMissionObjective}
+            />
+            <TextField
+              label="Target Value"
+              type="number"
+              value={missionTarget}
+              onChange={setMissionTarget}
+              autoComplete="off"
+              helpText="The amount or count customers need to reach"
+            />
+            <Select
+              label="Cadence"
+              options={[
+                { label: "Daily", value: "DAILY" },
+                { label: "Weekly", value: "WEEKLY" },
+                { label: "Monthly", value: "MONTHLY" },
+                { label: "Special (One-time)", value: "SPECIAL" },
+              ]}
+              value={missionCadence}
+              onChange={(value) => setMissionCadence(value as MissionCadence)}
+            />
+            <Select
+              label="Rarity"
+              options={[
+                { label: "Common", value: "COMMON" },
+                { label: "Uncommon", value: "UNCOMMON" },
+                { label: "Rare", value: "RARE" },
+                { label: "Epic", value: "EPIC" },
+                { label: "Legendary", value: "LEGENDARY" },
+              ]}
+              value={missionRarity}
+              onChange={setMissionRarity}
+            />
+            <TextField
+              label="XP Reward"
+              type="number"
+              value={missionXpReward}
+              onChange={setMissionXpReward}
+              autoComplete="off"
+              helpText="Experience points awarded on completion"
+            />
+          </FormLayout>
+        </Modal.Section>
+      </Modal>
 
       {toastActive && (
         <Toast
