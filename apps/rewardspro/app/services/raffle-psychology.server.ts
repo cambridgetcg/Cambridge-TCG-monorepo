@@ -45,14 +45,161 @@ import {
   type ActivityFeedItem,
 } from "./raffle-activity-feed.server";
 
-import {
-  getBestBonusEvent,
-  recordBonusEventUsage,
-  getActiveBonusEvents,
-  formatTimeRemaining,
-  type BonusEventInfo,
-  type AppliedBonus,
-} from "./raffle-bonus-events.server";
+// ============================================
+// BONUS EVENT TYPES & FUNCTIONS (inline, no separate table)
+// ============================================
+
+export interface BonusEventInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  eventType: string;
+  bonusMultiplier: number;
+  bonusEntriesFlat: number;
+  discountPercent: number;
+  startsAt: Date;
+  endsAt: Date;
+  isActive: boolean;
+  isCurrentlyActive: boolean;
+  timeRemaining: string | null;
+  secondsRemaining: number;
+  usesRemaining: number | null;
+  currentUses: number;
+}
+
+export interface AppliedBonus {
+  eventId: string;
+  eventName: string;
+  eventType: string;
+  multiplier: number;
+  flatBonus: number;
+  discountPercent: number;
+}
+
+function formatTimeRemaining(endDate: Date): { text: string; seconds: number } {
+  const now = new Date();
+  const diffMs = endDate.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    return { text: "Ended", seconds: 0 };
+  }
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffHours > 0) {
+    return { text: `${diffHours}h ${diffMinutes % 60}m left`, seconds: diffSeconds };
+  }
+  if (diffMinutes > 0) {
+    return { text: `${diffMinutes}m ${diffSeconds % 60}s left`, seconds: diffSeconds };
+  }
+  return { text: `${diffSeconds}s left`, seconds: diffSeconds };
+}
+
+/**
+ * Get best bonus event for a customer (computed from raffle settings)
+ */
+async function getBestBonusEvent(
+  shop: string,
+  customerId: string,
+  raffleId?: string
+): Promise<AppliedBonus | null> {
+  if (!raffleId) return null;
+
+  const raffle = await db.raffle.findFirst({
+    where: { id: raffleId, shop },
+    select: {
+      earlyBirdBonusPercent: true,
+      earlyBirdEntryLimit: true,
+      totalEntries: true,
+    },
+  });
+
+  if (!raffle) return null;
+
+  // Check early bird eligibility
+  if (raffle.earlyBirdBonusPercent > 0 &&
+      raffle.earlyBirdEntryLimit > 0 &&
+      raffle.totalEntries < raffle.earlyBirdEntryLimit) {
+    return {
+      eventId: `early-bird-${raffleId}`,
+      eventName: "Early Bird Bonus",
+      eventType: "EARLY_BIRD",
+      multiplier: 1 + raffle.earlyBirdBonusPercent / 100,
+      flatBonus: 0,
+      discountPercent: 0,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Record usage of bonus event (no-op without table)
+ */
+async function recordBonusEventUsage(
+  _eventId: string,
+  _customerId: string,
+  _shop: string
+): Promise<void> {
+  // No-op - bonus events are computed from raffle fields, no usage tracking needed
+}
+
+/**
+ * Get active bonus events (computed from raffle settings)
+ */
+async function getActiveBonusEvents(
+  shop: string,
+  raffleId?: string
+): Promise<BonusEventInfo[]> {
+  const where = raffleId
+    ? { id: raffleId, shop, status: "ACTIVE" as const }
+    : { shop, status: "ACTIVE" as const };
+
+  const raffles = await db.raffle.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      totalEntries: true,
+      earlyBirdBonusPercent: true,
+      earlyBirdEntryLimit: true,
+      endsAt: true,
+    },
+  });
+
+  const events: BonusEventInfo[] = [];
+
+  for (const raffle of raffles) {
+    if (raffle.earlyBirdBonusPercent > 0 &&
+        raffle.earlyBirdEntryLimit > 0 &&
+        raffle.totalEntries < raffle.earlyBirdEntryLimit) {
+      const remaining = raffle.earlyBirdEntryLimit - raffle.totalEntries;
+      const { text, seconds } = formatTimeRemaining(raffle.endsAt);
+
+      events.push({
+        id: `early-bird-${raffle.id}`,
+        name: "Early Bird Bonus",
+        description: `Get ${raffle.earlyBirdBonusPercent}% extra entries! ${remaining} spots left.`,
+        eventType: "EARLY_BIRD",
+        bonusMultiplier: 1 + raffle.earlyBirdBonusPercent / 100,
+        bonusEntriesFlat: 0,
+        discountPercent: 0,
+        startsAt: new Date(),
+        endsAt: raffle.endsAt,
+        isActive: true,
+        isCurrentlyActive: true,
+        timeRemaining: `${remaining} entries remaining`,
+        secondsRemaining: seconds,
+        usesRemaining: remaining,
+        currentUses: raffle.totalEntries,
+      });
+    }
+  }
+
+  return events;
+}
 
 import {
   checkLuckyNumber,

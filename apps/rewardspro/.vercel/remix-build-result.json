@@ -151,7 +151,7 @@
       "routes/app.rewards.mystery-boxes.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.raffles._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.rewards.raffles.$id.bonus-events": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.raffles.$id.bonus-settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.challenges.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.missions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -1452,11 +1452,11 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.rewards.raffles.$id.bonus-events": {
-        "id": "routes/app.rewards.raffles.$id.bonus-events",
+      "routes/app.rewards.raffles.$id.bonus-settings": {
+        "id": "routes/app.rewards.raffles.$id.bonus-settings",
         "parentId": "routes/app.rewards.raffles.$id",
-        "file": "app/routes/app.rewards.raffles.$id.bonus-events.tsx",
-        "path": "bonus-events",
+        "file": "app/routes/app.rewards.raffles.$id.bonus-settings.tsx",
+        "path": "bonus-settings",
         "config": {}
       },
       "routes/app.rewards.challenges": {
@@ -2461,11 +2461,11 @@
         "file": "routes/app.rewards.raffles.$id.tsx",
         "path": "raffles/:id"
       },
-      "routes/app.rewards.raffles.$id.bonus-events": {
-        "id": "routes/app.rewards.raffles.$id.bonus-events",
+      "routes/app.rewards.raffles.$id.bonus-settings": {
+        "id": "routes/app.rewards.raffles.$id.bonus-settings",
         "parentId": "routes/app.rewards.raffles.$id",
-        "file": "routes/app.rewards.raffles.$id.bonus-events.tsx",
-        "path": "bonus-events"
+        "file": "routes/app.rewards.raffles.$id.bonus-settings.tsx",
+        "path": "bonus-settings"
       },
       "routes/app.rewards.challenges": {
         "id": "routes/app.rewards.challenges",

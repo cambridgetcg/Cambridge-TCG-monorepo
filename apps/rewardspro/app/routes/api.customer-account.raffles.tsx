@@ -36,9 +36,100 @@ import {
 } from "../services/raffle-psychology.server";
 import { getRaffleStreakInfo } from "../services/raffle-streak.server";
 import { getActivityFeed, getShopActivityFeed } from "../services/raffle-activity-feed.server";
-import { getActiveBonusEvents } from "../services/raffle-bonus-events.server";
 
 const LOG_PREFIX = "[api.customer-account.raffles]";
+
+/**
+ * Get computed bonus events from raffle settings (no separate table needed)
+ */
+async function getComputedBonusEvents(shop: string, raffleId?: string) {
+  const where = raffleId
+    ? { id: raffleId, shop }
+    : { shop, status: "ACTIVE" as const };
+
+  const raffles = await db.raffle.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      totalEntries: true,
+      earlyBirdBonusPercent: true,
+      earlyBirdEntryLimit: true,
+      dailyFreeEntries: true,
+      enableStreakBonuses: true,
+    },
+  });
+
+  const bonusEvents: Array<{
+    id: string;
+    name: string;
+    description: string;
+    eventType: string;
+    bonusMultiplier: number;
+    bonusEntriesFlat: number;
+    isCurrentlyActive: boolean;
+    timeRemaining: string | null;
+    raffleId: string;
+    raffleName: string;
+  }> = [];
+
+  for (const raffle of raffles) {
+    // Early bird bonus
+    if (raffle.earlyBirdBonusPercent > 0 && raffle.earlyBirdEntryLimit > 0) {
+      const isActive = raffle.totalEntries < raffle.earlyBirdEntryLimit;
+      const remaining = raffle.earlyBirdEntryLimit - raffle.totalEntries;
+
+      if (isActive) {
+        bonusEvents.push({
+          id: `early-bird-${raffle.id}`,
+          name: `Early Bird Bonus`,
+          description: `Get ${raffle.earlyBirdBonusPercent}% extra entries! ${remaining} spots left.`,
+          eventType: "EARLY_BIRD",
+          bonusMultiplier: 1 + raffle.earlyBirdBonusPercent / 100,
+          bonusEntriesFlat: 0,
+          isCurrentlyActive: true,
+          timeRemaining: `${remaining} entries remaining`,
+          raffleId: raffle.id,
+          raffleName: raffle.name,
+        });
+      }
+    }
+
+    // Daily free entries info
+    if (raffle.dailyFreeEntries > 0) {
+      bonusEvents.push({
+        id: `free-entries-${raffle.id}`,
+        name: `Daily Free Entries`,
+        description: `Claim ${raffle.dailyFreeEntries} free ${raffle.dailyFreeEntries === 1 ? "entry" : "entries"} every day!`,
+        eventType: "FREE_ENTRY",
+        bonusMultiplier: 1,
+        bonusEntriesFlat: raffle.dailyFreeEntries,
+        isCurrentlyActive: true,
+        timeRemaining: "Resets daily",
+        raffleId: raffle.id,
+        raffleName: raffle.name,
+      });
+    }
+
+    // Streak bonus info
+    if (raffle.enableStreakBonuses) {
+      bonusEvents.push({
+        id: `streak-bonus-${raffle.id}`,
+        name: `Streak Bonus`,
+        description: `Enter multiple days in a row for bonus entries!`,
+        eventType: "STREAK",
+        bonusMultiplier: 1,
+        bonusEntriesFlat: 0,
+        isCurrentlyActive: true,
+        timeRemaining: null,
+        raffleId: raffle.id,
+        raffleName: raffle.name,
+      });
+    }
+  }
+
+  return bonusEvents;
+}
 
 // ============================================
 // CORS HEADERS
@@ -247,17 +338,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     if (action === "bonus-events") {
-      // Get active bonus events
-      const events = await getActiveBonusEvents(shop, raffleId || undefined);
+      // Get computed bonus events from raffle settings
+      const events = await getComputedBonusEvents(shop, raffleId || undefined);
 
       return json({
         enabled: true,
         authenticated: true,
-        bonusEvents: events.map((e) => ({
-          ...e,
-          startsAt: e.startsAt.toISOString(),
-          endsAt: e.endsAt.toISOString(),
-        })),
+        bonusEvents: events,
         config: {
           currencyName: config.currencyName,
           currencyIcon: config.currencyIcon,
