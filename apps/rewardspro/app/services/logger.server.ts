@@ -68,11 +68,24 @@ class Logger {
   private formatError(level: LogLevel, message: string, error?: Error | unknown): string {
     const timestamp = new Date().toISOString();
 
-    const errorDetails = error instanceof Error ? {
-      message: error.message,
-      stack: error.stack,
-      code: (error as { code?: string }).code
-    } : error ? { message: String(error) } : undefined;
+    // Handle different error types
+    let errorDetails: { message: string; stack?: string; code?: string; status?: number } | undefined;
+
+    if (error instanceof Error) {
+      errorDetails = {
+        message: error.message,
+        stack: error.stack,
+        code: (error as { code?: string }).code
+      };
+    } else if (error instanceof Response) {
+      // Handle Response objects (e.g., from Shopify auth failures)
+      errorDetails = {
+        message: `HTTP ${error.status} ${error.statusText || 'Response'}`,
+        status: error.status
+      };
+    } else if (error) {
+      errorDetails = { message: String(error) };
+    }
 
     const entry: LogEntry = {
       timestamp,
@@ -90,9 +103,14 @@ class Logger {
     const contextStr = Object.keys(this.context).length > 0
       ? ` ${JSON.stringify(this.context)}`
       : '';
-    const errorStr = error instanceof Error
-      ? ` Error: ${error.message}`
-      : error ? ` Error: ${String(error)}` : '';
+    let errorStr = '';
+    if (error instanceof Error) {
+      errorStr = ` Error: ${error.message}`;
+    } else if (error instanceof Response) {
+      errorStr = ` Error: HTTP ${error.status} ${error.statusText || 'Response'}`;
+    } else if (error) {
+      errorStr = ` Error: ${String(error)}`;
+    }
     return `[${timestamp}] [${level.toUpperCase()}] [${this.prefix}]${contextStr} ${message}${errorStr}`;
   }
 
