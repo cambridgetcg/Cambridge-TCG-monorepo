@@ -332,6 +332,60 @@ export class DataAPIModelProxy<T = any> {
           record.customer = null;
         }
       }
+
+      // Handle rewards relation (one-to-many) for MysteryBox model
+      if (relation === 'rewards' && record.id && this.tableName === 'MysteryBox') {
+        console.log(`[DataAPI] Loading rewards relation for MysteryBox: ${record.id}`);
+        let orderBy = 'ORDER BY "position" ASC';
+        if (typeof includeConfig === 'object' && includeConfig.orderBy) {
+          const orderField = Object.keys(includeConfig.orderBy)[0];
+          const orderDir = includeConfig.orderBy[orderField] === 'desc' ? 'DESC' : 'ASC';
+          orderBy = `ORDER BY "${orderField}" ${orderDir}`;
+        }
+
+        const rewardsResult = await this.client.executeStatement(
+          `SELECT * FROM "MysteryBoxReward" WHERE "boxId" = :boxId ${orderBy}`,
+          [AuroraDataAPI.buildParameter('boxId', record.id)]
+        );
+
+        console.log(`[DataAPI] Found ${rewardsResult.records.length} rewards for MysteryBox ${record.id}`);
+        record.rewards = rewardsResult.records;
+      }
+
+      // Handle rewards relation (one-to-many) for Raffle model
+      if (relation === 'prizes' && record.id && this.tableName === 'Raffle') {
+        console.log(`[DataAPI] Loading prizes relation for Raffle: ${record.id}`);
+        let orderBy = 'ORDER BY "position" ASC';
+        if (typeof includeConfig === 'object' && includeConfig.orderBy) {
+          const orderField = Object.keys(includeConfig.orderBy)[0];
+          const orderDir = includeConfig.orderBy[orderField] === 'desc' ? 'DESC' : 'ASC';
+          orderBy = `ORDER BY "${orderField}" ${orderDir}`;
+        }
+
+        const prizesResult = await this.client.executeStatement(
+          `SELECT * FROM "RafflePrize" WHERE "raffleId" = :raffleId ${orderBy}`,
+          [AuroraDataAPI.buildParameter('raffleId', record.id)]
+        );
+
+        console.log(`[DataAPI] Found ${prizesResult.records.length} prizes for Raffle ${record.id}`);
+        record.prizes = prizesResult.records;
+      }
+
+      // Handle reward relation (one-to-one) for Challenge model
+      if (relation === 'reward' && record.id && this.tableName === 'Challenge') {
+        console.log(`[DataAPI] Loading reward relation for Challenge: ${record.id}`);
+        const rewardResult = await this.client.executeStatement(
+          `SELECT * FROM "ChallengeReward" WHERE "challengeId" = :challengeId LIMIT 1`,
+          [AuroraDataAPI.buildParameter('challengeId', record.id)]
+        );
+
+        if (rewardResult.records.length > 0) {
+          console.log(`[DataAPI] Found reward for Challenge ${record.id}`);
+          record.reward = rewardResult.records[0];
+        } else {
+          record.reward = null;
+        }
+      }
     }
   }
 
@@ -350,10 +404,54 @@ export class DataAPIModelProxy<T = any> {
           `SELECT COUNT(*) as count FROM "StoreCreditLedger" WHERE "customerId" = :customerId`,
           [AuroraDataAPI.buildParameter('customerId', record.id)]
         );
-        
+
         record._count[relation] = countResult.records[0]?.count || 0;
       }
-      // Add more count handlers as needed
+
+      // Handle MysteryBox opens count
+      if (relation === 'opens' && record.id && this.tableName === 'MysteryBox') {
+        const countResult = await this.client.executeStatement(
+          `SELECT COUNT(*) as count FROM "MysteryBoxOpen" WHERE "boxId" = :boxId`,
+          [AuroraDataAPI.buildParameter('boxId', record.id)]
+        );
+        record._count[relation] = parseInt(countResult.records[0]?.count || '0', 10);
+      }
+
+      // Handle MysteryBox winners count
+      if (relation === 'winners' && record.id && this.tableName === 'MysteryBox') {
+        const countResult = await this.client.executeStatement(
+          `SELECT COUNT(*) as count FROM "MysteryBoxWinner" WHERE "boxId" = :boxId`,
+          [AuroraDataAPI.buildParameter('boxId', record.id)]
+        );
+        record._count[relation] = parseInt(countResult.records[0]?.count || '0', 10);
+      }
+
+      // Handle Raffle entries count
+      if (relation === 'entries' && record.id && this.tableName === 'Raffle') {
+        const countResult = await this.client.executeStatement(
+          `SELECT COUNT(*) as count FROM "RaffleEntry" WHERE "raffleId" = :raffleId`,
+          [AuroraDataAPI.buildParameter('raffleId', record.id)]
+        );
+        record._count[relation] = parseInt(countResult.records[0]?.count || '0', 10);
+      }
+
+      // Handle Raffle winners count
+      if (relation === 'winners' && record.id && this.tableName === 'Raffle') {
+        const countResult = await this.client.executeStatement(
+          `SELECT COUNT(*) as count FROM "RaffleWinner" WHERE "raffleId" = :raffleId`,
+          [AuroraDataAPI.buildParameter('raffleId', record.id)]
+        );
+        record._count[relation] = parseInt(countResult.records[0]?.count || '0', 10);
+      }
+
+      // Handle Challenge participants count
+      if (relation === 'participants' && record.id && this.tableName === 'Challenge') {
+        const countResult = await this.client.executeStatement(
+          `SELECT COUNT(*) as count FROM "ChallengeParticipant" WHERE "challengeId" = :challengeId`,
+          [AuroraDataAPI.buildParameter('challengeId', record.id)]
+        );
+        record._count[relation] = parseInt(countResult.records[0]?.count || '0', 10);
+      }
     }
   }
 
