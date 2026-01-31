@@ -50,6 +50,22 @@
     {
       "path": "/api/cron/session-cleanup",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/mission-status",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/mission-generator",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/mystery-box-status",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/raffle-status",
+      "schedule": "0 * * * *"
     }
   ]
 }
