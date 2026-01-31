@@ -59,6 +59,11 @@ export interface RewardValue {
   fulfillmentInstructions?: string;
 }
 
+// Mission cadence types (matching Prisma enums)
+export type MissionCadence = "DAILY" | "WEEKLY" | "MONTHLY" | "SPECIAL";
+export type MissionRarity = "COMMON" | "UNCOMMON" | "RARE" | "EPIC" | "LEGENDARY";
+export type MissionCategory = "SHOPPING" | "DISCOVERY" | "SOCIAL" | "STREAK" | "CHALLENGE";
+
 export interface CreateChallengeInput {
   shop: string;
   name: string;
@@ -72,6 +77,15 @@ export interface CreateChallengeInput {
   tierRestrictions?: { allowedTierIds: string[] } | null;
   minimumTierId?: string;
   isPublic?: boolean;
+  // Mission gamification fields
+  cadence?: MissionCadence;
+  rarity?: MissionRarity;
+  category?: MissionCategory;
+  xpReward?: number;
+  iconEmoji?: string;
+  templateId?: string;
+  comboEligible?: boolean;
+  streakEligible?: boolean;
 }
 
 export interface UpdateChallengeInput {
@@ -241,6 +255,9 @@ export async function createChallenge(
     startsAt: input.startsAt?.toISOString(),
     endsAt: input.endsAt?.toISOString(),
     isPublic: input.isPublic,
+    cadence: input.cadence,
+    rarity: input.rarity,
+    xpReward: input.xpReward,
   });
 
   try {
@@ -259,6 +276,15 @@ export async function createChallenge(
         tierRestrictions: input.tierRestrictions ?? undefined,
         minimumTierId: input.minimumTierId,
         isPublic: input.isPublic ?? true,
+        // Mission gamification fields
+        cadence: input.cadence ?? "SPECIAL",
+        rarity: input.rarity ?? "COMMON",
+        category: input.category ?? "CHALLENGE",
+        xpReward: input.xpReward ?? 10,
+        iconEmoji: input.iconEmoji ?? "🎯",
+        templateId: input.templateId,
+        comboEligible: input.comboEligible ?? true,
+        streakEligible: input.streakEligible ?? true,
       },
       include: { reward: true },
     });

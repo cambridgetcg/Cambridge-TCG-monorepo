@@ -389,7 +389,7 @@ export async function updateReward(
     include: { box: true },
   });
 
-  if (!reward || reward.box.shop !== shop) {
+  if (!reward?.box || reward.box.shop !== shop) {
     throw new Error("Reward not found");
   }
 
@@ -425,7 +425,7 @@ export async function removeReward(rewardId: string, shop: string): Promise<void
     include: { box: true },
   });
 
-  if (!reward || reward.box.shop !== shop) {
+  if (!reward?.box || reward.box.shop !== shop) {
     throw new Error("Reward not found");
   }
 

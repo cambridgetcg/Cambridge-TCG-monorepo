@@ -256,6 +256,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         const endsAt = new Date(formData.get("endsAt") as string);
         const isPublic = formData.get("isPublic") === "true";
 
+        // Mission gamification fields
+        const cadence = (formData.get("cadence") as string) || "SPECIAL";
+        const rarity = (formData.get("rarity") as string) || "COMMON";
+        const category = (formData.get("category") as string) || "CHALLENGE";
+        const xpReward = parseInt(formData.get("xpReward") as string, 10) || 10;
+        const templateId = formData.get("templateId") as string || undefined;
+
         console.log(`${LOG_PREFIX} Create data:`, {
           name,
           description: description?.substring(0, 50),
@@ -264,6 +271,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
           isPublic,
+          cadence,
+          rarity,
+          xpReward,
         });
 
         if (!name || !objectiveType || !targetValue || !startsAt || !endsAt) {
@@ -284,6 +294,11 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           startsAt,
           endsAt,
           isPublic,
+          cadence: cadence as "DAILY" | "WEEKLY" | "MONTHLY" | "SPECIAL",
+          rarity: rarity as "COMMON" | "UNCOMMON" | "RARE" | "EPIC" | "LEGENDARY",
+          category: category as "SHOPPING" | "DISCOVERY" | "SOCIAL" | "STREAK" | "CHALLENGE",
+          xpReward,
+          templateId,
         });
         console.log(`${LOG_PREFIX} Challenge created: ${challenge.id}`);
 
@@ -439,6 +454,11 @@ export default function ChallengeDetailPage() {
   const [selectedCadence, setSelectedCadence] = useState<MissionCadence>("DAILY");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
+  // Mission gamification fields
+  const [missionRarity, setMissionRarity] = useState<string>("COMMON");
+  const [missionCategory, setMissionCategory] = useState<string>("CHALLENGE");
+  const [missionXpReward, setMissionXpReward] = useState<number>(10);
+
   // Apply template to form
   const applyTemplate = useCallback((template: MissionTemplate) => {
     setName(template.name);
@@ -449,6 +469,12 @@ export default function ChallengeDetailPage() {
     setRewardDescription(template.rewardDescription);
     setRewardAmount((template.rewardValue as any).amount?.toString() || "100");
     setSelectedTemplateId(template.id);
+
+    // Set mission gamification fields from template
+    setSelectedCadence(template.cadence);
+    setMissionRarity(template.rarity);
+    setMissionCategory(template.category);
+    setMissionXpReward(template.xpReward);
 
     // Calculate appropriate dates based on cadence
     const { startsAt: newStartsAt, endsAt: newEndsAt } = calculateMissionDates(
@@ -491,8 +517,18 @@ export default function ChallengeDetailPage() {
     formData.set("startsAt", startsAt);
     formData.set("endsAt", endsAt);
     formData.set("isPublic", isPublic.toString());
+    // Mission gamification fields
+    if (data.isNew) {
+      formData.set("cadence", selectedCadence);
+      formData.set("rarity", missionRarity);
+      formData.set("category", missionCategory);
+      formData.set("xpReward", missionXpReward.toString());
+      if (selectedTemplateId) {
+        formData.set("templateId", selectedTemplateId);
+      }
+    }
     submit(formData, { method: "post" });
-  }, [data.isNew, name, description, objectiveType, targetValue, startsAt, endsAt, isPublic, submit]);
+  }, [data.isNew, name, description, objectiveType, targetValue, startsAt, endsAt, isPublic, selectedCadence, missionRarity, missionCategory, missionXpReward, selectedTemplateId, submit]);
 
   const handleSaveReward = useCallback(() => {
     const formData = new FormData();
