@@ -1837,12 +1837,23 @@ export function createDataAPIPrismaClient() {
           rafflePrize: new DataAPIModelProxy("RafflePrize", txAuroraClient),
           raffleEntry: new DataAPIModelProxy("RaffleEntry", txAuroraClient),
           raffleWinner: new DataAPIModelProxy("RaffleWinner", txAuroraClient),
+          raffleStreak: new DataAPIModelProxy("RaffleStreak", txAuroraClient),
+          raffleInstantWin: new DataAPIModelProxy("RaffleInstantWin", txAuroraClient),
+          raffleInstantWinLog: new DataAPIModelProxy("RaffleInstantWinLog", txAuroraClient),
+          raffleActivity: new DataAPIModelProxy("RaffleActivity", txAuroraClient),
+          raffleBonusEvent: new DataAPIModelProxy("RaffleBonusEvent", txAuroraClient),
+          raffleBonusEventUsage: new DataAPIModelProxy("RaffleBonusEventUsage", txAuroraClient),
+          raffleLuckyNumber: new DataAPIModelProxy("RaffleLuckyNumber", txAuroraClient),
 
           // Mystery Box System
           mysteryBox: new DataAPIModelProxy("MysteryBox", txAuroraClient),
           mysteryBoxReward: new DataAPIModelProxy("MysteryBoxReward", txAuroraClient),
           mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", txAuroraClient),
           mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", txAuroraClient),
+          mysteryBoxStreak: new DataAPIModelProxy("MysteryBoxStreak", txAuroraClient),
+          mysteryBoxActivity: new DataAPIModelProxy("MysteryBoxActivity", txAuroraClient),
+          mysteryBoxBonusEvent: new DataAPIModelProxy("MysteryBoxBonusEvent", txAuroraClient),
+          mysteryBoxBonusEventUsage: new DataAPIModelProxy("MysteryBoxBonusEventUsage", txAuroraClient),
 
           // Challenge/Mission System
           challenge: new DataAPIModelProxy("Challenge", txAuroraClient),
@@ -2080,12 +2091,23 @@ export function createDataAPIPrismaClient() {
     rafflePrize: new DataAPIModelProxy("RafflePrize", client),
     raffleEntry: new DataAPIModelProxy("RaffleEntry", client),
     raffleWinner: new DataAPIModelProxy("RaffleWinner", client),
+    raffleStreak: new DataAPIModelProxy("RaffleStreak", client),
+    raffleInstantWin: new DataAPIModelProxy("RaffleInstantWin", client),
+    raffleInstantWinLog: new DataAPIModelProxy("RaffleInstantWinLog", client),
+    raffleActivity: new DataAPIModelProxy("RaffleActivity", client),
+    raffleBonusEvent: new DataAPIModelProxy("RaffleBonusEvent", client),
+    raffleBonusEventUsage: new DataAPIModelProxy("RaffleBonusEventUsage", client),
+    raffleLuckyNumber: new DataAPIModelProxy("RaffleLuckyNumber", client),
 
     // Mystery Box System
     mysteryBox: new DataAPIModelProxy("MysteryBox", client),
     mysteryBoxReward: new DataAPIModelProxy("MysteryBoxReward", client),
     mysteryBoxOpen: new DataAPIModelProxy("MysteryBoxOpen", client),
     mysteryBoxWinner: new DataAPIModelProxy("MysteryBoxWinner", client),
+    mysteryBoxStreak: new DataAPIModelProxy("MysteryBoxStreak", client),
+    mysteryBoxActivity: new DataAPIModelProxy("MysteryBoxActivity", client),
+    mysteryBoxBonusEvent: new DataAPIModelProxy("MysteryBoxBonusEvent", client),
+    mysteryBoxBonusEventUsage: new DataAPIModelProxy("MysteryBoxBonusEventUsage", client),
 
     // Challenge/Mission System
     challenge: new DataAPIModelProxy("Challenge", client),
