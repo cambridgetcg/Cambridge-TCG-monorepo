@@ -198,7 +198,20 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       },
     });
   } catch (error) {
-    console.error(`${LOG_PREFIX} LOADER ERROR:`, error);
+    // Auth redirects (302 to /auth/login) are expected behavior, not errors
+    if (error instanceof Response) {
+      const status = error.status;
+      const location = error.headers.get("Location");
+
+      if (status >= 300 && status < 400) {
+        console.log(`${LOG_PREFIX} Auth redirect: status=${status}, location=${location}`);
+        throw error;
+      }
+
+      console.error(`${LOG_PREFIX} LOADER ERROR (Response): status=${status}`);
+    } else {
+      console.error(`${LOG_PREFIX} LOADER ERROR:`, error);
+    }
     throw error;
   }
 };
