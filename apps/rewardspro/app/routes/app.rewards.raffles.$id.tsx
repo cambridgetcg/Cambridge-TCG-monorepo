@@ -847,6 +847,10 @@ export default function RaffleDetail() {
             : undefined
         }
         secondaryActions={[
+          {
+            content: "Bonus Events",
+            url: `/app/rewards/raffles/${raffle.id}/bonus-events`,
+          },
           ...(availableTransitions.length > 0
             ? [
                 {

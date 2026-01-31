@@ -66,6 +66,10 @@
     {
       "path": "/api/cron/raffle-status",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/raffle-draw",
+      "schedule": "0 * * * *"
     }
   ]
 }
