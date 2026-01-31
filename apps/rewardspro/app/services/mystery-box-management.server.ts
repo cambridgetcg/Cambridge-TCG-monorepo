@@ -564,7 +564,50 @@ export async function checkMysteryBoxEligibility(
     };
   }
 
-  // TODO: Check tier restrictions if implemented
+  // Check tier restrictions
+  if (box.tierRestrictions || box.minimumTier) {
+    const { resolveEffectiveTier } = await import("./tier-resolution.server");
+    const tierResult = await resolveEffectiveTier(shop, customerId);
+
+    // Check allowedTierIds list
+    if (box.tierRestrictions) {
+      const restrictions = box.tierRestrictions as { allowedTierIds?: string[] };
+      if (restrictions.allowedTierIds?.length) {
+        if (!tierResult.effectiveTierId) {
+          return { eligible: false, reason: "You need a membership tier to open this box" };
+        }
+        if (!restrictions.allowedTierIds.includes(tierResult.effectiveTierId)) {
+          return { eligible: false, reason: "This mystery box is restricted to specific tiers" };
+        }
+      }
+    }
+
+    // Check minimumTier requirement
+    if (box.minimumTier) {
+      if (!tierResult.effectiveTierId) {
+        const minimumTier = await db.tier.findUnique({ where: { id: box.minimumTier } });
+        return {
+          eligible: false,
+          reason: `Requires ${minimumTier?.name || 'a membership'} tier or above`,
+        };
+      }
+
+      if (tierResult.effectiveTierId !== box.minimumTier) {
+        // Check tier hierarchy - compare minSpend values
+        const [customerTier, minimumTier] = await Promise.all([
+          db.tier.findUnique({ where: { id: tierResult.effectiveTierId } }),
+          db.tier.findUnique({ where: { id: box.minimumTier } }),
+        ]);
+
+        if (!customerTier || !minimumTier || customerTier.minSpend < minimumTier.minSpend) {
+          return {
+            eligible: false,
+            reason: `Requires ${minimumTier?.name || 'higher'} tier or above`,
+          };
+        }
+      }
+    }
+  }
 
   return {
     eligible: true,
