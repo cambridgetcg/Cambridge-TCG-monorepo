@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { AuroraDataAPI } from "~/utils/aurora-data-api.server";
+import { AuroraDataAPI } from "~/utils/aurora-data-api";
 
 /**
  * Protected endpoint to run the psychology models migration.
@@ -282,7 +282,12 @@ export async function action({ request }: ActionFunctionArgs) {
   console.log("[run-migration] Dry run:", dryRun);
 
   try {
-    const dataApi = new AuroraDataAPI();
+    const dataApi = new AuroraDataAPI({
+      resourceArn: process.env.AURORA_RESOURCE_ARN!,
+      secretArn: process.env.AURORA_SECRET_ARN!,
+      database: process.env.AURORA_DATABASE_NAME || "rewardspro",
+      region: process.env.AWS_REGION || "eu-north-1",
+    });
 
     // Split into individual statements
     const statements = MIGRATION_SQL
