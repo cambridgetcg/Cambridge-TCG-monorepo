@@ -4,17 +4,18 @@
  * Tracks consecutive days of raffle participation.
  * Rewards customers with bonus entries for maintaining streaks.
  *
- * Streak Emoji Progression:
- * - Days 1-2: ✨ (sparkle) - Building
- * - Days 3-6: ⭐ (star) - 10% bonus
- * - Days 7-13: 🔥 (fire) - 25% bonus
- * - Days 14-29: 🔥🔥 (double fire) - 50% bonus
- * - Days 30+: 💎🔥 (diamond fire) - 100% bonus
+ * Streak Icon Progression (using vector icons):
+ * - Days 1-2: sparkle - Building
+ * - Days 3-6: star - 10% bonus
+ * - Days 7-13: flame - 25% bonus
+ * - Days 14-29: zap - 50% bonus
+ * - Days 30+: gem - 100% bonus
  *
  * Also handles daily free entries for habit formation.
  */
 
 import db from "../db.server";
+import { getStreakIconInfo } from "../utils/points-icon-library";
 
 const LOG_PREFIX = "[RaffleStreak]";
 
@@ -25,7 +26,10 @@ const LOG_PREFIX = "[RaffleStreak]";
 export interface RaffleStreakInfo {
   currentStreak: number;
   longestStreak: number;
+  /** @deprecated Use streakIconId instead */
   streakEmoji: string;
+  /** Icon ID from the points-icon-library (e.g., "sparkle", "flame", "gem") */
+  streakIconId: string | null;
   streakLabel: string;
   bonusMultiplier: number; // e.g., 1.25 for 25% bonus
   bonusPercent: number; // e.g., 25 for display
@@ -46,14 +50,14 @@ export interface RaffleStreakConfig {
   resetHour: number; // Hour of day when streaks reset (0-23)
 }
 
-// Streak emoji and bonus tiers
+// Streak icon and bonus tiers
 const STREAK_TIERS = [
-  { minDays: 30, emoji: "💎🔥", label: "Diamond Fire", bonusPercent: 100 },
-  { minDays: 14, emoji: "🔥🔥", label: "Double Fire", bonusPercent: 50 },
-  { minDays: 7, emoji: "🔥", label: "On Fire", bonusPercent: 25 },
-  { minDays: 3, emoji: "⭐", label: "Star Streak", bonusPercent: 10 },
-  { minDays: 1, emoji: "✨", label: "Building", bonusPercent: 0 },
-  { minDays: 0, emoji: "", label: "No Streak", bonusPercent: 0 },
+  { minDays: 30, iconId: "gem", label: "Legendary", bonusPercent: 100 },
+  { minDays: 14, iconId: "zap", label: "Blazing", bonusPercent: 50 },
+  { minDays: 7, iconId: "flame", label: "On Fire", bonusPercent: 25 },
+  { minDays: 3, iconId: "star", label: "Star Streak", bonusPercent: 10 },
+  { minDays: 1, iconId: "sparkle", label: "Building", bonusPercent: 0 },
+  { minDays: 0, iconId: null, label: "No Streak", bonusPercent: 0 },
 ];
 
 // ============================================
@@ -64,16 +68,29 @@ const STREAK_TIERS = [
  * Get streak tier info for a given streak count
  */
 export function getStreakTier(streakDays: number): {
+  /** @deprecated Use iconId instead */
   emoji: string;
+  iconId: string | null;
   label: string;
   bonusPercent: number;
 } {
   for (const tier of STREAK_TIERS) {
     if (streakDays >= tier.minDays) {
-      return tier;
+      return {
+        emoji: "", // Deprecated - always empty
+        iconId: tier.iconId,
+        label: tier.label,
+        bonusPercent: tier.bonusPercent,
+      };
     }
   }
-  return STREAK_TIERS[STREAK_TIERS.length - 1];
+  const lastTier = STREAK_TIERS[STREAK_TIERS.length - 1];
+  return {
+    emoji: "",
+    iconId: lastTier.iconId,
+    label: lastTier.label,
+    bonusPercent: lastTier.bonusPercent,
+  };
 }
 
 /**
@@ -261,7 +278,8 @@ export async function getRaffleStreakInfo(
   return {
     currentStreak,
     longestStreak: streak.longestStreak,
-    streakEmoji: tier.emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: tier.iconId,
     streakLabel: tier.label,
     bonusMultiplier: 1 + bonusPercent / 100,
     bonusPercent,
@@ -346,7 +364,7 @@ export async function updateRaffleStreak(
 
   console.log(
     `${LOG_PREFIX} Updated streak for customer ${customerId}: ${streak.currentStreak} -> ${newStreak} ` +
-      `(${tier.emoji} ${tier.label}, +${bonusPercent}% bonus)`
+      `(${tier.label}, +${bonusPercent}% bonus)`
   );
 
   // Recalculate free entry status
@@ -359,7 +377,8 @@ export async function updateRaffleStreak(
   return {
     currentStreak: newStreak,
     longestStreak: newLongestStreak,
-    streakEmoji: tier.emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: tier.iconId,
     streakLabel: tier.label,
     bonusMultiplier: 1 + bonusPercent / 100,
     bonusPercent,
@@ -479,7 +498,9 @@ export async function getRaffleStreakLeaderboard(
     customerId: string;
     currentStreak: number;
     longestStreak: number;
+    /** @deprecated Use streakIconId instead */
     streakEmoji: string;
+    streakIconId: string | null;
     customer: { email: string; firstName: string | null; lastName: string | null } | null;
   }>
 > {
@@ -501,8 +522,12 @@ export async function getRaffleStreakLeaderboard(
     },
   });
 
-  return leaderboard.map((entry) => ({
-    ...entry,
-    streakEmoji: getStreakTier(entry.currentStreak).emoji,
-  }));
+  return leaderboard.map((entry) => {
+    const tier = getStreakTier(entry.currentStreak);
+    return {
+      ...entry,
+      streakEmoji: "", // Deprecated
+      streakIconId: tier.iconId,
+    };
+  });
 }

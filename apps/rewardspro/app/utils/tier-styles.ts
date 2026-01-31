@@ -329,42 +329,48 @@ export function formatTierName(tierName: string | null | undefined): string {
 }
 
 /**
- * Get tier emoji for text-only contexts (fallback for icons)
- * Uses culturally neutral symbols
+ * Get tier iconId for icon display
  */
-export function getTierEmoji(tierName: string | null | undefined): string {
+export function getTierIconId(tierName: string | null | undefined): string {
   const normalizedName = tierName?.toUpperCase().replace(/[\s-_]/g, '') || '';
-  
-  const emojis: Record<string, string> = {
-    DIAMOND: '💎',
-    PLATINUM: '🏆',
-    GOLD: '🥇',
-    SILVER: '🥈',
-    BRONZE: '🥉',
-    VIP: '⭐',
-    ELITE: '✨',
-    PREMIUM: '💫',
-    INSIDER: '🎯',
-    LOYAL: '💰',
-    MEMBER: '💚',
-    BASIC: '⭐',
-    STARTER: '🌟',
-    NONE: '○'
+
+  const iconIds: Record<string, string> = {
+    DIAMOND: 'gem',
+    PLATINUM: 'trophy',
+    GOLD: 'medal',
+    SILVER: 'medal',
+    BRONZE: 'medal',
+    VIP: 'star',
+    ELITE: 'sparkle',
+    PREMIUM: 'star',
+    INSIDER: 'target',
+    LOYAL: 'coins',
+    MEMBER: 'heart',
+    BASIC: 'star',
+    STARTER: 'sparkle',
+    NONE: 'circle'
   };
-  
+
   // Direct match
-  if (emojis[normalizedName]) {
-    return emojis[normalizedName];
+  if (iconIds[normalizedName]) {
+    return iconIds[normalizedName];
   }
-  
+
   // Partial match
-  for (const [key, emoji] of Object.entries(emojis)) {
+  for (const [key, iconId] of Object.entries(iconIds)) {
     if (normalizedName.includes(key) || key.includes(normalizedName)) {
-      return emoji;
+      return iconId;
     }
   }
-  
-  return '⭐'; // Default star (universally positive)
+
+  return 'star'; // Default star
+}
+
+/**
+ * @deprecated Use getTierIconId instead
+ */
+export function getTierEmoji(tierName: string | null | undefined): string {
+  return ""; // Deprecated - use iconId
 }
 
 /**

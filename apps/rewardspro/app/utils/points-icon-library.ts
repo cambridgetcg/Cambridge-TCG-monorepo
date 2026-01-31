@@ -1,73 +1,19 @@
 /**
  * Points Currency Icon Library
  *
- * Provides a comprehensive library of icons for points currency branding:
- * - Categorized emoji icons for quick selection
- * - Lucide vector icons for professional look
+ * DESIGN GUIDELINE: Minimalistic solid LINE icons only.
+ * - NO emojis anywhere in the app
+ * - All icons are outline/line style for a clean, professional appearance
+ * - Uses custom SVG paths for consistent rendering across platforms
+ *
+ * Provides:
+ * - Categorized vector icons for currency branding
+ * - Semantic icon mappings for features (streaks, missions, activities)
  * - Color presets for brand customization
  */
 
 // ============================================
-// EMOJI ICON LIBRARY
-// ============================================
-
-export interface EmojiCategory {
-  name: string;
-  description: string;
-  emojis: string[];
-}
-
-export const EMOJI_CATEGORIES: EmojiCategory[] = [
-  {
-    name: "Stars & Sparkles",
-    description: "Classic reward symbols",
-    emojis: ["⭐", "🌟", "✨", "💫", "⚡", "🔥", "✴️", "🌠"],
-  },
-  {
-    name: "Coins & Currency",
-    description: "Money and value symbols",
-    emojis: ["🪙", "💰", "💵", "💲", "💎", "💳", "🏦", "💸"],
-  },
-  {
-    name: "Awards & Trophies",
-    description: "Achievement icons",
-    emojis: ["🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "👑", "🎯"],
-  },
-  {
-    name: "Gems & Jewels",
-    description: "Precious stones",
-    emojis: ["💎", "💠", "🔷", "🔶", "♦️", "🔹", "🔸", "💍"],
-  },
-  {
-    name: "Hearts & Love",
-    description: "Affection symbols",
-    emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "💝"],
-  },
-  {
-    name: "Nature & Elements",
-    description: "Natural symbols",
-    emojis: ["🌸", "🍀", "🌺", "🌻", "🌹", "🌿", "🍂", "☘️"],
-  },
-  {
-    name: "Fun & Playful",
-    description: "Playful icons",
-    emojis: ["🎁", "🎉", "🎊", "🎈", "🎀", "🎪", "🎭", "🎨"],
-  },
-  {
-    name: "Space & Cosmic",
-    description: "Celestial objects",
-    emojis: ["🌙", "☀️", "🌍", "🪐", "☄️", "🌌", "🌈", "⭕"],
-  },
-];
-
-// Flattened list of all emojis for quick access
-export const ALL_EMOJIS = EMOJI_CATEGORIES.flatMap((cat) => cat.emojis);
-
-// Popular/recommended emojis
-export const POPULAR_EMOJIS = ["⭐", "💎", "🪙", "🏆", "✨", "💰", "🌟", "👑", "🎁", "❤️", "🔥", "💫"];
-
-// ============================================
-// VECTOR ICON LIBRARY (Lucide-compatible)
+// VECTOR ICON LIBRARY (Line style only)
 // ============================================
 
 export interface VectorIcon {
@@ -85,7 +31,7 @@ export interface VectorIconCategory {
   icons: VectorIcon[];
 }
 
-// Lucide-compatible icon paths (24x24 viewBox)
+// Line-style icon paths (24x24 viewBox)
 export const VECTOR_ICON_CATEGORIES: VectorIconCategory[] = [
   {
     name: "Stars",
@@ -315,13 +261,177 @@ export const VECTOR_ICON_CATEGORIES: VectorIconCategory[] = [
       },
     ],
   },
+  {
+    name: "Shopping & Commerce",
+    description: "E-commerce icons",
+    icons: [
+      {
+        id: "cart",
+        name: "Shopping Cart",
+        category: "commerce",
+        path: "M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
+      },
+      {
+        id: "bag",
+        name: "Shopping Bag",
+        category: "commerce",
+        path: "M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4H6zM3 6h18M16 10a4 4 0 1 1-8 0",
+      },
+      {
+        id: "store",
+        name: "Store",
+        category: "commerce",
+        path: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9zM9 22V12h6v10",
+      },
+      {
+        id: "tag",
+        name: "Price Tag",
+        category: "commerce",
+        path: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
+      },
+    ],
+  },
+  {
+    name: "Status & Progress",
+    description: "Progress indicators",
+    icons: [
+      {
+        id: "check-circle",
+        name: "Check Circle",
+        category: "status",
+        path: "M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3",
+      },
+      {
+        id: "trending-up",
+        name: "Trending Up",
+        category: "status",
+        path: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6",
+      },
+      {
+        id: "bar-chart",
+        name: "Bar Chart",
+        category: "status",
+        path: "M12 20V10M18 20V4M6 20v-4",
+      },
+      {
+        id: "activity",
+        name: "Activity",
+        category: "status",
+        path: "M22 12h-4l-3 9L9 3l-3 9H2",
+      },
+    ],
+  },
 ];
 
 // Flattened list of all vector icons
 export const ALL_VECTOR_ICONS = VECTOR_ICON_CATEGORIES.flatMap((cat) => cat.icons);
 
-// Popular vector icons
-export const POPULAR_VECTOR_ICONS = ["star", "gem", "trophy", "crown", "heart", "gift", "zap", "sparkle"];
+// Popular vector icons for quick selection
+export const POPULAR_VECTOR_ICONS = [
+  "star",
+  "gem",
+  "trophy",
+  "crown",
+  "heart",
+  "gift",
+  "zap",
+  "sparkle",
+  "coins",
+  "diamond",
+  "award",
+  "flame",
+];
+
+// ============================================
+// SEMANTIC ICON MAPPING
+// Maps feature contexts to icon IDs for consistent usage
+// ============================================
+
+/**
+ * Icons for streak progression levels
+ * Used in raffle-streak.server.ts, mission-streak.server.ts, etc.
+ */
+export const STREAK_ICONS = {
+  none: { iconId: null, label: "No Streak" },
+  building: { iconId: "sparkle", label: "Building" },
+  star: { iconId: "star", label: "Star Streak" },
+  fire: { iconId: "flame", label: "On Fire" },
+  doubleFire: { iconId: "zap", label: "Blazing" },
+  diamondFire: { iconId: "gem", label: "Legendary" },
+} as const;
+
+/**
+ * Get streak icon info for a given streak count
+ */
+export function getStreakIconInfo(streakDays: number): {
+  iconId: string | null;
+  label: string;
+  bonusPercent: number;
+} {
+  if (streakDays >= 30) return { ...STREAK_ICONS.diamondFire, bonusPercent: 100 };
+  if (streakDays >= 14) return { ...STREAK_ICONS.doubleFire, bonusPercent: 50 };
+  if (streakDays >= 7) return { ...STREAK_ICONS.fire, bonusPercent: 25 };
+  if (streakDays >= 3) return { ...STREAK_ICONS.star, bonusPercent: 10 };
+  if (streakDays >= 1) return { ...STREAK_ICONS.building, bonusPercent: 0 };
+  return { ...STREAK_ICONS.none, bonusPercent: 0 };
+}
+
+/**
+ * Icons for mission categories
+ * Used in mission-templates.ts
+ */
+export const MISSION_ICONS = {
+  // Shopping category
+  shopping: "cart",
+  spending: "coins",
+  bigSpender: "gem",
+
+  // Discovery category
+  discovery: "sparkle",
+  browse: "store",
+
+  // Social category
+  social: "heart",
+  referral: "gift",
+
+  // Streak category
+  streak: "flame",
+
+  // Challenge category
+  challenge: "target",
+  achievement: "trophy",
+
+  // Default
+  default: "star",
+} as const;
+
+/**
+ * Icons for activity feed events
+ * Used in raffle-activity-feed.server.ts, etc.
+ */
+export const ACTIVITY_ICONS = {
+  entry: "ticket",
+  win: "trophy",
+  bonus: "sparkle",
+  streak: "flame",
+  milestone: "award",
+  purchase: "cart",
+  points: "coins",
+  gift: "gift",
+  default: "activity",
+} as const;
+
+/**
+ * Icons for rarity levels
+ * Used in mystery boxes, raffles, etc.
+ */
+export const RARITY_ICONS = {
+  common: "star",
+  uncommon: "sparkle",
+  rare: "gem",
+  epic: "diamond",
+  legendary: "crown",
+} as const;
 
 // ============================================
 // COLOR PRESETS
@@ -361,13 +471,6 @@ export const COLOR_PRESETS: ColorPreset[] = [
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-/**
- * Get an emoji by its character
- */
-export function getEmoji(emoji: string): string | undefined {
-  return ALL_EMOJIS.find((e) => e === emoji);
-}
 
 /**
  * Get a vector icon by its ID
@@ -410,6 +513,7 @@ export function getContrastColor(hexColor: string): string {
 
 /**
  * Render the appropriate icon based on type
+ * Note: 'emoji' type is deprecated - will fall back to 'library' with star icon
  */
 export function getIconDisplay(
   iconType: "emoji" | "upload" | "library",
@@ -418,7 +522,7 @@ export function getIconDisplay(
   iconId?: string | null,
   iconColor?: string | null
 ): {
-  type: "emoji" | "image" | "svg";
+  type: "image" | "svg";
   value: string;
   color?: string;
 } {
@@ -427,8 +531,8 @@ export function getIconDisplay(
       if (iconUrl) {
         return { type: "image", value: iconUrl };
       }
-      // Fallback to emoji
-      return { type: "emoji", value: iconEmoji };
+      // Fallback to default star icon
+      return { type: "svg", value: getVectorIcon("star")!.path, color: iconColor || "#5C6AC4" };
 
     case "library":
       if (iconId) {
@@ -437,11 +541,21 @@ export function getIconDisplay(
           return { type: "svg", value: icon.path, color: iconColor || "#5C6AC4" };
         }
       }
-      // Fallback to emoji
-      return { type: "emoji", value: iconEmoji };
+      // Fallback to default star icon
+      return { type: "svg", value: getVectorIcon("star")!.path, color: iconColor || "#5C6AC4" };
 
     case "emoji":
     default:
-      return { type: "emoji", value: iconEmoji };
+      // Emoji type is deprecated - use star icon as fallback
+      return { type: "svg", value: getVectorIcon("star")!.path, color: iconColor || "#5C6AC4" };
   }
 }
+
+/**
+ * Default icon configuration
+ */
+export const DEFAULT_ICON_CONFIG = {
+  iconType: "library" as const,
+  iconId: "star",
+  iconColor: "#5C6AC4",
+} as const;

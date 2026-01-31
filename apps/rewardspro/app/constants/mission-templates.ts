@@ -1,6 +1,10 @@
 /**
  * Mission Templates - Shared Constants
  *
+ * DESIGN GUIDELINE: Minimalistic solid LINE icons only.
+ * - All missions use iconId (vector icons) instead of emojis
+ * - Icons are from the points-icon-library
+ *
  * These types and templates can be used on both client and server.
  * Server-only utilities are in mission-templates.server.ts
  */
@@ -32,7 +36,10 @@ export interface MissionTemplate {
   rewardValue: Record<string, unknown>;
   rewardDescription: string;
   xpReward: number;
+  /** @deprecated Use iconId instead */
   iconEmoji: string;
+  /** Icon ID from the points-icon-library (e.g., "cart", "gem", "trophy") */
+  iconId: string;
   durationDays: number;
 }
 
@@ -54,7 +61,8 @@ export const DAILY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 50 },
     rewardDescription: "50 bonus points",
     xpReward: 10,
-    iconEmoji: "🛒",
+    iconEmoji: "",
+    iconId: "cart",
     durationDays: 1,
   },
   {
@@ -70,7 +78,8 @@ export const DAILY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 75 },
     rewardDescription: "75 bonus points",
     xpReward: 15,
-    iconEmoji: "💰",
+    iconEmoji: "",
+    iconId: "coins",
     durationDays: 1,
   },
   {
@@ -86,7 +95,8 @@ export const DAILY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 150 },
     rewardDescription: "150 bonus points",
     xpReward: 25,
-    iconEmoji: "💎",
+    iconEmoji: "",
+    iconId: "gem",
     durationDays: 1,
   },
   {
@@ -102,7 +112,8 @@ export const DAILY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 100 },
     rewardDescription: "100 bonus points",
     xpReward: 20,
-    iconEmoji: "✌️",
+    iconEmoji: "",
+    iconId: "bag",
     durationDays: 1,
   },
   {
@@ -118,7 +129,8 @@ export const DAILY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 50 },
     rewardDescription: "50 bonus points",
     xpReward: 15,
-    iconEmoji: "⭐",
+    iconEmoji: "",
+    iconId: "star",
     durationDays: 1,
   },
 ];
@@ -141,7 +153,8 @@ export const WEEKLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 200 },
     rewardDescription: "200 bonus points",
     xpReward: 50,
-    iconEmoji: "🏆",
+    iconEmoji: "",
+    iconId: "trophy",
     durationDays: 7,
   },
   {
@@ -157,7 +170,8 @@ export const WEEKLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 250 },
     rewardDescription: "250 bonus points",
     xpReward: 60,
-    iconEmoji: "💵",
+    iconEmoji: "",
+    iconId: "banknote",
     durationDays: 7,
   },
   {
@@ -173,7 +187,8 @@ export const WEEKLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 1000 },
     rewardDescription: "$10 store credit",
     xpReward: 100,
-    iconEmoji: "🔥",
+    iconEmoji: "",
+    iconId: "flame",
     durationDays: 7,
   },
   {
@@ -190,7 +205,8 @@ export const WEEKLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 500 },
     rewardDescription: "$5 store credit",
     xpReward: 75,
-    iconEmoji: "👥",
+    iconEmoji: "",
+    iconId: "gift",
     durationDays: 7,
   },
   {
@@ -206,7 +222,8 @@ export const WEEKLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 300 },
     rewardDescription: "300 bonus points",
     xpReward: 80,
-    iconEmoji: "📝",
+    iconEmoji: "",
+    iconId: "star",
     durationDays: 7,
   },
   {
@@ -222,7 +239,8 @@ export const WEEKLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { type: "percentage", value: 15, maxUses: 1 },
     rewardDescription: "15% off your next order",
     xpReward: 125,
-    iconEmoji: "⚡",
+    iconEmoji: "",
+    iconId: "zap",
     durationDays: 7,
   },
 ];
@@ -245,7 +263,8 @@ export const MONTHLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 2000 },
     rewardDescription: "$20 store credit",
     xpReward: 200,
-    iconEmoji: "👑",
+    iconEmoji: "",
+    iconId: "crown",
     durationDays: 30,
   },
   {
@@ -261,7 +280,8 @@ export const MONTHLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 2500 },
     rewardDescription: "$25 store credit",
     xpReward: 250,
-    iconEmoji: "💎",
+    iconEmoji: "",
+    iconId: "gem",
     durationDays: 30,
   },
   {
@@ -277,7 +297,8 @@ export const MONTHLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 7500 },
     rewardDescription: "$75 store credit",
     xpReward: 500,
-    iconEmoji: "🏅",
+    iconEmoji: "",
+    iconId: "medal",
     durationDays: 30,
   },
   {
@@ -294,7 +315,8 @@ export const MONTHLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 2000 },
     rewardDescription: "$20 store credit",
     xpReward: 200,
-    iconEmoji: "🦋",
+    iconEmoji: "",
+    iconId: "sparkle",
     durationDays: 30,
   },
   {
@@ -310,7 +332,8 @@ export const MONTHLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 500 },
     rewardDescription: "500 bonus points",
     xpReward: 150,
-    iconEmoji: "📣",
+    iconEmoji: "",
+    iconId: "star",
     durationDays: 30,
   },
   {
@@ -326,7 +349,8 @@ export const MONTHLY_TEMPLATES: MissionTemplate[] = [
     rewardValue: { type: "percentage", value: 25, maxUses: 1 },
     rewardDescription: "25% off your next order",
     xpReward: 400,
-    iconEmoji: "🚀",
+    iconEmoji: "",
+    iconId: "rocket",
     durationDays: 30,
   },
 ];
@@ -349,7 +373,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 100 },
     rewardDescription: "100 welcome points",
     xpReward: 25,
-    iconEmoji: "🎉",
+    iconEmoji: "",
+    iconId: "party-popper",
     durationDays: 30,
   },
   {
@@ -365,7 +390,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 1500 },
     rewardDescription: "$15 store credit",
     xpReward: 100,
-    iconEmoji: "🎯",
+    iconEmoji: "",
+    iconId: "target",
     durationDays: 60,
   },
   {
@@ -381,7 +407,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 3500 },
     rewardDescription: "$35 store credit",
     xpReward: 200,
-    iconEmoji: "⭐",
+    iconEmoji: "",
+    iconId: "star",
     durationDays: 90,
   },
   {
@@ -397,7 +424,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 10000 },
     rewardDescription: "$100 store credit",
     xpReward: 500,
-    iconEmoji: "💎",
+    iconEmoji: "",
+    iconId: "diamond",
     durationDays: 180,
   },
   {
@@ -414,7 +442,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 5000 },
     rewardDescription: "$50 store credit",
     xpReward: 300,
-    iconEmoji: "🌟",
+    iconEmoji: "",
+    iconId: "sparkles",
     durationDays: 90,
   },
   {
@@ -431,7 +460,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 15000 },
     rewardDescription: "$150 store credit",
     xpReward: 750,
-    iconEmoji: "👑",
+    iconEmoji: "",
+    iconId: "crown",
     durationDays: 180,
   },
   {
@@ -447,7 +477,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { amount: 2500 },
     rewardDescription: "$25 store credit",
     xpReward: 200,
-    iconEmoji: "📝",
+    iconEmoji: "",
+    iconId: "star",
     durationDays: 90,
   },
   {
@@ -463,7 +494,8 @@ export const SPECIAL_TEMPLATES: MissionTemplate[] = [
     rewardValue: { type: "percentage", value: 30, maxUses: 1 },
     rewardDescription: "30% off your next order",
     xpReward: 400,
-    iconEmoji: "🏆",
+    iconEmoji: "",
+    iconId: "trophy",
     durationDays: 120,
   },
 ];

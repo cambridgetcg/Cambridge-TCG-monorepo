@@ -399,19 +399,26 @@ export function removeCustomLuckyNumber(
 }
 
 /**
- * Get emoji for lucky type
+ * Get iconId for lucky type
  */
-export function getLuckyEmoji(type: string): string {
+export function getLuckyIconId(type: string): string {
   switch (type) {
     case "MILESTONE":
-      return "🎯";
+      return "target";
     case "SEQUENCE":
-      return "🔢";
+      return "hash";
     case "RANDOM":
-      return "🎲";
+      return "shuffle";
     case "CUSTOM":
-      return "⭐";
+      return "star";
     default:
-      return "🎉";
+      return "star";
   }
+}
+
+/**
+ * @deprecated Use getLuckyIconId instead
+ */
+export function getLuckyEmoji(type: string): string {
+  return ""; // Deprecated
 }

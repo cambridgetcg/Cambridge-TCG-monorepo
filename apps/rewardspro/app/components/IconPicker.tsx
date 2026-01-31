@@ -1,11 +1,14 @@
 /**
  * IconPicker Component
  *
- * A comprehensive icon selection component for points currency branding.
- * Supports three modes:
- * - Emoji: Quick selection from categorized emojis
+ * A clean icon selection component for points currency branding.
+ * DESIGN GUIDELINE: Minimalistic solid LINE icons only.
+ *
+ * Supports two modes:
  * - Upload: Custom image upload (SVG/PNG)
  * - Library: Vector icons with color customization
+ *
+ * Note: Emoji mode has been deprecated in favor of clean vector icons.
  */
 
 import { useState, useCallback } from "react";
@@ -24,21 +27,15 @@ import {
   Divider,
   Badge,
   Popover,
-  ActionList,
-  Icon,
 } from "@shopify/polaris";
 import {
-  EMOJI_CATEGORIES,
-  POPULAR_EMOJIS,
   VECTOR_ICON_CATEGORIES,
   POPULAR_VECTOR_ICONS,
   COLOR_PRESETS,
   getVectorIcon,
   isValidHexColor,
-  getContrastColor,
-  type EmojiCategory,
+  DEFAULT_ICON_CONFIG,
   type VectorIcon,
-  type ColorPreset,
 } from "../utils/points-icon-library";
 import type { CurrencyIconType } from "../services/points-config.server";
 
@@ -48,7 +45,7 @@ import type { CurrencyIconType } from "../services/points-config.server";
 
 export interface IconPickerValue {
   iconType: CurrencyIconType;
-  iconEmoji: string;
+  iconEmoji: string; // Deprecated, kept for backwards compatibility
   iconUrl: string | null;
   iconId: string | null;
   iconColor: string | null;
@@ -73,50 +70,59 @@ function IconPreview({ value }: { value: IconPickerValue }) {
   const size = 64;
 
   const renderIcon = () => {
-    switch (value.iconType) {
-      case "upload":
-        if (value.iconUrl) {
-          return (
-            <img
-              src={value.iconUrl}
-              alt="Custom icon"
-              style={{
-                width: size,
-                height: size,
-                objectFit: "contain",
-              }}
-            />
-          );
-        }
-        return <span style={{ fontSize: size * 0.75 }}>{value.iconEmoji}</span>;
-
-      case "library":
-        if (value.iconId) {
-          const icon = getVectorIcon(value.iconId);
-          if (icon) {
-            const color = value.iconColor || "#5C6AC4";
-            return (
-              <svg
-                width={size}
-                height={size}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={color}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d={icon.path} />
-              </svg>
-            );
-          }
-        }
-        return <span style={{ fontSize: size * 0.75 }}>{value.iconEmoji}</span>;
-
-      case "emoji":
-      default:
-        return <span style={{ fontSize: size * 0.75 }}>{value.iconEmoji}</span>;
+    // Handle upload type
+    if (value.iconType === "upload" && value.iconUrl) {
+      return (
+        <img
+          src={value.iconUrl}
+          alt="Custom icon"
+          style={{
+            width: size,
+            height: size,
+            objectFit: "contain",
+          }}
+        />
+      );
     }
+
+    // Default to library icon
+    const iconId = value.iconId || DEFAULT_ICON_CONFIG.iconId;
+    const icon = getVectorIcon(iconId);
+    const color = value.iconColor || DEFAULT_ICON_CONFIG.iconColor;
+
+    if (icon) {
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d={icon.path} />
+        </svg>
+      );
+    }
+
+    // Ultimate fallback - star icon
+    const starIcon = getVectorIcon("star")!;
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d={starIcon.path} />
+      </svg>
+    );
   };
 
   return (
@@ -138,7 +144,7 @@ function IconPreview({ value }: { value: IconPickerValue }) {
 }
 
 /**
- * Quick select grid with popular options
+ * Quick select grid with popular icons
  */
 function QuickSelectTab({
   value,
@@ -147,57 +153,18 @@ function QuickSelectTab({
   value: IconPickerValue;
   onChange: (value: IconPickerValue) => void;
 }) {
+  const currentColor = value.iconColor || DEFAULT_ICON_CONFIG.iconColor;
+
   return (
     <BlockStack gap="400">
-      <Text variant="headingMd" as="h3">
-        Popular Emojis
-      </Text>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))",
-          gap: 8,
-        }}
-      >
-        {POPULAR_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            onClick={() =>
-              onChange({ ...value, iconType: "emoji", iconEmoji: emoji })
-            }
-            style={{
-              width: 48,
-              height: 48,
-              fontSize: 24,
-              border:
-                value.iconType === "emoji" && value.iconEmoji === emoji
-                  ? "2px solid var(--p-color-border-interactive)"
-                  : "1px solid var(--p-color-border)",
-              borderRadius: 8,
-              backgroundColor:
-                value.iconType === "emoji" && value.iconEmoji === emoji
-                  ? "var(--p-color-bg-surface-selected)"
-                  : "var(--p-color-bg-surface)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-
-      <Divider />
-
       <Text variant="headingMd" as="h3">
         Popular Icons
       </Text>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))",
-          gap: 8,
+          gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
+          gap: 10,
         }}
       >
         {POPULAR_VECTOR_ICONS.map((iconId) => {
@@ -205,9 +172,7 @@ function QuickSelectTab({
           if (!icon) return null;
           const isSelected =
             value.iconType === "library" && value.iconId === iconId;
-          const color = isSelected
-            ? value.iconColor || "#5C6AC4"
-            : "var(--p-color-icon)";
+          const displayColor = isSelected ? currentColor : "var(--p-color-icon)";
 
           return (
             <button
@@ -218,15 +183,15 @@ function QuickSelectTab({
                   ...value,
                   iconType: "library",
                   iconId: iconId,
-                  iconColor: value.iconColor || "#5C6AC4",
+                  iconColor: currentColor,
                 })
               }
               style={{
-                width: 48,
-                height: 48,
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
+                gap: 4,
+                padding: 8,
                 border: isSelected
                   ? "2px solid var(--p-color-border-interactive)"
                   : "1px solid var(--p-color-border)",
@@ -239,134 +204,24 @@ function QuickSelectTab({
               }}
             >
               <svg
-                width={24}
-                height={24}
+                width={28}
+                height={28}
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke={color}
+                stroke={displayColor}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
                 <path d={icon.path} />
               </svg>
+              <Text variant="bodySm" tone={isSelected ? undefined : "subdued"}>
+                {icon.name}
+              </Text>
             </button>
           );
         })}
       </div>
-    </BlockStack>
-  );
-}
-
-/**
- * Full emoji browser with categories
- */
-function EmojiBrowserTab({
-  value,
-  onChange,
-}: {
-  value: IconPickerValue;
-  onChange: (value: IconPickerValue) => void;
-}) {
-  const [selectedCategory, setSelectedCategory] = useState(0);
-  const [customEmoji, setCustomEmoji] = useState("");
-
-  const handleCustomEmojiSubmit = () => {
-    if (customEmoji.trim()) {
-      onChange({ ...value, iconType: "emoji", iconEmoji: customEmoji.trim() });
-      setCustomEmoji("");
-    }
-  };
-
-  return (
-    <BlockStack gap="400">
-      {/* Category tabs */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {EMOJI_CATEGORIES.map((category, idx) => (
-          <Button
-            key={category.name}
-            variant={selectedCategory === idx ? "primary" : "secondary"}
-            size="slim"
-            onClick={() => setSelectedCategory(idx)}
-          >
-            {category.emojis[0]} {category.name}
-          </Button>
-        ))}
-      </div>
-
-      {/* Selected category emojis */}
-      <Card>
-        <BlockStack gap="300">
-          <Text variant="headingSm" as="h4">
-            {EMOJI_CATEGORIES[selectedCategory].description}
-          </Text>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(48px, 1fr))",
-              gap: 8,
-            }}
-          >
-            {EMOJI_CATEGORIES[selectedCategory].emojis.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() =>
-                  onChange({ ...value, iconType: "emoji", iconEmoji: emoji })
-                }
-                style={{
-                  width: 48,
-                  height: 48,
-                  fontSize: 24,
-                  border:
-                    value.iconType === "emoji" && value.iconEmoji === emoji
-                      ? "2px solid var(--p-color-border-interactive)"
-                      : "1px solid var(--p-color-border)",
-                  borderRadius: 8,
-                  backgroundColor:
-                    value.iconType === "emoji" && value.iconEmoji === emoji
-                      ? "var(--p-color-bg-surface-selected)"
-                      : "var(--p-color-bg-surface)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </BlockStack>
-      </Card>
-
-      <Divider />
-
-      {/* Custom emoji input */}
-      <BlockStack gap="200">
-        <Text variant="headingSm" as="h4">
-          Custom Emoji
-        </Text>
-        <InlineStack gap="200" align="start">
-          <div style={{ flex: 1 }}>
-            <TextField
-              label="Enter custom emoji"
-              labelHidden
-              value={customEmoji}
-              onChange={setCustomEmoji}
-              placeholder="Paste any emoji here..."
-              autoComplete="off"
-            />
-          </div>
-          <Button onClick={handleCustomEmojiSubmit} disabled={!customEmoji.trim()}>
-            Use Emoji
-          </Button>
-        </InlineStack>
-        <Text variant="bodySm" tone="subdued">
-          You can paste any emoji from your system or websites like{" "}
-          <a href="https://emojipedia.org" target="_blank" rel="noopener noreferrer">
-            Emojipedia
-          </a>
-        </Text>
-      </BlockStack>
     </BlockStack>
   );
 }
@@ -482,7 +337,13 @@ function UploadTab({
           variant="plain"
           tone="critical"
           onClick={() =>
-            onChange({ ...value, iconType: "emoji", iconUrl: null })
+            onChange({
+              ...value,
+              iconType: "library",
+              iconUrl: null,
+              iconId: DEFAULT_ICON_CONFIG.iconId,
+              iconColor: DEFAULT_ICON_CONFIG.iconColor,
+            })
           }
         >
           Remove custom icon
@@ -503,7 +364,7 @@ function IconLibraryTab({
   onChange: (value: IconPickerValue) => void;
 }) {
   const [selectedCategory, setSelectedCategory] = useState(0);
-  const [customColor, setCustomColor] = useState(value.iconColor || "#5C6AC4");
+  const [customColor, setCustomColor] = useState(value.iconColor || DEFAULT_ICON_CONFIG.iconColor);
   const [colorPopoverActive, setColorPopoverActive] = useState(false);
 
   const handleColorChange = (color: string) => {
@@ -522,7 +383,7 @@ function IconLibraryTab({
     });
   };
 
-  const currentColor = value.iconType === "library" ? value.iconColor || "#5C6AC4" : customColor;
+  const currentColor = value.iconType === "library" ? value.iconColor || DEFAULT_ICON_CONFIG.iconColor : customColor;
 
   return (
     <BlockStack gap="400">
@@ -644,7 +505,7 @@ function IconLibraryTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))",
               gap: 12,
             }}
           >
@@ -663,7 +524,7 @@ function IconLibraryTab({
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 4,
-                    padding: 8,
+                    padding: 10,
                     border: isSelected
                       ? "2px solid var(--p-color-border-interactive)"
                       : "1px solid var(--p-color-border)",
@@ -721,22 +582,16 @@ export function IconPicker({
       panelID: "quick-panel",
     },
     {
-      id: "emoji",
-      content: "Emoji Browser",
-      accessibilityLabel: "Browse all emojis",
-      panelID: "emoji-panel",
+      id: "library",
+      content: "Icon Library",
+      accessibilityLabel: "Vector icon library",
+      panelID: "library-panel",
     },
     {
       id: "upload",
       content: "Upload",
       accessibilityLabel: "Upload custom icon",
       panelID: "upload-panel",
-    },
-    {
-      id: "library",
-      content: "Icon Library",
-      accessibilityLabel: "Vector icon library",
-      panelID: "library-panel",
     },
   ];
 
@@ -745,7 +600,7 @@ export function IconPicker({
       case 0:
         return <QuickSelectTab value={value} onChange={onChange} />;
       case 1:
-        return <EmojiBrowserTab value={value} onChange={onChange} />;
+        return <IconLibraryTab value={value} onChange={onChange} />;
       case 2:
         return (
           <UploadTab
@@ -755,8 +610,6 @@ export function IconPicker({
             uploadError={uploadError}
           />
         );
-      case 3:
-        return <IconLibraryTab value={value} onChange={onChange} />;
       default:
         return null;
     }
@@ -767,10 +620,8 @@ export function IconPicker({
       case "upload":
         return "Custom Upload";
       case "library":
-        return "Icon Library";
-      case "emoji":
       default:
-        return "Emoji";
+        return "Icon Library";
     }
   };
 

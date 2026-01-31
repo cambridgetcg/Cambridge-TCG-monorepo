@@ -2,12 +2,17 @@
  * PointsIcon Component
  *
  * A reusable component for displaying points currency icons.
- * Supports all three icon types: emoji, custom upload, and icon library.
+ * DESIGN GUIDELINE: Minimalistic solid LINE icons only.
+ *
+ * Supports:
+ * - Custom uploaded images
+ * - Vector icons from the icon library
+ *
+ * Note: Emoji mode has been deprecated in favor of clean vector icons.
  *
  * Usage:
  *   <PointsIcon
  *     iconType="library"
- *     iconEmoji="⭐"
  *     iconId="star"
  *     iconColor="#F59E0B"
  *     size={24}
@@ -15,14 +20,14 @@
  */
 
 import { useMemo } from "react";
-import { getVectorIcon, getIconDisplay } from "../utils/points-icon-library";
+import { getVectorIcon, getIconDisplay, DEFAULT_ICON_CONFIG } from "../utils/points-icon-library";
 import type { CurrencyIconType } from "../services/points-config.server";
 
 export interface PointsIconProps {
   /** The type of icon to display */
   iconType: CurrencyIconType;
-  /** Fallback emoji (always used for emoji type) */
-  iconEmoji: string;
+  /** @deprecated Kept for backwards compatibility - will be ignored */
+  iconEmoji?: string;
   /** URL for custom uploaded icon */
   iconUrl?: string | null;
   /** ID for library icon (e.g., "star", "gem") */
@@ -42,7 +47,7 @@ export interface PointsIconProps {
  */
 export function PointsIcon({
   iconType,
-  iconEmoji,
+  iconEmoji = "", // Deprecated, ignored
   iconUrl,
   iconId,
   iconColor,
@@ -67,64 +72,45 @@ export function PointsIcon({
     ...style,
   };
 
-  switch (display.type) {
-    case "image":
-      return (
-        <span className={`points-icon points-icon--image ${className}`} style={wrapperStyle}>
-          <img
-            src={display.value}
-            alt="Points icon"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-            }}
-          />
-        </span>
-      );
-
-    case "svg":
-      const icon = iconId ? getVectorIcon(iconId) : null;
-      if (!icon) {
-        // Fallback to emoji if icon not found
-        return (
-          <span className={`points-icon points-icon--emoji ${className}`} style={wrapperStyle}>
-            <span style={{ fontSize: size * 0.85, lineHeight: 1 }}>{iconEmoji}</span>
-          </span>
-        );
-      }
-
-      return (
-        <span className={`points-icon points-icon--svg ${className}`} style={wrapperStyle}>
-          <svg
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={display.color || "#5C6AC4"}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ display: "block" }}
-          >
-            <path d={icon.path} />
-          </svg>
-        </span>
-      );
-
-    case "emoji":
-    default:
-      return (
-        <span className={`points-icon points-icon--emoji ${className}`} style={wrapperStyle}>
-          <span style={{ fontSize: size * 0.85, lineHeight: 1 }}>{display.value}</span>
-        </span>
-      );
+  if (display.type === "image") {
+    return (
+      <span className={`points-icon points-icon--image ${className}`} style={wrapperStyle}>
+        <img
+          src={display.value}
+          alt="Points icon"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+          }}
+        />
+      </span>
+    );
   }
+
+  // SVG type (default)
+  return (
+    <span className={`points-icon points-icon--svg ${className}`} style={wrapperStyle}>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={display.color || DEFAULT_ICON_CONFIG.iconColor}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ display: "block" }}
+      >
+        <path d={display.value} />
+      </svg>
+    </span>
+  );
 }
 
 /**
  * Helper component for inline points display with value
- * Example: ⭐ 1,250 Points
+ * Example: [star icon] 1,250 Points
  */
 export interface PointsDisplayProps extends PointsIconProps {
   /** Points value to display */

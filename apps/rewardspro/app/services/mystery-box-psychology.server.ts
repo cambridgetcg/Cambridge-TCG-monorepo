@@ -84,7 +84,9 @@ export interface CelebrationEvent {
     | "LEGENDARY_WIN";
   data: Record<string, unknown>;
   message: string;
+  /** @deprecated Use iconId instead */
   emoji: string;
+  iconId: string;
 }
 
 export interface PsychologyBonuses {
@@ -272,7 +274,8 @@ export async function processPsychologyOnOpen(
       type: "STREAK_MILESTONE",
       data: { days: streakMilestone },
       message: `${streakMilestone}-day streak!`,
-      emoji: "🔥",
+      emoji: "", // Deprecated
+      iconId: "flame",
     });
 
     if (enableActivityFeed) {
@@ -293,7 +296,8 @@ export async function processPsychologyOnOpen(
       type: "LUCKY_STREAK",
       data: { count: luckyStreakInfo.count },
       message: luckyStreakInfo.message,
-      emoji: "✨",
+      emoji: "", // Deprecated
+      iconId: "zap",
     });
 
     if (enableActivityFeed && luckyStreakInfo.count === 3) {
@@ -314,7 +318,8 @@ export async function processPsychologyOnOpen(
       type: "PITY_TRIGGERED",
       data: { rarity: wonRarity },
       message: "Luck protection activated!",
-      emoji: "🎁",
+      emoji: "", // Deprecated
+      iconId: "gift",
     });
 
     if (enableActivityFeed) {
@@ -336,21 +341,24 @@ export async function processPsychologyOnOpen(
       type: "LEGENDARY_WIN",
       data: { rewardName: wonRewardName },
       message: `LEGENDARY: ${wonRewardName}!`,
-      emoji: "💎",
+      emoji: "", // Deprecated
+      iconId: "gem",
     });
   } else if (wonRarity === "EPIC") {
     celebrations.push({
       type: "EPIC_WIN",
       data: { rewardName: wonRewardName },
       message: `EPIC: ${wonRewardName}!`,
-      emoji: "💜",
+      emoji: "", // Deprecated
+      iconId: "sparkle",
     });
   } else if (wonRarity === "RARE") {
     celebrations.push({
       type: "RARE_WIN",
       data: { rewardName: wonRewardName },
       message: `RARE: ${wonRewardName}!`,
-      emoji: "💙",
+      emoji: "", // Deprecated
+      iconId: "star",
     });
   }
 

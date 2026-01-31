@@ -4,19 +4,12 @@
  * Tracks consecutive days of mission completion.
  * Rewards customers with XP bonuses for maintaining streaks.
  *
- * Streak Emoji Progression:
- * - Days 1-2: ✨ (sparkle)
- * - Days 3-6: ⭐ (star)
- * - Days 7-13: 🔥 (fire)
- * - Days 14-29: 🔥🔥 (double fire)
- * - Days 30+: 💎🔥 (diamond fire)
- *
- * Streak Bonus Progression:
- * - Days 1-2: 0%
- * - Days 3-6: 10%
- * - Days 7-13: 25%
- * - Days 14-29: 50%
- * - Days 30+: 100%
+ * Streak Icon Progression:
+ * - Days 1-2: sparkle - Building
+ * - Days 3-6: star - 10% bonus
+ * - Days 7-13: flame - 25% bonus
+ * - Days 14-29: zap - 50% bonus (Blazing)
+ * - Days 30+: gem - 100% bonus (Legendary)
  */
 
 import db from "../db.server";
@@ -30,7 +23,9 @@ const LOG_PREFIX = "[MissionStreak]";
 export interface StreakInfo {
   currentStreak: number;
   longestStreak: number;
+  /** @deprecated Use streakIconId instead */
   streakEmoji: string;
+  streakIconId: string | null;
   streakLabel: string;
   bonusPercent: number;
   isNewStreak: boolean;
@@ -46,14 +41,14 @@ export interface StreakConfig {
   missionResetHour: number;
 }
 
-// Streak emoji and bonus tiers
+// Streak icon and bonus tiers
 const STREAK_TIERS = [
-  { minDays: 30, emoji: "💎🔥", label: "Diamond Fire", bonusPercent: 100 },
-  { minDays: 14, emoji: "🔥🔥", label: "Double Fire", bonusPercent: 50 },
-  { minDays: 7, emoji: "🔥", label: "On Fire", bonusPercent: 25 },
-  { minDays: 3, emoji: "⭐", label: "Star Streak", bonusPercent: 10 },
-  { minDays: 1, emoji: "✨", label: "Streak Started", bonusPercent: 0 },
-  { minDays: 0, emoji: "", label: "No Streak", bonusPercent: 0 },
+  { minDays: 30, iconId: "gem", label: "Legendary", bonusPercent: 100 },
+  { minDays: 14, iconId: "zap", label: "Blazing", bonusPercent: 50 },
+  { minDays: 7, iconId: "flame", label: "On Fire", bonusPercent: 25 },
+  { minDays: 3, iconId: "star", label: "Star Streak", bonusPercent: 10 },
+  { minDays: 1, iconId: "sparkle", label: "Building", bonusPercent: 0 },
+  { minDays: 0, iconId: null, label: "No Streak", bonusPercent: 0 },
 ];
 
 // ============================================
@@ -64,7 +59,7 @@ const STREAK_TIERS = [
  * Get streak tier info for a given streak count
  */
 export function getStreakTier(streakDays: number): {
-  emoji: string;
+  iconId: string | null;
   label: string;
   bonusPercent: number;
 } {
@@ -208,7 +203,8 @@ export async function getStreakInfo(
     return {
       currentStreak: 0,
       longestStreak: 0,
-      streakEmoji: "",
+      streakEmoji: "", // Deprecated
+      streakIconId: null,
       streakLabel: "No Streak",
       bonusPercent: 0,
       isNewStreak: false,
@@ -245,7 +241,8 @@ export async function getStreakInfo(
   return {
     currentStreak,
     longestStreak: stats.longestStreak,
-    streakEmoji: tier.emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: tier.iconId,
     streakLabel: tier.label,
     bonusPercent,
     isNewStreak: false,
@@ -341,13 +338,14 @@ export async function updateStreak(
 
   console.log(
     `${LOG_PREFIX} Updated streak for customer ${customerId}: ${stats.currentStreak} -> ${newStreak} ` +
-      `(${tier.emoji} ${tier.label}, +${bonusPercent}% bonus)`
+      `(${tier.label}, +${bonusPercent}% bonus)`
   );
 
   return {
     currentStreak: newStreak,
     longestStreak: newLongestStreak,
-    streakEmoji: tier.emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: tier.iconId,
     streakLabel: tier.label,
     bonusPercent,
     isNewStreak,
@@ -398,7 +396,9 @@ export async function getStreakLeaderboard(
     customerId: string;
     currentStreak: number;
     longestStreak: number;
+    /** @deprecated Use streakIconId instead */
     streakEmoji: string;
+    streakIconId: string | null;
     customer: { email: string; firstName: string | null; lastName: string | null } | null;
   }>
 > {
@@ -422,6 +422,7 @@ export async function getStreakLeaderboard(
 
   return leaderboard.map((entry) => ({
     ...entry,
-    streakEmoji: getStreakTier(entry.currentStreak).emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: getStreakTier(entry.currentStreak).iconId,
   }));
 }

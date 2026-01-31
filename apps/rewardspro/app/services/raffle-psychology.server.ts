@@ -227,7 +227,9 @@ export interface AppliedBonuses {
     applied: boolean;
     multiplier: number;
     days: number;
+    /** @deprecated Use iconId instead */
     emoji: string;
+    iconId: string | null;
     isMilestone: boolean;
   };
   // Bonus Event
@@ -276,7 +278,9 @@ export interface CelebrationEvent {
   type: "STREAK_MILESTONE" | "INSTANT_WIN" | "LUCKY_NUMBER" | "EARLY_BIRD";
   data: Record<string, unknown>;
   message: string;
+  /** @deprecated Use iconId instead */
   emoji: string;
+  iconId: string;
 }
 
 export interface PsychologyDashboard {
@@ -325,7 +329,7 @@ export async function processPsychologyBonuses(
 
   const celebrations: CelebrationEvent[] = [];
   const bonuses: AppliedBonuses = {
-    streak: { applied: false, multiplier: 1, days: 0, emoji: "", isMilestone: false },
+    streak: { applied: false, multiplier: 1, days: 0, emoji: "", iconId: null, isMilestone: false },
     bonusEvent: { applied: false, eventId: null, eventName: null, multiplier: 1, flatBonus: 0, timeRemaining: null },
     earlyBird: { applied: false, bonusPercent: 0 },
     luckyNumber: { applied: false, number: null, bonusEntries: 0, type: null },
@@ -342,7 +346,8 @@ export async function processPsychologyBonuses(
         applied: true,
         multiplier: streakInfo.bonusMultiplier,
         days: streakInfo.currentStreak,
-        emoji: streakInfo.streakEmoji,
+        emoji: "", // Deprecated
+        iconId: streakInfo.streakIconId,
         isMilestone: isStreakMilestone(streakInfo.currentStreak),
       };
       currentEntries = Math.floor(currentEntries * streakInfo.bonusMultiplier);
@@ -354,14 +359,15 @@ export async function processPsychologyBonuses(
           shop,
           customerId,
           streakInfo.currentStreak,
-          streakInfo.streakEmoji
+          streakInfo.streakIconId
         );
 
         celebrations.push({
           type: "STREAK_MILESTONE",
-          data: { days: streakInfo.currentStreak, emoji: streakInfo.streakEmoji },
+          data: { days: streakInfo.currentStreak, iconId: streakInfo.streakIconId },
           message: `${streakInfo.currentStreak}-day streak!`,
-          emoji: streakInfo.streakEmoji,
+          emoji: "", // Deprecated
+          iconId: streakInfo.streakIconId || "flame",
         });
       }
     }
@@ -421,7 +427,8 @@ export async function processPsychologyBonuses(
       type: "EARLY_BIRD",
       data: { entryNumber: currentTotalEntries + 1, bonusPercent: raffle.earlyBirdBonusPercent },
       message: `Early bird bonus! +${raffle.earlyBirdBonusPercent}%`,
-      emoji: "🐦",
+      emoji: "", // Deprecated
+      iconId: "clock",
     });
   }
 
@@ -461,7 +468,8 @@ export async function processPsychologyBonuses(
           type: luckyResult.bonusType,
         },
         message: luckyResult.message!,
-        emoji: "🎉",
+        emoji: "", // Deprecated
+        iconId: "star",
       });
     }
   }
@@ -495,7 +503,8 @@ export async function processPsychologyBonuses(
           prizeType: win.prize!.prizeType,
         },
         message: win.message,
-        emoji: "✨",
+        emoji: "", // Deprecated
+        iconId: "sparkle",
       });
 
       // Deliver prize immediately for points/credit types
@@ -635,19 +644,19 @@ export function formatBonusSummary(bonuses: AppliedBonuses): string {
   const parts: string[] = [];
 
   if (bonuses.streak.applied) {
-    parts.push(`${bonuses.streak.emoji} ${bonuses.streak.days}-day streak (${((bonuses.streak.multiplier - 1) * 100).toFixed(0)}%)`);
+    parts.push(`${bonuses.streak.days}-day streak (${((bonuses.streak.multiplier - 1) * 100).toFixed(0)}%)`);
   }
 
   if (bonuses.bonusEvent.applied) {
-    parts.push(`🎉 ${bonuses.bonusEvent.eventName} (${((bonuses.bonusEvent.multiplier - 1) * 100).toFixed(0)}%)`);
+    parts.push(`${bonuses.bonusEvent.eventName} (${((bonuses.bonusEvent.multiplier - 1) * 100).toFixed(0)}%)`);
   }
 
   if (bonuses.earlyBird.applied) {
-    parts.push(`🐦 Early bird (+${bonuses.earlyBird.bonusPercent}%)`);
+    parts.push(`Early bird (+${bonuses.earlyBird.bonusPercent}%)`);
   }
 
   if (bonuses.luckyNumber.applied) {
-    parts.push(`🎯 Lucky #${bonuses.luckyNumber.number} (+${bonuses.luckyNumber.bonusEntries})`);
+    parts.push(`Lucky #${bonuses.luckyNumber.number} (+${bonuses.luckyNumber.bonusEntries})`);
   }
 
   return parts.length > 0 ? parts.join(" • ") : "No bonuses";

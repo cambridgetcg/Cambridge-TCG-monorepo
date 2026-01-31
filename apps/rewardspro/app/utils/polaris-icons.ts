@@ -1,74 +1,225 @@
 /**
  * Polaris Icons Reference File
- * This file exports all available Polaris icons from @shopify/polaris-icons
- * Use these icons exclusively throughout the application
- * Last updated with the newest available icons
+ *
+ * DESIGN GUIDELINE: Use minimalistic solid LINE icons only.
+ * - NO filled/solid variants (removed)
+ * - NO emoji usage anywhere in the app
+ * - Consistent, clean visual language
+ *
+ * All icons are outline/line style for a minimalistic appearance.
  */
 
+// ============================================
+// NAVIGATION & ARROWS
+// ============================================
 export {
-  AdjustIcon,
-  AffiliateIcon,
-  AirplaneIcon,
-  AlertBubbleIcon,
-  AlertCircleIcon,
-  AlertDiamondIcon,
-  AlertTriangleIcon,
-  AppExtensionIcon,
-  AppsFilledIcon,
-  AppsIcon,
-  ArchiveIcon,
   ArrowDiagonalIcon,
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpIcon,
   ArrowsInHorizontalIcon,
-  ArrowsOutHorizontalFilledIcon,
   ArrowsOutHorizontalIcon,
-  AttachmentFilledIcon,
-  AttachmentIcon,
-  AutomationFilledIcon,
-  AutomationIcon,
-  BackspaceIcon,
-  BankFilledIcon,
-  BankIcon,
-  BarcodeIcon,
-  BillFilledIcon,
-  BillIcon,
-  BlankFilledIcon,
-  BlankIcon,
-  BlogIcon,
-  BookIcon,
-  BookOpenIcon,
-  BugIcon,
-  BulletIcon,
-  ButtonIcon,
-  ButtonPressIcon,
-  CalculatorIcon,
-  CalendarCheckIcon,
-  CalendarIcon,
-  CalendarTimeIcon,
-  CameraFlipIcon,
-  CameraIcon,
   CaretDownIcon,
   CaretUpIcon,
-  CartAbandonedFilledIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  CircleChevronDownIcon,
+  CircleChevronLeftIcon,
+  CircleChevronRightIcon,
+  CircleChevronUpIcon,
+  CircleDownIcon,
+  CircleLeftIcon,
+  CircleRightIcon,
+  CircleUpIcon,
+  EnterIcon,
+  ExitIcon,
+  ExternalIcon,
+  ExternalSmallIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// ACTIONS & OPERATIONS
+// ============================================
+export {
+  AdjustIcon,
+  ArchiveIcon,
+  BackspaceIcon,
+  CropIcon,
+  DeleteIcon,
+  DragDropIcon,
+  DragHandleIcon,
+  DuplicateIcon,
+  EditIcon,
+  ExportIcon,
+  FilterIcon,
+  FlipHorizontalIcon,
+  FlipVerticalIcon,
+  ImportIcon,
+  MaximizeIcon,
+  MergeIcon,
+  MinimizeIcon,
+  MinusIcon,
+  PlusIcon,
+  RedoIcon,
+  RefreshIcon,
+  ReplaceIcon,
+  ReplayIcon,
+  ResetIcon,
+  RotateLeftIcon,
+  RotateRightIcon,
+  SaveIcon,
+  SearchIcon,
+  SearchListIcon,
+  SearchRecentIcon,
+  SearchResourceIcon,
+  SelectIcon,
+  SendIcon,
+  ShareIcon,
+  SortAscendingIcon,
+  SortDescendingIcon,
+  SortIcon,
+  UndoIcon,
+  UploadIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// STATUS & ALERTS
+// ============================================
+export {
+  AlertBubbleIcon,
+  AlertCircleIcon,
+  AlertDiamondIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  CheckSmallIcon,
+  CheckboxIcon,
+  DisabledIcon,
+  InfoIcon,
+  MinusCircleIcon,
+  PauseCircleIcon,
+  PlayCircleIcon,
+  PlusCircleIcon,
+  QuestionCircleIcon,
+  StatusActiveIcon,
+  StatusIcon,
+  StopCircleIcon,
+  XCircleIcon,
+  XIcon,
+  XSmallIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// COMMERCE & ORDERS
+// ============================================
+export {
+  BarcodeIcon,
   CartAbandonedIcon,
   CartDiscountIcon,
-  CartDownFilledIcon,
   CartDownIcon,
-  CartFilledIcon,
   CartIcon,
   CartSaleIcon,
   CartUpIcon,
-  CashDollarFilledIcon,
+  CreditCardCancelIcon,
+  CreditCardIcon,
+  CreditCardPercentIcon,
+  CreditCardReaderChipIcon,
+  CreditCardReaderIcon,
+  CreditCardReaderTapIcon,
+  CreditCardSecureIcon,
+  CreditCardTapChipIcon,
+  DiscountCodeIcon,
+  DiscountIcon,
+  GiftCardIcon,
+  OrderDraftIcon,
+  OrderFirstIcon,
+  OrderFulfilledIcon,
+  OrderIcon,
+  OrderRepeatIcon,
+  OrderUnfulfilledIcon,
+  OrdersStatusIcon,
+  PackageFulfilledIcon,
+  PackageIcon,
+  PackageOnHoldIcon,
+  PackageReturnedIcon,
+  PaymentCaptureIcon,
+  PaymentIcon,
+  PointOfSaleIcon,
+  PriceListIcon,
+  ProductAddIcon,
+  ProductCostIcon,
+  ProductIcon,
+  ProductListIcon,
+  ProductReferenceIcon,
+  ProductRemoveIcon,
+  ProductReturnIcon,
+  ReceiptDollarIcon,
+  ReceiptEuroIcon,
+  ReceiptIcon,
+  ReceiptPaidIcon,
+  ReceiptPoundIcon,
+  ReceiptRefundIcon,
+  ReceiptRupeeIcon,
+  ReceiptYenIcon,
+  ReturnIcon,
+  ShippingLabelIcon,
+  TransactionFeeDollarIcon,
+  TransactionFeeEuroIcon,
+  TransactionFeePoundIcon,
+  TransactionFeeRupeeIcon,
+  TransactionFeeYenIcon,
+  TransactionIcon,
+  WalletIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// MONEY & FINANCE
+// ============================================
+export {
+  BankIcon,
+  BillIcon,
   CashDollarIcon,
   CashEuroIcon,
   CashPoundIcon,
   CashRupeeIcon,
   CashYenIcon,
-  CategoriesIcon,
-  ChannelsIcon,
+  CurrencyConvertIcon,
+  MarketsEuroIcon,
+  MarketsIcon,
+  MarketsRupeeIcon,
+  MarketsYenIcon,
+  MoneyIcon,
+  MoneyNoneIcon,
+  TaxIcon,
+  TipJarIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// CUSTOMERS & PEOPLE
+// ============================================
+export {
+  AffiliateIcon,
+  ChatIcon,
+  ChatReferralIcon,
+  IdentityCardIcon,
+  OrganizationIcon,
+  PersonAddIcon,
+  PersonExitIcon,
+  PersonIcon,
+  PersonLockIcon,
+  PersonRemoveIcon,
+  PersonSegmentIcon,
+  ProfileIcon,
+  TeamIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// ANALYTICS & CHARTS
+// ============================================
+export {
   ChartCohortIcon,
   ChartDonutIcon,
   ChartFunnelIcon,
@@ -83,142 +234,30 @@ export {
   ChartLineIcon,
   ChartPopularIcon,
   ChartStackedIcon,
-  ChartVerticalFilledIcon,
   ChartVerticalIcon,
-  ChatIcon,
-  ChatReferralIcon,
-  CheckCircleIcon,
-  CheckIcon,
-  CheckSmallIcon,
-  CheckboxIcon,
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronUpIcon,
-  CircleChevronDownIcon,
-  CircleChevronLeftIcon,
-  CircleChevronRightIcon,
-  CircleChevronUpIcon,
-  CircleDownIcon,
-  CircleLeftIcon,
-  CircleRightIcon,
-  CircleUpIcon,
-  ClipboardCheckFilledIcon,
+  DataPresentationIcon,
+  DataTableIcon,
+  GaugeIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// CONTENT & FILES
+// ============================================
+export {
+  AttachmentIcon,
+  BlogIcon,
+  BookIcon,
+  BookOpenIcon,
   ClipboardCheckIcon,
   ClipboardChecklistIcon,
   ClipboardIcon,
-  ClockIcon,
-  CodeAddIcon,
-  CodeIcon,
-  CollectionFeaturedIcon,
-  CollectionFilledIcon,
-  CollectionIcon,
-  CollectionListIcon,
-  CollectionReferenceIcon,
-  ColorIcon,
-  ColorNoneIcon,
-  CompassIcon,
-  ComposeIcon,
-  ConfettiIcon,
-  ConnectIcon,
-  ContentFilledIcon,
   ContentIcon,
-  ContractFilledIcon,
-  ContractIcon,
-  CornerPillIcon,
-  CornerRoundIcon,
-  CornerSquareIcon,
-  CreditCardCancelIcon,
-  CreditCardIcon,
-  CreditCardPercentIcon,
-  CreditCardReaderChipIcon,
-  CreditCardReaderIcon,
-  CreditCardReaderTapIcon,
-  CreditCardSecureIcon,
-  CreditCardTapChipIcon,
-  CropIcon,
-  CurrencyConvertIcon,
-  CursorBannerIcon,
-  CursorFilledIcon,
-  CursorIcon,
-  CursorOptionIcon,
-  DataPresentationIcon,
-  DataTableIcon,
-  DatabaseAddIcon,
-  DatabaseConnectIcon,
-  DatabaseIcon,
-  DeleteIcon,
-  DeliveryFilledIcon,
-  DeliveryIcon,
-  DesktopIcon,
-  DisabledIcon,
-  DiscountCodeIcon,
-  DiscountFilledIcon,
-  DiscountIcon,
-  DnsSettingsIcon,
-  DockFloatingIcon,
-  DockSideIcon,
-  DomainFilledIcon,
-  DomainIcon,
-  DomainLandingPageIcon,
-  DomainNewIcon,
-  DomainRedirectIcon,
-  DragDropIcon,
-  DragHandleIcon,
-  DuplicateIcon,
-  EditIcon,
-  EmailFollowUpIcon,
-  EmailIcon,
-  EmailNewsletterIcon,
-  EnterIcon,
-  EnvelopeIcon,
-  EnvelopeSoftPackIcon,
-  ExchangeIcon,
-  ExitIcon,
-  ExportIcon,
-  ExternalIcon,
-  ExternalSmallIcon,
-  EyeCheckMarkIcon,
-  EyeDropperIcon,
-  EyeFirstIcon,
-  EyeglassesIcon,
-  FaviconIcon,
-  FileFilledIcon,
   FileIcon,
-  FilterIcon,
-  FlagIcon,
-  FlipHorizontalIcon,
-  FlipVerticalIcon,
-  FlowerFilledIcon,
-  FlowerIcon,
   FolderAddIcon,
   FolderDownIcon,
   FolderIcon,
   FolderRemoveIcon,
   FolderUpIcon,
-  FoodIcon,
-  ForkliftIcon,
-  FormsIcon,
-  GamesIcon,
-  GaugeIcon,
-  GiftCardFilledIcon,
-  GiftCardIcon,
-  GlobeAsiaFilledIcon,
-  GlobeAsiaIcon,
-  GlobeEUFilledIcon,
-  GlobeEUIcon,
-  GlobeFilledIcon,
-  GlobeIcon,
-  HashtagDecimalIcon,
-  HashtagIcon,
-  HeartIcon,
-  HideIcon,
-  HomeFilledIcon,
-  HomeIcon,
-  IconsFilledIcon,
-  IconsIcon,
-  IdentityCardFilledIcon,
-  IdentityCardIcon,
   ImageAddIcon,
   ImageAltIcon,
   ImageExploreIcon,
@@ -226,21 +265,148 @@ export {
   ImageMagicIcon,
   ImageWithTextOverlayIcon,
   ImagesIcon,
-  ImportIcon,
-  IncentiveIcon,
+  NoteAddIcon,
+  NoteIcon,
+  PageAddIcon,
+  PageAttachmentIcon,
+  PageClockIcon,
+  PageDownIcon,
+  PageHeartIcon,
+  PageIcon,
+  PageReferenceIcon,
+  PageRemoveIcon,
+  PageUpIcon,
+  PrintIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// COMMUNICATION
+// ============================================
+export {
+  ComposeIcon,
+  EmailFollowUpIcon,
+  EmailIcon,
+  EmailNewsletterIcon,
+  EnvelopeIcon,
+  EnvelopeSoftPackIcon,
   IncomingIcon,
-  InfoIcon,
-  InventoryFilledIcon,
-  InventoryIcon,
-  InventoryUpdatedIcon,
-  IqIcon,
+  MegaphoneIcon,
+  MentionIcon,
+  MicrophoneIcon,
+  NotificationIcon,
+  OutgoingIcon,
+  PhoneIcon,
+  PhoneInIcon,
+  PhoneOutIcon,
+  SocialAdIcon,
+  SocialPostIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// TIME & CALENDAR
+// ============================================
+export {
+  CalendarCheckIcon,
+  CalendarIcon,
+  CalendarTimeIcon,
+  ClockIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// SETTINGS & CONFIGURATION
+// ============================================
+export {
+  AppsIcon,
+  AppExtensionIcon,
+  AutomationIcon,
+  BugIcon,
+  CalculatorIcon,
+  CodeAddIcon,
+  CodeIcon,
+  ConnectIcon,
+  ContractIcon,
+  DatabaseAddIcon,
+  DatabaseConnectIcon,
+  DatabaseIcon,
+  DnsSettingsIcon,
   KeyIcon,
-  KeyboardHideIcon,
-  KeyboardIcon,
-  LabelPrinterIcon,
-  LanguageFilledIcon,
-  LanguageIcon,
-  LanguageTranslateIcon,
+  LockIcon,
+  MetafieldsIcon,
+  MetaobjectIcon,
+  MetaobjectListIcon,
+  MetaobjectReferenceIcon,
+  PasskeyIcon,
+  PlanIcon,
+  SandboxIcon,
+  SettingsIcon,
+  ShieldCheckMarkIcon,
+  ShieldNoneIcon,
+  ShieldPendingIcon,
+  ShieldPersonIcon,
+  ToggleOffIcon,
+  ToggleOnIcon,
+  WrenchIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// LOCATION & SHIPPING
+// ============================================
+export {
+  AirplaneIcon,
+  CompassIcon,
+  DeliveryIcon,
+  ForkliftIcon,
+  GlobeAsiaIcon,
+  GlobeEUIcon,
+  GlobeIcon,
+  LocationIcon,
+  LocationNoneIcon,
+  PinIcon,
+  StoreIcon,
+  StoreImportIcon,
+  StoreManagedIcon,
+  StoreOnlineIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// LAYOUT & DESIGN
+// ============================================
+export {
+  BlankIcon,
+  BulletIcon,
+  ButtonIcon,
+  ButtonPressIcon,
+  CategoriesIcon,
+  ChannelsIcon,
+  CollectionFeaturedIcon,
+  CollectionIcon,
+  CollectionListIcon,
+  CollectionReferenceIcon,
+  ColorIcon,
+  ColorNoneIcon,
+  CornerPillIcon,
+  CornerRoundIcon,
+  CornerSquareIcon,
+  CursorBannerIcon,
+  CursorIcon,
+  CursorOptionIcon,
+  DesktopIcon,
+  DockFloatingIcon,
+  DockSideIcon,
+  DomainIcon,
+  DomainLandingPageIcon,
+  DomainNewIcon,
+  DomainRedirectIcon,
+  EyeCheckMarkIcon,
+  EyeDropperIcon,
+  EyeFirstIcon,
+  FaviconIcon,
+  FormsIcon,
+  HashtagDecimalIcon,
+  HashtagIcon,
+  HideIcon,
+  HomeIcon,
+  IconsIcon,
   LayoutBlockIcon,
   LayoutBuyButtonHorizontalIcon,
   LayoutBuyButtonIcon,
@@ -256,18 +422,136 @@ export {
   LayoutSectionIcon,
   LayoutSidebarLeftIcon,
   LayoutSidebarRightIcon,
-  LightbulbIcon,
-  LinkIcon,
-  ListBulletedFilledIcon,
   ListBulletedIcon,
   ListNumberedIcon,
-  LiveFilledIcon,
+  MobileIcon,
+  OutdentIcon,
+  PaginationEndIcon,
+  PaginationStartIcon,
+  PaintBrushFlatIcon,
+  PaintBrushRoundIcon,
+  RemoveBackgroundIcon,
+  SkeletonIcon,
+  SlideshowIcon,
+  TabletIcon,
+  TextAlignCenterIcon,
+  TextAlignLeftIcon,
+  TextAlignRightIcon,
+  TextBlockIcon,
+  TextBoldIcon,
+  TextColorIcon,
+  TextFontIcon,
+  TextFontListIcon,
+  TextGrammarIcon,
+  TextIcon,
+  TextInColumnsIcon,
+  TextInRowsIcon,
+  TextIndentIcon,
+  TextItalicIcon,
+  TextQuoteIcon,
+  TextTitleIcon,
+  TextUnderlineIcon,
+  TextWithImageIcon,
+  ThemeEditIcon,
+  ThemeIcon,
+  ThemeStoreIcon,
+  ThemeTemplateIcon,
+  VariantIcon,
+  ViewIcon,
+  ViewportNarrowIcon,
+  ViewportShortIcon,
+  ViewportTallIcon,
+  ViewportWideIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// REWARDS & GAMIFICATION
+// ============================================
+export {
+  ConfettiIcon,
+  FlowerIcon,
+  GamesIcon,
+  HeartIcon,
+  IncentiveIcon,
+  IqIcon,
+  LightbulbIcon,
+  MagicIcon,
+  RewardIcon,
+  SmileyHappyIcon,
+  SmileyJoyIcon,
+  SmileyNeutralIcon,
+  SmileySadIcon,
+  StarIcon,
+  TargetIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  WandIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// MEDIA & DEVICES
+// ============================================
+export {
+  CameraFlipIcon,
+  CameraIcon,
+  EyeglassesIcon,
+  KeyboardHideIcon,
+  KeyboardIcon,
+  LabelPrinterIcon,
   LiveIcon,
-  LocationFilledIcon,
-  LocationIcon,
-  LocationNoneIcon,
-  LockFilledIcon,
-  LockIcon,
+  MediaReceiverIcon,
+  PlayIcon,
+  SoundIcon,
+  UnknownDeviceIcon,
+  WatchIcon,
+  WifiIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// LANGUAGE & INTERNATIONAL
+// ============================================
+export {
+  LanguageIcon,
+  LanguageTranslateIcon,
+  PersonalizedTextIcon,
+  ReferralCodeIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// NATURE & ENVIRONMENT
+// ============================================
+export {
+  FoodIcon,
+  MoonIcon,
+  NatureIcon,
+  SportsIcon,
+  SunIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// MISCELLANEOUS
+// ============================================
+export {
+  ExchangeIcon,
+  FlagIcon,
+  LinkIcon,
+  MenuHorizontalIcon,
+  MenuIcon,
+  MenuVerticalIcon,
+  PaperCheckIcon,
+  ShopcodesIcon,
+  SidekickIcon,
+  TransferIcon,
+  TransferInIcon,
+  TransferInternalIcon,
+  TransferOutIcon,
+  WorkIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// SOCIAL MEDIA LOGOS (Line style only)
+// ============================================
+export {
   LogoCriteoIcon,
   LogoFacebookIcon,
   LogoGoogleIcon,
@@ -281,309 +565,90 @@ export {
   LogoVimeoIcon,
   LogoXIcon,
   LogoYoutubeIcon,
-  MagicIcon,
-  MarketsEuroFilledIcon,
-  MarketsEuroIcon,
-  MarketsFilledIcon,
-  MarketsIcon,
-  MarketsRupeeFilledIcon,
-  MarketsRupeeIcon,
-  MarketsYenFilledIcon,
-  MarketsYenIcon,
-  MaximizeIcon,
+} from '@shopify/polaris-icons';
+
+// ============================================
+// INVENTORY & STOCK
+// ============================================
+export {
+  InventoryIcon,
+  InventoryUpdatedIcon,
   MeasurementSizeIcon,
   MeasurementVolumeIcon,
   MeasurementWeightIcon,
-  MediaReceiverIcon,
-  MegaphoneFilledIcon,
-  MegaphoneIcon,
-  MentionIcon,
-  MenuHorizontalIcon,
-  MenuIcon,
-  MenuVerticalIcon,
-  MergeIcon,
-  MetafieldsFilledIcon,
-  MetafieldsIcon,
-  MetaobjectFilledIcon,
-  MetaobjectIcon,
-  MetaobjectListIcon,
-  MetaobjectReferenceIcon,
-  MicrophoneIcon,
-  MinimizeIcon,
-  MinusCircleIcon,
-  MinusIcon,
-  MobileIcon,
-  MoneyFilledIcon,
-  MoneyIcon,
-  MoneyNoneIcon,
-  MoonIcon,
-  NatureIcon,
-  NoteAddIcon,
-  NoteIcon,
-  NotificationFilledIcon,
-  NotificationIcon,
-  OrderDraftFilledIcon,
-  OrderDraftIcon,
-  OrderFilledIcon,
-  OrderFirstIcon,
-  OrderFulfilledIcon,
-  OrderIcon,
-  OrderRepeatIcon,
-  OrderUnfulfilledIcon,
-  OrdersStatusIcon,
-  OrganizationIcon,
-  OutdentIcon,
-  OutgoingIcon,
-  PackageFilledIcon,
-  PackageFulfilledIcon,
-  PackageIcon,
-  PackageOnHoldIcon,
-  PackageReturnedIcon,
-  PageAddIcon,
-  PageAttachmentIcon,
-  PageClockFilledIcon,
-  PageClockIcon,
-  PageDownIcon,
-  PageHeartIcon,
-  PageIcon,
-  PageReferenceIcon,
-  PageRemoveIcon,
-  PageUpIcon,
-  PaginationEndIcon,
-  PaginationStartIcon,
-  PaintBrushFlatIcon,
-  PaintBrushRoundIcon,
-  PaperCheckIcon,
-  PasskeyFilledIcon,
-  PasskeyIcon,
-  PauseCircleIcon,
-  PaymentCaptureIcon,
-  PaymentFilledIcon,
-  PaymentIcon,
-  PersonAddIcon,
-  PersonExitIcon,
-  PersonFilledIcon,
-  PersonIcon,
-  PersonLockFilledIcon,
-  PersonLockIcon,
-  PersonRemoveIcon,
-  PersonSegmentIcon,
-  PersonalizedTextIcon,
-  PhoneIcon,
-  PhoneInIcon,
-  PhoneOutIcon,
-  PinFilledIcon,
-  PinIcon,
-  PlanFilledIcon,
-  PlanIcon,
-  PlayCircleIcon,
-  PlayIcon,
-  PlusCircleIcon,
-  PlusIcon,
-  PointOfSaleIcon,
-  PriceListFilledIcon,
-  PriceListIcon,
-  PrintIcon,
-  ProductAddIcon,
-  ProductCostIcon,
-  ProductFilledIcon,
-  ProductIcon,
-  ProductListIcon,
-  ProductReferenceIcon,
-  ProductRemoveIcon,
-  ProductReturnIcon,
-  ProfileIcon,
-  QuestionCircleIcon,
-  ReceiptDollarFilledIcon,
-  ReceiptDollarIcon,
-  ReceiptEuroFilledIcon,
-  ReceiptEuroIcon,
-  ReceiptIcon,
-  ReceiptPaidIcon,
-  ReceiptPoundFilledIcon,
-  ReceiptPoundIcon,
-  ReceiptRefundIcon,
-  ReceiptRupeeFilledIcon,
-  ReceiptRupeeIcon,
-  ReceiptYenFilledIcon,
-  ReceiptYenIcon,
-  RedoIcon,
-  ReferralCodeIcon,
-  RefreshIcon,
-  RemoveBackgroundIcon,
-  ReplaceIcon,
-  ReplayIcon,
-  ResetIcon,
-  ReturnIcon,
-  RewardIcon,
-  RotateLeftIcon,
-  RotateRightIcon,
-  SandboxIcon,
-  SaveIcon,
-  SearchIcon,
-  SearchListIcon,
-  SearchRecentIcon,
-  SearchResourceIcon,
-  SelectIcon,
-  SendIcon,
-  SettingsFilledIcon,
-  SettingsIcon,
-  ShareIcon,
-  ShieldCheckMarkIcon,
-  ShieldNoneIcon,
-  ShieldPendingIcon,
-  ShieldPersonIcon,
-  ShippingLabelFilledIcon,
-  ShippingLabelIcon,
-  ShopcodesIcon,
-  SidekickIcon,
-  SkeletonIcon,
-  SlideshowIcon,
-  SmileyHappyIcon,
-  SmileyJoyIcon,
-  SmileyNeutralIcon,
-  SmileySadIcon,
-  SocialAdIcon,
-  SocialPostIcon,
-  SortAscendingIcon,
-  SortDescendingIcon,
-  SortIcon,
-  SoundIcon,
-  SportsIcon,
-  StarFilledIcon,
-  StarIcon,
-  StatusActiveIcon,
-  StatusIcon,
-  StopCircleIcon,
-  StoreFilledIcon,
-  StoreIcon,
-  StoreImportIcon,
-  StoreManagedIcon,
-  StoreOnlineIcon,
-  SunIcon,
-  TabletIcon,
-  TargetFilledIcon,
-  TargetIcon,
-  TaxFilledIcon,
-  TaxIcon,
-  TeamIcon,
-  TextAlignCenterIcon,
-  TextAlignLeftIcon,
-  TextAlignRightIcon,
-  TextBlockIcon,
-  TextBoldIcon,
-  TextColorIcon,
-  TextFontIcon,
-  TextFontListIcon,
-  TextGrammarIcon,
-  TextIcon,
-  TextInColumnsIcon,
-  TextInRowsFilledIcon,
-  TextInRowsIcon,
-  TextIndentIcon,
-  TextItalicIcon,
-  TextQuoteIcon,
-  TextTitleIcon,
-  TextUnderlineIcon,
-  TextWithImageIcon,
-  ThemeEditIcon,
-  ThemeIcon,
-  ThemeStoreIcon,
-  ThemeTemplateIcon,
-  ThumbsDownIcon,
-  ThumbsUpIcon,
-  TipJarIcon,
-  ToggleOffIcon,
-  ToggleOnIcon,
-  TransactionFeeDollarIcon,
-  TransactionFeeEuroIcon,
-  TransactionFeePoundIcon,
-  TransactionFeeRupeeIcon,
-  TransactionFeeYenIcon,
-  TransactionIcon,
-  TransferIcon,
-  TransferInIcon,
-  TransferInternalIcon,
-  TransferOutIcon,
-  UndoIcon,
-  UnknownDeviceIcon,
-  UploadIcon,
-  VariantIcon,
-  ViewIcon,
-  ViewportNarrowIcon,
-  ViewportShortIcon,
-  ViewportTallIcon,
-  ViewportWideIcon,
-  WalletFilledIcon,
-  WalletIcon,
-  WandIcon,
-  WatchIcon,
-  WifiIcon,
-  WorkFilledIcon,
-  WorkIcon,
-  WrenchIcon,
-  XCircleIcon,
-  XIcon,
-  XSmallIcon
 } from '@shopify/polaris-icons';
 
+// ============================================
+// COMMON ICON MAPPING
+// For consistent usage throughout the app
+// ============================================
+
 /**
- * Type for all available icon names
- * This type would be used if CommonIcons were implemented
+ * Common icons mapped to semantic names for consistent usage.
+ * Use these instead of importing icons directly when possible.
  */
-export type IconName = 
-  | 'Rewards'
-  | 'Customers' 
-  | 'Cash'
-  | 'Analytics'
-  | 'Settings'
-  | 'Billing'
-  | 'ArrowLeft'
-  | 'ArrowRight'
-  | 'ArrowUp'
-  | 'ArrowDown'
-  | 'ChevronLeft'
-  | 'ChevronRight'
-  | 'ChevronUp'
-  | 'ChevronDown'
-  | 'Add'
-  | 'Edit'
-  | 'Delete'
-  | 'Save'
-  | 'Cancel'
-  | 'Close'
-  | 'Search'
-  | 'Filter'
-  | 'Sort'
-  | 'Export'
-  | 'Import'
-  | 'Refresh'
-  | 'Success'
-  | 'Error'
-  | 'Warning'
-  | 'Info'
-  | 'Alert'
-  | 'Check'
-  | 'Help'
-  | 'Menu'
-  | 'More'
-  | 'External'
-  | 'Calendar'
-  | 'Clock'
-  | 'Lock'
-  | 'Unlock'
-  | 'Orders'
-  | 'Products'
-  | 'Cart'
-  | 'Discount'
-  | 'Gift'
-  | 'Payment'
-  | 'Shipping'
-  | 'Store'
-  | 'Database'
-  | 'File'
-  | 'Folder'
-  | 'Document'
-  | 'Image'
-  | 'Upload'
-  | 'Download';
+export const CommonIcons = {
+  // Navigation
+  back: 'ArrowLeftIcon',
+  forward: 'ArrowRightIcon',
+  up: 'ArrowUpIcon',
+  down: 'ArrowDownIcon',
+  external: 'ExternalIcon',
+
+  // Actions
+  add: 'PlusIcon',
+  edit: 'EditIcon',
+  delete: 'DeleteIcon',
+  save: 'SaveIcon',
+  cancel: 'XIcon',
+  close: 'XIcon',
+  search: 'SearchIcon',
+  filter: 'FilterIcon',
+  sort: 'SortIcon',
+  refresh: 'RefreshIcon',
+  export: 'ExportIcon',
+  import: 'ImportIcon',
+
+  // Status
+  success: 'CheckCircleIcon',
+  error: 'XCircleIcon',
+  warning: 'AlertTriangleIcon',
+  info: 'InfoIcon',
+  help: 'QuestionCircleIcon',
+
+  // Commerce
+  order: 'OrderIcon',
+  product: 'ProductIcon',
+  cart: 'CartIcon',
+  payment: 'PaymentIcon',
+  discount: 'DiscountIcon',
+  gift: 'GiftCardIcon',
+
+  // Rewards
+  reward: 'RewardIcon',
+  star: 'StarIcon',
+  target: 'TargetIcon',
+  trophy: 'RewardIcon', // Using RewardIcon as trophy substitute
+
+  // People
+  customer: 'PersonIcon',
+  team: 'TeamIcon',
+
+  // Settings
+  settings: 'SettingsIcon',
+  config: 'SettingsIcon',
+
+  // Analytics
+  analytics: 'ChartLineIcon',
+  chart: 'ChartVerticalIcon',
+
+  // Time
+  calendar: 'CalendarIcon',
+  clock: 'ClockIcon',
+
+  // Security
+  lock: 'LockIcon',
+  shield: 'ShieldCheckMarkIcon',
+} as const;
+
+export type CommonIconName = keyof typeof CommonIcons;

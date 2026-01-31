@@ -4,12 +4,13 @@
  */
 
 import { Badge, InlineStack, Icon, Text, Box } from "@shopify/polaris";
-import { 
-  getTierStyle, 
-  formatTierName, 
-  getTierEmoji,
-  type TierStyle 
+import {
+  getTierStyle,
+  formatTierName,
+  getTierIconId,
+  type TierStyle
 } from "~/utils/tier-styles";
+import { getVectorIcon } from "~/utils/points-icon-library";
 import type { ReactNode } from "react";
 
 export interface TierBadgeProps {
@@ -19,7 +20,7 @@ export interface TierBadgeProps {
   size?: 'small' | 'medium' | 'large';
   /** Whether to show the icon */
   showIcon?: boolean;
-  /** Whether to show the emoji (for text-only contexts) */
+  /** @deprecated Icons are always used now instead of emoji */
   showEmoji?: boolean;
   /** Whether to use gradient background */
   useGradient?: boolean;
@@ -55,7 +56,7 @@ export function TierBadge({
 }: TierBadgeProps) {
   const style = getTierStyle(tierName);
   const displayName = formatTierName(tierName);
-  const emoji = getTierEmoji(tierName);
+  const tierIconId = getTierIconId(tierName);
   
   // Simple badge variant
   if (!asCard) {
@@ -71,8 +72,24 @@ export function TierBadge({
           </div>
         )}
         {showEmoji && !showIcon && (
-          <span style={{ fontSize: size === 'small' ? '14px' : '16px' }}>
-            {emoji}
+          <span style={{
+            display: 'flex',
+            alignItems: 'center',
+            width: size === 'small' ? '14px' : '16px',
+            height: size === 'small' ? '14px' : '16px',
+          }}>
+            <svg
+              width={size === 'small' ? 14 : 16}
+              height={size === 'small' ? 14 : 16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={style.color}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d={getVectorIcon(tierIconId)?.path || ""} />
+            </svg>
           </span>
         )}
         <span>{displayName}</span>

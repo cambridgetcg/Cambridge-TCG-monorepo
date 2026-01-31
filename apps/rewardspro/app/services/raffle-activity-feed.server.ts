@@ -33,7 +33,9 @@ export interface ActivityFeedItem {
   data: ActivityData;
   createdAt: Date;
   timeAgo: string;
+  /** @deprecated Use iconId instead */
   emoji: string;
+  iconId: string;
 }
 
 export type ActivityData =
@@ -62,7 +64,9 @@ export interface GrandWinnerData {
 
 export interface StreakMilestoneData {
   streakDays: number;
+  /** @deprecated Use streakIconId instead */
   streakEmoji: string;
+  streakIconId: string | null;
 }
 
 export interface EarlyBirdData {
@@ -76,29 +80,29 @@ export interface LuckyNumberData {
 }
 
 // Activity type configuration
-const ACTIVITY_CONFIG: Record<RaffleActivityType, { emoji: string; template: string }> = {
+const ACTIVITY_CONFIG: Record<RaffleActivityType, { iconId: string; template: string }> = {
   ENTRY_PURCHASED: {
-    emoji: "🎟️",
+    iconId: "ticket",
     template: "purchased {entriesCount} entries",
   },
   INSTANT_WIN: {
-    emoji: "✨",
+    iconId: "sparkle",
     template: "won {prizeName}!",
   },
   GRAND_WINNER: {
-    emoji: "🏆",
+    iconId: "trophy",
     template: "won {prizeName} in {raffleName}!",
   },
   STREAK_MILESTONE: {
-    emoji: "🔥",
+    iconId: "flame",
     template: "hit a {streakDays}-day streak!",
   },
   EARLY_BIRD: {
-    emoji: "🐦",
+    iconId: "clock",
     template: "got early bird bonus!",
   },
   LUCKY_NUMBER: {
-    emoji: "🎉",
+    iconId: "star",
     template: "hit lucky number #{luckyNumber}!",
   },
 };
@@ -250,15 +254,19 @@ export async function getActivityFeed(
     },
   });
 
-  return activities.map((activity) => ({
-    id: activity.id,
-    activityType: activity.activityType,
-    displayName: activity.displayName,
-    data: activity.data as ActivityData,
-    createdAt: activity.createdAt,
-    timeAgo: getTimeAgo(activity.createdAt),
-    emoji: ACTIVITY_CONFIG[activity.activityType].emoji,
-  }));
+  return activities.map((activity) => {
+    const activityType = activity.activityType as RaffleActivityType;
+    return {
+      id: activity.id,
+      activityType,
+      displayName: activity.displayName,
+      data: activity.data as ActivityData,
+      createdAt: activity.createdAt,
+      timeAgo: getTimeAgo(activity.createdAt),
+      emoji: "", // Deprecated
+      iconId: ACTIVITY_CONFIG[activityType].iconId,
+    };
+  });
 }
 
 /**
@@ -290,15 +298,19 @@ export async function getShopActivityFeed(
     },
   });
 
-  return activities.map((activity) => ({
-    id: activity.id,
-    activityType: activity.activityType,
-    displayName: activity.displayName,
-    data: activity.data as ActivityData,
-    createdAt: activity.createdAt,
-    timeAgo: getTimeAgo(activity.createdAt),
-    emoji: ACTIVITY_CONFIG[activity.activityType].emoji,
-  }));
+  return activities.map((activity) => {
+    const activityType = activity.activityType as RaffleActivityType;
+    return {
+      id: activity.id,
+      activityType,
+      displayName: activity.displayName,
+      data: activity.data as ActivityData,
+      createdAt: activity.createdAt,
+      timeAgo: getTimeAgo(activity.createdAt),
+      emoji: "", // Deprecated
+      iconId: ACTIVITY_CONFIG[activityType].iconId,
+    };
+  });
 }
 
 // ============================================
@@ -371,13 +383,13 @@ export async function logStreakMilestone(
   shop: string,
   customerId: string,
   streakDays: number,
-  streakEmoji: string
+  streakIconId: string | null
 ): Promise<string> {
   return logActivity(
     raffleId,
     shop,
     "STREAK_MILESTONE",
-    { streakDays, streakEmoji } as StreakMilestoneData,
+    { streakDays, streakEmoji: "", streakIconId } as StreakMilestoneData,
     customerId
   );
 }

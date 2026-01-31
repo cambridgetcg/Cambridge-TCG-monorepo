@@ -4,12 +4,12 @@
  * Tracks consecutive days of mystery box engagement.
  * Rewards customers with bonus multipliers on rewards for maintaining streaks.
  *
- * Streak Emoji Progression:
- * - Days 1-2: 📦 (box) - Building
- * - Days 3-6: ⭐ (star) - 10% bonus
- * - Days 7-13: 🔥 (fire) - 25% bonus
- * - Days 14-29: 🔥🔥 (double fire) - 50% bonus
- * - Days 30+: 💎🔥 (diamond fire) - 100% bonus
+ * Streak Icon Progression:
+ * - Days 1-2: sparkle - Building
+ * - Days 3-6: star - 10% bonus
+ * - Days 7-13: flame - 25% bonus
+ * - Days 14-29: zap - 50% bonus (Blazing)
+ * - Days 30+: gem - 100% bonus (Legendary)
  *
  * Also handles:
  * - Daily free opens for habit formation
@@ -28,7 +28,9 @@ const LOG_PREFIX = "[MysteryBoxStreak]";
 export interface MysteryBoxStreakInfo {
   currentStreak: number;
   longestStreak: number;
+  /** @deprecated Use streakIconId instead */
   streakEmoji: string;
+  streakIconId: string | null;
   streakLabel: string;
   bonusMultiplier: number; // e.g., 1.25 for 25% bonus
   bonusPercent: number; // e.g., 25 for display
@@ -66,14 +68,14 @@ export interface PityInfo {
   minimumRarity: 'COMMON' | 'UNCOMMON' | 'RARE';
 }
 
-// Streak emoji and bonus tiers
+// Streak icon and bonus tiers
 const STREAK_TIERS = [
-  { minDays: 30, emoji: "💎🔥", label: "Diamond Fire", bonusPercent: 100 },
-  { minDays: 14, emoji: "🔥🔥", label: "Double Fire", bonusPercent: 50 },
-  { minDays: 7, emoji: "🔥", label: "On Fire", bonusPercent: 25 },
-  { minDays: 3, emoji: "⭐", label: "Star Streak", bonusPercent: 10 },
-  { minDays: 1, emoji: "📦", label: "Building", bonusPercent: 0 },
-  { minDays: 0, emoji: "", label: "No Streak", bonusPercent: 0 },
+  { minDays: 30, iconId: "gem", label: "Legendary", bonusPercent: 100 },
+  { minDays: 14, iconId: "zap", label: "Blazing", bonusPercent: 50 },
+  { minDays: 7, iconId: "flame", label: "On Fire", bonusPercent: 25 },
+  { minDays: 3, iconId: "star", label: "Star Streak", bonusPercent: 10 },
+  { minDays: 1, iconId: "sparkle", label: "Building", bonusPercent: 0 },
+  { minDays: 0, iconId: null, label: "No Streak", bonusPercent: 0 },
 ];
 
 // Lucky streak bonuses (consecutive opens in session)
@@ -96,7 +98,7 @@ const LUCKY_STREAK_TIMEOUT_MS = 30 * 60 * 1000;
  * Get streak tier info for a given streak count
  */
 export function getStreakTier(streakDays: number): {
-  emoji: string;
+  iconId: string | null;
   label: string;
   bonusPercent: number;
 } {
@@ -257,7 +259,8 @@ export async function getMysteryBoxStreak(
   return {
     currentStreak: effectiveStreak,
     longestStreak: streak.longestStreak,
-    streakEmoji: tier.emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: tier.iconId,
     streakLabel: tier.label,
     bonusMultiplier: 1 + tier.bonusPercent / 100,
     bonusPercent: tier.bonusPercent,
@@ -429,7 +432,8 @@ export async function updateMysteryBoxStreak(
   const streakInfo: MysteryBoxStreakInfo = {
     currentStreak: newStreak,
     longestStreak: updatedStreak.longestStreak,
-    streakEmoji: tier.emoji,
+    streakEmoji: "", // Deprecated
+    streakIconId: tier.iconId,
     streakLabel: tier.label,
     bonusMultiplier: 1 + tier.bonusPercent / 100,
     bonusPercent: tier.bonusPercent,

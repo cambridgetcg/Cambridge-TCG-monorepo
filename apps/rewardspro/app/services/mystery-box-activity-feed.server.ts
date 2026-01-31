@@ -40,7 +40,9 @@ export interface ActivityFeedItem {
     boxName?: string;
   };
   timeAgo: string;
+  /** @deprecated Use iconId instead */
   emoji: string;
+  iconId: string;
   createdAt: Date;
 }
 
@@ -86,51 +88,68 @@ export function formatTimeAgo(date: Date): string {
 }
 
 /**
- * Get emoji for activity type
+ * Get iconId for activity type
  */
-export function getActivityEmoji(
+export function getActivityIconId(
   activityType: MysteryBoxActivityType,
   rarity?: string
 ): string {
   switch (activityType) {
     case "BOX_OPENED":
-      return "📦";
+      return "gift";
     case "RARE_WIN":
-      return "💙";
+      return "star";
     case "EPIC_WIN":
-      return "💜";
+      return "sparkle";
     case "LEGENDARY_WIN":
-      return "💎";
+      return "gem";
     case "STREAK_MILESTONE":
-      return "🔥";
+      return "flame";
     case "PITY_TRIGGERED":
-      return "🎁";
+      return "gift";
     case "LUCKY_STREAK":
-      return "✨";
+      return "zap";
     case "FREE_OPEN_CLAIMED":
-      return "🆓";
+      return "ticket";
     default:
-      return "📦";
+      return "gift";
   }
 }
 
 /**
- * Get rarity emoji
+ * @deprecated Use getActivityIconId instead
  */
-export function getRarityEmoji(rarity: string): string {
+export function getActivityEmoji(
+  activityType: MysteryBoxActivityType,
+  rarity?: string
+): string {
+  return ""; // Deprecated - use iconId
+}
+
+/**
+ * Get iconId for rarity level
+ */
+export function getRarityIconId(rarity: string): string {
   switch (rarity) {
     case "LEGENDARY":
-      return "💎";
+      return "gem";
     case "EPIC":
-      return "💜";
+      return "sparkle";
     case "RARE":
-      return "💙";
+      return "star";
     case "UNCOMMON":
-      return "💚";
+      return "circle";
     case "COMMON":
     default:
-      return "⚪";
+      return "circle";
   }
+}
+
+/**
+ * @deprecated Use getRarityIconId instead
+ */
+export function getRarityEmoji(rarity: string): string {
+  return ""; // Deprecated - use iconId
 }
 
 // ============================================
@@ -359,7 +378,8 @@ export async function getActivityFeed(params: {
         boxName: data.boxName as string | undefined,
       },
       timeAgo: formatTimeAgo(activity.createdAt),
-      emoji: getActivityEmoji(activity.activityType, rarity),
+      emoji: "", // Deprecated
+      iconId: getActivityIconId(activity.activityType, rarity),
       createdAt: activity.createdAt,
     };
   });
@@ -414,7 +434,8 @@ export async function getRecentWinners(params: {
         boxName: data.boxName as string | undefined,
       },
       timeAgo: formatTimeAgo(activity.createdAt),
-      emoji: getActivityEmoji(activity.activityType, rarity),
+      emoji: "", // Deprecated
+      iconId: getActivityIconId(activity.activityType, rarity),
       createdAt: activity.createdAt,
     };
   });

@@ -80,23 +80,30 @@ export function calculateSecondsRemaining(endsAt: Date): number {
 }
 
 /**
- * Get emoji for event type
+ * Get iconId for event type
  */
-export function getEventEmoji(eventType: MysteryBoxBonusEventType): string {
+export function getEventIconId(eventType: MysteryBoxBonusEventType): string {
   switch (eventType) {
     case "HAPPY_HOUR":
-      return "🎉";
+      return "clock";
     case "FLASH_DISCOUNT":
-      return "⚡";
+      return "zap";
     case "DOUBLE_REWARDS":
-      return "✨";
+      return "sparkle";
     case "LUCKY_HOUR":
-      return "🍀";
+      return "star";
     case "LAST_CHANCE":
-      return "⏰";
+      return "alert-circle";
     default:
-      return "🎁";
+      return "gift";
   }
+}
+
+/**
+ * @deprecated Use getEventIconId instead
+ */
+export function getEventEmoji(eventType: MysteryBoxBonusEventType): string {
+  return ""; // Deprecated
 }
 
 /**

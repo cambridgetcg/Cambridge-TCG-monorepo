@@ -120,7 +120,7 @@ const DEFAULT_CONFIG: PointsConfigData = {
   isEnabled: false,
   currencyName: "Points",
   currencyNamePlural: "Points",
-  currencyIcon: "⭐",
+  currencyIcon: "star", // Legacy field - now refers to iconId
   // Enhanced Icon System defaults - DISABLED until migration applied
   // currencyIconType: "emoji",
   // currencyIconUrl: null,
