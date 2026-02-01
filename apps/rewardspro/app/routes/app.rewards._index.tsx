@@ -604,7 +604,7 @@ export default function PointsOverview() {
                               moduleStats.challenges.activeChallenges > 0 ? (
                                 <Badge tone="success">{moduleStats.challenges.activeChallenges} Live</Badge>
                               ) : (
-                                <Badge tone="info">Coming Soon</Badge>
+                                <Badge tone="attention">No Active</Badge>
                               )
                             ) : (
                               <Badge>Disabled</Badge>
