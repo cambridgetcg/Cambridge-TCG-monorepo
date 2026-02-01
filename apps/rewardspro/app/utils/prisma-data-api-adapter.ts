@@ -753,6 +753,11 @@ export class DataAPIModelProxy<T = any> {
       // Klaviyo Integration System
       KlaviyoProfile: ['syncStatus', 'emailConsent', 'smsConsent'],
       KlaviyoEvent: ['status'],
+      // Challenge/Mission System
+      Challenge: ['status', 'objectiveType', 'cadence', 'rarity', 'category'],
+      ChallengeReward: ['rewardType'],
+      ChallengeParticipant: ['status'],
+      MissionTemplate: ['objectiveType', 'cadence', 'rarity', 'category', 'rewardType'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -1020,8 +1025,12 @@ export class DataAPIModelProxy<T = any> {
       prizeType: '"RafflePrizeType"',
       deliveryStatus: '"RafflePrizeDeliveryStatus"',
       // Mystery Box System
-      rewardType: '"MysteryBoxRewardType"',
-      rarity: '"MysteryBoxRarity"',
+      rewardType: this.getRewardTypeEnumForTable(),
+      rarity: this.getRarityEnumForTable(),
+      // Challenge/Mission System
+      objectiveType: '"ChallengeObjectiveType"',
+      cadence: '"MissionCadence"',
+      category: '"MissionCategory"',
       // Gift Card System
       bundleType: '"GiftCardBundleType"',
       // Klaviyo Integration System
@@ -1086,9 +1095,38 @@ export class DataAPIModelProxy<T = any> {
       // Klaviyo Integration System
       KlaviyoProfile: '"KlaviyoSyncStatus"',
       KlaviyoEvent: '"KlaviyoEventStatus"',
+      // Challenge/Mission System
+      Challenge: '"ChallengeStatus"',
+      ChallengeParticipant: '"ChallengeParticipantStatus"',
     };
 
     return statusEnumMap[this.tableName] || '"Status"';
+  }
+
+  /**
+   * Get the appropriate rewardType enum type based on table name
+   */
+  private getRewardTypeEnumForTable(): string {
+    const rewardTypeEnumMap: Record<string, string> = {
+      MysteryBoxReward: '"MysteryBoxRewardType"',
+      ChallengeReward: '"ChallengeRewardType"',
+      MissionTemplate: '"ChallengeRewardType"',
+    };
+
+    return rewardTypeEnumMap[this.tableName] || '"MysteryBoxRewardType"';
+  }
+
+  /**
+   * Get the appropriate rarity enum type based on table name
+   */
+  private getRarityEnumForTable(): string {
+    const rarityEnumMap: Record<string, string> = {
+      MysteryBoxReward: '"MysteryBoxRarity"',
+      Challenge: '"MissionRarity"',
+      MissionTemplate: '"MissionRarity"',
+    };
+
+    return rarityEnumMap[this.tableName] || '"MysteryBoxRarity"';
   }
 
   /**
