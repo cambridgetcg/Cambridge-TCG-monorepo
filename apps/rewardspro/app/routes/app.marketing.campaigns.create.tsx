@@ -201,13 +201,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Determine subject and content based on mode
   let subject = campaignName;
   let previewText = "";
-  let htmlContent: string | null = null;
-  let finalTemplateId: string | null = null;
+  let finalTemplateId: string;
 
   if (contentMode === "inline") {
+    // For inline mode, create an EmailTemplate first, then reference it
     subject = inlineSubject;
     previewText = inlinePreviewText || "";
-    htmlContent = inlineContent;
+
+    const inlineTemplateId = uuidv4();
+    await db.emailTemplate.create({
+      data: {
+        id: inlineTemplateId,
+        shop,
+        name: `Campaign: ${campaignName}`,
+        type: "promotional",
+        subject: inlineSubject,
+        content: {},
+        previewText: inlinePreviewText || "",
+        htmlContent: inlineContent,
+        isActive: true,
+      },
+    });
+    finalTemplateId = inlineTemplateId;
   } else if (templateId) {
     finalTemplateId = templateId;
     try {
@@ -221,6 +236,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     } catch (e) {
       // Use campaign name as subject
     }
+  } else {
+    return json({ error: "Please select a template or create inline content" }, { status: 400 });
   }
 
   try {
@@ -251,9 +268,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           name: campaignName,
           subject,
           previewText,
-          htmlContent,
           templateId: finalTemplateId,
           status,
+          segmentRules: segmentId ? { tierIds: [segmentId] } : { allCustomers: true },
           scheduledFor,
           sentAt: status === "sending" ? now : null,
           metrics: status === "sending" ? {

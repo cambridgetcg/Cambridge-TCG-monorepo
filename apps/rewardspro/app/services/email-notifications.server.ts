@@ -325,19 +325,15 @@ export async function sendCampaignEmails(
     return { sent: 0, failed: recipients.length, errors: ["Campaign not found"] };
   }
 
-  // Get template if exists
-  let htmlContent = campaign.htmlContent || "";
-  if (campaign.templateId) {
-    const template = await db.emailTemplate.findFirst({
-      where: { id: campaign.templateId, shop },
-    });
-    if (template?.htmlContent) {
-      htmlContent = template.htmlContent;
-    }
-  }
+  // Get email content from template
+  const template = await db.emailTemplate.findFirst({
+    where: { id: campaign.templateId, shop },
+  });
+
+  const htmlContent = template?.htmlContent || "";
 
   if (!htmlContent) {
-    return { sent: 0, failed: recipients.length, errors: ["No email content"] };
+    return { sent: 0, failed: recipients.length, errors: ["No email content - template not found or has no content"] };
   }
 
   // Filter recipients with valid emails
