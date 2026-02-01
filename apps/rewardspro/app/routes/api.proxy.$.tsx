@@ -479,44 +479,62 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       try {
         const currentTierMinSpend = row.tier_minSpend ? Number(row.tier_minSpend) : 0;
 
-        // Fetch tier products for tiers higher than current
-        const tierProducts = await db.tierProduct.findMany({
+        // DATA API COMPATIBLE: Two-step query (nested relation filtering not supported)
+        // Step 1: Find tiers higher than current tier
+        const higherTiers = await db.tier.findMany({
           where: {
             shop,
-            deletedAt: null, // Only active products
             isActive: true,
-            tier: {
-              minSpend: { gt: currentTierMinSpend }, // Higher tier only
-              isActive: true,
-            },
+            minSpend: { gt: currentTierMinSpend },
+          },
+          select: {
+            id: true,
+            name: true,
+            cashbackPercent: true,
+            minSpend: true,
+          },
+          orderBy: { minSpend: 'asc' },
+          take: 3,
+        });
+
+        // Step 2: Find tier products for those tiers
+        const higherTierIds = higherTiers.map(t => t.id);
+        const tierProducts = higherTierIds.length > 0 ? await db.tierProduct.findMany({
+          where: {
+            shop,
+            deletedAt: null,
+            isActive: true,
+            tierId: { in: higherTierIds },
           },
           select: {
             productHandle: true,
             duration: true,
             price: true,
             currency: true,
-            tier: {
-              select: {
-                name: true,
-                cashbackPercent: true,
-                minSpend: true,
-              },
-            },
+            tierId: true,
           },
-          orderBy: {
-            tier: { minSpend: 'asc' },
-          },
-          take: 3, // Limit to 3 upgrade options
-        });
+        }) : [];
 
-        upgradeOptions = tierProducts.map(tp => ({
-          tierName: tp.tier.name,
-          tierCashback: tp.tier.cashbackPercent,
-          productHandle: tp.productHandle,
-          duration: tp.duration || 'MONTHLY',
-          price: Number(tp.price),
-          currency: tp.currency,
-        }));
+        // Step 3: Join tier data in memory
+        const tierMap = new Map(higherTiers.map(t => [t.id, t]));
+        upgradeOptions = tierProducts
+          .map(tp => {
+            const tier = tierMap.get(tp.tierId);
+            if (!tier) return null;
+            return {
+              tierName: tier.name,
+              tierCashback: tier.cashbackPercent,
+              productHandle: tp.productHandle,
+              duration: tp.duration || 'MONTHLY',
+              price: Number(tp.price),
+              currency: tp.currency,
+              minSpend: tier.minSpend, // For sorting
+            };
+          })
+          .filter((opt): opt is NonNullable<typeof opt> => opt !== null)
+          .sort((a, b) => Number(a.minSpend) - Number(b.minSpend))
+          .slice(0, 3)
+          .map(({ minSpend, ...rest }) => rest); // Remove minSpend from final output
 
         log.debug('=== UPGRADE OPTIONS ===', {
           currentTierMinSpend,
