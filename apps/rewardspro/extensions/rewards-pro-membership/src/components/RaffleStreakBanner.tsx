@@ -4,7 +4,6 @@ import {
   Text,
   View,
   Button,
-  ProgressBar,
 } from '@shopify/ui-extensions-react/customer-account';
 
 // ============================================
@@ -78,14 +77,27 @@ export function RaffleStreakBanner({
           )}
         </InlineStack>
 
-        {/* Progress Bar */}
+        {/* Progress Bar (custom - ProgressBar not available in customer-account extensions) */}
         {hasStreak && streak.currentStreak < 30 && (
-          <View>
-            <ProgressBar progress={progress} size="small" />
+          <BlockStack spacing="tight">
+            <View
+              border="base"
+              cornerRadius="fullyRounded"
+              background="subdued"
+              minBlockSize="fill"
+            >
+              <View
+                cornerRadius="fullyRounded"
+                background="interactive"
+                inlineSize={`${Math.min(100, Math.max(0, progress))}%`}
+                minBlockSize="fill"
+                padding="tight"
+              />
+            </View>
             <Text size="small" appearance="subdued">
               {nextTier - streak.currentStreak} {translate('raffles.daysToNextTier')}
             </Text>
-          </View>
+          </BlockStack>
         )}
 
         {/* Streak Loss Warning */}
