@@ -39,6 +39,7 @@ import {
   ClockIcon,
   ChatIcon,
   LayoutColumns2Icon,
+  MagicIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
@@ -48,6 +49,9 @@ import { SortableBlockList } from "~/components/EmailEditor";
 import type { ContentBlock, TemplateStyles } from "~/components/EmailEditor/types";
 import { BrandKitPanel, type BrandKit } from "~/components/BrandKit";
 import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
+import { ColorPickerFieldInline } from "~/components/ColorPickerField";
+import { TextFieldWithVariables } from "~/components/TextFieldWithVariables";
+import { AIAssistantPanel } from "~/components/AIEmailAssistant";
 
 // ============================================
 // TYPES
@@ -641,6 +645,32 @@ ${contentHtml}
     setStyles((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  // Apply AI-generated content to the editor
+  const handleAIApplyContent = useCallback((content: string) => {
+    // If a block is selected and it's a text block, update it
+    if (selectedBlockId) {
+      const block = blocks.find((b) => b.id === selectedBlockId);
+      if (block && block.type === "text") {
+        const newBlocks = blocks.map((b) =>
+          b.id === selectedBlockId ? { ...b, content: { ...b.content, text: content } } : b
+        );
+        setBlocks(newBlocks);
+        saveToHistory(newBlocks);
+        return;
+      }
+    }
+    // Otherwise, add as a new text block
+    const newBlock: ContentBlock = {
+      id: uuidv4(),
+      type: "text",
+      content: { text: content },
+    };
+    const newBlocks = [...blocks, newBlock];
+    setBlocks(newBlocks);
+    setSelectedBlockId(newBlock.id);
+    saveToHistory(newBlocks);
+  }, [selectedBlockId, blocks, saveToHistory]);
+
   const handleDelete = useCallback(() => {
     const formData = new FormData();
     formData.append("_action", "delete");
@@ -649,9 +679,13 @@ ${contentHtml}
 
   const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
 
+  // Get selected block content for AI enhancement
+  const selectedBlockContent = selectedBlock?.type === "text" ? selectedBlock.content.text : undefined;
+
   const tabs = [
     { id: "content", content: "Content", accessibilityLabel: "Content blocks" },
     { id: "styles", content: "Styles", accessibilityLabel: "Template styles" },
+    { id: "ai", content: "AI", accessibilityLabel: "AI Assistant" },
   ];
 
   return (
@@ -813,6 +847,18 @@ ${contentHtml}
                     onApplyBrandKit={applyBrandKit}
                     onStyleChange={updateStyle}
                     brandKitEnabled={loaderData.brandKitEnabled}
+                  />
+                )}
+
+                {activeTab === 2 && (
+                  <AIAssistantPanel
+                    templateType={type}
+                    shopName={loaderData.shop.replace(".myshopify.com", "")}
+                    currentSubject={subject}
+                    previewText={previewText}
+                    selectedBlockContent={selectedBlockContent}
+                    onApplyContent={handleAIApplyContent}
+                    onUpdateSubject={setSubject}
                   />
                 )}
               </BlockStack>
@@ -1392,22 +1438,22 @@ function BlockSettings({
   switch (block.type) {
     case "text":
       return (
-        <TextField
+        <TextFieldWithVariables
           label="Text Content"
           value={block.content.text || ""}
           onChange={(v) => onUpdate({ text: v })}
           multiline={4}
-          autoComplete="off"
+          placeholder="Enter your text here. Use {{variables}} for personalization."
         />
       );
     case "button":
       return (
         <BlockStack gap="200">
-          <TextField
+          <TextFieldWithVariables
             label="Button Text"
             value={block.content.text || ""}
             onChange={(v) => onUpdate({ text: v })}
-            autoComplete="off"
+            placeholder="e.g., Shop Now"
           />
           <TextField
             label="Button URL"
@@ -1428,22 +1474,21 @@ function BlockSettings({
             autoComplete="off"
             placeholder="https://..."
           />
-          <TextField
+          <TextFieldWithVariables
             label="Alt Text"
             value={block.content.alt || ""}
             onChange={(v) => onUpdate({ alt: v })}
-            autoComplete="off"
+            placeholder="Describe the image for accessibility"
           />
         </BlockStack>
       );
     case "divider":
       return (
         <BlockStack gap="200">
-          <TextField
+          <ColorPickerFieldInline
             label="Color"
-            value={block.content.color || "#dddddd"}
+            color={block.content.color || "#dddddd"}
             onChange={(v) => onUpdate({ color: v })}
-            autoComplete="off"
           />
           <TextField
             label="Thickness (px)"
@@ -1485,23 +1530,23 @@ function BlockSettings({
             autoComplete="off"
             placeholder="https://..."
           />
-          <TextField
+          <TextFieldWithVariables
             label="Heading"
             value={block.content.headingText || ""}
             onChange={(v) => onUpdate({ headingText: v })}
-            autoComplete="off"
+            placeholder="e.g., Welcome, {{customer_name}}!"
           />
-          <TextField
+          <TextFieldWithVariables
             label="Subheading"
             value={block.content.subheadingText || ""}
             onChange={(v) => onUpdate({ subheadingText: v })}
-            autoComplete="off"
+            placeholder="Optional subheading text"
           />
-          <TextField
+          <TextFieldWithVariables
             label="Button Text"
             value={block.content.buttonText || ""}
             onChange={(v) => onUpdate({ buttonText: v })}
-            autoComplete="off"
+            placeholder="e.g., Shop Now"
           />
           <TextField
             label="Button URL"
@@ -1532,25 +1577,24 @@ function BlockSettings({
     case "testimonial":
       return (
         <BlockStack gap="200">
-          <TextField
+          <TextFieldWithVariables
             label="Quote"
             value={block.content.quote || ""}
             onChange={(v) => onUpdate({ quote: v })}
             multiline={3}
-            autoComplete="off"
+            placeholder="Customer testimonial goes here..."
           />
-          <TextField
+          <TextFieldWithVariables
             label="Author Name"
             value={block.content.author || ""}
             onChange={(v) => onUpdate({ author: v })}
-            autoComplete="off"
+            placeholder="e.g., {{customer_name}}"
           />
-          <TextField
+          <TextFieldWithVariables
             label="Author Title"
             value={block.content.authorTitle || ""}
             onChange={(v) => onUpdate({ authorTitle: v })}
-            autoComplete="off"
-            placeholder="e.g., Verified Buyer"
+            placeholder="e.g., {{tier_name}} Member"
           />
           <Select
             label="Rating"
@@ -1588,31 +1632,27 @@ function BlockSettings({
             type="datetime-local"
             helpText="When the countdown should end"
           />
-          <TextField
+          <TextFieldWithVariables
             label="Label"
             value={block.content.label || ""}
             onChange={(v) => onUpdate({ label: v })}
-            autoComplete="off"
             placeholder="e.g., Sale ends in"
           />
-          <TextField
+          <TextFieldWithVariables
             label="Expired Message"
             value={block.content.expiredMessage || ""}
             onChange={(v) => onUpdate({ expiredMessage: v })}
-            autoComplete="off"
             placeholder="e.g., Sale has ended"
           />
-          <TextField
+          <ColorPickerFieldInline
             label="Background Color"
-            value={block.content.backgroundColor || "#000000"}
+            color={block.content.backgroundColor || "#000000"}
             onChange={(v) => onUpdate({ backgroundColor: v })}
-            autoComplete="off"
           />
-          <TextField
+          <ColorPickerFieldInline
             label="Text Color"
-            value={block.content.textColor || "#ffffff"}
+            color={block.content.textColor || "#ffffff"}
             onChange={(v) => onUpdate({ textColor: v })}
-            autoComplete="off"
           />
         </BlockStack>
       );
@@ -1662,11 +1702,11 @@ function BlockSettings({
     case "product":
       return (
         <BlockStack gap="200">
-          <TextField
+          <TextFieldWithVariables
             label="Product Title"
             value={block.content.title || ""}
             onChange={(v) => onUpdate({ title: v })}
-            autoComplete="off"
+            placeholder="Product name"
           />
           <TextField
             label="Product Image URL"
@@ -1682,11 +1722,11 @@ function BlockSettings({
             autoComplete="off"
             placeholder="e.g., $29.99"
           />
-          <TextField
+          <TextFieldWithVariables
             label="Button Text"
             value={block.content.buttonText || "Shop Now"}
             onChange={(v) => onUpdate({ buttonText: v })}
-            autoComplete="off"
+            placeholder="e.g., Shop Now"
           />
         </BlockStack>
       );

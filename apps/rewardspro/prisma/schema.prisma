@@ -4641,6 +4641,33 @@ model AIInnovationTracker {
 }
 
 // ============================================
+// AI EMAIL ASSISTANT USAGE TRACKING
+// ============================================
+
+model AIUsage {
+  id String @id @default(uuid())
+
+  shop String // Shop domain
+  date DateTime @default(now()) @db.Date // Usage date
+
+  // Request counts by action type
+  generateRequests   Int @default(0) // Content generation requests
+  enhanceRequests    Int @default(0) // Content enhancement requests
+  subjectRequests    Int @default(0) // Subject line generation requests
+
+  // Token usage for cost tracking
+  totalTokensInput  Int @default(0) // Input tokens consumed
+  totalTokensOutput Int @default(0) // Output tokens generated
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shop, date]) // One record per shop per day
+  @@index([shop])
+  @@index([date])
+}
+
+// ============================================
 // INTEGRATION ENUMS
 // ============================================
 
