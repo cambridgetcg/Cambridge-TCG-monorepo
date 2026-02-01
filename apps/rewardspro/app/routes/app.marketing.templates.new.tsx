@@ -1,6 +1,10 @@
 import { json, LoaderFunctionArgs, ActionFunctionArgs, redirect } from "@remix-run/node";
-import { useNavigate, useActionData, useSubmit } from "@remix-run/react";
+import { useNavigate, useActionData, useSubmit, useLoaderData } from "@remix-run/react";
 import { useState, useCallback } from "react";
+import { SortableBlockList } from "~/components/EmailEditor";
+import type { ContentBlock, TemplateStyles } from "~/components/EmailEditor/types";
+import { BrandKitPanel, type BrandKit } from "~/components/BrandKit";
+import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
 import {
   Page,
   Layout,
@@ -42,6 +46,10 @@ import {
   EmailIcon,
   CheckIcon,
   QuestionCircleIcon,
+  ClockIcon,
+  ChatIcon,
+  LayoutColumns2Icon,
+  StarIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
@@ -49,24 +57,7 @@ import { v4 as uuidv4 } from "uuid";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
-// ============================================
-// TYPES
-// ============================================
-
-interface ContentBlock {
-  id: string;
-  type: "text" | "image" | "button" | "divider" | "spacer" | "html" | "product" | "social";
-  content: Record<string, any>;
-}
-
-interface TemplateStyles {
-  backgroundColor: string;
-  contentWidth: string;
-  fontFamily: string;
-  primaryColor: string;
-  textColor: string;
-  linkColor: string;
-}
+// Types imported from ~/components/EmailEditor/types
 
 // ============================================
 // LOADER
@@ -81,7 +72,51 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const guardRedirect = await guardInHouseRoute(session.shop);
   if (guardRedirect) return guardRedirect;
 
-  return json({ shop: session.shop });
+  // Load brand kit settings from ShopSettings
+  const shopSettings = await db.shopSettings.findUnique({
+    where: { shop: session.shop },
+    select: {
+      brandKitEnabled: true,
+      emailPrimaryColor: true,
+      emailSecondaryColor: true,
+      emailBackgroundColor: true,
+      emailContentBgColor: true,
+      emailLinkColor: true,
+      emailFontFamily: true,
+      emailLogo: true,
+    },
+  });
+
+  const brandKit: BrandKit | null = shopSettings?.brandKitEnabled
+    ? {
+        primaryColor: shopSettings.emailPrimaryColor || "#000000",
+        secondaryColor: shopSettings.emailSecondaryColor || "#666666",
+        backgroundColor: shopSettings.emailBackgroundColor || "#f4f4f4",
+        contentBgColor: shopSettings.emailContentBgColor || "#ffffff",
+        textColor: "#333333",
+        linkColor: shopSettings.emailLinkColor || "#0066cc",
+        fontFamily: shopSettings.emailFontFamily || "Arial, sans-serif",
+        logoUrl: shopSettings.emailLogo || undefined,
+      }
+    : null;
+
+  return json({
+    shop: session.shop,
+    brandKit,
+    brandKitEnabled: shopSettings?.brandKitEnabled || false,
+  });
+};
+
+// Re-export BrandKit type for use in loader
+type BrandKit = {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  contentBgColor: string;
+  textColor: string;
+  linkColor: string;
+  fontFamily: string;
+  logoUrl?: string;
 };
 
 // ============================================
@@ -182,6 +217,12 @@ const BLOCK_TYPES = [
   { id: "divider", label: "Divider", icon: MinusIcon, description: "Add a divider line" },
   { id: "spacer", label: "Spacer", icon: HashtagIcon, description: "Add vertical space" },
   { id: "html", label: "HTML", icon: CodeIcon, description: "Add custom HTML" },
+  { id: "hero", label: "Hero", icon: ImageIcon, description: "Full-width hero image with text" },
+  { id: "testimonial", label: "Testimonial", icon: ChatIcon, description: "Customer quote with rating" },
+  { id: "countdown", label: "Countdown", icon: ClockIcon, description: "Countdown timer display" },
+  { id: "social", label: "Social", icon: LinkIcon, description: "Social media icons" },
+  { id: "product", label: "Product", icon: ProductIcon, description: "Product display block" },
+  { id: "columns", label: "Columns", icon: LayoutColumns2Icon, description: "Two-column layout" },
 ];
 
 // Template types with merchant-friendly descriptions
@@ -341,6 +382,7 @@ const PERSONALIZATION_VARIABLES = [
 export default function CreateEmailTemplate() {
   const navigate = useNavigate();
   const actionData = useActionData<typeof action>();
+  const loaderData = useLoaderData<typeof loader>();
   const submit = useSubmit();
 
   // Step tracking for guided experience
@@ -376,6 +418,29 @@ export default function CreateEmailTemplate() {
   // History for undo/redo
   const [history, setHistory] = useState<ContentBlock[][]>([blocks]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Autosave
+  const {
+    hasDraft,
+    draftSavedAt,
+    recoverDraft,
+    dismissDraft,
+    clearDraft,
+  } = useAutosave(
+    { name, type, subject, previewText, blocks, styles },
+    {
+      templateKey: "new",
+      onRecover: (draft) => {
+        setName(draft.name);
+        setType(draft.type);
+        setSubject(draft.subject);
+        setPreviewText(draft.previewText);
+        setBlocks(draft.blocks);
+        setStyles(draft.styles as TemplateStyles);
+        setCurrentStep("customize");
+      },
+    }
+  );
 
   // Select a starter template
   const selectStarterTemplate = useCallback((templateId: string) => {
@@ -438,6 +503,27 @@ export default function CreateEmailTemplate() {
     const swapIndex = direction === "up" ? index - 1 : index + 1;
     [newBlocks[index], newBlocks[swapIndex]] = [newBlocks[swapIndex], newBlocks[index]];
     setBlocks(newBlocks);
+    saveToHistory(newBlocks);
+  }, [blocks, saveToHistory]);
+
+  const reorderBlocks = useCallback((newBlocks: ContentBlock[]) => {
+    setBlocks(newBlocks);
+    saveToHistory(newBlocks);
+  }, [saveToHistory]);
+
+  const duplicateBlock = useCallback((blockId: string) => {
+    const blockIndex = blocks.findIndex((b) => b.id === blockId);
+    if (blockIndex === -1) return;
+    const block = blocks[blockIndex];
+    const newBlock: ContentBlock = {
+      id: uuidv4(),
+      type: block.type,
+      content: { ...block.content },
+    };
+    const newBlocks = [...blocks];
+    newBlocks.splice(blockIndex + 1, 0, newBlock);
+    setBlocks(newBlocks);
+    setSelectedBlockId(newBlock.id);
     saveToHistory(newBlocks);
   }, [blocks, saveToHistory]);
 
@@ -511,6 +597,9 @@ ${contentHtml}
   const handleSubmit = useCallback(() => {
     if (!validateForm()) return;
 
+    // Clear autosave draft on submit (redirect will happen on success)
+    clearDraft();
+
     const formData = new FormData();
     formData.append("name", name);
     formData.append("type", type);
@@ -520,12 +609,29 @@ ${contentHtml}
     // Include block-based content structure (required by schema)
     formData.append("content", JSON.stringify({ blocks, styles }));
     submit(formData, { method: "post" });
-  }, [name, type, subject, previewText, generateHtml, blocks, styles, submit, validateForm]);
+  }, [name, type, subject, previewText, generateHtml, blocks, styles, submit, validateForm, clearDraft]);
 
   // Insert variable at cursor position (for text fields)
   const insertVariable = useCallback((variable: string) => {
     // Copy to clipboard for easy pasting
     navigator.clipboard.writeText(variable);
+  }, []);
+
+  // Apply brand kit to current styles
+  const applyBrandKit = useCallback((brandKit: BrandKit) => {
+    setStyles({
+      ...styles,
+      primaryColor: brandKit.primaryColor,
+      backgroundColor: brandKit.backgroundColor,
+      textColor: brandKit.textColor,
+      linkColor: brandKit.linkColor,
+      fontFamily: brandKit.fontFamily,
+    });
+  }, [styles]);
+
+  // Update a single style property
+  const updateStyle = useCallback((key: string, value: string) => {
+    setStyles((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   // Get current template type info
@@ -656,6 +762,22 @@ ${contentHtml}
           <Layout.Section>
             <Banner tone="critical" title="Error">
               <p>{actionData.error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        {hasDraft && (
+          <Layout.Section>
+            <Banner
+              title="Unsaved draft found"
+              tone="warning"
+              action={{ content: "Recover draft", onAction: recoverDraft }}
+              secondaryAction={{ content: "Dismiss", onAction: dismissDraft }}
+            >
+              <p>
+                You have an unsaved draft from {draftSavedAt ? formatRelativeTime(draftSavedAt) : "earlier"}.
+                Would you like to recover it?
+              </p>
             </Banner>
           </Layout.Section>
         )}
@@ -838,40 +960,13 @@ ${contentHtml}
                 )}
 
                 {activeTab === 1 && (
-                  <BlockStack gap="200">
-                    <Text as="h3" variant="headingSm">Design</Text>
-                    <TextField
-                      label="Background Color"
-                      value={styles.backgroundColor}
-                      onChange={(v) => setStyles({ ...styles, backgroundColor: v })}
-                      autoComplete="off"
-                      helpText="Hex color (e.g., #f4f4f4)"
-                    />
-                    <TextField
-                      label="Button Color"
-                      value={styles.primaryColor}
-                      onChange={(v) => setStyles({ ...styles, primaryColor: v })}
-                      autoComplete="off"
-                      helpText="Color for buttons and links"
-                    />
-                    <TextField
-                      label="Text Color"
-                      value={styles.textColor}
-                      onChange={(v) => setStyles({ ...styles, textColor: v })}
-                      autoComplete="off"
-                    />
-                    <Select
-                      label="Font"
-                      options={[
-                        { label: "Arial", value: "Arial, sans-serif" },
-                        { label: "Helvetica", value: "Helvetica, sans-serif" },
-                        { label: "Georgia", value: "Georgia, serif" },
-                        { label: "Verdana", value: "Verdana, sans-serif" },
-                      ]}
-                      value={styles.fontFamily}
-                      onChange={(v) => setStyles({ ...styles, fontFamily: v })}
-                    />
-                  </BlockStack>
+                  <BrandKitPanel
+                    brandKit={loaderData.brandKit}
+                    currentStyles={styles}
+                    onApplyBrandKit={applyBrandKit}
+                    onStyleChange={updateStyle}
+                    brandKitEnabled={loaderData.brandKitEnabled}
+                  />
                 )}
               </BlockStack>
             </Card>
@@ -950,78 +1045,18 @@ ${contentHtml}
                         </BlockStack>
                       </Box>
                     ) : (
-                      <BlockStack gap="0">
-                        {blocks.map((block, index) => (
-                          <div
-                            key={block.id}
-                            onClick={() => setSelectedBlockId(block.id)}
-                            style={{
-                              cursor: "pointer",
-                              outline: selectedBlockId === block.id ? "2px solid #2563eb" : "1px dashed transparent",
-                              outlineOffset: "2px",
-                              borderRadius: "4px",
-                              padding: "4px",
-                              position: "relative",
-                              transition: "outline 0.15s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (selectedBlockId !== block.id) {
-                                e.currentTarget.style.outline = "1px dashed #cbd5e1";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (selectedBlockId !== block.id) {
-                                e.currentTarget.style.outline = "1px dashed transparent";
-                              }
-                            }}
-                          >
-                            {selectedBlockId === block.id && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: "-28px",
-                                  right: "0",
-                                  display: "flex",
-                                  gap: "2px",
-                                  backgroundColor: "#2563eb",
-                                  borderRadius: "4px",
-                                  padding: "2px",
-                                  zIndex: 10,
-                                }}
-                              >
-                                <div onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    size="micro"
-                                    icon={ChevronUpIcon}
-                                    onClick={() => moveBlock(block.id, "up")}
-                                    disabled={index === 0}
-                                    accessibilityLabel="Move up"
-                                  />
-                                </div>
-                                <div onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    size="micro"
-                                    icon={ChevronDownIcon}
-                                    onClick={() => moveBlock(block.id, "down")}
-                                    disabled={index === blocks.length - 1}
-                                    accessibilityLabel="Move down"
-                                  />
-                                </div>
-                                <div onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    size="micro"
-                                    icon={DeleteIcon}
-                                    tone="critical"
-                                    onClick={() => removeBlock(block.id)}
-                                    accessibilityLabel="Delete"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                            <BlockPreview block={block} styles={styles} />
-                          </div>
-                        ))}
-                      </BlockStack>
+                      <div style={{ paddingLeft: "40px" }}>
+                        <SortableBlockList
+                          blocks={blocks}
+                          selectedBlockId={selectedBlockId}
+                          styles={styles}
+                          onBlocksReorder={reorderBlocks}
+                          onBlockSelect={setSelectedBlockId}
+                          onBlockUpdate={updateBlock}
+                          onBlockDelete={removeBlock}
+                          onBlockDuplicate={duplicateBlock}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1099,6 +1134,58 @@ function getDefaultContent(blockType: string): Record<string, any> {
       return { height: 20 };
     case "html":
       return { html: "" };
+    case "hero":
+      return {
+        imageUrl: "",
+        overlayOpacity: 50,
+        overlayColor: "#000000",
+        headingText: "Your Heading Here",
+        subheadingText: "",
+        buttonText: "Learn More",
+        buttonUrl: "#",
+        height: "medium",
+      };
+    case "testimonial":
+      return {
+        quote: "This product exceeded my expectations!",
+        author: "Happy Customer",
+        authorTitle: "Verified Buyer",
+        rating: 5,
+        style: "card",
+      };
+    case "countdown":
+      return {
+        targetDate: "",
+        label: "Sale ends in",
+        expiredMessage: "Sale has ended",
+        backgroundColor: "#000000",
+        textColor: "#ffffff",
+      };
+    case "social":
+      return {
+        links: [],
+        iconSize: "medium",
+        alignment: "center",
+      };
+    case "product":
+      return {
+        productId: "",
+        variantId: "",
+        title: "Select a product",
+        imageUrl: null,
+        price: "",
+        showImage: true,
+        showPrice: true,
+        buttonText: "Shop Now",
+      };
+    case "columns":
+      return {
+        leftColumn: [],
+        rightColumn: [],
+        columnRatio: "50-50",
+        gap: 20,
+        stackOnMobile: true,
+      };
     default:
       return {};
   }
@@ -1171,8 +1258,261 @@ function BlockPreview({ block, styles }: { block: ContentBlock; styles: Template
           </Text>
         </Box>
       );
+    case "hero": {
+      const heights = { small: "150px", medium: "200px", large: "280px" };
+      return (
+        <div
+          style={{
+            position: "relative",
+            height: heights[block.content.height as keyof typeof heights] || "200px",
+            backgroundImage: block.content.imageUrl ? `url(${block.content.imageUrl})` : undefined,
+            backgroundColor: block.content.imageUrl ? undefined : "#e5e7eb",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            borderRadius: "8px",
+            overflow: "hidden",
+            marginBottom: "16px",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundColor: block.content.overlayColor || "#000",
+              opacity: (block.content.overlayOpacity || 50) / 100,
+            }}
+          />
+          <div
+            style={{
+              position: "relative",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "24px",
+              textAlign: "center",
+              color: "#fff",
+            }}
+          >
+            <h2 style={{ margin: "0 0 8px", fontSize: "24px", fontWeight: 700 }}>
+              {block.content.headingText || "Your Heading"}
+            </h2>
+            {block.content.subheadingText && (
+              <p style={{ margin: "0 0 16px", fontSize: "14px", opacity: 0.9 }}>
+                {block.content.subheadingText}
+              </p>
+            )}
+            {block.content.buttonText && (
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "10px 20px",
+                  backgroundColor: styles.primaryColor || "#fff",
+                  color: "#000",
+                  borderRadius: "6px",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                }}
+              >
+                {block.content.buttonText}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+    case "testimonial": {
+      const stars = block.content.rating ? "★".repeat(block.content.rating) + "☆".repeat(5 - block.content.rating) : "";
+      return (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: block.content.style === "card" ? "#f9fafb" : "transparent",
+            border: block.content.style === "bordered" ? "1px solid #e5e7eb" : "none",
+            borderRadius: "8px",
+            marginBottom: "16px",
+          }}
+        >
+          {stars && (
+            <div style={{ color: "#f59e0b", marginBottom: "8px" }}>{stars}</div>
+          )}
+          <blockquote
+            style={{
+              margin: 0,
+              fontSize: "16px",
+              fontStyle: "italic",
+              color: styles.textColor,
+              marginBottom: "12px",
+            }}
+          >
+            "{block.content.quote || "Customer testimonial goes here..."}"
+          </blockquote>
+          <div style={{ fontWeight: 600 }}>{block.content.author || "Customer Name"}</div>
+          {block.content.authorTitle && (
+            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+              {block.content.authorTitle}
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "countdown":
+      return (
+        <div
+          style={{
+            padding: "20px",
+            backgroundColor: block.content.backgroundColor || "#000",
+            color: block.content.textColor || "#fff",
+            textAlign: "center",
+            borderRadius: "8px",
+            marginBottom: "16px",
+          }}
+        >
+          <div style={{ fontSize: "14px", marginBottom: "8px" }}>
+            {block.content.label || "Sale ends in"}
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: "16px" }}>
+            {["Days", "Hours", "Min", "Sec"].map((unit) => (
+              <div key={unit} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "24px", fontWeight: 700 }}>00</div>
+                <div style={{ fontSize: "11px", opacity: 0.8 }}>{unit}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    case "social": {
+      const platforms = block.content.links || [];
+      return (
+        <div
+          style={{
+            padding: "16px",
+            textAlign: block.content.alignment || "center",
+            marginBottom: "16px",
+          }}
+        >
+          {platforms.length === 0 ? (
+            <Text as="p" tone="subdued">Add social links in settings</Text>
+          ) : (
+            <div style={{ display: "inline-flex", gap: "12px" }}>
+              {platforms.map((link: { platform: string; url: string }, i: number) => (
+                <div
+                  key={i}
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    backgroundColor: "#6b7280",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {link.platform.charAt(0).toUpperCase()}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "product":
+      return (
+        <div
+          style={{
+            padding: "16px",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            display: "flex",
+            gap: "16px",
+            alignItems: "center",
+            marginBottom: "16px",
+          }}
+        >
+          {block.content.showImage !== false && (
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                background: block.content.imageUrl ? `url(${block.content.imageUrl}) center/cover` : "#f3f4f6",
+                borderRadius: "4px",
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, marginBottom: "4px" }}>
+              {block.content.title || "Product Name"}
+            </div>
+            {block.content.showPrice !== false && block.content.price && (
+              <div style={{ color: styles.primaryColor, fontWeight: 500 }}>
+                {block.content.price}
+              </div>
+            )}
+            <div
+              style={{
+                display: "inline-block",
+                marginTop: "8px",
+                padding: "6px 12px",
+                backgroundColor: styles.primaryColor || "#000",
+                color: "#fff",
+                borderRadius: "4px",
+                fontSize: "13px",
+              }}
+            >
+              {block.content.buttonText || "Shop Now"}
+            </div>
+          </div>
+        </div>
+      );
+    case "columns":
+      return (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: block.content.columnRatio === "33-67" ? "1fr 2fr" : block.content.columnRatio === "67-33" ? "2fr 1fr" : "1fr 1fr",
+            gap: `${block.content.gap || 20}px`,
+            marginBottom: "16px",
+          }}
+        >
+          <div
+            style={{
+              background: "#f9fafb",
+              padding: "20px",
+              borderRadius: "4px",
+              minHeight: "60px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#9ca3af",
+              fontSize: "13px",
+            }}
+          >
+            Left Column
+          </div>
+          <div
+            style={{
+              background: "#f9fafb",
+              padding: "20px",
+              borderRadius: "4px",
+              minHeight: "60px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#9ca3af",
+              fontSize: "13px",
+            }}
+          >
+            Right Column
+          </div>
+        </div>
+      );
     default:
-      return <Text as="p" tone="subdued">Unknown block</Text>;
+      return <Text as="p" tone="subdued">Unknown block type: {block.type}</Text>;
   }
 }
 
@@ -1268,6 +1608,247 @@ function BlockSettings({
           autoComplete="off"
           monospaced
         />
+      );
+    case "hero":
+      return (
+        <BlockStack gap="200">
+          <TextField
+            label="Image URL"
+            value={block.content.imageUrl || ""}
+            onChange={(v) => onUpdate({ imageUrl: v })}
+            autoComplete="off"
+            placeholder="https://..."
+          />
+          <TextField
+            label="Heading"
+            value={block.content.headingText || ""}
+            onChange={(v) => onUpdate({ headingText: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Subheading"
+            value={block.content.subheadingText || ""}
+            onChange={(v) => onUpdate({ subheadingText: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Button Text"
+            value={block.content.buttonText || ""}
+            onChange={(v) => onUpdate({ buttonText: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Button URL"
+            value={block.content.buttonUrl || ""}
+            onChange={(v) => onUpdate({ buttonUrl: v })}
+            autoComplete="off"
+            placeholder="https://..."
+          />
+          <Select
+            label="Height"
+            options={[
+              { label: "Small", value: "small" },
+              { label: "Medium", value: "medium" },
+              { label: "Large", value: "large" },
+            ]}
+            value={block.content.height || "medium"}
+            onChange={(v) => onUpdate({ height: v })}
+          />
+          <TextField
+            label="Overlay Opacity (%)"
+            value={String(block.content.overlayOpacity || 50)}
+            onChange={(v) => onUpdate({ overlayOpacity: parseInt(v) || 50 })}
+            autoComplete="off"
+            type="number"
+          />
+        </BlockStack>
+      );
+    case "testimonial":
+      return (
+        <BlockStack gap="200">
+          <TextField
+            label="Quote"
+            value={block.content.quote || ""}
+            onChange={(v) => onUpdate({ quote: v })}
+            multiline={3}
+            autoComplete="off"
+          />
+          <TextField
+            label="Author Name"
+            value={block.content.author || ""}
+            onChange={(v) => onUpdate({ author: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Author Title"
+            value={block.content.authorTitle || ""}
+            onChange={(v) => onUpdate({ authorTitle: v })}
+            autoComplete="off"
+            placeholder="e.g., Verified Buyer"
+          />
+          <Select
+            label="Rating"
+            options={[
+              { label: "No rating", value: "0" },
+              { label: "1 star", value: "1" },
+              { label: "2 stars", value: "2" },
+              { label: "3 stars", value: "3" },
+              { label: "4 stars", value: "4" },
+              { label: "5 stars", value: "5" },
+            ]}
+            value={String(block.content.rating || 5)}
+            onChange={(v) => onUpdate({ rating: parseInt(v) })}
+          />
+          <Select
+            label="Style"
+            options={[
+              { label: "Simple", value: "simple" },
+              { label: "Card", value: "card" },
+              { label: "Bordered", value: "bordered" },
+            ]}
+            value={block.content.style || "card"}
+            onChange={(v) => onUpdate({ style: v })}
+          />
+        </BlockStack>
+      );
+    case "countdown":
+      return (
+        <BlockStack gap="200">
+          <TextField
+            label="Target Date"
+            value={block.content.targetDate || ""}
+            onChange={(v) => onUpdate({ targetDate: v })}
+            autoComplete="off"
+            type="datetime-local"
+            helpText="When the countdown should end"
+          />
+          <TextField
+            label="Label"
+            value={block.content.label || ""}
+            onChange={(v) => onUpdate({ label: v })}
+            autoComplete="off"
+            placeholder="e.g., Sale ends in"
+          />
+          <TextField
+            label="Expired Message"
+            value={block.content.expiredMessage || ""}
+            onChange={(v) => onUpdate({ expiredMessage: v })}
+            autoComplete="off"
+            placeholder="e.g., Sale has ended"
+          />
+          <TextField
+            label="Background Color"
+            value={block.content.backgroundColor || "#000000"}
+            onChange={(v) => onUpdate({ backgroundColor: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Text Color"
+            value={block.content.textColor || "#ffffff"}
+            onChange={(v) => onUpdate({ textColor: v })}
+            autoComplete="off"
+          />
+        </BlockStack>
+      );
+    case "social":
+      return (
+        <BlockStack gap="200">
+          <Text as="p" variant="bodySm" tone="subdued">
+            Add social media links. Icons will be displayed for each platform.
+          </Text>
+          <Select
+            label="Icon Size"
+            options={[
+              { label: "Small", value: "small" },
+              { label: "Medium", value: "medium" },
+              { label: "Large", value: "large" },
+            ]}
+            value={block.content.iconSize || "medium"}
+            onChange={(v) => onUpdate({ iconSize: v })}
+          />
+          <Select
+            label="Alignment"
+            options={[
+              { label: "Left", value: "left" },
+              { label: "Center", value: "center" },
+              { label: "Right", value: "right" },
+            ]}
+            value={block.content.alignment || "center"}
+            onChange={(v) => onUpdate({ alignment: v })}
+          />
+          {/* Simple link management - could be enhanced with dedicated UI */}
+          <TextField
+            label="Links (JSON)"
+            value={JSON.stringify(block.content.links || [])}
+            onChange={(v) => {
+              try {
+                onUpdate({ links: JSON.parse(v) });
+              } catch (e) {
+                // Invalid JSON, ignore
+              }
+            }}
+            multiline={3}
+            autoComplete="off"
+            monospaced
+            helpText='Format: [{"platform":"facebook","url":"https://..."}]'
+          />
+        </BlockStack>
+      );
+    case "product":
+      return (
+        <BlockStack gap="200">
+          <TextField
+            label="Product Title"
+            value={block.content.title || ""}
+            onChange={(v) => onUpdate({ title: v })}
+            autoComplete="off"
+          />
+          <TextField
+            label="Product Image URL"
+            value={block.content.imageUrl || ""}
+            onChange={(v) => onUpdate({ imageUrl: v })}
+            autoComplete="off"
+            placeholder="https://..."
+          />
+          <TextField
+            label="Price"
+            value={block.content.price || ""}
+            onChange={(v) => onUpdate({ price: v })}
+            autoComplete="off"
+            placeholder="e.g., $29.99"
+          />
+          <TextField
+            label="Button Text"
+            value={block.content.buttonText || "Shop Now"}
+            onChange={(v) => onUpdate({ buttonText: v })}
+            autoComplete="off"
+          />
+        </BlockStack>
+      );
+    case "columns":
+      return (
+        <BlockStack gap="200">
+          <Select
+            label="Column Ratio"
+            options={[
+              { label: "50% / 50%", value: "50-50" },
+              { label: "33% / 67%", value: "33-67" },
+              { label: "67% / 33%", value: "67-33" },
+            ]}
+            value={block.content.columnRatio || "50-50"}
+            onChange={(v) => onUpdate({ columnRatio: v })}
+          />
+          <TextField
+            label="Gap (px)"
+            value={String(block.content.gap || 20)}
+            onChange={(v) => onUpdate({ gap: parseInt(v) || 20 })}
+            autoComplete="off"
+            type="number"
+          />
+          <Text as="p" variant="bodySm" tone="subdued">
+            Two-column layout. Nested content editing coming soon.
+          </Text>
+        </BlockStack>
       );
     default:
       return <Text as="p" tone="subdued">No settings available</Text>;

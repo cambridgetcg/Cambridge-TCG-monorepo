@@ -63,6 +63,14 @@ model ShopSettings {
   emailFooterText   String? // Custom footer text for emails
   emailDomain       String? // Custom email domain (for white label)
 
+  // Email Brand Kit (for template builder)
+  emailSecondaryColor  String? // Secondary brand color for emails (hex)
+  emailBackgroundColor String? @default("#f4f4f4") // Email outer background color
+  emailContentBgColor  String? @default("#ffffff") // Email content area background
+  emailLinkColor       String? // Link color in emails (hex)
+  emailFontFamily      String? @default("Arial, sans-serif") // Font family for emails
+  brandKitEnabled      Boolean @default(false) // Use brand kit for new templates
+
   // Email API Configuration (encrypted in production)
   emailApiKey       String? // API key for email provider (encrypted)
   emailApiSecret    String? // API secret if needed (encrypted)
