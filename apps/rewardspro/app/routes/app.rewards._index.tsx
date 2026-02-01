@@ -93,22 +93,6 @@ interface LoaderData {
       totalCompletions: number;
     };
   };
-  recentActivity: Array<{
-    id: string;
-    type: string;
-    amount: number;
-    description: string | null;
-    createdAt: string;
-    customerEmail: string;
-  }>;
-  topEarners: Array<{
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-    pointsBalance: number;
-    lifetimePoints: number;
-  }>;
 }
 
 // ============================================
@@ -152,45 +136,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log(`${LOG_PREFIX} Fetching data in parallel...`);
 
     // Fetch all data in parallel
-    const [config, stats, features, recentActivity, topEarners, raffleStats, mysteryBoxStatsData] = await Promise.all([
+    const [config, stats, features, raffleStats, mysteryBoxStatsData] = await Promise.all([
       getPointsConfig(shop),
       getPointsStats(shop),
       getEnabledFeatures(shop),
-      // Get recent activity (last 10 transactions)
-      db.pointsLedger.findMany({
-        where: { shop },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          type: true,
-          amount: true,
-          description: true,
-          createdAt: true,
-          customer: {
-            select: {
-              email: true,
-            },
-          },
-        },
-      }),
-      // Get top earners
-      db.customer.findMany({
-        where: {
-          shop,
-          lifetimePoints: { gt: 0 },
-        },
-        orderBy: { lifetimePoints: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          pointsBalance: true,
-          lifetimePoints: true,
-        },
-      }),
       // Get module stats
       getRaffleStats(shop),
       getMysteryBoxStats(shop),
@@ -199,7 +148,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log(`${LOG_PREFIX} All data fetched in ${Date.now() - startTime}ms`);
     console.log(`${LOG_PREFIX} Config isEnabled: ${config.isEnabled}, pointsPerDollar: ${config.pointsPerDollar}`);
     console.log(`${LOG_PREFIX} Stats: issued=${stats.totalPointsIssued}, redeemed=${stats.totalPointsRedeemed}`);
-    console.log(`${LOG_PREFIX} Recent activity count: ${recentActivity.length}, top earners count: ${topEarners.length}`);
 
     return json<LoaderData>({
       config: {
@@ -227,22 +175,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           totalCompletions: 0,
         },
       },
-      recentActivity: recentActivity.map((a: { id: string; type: string; amount: number; description: string | null; createdAt: Date; customer: { email: string } | null }) => ({
-        id: a.id,
-        type: a.type,
-        amount: a.amount,
-        description: a.description,
-        createdAt: a.createdAt.toISOString(),
-        customerEmail: a.customer?.email ?? "Unknown",
-      })),
-      topEarners: topEarners.map((c: { id: string; email: string; firstName: string | null; lastName: string | null; pointsBalance: unknown; lifetimePoints: unknown }) => ({
-        id: c.id,
-        email: c.email,
-        firstName: c.firstName,
-        lastName: c.lastName,
-        pointsBalance: Number(c.pointsBalance),
-        lifetimePoints: Number(c.lifetimePoints),
-      })),
     });
   } catch (error) {
     // Auth redirects (302 to /auth/login) are expected behavior, not errors
@@ -296,7 +228,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function PointsOverview() {
-  const { config, stats, features, moduleStats, recentActivity, topEarners } = useLoaderData<LoaderData>();
+  const { config, stats, features, moduleStats } = useLoaderData<LoaderData>();
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -319,30 +251,6 @@ export default function PointsOverview() {
       return `${(num / 1000).toFixed(1)}K`;
     }
     return num.toLocaleString();
-  };
-
-  // Get transaction type label
-  const getTypeLabel = (type: string): { label: string; tone: "success" | "critical" | "info" } => {
-    const types: Record<string, { label: string; tone: "success" | "critical" | "info" }> = {
-      ORDER_EARNED: { label: "Order Earned", tone: "success" },
-      CHALLENGE_COMPLETED: { label: "Challenge", tone: "success" },
-      SPIN_WHEEL_WIN: { label: "Spin Win", tone: "success" },
-      SCRATCH_CARD_WIN: { label: "Scratch Win", tone: "success" },
-      MYSTERY_BOX_WIN: { label: "Mystery Box", tone: "success" },
-      BONUS_EVENT: { label: "Bonus", tone: "success" },
-      REFERRAL_BONUS: { label: "Referral", tone: "success" },
-      MANUAL_CREDIT: { label: "Manual Credit", tone: "info" },
-      STREAK_BONUS: { label: "Streak", tone: "success" },
-      RAFFLE_ENTRY: { label: "Raffle Entry", tone: "critical" },
-      MYSTERY_BOX_OPEN: { label: "Mystery Box", tone: "critical" },
-      PREMIUM_SPIN: { label: "Premium Spin", tone: "critical" },
-      GIVEBACK_DONATION: { label: "Donation", tone: "critical" },
-      MANUAL_DEBIT: { label: "Manual Debit", tone: "critical" },
-      EXPIRATION: { label: "Expired", tone: "critical" },
-      REFUND_CLAWBACK: { label: "Clawback", tone: "critical" },
-      SYSTEM_ADJUSTMENT: { label: "Adjustment", tone: "info" },
-    };
-    return types[type] || { label: type, tone: "info" };
   };
 
   // Calculate circulation percentage
@@ -784,131 +692,6 @@ export default function PointsOverview() {
                 </Grid.Cell>
               </Grid>
             </BlockStack>
-          </Layout.Section>
-
-          {/* Features & Activity */}
-          <Layout.Section>
-            <Grid>
-              {/* Other Features */}
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                <Card>
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between">
-                      <Text variant="headingMd" as="h3">Other Features</Text>
-                      <Button variant="plain" url="/app/rewards/config">Manage</Button>
-                    </InlineStack>
-                    <Divider />
-                    <BlockStack gap="300">
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.spinWheel ? "success" : undefined}>
-                          {features.spinWheel ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Spin Wheel</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.dailySpin ? "success" : undefined}>
-                          {features.dailySpin ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Daily Spin</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.streakBonus ? "success" : undefined}>
-                          {features.streakBonus ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Streak Bonus</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.scratchCards ? "success" : undefined}>
-                          {features.scratchCards ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Scratch Cards</Text>
-                      </InlineStack>
-                      <InlineStack gap="200" align="start">
-                        <Badge tone={features.givebackPools ? "success" : undefined}>
-                          {features.givebackPools ? "Active" : "Inactive"}
-                        </Badge>
-                        <Text as="span">Giveback Pools</Text>
-                      </InlineStack>
-                    </BlockStack>
-                  </BlockStack>
-                </Card>
-              </Grid.Cell>
-
-              {/* Top Earners */}
-              <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 6, lg: 6, xl: 6 }}>
-                <Card>
-                  <BlockStack gap="400">
-                    <Text variant="headingMd" as="h3">Top {config.currencyName} Earners</Text>
-                    <Divider />
-                    {topEarners.length > 0 ? (
-                      <BlockStack gap="300">
-                        {topEarners.map((customer, index) => (
-                          <InlineStack key={customer.id} gap="300" align="space-between">
-                            <InlineStack gap="200">
-                              <Text variant="bodyMd" fontWeight="bold" as="span">
-                                #{index + 1}
-                              </Text>
-                              <Text as="span">
-                                {customer.firstName || customer.email.split("@")[0]}
-                              </Text>
-                            </InlineStack>
-                            <InlineStack gap="100" blockAlign="center">
-                              <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={16} />
-                              <Text variant="bodyMd" fontWeight="semibold" as="span">{formatNumber(customer.lifetimePoints)}</Text>
-                            </InlineStack>
-                          </InlineStack>
-                        ))}
-                      </BlockStack>
-                    ) : (
-                      <Text tone="subdued" as="p">No points earned yet</Text>
-                    )}
-                  </BlockStack>
-                </Card>
-              </Grid.Cell>
-            </Grid>
-          </Layout.Section>
-
-          {/* Recent Activity */}
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <InlineStack align="space-between">
-                  <Text variant="headingMd" as="h3">Recent Activity</Text>
-                  <Button variant="plain" url="/app/rewards/analytics">View All</Button>
-                </InlineStack>
-                <Divider />
-                {recentActivity.length > 0 ? (
-                  <BlockStack gap="300">
-                    {recentActivity.map((activity) => {
-                      const { label, tone } = getTypeLabel(activity.type);
-                      return (
-                        <InlineStack key={activity.id} gap="400" align="space-between">
-                          <InlineStack gap="200">
-                            <Badge tone={tone}>{label}</Badge>
-                            <Text as="span" variant="bodySm">
-                              {activity.customerEmail}
-                            </Text>
-                          </InlineStack>
-                          <InlineStack gap="100" blockAlign="center">
-                            <Text
-                              variant="bodyMd"
-                              fontWeight="semibold"
-                              tone={activity.amount > 0 ? "success" : "critical"}
-                              as="span"
-                            >
-                              {activity.amount > 0 ? "+" : ""}{formatNumber(activity.amount)}
-                            </Text>
-                            <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={16} />
-                          </InlineStack>
-                        </InlineStack>
-                      );
-                    })}
-                  </BlockStack>
-                ) : (
-                  <Text tone="subdued" as="p">No activity yet</Text>
-                )}
-              </BlockStack>
-            </Card>
           </Layout.Section>
 
           {/* Marketing Integration Bridge */}
