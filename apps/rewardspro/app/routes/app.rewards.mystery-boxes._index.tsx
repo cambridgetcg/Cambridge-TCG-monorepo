@@ -40,6 +40,8 @@ import {
 import db from "~/db.server";
 import { UsageUpgradePrompt, LimitHint, PageLimitStatus, LimitExceededModal } from "~/components/Billing/UpgradePrompt";
 import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
+import { PointsIcon, DEFAULT_ICON_CONFIG } from "~/components/PointsIcon";
+import type { CurrencyIconType } from "~/services/points-config.server";
 // NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
@@ -57,8 +59,10 @@ interface LoaderData {
   };
   pointsConfig: {
     currencyName: string;
-    currencyIcon: string;
     currencyPlural: string;
+    iconType: CurrencyIconType;
+    iconId: string;
+    iconColor: string;
   };
   boxes: Array<{
     id: string;
@@ -139,8 +143,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
       pointsConfig: {
         currencyName: config.currencyName,
-        currencyIcon: config.currencyIcon,
         currencyPlural: config.currencyNamePlural,
+        // Use default vector icon config (emoji system deprecated)
+        iconType: DEFAULT_ICON_CONFIG.iconType,
+        iconId: DEFAULT_ICON_CONFIG.iconId,
+        iconColor: DEFAULT_ICON_CONFIG.iconColor,
       },
       boxes: boxes.map((box: any) => ({
         id: box.id,
@@ -641,7 +648,10 @@ export default function MysteryBoxes() {
   const rows = boxes.map((box) => [
     box.name,
     getStatusBadge(box.status),
-    `${pointsConfig.currencyIcon} ${formatNumber(box.openCost)}`,
+    <InlineStack key={`cost-${box.id}`} gap="100" blockAlign="center">
+      <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={14} />
+      <span>{formatNumber(box.openCost)}</span>
+    </InlineStack>,
     `${formatNumber(box.totalOpens)}${box.maxOpensTotal ? ` / ${formatNumber(box.maxOpensTotal)}` : ""}`,
     formatNumber(box.uniqueOpeners),
     new Date(box.endsAt).toLocaleDateString(),
@@ -728,7 +738,7 @@ export default function MysteryBoxes() {
               <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
                 <ModuleStatsCard
                   label={`${pointsConfig.currencyPlural} Spent`}
-                  value={`${pointsConfig.currencyIcon} ${formatNumber(stats.totalPointsSpent)}`}
+                  value={formatNumber(stats.totalPointsSpent)}
                 />
               </div>
             </InlineStack>

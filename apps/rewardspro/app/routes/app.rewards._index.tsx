@@ -33,6 +33,8 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { useToast } from "~/hooks/useToast";
 import { getPointsConfig, getPointsStats, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
+import { PointsIcon } from "~/components/PointsIcon";
+import { DEFAULT_ICON_CONFIG } from "~/utils/points-icon-library";
 import { getRaffleStats } from "../services/raffle-management.server";
 import { getMysteryBoxStats } from "../services/mystery-box-management.server";
 
@@ -45,10 +47,13 @@ interface LoaderData {
     isEnabled: boolean;
     currencyName: string;
     currencyNamePlural: string;
-    currencyIcon: string;
     pointsPerDollar: number;
     pointsExpire: boolean;
     expirationDays: number;
+    // Icon configuration for PointsIcon component
+    iconType: "emoji" | "upload" | "library";
+    iconId: string;
+    iconColor: string;
   };
   stats: {
     totalPointsIssued: number;
@@ -201,10 +206,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         isEnabled: config.isEnabled,
         currencyName: config.currencyName,
         currencyNamePlural: config.currencyNamePlural,
-        currencyIcon: config.currencyIcon,
         pointsPerDollar: config.pointsPerDollar,
         pointsExpire: config.pointsExpire,
         expirationDays: config.expirationDays,
+        // Use default vector icon config (emoji system deprecated)
+        iconType: DEFAULT_ICON_CONFIG.iconType,
+        iconId: DEFAULT_ICON_CONFIG.iconId,
+        iconColor: DEFAULT_ICON_CONFIG.iconColor,
       },
       stats,
       features,
@@ -381,7 +389,7 @@ export default function PointsOverview() {
     <Frame>
       <Page
         title="Points & Rewards"
-        subtitle={`${config.currencyIcon} ${config.currencyNamePlural} Engagement System`}
+        subtitle={`${config.currencyNamePlural} Engagement System`}
         primaryAction={{
           content: "Configure",
           url: "/app/rewards/config",
@@ -404,7 +412,7 @@ export default function PointsOverview() {
               tone="success"
             >
               <p>
-                Customers are earning {config.currencyIcon} {config.currencyNamePlural.toLowerCase()} on every purchase.
+                Customers are earning {config.currencyNamePlural.toLowerCase()} on every purchase.
                 {config.pointsExpire && ` Points expire after ${config.expirationDays} days.`}
               </p>
             </Banner>
@@ -417,9 +425,10 @@ export default function PointsOverview() {
                 <Card>
                   <BlockStack gap="200">
                     <Text variant="headingMd" as="h3">Total Issued</Text>
-                    <Text variant="heading2xl" as="p">
-                      {config.currencyIcon} {formatNumber(stats.totalPointsIssued)}
-                    </Text>
+                    <InlineStack gap="200" blockAlign="center">
+                      <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={28} />
+                      <Text variant="heading2xl" as="p">{formatNumber(stats.totalPointsIssued)}</Text>
+                    </InlineStack>
                     <Text variant="bodySm" tone="subdued" as="p">All time</Text>
                   </BlockStack>
                 </Card>
@@ -429,9 +438,10 @@ export default function PointsOverview() {
                 <Card>
                   <BlockStack gap="200">
                     <Text variant="headingMd" as="h3">In Circulation</Text>
-                    <Text variant="heading2xl" as="p">
-                      {config.currencyIcon} {formatNumber(stats.activePointsBalance)}
-                    </Text>
+                    <InlineStack gap="200" blockAlign="center">
+                      <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={28} />
+                      <Text variant="heading2xl" as="p">{formatNumber(stats.activePointsBalance)}</Text>
+                    </InlineStack>
                     <ProgressBar progress={circulationPercent} size="small" />
                   </BlockStack>
                 </Card>
@@ -441,9 +451,10 @@ export default function PointsOverview() {
                 <Card>
                   <BlockStack gap="200">
                     <Text variant="headingMd" as="h3">Redeemed</Text>
-                    <Text variant="heading2xl" as="p">
-                      {config.currencyIcon} {formatNumber(stats.totalPointsRedeemed)}
-                    </Text>
+                    <InlineStack gap="200" blockAlign="center">
+                      <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={28} />
+                      <Text variant="heading2xl" as="p">{formatNumber(stats.totalPointsRedeemed)}</Text>
+                    </InlineStack>
                     <Text variant="bodySm" tone="subdued" as="p">Spent on rewards</Text>
                   </BlockStack>
                 </Card>
@@ -542,7 +553,10 @@ export default function PointsOverview() {
                             <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
                               <BlockStack gap="100">
                                 <Text variant="bodySm" as="h4" tone="subdued">Prize Pool</Text>
-                                <Text variant="headingLg" as="p">{config.currencyIcon}{formatNumber(moduleStats.raffles.totalPrizePoolValue)}</Text>
+                                <InlineStack gap="100" blockAlign="center">
+                                  <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={20} />
+                                  <Text variant="headingLg" as="p">{formatNumber(moduleStats.raffles.totalPrizePoolValue)}</Text>
+                                </InlineStack>
                               </BlockStack>
                             </Grid.Cell>
                             <Grid.Cell columnSpan={{ xs: 3, sm: 3, md: 6, lg: 6, xl: 6 }}>
@@ -838,9 +852,10 @@ export default function PointsOverview() {
                                 {customer.firstName || customer.email.split("@")[0]}
                               </Text>
                             </InlineStack>
-                            <Text variant="bodyMd" fontWeight="semibold" as="span">
-                              {config.currencyIcon} {formatNumber(customer.lifetimePoints)}
-                            </Text>
+                            <InlineStack gap="100" blockAlign="center">
+                              <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={16} />
+                              <Text variant="bodyMd" fontWeight="semibold" as="span">{formatNumber(customer.lifetimePoints)}</Text>
+                            </InlineStack>
                           </InlineStack>
                         ))}
                       </BlockStack>
@@ -874,14 +889,17 @@ export default function PointsOverview() {
                               {activity.customerEmail}
                             </Text>
                           </InlineStack>
-                          <Text
-                            variant="bodyMd"
-                            fontWeight="semibold"
-                            tone={activity.amount > 0 ? "success" : "critical"}
-                            as="span"
-                          >
-                            {activity.amount > 0 ? "+" : ""}{formatNumber(activity.amount)} {config.currencyIcon}
-                          </Text>
+                          <InlineStack gap="100" blockAlign="center">
+                            <Text
+                              variant="bodyMd"
+                              fontWeight="semibold"
+                              tone={activity.amount > 0 ? "success" : "critical"}
+                              as="span"
+                            >
+                              {activity.amount > 0 ? "+" : ""}{formatNumber(activity.amount)}
+                            </Text>
+                            <PointsIcon iconType={config.iconType} iconId={config.iconId} iconColor={config.iconColor} size={16} />
+                          </InlineStack>
                         </InlineStack>
                       );
                     })}

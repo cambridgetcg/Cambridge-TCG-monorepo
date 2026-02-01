@@ -64,6 +64,8 @@ import {
   deliverAllRafflePrizes,
 } from "../services/raffle-prize-delivery.server";
 import db from "../db.server";
+import { PointsIcon, DEFAULT_ICON_CONFIG } from "~/components/PointsIcon";
+import type { CurrencyIconType } from "~/services/points-config.server";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -125,7 +127,9 @@ interface LoaderData {
   raffle: RaffleData;
   pointsConfig: {
     currencyName: string;
-    currencyIcon: string;
+    iconType: CurrencyIconType;
+    iconId: string;
+    iconColor: string;
   };
   recentEntries: Array<{
     id: string;
@@ -248,7 +252,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     },
     pointsConfig: {
       currencyName: config.currencyName,
-      currencyIcon: config.currencyIcon,
+      // Use default vector icon config (emoji system deprecated)
+      iconType: DEFAULT_ICON_CONFIG.iconType,
+      iconId: DEFAULT_ICON_CONFIG.iconId,
+      iconColor: DEFAULT_ICON_CONFIG.iconColor,
     },
     recentEntries,
     winners,
@@ -834,7 +841,7 @@ export default function RaffleDetail() {
     <Frame>
       <Page
         title={raffle.name}
-        subtitle={`${pointsConfig.currencyIcon} ${raffle.entryCost} per entry`}
+        subtitle={`${raffle.entryCost} ${pointsConfig.currencyName} per entry`}
         backAction={{ content: "Raffles", url: "/app/rewards/raffles" }}
         titleMetadata={getStatusBadge(raffle.status)}
         primaryAction={
@@ -922,9 +929,12 @@ export default function RaffleDetail() {
               >
                 <BlockStack gap="100">
                   <Text as="p" variant="bodySm" tone="subdued">Points Collected</Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {pointsConfig.currencyIcon} {raffle.totalPrizePool.toLocaleString()}
-                  </Text>
+                  <InlineStack gap="100" blockAlign="center">
+                    <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={20} />
+                    <Text as="p" variant="headingLg" fontWeight="bold">
+                      {raffle.totalPrizePool.toLocaleString()}
+                    </Text>
+                  </InlineStack>
                 </BlockStack>
               </Box>
               <Box
@@ -958,9 +968,10 @@ export default function RaffleDetail() {
                     <BlockStack gap="200">
                       <InlineStack align="space-between">
                         <Text as="span" tone="subdued">Entry Cost</Text>
-                        <Text as="span" fontWeight="semibold">
-                          {pointsConfig.currencyIcon} {raffle.entryCost}
-                        </Text>
+                        <InlineStack gap="100" blockAlign="center">
+                          <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={14} />
+                          <Text as="span" fontWeight="semibold">{raffle.entryCost}</Text>
+                        </InlineStack>
                       </InlineStack>
                       <InlineStack align="space-between">
                         <Text as="span" tone="subdued">Max Entries per Customer</Text>
@@ -1133,9 +1144,12 @@ export default function RaffleDetail() {
                           <Text as="span" fontWeight="semibold" alignment="end">
                             {entry.entriesCount} {entry.entriesCount === 1 ? "entry" : "entries"}
                           </Text>
-                          <Text as="span" tone="subdued" variant="bodySm" alignment="end">
-                            {pointsConfig.currencyIcon} {entry.pointsSpent} spent
-                          </Text>
+                          <InlineStack gap="100" blockAlign="center">
+                            <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={12} />
+                            <Text as="span" tone="subdued" variant="bodySm" alignment="end">
+                              {entry.pointsSpent} spent
+                            </Text>
+                          </InlineStack>
                         </BlockStack>
                       </InlineStack>
                     ))}
@@ -1308,7 +1322,7 @@ export default function RaffleDetail() {
               />
               <InlineStack gap="400">
                 <TextField
-                  label={`Entry Cost (${pointsConfig.currencyIcon})`}
+                  label={`Entry Cost (${pointsConfig.currencyName})`}
                   type="number"
                   value={editForm.entryCost}
                   onChange={(v) => setEditForm({ ...editForm, entryCost: v })}

@@ -41,6 +41,8 @@ import {
 import db from "~/db.server";
 import { UsageUpgradePrompt, LimitHint, PageLimitStatus, LimitExceededModal } from "~/components/Billing/UpgradePrompt";
 import { ModuleStatsCard } from "~/components/DesignSystem/ModuleStatsCard";
+import { PointsIcon } from "~/components/PointsIcon";
+import { DEFAULT_ICON_CONFIG } from "~/utils/points-icon-library";
 // NOTE: Rate-based gating - all features enabled for all plans, only limits differentiate
 
 // ============================================
@@ -70,7 +72,9 @@ interface LoaderData {
   };
   pointsConfig: {
     currencyName: string;
-    currencyIcon: string;
+    iconType: "emoji" | "upload" | "library";
+    iconId: string;
+    iconColor: string;
   };
   raffles: RaffleData[];
   stats: {
@@ -116,7 +120,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       },
       pointsConfig: {
         currencyName: config.currencyName,
-        currencyIcon: config.currencyIcon,
+        iconType: DEFAULT_ICON_CONFIG.iconType,
+        iconId: DEFAULT_ICON_CONFIG.iconId,
+        iconColor: DEFAULT_ICON_CONFIG.iconColor,
       },
       raffles: [],
       stats: {
@@ -146,7 +152,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
     pointsConfig: {
       currencyName: config.currencyName,
-      currencyIcon: config.currencyIcon,
+      iconType: DEFAULT_ICON_CONFIG.iconType,
+      iconId: DEFAULT_ICON_CONFIG.iconId,
+      iconColor: DEFAULT_ICON_CONFIG.iconColor,
     },
     raffles: raffles.map((r: any) => ({
       id: r.id,
@@ -402,7 +410,10 @@ export default function RafflesList() {
       </Text>
     </InlineStack>,
     getStatusBadge(raffle.status),
-    `${pointsConfig.currencyIcon} ${raffle.entryCost}`,
+    <InlineStack gap="100" blockAlign="center" key={`cost-${raffle.id}`}>
+      <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={16} />
+      <span>{raffle.entryCost}</span>
+    </InlineStack>,
     `${formatDate(raffle.startsAt)} - ${formatDate(raffle.endsAt)}`,
     raffle.totalEntries.toLocaleString(),
     raffle.uniqueEntrants.toLocaleString(),
@@ -498,7 +509,7 @@ export default function RafflesList() {
               <div style={{ flex: '1 1 150px', minWidth: '150px' }}>
                 <ModuleStatsCard
                   label="Points Pool"
-                  value={`${pointsConfig.currencyIcon} ${stats.totalPrizePoolValue.toLocaleString()}`}
+                  value={stats.totalPrizePoolValue.toLocaleString()}
                 />
               </div>
             </InlineStack>
@@ -518,7 +529,7 @@ export default function RafflesList() {
                 >
                   <p>
                     Create a raffle to engage customers with exciting prize drawings.
-                    Customers spend {pointsConfig.currencyIcon} {pointsConfig.currencyName} for a chance to win.
+                    Customers spend {pointsConfig.currencyName} for a chance to win.
                   </p>
                 </EmptyState>
               ) : (
@@ -576,7 +587,7 @@ export default function RafflesList() {
                 autoComplete="off"
               />
               <TextField
-                label={`Entry Cost (${pointsConfig.currencyIcon} ${pointsConfig.currencyName})`}
+                label={`Entry Cost (${pointsConfig.currencyName})`}
                 type="number"
                 value={entryCost}
                 onChange={setEntryCost}
