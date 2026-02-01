@@ -92,8 +92,8 @@ export async function syncPointsConfigMetafield(
     // Get active bonus events
     const bonusResult = await getActiveEvents(shop);
     const bonusMultiplier = bonusResult.combinedMultiplier || 1;
-    const bonusName = bonusResult.eventNames[0] || null;
-    const bonusEndsAt = bonusResult.activeEvents[0]?.endsAt?.toISOString() || null;
+    const bonusName = bonusResult.eventNames?.[0] || null;
+    const bonusEndsAt = bonusResult.events?.[0]?.endsAt?.toISOString() || null;
 
     // Build metafield data
     const metafieldData: PointsMetafieldData = {
