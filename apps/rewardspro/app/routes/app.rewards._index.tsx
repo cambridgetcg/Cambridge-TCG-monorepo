@@ -589,7 +589,7 @@ export default function PointsOverview() {
                   </Card>
                 </Grid.Cell>
 
-                {/* Challenges Module */}
+                {/* Missions Module */}
                 <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
                   <Card background={!features.challenges ? "bg-surface-secondary" : undefined}>
                     <BlockStack gap="400">
@@ -598,7 +598,7 @@ export default function PointsOverview() {
                         <InlineStack align="space-between" blockAlign="center">
                           <InlineStack gap="200" blockAlign="center">
                             <Text variant="headingMd" as="h3" tone={!features.challenges ? "subdued" : undefined}>
-                              Challenges
+                              Missions
                             </Text>
                             {features.challenges ? (
                               moduleStats.challenges.activeChallenges > 0 ? (
@@ -612,7 +612,7 @@ export default function PointsOverview() {
                           </InlineStack>
                         </InlineStack>
                         <Text variant="bodySm" tone="subdued" as="p">
-                          Goal-based activities that reward customer achievements
+                          Gamified missions with XP rewards and streaks
                         </Text>
                       </BlockStack>
 
@@ -623,25 +623,25 @@ export default function PointsOverview() {
                         /* Disabled State */
                         <BlockStack gap="300">
                           <Text tone="subdued" as="p" variant="bodySm">
-                            Enable challenges to motivate customers with spending goals, purchase milestones, and more.
+                            Enable missions to motivate customers with daily, weekly, and monthly goals.
                           </Text>
                           <Button url="/app/rewards/config" size="slim">
-                            Enable Challenges
+                            Enable Missions
                           </Button>
                         </BlockStack>
                       ) : moduleStats.challenges.totalChallenges === 0 ? (
                         /* Empty/Coming Soon State */
                         <BlockStack gap="300">
                           <Text tone="subdued" as="p" variant="bodySm">
-                            Challenge types include spending goals, purchase counts, collection challenges, and streaks.
+                            Mission types include spending goals, purchase counts, and streak challenges.
                           </Text>
                           <InlineStack gap="200" wrap>
-                            <Badge size="small">Spending Goals</Badge>
-                            <Badge size="small">Purchase Counts</Badge>
-                            <Badge size="small">Streaks</Badge>
+                            <Badge size="small">Daily</Badge>
+                            <Badge size="small">Weekly</Badge>
+                            <Badge size="small">Monthly</Badge>
                           </InlineStack>
                           <Button url="/app/rewards/missions" size="slim">
-                            View Challenges
+                            View Missions
                           </Button>
                         </BlockStack>
                       ) : (
@@ -677,11 +677,11 @@ export default function PointsOverview() {
                           </Grid>
                           <InlineStack gap="200">
                             <Button url="/app/rewards/missions" size="slim">
-                              Manage Challenges
+                              Manage Missions
                             </Button>
                             {moduleStats.challenges.activeChallenges === 0 && (
                               <Button url="/app/rewards/missions" size="slim" variant="primary">
-                                Create Challenge
+                                Create Mission
                               </Button>
                             )}
                           </InlineStack>
