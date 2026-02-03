@@ -6,7 +6,6 @@
 
 import {
   BlockStack,
-  TextField,
   Select,
   Button,
   Text,
@@ -16,6 +15,7 @@ import {
   Banner,
 } from "@shopify/polaris";
 import { useState, useCallback } from "react";
+import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 
 export interface BrandKit {
   primaryColor: string;
@@ -118,60 +118,22 @@ export function BrandKitPanel({
       <BlockStack gap="200">
         <Text as="h3" variant="headingSm">Design Settings</Text>
 
-        <TextField
+        <ColorPickerFieldInline
           label="Background Color"
-          value={currentStyles.backgroundColor}
+          color={currentStyles.backgroundColor}
           onChange={(v) => onStyleChange("backgroundColor", v)}
-          autoComplete="off"
-          helpText="Outer email background (hex)"
-          prefix={
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 4,
-                backgroundColor: currentStyles.backgroundColor,
-                border: "1px solid #ddd",
-              }}
-            />
-          }
         />
 
-        <TextField
+        <ColorPickerFieldInline
           label="Button/Accent Color"
-          value={currentStyles.primaryColor}
+          color={currentStyles.primaryColor}
           onChange={(v) => onStyleChange("primaryColor", v)}
-          autoComplete="off"
-          helpText="Buttons and accent elements"
-          prefix={
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 4,
-                backgroundColor: currentStyles.primaryColor,
-                border: "1px solid #ddd",
-              }}
-            />
-          }
         />
 
-        <TextField
+        <ColorPickerFieldInline
           label="Text Color"
-          value={currentStyles.textColor}
+          color={currentStyles.textColor}
           onChange={(v) => onStyleChange("textColor", v)}
-          autoComplete="off"
-          prefix={
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 4,
-                backgroundColor: currentStyles.textColor,
-                border: "1px solid #ddd",
-              }}
-            />
-          }
         />
 
         <Select
@@ -191,22 +153,10 @@ export function BrandKitPanel({
 
         {showAdvanced && (
           <BlockStack gap="200">
-            <TextField
+            <ColorPickerFieldInline
               label="Link Color"
-              value={currentStyles.linkColor}
+              color={currentStyles.linkColor}
               onChange={(v) => onStyleChange("linkColor", v)}
-              autoComplete="off"
-              prefix={
-                <div
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 4,
-                    backgroundColor: currentStyles.linkColor,
-                    border: "1px solid #ddd",
-                  }}
-                />
-              }
             />
           </BlockStack>
         )}

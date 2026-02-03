@@ -758,6 +758,8 @@ export class DataAPIModelProxy<T = any> {
       ChallengeReward: ['rewardType'],
       ChallengeParticipant: ['status'],
       MissionTemplate: ['objectiveType', 'cadence', 'rarity', 'category', 'rewardType'],
+      // Email Settings
+      EmailSettings: ['emailProvider'],
     };
 
     return enumFields[this.tableName]?.includes(field) || false;
@@ -1037,6 +1039,8 @@ export class DataAPIModelProxy<T = any> {
       syncStatus: '"KlaviyoSyncStatus"',
       emailConsent: '"KlaviyoConsentStatus"',
       smsConsent: '"KlaviyoConsentStatus"',
+      // Email Settings
+      emailProvider: '"EmailProvider"',
     };
 
     return enumTypes[field] || field;
