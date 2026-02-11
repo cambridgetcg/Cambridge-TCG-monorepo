@@ -12,7 +12,7 @@ target = "body"
 module = "./blocks/membership_widget.liquid"
 
 [[extensions.targeting]]
-target = "body"
+target = "section"
 module = "./blocks/raffles.liquid"
 
 [[extensions.targeting]]
