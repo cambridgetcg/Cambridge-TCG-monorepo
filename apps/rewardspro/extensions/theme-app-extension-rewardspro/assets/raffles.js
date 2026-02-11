@@ -92,6 +92,7 @@
       };
       this.countdownIntervals = {};
       this.toastTimeout = null;
+      this._listenersAttached = false;
 
       this.initialize();
     }
@@ -749,7 +750,8 @@
           </div>`;
       }
 
-      // Prize name with trophy icon
+      // Prize name with trophy icon (raffle.prize = prize name from API, raffle.name = raffle title)
+      const prizeName = raffle.prize || raffle.name;
       const prizeHtml = `
         <div class="rp-raffle__prize">
           <svg class="rp-raffle__prize-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -758,7 +760,7 @@
             <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
             <path d="M18 2H6v7a6 6 0 0012 0V2Z"/>
           </svg>
-          <h3 class="rp-raffle__prize-name">${this.escapeHtml(raffle.name)}</h3>
+          <h3 class="rp-raffle__prize-name">${this.escapeHtml(prizeName)}</h3>
         </div>`;
 
       // Stats with icons
@@ -1182,6 +1184,10 @@
     // ──────────────────────────────────────────
 
     attachEventListeners() {
+      // Guard: only attach once per widget instance (prevents stacking on re-renders)
+      if (this._listenersAttached) return;
+      this._listenersAttached = true;
+
       // Single delegated listener on root
       this.root.addEventListener('click', (e) => {
         const target = e.target.closest('[data-action]');
@@ -1281,6 +1287,7 @@
       if (this.toastTimeout) clearTimeout(this.toastTimeout);
       const toast = document.querySelector('.rp-raffle-toast');
       if (toast) toast.remove();
+      this._listenersAttached = false;
       this.root.dataset.initialized = '';
     }
   }

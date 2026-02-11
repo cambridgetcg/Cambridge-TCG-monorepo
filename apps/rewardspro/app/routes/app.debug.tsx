@@ -19,6 +19,8 @@ import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { getEnabledFeatures, getCurrencyBranding } from "~/services/points-config.server";
 import { getRaffleStreakInfo } from "~/services/raffle-streak.server";
+import { getCustomerActiveChallenges } from "~/services/challenge-progress.server";
+import { getMissionsForCustomer } from "~/services/mission-stats.server";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -201,7 +203,22 @@ async function diagnoseRaffles(shop: string): Promise<ModuleResult> {
 async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
   const steps: StepResult[] = [];
 
-  const step1 = await runStep("mysteryBox.findMany", "Query active mystery boxes", async () => {
+  // Step 1: Feature flags
+  const step1 = await runStep("features", "Load feature flags (mysteryBoxes)", async () => {
+    const features = await getEnabledFeatures(shop);
+    return {
+      detail: `mysteryBoxes=${features.mysteryBoxes}`,
+      data: { mysteryBoxes: features.mysteryBoxes },
+    };
+  });
+  steps.push(step1);
+
+  if (step1.status === "fail") {
+    return { module: "Mystery Boxes", steps, overallStatus: "fail" };
+  }
+
+  // Step 2: Query active boxes (flat — no nested select/include)
+  const step2 = await runStep("mysteryBox.findMany", "Query active mystery boxes (flat)", async () => {
     const boxes = await db.mysteryBox.findMany({
       where: {
         shop,
@@ -209,53 +226,408 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
         isPublic: true,
         endsAt: { gt: new Date() },
       },
+      orderBy: { endsAt: "asc" },
       take: 10,
     });
+
+    // Verify scalar totalOpens exists (replaced _count.opens)
+    for (const box of boxes) {
+      if ((box as any).totalOpens === undefined) {
+        throw new Error(`box.totalOpens is undefined for box ${box.id} — scalar field missing from flat query`);
+      }
+    }
+
     return {
       detail: `Found ${boxes.length} active box(es)`,
-      data: boxes.map((b: any) => ({ id: b.id, name: b.name, cost: b.openCost })),
+      data: boxes.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        cost: b.openCost,
+        totalOpens: b.totalOpens,
+        hasTotalOpensField: b.totalOpens !== undefined,
+      })),
     };
   });
-  steps.push(step1);
+  steps.push(step2);
+
+  // Step 3: Test separate rewards query (Data API adapter compat)
+  const boxIds = (step2.data as any[])?.map((b: any) => b.id) || [];
+
+  if (boxIds.length > 0) {
+    const step3 = await runStep(
+      "mysteryBoxReward.findMany",
+      "Query rewards separately (Data API compat — was nested include)",
+      async () => {
+        const rewards = await db.mysteryBoxReward.findMany({
+          where: { boxId: { in: boxIds } },
+          orderBy: { probability: "desc" },
+        });
+
+        // Verify expected fields exist
+        for (const reward of rewards) {
+          if (reward.rarity === undefined) {
+            throw new Error(`reward.rarity is undefined for reward ${reward.id} — field missing`);
+          }
+          if (reward.probability === undefined) {
+            throw new Error(`reward.probability is undefined for reward ${reward.id} — field missing`);
+          }
+        }
+
+        // Group by box
+        const byBox: Record<string, number> = {};
+        for (const r of rewards) {
+          byBox[r.boxId] = (byBox[r.boxId] || 0) + 1;
+        }
+
+        return {
+          detail: `Found ${rewards.length} reward(s) across ${Object.keys(byBox).length} box(es)`,
+          data: { total: rewards.length, perBox: byBox },
+        };
+      }
+    );
+    steps.push(step3);
+  } else {
+    steps.push({
+      step: "mysteryBoxReward.findMany",
+      label: "Query rewards separately",
+      status: "skip",
+      durationMs: 0,
+      detail: "No active boxes to test rewards for",
+    });
+  }
+
+  // Step 4: Verify _count.opens would fail (regression canary)
+  if (boxIds.length > 0) {
+    const step4 = await runStep(
+      "canary._count",
+      "Canary: _count.opens on flat query (should be undefined)",
+      async () => {
+        const box = await db.mysteryBox.findFirst({
+          where: { id: boxIds[0] },
+        });
+        const hasCount = (box as any)?._count !== undefined;
+        if (hasCount) {
+          return {
+            detail: "_count exists on flat query — adapter may support nested aggregates (unexpected)",
+          };
+        }
+        return {
+          detail: "_count is undefined on flat query — confirms Data API drops nested aggregates. Use box.totalOpens instead.",
+        };
+      }
+    );
+    steps.push(step4);
+  } else {
+    steps.push({
+      step: "canary._count",
+      label: "Canary: _count.opens test",
+      status: "skip",
+      durationMs: 0,
+      detail: "No boxes to test",
+    });
+  }
+
+  // Step 5: Find test customer
+  const step5 = await runStep("customer.findFirst", "Find a customer record", async () => {
+    const customer = await db.customer.findFirst({
+      where: { shop },
+      select: { id: true, shopifyCustomerId: true, pointsBalance: true },
+    });
+    if (!customer) {
+      return { detail: "No customers found in database (OK for new stores)" };
+    }
+    return {
+      detail: `Customer found: shopifyId=${customer.shopifyCustomerId}, balance=${customer.pointsBalance}`,
+      data: { id: customer.id, shopifyCustomerId: customer.shopifyCustomerId },
+    };
+  });
+  steps.push(step5);
+
+  // Step 6: Test customer opens count (separate query — replaced nested _count)
+  const customerId = (step5.data as any)?.id;
+
+  if (boxIds.length > 0 && customerId) {
+    const step6 = await runStep(
+      "mysteryBoxOpen.findMany",
+      "Query customer opens per box (separate query)",
+      async () => {
+        const customerOpens = await db.mysteryBoxOpen.findMany({
+          where: {
+            customerId,
+            boxId: { in: boxIds },
+          },
+          select: { boxId: true },
+        });
+
+        const countByBox: Record<string, number> = {};
+        for (const open of customerOpens) {
+          countByBox[open.boxId] = (countByBox[open.boxId] || 0) + 1;
+        }
+
+        return {
+          detail: `Customer has ${customerOpens.length} open(s) across ${Object.keys(countByBox).length} box(es)`,
+          data: countByBox,
+        };
+      }
+    );
+    steps.push(step6);
+  } else {
+    steps.push({
+      step: "mysteryBoxOpen.findMany",
+      label: "Query customer opens per box",
+      status: "skip",
+      durationMs: 0,
+      detail: boxIds.length === 0 ? "No active boxes" : "No customer to test with",
+    });
+  }
+
+  // Step 7: Test open prerequisites (box + rewards separate — mirrors openMysteryBox service)
+  if (boxIds.length > 0) {
+    const step7 = await runStep(
+      "openMysteryBox.prereqs",
+      "Open prerequisites: box flat + rewards separate (Data API compat)",
+      async () => {
+        // Mirrors the flattened pattern in mystery-box-open.server.ts
+        const box = await db.mysteryBox.findFirst({
+          where: { id: boxIds[0], shop },
+        });
+        if (!box) throw new Error("Box not found in findFirst");
+
+        const rewards = await db.mysteryBoxReward.findMany({
+          where: { boxId: boxIds[0] },
+          orderBy: { position: "asc" },
+        });
+
+        // Verify the reward fields needed by selectRewardByProbability
+        for (const r of rewards) {
+          if (r.probability === undefined) throw new Error(`reward ${r.id} missing probability`);
+          if (r.name === undefined) throw new Error(`reward ${r.id} missing name`);
+          if (r.description === undefined && r.description !== null) {
+            // description is nullable, but the field must exist
+          }
+        }
+
+        return {
+          detail: `Box "${box.name}" has ${rewards.length} reward(s) — open flow prerequisites OK`,
+          data: { boxId: box.id, rewardCount: rewards.length },
+        };
+      }
+    );
+    steps.push(step7);
+  } else {
+    steps.push({
+      step: "openMysteryBox.prereqs",
+      label: "Open prerequisites test",
+      status: "skip",
+      durationMs: 0,
+      detail: "No active boxes to test",
+    });
+  }
+
+  // Step 8: Currency branding
+  const step8 = await runStep("getCurrencyBranding", "Load currency branding", async () => {
+    const branding = await getCurrencyBranding(shop);
+    return {
+      detail: `name="${branding.name}", icon="${branding.icon}"`,
+      data: branding,
+    };
+  });
+  steps.push(step8);
 
   const hasFail = steps.some((s) => s.status === "fail");
+  const allPass = steps.every((s) => s.status === "pass" || s.status === "skip");
+
   return {
     module: "Mystery Boxes",
     steps,
-    overallStatus: hasFail ? "fail" : "pass",
+    overallStatus: allPass ? "pass" : hasFail ? "fail" : "partial",
   };
 }
 
 async function diagnoseMissions(shop: string): Promise<ModuleResult> {
   const steps: StepResult[] = [];
+  const now = new Date();
 
-  const step1 = await runStep("missionTemplate.findMany", "Query active mission templates", async () => {
-    const missions = await db.missionTemplate.findMany({
+  // Step 1: Basic challenge fetch (flat — no includes)
+  const step1 = await runStep("challenge.findMany", "Query active challenges (flat)", async () => {
+    const challenges = await db.challenge.findMany({
       where: {
         shop,
-        isActive: true,
+        status: "ACTIVE",
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+        isPublic: true,
       },
-      select: {
-        id: true,
-        name: true,
-        cadence: true,
-        category: true,
-      },
+      orderBy: { sortOrder: "asc" },
       take: 10,
     });
     return {
-      detail: `Found ${missions.length} active template(s)`,
-      data: missions.map((m) => ({ id: m.id, name: m.name, cadence: m.cadence })),
+      detail: `Found ${challenges.length} active challenge(s)`,
+      data: challenges.map((c: any) => ({ id: c.id, name: c.name })),
     };
   });
   steps.push(step1);
 
+  const challengeIds = (step1.data as any[])?.map((c: any) => c.id) || [];
+
+  // Step 2: Separate reward lookup
+  if (challengeIds.length > 0) {
+    const step2 = await runStep("challengeReward.findMany", "Query rewards separately (Data API compat)", async () => {
+      const rewards = await db.challengeReward.findMany({
+        where: { challengeId: { in: challengeIds } },
+      });
+      return {
+        detail: `Found ${rewards.length} reward(s) for ${challengeIds.length} challenge(s)`,
+        data: rewards.map((r: any) => ({ id: r.id, challengeId: r.challengeId, type: r.rewardType })),
+      };
+    });
+    steps.push(step2);
+  } else {
+    steps.push({ step: "challengeReward.findMany", label: "Query rewards separately", status: "skip", durationMs: 0, detail: "No active challenges" });
+  }
+
+  // Step 3: Separate participant lookup
+  const customerId = await getTestCustomerId(shop);
+
+  if (challengeIds.length > 0 && customerId) {
+    const step3 = await runStep("challengeParticipant.findMany", "Query participants separately (Data API compat)", async () => {
+      const participants = await db.challengeParticipant.findMany({
+        where: { challengeId: { in: challengeIds }, customerId },
+      });
+      return {
+        detail: `Found ${participants.length} participant record(s) for customer`,
+        data: participants.map((p: any) => ({ id: p.id, challengeId: p.challengeId, status: p.status })),
+      };
+    });
+    steps.push(step3);
+  } else {
+    steps.push({ step: "challengeParticipant.findMany", label: "Query participants separately", status: "skip", durationMs: 0, detail: challengeIds.length === 0 ? "No active challenges" : "No customer to test with" });
+  }
+
+  // Step 4: Single-level include (adapter supported — reward only)
+  if (challengeIds.length > 0) {
+    const step4 = await runStep("challenge.include.reward", "Challenge with include: { reward: true } (adapter supported)", async () => {
+      const challenges = await db.challenge.findMany({
+        where: { id: { in: challengeIds.slice(0, 3) } },
+        include: { reward: true },
+      });
+      const withReward = challenges.filter((c: any) => c.reward).length;
+      return {
+        detail: `${challenges.length} challenge(s) fetched, ${withReward} with reward attached`,
+      };
+    });
+    steps.push(step4);
+  } else {
+    steps.push({ step: "challenge.include.reward", label: "Challenge with include: { reward: true }", status: "skip", durationMs: 0, detail: "No active challenges" });
+  }
+
+  // Step 5: Filtered include pattern (the P0-1 bug — expected to fail on adapter)
+  if (challengeIds.length > 0 && customerId) {
+    const step5 = await runStep("challenge.include.participants.where", "Challenge with filtered include: participants (P0-1 pattern)", async () => {
+      try {
+        const challenges = await db.challenge.findMany({
+          where: { id: { in: challengeIds.slice(0, 1) } },
+          include: {
+            reward: true,
+            participants: { where: { customerId } },
+          },
+        });
+        // If we get here, check if participants actually populated
+        const first = challenges[0] as any;
+        if (!first?.participants) {
+          throw new Error("participants is undefined — adapter dropped filtered include");
+        }
+        return {
+          detail: `Filtered include worked (unexpected for Data API) — ${first.participants.length} participant(s)`,
+        };
+      } catch (err: any) {
+        throw new Error(`Filtered include fails as expected: ${err.message}. Use separate queries instead.`);
+      }
+    });
+    steps.push(step5);
+  } else {
+    steps.push({ step: "challenge.include.participants.where", label: "Filtered include pattern (P0-1)", status: "skip", durationMs: 0, detail: "No data to test" });
+  }
+
+  // Step 6: Double-nested include pattern (the P0-2/P0-3 bug — expected to fail)
+  if (customerId) {
+    const step6 = await runStep("participant.include.challenge.include.reward", "Double-nested include: participant → challenge → reward (P0-2/P0-3 pattern)", async () => {
+      try {
+        const participants = await db.challengeParticipant.findMany({
+          where: { customerId, shop },
+          include: {
+            challenge: { include: { reward: true } },
+          },
+          take: 1,
+        });
+        if (participants.length > 0) {
+          const first = participants[0] as any;
+          if (!first?.challenge) {
+            throw new Error("challenge is undefined — adapter dropped double-nested include");
+          }
+        }
+        return {
+          detail: `Double-nested include returned ${participants.length} result(s) — challenge field ${participants.length > 0 ? "present" : "untested (no data)"}`,
+        };
+      } catch (err: any) {
+        throw new Error(`Double-nested include fails as expected: ${err.message}. Use separate queries instead.`);
+      }
+    });
+    steps.push(step6);
+  } else {
+    steps.push({ step: "participant.include.challenge.include.reward", label: "Double-nested include (P0-2/P0-3)", status: "skip", durationMs: 0, detail: "No customer to test with" });
+  }
+
+  // Step 7: Full mission flow (uses safe separate queries)
+  if (customerId) {
+    const step7 = await runStep("getMissionsForCustomer", "Full mission flow (safe separate queries)", async () => {
+      const missions = await getMissionsForCustomer(shop, customerId);
+      const totalMissions =
+        missions.missions.daily.length +
+        missions.missions.weekly.length +
+        missions.missions.monthly.length +
+        missions.missions.special.length;
+      return {
+        detail: `Returned ${totalMissions} mission(s): ${missions.missions.daily.length} daily, ${missions.missions.weekly.length} weekly, ${missions.missions.monthly.length} monthly, ${missions.missions.special.length} special`,
+        data: { totalMissions },
+      };
+    });
+    steps.push(step7);
+  } else {
+    steps.push({ step: "getMissionsForCustomer", label: "Full mission flow", status: "skip", durationMs: 0, detail: "No customer to test with" });
+  }
+
+  // Step 8: The caller that used to crash (now fixed with separate queries)
+  if (customerId) {
+    const step8 = await runStep("getCustomerActiveChallenges", "getCustomerActiveChallenges (was P0-1 crash source)", async () => {
+      const challenges = await getCustomerActiveChallenges(shop, customerId);
+      return {
+        detail: `Returned ${challenges.length} challenge(s) with progress`,
+        data: { count: challenges.length, statuses: challenges.map((c) => c.status) },
+      };
+    });
+    steps.push(step8);
+  } else {
+    steps.push({ step: "getCustomerActiveChallenges", label: "getCustomerActiveChallenges", status: "skip", durationMs: 0, detail: "No customer to test with" });
+  }
+
   const hasFail = steps.some((s) => s.status === "fail");
+  const allPass = steps.every((s) => s.status === "pass" || s.status === "skip");
+
   return {
     module: "Missions",
     steps,
-    overallStatus: hasFail ? "fail" : "pass",
+    overallStatus: allPass ? "pass" : hasFail ? "fail" : "partial",
   };
+}
+
+/** Helper: find a test customer for diagnostic queries */
+async function getTestCustomerId(shop: string): Promise<string | null> {
+  const customer = await db.customer.findFirst({
+    where: { shop },
+    select: { id: true },
+  });
+  return customer?.id || null;
 }
 
 // ─── Loader ──────────────────────────────────────────────────

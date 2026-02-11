@@ -520,7 +520,7 @@ export async function getCustomerActiveChallenges(
     select: { currentTierId: true },
   });
 
-  // Get all active challenges for the shop
+  // Get all active challenges for the shop (flat — no nested includes)
   const challenges = await db.challenge.findMany({
     where: {
       shop,
@@ -529,13 +529,34 @@ export async function getCustomerActiveChallenges(
       endsAt: { gt: now },
       isPublic: true,
     },
-    include: {
-      reward: true,
-      participants: {
-        where: { customerId },
-      },
-    },
+    orderBy: { sortOrder: "asc" },
   });
+
+  const challengeIds = challenges.map((c: { id: string }) => c.id);
+
+  // Fetch rewards and participants separately (Data API adapter compat)
+  const [rewards, participants] = await Promise.all([
+    challengeIds.length > 0
+      ? db.challengeReward.findMany({ where: { challengeId: { in: challengeIds } } })
+      : [],
+    challengeIds.length > 0
+      ? db.challengeParticipant.findMany({
+          where: { challengeId: { in: challengeIds }, customerId },
+        })
+      : [],
+  ]);
+
+  // Build lookup maps
+  const rewardMap = new Map(
+    (rewards as Array<{ challengeId: string; rewardType: string; rewardValue: unknown; description: string }>).map(
+      (r) => [r.challengeId, r]
+    )
+  );
+  const participantMap = new Map(
+    (participants as Array<{ challengeId: string; id: string; status: string; currentProgress: number; progressPercent: number; completedAt: Date | null; claimedAt: Date | null }>).map(
+      (p) => [p.challengeId, p]
+    )
+  );
 
   // Filter by tier eligibility and map to response format
   const result: CustomerChallengeInfo[] = [];
@@ -553,8 +574,9 @@ export async function getCustomerActiveChallenges(
       }
     }
 
-    const participant = challenge.participants[0];
-    const rewardValue = challenge.reward?.rewardValue as Record<string, unknown>;
+    const participant = participantMap.get(challenge.id);
+    const reward = rewardMap.get(challenge.id);
+    const rewardValue = reward?.rewardValue as Record<string, unknown> | undefined;
 
     result.push({
       id: participant?.id || `pending-${challenge.id}`,
@@ -567,11 +589,11 @@ export async function getCustomerActiveChallenges(
       currentProgress: participant?.currentProgress || 0,
       progressPercent: participant?.progressPercent || 0,
       status: (participant?.status || "IN_PROGRESS") as ChallengeParticipantStatus,
-      reward: challenge.reward
+      reward: reward
         ? {
-            type: challenge.reward.rewardType,
+            type: reward.rewardType,
             value: (rewardValue?.amount || rewardValue?.value || 0) as number | string,
-            description: challenge.reward.description,
+            description: reward.description,
           }
         : null,
       startsAt: challenge.startsAt.toISOString(),
@@ -582,21 +604,40 @@ export async function getCustomerActiveChallenges(
   }
 
   // Also get completed/claimed challenges that haven't expired yet
+  // (separate queries — Data API adapter doesn't support relation filters or double-nested includes)
   const completedParticipants = await db.challengeParticipant.findMany({
     where: {
       customerId,
       shop,
       status: { in: ["COMPLETED", "CLAIMED"] },
-      challenge: {
-        endsAt: { gt: now },
-      },
-    },
-    include: {
-      challenge: {
-        include: { reward: true },
-      },
     },
   });
+
+  // Filter to only participants whose challenges haven't expired
+  const completedChallengeIds = completedParticipants.map((p: { challengeId: string }) => p.challengeId);
+  const [completedChallenges, completedRewards] = await Promise.all([
+    completedChallengeIds.length > 0
+      ? db.challenge.findMany({
+          where: { id: { in: completedChallengeIds }, endsAt: { gt: now } },
+        })
+      : [],
+    completedChallengeIds.length > 0
+      ? db.challengeReward.findMany({
+          where: { challengeId: { in: completedChallengeIds } },
+        })
+      : [],
+  ]);
+
+  const completedChallengeMap = new Map(
+    (completedChallenges as Array<{ id: string; name: string; description: string | null; imageUrl: string | null; objectiveType: string; targetValue: number; startsAt: Date; endsAt: Date }>).map(
+      (c) => [c.id, c]
+    )
+  );
+  const completedRewardMap = new Map(
+    (completedRewards as Array<{ challengeId: string; rewardType: string; rewardValue: unknown; description: string }>).map(
+      (r) => [r.challengeId, r]
+    )
+  );
 
   for (const participant of completedParticipants) {
     // Skip if already included in active challenges
@@ -604,8 +645,14 @@ export async function getCustomerActiveChallenges(
       continue;
     }
 
-    const challenge = participant.challenge;
-    const rewardValue = challenge.reward?.rewardValue as Record<string, unknown>;
+    // Skip if challenge has expired (not in our filtered set)
+    const challenge = completedChallengeMap.get(participant.challengeId);
+    if (!challenge) {
+      continue;
+    }
+
+    const reward = completedRewardMap.get(participant.challengeId);
+    const rewardValue = reward?.rewardValue as Record<string, unknown> | undefined;
 
     result.push({
       id: participant.id,
@@ -618,11 +665,11 @@ export async function getCustomerActiveChallenges(
       currentProgress: participant.currentProgress,
       progressPercent: participant.progressPercent,
       status: participant.status as ChallengeParticipantStatus,
-      reward: challenge.reward
+      reward: reward
         ? {
-            type: challenge.reward.rewardType,
+            type: reward.rewardType,
             value: (rewardValue?.amount || rewardValue?.value || 0) as number | string,
-            description: challenge.reward.description,
+            description: reward.description,
           }
         : null,
       startsAt: challenge.startsAt.toISOString(),
@@ -643,48 +690,70 @@ export async function getCustomerChallengeHistory(
   customerId: string,
   limit: number = 20
 ): Promise<CustomerChallengeInfo[]> {
+  // Flat query — no nested includes (Data API adapter compat)
   const participants = await db.challengeParticipant.findMany({
     where: {
       customerId,
       shop,
       status: "CLAIMED",
     },
-    include: {
-      challenge: {
-        include: { reward: true },
-      },
-    },
     orderBy: { claimedAt: "desc" },
     take: limit,
   });
 
-  return participants.map((p) => {
-    const rewardValue = p.challenge.reward?.rewardValue as Record<string, unknown>;
+  // Fetch challenges and rewards separately
+  const histChallengeIds = participants.map((p: { challengeId: string }) => p.challengeId);
+  const [histChallenges, histRewards] = await Promise.all([
+    histChallengeIds.length > 0
+      ? db.challenge.findMany({ where: { id: { in: histChallengeIds } } })
+      : [],
+    histChallengeIds.length > 0
+      ? db.challengeReward.findMany({ where: { challengeId: { in: histChallengeIds } } })
+      : [],
+  ]);
 
-    return {
-      id: p.id,
-      challengeId: p.challengeId,
-      name: p.challenge.name,
-      description: p.challenge.description,
-      imageUrl: p.challenge.imageUrl,
-      objectiveType: p.challenge.objectiveType as ChallengeObjectiveType,
-      targetValue: p.challenge.targetValue,
-      currentProgress: p.currentProgress,
-      progressPercent: p.progressPercent,
-      status: p.status as ChallengeParticipantStatus,
-      reward: p.challenge.reward
-        ? {
-            type: p.challenge.reward.rewardType,
-            value: (rewardValue?.amount || rewardValue?.value || 0) as number | string,
-            description: p.challenge.reward.description,
-          }
-        : null,
-      startsAt: p.challenge.startsAt.toISOString(),
-      endsAt: p.challenge.endsAt.toISOString(),
-      completedAt: p.completedAt?.toISOString() || null,
-      claimedAt: p.claimedAt?.toISOString() || null,
-    };
-  });
+  const histChallengeMap = new Map(
+    (histChallenges as Array<{ id: string; name: string; description: string | null; imageUrl: string | null; objectiveType: string; targetValue: number; startsAt: Date; endsAt: Date }>).map(
+      (c) => [c.id, c]
+    )
+  );
+  const histRewardMap = new Map(
+    (histRewards as Array<{ challengeId: string; rewardType: string; rewardValue: unknown; description: string }>).map(
+      (r) => [r.challengeId, r]
+    )
+  );
+
+  return participants
+    .filter((p: { challengeId: string }) => histChallengeMap.has(p.challengeId))
+    .map((p: { id: string; challengeId: string; currentProgress: number; progressPercent: number; status: string; completedAt: Date | null; claimedAt: Date | null }) => {
+      const challenge = histChallengeMap.get(p.challengeId)!;
+      const reward = histRewardMap.get(p.challengeId);
+      const rewardValue = reward?.rewardValue as Record<string, unknown> | undefined;
+
+      return {
+        id: p.id,
+        challengeId: p.challengeId,
+        name: challenge.name,
+        description: challenge.description,
+        imageUrl: challenge.imageUrl,
+        objectiveType: challenge.objectiveType as ChallengeObjectiveType,
+        targetValue: challenge.targetValue,
+        currentProgress: p.currentProgress,
+        progressPercent: p.progressPercent,
+        status: p.status as ChallengeParticipantStatus,
+        reward: reward
+          ? {
+              type: reward.rewardType,
+              value: (rewardValue?.amount || rewardValue?.value || 0) as number | string,
+              description: reward.description,
+            }
+          : null,
+        startsAt: challenge.startsAt.toISOString(),
+        endsAt: challenge.endsAt.toISOString(),
+        completedAt: p.completedAt?.toISOString() || null,
+        claimedAt: p.claimedAt?.toISOString() || null,
+      };
+    });
 }
 
 // ============================================

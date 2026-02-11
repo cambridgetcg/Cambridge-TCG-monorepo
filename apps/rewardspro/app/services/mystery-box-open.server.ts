@@ -133,19 +133,23 @@ export async function openMysteryBox(
   console.log(`${LOG_PREFIX} openMysteryBox: customer=${customerId}, box=${boxId}`);
 
   try {
-    // 1. Get the box with rewards
+    // 1. Get the box (flat query — Data API adapter silently ignores nested include)
     const box = await db.mysteryBox.findFirst({
       where: { id: boxId, shop },
-      include: {
-        rewards: {
-          orderBy: { position: "asc" },
-        },
-      },
     });
 
     if (!box) {
       return { success: false, error: "Mystery box not found" };
     }
+
+    // Fetch rewards separately (Data API adapter compat — same pattern as proxy GET handler)
+    const boxRewards = await db.mysteryBoxReward.findMany({
+      where: { boxId },
+      orderBy: { position: "asc" },
+    });
+
+    // Attach rewards to box for downstream code compatibility
+    (box as any).rewards = boxRewards;
 
     // 2. Validate box is active and timing is correct
     if (box.status !== "ACTIVE") {

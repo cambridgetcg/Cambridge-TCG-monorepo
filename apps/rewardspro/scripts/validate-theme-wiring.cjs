@@ -284,6 +284,99 @@ function run() {
     }
   }
 
+  // ─── Check 7: Liquid data-* attrs ↔ JS dataset access ────────
+
+  section("7. Liquid data-* attributes ↔ JS dataset.* access");
+
+  function dataAttrToDatasetKey(attr) {
+    // data-customer-id → customerId, data-api-endpoint → apiEndpoint
+    return attr
+      .replace(/^data-/, "")
+      .replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  }
+
+  for (const block of blocks) {
+    if (!block.schema) continue;
+    const jsFile = block.schema.javascript;
+    if (!jsFile) continue;
+    const asset = jsAssets.find((a) => a.file === jsFile);
+    if (!asset) continue;
+
+    // Extract all data-* attributes from Liquid (skip Liquid expressions like {{ }})
+    const dataAttrs = [];
+    const dataAttrRe = /\bdata-([\w-]+)\s*=/g;
+    let m;
+    while ((m = dataAttrRe.exec(block.content)) !== null) {
+      const attrName = m[1];
+      // Skip data-state and data-initialized (internal, not config)
+      if (attrName === "state" || attrName === "initialized") continue;
+      const dsKey = dataAttrToDatasetKey("data-" + attrName);
+      dataAttrs.push({ attr: "data-" + attrName, dsKey });
+    }
+
+    // Check each Liquid data-* is read in JS via dataset.*
+    const uniqueAttrs = [...new Map(dataAttrs.map((a) => [a.attr, a])).values()];
+    for (const { attr, dsKey } of uniqueAttrs) {
+      // Look for dataset.KEY or d.KEY (common shorthand in parseConfiguration)
+      const dsRe = new RegExp(`(?:dataset|\\bd)\\s*\\.\\s*${dsKey}\\b`);
+      if (dsRe.test(asset.content)) {
+        pass(`${block.file} ${attr} → ${asset.file} dataset.${dsKey}`);
+      } else {
+        fail(`${block.file} ${attr} — NOT read in ${asset.file} as dataset.${dsKey}`);
+      }
+    }
+  }
+
+  // ─── Check 8: JS POST body fields ↔ Proxy body reads ─────────
+
+  section("8. JS POST body fields ↔ Proxy body reads");
+
+  const proxySrc = fs.readFileSync(PROXY_PATH, "utf-8");
+
+  for (const asset of jsAssets) {
+    // Find JSON.stringify({ ... }) patterns in POST requests
+    const postBodyRe = /body\s*:\s*JSON\.stringify\s*\(\s*\{([^}]+)\}\s*\)/g;
+    let m2;
+    while ((m2 = postBodyRe.exec(asset.content)) !== null) {
+      const bodyContent = m2[1];
+      // Extract field names: both explicit (key: value) and shorthand (key,  key })
+      const fieldNames = new Set();
+      // Explicit properties: key: value
+      const explicitRe = /(\w+)\s*:/g;
+      let fm;
+      while ((fm = explicitRe.exec(bodyContent)) !== null) {
+        fieldNames.add(fm[1]);
+      }
+      // Shorthand properties: standalone identifiers not followed by : (e.g. { boxId, shop })
+      // Strip string literals first to avoid matching words inside "free-entry" etc.
+      const stripped = bodyContent.replace(/"[^"]*"|'[^']*'/g, '""');
+      const shorthandRe = /\b([a-zA-Z_]\w*)\b/g;
+      while ((fm = shorthandRe.exec(stripped)) !== null) {
+        const name = fm[1];
+        // Skip if it's a value (appears after :) or a known non-field keyword
+        const before = stripped.substring(0, fm.index).trimEnd();
+        if (before.endsWith(":") || before.endsWith(".") || name === "this" || name === "config" || name === "true" || name === "false" || name === "null") continue;
+        fieldNames.add(name);
+      }
+
+      for (const fieldName of fieldNames) {
+        // Check proxy reads this field from body
+        const proxyReadsField =
+          proxySrc.includes(`body.${fieldName}`) ||
+          proxySrc.includes(`{ ${fieldName}`) ||
+          proxySrc.includes(`, ${fieldName}`) ||
+          proxySrc.includes(`{ ${fieldName},`) ||
+          new RegExp(`\\{[^}]*\\b${fieldName}\\b[^}]*\\}\\s*=\\s*body`).test(proxySrc);
+
+        if (proxyReadsField) {
+          pass(`${asset.file} POST body.${fieldName} → read by proxy`);
+        } else {
+          fail(`${asset.file} POST body.${fieldName} — NOT destructured/read in proxy handler`);
+        }
+      }
+    }
+  }
+
   // ─── Summary ─────────────────────────────────────────────────
 
   console.log("\n" + "─".repeat(50));

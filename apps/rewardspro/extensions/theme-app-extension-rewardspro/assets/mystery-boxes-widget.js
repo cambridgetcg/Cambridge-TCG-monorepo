@@ -457,7 +457,6 @@
           <div class="rp-mb-rarity__track">
             <div class="rp-mb-rarity__fill" style="width:${pct}%;background:${color}"></div>
           </div>
-          <span class="rp-mb-rarity__pct">${pct}%</span>
         </div>
       `;
     }

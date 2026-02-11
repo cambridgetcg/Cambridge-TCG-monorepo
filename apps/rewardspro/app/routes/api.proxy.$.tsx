@@ -1124,7 +1124,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           imageUrl: box.imageUrl,
           pointsCost: box.openCost || 0,
           maxOpensPerCustomer: box.maxOpensPerCustomer,
-          totalOpens: box._count.opens,
+          totalOpens: box.totalOpens || 0,
           customerOpens: internalCustomerId ? customerOpens : undefined,
           canOpen: internalCustomerId ? canOpen : undefined,
           reason: internalCustomerId ? reason : undefined,
