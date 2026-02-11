@@ -12,7 +12,7 @@
 // - Tier details (name, cashbackPercent)
 // - ShopSettings (theme, currency)
 //
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
+import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate, unauthenticated } from "../shopify.server";
 import { getAuroraClient } from "../utils/aurora-data-api";
 import db from "../db.server";
@@ -24,7 +24,8 @@ import { getActiveEvents } from "../services/points-bonus-events.server";
 import { getRedemptionTiers } from "../services/points-redemption.server";
 import { getEnabledFeatures, getCurrencyBranding } from "../services/points-config.server";
 // Engagement action imports
-import { purchaseRaffleEntries } from "../services/raffle-entry.server";
+import { purchaseRaffleEntries, claimDailyFreeEntry } from "../services/raffle-entry.server";
+import { getRaffleStreakInfo } from "../services/raffle-streak.server";
 import { claimChallengeReward } from "../services/challenge-claim.server";
 import { openMysteryBox } from "../services/mystery-box-open.server";
 // Mission gamification imports
@@ -38,7 +39,7 @@ import { acknowledgeEvents, getUnacknowledgedEvents } from "../services/mission-
 
 // Debug logging controlled by PROXY_LOG_LEVEL environment variable
 // Set PROXY_LOG_LEVEL=debug for troubleshooting
-const FORCE_DEBUG = false;
+const FORCE_DEBUG = true; // TEMP: Enable full debug logging to diagnose raffles 500
 
 const LOG_LEVEL = process.env.PROXY_LOG_LEVEL || 'error';
 const isDebugLogging = FORCE_DEBUG || LOG_LEVEL === 'debug';
@@ -117,8 +118,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   const headers = {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Requested-With",
     "Access-Control-Allow-Credentials": "true",
     "Content-Type": "application/json",
     // Cache for 30 seconds, serve stale content while revalidating for up to 15 more seconds
@@ -128,7 +129,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY"
   };
-  
+
   // Test endpoint
   if (proxyPath === "test") {
     return json({
@@ -760,7 +761,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // RAFFLES endpoint - List active raffles for storefront teasers
+  // RAFFLES GET endpoint - List active raffles for storefront teasers
+  // NOTE: POST handler for purchases/free-entries is in the action() function below
   // ═══════════════════════════════════════════════════════════════════════
   if (proxyPath === "raffles") {
     const shop = session?.shop;
@@ -823,6 +825,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             entryCost: true,
             maxEntriesPerCustomer: true,
             totalEntries: true,
+            dailyFreeEntries: true,
             prizes: {
               select: { name: true },
               orderBy: { displayOrder: "asc" },
@@ -843,9 +846,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         throw queryErr;
       }
 
-      // Step 3: Get customer entry counts and points balance if authenticated
+      // Step 3: Resolve customer, get entry counts and points balance
       let customerEntries: Record<string, number> = {};
       let pointsBalance = 0;
+      let internalCustomerId: string | null = null;
       if (customerId) {
         log.debug('=== RAFFLES STEP 3: Resolving customer ===', { customerId });
         try {
@@ -855,6 +859,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           });
 
           if (customer) {
+            internalCustomerId = customer.id;
             pointsBalance = Number(customer.pointsBalance || 0);
             log.debug('=== RAFFLES STEP 3a: Customer found ===', {
               internalId: customer.id,
@@ -862,20 +867,28 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             });
 
             if (raffles.length > 0) {
-              const entries = await db.raffleEntry.groupBy({
-                by: ["raffleId"],
-                where: {
-                  customerId: customer.id,
-                  raffleId: { in: raffles.map(r => r.id) },
-                },
-                _sum: { entriesCount: true },
-              });
-              customerEntries = Object.fromEntries(
-                entries.map(e => [e.raffleId, e._sum.entriesCount || 0])
-              );
-              log.debug('=== RAFFLES STEP 3b: Entry counts loaded ===', {
-                entryCounts: customerEntries,
-              });
+              try {
+                const entries = await db.raffleEntry.groupBy({
+                  by: ["raffleId"],
+                  where: {
+                    customerId: customer.id,
+                    raffleId: { in: raffles.map(r => r.id) },
+                  },
+                  _sum: { entriesCount: true },
+                });
+                customerEntries = Object.fromEntries(
+                  entries.map(e => [e.raffleId, e._sum.entriesCount || 0])
+                );
+                log.debug('=== RAFFLES STEP 3b: Entry counts loaded ===', {
+                  entryCounts: customerEntries,
+                });
+              } catch (entryErr: any) {
+                log.warn('=== RAFFLES STEP 3b: Entry count query failed (non-fatal) ===', {
+                  error: entryErr.message,
+                  code: entryErr.code,
+                });
+                // Non-fatal — proceed with empty entry counts
+              }
             }
           } else {
             log.info('=== RAFFLES STEP 3: Customer not found in DB ===', { customerId });
@@ -886,11 +899,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             code: custErr.code,
             stack: custErr.stack?.split('\n').slice(0, 5).join('\n'),
           });
-          throw custErr;
+          // Non-fatal — proceed with no customer data rather than 500
         }
       }
 
-      // Step 4: Format response
+      // Step 4: Check free entry availability (reuse customer from Step 3)
+      let canClaimFreeEntry = false;
+      if (internalCustomerId) {
+        try {
+          const streakInfo = await getRaffleStreakInfo(shop, internalCustomerId);
+          canClaimFreeEntry = streakInfo.canClaimFreeEntry;
+        } catch (streakErr: any) {
+          log.warn('=== RAFFLES STEP 4: Streak check failed (non-fatal) ===', streakErr.message);
+          // Non-fatal — default to false
+        }
+      }
+
+      // Step 5: Format response
       const formattedRaffles = raffles.map(raffle => ({
         id: raffle.id,
         name: raffle.name,
@@ -903,7 +928,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         status: "ACTIVE",
         customerEntries: customerEntries[raffle.id] || 0,
         maxEntriesPerCustomer: raffle.maxEntriesPerCustomer,
-        freeEntryAvailable: false, // TODO: implement daily free entry check
+        freeEntryAvailable: raffle.dailyFreeEntries > 0 && canClaimFreeEntry,
       }));
 
       log.info('=== RAFFLES ENDPOINT SUCCESS ===', {
@@ -943,7 +968,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   // ═══════════════════════════════════════════════════════════════════════
   // MYSTERY-BOXES endpoint - List active mystery boxes for storefront teasers
   // ═══════════════════════════════════════════════════════════════════════
-  if (proxyPath === "mystery-boxes") {
+  if (proxyPath === "mystery-boxes" && request.method === "GET") {
     const shop = session?.shop;
 
     if (!shop) {
@@ -1862,6 +1887,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         openId: result.openId,
         reward: {
           name: result.rewardName,
+          description: result.rewardDescription,
           type: result.rewardType,
           rarity: result.rarity,
           value: result.rewardValue,
@@ -1981,10 +2007,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }, { status: 404, headers });
 }
 
-// Handle OPTIONS requests for CORS preflight
-export async function action({ request }: LoaderFunctionArgs) {
+// Handle POST and OPTIONS requests
+export async function action({ request, params }: ActionFunctionArgs) {
+  const proxyPath = params["*"] || "";
+
+  // CORS preflight
   if (request.method === "OPTIONS") {
-    // SECURITY: Validate origin for preflight requests too
     const origin = request.headers.get('origin') || '';
     const isValidShopifyOrigin = /^https:\/\/[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(origin) ||
                                   /^https:\/\/admin\.shopify\.com$/.test(origin);
@@ -1995,13 +2023,117 @@ export async function action({ request }: LoaderFunctionArgs) {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, X-Requested-With",
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Max-Age": "86400", // Cache preflight for 24 hours
+        "Access-Control-Max-Age": "86400",
       },
     });
   }
 
-  return json({ error: "Method not allowed" }, { status: 405 });
+  // Authenticate the app proxy request
+  let session;
+  try {
+    const authResult = await authenticate.public.appProxy(request);
+    session = authResult.session;
+  } catch (authError: any) {
+    log.error('[Action] AUTH FAILED', { message: authError.message });
+    return json({ success: false, error: "Authentication failed" }, { status: 401 });
+  }
+
+  const origin = request.headers.get('origin') || '';
+  const isValidShopifyOrigin = /^https:\/\/[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(origin) ||
+                                /^https:\/\/admin\.shopify\.com$/.test(origin) ||
+                                origin === '';
+  const allowedOrigin = isValidShopifyOrigin && origin ? origin :
+                        session?.shop ? `https://${session.shop}` :
+                        'https://admin.shopify.com';
+
+  const headers = {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Requested-With",
+    "Access-Control-Allow-Credentials": "true",
+    "Content-Type": "application/json",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY"
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RAFFLES POST - Purchase entries or claim free entry
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "raffles") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { intent, raffleId, quantity = 1, logged_in_customer_id } = body;
+
+      if (!logged_in_customer_id) {
+        return json({ success: false, error: "Please sign in to enter raffles" }, { status: 401, headers });
+      }
+
+      if (!raffleId) {
+        return json({ success: false, error: "Raffle ID is required" }, { status: 400, headers });
+      }
+
+      // Resolve internal customer ID from Shopify customer ID
+      const customer = await db.customer.findFirst({
+        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        select: { id: true, pointsBalance: true },
+      });
+
+      if (!customer) {
+        return json({ success: false, error: "Customer not found. Please contact support." }, { status: 404, headers });
+      }
+
+      // Free entry claim
+      if (intent === "free-entry") {
+        const result = await claimDailyFreeEntry(shop, customer.id, raffleId);
+
+        if (!result.success) {
+          return json({ success: false, error: result.error }, { headers });
+        }
+
+        return json({
+          success: true,
+          newEntryCount: result.totalEntriesCount || result.entriesCount,
+          totalEntries: result.totalEntriesCount || result.entriesCount,
+          message: "Free entry claimed!",
+        }, { headers });
+      }
+
+      // Purchase entries (intent === "purchase" or default)
+      const result = await purchaseRaffleEntries({
+        shop,
+        customerId: customer.id,
+        raffleId,
+        quantity: Math.max(1, Math.min(10, parseInt(quantity) || 1)),
+      });
+
+      if (!result.success) {
+        return json({ success: false, error: result.error }, { headers });
+      }
+
+      return json({
+        success: true,
+        newBalance: result.newBalance,
+        newEntryCount: result.totalEntriesCount || result.entriesCount,
+        totalEntries: result.totalEntriesCount || result.entriesCount,
+        pointsSpent: result.pointsSpent,
+        bonuses: result.bonuses ? Object.keys(result.bonuses) : [],
+        message: `Successfully purchased ${result.entriesCount || quantity} entries!`,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Raffle entry error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return json({ success: false, error: "Failed to enter raffle. Please try again." }, { status: 500, headers });
+    }
+  }
+
+  return json({ error: "Method not allowed" }, { status: 405, headers });
 }

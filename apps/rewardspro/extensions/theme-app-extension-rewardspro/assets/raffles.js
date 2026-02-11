@@ -349,7 +349,7 @@
             intent: 'purchase',
             raffleId: raffleId,
             quantity: quantity,
-            customerId: this.config.customer.id,
+            logged_in_customer_id: this.config.customer.id,
             shop: this.config.shop.domain
           })
         });
@@ -425,7 +425,7 @@
           body: JSON.stringify({
             intent: 'free-entry',
             raffleId: raffleId,
-            customerId: this.config.customer.id,
+            logged_in_customer_id: this.config.customer.id,
             shop: this.config.shop.domain
           })
         });

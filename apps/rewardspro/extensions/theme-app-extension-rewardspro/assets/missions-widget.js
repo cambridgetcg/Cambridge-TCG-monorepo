@@ -127,9 +127,9 @@
         shopDomain: dataset.shopDomain || '',
 
         api: {
-          endpoint: dataset.apiEndpoint || '/apps/rewardspro/api/missions',
-          claimEndpoint: dataset.claimEndpoint || '/apps/rewardspro/api/challenges/claim',
-          eventsAckEndpoint: dataset.eventsAckEndpoint || '/apps/rewardspro/api/missions/events/ack',
+          endpoint: dataset.apiEndpoint || '/apps/rewardspro/missions',
+          claimEndpoint: dataset.claimEndpoint || '/apps/rewardspro/challenges/claim',
+          eventsAckEndpoint: dataset.eventsAckEndpoint || '/apps/rewardspro/missions/events/ack',
           cacheDuration: parseInt(dataset.cacheDuration) || CONFIG.DEFAULT_CACHE_DURATION_S
         },
 
@@ -930,11 +930,23 @@
   // INITIALIZATION
   // ============================================
 
-  document.addEventListener('DOMContentLoaded', function() {
+  function initWidget() {
     var root = document.getElementById('missions-widget-root');
-    if (root) {
+    if (root && !root.dataset.initialized) {
       new MissionsWidget(root).init();
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWidget);
+  } else {
+    initWidget();
+  }
+
+  // Re-initialize on Shopify theme editor events
+  if (typeof Shopify !== 'undefined') {
+    document.addEventListener('shopify:section:load', initWidget);
+    document.addEventListener('shopify:section:reorder', initWidget);
+  }
 
 })();

@@ -44,6 +44,7 @@ export interface OpenMysteryBoxResult {
   openId?: string;
   winnerId?: string;
   rewardName?: string;
+  rewardDescription?: string;
   rewardType?: string;
   rewardValue?: Record<string, unknown>;
   rarity?: string;
@@ -337,6 +338,7 @@ export async function openMysteryBox(
       openId: open.id,
       winnerId: winner.id,
       rewardName: reward.name,
+      rewardDescription: reward.description || undefined,
       rewardType: reward.rewardType,
       rewardValue: reward.rewardValue as Record<string, unknown>,
       rarity: reward.rarity,

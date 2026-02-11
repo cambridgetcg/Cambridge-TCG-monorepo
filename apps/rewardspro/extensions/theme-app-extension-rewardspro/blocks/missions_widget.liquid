@@ -19,9 +19,9 @@
        data-state="authenticated"
        data-customer-id="{{ customer.id }}"
        data-shop-domain="{{ shop.permanent_domain }}"
-       data-api-endpoint="/apps/rewardspro/api/missions"
-       data-claim-endpoint="/apps/rewardspro/api/challenges/claim"
-       data-events-ack-endpoint="/apps/rewardspro/api/missions/events/ack"
+       data-api-endpoint="/apps/rewardspro/missions"
+       data-claim-endpoint="/apps/rewardspro/challenges/claim"
+       data-events-ack-endpoint="/apps/rewardspro/missions/events/ack"
        data-cache-duration="{{ block.settings.cache_duration | default: 30 }}"
        data-default-tab="{{ block.settings.default_tab | default: 'daily' }}">
     {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
