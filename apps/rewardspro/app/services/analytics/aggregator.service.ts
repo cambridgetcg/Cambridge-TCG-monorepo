@@ -14,9 +14,10 @@ export class AnalyticsAggregator {
     if (cached) return cached;
 
     const rows = await query<{ day: string; revenue: number }>(
-      `SELECT date_trunc('day', "createdAt") AS day, SUM(total_price)::float AS revenue
+      `SELECT date_trunc('day', "createdAt") AS day, SUM("netAmount")::float AS revenue
        FROM "Order"
        WHERE shop = :shopId AND "createdAt" BETWEEN :start AND :end
+         AND "financialStatus" IN ('PAID','PARTIALLY_PAID','PARTIALLY_REFUNDED')
        GROUP BY 1
        ORDER BY 1`,
       { shopId, start: range.start, end: range.end }
@@ -145,9 +146,10 @@ export class AnalyticsAggregator {
       `SELECT
         date_trunc('day', "createdAt") AS day,
         COUNT(*)::int AS order_count,
-        AVG(total_price)::float AS avg_order_value
+        AVG("netAmount")::float AS avg_order_value
        FROM "Order"
        WHERE shop = :shopId AND "createdAt" BETWEEN :start AND :end
+         AND "financialStatus" IN ('PAID','PARTIALLY_PAID','PARTIALLY_REFUNDED')
        GROUP BY 1
        ORDER BY 1`,
       { shopId, start: range.start, end: range.end }

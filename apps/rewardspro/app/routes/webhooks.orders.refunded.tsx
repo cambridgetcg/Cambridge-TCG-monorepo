@@ -12,6 +12,7 @@ import TierProductCache from "../services/tier-product-cache.server";
 import * as crypto from 'crypto';
 import { Decimal } from '@prisma/client/runtime/library';
 import { v4 as uuidv4 } from 'uuid';
+import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
 // Shopify Order Refund Types
 interface ShopifyRefund {
@@ -315,6 +316,9 @@ export async function action({ request }: ActionFunctionArgs) {
         console.log(`[OrderRefunded] Could not mark webhook as processed (duplicate or table missing)`);
       }
     }
+
+    // Invalidate analytics cache so dashboards reflect refund
+    try { await invalidateShopCache(shopDomain); } catch(e) { console.warn('[OrderRefunded] Cache invalidation failed:', e); }
 
     return json({
       success: true,

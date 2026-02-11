@@ -6,6 +6,10 @@ function sseEvent(event: string, data: any) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+// Module-level connection tracking
+const activeConnections = new Map<string, number>();
+const MAX_CONNECTIONS_PER_SHOP = 10;
+
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
   if (!session?.shop) {
@@ -13,6 +17,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   const shopId = session.shop;
+
+  // Enforce connection limit per shop
+  const currentCount = activeConnections.get(shopId) || 0;
+  if (currentCount >= MAX_CONNECTIONS_PER_SHOP) {
+    return new Response("Too many realtime connections for this shop", { status: 429 });
+  }
+  activeConnections.set(shopId, currentCount + 1);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -23,7 +34,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         controller.enqueue(encoder.encode(`: keep-alive\n\n`));
       }, 20000);
 
-      // Initial payload
+      // Initial payload — use fresh dates
       const now = new Date();
       const startOfDay = new Date(now);
       startOfDay.setHours(0,0,0,0);
@@ -43,27 +54,46 @@ export async function loader({ request }: LoaderFunctionArgs) {
         console.error("Initial SSE metrics error:", err);
       }
 
-      // Update every 5 seconds
+      // Backpressure: skip tick if previous query is still in-flight
+      let queryInFlight = false;
+
+      // Update every 30 seconds (was 5s — analytics don't need sub-second freshness)
       const tick = setInterval(async () => {
+        if (queryInFlight) return;
+        queryInFlight = true;
         try {
-          const revenue = await analytics.getRevenueMetrics(shopId, { start: startOfDay, end: now });
-          const cashback = await analytics.getCashbackMetrics(shopId, { start: startOfDay, end: now });
+          // Use fresh dates each tick so queries aren't stale
+          const tickNow = new Date();
+          const tickStartOfDay = new Date(tickNow);
+          tickStartOfDay.setHours(0,0,0,0);
+
+          const revenue = await analytics.getRevenueMetrics(shopId, { start: tickStartOfDay, end: tickNow });
+          const cashback = await analytics.getCashbackMetrics(shopId, { start: tickStartOfDay, end: tickNow });
 
           controller.enqueue(encoder.encode(sseEvent("metrics", {
             todayRevenue: revenue[revenue.length - 1]?.revenue || 0,
             todayCashback: cashback[cashback.length - 1]?.cashback_earned || 0,
-            timestamp: new Date().toISOString(),
+            timestamp: tickNow.toISOString(),
           })));
         } catch (err) {
           console.error("SSE metrics update error:", err);
+        } finally {
+          queryInFlight = false;
         }
-      }, 5000);
+      }, 30000);
 
       // Cleanup on abort
       const cleanup = () => {
         clearInterval(hb);
         clearInterval(tick);
-        controller.close();
+        // Decrement connection count
+        const count = activeConnections.get(shopId) || 1;
+        if (count <= 1) {
+          activeConnections.delete(shopId);
+        } else {
+          activeConnections.set(shopId, count - 1);
+        }
+        try { controller.close(); } catch { /* already closed */ }
       };
 
       request.signal.addEventListener("abort", cleanup);

@@ -246,21 +246,7 @@ export async function awardOrderPoints(
   calculation: CalculatePointsResult;
   transaction: PointsTransaction;
 }> {
-  // Check for duplicate
-  const existing = await db.pointsLedger.findFirst({
-    where: {
-      shop,
-      customerId,
-      orderId,
-      type: "ORDER_EARNED",
-    },
-  });
-
-  if (existing) {
-    throw new Error(`Points already awarded for order ${orderId}`);
-  }
-
-  // Calculate points
+  // Calculate points first (reads config + tier, no write contention)
   const calculation = await calculatePointsForOrder(
     shop,
     orderAmount,
@@ -272,22 +258,81 @@ export async function awardOrderPoints(
     throw new Error("No points to award for this order");
   }
 
-  // Award points
-  const transaction = await earnPoints({
-    customerId,
-    shop,
-    amount: calculation.totalPoints,
-    type: "ORDER_EARNED",
-    orderId,
-    description: `Earned from order`,
-    metadata: {
-      orderAmount,
-      basePoints: calculation.basePoints,
-      tierMultiplier: calculation.tierMultiplier,
-      bonusMultiplier: calculation.bonusMultiplier,
-      tierName: calculation.tierName,
-    },
+  // Idempotency check + earn inside a single transaction to prevent double-award
+  const result = await db.$transaction(async (tx) => {
+    // Check for duplicate inside transaction
+    const existing = await tx.pointsLedger.findFirst({
+      where: {
+        shop,
+        customerId,
+        orderId,
+        type: "ORDER_EARNED",
+      },
+    });
+
+    if (existing) {
+      throw new Error(`Points already awarded for order ${orderId}`);
+    }
+
+    // Get current balance
+    const customer = await tx.customer.findFirst({
+      where: { id: customerId, shop },
+      select: { pointsBalance: true, lifetimePoints: true },
+    });
+
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    const currentBalance = Number(customer.pointsBalance);
+    const newBalance = currentBalance + calculation.totalPoints;
+
+    // Calculate expiration date
+    const expiresAt = await calculateExpirationDate(shop);
+
+    // Create ledger entry
+    const entry = await tx.pointsLedger.create({
+      data: {
+        shop,
+        customerId,
+        amount: calculation.totalPoints,
+        balance: newBalance,
+        type: "ORDER_EARNED",
+        description: `Earned from order`,
+        orderId,
+        expiresAt,
+        metadata: {
+          orderAmount,
+          basePoints: calculation.basePoints,
+          tierMultiplier: calculation.tierMultiplier,
+          bonusMultiplier: calculation.bonusMultiplier,
+          tierName: calculation.tierName,
+        } as Prisma.JsonValue,
+      },
+    });
+
+    // Update customer balance
+    await tx.customer.update({
+      where: { id: customerId },
+      data: {
+        pointsBalance: newBalance,
+        lifetimePoints: { increment: calculation.totalPoints },
+      },
+    });
+
+    return entry;
   });
+
+  const transaction: PointsTransaction = {
+    id: result.id,
+    amount: result.amount,
+    balance: result.balance,
+    type: result.type,
+    description: result.description,
+    createdAt: result.createdAt,
+    expiresAt: result.expiresAt,
+    metadata: result.metadata as Record<string, unknown> | null,
+  };
 
   return { calculation, transaction };
 }
@@ -337,26 +382,27 @@ export async function spendPoints(input: SpendPointsInput): Promise<PointsTransa
     throw new Error("Points system is not enabled for this shop");
   }
 
-  // Get current balance
-  const customer = await db.customer.findFirst({
-    where: { id: input.customerId, shop: input.shop },
-    select: { pointsBalance: true },
-  });
-
-  if (!customer) {
-    throw new Error("Customer not found");
-  }
-
-  const currentBalance = Number(customer.pointsBalance);
-
-  if (currentBalance < input.amount) {
-    throw new Error(`Insufficient points balance. Required: ${input.amount}, Available: ${currentBalance}`);
-  }
-
-  const newBalance = currentBalance - input.amount;
-
-  // Create ledger entry and update customer balance in transaction
+  // Balance check + ledger entry + balance update all inside transaction
+  // to prevent race conditions from concurrent spends
   const result = await db.$transaction(async (tx) => {
+    // Read balance inside transaction (serializable isolation prevents TOCTOU)
+    const customer = await tx.customer.findFirst({
+      where: { id: input.customerId, shop: input.shop },
+      select: { pointsBalance: true },
+    });
+
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    const currentBalance = Number(customer.pointsBalance);
+
+    if (currentBalance < input.amount) {
+      throw new Error(`Insufficient points balance. Required: ${input.amount}, Available: ${currentBalance}`);
+    }
+
+    const newBalance = currentBalance - input.amount;
+
     // Create ledger entry (negative amount for spending)
     const entry = await tx.pointsLedger.create({
       data: {

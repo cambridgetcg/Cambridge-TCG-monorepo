@@ -12,6 +12,7 @@ import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
 interface FulfillmentWebhook {
   id: number;
@@ -124,6 +125,9 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     console.log("=".repeat(60) + "\n");
+
+    // Invalidate analytics cache so dashboards reflect fulfillment changes
+    try { await invalidateShopCache(shop); } catch(e) { console.warn('[OrdersFulfilled] Cache invalidation failed:', e); }
 
     return json({
       success: true,

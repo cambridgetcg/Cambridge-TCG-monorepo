@@ -348,7 +348,8 @@ async function updateRedemptionStatus(
 export async function redeemPoints(
   shop: string,
   customerId: string,
-  tierId: string
+  tierId: string,
+  admin?: any
 ): Promise<RedemptionResult> {
   // Get the tier
   const tier = await getRedemptionTier(shop, tierId);
@@ -416,10 +417,35 @@ export async function redeemPoints(
     // Save redemption record
     await saveCustomerRedemption(customerId, shop, redemption);
 
-    // TODO: Create Shopify discount code
-    // This would integrate with the Shopify Admin API to create an actual discount
-    // const shopifyDiscount = await createShopifyDiscount(shop, tier, discountCode, expiresAt);
-    // redemption.shopifyDiscountId = shopifyDiscount.id;
+    // Create Shopify discount code if admin API is available
+    if (admin) {
+      try {
+        const { createDiscountService } = await import("~/services/shopify-discount.service");
+        const discountService = createDiscountService(admin, shop);
+
+        const discountType = tier.type === "PERCENTAGE_DISCOUNT" ? "percentage" : "fixed_amount";
+        const shopifyResult = await discountService.createDiscountCode({
+          title: `Points Redemption: ${tier.name}`,
+          code: discountCode,
+          type: discountType,
+          value: tier.value,
+          usageLimit: 1,
+          expiresAt,
+        });
+
+        if (shopifyResult.success && shopifyResult.discountId) {
+          redemption.shopifyDiscountId = shopifyResult.discountId;
+          // Re-save with Shopify discount ID
+          await saveCustomerRedemption(customerId, shop, redemption);
+          console.log(`[Redemption] Shopify discount created: ${shopifyResult.discountId}`);
+        } else {
+          console.error(`[Redemption] Shopify discount creation failed: ${shopifyResult.error}`);
+          // Points already spent — discount code is valid locally for manual creation
+        }
+      } catch (error) {
+        console.error(`[Redemption] Error creating Shopify discount (non-fatal):`, error);
+      }
+    }
 
     console.log(`[Redemption] Customer ${customerId} redeemed ${tier.pointsCost} points for "${tier.name}"`);
 

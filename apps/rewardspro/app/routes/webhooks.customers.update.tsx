@@ -8,6 +8,7 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { handleCustomerUpdate, type ShopifyCustomerWebhook } from "../services/webhook-customer-sync.server";
 import { verifyWebhookHMAC } from "../utils/webhook-validation.server";
+import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   console.log("[Webhook] Received customers/update webhook");
@@ -44,7 +45,10 @@ export async function action({ request }: ActionFunctionArgs) {
     const result = await handleCustomerUpdate(payload, shopDomain);
     
     console.log(`[Webhook] Successfully processed customer update: ${result.customerId}`);
-    
+
+    // Invalidate analytics cache so dashboards reflect customer changes
+    try { await invalidateShopCache(shopDomain); } catch(e) { console.warn('[Webhook] Cache invalidation failed:', e); }
+
     // Return 200 OK to acknowledge receipt
     return new Response("OK", { status: 200 });
   } catch (error) {

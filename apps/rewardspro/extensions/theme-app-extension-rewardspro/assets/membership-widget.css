@@ -1551,6 +1551,68 @@
   display: none;
 }
 
+/* ==========================================
+   COLLAPSED STATE - COMPACT ICON BUTTON
+   Applies at ALL screen sizes so the widget
+   never blocks checkout or page content.
+   ========================================== */
+.rp-auth--collapsed {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 !important;
+  border-radius: var(--rp-border-radius, 10px) !important;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.rp-auth--collapsed:hover {
+  transform: scale(1.05);
+}
+
+.rp-auth--collapsed:active {
+  transform: scale(1);
+}
+
+.rp-auth--collapsed .rp-auth__header {
+  justify-content: center;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  gap: 0;
+}
+
+.rp-auth--collapsed .rp-auth__text,
+.rp-auth--collapsed .rp-auth__actions,
+.rp-auth--collapsed .rp-auth__toggle {
+  display: none !important;
+}
+
+.rp-auth--collapsed .rp-auth__icon {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--rp-border-radius, 10px);
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-auth--collapsed .rp-auth__icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-auth--collapsed::before {
+  display: none;
+}
+
 .rp-auth__icon {
   width: 40px;
   height: 40px;
@@ -1819,6 +1881,67 @@
 }
 
 .rp-guest-b--collapsed .rp-guest-b__body {
+  display: none;
+}
+
+/* ==========================================
+   GUEST COLLAPSED STATE - COMPACT ICON BUTTON
+   Same treatment as authenticated widget.
+   ========================================== */
+.rp-guest-b--collapsed {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 !important;
+  border-radius: var(--rp-border-radius, 10px) !important;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.rp-guest-b--collapsed:hover {
+  transform: scale(1.05);
+}
+
+.rp-guest-b--collapsed:active {
+  transform: scale(1);
+}
+
+.rp-guest-b--collapsed .rp-guest-b__header {
+  justify-content: center;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  gap: 0;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__text,
+.rp-guest-b--collapsed .rp-guest-b__actions,
+.rp-guest-b--collapsed .rp-guest-b__toggle {
+  display: none !important;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__icon {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--rp-border-radius, 10px);
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-guest-b--collapsed .rp-guest-b__icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--rp-primary-color, #5C6AC4);
+}
+
+.rp-guest-b--collapsed::before {
   display: none;
 }
 

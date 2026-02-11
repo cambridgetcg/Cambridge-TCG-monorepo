@@ -391,8 +391,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const shop = session.shop;
 
-  // Rate-based model: All plans have access to analytics
-  // Historical data is limited by plan via maxHistoricalDays limit
+  // Parse date range from query params (e.g. ?range=7days, ?range=30days, ?range=90days)
+  const url = new URL(request.url);
+  const range = url.searchParams.get('range') || '30days';
+  let dateRange: { start: Date; end: Date } | undefined;
+
+  const rangeDaysMatch = range.match(/^(\d+)days$/);
+  if (rangeDaysMatch) {
+    const days = parseInt(rangeDaysMatch[1], 10);
+    const end = new Date();
+    const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+    dateRange = { start, end };
+  }
+  // If range doesn't match pattern, dateRange stays undefined → default month behavior
 
   try {
     // Fetch minimal data for UI structure, recommendations, and entitlements
@@ -440,7 +451,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       cohortAnalysis,
       monthlyTierRevenue,
     ] = await Promise.all([
-      getOverviewMetricsWithComparison(shop),
+      getOverviewMetricsWithComparison(shop, dateRange),
       getTierPerformanceMetrics(shop),
       getProgramImpactMetrics(shop),
       getMonthlyImpactData(shop),
@@ -2028,25 +2039,34 @@ export default function AnalyticsPage() {
                           </BlockStack>
 
                           {/* Chart.js Area Chart */}
-                          <div style={{ height: '300px', padding: '20px 0' }}>
-                            <Line
-                              data={{
-                                labels: data.monthlyTierTrends.map(m => m.month),
-                                datasets: [{
-                                  label: 'Reward Usage Rate',
-                                  data: [65.2, 72.4, 68.1, 75.3, 71.7, 78.5, 74.2, 69.8, 73.1, 76.4, 70.5, 77.3],
-                                  borderColor: '#8B5CF6',
-                                  backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                                  fill: true,
-                                  tension: 0.4,
-                                }],
-                              }}
-                              options={getShopifyChartOptions({
-                                max: 100,
-                                callback: (value) => `${value}%`,
-                              })}
-                            />
-                          </div>
+                          {data.monthlyImpactData.length > 0 ? (
+                            <div style={{ height: '300px', padding: '20px 0' }}>
+                              <Line
+                                data={{
+                                  labels: data.monthlyImpactData.map(m => m.month),
+                                  datasets: [{
+                                    label: 'Reward Usage Rate',
+                                    data: data.monthlyImpactData.map(m => m.usageRate),
+                                    borderColor: '#8B5CF6',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                                    fill: true,
+                                    tension: 0.4,
+                                  }],
+                                }}
+                                options={getShopifyChartOptions({
+                                  max: 100,
+                                  callback: (value) => `${value}%`,
+                                })}
+                              />
+                            </div>
+                          ) : (
+                            <EmptyState
+                              heading="No usage data yet"
+                              image=""
+                            >
+                              <p>Reward usage rate data will appear once customers start redeeming rewards.</p>
+                            </EmptyState>
+                          )}
 
                           <Text variant="bodySm" tone="subdued" as="p">
                             Cumulative percentage of rewards redeemed by customers since program launch
@@ -2070,25 +2090,33 @@ export default function AnalyticsPage() {
                           </BlockStack>
 
                           {/* Chart.js Area Chart */}
-                          <div style={{ height: '300px', padding: '20px 0' }}>
-                            <Line
-                              data={{
-                                labels: data.monthlyTierTrends.map(m => m.month),
-                                datasets: [{
-                                  label: 'Sales Influenced',
-                                  data: [25000, 68000, 125000, 195000, 272000, 355000, 422000, 475000, 512000, 538000, 558000, 585000],
-                                  borderColor: '#22c55e',
-                                  backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                                  fill: true,
-                                  tension: 0.1,
-                                }],
-                              }}
-                              options={getShopifyChartOptions({
-                                max: 600000,
-                                callback: (value) => `$${(Number(value) / 1000).toFixed(0)}k`,
-                              })}
-                            />
-                          </div>
+                          {data.monthlyImpactData.length > 0 ? (
+                            <div style={{ height: '300px', padding: '20px 0' }}>
+                              <Line
+                                data={{
+                                  labels: data.monthlyImpactData.map(m => m.month),
+                                  datasets: [{
+                                    label: 'Sales Influenced',
+                                    data: data.monthlyImpactData.map(m => m.cumulativeSales),
+                                    borderColor: '#22c55e',
+                                    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                    fill: true,
+                                    tension: 0.1,
+                                  }],
+                                }}
+                                options={getShopifyChartOptions({
+                                  callback: (value) => `$${(Number(value) / 1000).toFixed(0)}k`,
+                                })}
+                              />
+                            </div>
+                          ) : (
+                            <EmptyState
+                              heading="No sales influence data yet"
+                              image=""
+                            >
+                              <p>Sales influenced by your loyalty program will appear once orders are placed by members.</p>
+                            </EmptyState>
+                          )}
 
                           <Text variant="bodySm" tone="subdued" as="p">
                             Cumulative revenue from orders influenced by loyalty program participation

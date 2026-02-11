@@ -338,13 +338,21 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     }
 
-    // 9. Refresh entitlements (non-critical, outside transaction)
-    try {
-      await refreshEntitlements(shopDomain);
-      console.log(`[APP_SUBSCRIPTIONS_UPDATE] Refreshed entitlements for ${shopDomain}`);
-    } catch (entitlementsError) {
-      console.error("[APP_SUBSCRIPTIONS_UPDATE] Failed to refresh entitlements:", entitlementsError);
-      // Non-critical - don't fail webhook
+    // 9. Refresh entitlements (with retry - important for feature access)
+    let entitlementsRefreshed = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await refreshEntitlements(shopDomain);
+        entitlementsRefreshed = true;
+        console.log(`[APP_SUBSCRIPTIONS_UPDATE] Refreshed entitlements for ${shopDomain}`);
+        break;
+      } catch (entitlementsError) {
+        console.error(`[APP_SUBSCRIPTIONS_UPDATE] Entitlements refresh attempt ${attempt}/3 failed:`, entitlementsError);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt));
+      }
+    }
+    if (!entitlementsRefreshed) {
+      console.error(`[APP_SUBSCRIPTIONS_UPDATE] All entitlements refresh attempts failed for ${shopDomain}`);
     }
 
     // 10. Mark webhook as completed

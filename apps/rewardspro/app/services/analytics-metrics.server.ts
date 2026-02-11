@@ -92,23 +92,15 @@ async function fetchPeriodMetrics(
     },
   });
 
-  // Get distinct active customers (separate query needed for DISTINCT)
-  const activeCustomers = await db.order.findMany({
-    where: {
-      shop,
-      shopifyCreatedAt: {
-        gte: start,
-        lte: end,
-      },
-      financialStatus: {
-        in: ['PAID', 'PARTIALLY_PAID'],
-      },
-    },
-    distinct: ['customerId'],
-    select: {
-      customerId: true,
-    },
-  });
+  // Get distinct active customers count via COUNT DISTINCT (avoids loading all IDs into memory)
+  const activeCustomersResult = await db.$queryRaw`
+    SELECT COUNT(DISTINCT "customerId")::int as count
+    FROM "Order"
+    WHERE shop = ${shop}
+      AND "shopifyCreatedAt" >= ${start}
+      AND "shopifyCreatedAt" <= ${end}
+      AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
+  ` as { count: number }[];
 
   // Try to get order count from MonthlyOrderUsage (cached)
   let orderCount = orderAggregation._count.id;
@@ -132,7 +124,7 @@ async function fetchPeriodMetrics(
   // Calculate metrics
   const totalRevenue = Number(orderAggregation._sum.netAmount || 0);
   const cashbackIssued = Number(orderAggregation._sum.cashbackAmount || 0);
-  const activeCustomersCount = activeCustomers.length;
+  const activeCustomersCount = Number(activeCustomersResult[0]?.count || 0);
   const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
 
   // Data integrity check: activeCustomers should not exceed totalCustomers
@@ -155,33 +147,101 @@ async function fetchPeriodMetrics(
 }
 
 /**
+ * Fetch metrics for an arbitrary date range (used by custom date range selector)
+ */
+async function fetchPeriodMetricsForRange(
+  shop: string,
+  start: Date,
+  end: Date
+): Promise<OverviewMetrics> {
+  const orderAggregation = await db.order.aggregate({
+    where: {
+      shop,
+      shopifyCreatedAt: { gte: start, lte: end },
+      financialStatus: { in: ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'] },
+    },
+    _sum: { netAmount: true, cashbackAmount: true },
+    _count: { id: true },
+  });
+
+  const activeCustomersResult = await db.$queryRaw`
+    SELECT COUNT(DISTINCT "customerId")::int as count
+    FROM "Order"
+    WHERE shop = ${shop}
+      AND "shopifyCreatedAt" >= ${start}
+      AND "shopifyCreatedAt" <= ${end}
+      AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
+  ` as { count: number }[];
+
+  const totalCustomersCount = await db.customer.count({ where: { shop } });
+
+  const totalRevenue = Number(orderAggregation._sum.netAmount || 0);
+  const cashbackIssued = Number(orderAggregation._sum.cashbackAmount || 0);
+  const activeCustomersCount = Number(activeCustomersResult[0]?.count || 0);
+  const orderCount = orderAggregation._count.id;
+  const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+
+  return {
+    totalRevenue,
+    totalOrders: orderCount,
+    cashbackIssued,
+    activeCustomers: activeCustomersCount,
+    avgOrderValue,
+    totalCustomers: totalCustomersCount,
+  };
+}
+
+/**
  * Get overview metrics with comparison to previous period
  * Uses caching for performance
+ *
+ * @param shop - Shop domain
+ * @param dateRange - Optional custom date range. When provided, comparison period
+ *   is an equal-length window immediately preceding the start date.
  */
 export async function getOverviewMetricsWithComparison(
-  shop: string
+  shop: string,
+  dateRange?: { start: Date; end: Date }
 ): Promise<MetricsComparison> {
-  const currentPeriod = getCurrentPeriod();
-  const previousPeriod = getPreviousPeriod();
+  let current: OverviewMetrics;
+  let previous: OverviewMetrics;
 
-  console.log(`[Analytics] Fetching metrics for ${shop}`);
-  console.log(`[Analytics] Current: ${currentPeriod.year}-${currentPeriod.month}`);
-  console.log(`[Analytics] Previous: ${previousPeriod.year}-${previousPeriod.month}`);
+  if (dateRange) {
+    // Custom date range: compute comparison as an equal-length window before start
+    const rangeMs = dateRange.end.getTime() - dateRange.start.getTime();
+    const comparisonStart = new Date(dateRange.start.getTime() - rangeMs);
+    const comparisonEnd = new Date(dateRange.start.getTime() - 1); // 1ms before current range
 
-  // Fetch both periods in parallel with caching
-  // OPTIMIZED: Increased cache TTL for better performance
-  const [current, previous] = await Promise.all([
-    getCachedOrCompute(
-      getMetricsCacheKey(shop, 'current'),
-      () => fetchPeriodMetrics(shop, currentPeriod.year, currentPeriod.month),
-      300000 // 5 minute cache (increased from 60s - current month metrics don't change rapidly)
-    ),
-    getCachedOrCompute(
-      getMetricsCacheKey(shop, 'previous'),
-      () => fetchPeriodMetrics(shop, previousPeriod.year, previousPeriod.month),
-      600000 // 10 minute cache (previous month rarely changes)
-    ),
-  ]);
+    console.log(`[Analytics] Fetching metrics for ${shop} (custom range)`);
+    console.log(`[Analytics] Current: ${dateRange.start.toISOString()} - ${dateRange.end.toISOString()}`);
+    console.log(`[Analytics] Previous: ${comparisonStart.toISOString()} - ${comparisonEnd.toISOString()}`);
+
+    [current, previous] = await Promise.all([
+      fetchPeriodMetricsForRange(shop, dateRange.start, dateRange.end),
+      fetchPeriodMetricsForRange(shop, comparisonStart, comparisonEnd),
+    ]);
+  } else {
+    // Default: current vs previous month
+    const currentPeriod = getCurrentPeriod();
+    const previousPeriod = getPreviousPeriod();
+
+    console.log(`[Analytics] Fetching metrics for ${shop}`);
+    console.log(`[Analytics] Current: ${currentPeriod.year}-${currentPeriod.month}`);
+    console.log(`[Analytics] Previous: ${previousPeriod.year}-${previousPeriod.month}`);
+
+    [current, previous] = await Promise.all([
+      getCachedOrCompute(
+        getMetricsCacheKey(shop, 'current'),
+        () => fetchPeriodMetrics(shop, currentPeriod.year, currentPeriod.month),
+        300000
+      ),
+      getCachedOrCompute(
+        getMetricsCacheKey(shop, 'previous'),
+        () => fetchPeriodMetrics(shop, previousPeriod.year, previousPeriod.month),
+        600000
+      ),
+    ]);
+  }
 
   // Calculate percentage changes
   const calculateChange = (current: number, previous: number): number => {

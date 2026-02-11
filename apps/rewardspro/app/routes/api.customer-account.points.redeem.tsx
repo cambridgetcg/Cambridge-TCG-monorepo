@@ -11,7 +11,7 @@
 
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { authenticate } from "~/shopify.server";
+import { authenticate, unauthenticated } from "~/shopify.server";
 import { redeemPoints, getRedemptionTier } from "~/services/points-redemption.server";
 import db from "~/db.server";
 
@@ -173,8 +173,17 @@ export async function action({ request }: ActionFunctionArgs) {
       );
     }
 
+    // Get admin API for Shopify discount creation
+    let admin: any;
+    try {
+      const unauthResult = await unauthenticated.admin(shopDomain);
+      admin = unauthResult.admin;
+    } catch (e) {
+      console.error(`[PointsRedeem] Failed to get admin API (non-fatal):`, e);
+    }
+
     // Perform the redemption
-    const result = await redeemPoints(shopDomain, customer.id, tierId);
+    const result = await redeemPoints(shopDomain, customer.id, tierId, admin);
 
     if (!result.success) {
       return json(

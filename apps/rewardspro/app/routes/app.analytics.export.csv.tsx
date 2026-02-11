@@ -57,7 +57,7 @@ async function* iterateTransactions(shopId: string, minDate: Date | null, batchS
 
   while (true) {
     const rows = await query<any>(
-      `SELECT id, "createdAt", "customerId", total_price, cashback_amount
+      `SELECT id, "createdAt", "customerId", "netAmount", cashback_amount
          FROM "Order"
         WHERE shop = :shopId
           AND (:minDateStr IS NULL OR "createdAt" >= :minDateStr)
@@ -118,7 +118,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     maxHistoricalDays,
   }).catch(err => console.error('[AUDIT:DATA_EXPORT] Logging failed:', err));
 
-  const cols = ["id", "createdAt", "customerId", "total_price", "cashback_amount"];
+  const cols = ["id", "createdAt", "customerId", "netAmount", "cashback_amount"];
 
   const stream = new ReadableStream({
     start(controller) {

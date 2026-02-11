@@ -242,10 +242,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
             console.log('[Billing Loader] ✅ Subscription saved successfully!');
 
-            // Refresh entitlements to unlock features immediately
+            // Refresh entitlements to unlock features immediately (with retry)
             const { refreshEntitlements } = await import("~/services/entitlements.server");
-            await refreshEntitlements(session.shop);
-            console.log('[Billing Loader] ✅ Entitlements refreshed!');
+            let entitlementsRefreshed = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                await refreshEntitlements(session.shop);
+                entitlementsRefreshed = true;
+                console.log('[Billing Loader] ✅ Entitlements refreshed!');
+                break;
+              } catch (refreshError) {
+                console.error(`[Billing Loader] ❌ Entitlements refresh attempt ${attempt}/3 failed:`, refreshError);
+                if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt));
+              }
+            }
+            if (!entitlementsRefreshed) {
+              console.error('[Billing Loader] ❌ All entitlements refresh attempts failed - features may be delayed');
+            }
           } catch (saveError) {
             console.error('[Billing Loader] ❌ Error saving subscription:', saveError);
           }
@@ -282,10 +295,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           subscriptionVerified = true;
           console.log('[Billing Loader] ✅ Subscription saved via fallback method');
 
-          // Refresh entitlements to unlock features immediately
+          // Refresh entitlements to unlock features immediately (with retry)
           const { refreshEntitlements } = await import("~/services/entitlements.server");
-          await refreshEntitlements(session.shop);
-          console.log('[Billing Loader] ✅ Entitlements refreshed (fallback)!');
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              await refreshEntitlements(session.shop);
+              console.log('[Billing Loader] ✅ Entitlements refreshed (fallback)!');
+              break;
+            } catch (refreshError) {
+              console.error(`[Billing Loader] ❌ Entitlements refresh (fallback) attempt ${attempt}/3 failed:`, refreshError);
+              if (attempt < 3) await new Promise(r => setTimeout(r, 500 * attempt));
+            }
+          }
         } catch (saveError) {
           console.error('[Billing Loader] ❌ Error saving subscription (fallback):', saveError);
         }

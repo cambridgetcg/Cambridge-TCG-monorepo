@@ -171,72 +171,95 @@ export async function purchaseRaffleEntries(
     const finalEntries = psychologyResult.finalEntries;
     const pointsCost = basePointsCost; // Points cost stays based on base entries
 
-    // 7. Process the purchase in a transaction-like manner
-    // First, create/update the entry record
-    let entry;
-    const isNewEntrant = !existingEntry;
+    // 7. Atomic entry creation + limit enforcement + raffle stats update
+    // Transaction prevents race conditions where concurrent requests exceed entry limits
+    const { entry, isNewEntrant } = await db.$transaction(async (tx) => {
+      // Re-check entry count inside transaction (prevents TOCTOU race)
+      const txExistingEntry = await tx.raffleEntry.findFirst({
+        where: { raffleId, customerId },
+      });
 
-    if (existingEntry) {
-      // Update existing entry
-      entry = await db.raffleEntry.update({
-        where: { id: existingEntry.id },
-        data: {
-          entriesCount: existingEntry.entriesCount + finalEntries,
-          pointsSpent: existingEntry.pointsSpent + pointsCost,
-          // Track psychology bonuses applied
-          streakBonusApplied: psychologyResult.bonuses.streak.applied
-            ? psychologyResult.bonuses.streak.multiplier
-            : null,
-          earlyBirdBonusApplied: psychologyResult.bonuses.earlyBird.applied,
-          luckyNumberBonus: psychologyResult.bonuses.luckyNumber.bonusEntries,
-          bonusEventId: psychologyResult.bonuses.bonusEvent.eventId,
-          instantWinsTriggered: {
-            increment: psychologyResult.instantWins.filter((w) => w.won).length,
+      const txCurrentEntries = txExistingEntry?.entriesCount || 0;
+      const txRequestedTotal = txCurrentEntries + finalEntries;
+
+      if (txRequestedTotal > raffle.maxEntriesPerCustomer) {
+        throw new Error("Maximum entries exceeded (concurrent request detected)");
+      }
+
+      // Re-check total entry limit
+      if (raffle.maxEntriesTotal) {
+        const txRaffle = await tx.raffle.findUnique({
+          where: { id: raffleId },
+          select: { totalEntries: true },
+        });
+        if (txRaffle && txRaffle.totalEntries + finalEntries > raffle.maxEntriesTotal) {
+          throw new Error("Raffle is full (concurrent request detected)");
+        }
+      }
+
+      let txEntry;
+      const txIsNewEntrant = !txExistingEntry;
+
+      if (txExistingEntry) {
+        txEntry = await tx.raffleEntry.update({
+          where: { id: txExistingEntry.id },
+          data: {
+            entriesCount: txExistingEntry.entriesCount + finalEntries,
+            pointsSpent: txExistingEntry.pointsSpent + pointsCost,
+            streakBonusApplied: psychologyResult.bonuses.streak.applied
+              ? psychologyResult.bonuses.streak.multiplier
+              : null,
+            earlyBirdBonusApplied: psychologyResult.bonuses.earlyBird.applied,
+            luckyNumberBonus: psychologyResult.bonuses.luckyNumber.bonusEntries,
+            bonusEventId: psychologyResult.bonuses.bonusEvent.eventId,
+            instantWinsTriggered: {
+              increment: psychologyResult.instantWins.filter((w) => w.won).length,
+            },
           },
-        },
-      });
-    } else {
-      // Create new entry
-      entry = await db.raffleEntry.create({
-        data: {
-          raffleId,
-          customerId,
-          shop,
-          entriesCount: finalEntries,
-          pointsSpent: pointsCost,
-          entryMultiplier: tierMultiplier,
-          isWinner: false,
-          // Track psychology bonuses applied
-          streakBonusApplied: psychologyResult.bonuses.streak.applied
-            ? psychologyResult.bonuses.streak.multiplier
-            : null,
-          earlyBirdBonusApplied: psychologyResult.bonuses.earlyBird.applied,
-          luckyNumberBonus: psychologyResult.bonuses.luckyNumber.bonusEntries,
-          bonusEventId: psychologyResult.bonuses.bonusEvent.eventId,
-          instantWinsTriggered: psychologyResult.instantWins.filter((w) => w.won).length,
-        },
-      });
-    }
+        });
+      } else {
+        txEntry = await tx.raffleEntry.create({
+          data: {
+            raffleId,
+            customerId,
+            shop,
+            entriesCount: finalEntries,
+            pointsSpent: pointsCost,
+            entryMultiplier: tierMultiplier,
+            isWinner: false,
+            streakBonusApplied: psychologyResult.bonuses.streak.applied
+              ? psychologyResult.bonuses.streak.multiplier
+              : null,
+            earlyBirdBonusApplied: psychologyResult.bonuses.earlyBird.applied,
+            luckyNumberBonus: psychologyResult.bonuses.luckyNumber.bonusEntries,
+            bonusEventId: psychologyResult.bonuses.bonusEvent.eventId,
+            instantWinsTriggered: psychologyResult.instantWins.filter((w) => w.won).length,
+          },
+        });
+      }
 
-    // 7. Record points transaction (deduct points)
+      // Update raffle statistics
+      await tx.raffle.update({
+        where: { id: raffleId },
+        data: {
+          totalEntries: { increment: finalEntries },
+          uniqueEntrants: txIsNewEntrant ? { increment: 1 } : undefined,
+          totalPrizePool: { increment: pointsCost },
+          updatedAt: new Date(),
+        },
+      });
+
+      return { entry: txEntry, isNewEntrant: txIsNewEntrant };
+    });
+
+    // 8. Record points transaction (deduct points) — already atomic via spendPoints
     await spendPoints({
       shop,
       customerId,
-      amount: pointsCost, // spendPoints takes positive amount
+      amount: pointsCost,
       type: "RAFFLE_ENTRY",
       description: `Purchased ${quantity} ${quantity === 1 ? "entry" : "entries"} for "${raffle.name}"`,
       raffleEntryId: entry.id,
-    });
-
-    // 8. Update raffle statistics (use finalEntries which includes bonuses)
-    await db.raffle.update({
-      where: { id: raffleId },
-      data: {
-        totalEntries: raffle.totalEntries + finalEntries,
-        uniqueEntrants: isNewEntrant ? raffle.uniqueEntrants + 1 : raffle.uniqueEntrants,
-        totalPrizePool: raffle.totalPrizePool + pointsCost,
-        updatedAt: new Date(),
-      },
     });
 
     // 9. Get updated balance

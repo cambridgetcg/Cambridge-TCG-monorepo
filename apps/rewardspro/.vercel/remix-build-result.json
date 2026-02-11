@@ -61,6 +61,7 @@
       "routes/api.customer-sync.start": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.subscription-action": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.admin.entitlements": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.ai-email-assistant": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.credit-sync.status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.raffle-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -623,6 +624,15 @@
         "parentId": "root",
         "file": "app/routes/api.admin.entitlements.tsx",
         "path": "api/admin/entitlements",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/api.ai-email-assistant": {
+        "id": "routes/api.ai-email-assistant",
+        "parentId": "root",
+        "file": "app/routes/api.ai-email-assistant.tsx",
+        "path": "api/ai-email-assistant",
         "config": {
           "runtime": "nodejs"
         }
@@ -1874,6 +1884,12 @@
         "parentId": "root",
         "file": "routes/api.admin.entitlements.tsx",
         "path": "api/admin/entitlements"
+      },
+      "routes/api.ai-email-assistant": {
+        "id": "routes/api.ai-email-assistant",
+        "parentId": "root",
+        "file": "routes/api.ai-email-assistant.tsx",
+        "path": "api/ai-email-assistant"
       },
       "routes/api.credit-sync.status": {
         "id": "routes/api.credit-sync.status",

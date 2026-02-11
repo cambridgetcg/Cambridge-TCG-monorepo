@@ -37,13 +37,56 @@ export interface ClaimResult {
 export async function claimChallengeReward(
   shop: string,
   customerId: string,
-  challengeId: string
+  challengeId: string,
+  admin?: any
 ): Promise<ClaimResult> {
   console.log(
     `${LOG_PREFIX} Claiming reward for customer ${customerId} on challenge ${challengeId}`
   );
 
-  // Get the participant record (Data API doesn't support include, fetch separately)
+  // Atomically claim the participant slot to prevent double-claim race condition
+  // Uses updateMany with status filter — returns count=0 if already claimed by concurrent request
+  // We set claimedAt as a lock marker (actual CLAIMED status is set after delivery)
+  const claimLock = await db.challengeParticipant.updateMany({
+    where: {
+      challengeId,
+      customerId,
+      status: "COMPLETED",
+      claimedAt: null, // Extra guard: only if not already being claimed
+    },
+    data: {
+      claimedAt: new Date(), // Mark as in-progress claim
+    },
+  });
+
+  if (claimLock.count === 0) {
+    // Either not enrolled, not completed, or already claimed
+    const participant = await db.challengeParticipant.findFirst({
+      where: { challengeId, customerId },
+      select: { status: true },
+    });
+
+    if (!participant) {
+      return {
+        success: false,
+        error: "You are not enrolled in this challenge",
+      };
+    }
+
+    if (participant.status === "CLAIMED") {
+      return {
+        success: false,
+        error: "Reward has already been claimed",
+      };
+    }
+
+    return {
+      success: false,
+      error: `Cannot claim reward: challenge is ${participant.status.toLowerCase()}`,
+    };
+  }
+
+  // Get participant record (now locked via claimedAt)
   const participant = await db.challengeParticipant.findFirst({
     where: { challengeId, customerId },
   });
@@ -62,6 +105,11 @@ export async function claimChallengeReward(
   ]);
 
   if (!challenge) {
+    // Revert claim lock since we can't deliver
+    await db.challengeParticipant.update({
+      where: { id: participant.id },
+      data: { claimedAt: null },
+    });
     return {
       success: false,
       error: "Challenge not found",
@@ -70,24 +118,13 @@ export async function claimChallengeReward(
 
   // Verify challenge belongs to shop
   if (challenge.shop !== shop) {
+    await db.challengeParticipant.update({
+      where: { id: participant.id },
+      data: { claimedAt: null },
+    });
     return {
       success: false,
       error: "Challenge not found",
-    };
-  }
-
-  // Check status
-  if (participant.status === "CLAIMED") {
-    return {
-      success: false,
-      error: "Reward has already been claimed",
-    };
-  }
-
-  if (participant.status !== "COMPLETED") {
-    return {
-      success: false,
-      error: `Cannot claim reward: challenge is ${participant.status.toLowerCase()}`,
     };
   }
 
@@ -133,7 +170,8 @@ export async function claimChallengeReward(
           customerId,
           challengeId,
           challenge.name,
-          rewardValue
+          rewardValue,
+          admin
         );
         break;
 
@@ -220,6 +258,12 @@ export async function claimChallengeReward(
       rewardType,
     };
   }
+
+  // Delivery failed — revert claim lock so customer can retry
+  await db.challengeParticipant.update({
+    where: { id: participant.id },
+    data: { claimedAt: null },
+  });
 
   return {
     ...deliveryResult,
@@ -328,7 +372,8 @@ async function deliverDiscountReward(
   customerId: string,
   challengeId: string,
   challengeName: string,
-  config: RewardValue
+  config: RewardValue,
+  admin?: any
 ): Promise<ClaimResult> {
   console.log(
     `${LOG_PREFIX} Creating discount code for customer ${customerId}`
@@ -337,16 +382,36 @@ async function deliverDiscountReward(
   // Generate a unique discount code
   const code = `CHAL-${challengeId.slice(0, 4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
 
-  // For now, store the discount info in the participant notes
-  // In a full implementation, you would create the discount in Shopify via GraphQL
   const discountValue =
     config.type === "percentage"
       ? `${config.value}% off`
       : `$${(config.value || 0) / 100} off`;
 
-  // TODO: Create actual Shopify discount code via admin GraphQL API
-  // This requires the admin API context which isn't available in this service
-  // For now, we'll record it for manual creation or separate job processing
+  // Create Shopify discount code if admin API is available
+  if (admin) {
+    try {
+      const { createDiscountService } = await import("~/services/shopify-discount.service");
+      const discountService = createDiscountService(admin, shop);
+
+      const discountType = config.type === "percentage" ? "percentage" : "fixed_amount";
+      const shopifyResult = await discountService.createDiscountCode({
+        title: `Challenge Reward: ${challengeName}`,
+        code,
+        type: discountType,
+        value: discountType === "percentage" ? (config.value || 0) : (config.value || 0) / 100,
+        usageLimit: 1,
+      });
+
+      if (shopifyResult.success) {
+        console.log(`${LOG_PREFIX} Shopify discount created: ${shopifyResult.discountId}`);
+      } else {
+        console.error(`${LOG_PREFIX} Shopify discount creation failed: ${shopifyResult.error}`);
+        // Code still valid locally for manual creation
+      }
+    } catch (error) {
+      console.error(`${LOG_PREFIX} Error creating Shopify discount (non-fatal):`, error);
+    }
+  }
 
   return {
     success: true,

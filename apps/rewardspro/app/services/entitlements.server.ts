@@ -83,30 +83,35 @@ export type LimitKey =
   | 'maxCampaigns'
   | 'maxAutomationFlows';
 
-// Plan names with their canonical order limits
-// IMPORTANT: These values MUST match app/constants/plan-limits.ts
-// This is kept for backward compatibility but plan-limits.ts is the source of truth
-import { getOrderLimit, getTierLimit } from '~/constants/plan-limits';
+// Plan limits are derived from plan-limits.ts (single source of truth)
+import {
+  getOrderLimit,
+  getTierLimit,
+  getPlanLimit,
+  normalizePlanName as normalizeToPlanLimitsName,
+} from '~/constants/plan-limits';
 
+// DEPRECATED: Use getOrderLimit() from plan-limits.ts directly.
+// Kept for backward compatibility — will be removed in future cleanup.
 export const PLAN_ORDER_LIMITS: Record<string, number> = {
-  [FREE_PLAN]: 50,        // Matches plan-limits.ts (canonical source)
-  [STARTER_PLAN]: 500,    // Legacy - same as Pro
-  [PRO_PLAN]: 500,
-  [GROWTH_PLAN]: 2000,    // Legacy - same as Max
-  [MAX_PLAN]: 2000,       // Matches plan-limits.ts (canonical source)
-  [ULTRA_PLAN]: Infinity,
-  [ENTERPRISE_PLAN]: Infinity,
+  get [FREE_PLAN]() { return getOrderLimit(FREE_PLAN); },
+  get [STARTER_PLAN]() { return getOrderLimit(STARTER_PLAN); },
+  get [PRO_PLAN]() { return getOrderLimit(PRO_PLAN); },
+  get [GROWTH_PLAN]() { return getOrderLimit(GROWTH_PLAN); },
+  get [MAX_PLAN]() { return getOrderLimit(MAX_PLAN); },
+  get [ULTRA_PLAN]() { return getOrderLimit(ULTRA_PLAN); },
+  get [ENTERPRISE_PLAN]() { return getOrderLimit(ENTERPRISE_PLAN); },
 };
 
-// Plan names with their tier limits
+// DEPRECATED: Use getTierLimit() from plan-limits.ts directly.
 export const PLAN_TIER_LIMITS: Record<string, number> = {
-  [FREE_PLAN]: 2,
-  [STARTER_PLAN]: 5, // Legacy - same as Pro
-  [PRO_PLAN]: 5,
-  [GROWTH_PLAN]: 10, // Legacy - same as Max
-  [MAX_PLAN]: 10,
-  [ULTRA_PLAN]: Infinity,
-  [ENTERPRISE_PLAN]: Infinity,
+  get [FREE_PLAN]() { return getTierLimit(FREE_PLAN); },
+  get [STARTER_PLAN]() { return getTierLimit(STARTER_PLAN); },
+  get [PRO_PLAN]() { return getTierLimit(PRO_PLAN); },
+  get [GROWTH_PLAN]() { return getTierLimit(GROWTH_PLAN); },
+  get [MAX_PLAN]() { return getTierLimit(MAX_PLAN); },
+  get [ULTRA_PLAN]() { return getTierLimit(ULTRA_PLAN); },
+  get [ENTERPRISE_PLAN]() { return getTierLimit(ENTERPRISE_PLAN); },
 };
 
 // Default entitlements for new shops (Free plan)
@@ -188,333 +193,74 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
   resolvedFrom: null,
 };
 
+// All features enabled for rate-based model (shared across all plans)
+const ALL_FEATURES_ENABLED = {
+  featureApiAccess: true,
+  featureWebhooks: true,
+  featureWhiteLabel: true,
+  featureAdvancedReport: true,
+  featureCustomEmail: true,
+  featureAnnualEval: true,
+  featureBulkOps: true,
+  featureCustomBranding: true,
+  featurePrioritySupport: true,
+  featureSubscriptionTiers: true,
+  featurePurchasableTiers: true,
+  featureExportData: true,
+  featureCustomRewards: true,
+  featureIntegrationKlaviyo: true,
+  featureIntegrationSendgrid: true,
+  featureIntegrationJudgeme: true,
+  featureIntegrationSlack: true,
+  featureIntegrationRecharge: true,
+  featureIntegrationGorgias: true,
+  featureIntegrationZapier: true,
+  featureRaffles: true,
+  featureMysteryBoxes: true,
+  featureChallenges: true,
+  featureMarketingCampaigns: true,
+  featureMarketingAutomation: true,
+  featureAiRecommendations: true,
+  featureRfmSegmentation: true,
+  featureProgramImpact: true,
+  featureRealtimeAnalytics: true,
+  featureCohortAnalysis: true,
+} as const;
+
+/**
+ * Derive entitlement limits from plan-limits.ts (single source of truth).
+ * Uses 999999 instead of Infinity for database compatibility.
+ */
+function limitsForPlan(planName: string): Partial<ShopEntitlements> {
+  const cap = (v: number) => v === Infinity ? 999999 : v;
+  return {
+    limitMaxTiers: cap(getPlanLimit(planName, 'tiers') as number),
+    limitMaxOrders: cap(getPlanLimit(planName, 'orders') as number),
+    limitMaxEmails: cap(getPlanLimit(planName, 'emails') as number),
+    limitMaxAutomations: cap(getPlanLimit(planName, 'automations') as number),
+    limitMaxCustomersSync: cap(getPlanLimit(planName, 'customersSync') as number),
+    limitMaxTierProducts: cap(getPlanLimit(planName, 'tierProducts') as number),
+    limitMaxHistoricalDays: cap(getPlanLimit(planName, 'historicalDataDays') as number),
+    limitMaxActiveRaffles: cap(getPlanLimit(planName, 'activeRaffles') as number),
+    limitMaxActiveMysteryBoxes: cap(getPlanLimit(planName, 'activeMysteryBoxes') as number),
+    limitMaxActiveChallenges: cap(getPlanLimit(planName, 'activeChallenges') as number),
+    limitMaxCampaigns: cap(getPlanLimit(planName, 'campaigns') as number),
+    limitMaxAutomationFlows: cap(getPlanLimit(planName, 'automationFlows') as number),
+  };
+}
+
 // Feature mapping from plan to entitlements
 // RATE-BASED GATING MODEL: All features enabled for all plans
-// Differentiation is through LIMITS only - this drives upgrade value
+// Limits are derived from plan-limits.ts (single source of truth)
 const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
-  [FREE_PLAN]: {
-    // ALL FEATURES ENABLED - differentiate by limits
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Free tier: minimal but functional (taste the value)
-    limitMaxTiers: 2,
-    limitMaxOrders: 50,
-    limitMaxEmails: 50,
-    limitMaxAutomations: 1,
-    limitMaxCustomersSync: 500,
-    limitMaxTierProducts: 1,
-    limitMaxHistoricalDays: 7,
-    limitMaxActiveRaffles: 1,
-    limitMaxActiveMysteryBoxes: 1,
-    limitMaxActiveChallenges: 1,
-    limitMaxCampaigns: 1,
-    limitMaxAutomationFlows: 1,
-  },
-  [PRO_PLAN]: {
-    // ALL FEATURES ENABLED
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Pro tier: moderate limits for growing businesses
-    limitMaxTiers: 5,
-    limitMaxOrders: 500,
-    limitMaxEmails: 500,
-    limitMaxAutomations: 5,
-    limitMaxCustomersSync: 5000,
-    limitMaxTierProducts: 3,
-    limitMaxHistoricalDays: 30,
-    limitMaxActiveRaffles: 3,
-    limitMaxActiveMysteryBoxes: 2,
-    limitMaxActiveChallenges: 5,
-    limitMaxCampaigns: 5,
-    limitMaxAutomationFlows: 3,
-  },
-  [MAX_PLAN]: {
-    // ALL FEATURES ENABLED
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Max tier: high limits for scale
-    limitMaxTiers: 10,
-    limitMaxOrders: 2000,
-    limitMaxEmails: 2000,
-    limitMaxAutomations: 20,
-    limitMaxCustomersSync: 25000,
-    limitMaxTierProducts: 10,
-    limitMaxHistoricalDays: 90,
-    limitMaxActiveRaffles: 10,
-    limitMaxActiveMysteryBoxes: 5,
-    limitMaxActiveChallenges: 15,
-    limitMaxCampaigns: 25,
-    limitMaxAutomationFlows: 10,
-  },
-  [ULTRA_PLAN]: {
-    // ALL FEATURES ENABLED
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Ultra tier: Effectively unlimited
-    limitMaxTiers: 999999,
-    limitMaxOrders: 999999,
-    limitMaxEmails: 999999,
-    limitMaxAutomations: 999999,
-    limitMaxCustomersSync: 999999,
-    limitMaxTierProducts: 999999,
-    limitMaxHistoricalDays: 999999,
-    limitMaxActiveRaffles: 999999,
-    limitMaxActiveMysteryBoxes: 999999,
-    limitMaxActiveChallenges: 999999,
-    limitMaxCampaigns: 999999,
-    limitMaxAutomationFlows: 999999,
-  },
-  [ENTERPRISE_PLAN]: {
-    // ALL FEATURES ENABLED
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Enterprise: Effectively unlimited
-    limitMaxTiers: 999999,
-    limitMaxOrders: 999999,
-    limitMaxEmails: 999999,
-    limitMaxAutomations: 999999,
-    limitMaxCustomersSync: 999999,
-    limitMaxTierProducts: 999999,
-    limitMaxHistoricalDays: 999999,
-    limitMaxActiveRaffles: 999999,
-    limitMaxActiveMysteryBoxes: 999999,
-    limitMaxActiveChallenges: 999999,
-    limitMaxCampaigns: 999999,
-    limitMaxAutomationFlows: 999999,
-  },
-  // Legacy plans map to their equivalent tiers (with rate-based model)
-  [STARTER_PLAN]: {
-    // ALL FEATURES ENABLED (maps to Pro limits)
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Same as Pro
-    limitMaxTiers: 5,
-    limitMaxOrders: 500,
-    limitMaxEmails: 500,
-    limitMaxAutomations: 5,
-    limitMaxCustomersSync: 5000,
-    limitMaxTierProducts: 3,
-    limitMaxHistoricalDays: 30,
-    limitMaxActiveRaffles: 3,
-    limitMaxActiveMysteryBoxes: 2,
-    limitMaxActiveChallenges: 5,
-    limitMaxCampaigns: 5,
-    limitMaxAutomationFlows: 3,
-  },
-  [GROWTH_PLAN]: {
-    // ALL FEATURES ENABLED (maps to Max limits)
-    featureApiAccess: true,
-    featureWebhooks: true,
-    featureWhiteLabel: true,
-    featureAdvancedReport: true,
-    featureCustomEmail: true,
-    featureAnnualEval: true,
-    featureBulkOps: true,
-    featureCustomBranding: true,
-    featurePrioritySupport: true,
-    featureSubscriptionTiers: true,
-    featurePurchasableTiers: true,
-    featureExportData: true,
-    featureCustomRewards: true,
-    featureIntegrationKlaviyo: true,
-    featureIntegrationSendgrid: true,
-    featureIntegrationJudgeme: true,
-    featureIntegrationSlack: true,
-    featureIntegrationRecharge: true,
-    featureIntegrationGorgias: true,
-    featureIntegrationZapier: true,
-    featureRaffles: true,
-    featureMysteryBoxes: true,
-    featureChallenges: true,
-    featureMarketingCampaigns: true,
-    featureMarketingAutomation: true,
-    featureAiRecommendations: true,
-    featureRfmSegmentation: true,
-    featureProgramImpact: true,
-    featureRealtimeAnalytics: true,
-    featureCohortAnalysis: true,
-    // LIMITS - Same as Max
-    limitMaxTiers: 10,
-    limitMaxOrders: 2000,
-    limitMaxEmails: 2000,
-    limitMaxAutomations: 20,
-    limitMaxCustomersSync: 25000,
-    limitMaxTierProducts: 10,
-    limitMaxHistoricalDays: 90,
-    limitMaxActiveRaffles: 10,
-    limitMaxActiveMysteryBoxes: 5,
-    limitMaxActiveChallenges: 15,
-    limitMaxCampaigns: 25,
-    limitMaxAutomationFlows: 10,
-  },
+  [FREE_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(FREE_PLAN) },
+  [PRO_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(PRO_PLAN) },
+  [MAX_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(MAX_PLAN) },
+  [ULTRA_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(ULTRA_PLAN) },
+  [ENTERPRISE_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(ENTERPRISE_PLAN) },
+  // Legacy plans map to their equivalent tiers
+  [STARTER_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(STARTER_PLAN) },
+  [GROWTH_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(GROWTH_PLAN) },
 };
 
 /**
@@ -630,8 +376,22 @@ export async function getEffectivePlan(shop: string): Promise<string> {
 export async function refreshEntitlements(shop: string): Promise<ShopEntitlements> {
   console.log(`[Entitlements] Refreshing entitlements for ${shop}`);
 
-  // Invalidate cache (now clears Redis globally across all instances)
-  await invalidateEntitlementsCache(shop);
+  // Debounce: skip refresh if last resolved within 5 seconds (prevents callback/webhook race)
+  const recentCheck = await db.shopEntitlements.findUnique({
+    where: { shop },
+    select: { lastResolvedAt: true },
+  });
+  if (recentCheck?.lastResolvedAt) {
+    const msSinceLastRefresh = Date.now() - recentCheck.lastResolvedAt.getTime();
+    if (msSinceLastRefresh < 5000) {
+      console.log(`[Entitlements] Skipping refresh for ${shop} - last resolved ${msSinceLastRefresh}ms ago (debounce)`);
+      // Return current entitlements from cache or DB
+      return getEntitlements(shop);
+    }
+  }
+
+  // NOTE: Cache invalidation moved to AFTER DB write to prevent race condition.
+  // Previously, another instance could read stale cache between invalidation and write.
 
   // Get current subscription state
   const [billingSubscription, shopSettings] = await Promise.all([
@@ -706,7 +466,10 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
     update: updateData,
   });
 
-  // Update cache (now Redis-backed for immediate propagation)
+  // Invalidate stale cache AFTER DB write, then set fresh cache atomically.
+  // This prevents the race condition where another instance reads stale data
+  // between invalidation and DB write.
+  await invalidateEntitlementsCache(shop);
   await setCachedEntitlements(shop, entitlements);
 
   console.log(`[Entitlements] Refreshed: ${shop} -> ${entitlements.effectivePlan} (source: ${entitlements.planSource})`);
@@ -730,9 +493,6 @@ export async function setOverride(
   }
 ): Promise<ShopEntitlements> {
   console.log(`[Entitlements] Setting override for ${shop}:`, overrides);
-
-  // Invalidate cache (now clears Redis globally)
-  await invalidateEntitlementsCache(shop);
 
   // Build update data
   const updateData: Record<string, unknown> = {
@@ -783,7 +543,8 @@ export async function setOverride(
     data: safeUpdateData,
   });
 
-  // Update cache (now Redis-backed for immediate propagation)
+  // Invalidate stale cache AFTER DB write, then set fresh cache
+  await invalidateEntitlementsCache(shop);
   await setCachedEntitlements(shop, entitlements);
 
   console.log(`[Entitlements] Override applied: ${shop} -> ${entitlements.effectivePlan}`);

@@ -280,61 +280,25 @@ async function deliverDiscountPrize(
   // If we have admin API, create the discount in Shopify
   if (admin) {
     try {
-      const discountType = prizeValue.type || "percentage";
+      const { createDiscountService } = await import("~/services/shopify-discount.service");
+      const discountService = createDiscountService(admin, shop);
+
+      const discountType = (prizeValue.type || "percentage") as "percentage" | "fixed_amount";
       const discountValue = prizeValue.value || 10;
 
-      // Create discount using Shopify Admin API
-      const mutation = `
-        mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
-          discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
-            codeDiscountNode {
-              id
-              codeDiscount {
-                ... on DiscountCodeBasic {
-                  codes(first: 1) {
-                    nodes {
-                      code
-                    }
-                  }
-                }
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `;
+      const shopifyResult = await discountService.createDiscountCode({
+        title: `Raffle Win: ${raffleName}`,
+        code: discountCode,
+        type: discountType === "percentage" ? "percentage" : "fixed_amount",
+        value: discountValue,
+        usageLimit: prizeValue.maxUses || 1,
+      });
 
-      const variables = {
-        basicCodeDiscount: {
-          title: `Raffle Win: ${raffleName}`,
-          code: discountCode,
-          startsAt: new Date().toISOString(),
-          endsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-          usageLimit: prizeValue.maxUses || 1,
-          customerSelection: {
-            all: true,
-          },
-          customerGets: {
-            value: discountType === "percentage"
-              ? { percentage: discountValue / 100 }
-              : { discountAmount: { amount: discountValue, appliesOnEachItem: false } },
-            items: { all: true },
-          },
-        },
-      };
-
-      const response = await admin.graphql(mutation, { variables });
-      const data = await response.json();
-
-      if (data.data?.discountCodeBasicCreate?.userErrors?.length > 0) {
-        const errors = data.data.discountCodeBasicCreate.userErrors;
-        console.error(`${LOG_PREFIX} Shopify discount creation errors:`, errors);
+      if (!shopifyResult.success) {
+        console.error(`${LOG_PREFIX} Shopify discount creation failed:`, shopifyResult.error);
         return {
           success: false,
-          error: `Failed to create discount: ${errors[0].message}`,
+          error: `Failed to create discount: ${shopifyResult.error}`,
           requiresManualAction: true,
           manualActionReason: "Shopify discount creation failed",
         };

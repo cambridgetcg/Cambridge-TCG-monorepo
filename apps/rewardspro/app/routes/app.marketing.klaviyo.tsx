@@ -46,6 +46,7 @@ import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
 import { KlaviyoService } from "~/services/klaviyo.server";
 import type { EmailProvider } from "@prisma/client";
+import { klaviyoConnectionSchema, safeValidate } from "~/utils/validation.server";
 
 // ============================================
 // TYPES
@@ -208,14 +209,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent");
 
   if (intent === "saveConnection") {
-    const emailProvider = formData.get("emailProvider") as EmailProvider;
-    const klaviyoApiKey = formData.get("klaviyoApiKey") as string;
-    const klaviyoPublicKey = formData.get("klaviyoPublicKey") as string;
-    const klaviyoDefaultListId = formData.get("klaviyoDefaultListId") as string;
-    const klaviyoSyncProfiles = formData.get("klaviyoSyncProfiles") === "true";
-    const klaviyoSyncEvents = formData.get("klaviyoSyncEvents") === "true";
+    // Validate input with Zod schema
+    const rawInput = {
+      emailProvider: formData.get("emailProvider"),
+      klaviyoApiKey: formData.get("klaviyoApiKey"),
+      klaviyoPublicKey: formData.get("klaviyoPublicKey"),
+      klaviyoDefaultListId: formData.get("klaviyoDefaultListId"),
+      klaviyoSyncProfiles: formData.get("klaviyoSyncProfiles"),
+      klaviyoSyncEvents: formData.get("klaviyoSyncEvents"),
+    };
 
-    // Validate API key if provided
+    const validation = safeValidate(klaviyoConnectionSchema, rawInput);
+    if (!validation.success) {
+      return json(
+        { success: false, error: validation.error },
+        { status: 400 }
+      );
+    }
+
+    const {
+      emailProvider,
+      klaviyoApiKey,
+      klaviyoPublicKey,
+      klaviyoDefaultListId,
+      klaviyoSyncProfiles,
+      klaviyoSyncEvents,
+    } = validation.data;
+
+    // Validate API key with Klaviyo if provided
     if (klaviyoApiKey) {
       try {
         const klaviyo = new KlaviyoService({ apiKey: klaviyoApiKey });
@@ -234,30 +255,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
-    await db.emailSettings.upsert({
-      where: { shop },
-      create: {
-        shop,
-        emailProvider,
-        klaviyoEnabled: emailProvider !== "SENDGRID",
-        klaviyoApiKey: klaviyoApiKey || null,
-        klaviyoPublicKey: klaviyoPublicKey || null,
-        klaviyoDefaultListId: klaviyoDefaultListId || null,
-        klaviyoSyncProfiles,
-        klaviyoSyncEvents,
-      },
-      update: {
-        emailProvider,
-        klaviyoEnabled: emailProvider !== "SENDGRID",
-        klaviyoApiKey: klaviyoApiKey || null,
-        klaviyoPublicKey: klaviyoPublicKey || null,
-        klaviyoDefaultListId: klaviyoDefaultListId || null,
-        klaviyoSyncProfiles,
-        klaviyoSyncEvents,
-      },
-    });
+    // Build connection data (DRY: shared between create and update)
+    const connectionData = {
+      emailProvider: emailProvider as EmailProvider,
+      klaviyoEnabled: emailProvider !== "SENDGRID",
+      klaviyoApiKey: klaviyoApiKey || null,
+      klaviyoPublicKey: klaviyoPublicKey || null,
+      klaviyoDefaultListId: klaviyoDefaultListId || null,
+      klaviyoSyncProfiles,
+      klaviyoSyncEvents,
+    };
 
-    return json({ success: true, message: "Connection settings saved!" });
+    try {
+      await db.emailSettings.upsert({
+        where: { shop },
+        create: { shop, ...connectionData },
+        update: connectionData,
+      });
+
+      return json({ success: true, message: "Connection settings saved!" });
+    } catch (error) {
+      console.error("[Klaviyo] Failed to save connection settings:", error);
+      return json(
+        { success: false, error: "Failed to save connection settings" },
+        { status: 500 }
+      );
+    }
   }
 
   if (intent === "saveAutomation") {

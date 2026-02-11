@@ -13,7 +13,7 @@
 // - ShopSettings (theme, currency)
 //
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { authenticate } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
 import { getAuroraClient } from "../utils/aurora-data-api";
 import db from "../db.server";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
@@ -1551,8 +1551,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         }, { status: 404, headers });
       }
 
+      // Get admin API for Shopify discount creation
+      let proxyAdmin: any;
+      try {
+        const unauthResult = await unauthenticated.admin(shop);
+        proxyAdmin = unauthResult.admin;
+      } catch (e) {
+        console.error(`[ProxyChallenges] Failed to get admin API (non-fatal):`, e);
+      }
+
       // Use the existing challenge claim service
-      const result = await claimChallengeReward(shop, customer.id, challengeId);
+      const result = await claimChallengeReward(shop, customer.id, challengeId, proxyAdmin);
 
       if (!result.success) {
         return json({

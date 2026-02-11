@@ -10,6 +10,7 @@ import db from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { updatePlanLimit, unlockShop } from "~/utils/plan-access-control.server";
 import { isTestMode } from "~/utils/billing-test-mode.server";
+import { getOrderLimit } from "~/constants/plan-limits";
 
 // ============================================
 // TYPES & INTERFACES
@@ -50,81 +51,80 @@ export interface SubscriptionStatus {
 // PLAN CONFIGURATIONS
 // ============================================
 
+/**
+ * Plan configurations for billing.
+ * NOTE: orderLimit is derived from plan-limits.ts (single source of truth).
+ * Do NOT hardcode order limits here — update plan-limits.ts instead.
+ */
 export const PLAN_CONFIGS: Record<string, Omit<PlanConfig, 'isTest'>> = {
   free: {
     planId: "free",
     planName: "RewardsPro Free",
     price: 0,
-    orderLimit: 50,
+    get orderLimit() { return getOrderLimit("RewardsPro Free"); },
     description: "Free plan with basic features"
   },
   pro: {
     planId: "pro",
     planName: "RewardsPro Pro",
     price: 39.00,
-    orderLimit: 500,
+    get orderLimit() { return getOrderLimit("RewardsPro Pro"); },
     description: "Pro plan with advanced features",
-    // Usage-based pricing: $10 per 100 orders over limit
     usageEnabled: true,
-    usageRate: 0.10,        // $0.10 per order overage
-    usageCap: 50.00,        // Max $50 usage charges per month
-    usageBatchSize: 100,    // Charge in batches of 100 orders
+    usageRate: 0.10,
+    usageCap: 50.00,
+    usageBatchSize: 100,
     usageTerms: "$10 per 100 orders over 500/month limit (max $50/month)"
   },
   "pro-annual": {
     planId: "pro-annual",
     planName: "RewardsPro Pro Annual",
     price: 336.00,
-    orderLimit: 500,
+    get orderLimit() { return getOrderLimit("RewardsPro Pro Annual"); },
     description: "Pro plan with annual billing (save 28%)",
-    // Usage-based pricing: $10 per 100 orders over limit
     usageEnabled: true,
-    usageRate: 0.10,        // $0.10 per order overage
-    usageCap: 50.00,        // Max $50 usage charges per month
-    usageBatchSize: 100,    // Charge in batches of 100 orders
+    usageRate: 0.10,
+    usageCap: 50.00,
+    usageBatchSize: 100,
     usageTerms: "$10 per 100 orders over 500/month limit (max $50/month)"
   },
   max: {
     planId: "max",
     planName: "RewardsPro Max",
     price: 149.00,
-    orderLimit: 2000,
+    get orderLimit() { return getOrderLimit("RewardsPro Max"); },
     description: "Max plan for growing businesses",
-    // Usage-based pricing: $5 per 100 orders over limit
     usageEnabled: true,
-    usageRate: 0.05,        // $0.05 per order overage
-    usageCap: 100.00,       // Max $100 usage charges per month
-    usageBatchSize: 100,    // Charge in batches of 100 orders
+    usageRate: 0.05,
+    usageCap: 100.00,
+    usageBatchSize: 100,
     usageTerms: "$5 per 100 orders over 2,000/month limit (max $100/month)"
   },
   "max-annual": {
     planId: "max-annual",
     planName: "RewardsPro Max Annual",
     price: 1296.00,
-    orderLimit: 2000,
+    get orderLimit() { return getOrderLimit("RewardsPro Max Annual"); },
     description: "Max plan with annual billing (save 27%)",
-    // Usage-based pricing: $5 per 100 orders over limit
     usageEnabled: true,
-    usageRate: 0.05,        // $0.05 per order overage
-    usageCap: 100.00,       // Max $100 usage charges per month
-    usageBatchSize: 100,    // Charge in batches of 100 orders
+    usageRate: 0.05,
+    usageCap: 100.00,
+    usageBatchSize: 100,
     usageTerms: "$5 per 100 orders over 2,000/month limit (max $100/month)"
   },
   ultra: {
     planId: "ultra",
     planName: "RewardsPro Ultra",
     price: 499.00,
-    orderLimit: 999999,
+    get orderLimit() { return getOrderLimit("RewardsPro Ultra"); },
     description: "Unlimited everything"
-    // No usage-based pricing - unlimited orders
   },
   "ultra-annual": {
     planId: "ultra-annual",
     planName: "RewardsPro Ultra Annual",
     price: 4296.00,
-    orderLimit: 999999,
+    get orderLimit() { return getOrderLimit("RewardsPro Ultra Annual"); },
     description: "Unlimited everything with annual billing (save 28%)"
-    // No usage-based pricing - unlimited orders
   }
 };
 
@@ -471,7 +471,16 @@ export async function cancelSubscription(
     });
 
     // Downgrade to free plan
-    await updatePlanLimit(shop, "RewardsPro Free", 50);
+    await updatePlanLimit(shop, "RewardsPro Free", getOrderLimit("RewardsPro Free"));
+
+    // Refresh entitlements to downgrade features immediately
+    try {
+      const { refreshEntitlements } = await import("~/services/entitlements.server");
+      await refreshEntitlements(shop);
+      console.log(`[BillingService] Entitlements refreshed after cancellation for ${shop}`);
+    } catch (entitlementsError) {
+      console.error(`[BillingService] Failed to refresh entitlements after cancel:`, entitlementsError);
+    }
 
     console.log(`[BillingService] Subscription cancelled for ${shop}`);
 

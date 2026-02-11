@@ -24,6 +24,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { incrementMonthlyOrderCount } from "~/utils/order-count-strategies";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
 import { logSafeCustomer } from "~/utils/pii-masker";
+import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -72,10 +73,27 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     const order = payload as OrderWebhook;
-    
+
     console.log(`[OrdersCreateWebhook] Processing order ${order.id} for shop ${shop}`);
     // SECURITY: Use PII masker to avoid logging customer emails in production
     console.log(`[OrdersCreateWebhook] Customer: ${order.customer ? logSafeCustomer(order.customer.id, order.customer.email) : 'Guest'}`);
+
+    // Idempotency check - prevent duplicate processing on Shopify retries
+    const webhookId = request.headers.get('X-Shopify-Webhook-Id');
+    if (webhookId) {
+      try {
+        const existing = await db.webhookProcessed.findUnique({
+          where: { webhookId }
+        });
+        if (existing) {
+          console.log(`[OrdersCreateWebhook] Webhook ${webhookId} already processed, skipping`);
+          return json({ success: true, message: 'Already processed' });
+        }
+      } catch (e) {
+        // webhookProcessed table might not exist, continue processing
+        console.debug('[OrdersCreateWebhook] Idempotency check skipped (table may not exist)');
+      }
+    }
 
     // Increment monthly order count for ALL orders (including guest orders)
     try {
@@ -346,6 +364,27 @@ export async function action({ request }: ActionFunctionArgs) {
     // ========================================================================
     // RETURN SUCCESS
     // ========================================================================
+
+    // Record webhook as processed for idempotency
+    if (webhookId) {
+      try {
+        await db.webhookProcessed.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            topic: 'orders/create',
+            webhookId,
+            processedAt: new Date(),
+          }
+        });
+      } catch (e) {
+        // Duplicate or table doesn't exist - non-critical
+        console.debug('[OrdersCreateWebhook] Could not record webhook processing');
+      }
+    }
+
+    // Invalidate analytics cache so dashboards reflect new order
+    try { await invalidateShopCache(shop); } catch(e) { console.warn('[OrdersCreateWebhook] Cache invalidation failed:', e); }
 
     return json({
       success: true,

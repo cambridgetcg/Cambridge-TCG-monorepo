@@ -166,7 +166,7 @@ export function normalizePlanName(planName: string | null | undefined): PlanName
   // Case-insensitive matching
   const lowerName = normalized.toLowerCase();
 
-  // Map common variations
+  // Map common variations (including annual plans → base plan limits)
   const nameMap: Record<string, PlanName> = {
     'free': 'RewardsPro Free',
     'rewardspro free': 'RewardsPro Free',
@@ -176,17 +176,29 @@ export function normalizePlanName(planName: string | null | undefined): PlanName
     'rewardspro pro': 'RewardsPro Pro',
     'rewards pro pro': 'RewardsPro Pro',
     'starter': 'RewardsPro Pro', // Legacy name
+    'pro annual': 'RewardsPro Pro',
+    'pro-annual': 'RewardsPro Pro',
+    'rewardspro pro annual': 'RewardsPro Pro',
+    'rewards pro pro annual': 'RewardsPro Pro',
 
     'max': 'RewardsPro Max',
     'rewardspro max': 'RewardsPro Max',
     'rewards pro max': 'RewardsPro Max',
     'growth': 'RewardsPro Max', // Legacy name
+    'max annual': 'RewardsPro Max',
+    'max-annual': 'RewardsPro Max',
+    'rewardspro max annual': 'RewardsPro Max',
+    'rewards pro max annual': 'RewardsPro Max',
 
     'ultra': 'RewardsPro Ultra',
     'rewardspro ultra': 'RewardsPro Ultra',
     'rewards pro ultra': 'RewardsPro Ultra',
     'enterprise': 'RewardsPro Ultra', // Legacy name
     'unlimited': 'RewardsPro Ultra', // Legacy name
+    'ultra annual': 'RewardsPro Ultra',
+    'ultra-annual': 'RewardsPro Ultra',
+    'rewardspro ultra annual': 'RewardsPro Ultra',
+    'rewards pro ultra annual': 'RewardsPro Ultra',
   };
 
   if (lowerName in nameMap) {

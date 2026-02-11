@@ -169,21 +169,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Generate idempotency key
     const idempotencyKey = `order-${order.id}-${order.updated_at}`;
 
-    // Check if already processed using webhook ID
     // Use the already-declared webhookId, falling back to idempotencyKey if 'unknown'
     const idempotencyWebhookId = webhookId !== 'unknown' ? webhookId : idempotencyKey;
-    try {
-      const existingProcess = await db.webhookProcessed.findUnique({
-        where: { webhookId: idempotencyWebhookId }
-      });
 
-      if (existingProcess) {
-        logger.info('Order already processed, skipping');
+    // Atomic idempotency check: try to INSERT first (acts as lock)
+    // If unique constraint fails, another instance already claimed this webhook
+    try {
+      await db.webhookProcessed.create({
+        data: {
+          id: uuidv4(),
+          shop: shop!,
+          topic: topic || 'orders/paid',
+          webhookId: idempotencyWebhookId,
+          processedAt: new Date(),
+        }
+      });
+    } catch (e: any) {
+      if (e.code === 'P2002' || e.message?.includes('unique') || e.message?.includes('Unique')) {
+        logger.info('Order already processed (atomic check), skipping');
         return json({ success: true, message: "Already processed" });
       }
-    } catch (e) {
-      // webhookProcessed table might not exist, continue processing
-      logger.debug('Idempotency check skipped (table may not exist)');
+      // Table might not exist or other error - continue processing
+      logger.debug('Idempotency atomic insert skipped', { error: e.message });
     }
 
     // Process with retry logic - OPTIMIZED VERSION
@@ -523,13 +530,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             });
 
             if (dbCustomer) {
-              console.log(`[OrderPaid] Found customer ${dbCustomer.id}, checking tier progression...`);
-              await checkTierProgression(db, {
-                shop: shop!,
-                customerId: dbCustomer.id,
-                admin: admin, // Pass the admin context from webhook
-                orderId: order.id?.toString() // Pass order ID for logging
-              });
+              // Skip tier resolution if Step 3.5 already resolved this customer's tier
+              const skipTierResolution = tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id;
+              if (skipTierResolution) {
+                console.log(`[OrderPaid] Skipping tier progression - already resolved in Step 3.5 for customer ${dbCustomer.id}`);
+              } else {
+                console.log(`[OrderPaid] Found customer ${dbCustomer.id}, checking tier progression...`);
+                await checkTierProgression(db, {
+                  shop: shop!,
+                  customerId: dbCustomer.id,
+                  admin: admin,
+                  orderId: order.id?.toString()
+                });
+              }
 
               // =========================================================================
               // GIFT CARD MEMBERSHIP ACTIVATION
@@ -613,23 +626,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     );
 
-    // CRITICAL FIX: Record webhook as processed AFTER all operations succeed
-    // This ensures Shopify can retry if processing fails mid-way
-    try {
-      await db.webhookProcessed.create({
-        data: {
-          id: uuidv4(),
-          shop,
-          topic: topic || 'orders/paid',
-          webhookId: idempotencyWebhookId,
-          processedAt: new Date(),
-        }
-      });
-      logger.debug('Webhook marked as processed after successful completion');
-    } catch (e) {
-      // Table might not exist, or duplicate (another process just completed)
-      logger.debug('Could not record webhook processing (table may not exist or duplicate)');
-    }
+    // Webhook was already recorded at the start (atomic insert) for idempotency
+    logger.debug('Webhook processing completed successfully');
 
     // Track successful webhook processing in Sentry
     const durationMs = Date.now() - startTime;
@@ -1663,10 +1661,35 @@ async function processPointsEarning(_tx: any, params: {
   // Calculate order amount (use subtotal minus discounts for points calculation)
   const subtotal = parseFloat(order.subtotal_price || '0');
   const discounts = parseFloat(order.total_discounts || '0');
-  const orderAmount = subtotal - discounts;
+  let orderAmount = subtotal - discounts;
+
+  // Exclude tier product purchases from points earning
+  // Prevents circular value: buy VIP tier → earn points → spend points → buy another tier
+  if (order.line_items && Array.isArray(order.line_items)) {
+    for (const item of order.line_items) {
+      const tierProduct = await db.tierProduct.findFirst({
+        where: {
+          shop,
+          deletedAt: null,
+          OR: [
+            { shopifyProductId: item.product_id?.toString() },
+            { shopifyVariantId: item.variant_id?.toString() },
+            ...(item.sku ? [{ sku: item.sku }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (tierProduct) {
+        const itemTotal = parseFloat(item.price || '0') * (item.quantity || 1);
+        orderAmount -= itemTotal;
+        console.log(`[OrderPaid] Excluding tier product from points: ${item.title} ($${itemTotal})`);
+      }
+    }
+  }
 
   if (orderAmount <= 0) {
-    console.log('[OrderPaid] Order amount is zero or negative, skipping points earning');
+    console.log('[OrderPaid] Order amount is zero or negative after tier product exclusion, skipping points earning');
     return;
   }
 

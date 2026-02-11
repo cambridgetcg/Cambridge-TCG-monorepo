@@ -146,6 +146,23 @@ export const widgetSettingsSchema = z.object({
 });
 
 // ============================================
+// KLAVIYO CONNECTION VALIDATION
+// ============================================
+
+export const emailProviderSchema = z.enum(['SENDGRID', 'KLAVIYO', 'HYBRID']);
+
+export const klaviyoConnectionSchema = z.object({
+  emailProvider: emailProviderSchema,
+  klaviyoApiKey: z.string().optional().transform(val => val || undefined),
+  klaviyoPublicKey: z.string().max(10, 'Public key too long').optional().transform(val => val || undefined),
+  klaviyoDefaultListId: z.string().optional().transform(val => val || undefined),
+  klaviyoSyncProfiles: z.preprocess(val => val === 'true' || val === true, z.boolean()),
+  klaviyoSyncEvents: z.preprocess(val => val === 'true' || val === true, z.boolean()),
+});
+
+export type KlaviyoConnectionInput = z.infer<typeof klaviyoConnectionSchema>;
+
+// ============================================
 // UTILITY FUNCTIONS
 // ============================================
 

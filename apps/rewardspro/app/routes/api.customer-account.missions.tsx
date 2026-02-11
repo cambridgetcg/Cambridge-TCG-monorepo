@@ -19,6 +19,7 @@ import {
   acknowledgeEvents,
 } from "../services/mission-events.server";
 import { claimChallengeReward } from "../services/challenge-claim.server";
+import { unauthenticated } from "../shopify.server";
 import db from "../db.server";
 
 const LOG_PREFIX = "[api.customer-account.missions]";
@@ -195,8 +196,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400, headers: corsHeaders });
       }
 
+      // Get admin API for Shopify discount creation
+      let admin: any;
+      try {
+        const unauthResult = await unauthenticated.admin(shop);
+        admin = unauthResult.admin;
+      } catch (e) {
+        console.error(`${LOG_PREFIX} Failed to get admin API (non-fatal):`, e);
+      }
+
       // Use the challenge claim service (missions are challenges under the hood)
-      const result = await claimChallengeReward(shop, customerId, missionId);
+      const result = await claimChallengeReward(shop, customerId, missionId, admin);
 
       if (!result.success) {
         return json({

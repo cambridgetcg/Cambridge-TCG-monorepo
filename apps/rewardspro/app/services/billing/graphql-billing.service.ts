@@ -591,6 +591,15 @@ export class GraphQLBillingService {
         }
       });
 
+      // Refresh entitlements to downgrade features immediately
+      try {
+        const { refreshEntitlements } = await import("~/services/entitlements.server");
+        await refreshEntitlements(shop);
+        console.log(`[GraphQLBilling] Entitlements refreshed after cancellation for ${shop}`);
+      } catch (entitlementsError) {
+        console.error(`[GraphQLBilling] Failed to refresh entitlements after cancel:`, entitlementsError);
+      }
+
       return {
         success: true
       };

@@ -281,69 +281,28 @@ async function deliverDiscountReward(
   // If we have admin API, create the discount in Shopify
   if (admin) {
     try {
-      const discountType = rewardValue.type || "percentage";
+      const { createDiscountService } = await import("~/services/shopify-discount.service");
+      const discountService = createDiscountService(admin, shop);
+
+      const discountType = (rewardValue.type || "percentage") as "percentage" | "fixed_amount";
       const discountValue = rewardValue.value || 10;
       const expirationDays = rewardValue.expirationDays || 30;
 
-      const mutation = `
-        mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
-          discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
-            codeDiscountNode {
-              id
-              codeDiscount {
-                ... on DiscountCodeBasic {
-                  codes(first: 1) {
-                    nodes {
-                      code
-                    }
-                  }
-                }
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `;
+      const shopifyResult = await discountService.createDiscountCode({
+        title: `Mystery Box: ${boxName}`,
+        code: discountCode,
+        type: discountType === "percentage" ? "percentage" : "fixed_amount",
+        value: discountValue,
+        usageLimit: rewardValue.maxUses || 1,
+        expiresAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000),
+        minimumSubtotal: rewardValue.minimumPurchase,
+      });
 
-      const variables = {
-        basicCodeDiscount: {
-          title: `Mystery Box: ${boxName}`,
-          code: discountCode,
-          startsAt: new Date().toISOString(),
-          endsAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString(),
-          usageLimit: rewardValue.maxUses || 1,
-          customerSelection: {
-            all: true,
-          },
-          customerGets: {
-            value:
-              discountType === "percentage"
-                ? { percentage: discountValue / 100 }
-                : { discountAmount: { amount: discountValue, appliesOnEachItem: false } },
-            items: { all: true },
-          },
-          minimumRequirement: rewardValue.minimumPurchase
-            ? {
-                subtotal: {
-                  greaterThanOrEqualToSubtotal: rewardValue.minimumPurchase,
-                },
-              }
-            : { quantity: { greaterThanOrEqualToQuantity: 1 } },
-        },
-      };
-
-      const response = await admin.graphql(mutation, { variables });
-      const data = await response.json();
-
-      if (data.data?.discountCodeBasicCreate?.userErrors?.length > 0) {
-        const errors = data.data.discountCodeBasicCreate.userErrors;
-        console.error(`${LOG_PREFIX} Shopify discount creation errors:`, errors);
+      if (!shopifyResult.success) {
+        console.error(`${LOG_PREFIX} Shopify discount creation failed:`, shopifyResult.error);
         return {
           success: false,
-          error: `Failed to create discount: ${errors[0].message}`,
+          error: `Failed to create discount: ${shopifyResult.error}`,
           requiresManualAction: true,
           manualActionReason: "Shopify discount creation failed",
         };
@@ -446,8 +405,45 @@ async function deliverProductReward(
     };
   }
 
-  // For now, mark as requiring manual action
-  // A full implementation would create a draft order here
+  // Create a draft order if admin API is available
+  if (admin) {
+    try {
+      // Get customer's Shopify GID for draft order
+      const customer = await db.customer.findFirst({
+        where: { id: customerId, shop },
+        select: { shopifyCustomerId: true, email: true },
+      });
+
+      if (customer?.shopifyCustomerId) {
+        const { createRaffleDraftOrder } = await import("~/services/raffle-draft-order.server");
+        const draftResult = await createRaffleDraftOrder(admin, {
+          customerId: `gid://shopify/Customer/${customer.shopifyCustomerId}`,
+          productId: productId.startsWith('gid://') ? productId : `gid://shopify/Product/${productId}`,
+          variantId: variantId
+            ? (variantId.startsWith('gid://') ? variantId : `gid://shopify/ProductVariant/${variantId}`)
+            : undefined,
+          quantity,
+          raffleName: boxName, // Reusing field name — works for mystery boxes too
+          winnerId,
+          customerEmail: customer.email || undefined,
+        });
+
+        if (draftResult.success) {
+          console.log(`${LOG_PREFIX} Draft order created: ${draftResult.draftOrderName}`);
+          return {
+            success: true,
+          };
+        }
+
+        console.error(`${LOG_PREFIX} Draft order failed: ${draftResult.error}`);
+        // Fall through to manual action
+      }
+    } catch (error) {
+      console.error(`${LOG_PREFIX} Error creating draft order (non-fatal):`, error);
+    }
+  }
+
+  // Fallback: mark for manual fulfillment
   return {
     success: true,
     requiresManualAction: true,

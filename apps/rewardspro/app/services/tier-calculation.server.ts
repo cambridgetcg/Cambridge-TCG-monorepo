@@ -659,125 +659,56 @@ async function getCustomerSpendingFromDB(
       console.log(`[TierCalc] ANNUAL filter: orders after ${oneYearAgo.toISOString()}`);
     }
 
-    console.log(`[TierCalc] Aggregate query where clause:`, JSON.stringify(whereClause, null, 2));
+    console.log(`[TierCalc] Query where clause:`, JSON.stringify(whereClause, null, 2));
 
-    // First check if customer has any orders
-    const orderCount = await db.order.count({
-      where: { shop, customerId }
-    });
-    console.log(`[TierCalc] Total orders for customer: ${orderCount}`);
-
-    // Fetch all orders for manual calculation (Aurora Data API aggregates are unreliable)
-    const allOrders = await db.order.findMany({
-      where: { shop, customerId },
+    // Fetch only eligible orders using DB-level filters (not all orders)
+    const eligibleOrders = await db.order.findMany({
+      where: whereClause,
       select: {
         id: true,
         shopifyOrderName: true,
         totalPrice: true,
         totalRefunded: true,
-        financialStatus: true,
-        cashbackEligible: true,
         shopifyCreatedAt: true,
-        createdAt: true
       }
     });
 
-    console.log(`[TierCalc] Found ${allOrders.length} total orders for customer`);
+    console.log(`[TierCalc] Found ${eligibleOrders.length} eligible orders for customer`);
 
-    // Manual calculation of spending (more reliable than Aurora aggregates)
+    // Calculate spending from pre-filtered results
     let totalSpent = 0;
     let totalRefunded = 0;
-    let eligibleOrderCount = 0;
     let lastOrderDate: Date | null = null;
 
-    // Filter based on evaluation period
-    const oneYearAgo = evaluationPeriod === 'ANNUAL' ? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) : null;
-
-    for (const order of allOrders) {
-      // Skip if not eligible
-      if (!order.cashbackEligible) {
-        console.log(`[TierCalc] Order ${order.shopifyOrderName} excluded: not cashback eligible`);
-        continue;
-      }
-
-      // Skip if wrong financial status
-      if (order.financialStatus !== 'PAID' && order.financialStatus !== 'PARTIALLY_REFUNDED') {
-        console.log(`[TierCalc] Order ${order.shopifyOrderName} excluded: status is ${order.financialStatus}`);
-        continue;
-      }
-
-      // Skip if outside evaluation period
-      if (evaluationPeriod === 'ANNUAL' && oneYearAgo && order.shopifyCreatedAt) {
-        const orderDate = new Date(order.shopifyCreatedAt);
-        if (orderDate < oneYearAgo) {
-          console.log(`[TierCalc] Order ${order.shopifyOrderName} excluded: outside ANNUAL period (${orderDate.toISOString()})`);
-          continue;
-        }
-      }
-
-      // Add to totals
+    for (const order of eligibleOrders) {
       const price = order.totalPrice ? parseFloat(order.totalPrice.toString()) : 0;
       const refunded = order.totalRefunded ? parseFloat(order.totalRefunded.toString()) : 0;
 
       totalSpent += price;
       totalRefunded += refunded;
-      eligibleOrderCount++;
 
-      // Track last order date
       if (order.shopifyCreatedAt) {
         const orderDate = new Date(order.shopifyCreatedAt);
         if (!lastOrderDate || orderDate > lastOrderDate) {
           lastOrderDate = orderDate;
         }
       }
-
-      console.log(`[TierCalc] Order ${order.shopifyOrderName} included: price=$${price}, refunded=$${refunded}`);
     }
 
     const netSpending = totalSpent - totalRefunded;
 
-    console.log(`[TierCalc] Manual calculation results:`);
-    console.log(`[TierCalc]   - Total orders: ${allOrders.length}`);
-    console.log(`[TierCalc]   - Eligible orders: ${eligibleOrderCount}`);
+    console.log(`[TierCalc] Calculation results:`);
+    console.log(`[TierCalc]   - Eligible orders: ${eligibleOrders.length}`);
     console.log(`[TierCalc]   - Total spent: $${totalSpent.toFixed(2)}`);
     console.log(`[TierCalc]   - Total refunded: $${totalRefunded.toFixed(2)}`);
     console.log(`[TierCalc]   - Net spending: $${netSpending.toFixed(2)}`);
     console.log(`[TierCalc]   - Evaluation period: ${evaluationPeriod}`);
 
-    // Try Aurora aggregate for comparison (debugging)
-    try {
-      const orderStats = await db.order.aggregate({
-        where: whereClause,
-        _sum: {
-          totalPrice: true,
-          totalRefunded: true
-        },
-        _count: {
-          id: true
-        }
-      });
-
-      const auroraTotal = Number(orderStats._sum?.totalPrice || 0);
-      const auroraRefunded = Number(orderStats._sum?.totalRefunded || 0);
-      const auroraCount = orderStats._count?.id || 0;
-
-      console.log(`[TierCalc] Aurora aggregate comparison:`);
-      console.log(`[TierCalc]   - Aurora count: ${auroraCount} vs Manual: ${eligibleOrderCount}`);
-      console.log(`[TierCalc]   - Aurora total: $${auroraTotal} vs Manual: $${totalSpent}`);
-      console.log(`[TierCalc]   - Aurora refunded: $${auroraRefunded} vs Manual: $${totalRefunded}`);
-
-      if (auroraCount !== eligibleOrderCount || Math.abs(auroraTotal - totalSpent) > 0.01) {
-        console.warn(`[TierCalc] WARNING: Aurora aggregate mismatch detected! Using manual calculation.`);
-      }
-    } catch (aggError) {
-      console.error(`[TierCalc] Aurora aggregate error (using manual calc):`, aggError);
-    }
-
     return {
       customerId,
       shopifyCustomerId: customer.shopifyCustomerId,
       totalSpending: Math.max(0, netSpending),
-      orderCount: eligibleOrderCount,
+      orderCount: eligibleOrders.length,
       lastOrderDate: lastOrderDate
     };
   } catch (error) {

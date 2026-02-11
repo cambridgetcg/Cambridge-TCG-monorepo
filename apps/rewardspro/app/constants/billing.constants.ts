@@ -1,4 +1,7 @@
 // Billing plan definitions and utilities
+// IMPORTANT: Order limits are derived from plan-limits.ts (single source of truth)
+
+import { getOrderLimit } from "./plan-limits";
 
 export interface ManagedPlan {
   name: string;
@@ -15,6 +18,9 @@ export interface ManagedPlan {
  * RATE-BASED GATING MODEL
  * All plans have access to all features - differentiation is through LIMITS.
  * Features listed here emphasize capacity/limits rather than feature availability.
+ *
+ * NOTE: ordersIncluded is derived from plan-limits.ts via getOrderLimit().
+ * Do NOT hardcode order limits here — update plan-limits.ts instead.
  */
 export const MANAGED_PLANS: Record<string, ManagedPlan> = {
   // Free plan - Hidden from billing pages but still functional for existing users
@@ -23,7 +29,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Free",
     price: 0,
     interval: "month",
-    ordersIncluded: 50,
+    get ordersIncluded() { return getOrderLimit("RewardsPro Free"); },
     overageRate: 0,
     features: [
       "All features included",
@@ -41,7 +47,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Pro",
     price: 39,
     interval: "month",
-    ordersIncluded: 500,
+    get ordersIncluded() { return getOrderLimit("RewardsPro Pro"); },
     overageRate: 0.10, // $10 per 100 orders = $0.10 per order
     features: [
       "All features included",
@@ -59,7 +65,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Pro Annual",
     price: 336,
     interval: "year",
-    ordersIncluded: 500,
+    get ordersIncluded() { return getOrderLimit("RewardsPro Pro Annual"); },
     overageRate: 0.10,
     features: [
       "All features included",
@@ -78,7 +84,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Max",
     price: 149,
     interval: "month",
-    ordersIncluded: 2000,
+    get ordersIncluded() { return getOrderLimit("RewardsPro Max"); },
     overageRate: 0.05, // $5 per 100 orders = $0.05 per order
     features: [
       "All features included",
@@ -96,7 +102,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Max Annual",
     price: 1296,
     interval: "year",
-    ordersIncluded: 2000,
+    get ordersIncluded() { return getOrderLimit("RewardsPro Max Annual"); },
     overageRate: 0.05,
     features: [
       "All features included",
@@ -115,7 +121,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Ultra",
     price: 499,
     interval: "month",
-    ordersIncluded: 999999, // Effectively unlimited
+    get ordersIncluded() { return getOrderLimit("RewardsPro Ultra"); },
     overageRate: 0,
     features: [
       "All features included",
@@ -133,7 +139,7 @@ export const MANAGED_PLANS: Record<string, ManagedPlan> = {
     displayName: "Rewards Ultra Annual",
     price: 4296,
     interval: "year",
-    ordersIncluded: 999999,
+    get ordersIncluded() { return getOrderLimit("RewardsPro Ultra Annual"); },
     overageRate: 0,
     features: [
       "All features included",

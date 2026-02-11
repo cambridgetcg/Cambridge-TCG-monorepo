@@ -56,7 +56,7 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
         orderCount: 0,
         planLimit: 50, // Free plan default (matches plan-limits.ts)
         planName: 'RewardsPro Free',
-        // Note: isLocked column not yet in production DB - will be added with migration
+        isLocked: false,
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -91,17 +91,15 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
     // Auto-lock the shop
     const lockReason = `Order limit reached (${usage.orderCount}/${usage.planLimit})`;
 
-    // Note: isLocked/lockedAt/lockReason columns not yet in production DB
-    // Locking will be enabled when migration is applied
-    // await db.monthlyOrderUsage.update({
-    //   where: { id: usage.id },
-    //   data: {
-    //     isLocked: true,
-    //     lockedAt: new Date(),
-    //     lockReason,
-    //     updatedAt: new Date()
-    //   }
-    // });
+    await db.monthlyOrderUsage.update({
+      where: { id: usage.id },
+      data: {
+        isLocked: true,
+        lockedAt: new Date(),
+        lockReason,
+        updatedAt: new Date()
+      }
+    });
 
     return {
       hasAccess: false,
@@ -141,21 +139,19 @@ export async function unlockShop(shop: string): Promise<void> {
 
   console.log(`[PlanAccess] Unlocking shop ${shop} for ${year}-${month.toString().padStart(2, '0')}`);
 
-  // Note: isLocked/lockedAt/lockReason columns not yet in production DB
-  // Unlocking will be enabled when migration is applied
-  // await db.monthlyOrderUsage.updateMany({
-  //   where: {
-  //     shop,
-  //     year,
-  //     month
-  //   },
-  //   data: {
-  //     isLocked: false,
-  //     lockedAt: null,
-  //     lockReason: null,
-  //     updatedAt: new Date()
-  //   }
-  // });
+  await db.monthlyOrderUsage.updateMany({
+    where: {
+      shop,
+      year,
+      month
+    },
+    data: {
+      isLocked: false,
+      lockedAt: null,
+      lockReason: null,
+      updatedAt: new Date()
+    }
+  });
 
   console.log(`[PlanAccess] Shop ${shop} unlocked successfully`);
 }
@@ -193,14 +189,17 @@ export async function updatePlanLimit(
   console.log(`[PlanAccess] Current usage: ${usage?.orderCount || 0}, New limit: ${newLimit}, Will unlock: ${shouldUnlock}`);
 
   if (usage) {
-    // Update existing record
-    // Note: isLocked/lockedAt/lockReason columns not yet in production DB
+    // Update existing record and unlock if new limit exceeds current usage
     await db.monthlyOrderUsage.update({
       where: { id: usage.id },
       data: {
         planName: newPlanName,
         planLimit: newLimit,
-        // isLocked, lockedAt, lockReason will be enabled when migration is applied
+        ...(shouldUnlock ? {
+          isLocked: false,
+          lockedAt: null,
+          lockReason: null,
+        } : {}),
         updatedAt: new Date()
       }
     });
@@ -215,7 +214,7 @@ export async function updatePlanLimit(
         orderCount: 0,
         planLimit: newLimit,
         planName: newPlanName,
-        // Note: isLocked column not yet in production DB
+        isLocked: false,
         createdAt: new Date(),
         updatedAt: new Date()
       }

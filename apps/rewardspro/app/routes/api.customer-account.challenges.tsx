@@ -16,6 +16,7 @@ import {
   getCustomerChallengeHistory,
 } from "../services/challenge-progress.server";
 import { claimChallengeReward } from "../services/challenge-claim.server";
+import { unauthenticated } from "../shopify.server";
 import db from "../db.server";
 
 const LOG_PREFIX = "[api.customer-account.challenges]";
@@ -274,7 +275,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400, headers: corsHeaders });
       }
 
-      const result = await claimChallengeReward(shop, customerId, challengeId);
+      // Get admin API for Shopify discount creation
+      let admin: any;
+      try {
+        const unauthResult = await unauthenticated.admin(shop);
+        admin = unauthResult.admin;
+      } catch (e) {
+        console.error(`${LOG_PREFIX} Failed to get admin API (non-fatal):`, e);
+      }
+
+      const result = await claimChallengeReward(shop, customerId, challengeId, admin);
 
       if (!result.success) {
         return json({
