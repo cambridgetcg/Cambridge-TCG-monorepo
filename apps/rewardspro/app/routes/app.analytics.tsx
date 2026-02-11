@@ -441,7 +441,58 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Fetch REAL overview metrics, tier performance, program impact, and customer behaviour with caching
-    // OPTIMIZED: All expensive operations now use cached services
+    // RESILIENT: Each query is wrapped so a single Data API failure doesn't crash the entire page.
+    // Aurora Data API can throttle when too many concurrent requests fire at once.
+    const safeQuery = async <T,>(fn: () => Promise<T>, fallback: T, label: string): Promise<T> => {
+      try {
+        return await fn();
+      } catch (error) {
+        console.error(`[Analytics] ${label} failed (using fallback):`, error);
+        return fallback;
+      }
+    };
+
+    const emptyMetrics: OverviewMetrics = {
+      totalRevenue: 0, totalOrders: 0, cashbackIssued: 0,
+      activeCustomers: 0, avgOrderValue: 0, totalCustomers: 0,
+    };
+    const emptyComparison: MetricsComparison = {
+      current: emptyMetrics, previous: emptyMetrics,
+      changes: {
+        revenueChange: 0, ordersChange: 0, cashbackChange: 0,
+        activeCustomersChange: 0, avgOrderValueChange: 0, totalCustomersChange: 0,
+      },
+    };
+    const emptyCustomerBehaviour: CustomerBehaviourData = {
+      totalMembers: 0, totalNonMembers: 0, memberPercentage: 0,
+      orderFrequencyLift: 0, aovIncrease: 0, revenueLift: 0,
+      members: { avgOrders: 0, avgOrderValue: 0, lifetimeValue: 0, repeatPurchaseRate: 0 },
+      nonMembers: { avgOrders: 0, avgOrderValue: 0, lifetimeValue: 0, repeatPurchaseRate: 0 },
+      rfmSegments: {
+        champions: 0, loyalCustomers: 0, potentialLoyalists: 0, newCustomers: 0,
+        promising: 0, needsAttention: 0, aboutToSleep: 0, atRisk: 0,
+        cantLoseThem: 0, hibernating: 0, lost: 0,
+      },
+      engagementMetrics: {
+        activeRate: 0, dormantRate: 0, churnRiskRate: 0,
+        avgDaysBetweenOrders: 0, avgDaysSinceLastOrder: 0,
+        redemptionRate: 0, programEngagementScore: 0,
+      },
+      behavioralInsights: {
+        habitStrength: 0, emotionalLoyaltyScore: 0, churnProbability: 0, upsellPotential: 0,
+      },
+    };
+    const emptyCohort: CohortAnalysis = {
+      retentionCohorts: [], revenueCohorts: [], tierProgressionCohorts: [],
+      summaryMetrics: {
+        avgRetentionMonth1: 0, avgRetentionMonth3: 0,
+        avgRetentionMonth6: 0, avgRetentionMonth12: 0,
+        avgLTV30Days: 0, avgLTV90Days: 0,
+        avgLTV180Days: 0, avgLTV365Days: 0,
+        avgTimeToTierUpgrade: 0, tierUpgradeRate: 0,
+      },
+    };
+
     const [
       metricsComparison,
       tierPerformance,
@@ -451,13 +502,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       cohortAnalysis,
       monthlyTierRevenue,
     ] = await Promise.all([
-      getOverviewMetricsWithComparison(shop, dateRange),
-      getTierPerformanceMetrics(shop),
-      getProgramImpactMetrics(shop),
-      getMonthlyImpactData(shop),
-      getCustomerBehaviourData(shop),  // NEW: Cached RFM + member stats
-      getCohortAnalysis(shop),          // NEW: Cached cohort analysis
-      getMonthlyTierRevenue(shop),      // NEW: Real historical tier revenue
+      safeQuery(() => getOverviewMetricsWithComparison(shop, dateRange), emptyComparison, 'OverviewMetrics'),
+      safeQuery(() => getTierPerformanceMetrics(shop), [], 'TierPerformance'),
+      safeQuery(() => getProgramImpactMetrics(shop), { currentUsageRate: 0, totalInfluencedSales: 0, previousUsageRate: 0, usageRateChange: 0 }, 'ProgramImpact'),
+      safeQuery(() => getMonthlyImpactData(shop), [], 'MonthlyImpactData'),
+      safeQuery(() => getCustomerBehaviourData(shop), emptyCustomerBehaviour, 'CustomerBehaviour'),
+      safeQuery(() => getCohortAnalysis(shop), emptyCohort, 'CohortAnalysis'),
+      safeQuery(() => getMonthlyTierRevenue(shop), [], 'MonthlyTierRevenue'),
     ]);
 
     // Generate insights using the new InsightEngine
@@ -515,35 +566,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const totalCustomersCount = metricsComparison.current.totalCustomers;
 
     // OPTIMIZED: Use SQL COUNT instead of fetching all orders into memory
+    // Wrapped with safeQuery for Data API resilience
     const [ltv, repeatCustomersCount, retention] = await Promise.all([
-      // Customer Lifetime Value - average total spent
-      db.customer.aggregate({
-        where: { shop },
-        _avg: { totalSpent: true },
-      }),
-      // OPTIMIZED: Count customers with >1 order directly in database
-      // Instead of fetching all orders and counting in memory
-      db.customer.count({
-        where: {
-          shop,
-          orderCount: { gt: 1 },
-        },
-      }),
-      // Retention rate - customers who ordered last month and this month
-      (async () => {
+      safeQuery(
+        () => db.customer.aggregate({ where: { shop }, _avg: { totalSpent: true } }),
+        { _avg: { totalSpent: null } } as any,
+        'CustomerLTV'
+      ),
+      safeQuery(
+        () => db.customer.count({ where: { shop, orderCount: { gt: 1 } } }),
+        0,
+        'RepeatCustomers'
+      ),
+      safeQuery(async () => {
         const now = new Date();
         const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-        // Customers who ordered last month
         const lastMonthCustomers = await db.order.findMany({
           where: {
             shop,
-            shopifyCreatedAt: {
-              gte: lastMonthStart,
-              lte: lastMonthEnd,
-            },
+            shopifyCreatedAt: { gte: lastMonthStart, lte: lastMonthEnd },
             financialStatus: { in: ['PAID', 'PARTIALLY_PAID'] },
           },
           distinct: ['customerId'],
@@ -554,7 +598,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         const lastMonthIds = new Set(lastMonthCustomers.map(o => o.customerId));
 
-        // Customers who ordered this month (from last month cohort)
         const thisMonthRetained = await db.order.findMany({
           where: {
             shop,
@@ -567,7 +610,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         });
 
         return (thisMonthRetained.length / lastMonthCustomers.length) * 100;
-      })()
+      }, 0, 'RetentionRate')
     ]);
 
     const customerLifetimeValue = Number(ltv._avg.totalSpent || 0);

@@ -1,0 +1,122 @@
+<!-- Missions Widget Block -->
+{% comment %}
+  Gamified Missions Widget:
+  - Detects customer login status automatically
+  - Fetches real-time missions data from proxy API
+  - Shows player stats, mission cards by cadence, claim flow
+  - Renders celebration animations for completed missions
+{% endcomment %}
+
+{% comment %}
+  API endpoint uses relative URL to avoid CORS issues with custom domains.
+  The browser will resolve this to the current domain.
+{% endcomment %}
+
+{% if customer %}
+  {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
+  <div id="missions-widget-root"
+       class="rp-missions-root"
+       data-state="authenticated"
+       data-customer-id="{{ customer.id }}"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-api-endpoint="/apps/rewardspro/api/missions"
+       data-claim-endpoint="/apps/rewardspro/api/challenges/claim"
+       data-events-ack-endpoint="/apps/rewardspro/api/missions/events/ack"
+       data-cache-duration="{{ block.settings.cache_duration | default: 30 }}"
+       data-default-tab="{{ block.settings.default_tab | default: 'daily' }}">
+    {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
+    <div class="rp-missions-loading">Loading missions...</div>
+  </div>
+{% else %}
+  {% comment %} GUEST STATE - Customer is NOT logged in {% endcomment %}
+  <div id="missions-widget-root"
+       class="rp-missions-root"
+       data-state="guest"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-message="{{ block.settings.guest_message | default: 'Complete missions to earn XP and level up!' }}"
+       data-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
+       data-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
+    {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
+    <div class="rp-missions-guest">Sign in to view missions</div>
+  </div>
+{% endif %}
+
+{% comment %} Fallback for browsers without JavaScript {% endcomment %}
+<noscript>
+  <div class="rp-missions-noscript">
+    {% if customer %}
+      Welcome back, {{ customer.first_name }}!
+      <a href="/account">Visit your account</a> to view missions.
+    {% else %}
+      <a href="/account/login">Sign in</a> to view your missions.
+    {% endif %}
+  </div>
+</noscript>
+
+{% schema %}
+{
+  "name": "RewardsPro Missions",
+  "target": "body",
+  "stylesheet": "missions-widget.css",
+  "javascript": "missions-widget.js",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Performance Settings"
+    },
+    {
+      "type": "range",
+      "id": "cache_duration",
+      "label": "Cache duration (seconds)",
+      "min": 15,
+      "max": 120,
+      "step": 15,
+      "default": 30,
+      "unit": "sec",
+      "info": "How long to cache missions data. Lower = fresher progress, higher = better performance."
+    },
+    {
+      "type": "select",
+      "id": "default_tab",
+      "label": "Default tab",
+      "default": "daily",
+      "options": [
+        { "value": "daily", "label": "Daily" },
+        { "value": "weekly", "label": "Weekly" },
+        { "value": "monthly", "label": "Monthly" },
+        { "value": "special", "label": "Special" }
+      ],
+      "info": "Which mission cadence tab to show by default."
+    },
+    {
+      "type": "header",
+      "content": "Guest User Settings"
+    },
+    {
+      "type": "paragraph",
+      "content": "These settings apply when a customer is NOT signed in"
+    },
+    {
+      "type": "text",
+      "id": "guest_message",
+      "label": "Guest Message",
+      "default": "Complete missions to earn XP and level up!",
+      "info": "Message shown to non-logged-in visitors"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Guest Button Text",
+      "default": "Sign In",
+      "info": "Text on the sign-in button for guests"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_url",
+      "label": "Guest Button URL",
+      "default": "/account/login",
+      "info": "URL the sign-in button links to"
+    }
+  ]
+}
+{% endschema %}

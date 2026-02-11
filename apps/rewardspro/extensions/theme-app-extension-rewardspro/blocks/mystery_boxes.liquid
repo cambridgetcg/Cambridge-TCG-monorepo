@@ -1,0 +1,138 @@
+<!-- Mystery Boxes Widget Block -->
+{% comment %}
+  Storefront Mystery Boxes Widget:
+  - Displays active mystery boxes customers can open with points
+  - Detects customer login status automatically
+  - Fetches real-time data from proxy API
+  - Shows rarity previews, open cost, and animated reveal
+{% endcomment %}
+
+{% if customer %}
+  {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
+  <div id="mystery-boxes-widget-root"
+       class="rp-mb-root"
+       data-state="authenticated"
+       data-customer-id="{{ customer.id }}"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-api-endpoint="/apps/rewardspro/mystery-boxes"
+       data-open-endpoint="/apps/rewardspro/mystery-boxes/open"
+       data-section-title="{{ block.settings.section_title | default: 'Mystery Boxes' }}"
+       data-show-rarity="{{ block.settings.show_rarity | default: true }}"
+       data-animation-speed="{{ block.settings.animation_speed | default: 'normal' }}"
+       data-cache-duration="{{ block.settings.cache_duration | default: 60 }}">
+    {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
+    <div class="rp-mb-loading">
+      <div class="rp-mb-loading__spinner"></div>
+      <p class="rp-mb-loading__text">Loading mystery boxes...</p>
+    </div>
+  </div>
+{% else %}
+  {% comment %} GUEST STATE - Customer is NOT logged in {% endcomment %}
+  <div id="mystery-boxes-widget-root"
+       class="rp-mb-root"
+       data-state="guest"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-section-title="{{ block.settings.section_title | default: 'Mystery Boxes' }}"
+       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to open mystery boxes and win rewards!' }}"
+       data-guest-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
+       data-guest-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
+    <div class="rp-mb-guest">Sign in to open mystery boxes</div>
+  </div>
+{% endif %}
+
+{% comment %} Fallback for browsers without JavaScript {% endcomment %}
+<noscript>
+  <div class="rp-mb-noscript">
+    {% if customer %}
+      Welcome back, {{ customer.first_name }}!
+      <a href="/account">Visit your account</a> to view mystery boxes.
+    {% else %}
+      <a href="/account/login">Sign in</a> to open mystery boxes and win rewards.
+    {% endif %}
+  </div>
+</noscript>
+
+{% schema %}
+{
+  "name": "Mystery Boxes",
+  "target": "section",
+  "stylesheet": "mystery-boxes-widget.css",
+  "javascript": "mystery-boxes-widget.js",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Display Settings"
+    },
+    {
+      "type": "text",
+      "id": "section_title",
+      "label": "Section Title",
+      "default": "Mystery Boxes",
+      "info": "Title displayed above the mystery boxes grid"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rarity",
+      "label": "Show rarity preview",
+      "default": true,
+      "info": "Display rarity distribution bars on each box card"
+    },
+    {
+      "type": "select",
+      "id": "animation_speed",
+      "label": "Reveal animation speed",
+      "default": "normal",
+      "options": [
+        { "value": "fast", "label": "Fast" },
+        { "value": "normal", "label": "Normal" },
+        { "value": "slow", "label": "Slow" }
+      ],
+      "info": "Speed of the box opening animation"
+    },
+    {
+      "type": "header",
+      "content": "Performance Settings"
+    },
+    {
+      "type": "range",
+      "id": "cache_duration",
+      "label": "Cache duration (seconds)",
+      "min": 30,
+      "max": 300,
+      "step": 30,
+      "default": 60,
+      "unit": "sec",
+      "info": "How long to cache mystery box data. Lower values = fresher data, higher = better performance."
+    },
+    {
+      "type": "header",
+      "content": "Guest User Settings"
+    },
+    {
+      "type": "paragraph",
+      "content": "These settings apply when a customer is NOT signed in"
+    },
+    {
+      "type": "text",
+      "id": "guest_message",
+      "label": "Guest Message",
+      "default": "Sign in to open mystery boxes and win rewards!",
+      "info": "Message shown to non-logged-in visitors"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Guest Button Text",
+      "default": "Sign In",
+      "info": "Text on the sign-in button for guests"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_url",
+      "label": "Guest Button URL",
+      "default": "/account/login",
+      "info": "URL the sign-in button links to"
+    }
+  ]
+}
+{% endschema %}

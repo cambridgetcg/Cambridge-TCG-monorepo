@@ -1,0 +1,160 @@
+<!-- RewardsPro Raffles Block -->
+{% comment %}
+  Standalone raffle section block:
+  - Displays merchant-created raffles with point-based entry
+  - Fetches real-time data from proxy API
+  - Falls back to cached data if API unavailable
+  - Shows loading/error/guest states appropriately
+{% endcomment %}
+
+{% if customer %}
+  {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
+  <div class="rp-raffles-root"
+       data-state="authenticated"
+       data-customer-id="{{ customer.id }}"
+       data-customer-email="{{ customer.email }}"
+       data-customer-name="{{ customer.first_name | default: 'Member' }}"
+       data-customer-tags="{{ customer.tags | join: ',' }}"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-shop-currency="{{ shop.currency }}"
+       data-api-endpoint="/apps/rewardspro/raffles"
+       data-heading="{{ block.settings.heading | default: 'Raffles' }}"
+       data-grid-columns="{{ block.settings.grid_columns | default: 3 }}"
+       data-show-images="{{ block.settings.show_images | default: true }}"
+       data-show-countdown="{{ block.settings.show_countdown | default: true }}"
+       data-enable-api="{{ block.settings.enable_api_calls | default: true }}"
+       data-cache-duration="{{ block.settings.cache_duration | default: 60 }}"
+       data-empty-message="{{ block.settings.empty_message | default: 'No raffles available right now. Check back soon!' }}">
+    {% comment %} Loading placeholder - replaced by JavaScript {% endcomment %}
+    <div class="rp-widget-loading">Loading raffles...</div>
+  </div>
+{% else %}
+  {% comment %} GUEST STATE - Customer is NOT logged in {% endcomment %}
+  <div class="rp-raffles-root"
+       data-state="guest"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-shop-currency="{{ shop.currency }}"
+       data-heading="{{ block.settings.heading | default: 'Raffles' }}"
+       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to enter raffles and win prizes!' }}"
+       data-guest-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
+       data-guest-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
+    {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
+    <div class="rp-widget-guest">Sign in to view raffles</div>
+  </div>
+{% endif %}
+
+{% comment %} Fallback for browsers without JavaScript {% endcomment %}
+<noscript>
+  <div class="rp-widget-noscript">
+    {% if customer %}
+      Welcome back, {{ customer.first_name }}!
+      <a href="/account">Visit your account</a> to view raffles.
+    {% else %}
+      <a href="/account/login">Sign in</a> to enter raffles.
+    {% endif %}
+  </div>
+</noscript>
+
+{% schema %}
+{
+  "name": "RewardsPro Raffles",
+  "target": "section",
+  "stylesheet": "raffles.css",
+  "javascript": "raffles.js",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Display Settings"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Raffles",
+      "info": "Section heading displayed above the raffle grid"
+    },
+    {
+      "type": "range",
+      "id": "grid_columns",
+      "label": "Grid columns (desktop)",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 3,
+      "info": "Number of columns on desktop. Mobile always shows 1, tablet shows 2."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_images",
+      "label": "Show raffle images",
+      "default": true,
+      "info": "Display raffle images at the top of each card"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_countdown",
+      "label": "Show countdown timer",
+      "default": true,
+      "info": "Display time remaining until raffle ends"
+    },
+    {
+      "type": "header",
+      "content": "API & Performance Settings"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_api_calls",
+      "label": "Enable real-time data",
+      "default": true,
+      "info": "Fetch live raffle data from server. Disable for testing."
+    },
+    {
+      "type": "range",
+      "id": "cache_duration",
+      "label": "Cache duration (seconds)",
+      "min": 30,
+      "max": 300,
+      "step": 30,
+      "default": 60,
+      "unit": "sec",
+      "info": "How long to cache raffle data. 60 seconds recommended."
+    },
+    {
+      "type": "text",
+      "id": "empty_message",
+      "label": "Empty state message",
+      "default": "No raffles available right now. Check back soon!",
+      "info": "Message shown when no active raffles exist"
+    },
+    {
+      "type": "header",
+      "content": "Guest User Settings"
+    },
+    {
+      "type": "paragraph",
+      "content": "These settings apply when a customer is NOT signed in"
+    },
+    {
+      "type": "text",
+      "id": "guest_message",
+      "label": "Guest Message",
+      "default": "Sign in to enter raffles and win prizes!",
+      "info": "Message shown to non-logged-in visitors"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Guest Button Text",
+      "default": "Sign In",
+      "info": "Text on the sign-in button for guests"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_url",
+      "label": "Guest Button URL",
+      "default": "/account/login",
+      "info": "URL the sign-in button links to"
+    }
+  ]
+}
+{% endschema %}
