@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '~/db.server';
 import { hasManualOverride } from './manual-tier-assignment.server';
 import { sendWelcomeEmailNotification } from './email-notifications.server';
+import { processAutomationTrigger } from './automation-trigger.server';
 import { updateCustomerToEffectiveTier } from './tier-resolution.server';
 import { isKlaviyoEnabled } from './klaviyo.server';
 import { syncCustomerToKlaviyo, trackCustomerEnrolled } from './klaviyo-events.server';
@@ -120,6 +121,25 @@ export async function handleCustomerCreate(
   } catch (emailError) {
     // Log but don't fail the webhook
     console.error(`[CustomerSync] Failed to send welcome email (non-fatal):`, emailError);
+  }
+
+  // Fire "welcome" automation trigger (non-blocking)
+  try {
+    if (customerData.email) {
+      await processAutomationTrigger({
+        type: "welcome",
+        shop: shopDomain,
+        customer: {
+          email: customerData.email,
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          customerId,
+        },
+        data: tier ? { tierId: tier.id, tierName: tier.name } : undefined,
+      });
+    }
+  } catch (autoError) {
+    console.error(`[CustomerSync] Welcome automation trigger failed (non-fatal):`, autoError);
   }
 
   // Sync to Klaviyo if enabled (non-blocking)

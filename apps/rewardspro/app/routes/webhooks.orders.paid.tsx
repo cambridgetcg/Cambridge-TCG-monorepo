@@ -10,6 +10,7 @@ import { db } from "../db.server";
 import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { sendTierUpgradeEmailNotification } from "../services/email-notifications.server";
+import { processAutomationTrigger } from "../services/automation-trigger.server";
 import { withRetry } from "../utils/retry";
 import { createTransactionAnalyzer } from "../utils/transaction-analyzer";
 import {
@@ -640,6 +641,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       orderId: order.id?.toString(),
     });
     sentryWebhook.finish('ok');
+
+    // Fire "purchase" automation trigger (non-blocking)
+    try {
+      const customerEmail = order.customer?.email || order.email;
+      if (customerEmail) {
+        await processAutomationTrigger({
+          type: "purchase",
+          shop: shop!,
+          customer: {
+            email: customerEmail,
+            firstName: order.customer?.first_name || null,
+            lastName: order.customer?.last_name || null,
+            customerId: order.customer?.id?.toString(),
+          },
+          data: {
+            orderId: order.id?.toString(),
+            orderTotal: parseFloat(order.total_price || "0"),
+          },
+        });
+      }
+    } catch (autoError) {
+      console.error(`[OrderPaid] Purchase automation trigger failed (non-fatal):`, autoError);
+    }
 
     webhookLogger.info('Order processed successfully', { orderId: order.id, shop });
     return json({ success: true, data: result });
@@ -1520,6 +1544,23 @@ async function checkTierProgression(_dbOrTx: any, params: {
                 cashbackPercent: newTier.cashbackPercent,
               }
             );
+
+            // Process automation triggers for tier upgrade (non-blocking)
+            try {
+              await processAutomationTrigger({
+                type: "tier_change",
+                shop,
+                customer: {
+                  email: customer.email || "",
+                  firstName: customer.firstName,
+                  lastName: customer.lastName,
+                  customerId: customer.id,
+                },
+                data: { tierId: newTier.id, tierName: newTier.name },
+              });
+            } catch (autoError) {
+              console.error(`[OrderPaid] Automation trigger failed (non-fatal):`, autoError);
+            }
 
             // Track tier upgrade in Klaviyo (non-blocking)
             try {

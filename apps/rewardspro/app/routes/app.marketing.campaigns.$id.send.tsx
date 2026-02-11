@@ -249,10 +249,46 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           }));
       }
 
+      // Guard: prevent sending to zero recipients
+      if (recipients.length === 0) {
+        // Reset status back to draft
+        await db.emailCampaign.updateMany({
+          where: { id, shop, status: "sending" },
+          data: { status: "draft", updatedAt: new Date() },
+        });
+        return json(
+          { error: "No recipients match your audience selection. Adjust your filters and try again." },
+          { status: 400 }
+        );
+      }
+
+      // Snapshot template HTML at send time for audit trail
+      let templateSnapshot: { subject?: string; htmlContent?: string } = {};
+      try {
+        const campaignData = await db.emailCampaign.findFirst({
+          where: { id, shop },
+          select: { templateId: true, subject: true },
+        });
+        if (campaignData?.templateId) {
+          const tmpl = await db.emailTemplate.findFirst({
+            where: { id: campaignData.templateId, shop },
+            select: { subject: true, htmlContent: true },
+          });
+          if (tmpl) {
+            templateSnapshot = {
+              subject: campaignData.subject || tmpl.subject || undefined,
+              htmlContent: tmpl.htmlContent || undefined,
+            };
+          }
+        }
+      } catch (e) {
+        // Non-critical — proceed with send even if snapshot fails
+      }
+
       // Send emails
       const sendResult = await sendCampaignEmails(shop, id, recipients);
 
-      // Update campaign with results
+      // Update campaign with results + template snapshot
       await db.emailCampaign.updateMany({
         where: { id, shop },
         data: {
@@ -266,6 +302,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
             unsubscribed: 0,
             revenue: 0,
             orders: 0,
+            templateSnapshot,
           },
           updatedAt: new Date(),
         },
@@ -276,6 +313,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       return redirect(`/app/marketing/campaigns/${id}`);
     } catch (e: any) {
       console.error(`[Campaign] Error sending campaign:`, e);
+      // Reset status from "sending" back to "draft" so campaign isn't orphaned
+      try {
+        await db.emailCampaign.updateMany({
+          where: { id, shop, status: "sending" },
+          data: { status: "draft", updatedAt: new Date() },
+        });
+      } catch (resetError) {
+        console.error(`[Campaign] Failed to reset campaign status:`, resetError);
+      }
       return json({ error: e.message }, { status: 500 });
     }
   }

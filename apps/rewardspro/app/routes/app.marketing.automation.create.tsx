@@ -1,7 +1,7 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate } from "@remix-run/react";
-import { useState } from "react";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { useLoaderData, useNavigate, useSubmit, useActionData } from "@remix-run/react";
+import { useState, useCallback } from "react";
 import {
   Page,
   Layout,
@@ -37,9 +37,15 @@ interface Tier {
   cashbackPercent: number;
 }
 
+interface Template {
+  id: string;
+  name: string;
+}
+
 interface LoaderData {
   shop: string;
   tiers: Tier[];
+  templates: Template[];
   limitAccess: {
     canCreate: boolean;
     current: number;
@@ -79,9 +85,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     orderBy: { minSpend: 'asc' },
   });
 
+  // Fetch templates for the action step
+  let templates: Template[] = [];
+  try {
+    const dbTemplates = await db.emailTemplate.findMany({
+      where: { shop, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+    templates = dbTemplates;
+  } catch (e) {
+    // Table might not exist
+  }
+
   return json<LoaderData>({
     shop,
     tiers,
+    templates,
     limitAccess: {
       canCreate: limitAccess.hasAccess,
       current: automationCount,
@@ -92,12 +112,113 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 // ============================================
+// ACTION
+// ============================================
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
+
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  const name = formData.get("name") as string;
+  const description = formData.get("description") as string;
+  const trigger = formData.get("trigger") as string;
+  const tierFilter = formData.get("tierFilter") as string;
+  const minSpend = formData.get("minSpend") as string;
+  const actionType = formData.get("actionType") as string;
+  const templateId = formData.get("templateId") as string;
+  const delay = formData.get("delay") as string;
+  const respectBusinessHours = formData.get("respectBusinessHours") === "true";
+  const respectTimezone = formData.get("respectTimezone") === "true";
+
+  if (!name?.trim()) {
+    return json({ error: "Automation name is required" }, { status: 400 });
+  }
+
+  if (!trigger) {
+    return json({ error: "Trigger is required" }, { status: 400 });
+  }
+
+  // Check automation limit
+  const automationCount = await db.emailAutomation.count({ where: { shop } });
+  const limitAccess = await checkLimitAccess(shop, 'maxAutomations', automationCount);
+  if (!limitAccess.hasAccess) {
+    return json({ error: limitAccess.error?.message || "Automation limit reached" }, { status: 403 });
+  }
+
+  // Map delay string to minutes
+  const delayMinutesMap: Record<string, number> = {
+    immediate: 0,
+    "1h": 60,
+    "24h": 1440,
+    "3d": 4320,
+    "7d": 10080,
+  };
+  const delayMinutes = delayMinutesMap[delay] ?? 0;
+
+  // Build conditions JSON
+  const conditions: Record<string, unknown> = {
+    actionType: actionType || "send_email",
+    description: description || undefined,
+    respectBusinessHours,
+    respectTimezone,
+  };
+  if (tierFilter) conditions.tierFilter = tierFilter;
+  if (minSpend) conditions.minSpend = parseFloat(minSpend);
+
+  // Resolve templateId — if action is send_email but no template selected,
+  // we still need a templateId for the required FK. If no template provided,
+  // return an error for send_email actions.
+  let resolvedTemplateId = templateId || "";
+  if (actionType === "send_email" && !resolvedTemplateId) {
+    return json({ error: "An email template is required for send_email actions" }, { status: 400 });
+  }
+
+  // For non-email actions, we need a placeholder template or the FK is violated.
+  // Check if template exists when provided.
+  if (resolvedTemplateId) {
+    const templateExists = await db.emailTemplate.findFirst({
+      where: { id: resolvedTemplateId, shop },
+      select: { id: true },
+    });
+    if (!templateExists) {
+      return json({ error: "Selected template not found" }, { status: 400 });
+    }
+  }
+
+  const isActive = intent === "activate";
+
+  try {
+    const automation = await db.emailAutomation.create({
+      data: {
+        shop,
+        name: name.trim(),
+        trigger,
+        templateId: resolvedTemplateId,
+        isEnabled: isActive,
+        conditions,
+        delayMinutes,
+      },
+    });
+
+    return redirect(`/app/marketing/automation/${automation.id}`);
+  } catch (e: any) {
+    console.error("[Automation Create] Error:", e);
+    return json({ error: "Failed to create automation" }, { status: 500 });
+  }
+};
+
+// ============================================
 // COMPONENT
 // ============================================
 
 export default function CreateAutomation() {
   const data = useLoaderData<typeof loader>();
+  const actionData = useActionData<{ error?: string }>();
   const navigate = useNavigate();
+  const submit = useSubmit();
 
   // Step state
   const [currentStep, setCurrentStep] = useState<AutomationStep>(1);
@@ -131,15 +252,24 @@ export default function CreateAutomation() {
     }
   };
 
-  const handleSaveDraft = () => {
-    // TODO: Save automation as draft
-    console.log("Saving draft...");
-  };
+  const submitAutomation = useCallback((intent: "draft" | "activate") => {
+    const formData = new FormData();
+    formData.append("intent", intent);
+    formData.append("name", automationName);
+    formData.append("description", description);
+    formData.append("trigger", trigger);
+    formData.append("tierFilter", tierFilter);
+    formData.append("minSpend", minSpend);
+    formData.append("actionType", action);
+    formData.append("templateId", template);
+    formData.append("delay", delay);
+    formData.append("respectBusinessHours", respectBusinessHours.toString());
+    formData.append("respectTimezone", respectTimezone.toString());
+    submit(formData, { method: "post" });
+  }, [automationName, description, trigger, tierFilter, minSpend, action, template, delay, respectBusinessHours, respectTimezone, submit]);
 
-  const handleActivate = () => {
-    // TODO: Activate automation
-    console.log("Activating automation...");
-  };
+  const handleSaveDraft = () => submitAutomation("draft");
+  const handleActivate = () => submitAutomation("activate");
 
   // Validation
   const isStepValid = (step: AutomationStep): boolean => {
@@ -170,6 +300,14 @@ export default function CreateAutomation() {
       }}
     >
       <Layout>
+        {actionData?.error && (
+          <Layout.Section>
+            <Banner tone="critical" title="Error">
+              <p>{actionData.error}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Subtle limit status hint (shows when 50%+ used) */}
         <Layout.Section>
           <PageLimitStatus
@@ -904,22 +1042,10 @@ export default function CreateAutomation() {
                             label="Email Template"
                             options={[
                               { label: "Select a template...", value: "" },
-                              { label: "Tier Upgrade Congratulations", value: "tier_upgrade" },
-                              { label: "Welcome to VIP", value: "welcome_vip" },
-                              { label: "Birthday Special Offer", value: "birthday" },
-                              { label: "We Miss You", value: "winback" },
-                              { label: "Cashback Earned Notification", value: "cashback_earned" },
-                              { label: "Raffle Entry Confirmation", value: "raffle_entry" },
-                              { label: "Raffle Win Announcement", value: "raffle_win" },
-                              { label: "Raffle Ending Reminder", value: "raffle_ending" },
-                              { label: "Mystery Box Reveal", value: "mystery_box_reveal" },
-                              { label: "Rewards Re-Engagement", value: "rewards_dormant" },
-                              { label: "Gift Card Purchase Thank You", value: "gift_card_purchased" },
-                              { label: "Gift Card Received", value: "gift_card_received" },
-                              { label: "Store Credit Earned", value: "store_credit_earned" },
-                              { label: "Credit Converted Confirmation", value: "store_credit_converted" },
-                              { label: "Store Credit Milestone", value: "store_credit_milestone" },
-                              { label: "Store Credit Reminder", value: "store_credit_balance_reminder" },
+                              ...data.templates.map((t) => ({
+                                label: t.name,
+                                value: t.id,
+                              })),
                             ]}
                             value={template}
                             onChange={setTemplate}

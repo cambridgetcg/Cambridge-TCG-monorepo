@@ -369,18 +369,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         // Table might not exist
       }
 
-      // Build event toggles
+      // Build event toggles (using correct Prisma field names from KlaviyoAutomationSettings)
       const eventToggles: EventToggle[] = [
-        { id: "customer_enrolled", name: "Customer Enrolled", description: "When a customer joins the loyalty program", enabled: automationSettings?.welcomeEnabled ?? true, eventCount: 0 },
-        { id: "tier_upgraded", name: "Tier Upgraded", description: "When a customer moves to a higher tier", enabled: automationSettings?.tierUpgradeEnabled ?? true, eventCount: 0 },
-        { id: "tier_downgraded", name: "Tier Downgraded", description: "When a customer moves to a lower tier", enabled: automationSettings?.tierDowngradeEnabled ?? true, eventCount: 0 },
-        { id: "order_placed", name: "Order Placed", description: "When a customer places an order", enabled: automationSettings?.orderEnabled ?? true, eventCount: 0 },
-        { id: "cashback_earned", name: "Cashback Earned", description: "When cashback is credited to account", enabled: automationSettings?.pointsEarnedEnabled ?? true, eventCount: 0 },
-        { id: "cashback_redeemed", name: "Cashback Redeemed", description: "When cashback is used on an order", enabled: automationSettings?.pointsRedeemedEnabled ?? true, eventCount: 0 },
-        { id: "points_expiring", name: "Points Expiring", description: "Reminder before points expire", enabled: automationSettings?.expiryReminderEnabled ?? true, eventCount: 0 },
-        { id: "win_back", name: "Win-Back Trigger", description: "When customer becomes at-risk", enabled: automationSettings?.winBackEnabled ?? true, eventCount: 0 },
-        { id: "birthday", name: "Birthday", description: "Customer birthday celebration", enabled: automationSettings?.birthdayEnabled ?? false, eventCount: 0 },
-        { id: "anniversary", name: "Membership Anniversary", description: "Annual loyalty anniversary", enabled: automationSettings?.anniversaryEnabled ?? false, eventCount: 0 },
+        { id: "customer_enrolled", name: "Customer Enrolled", description: "When a customer joins the loyalty program", enabled: automationSettings?.sendCustomerEnrolled ?? true, eventCount: 0 },
+        { id: "tier_upgraded", name: "Tier Upgraded", description: "When a customer moves to a higher tier", enabled: automationSettings?.sendTierUpgraded ?? true, eventCount: 0 },
+        { id: "tier_downgraded", name: "Tier Downgraded", description: "When a customer moves to a lower tier", enabled: automationSettings?.sendTierDowngraded ?? true, eventCount: 0 },
+        { id: "order_placed", name: "Order Placed", description: "When a customer places an order", enabled: automationSettings?.sendOrderPlaced ?? true, eventCount: 0 },
+        { id: "cashback_earned", name: "Cashback Earned", description: "When cashback is credited to account", enabled: automationSettings?.sendCashbackEarned ?? true, eventCount: 0 },
+        { id: "cashback_redeemed", name: "Cashback Redeemed", description: "When cashback is used on an order", enabled: automationSettings?.sendCashbackRedeemed ?? true, eventCount: 0 },
+        { id: "points_expiring", name: "Points Expiring", description: "Reminder before points expire", enabled: automationSettings?.sendPointsExpiring ?? true, eventCount: 0 },
+        { id: "win_back", name: "Win-Back Trigger", description: "When customer becomes at-risk", enabled: automationSettings?.sendWinBack ?? true, eventCount: 0 },
+        { id: "birthday", name: "Birthday", description: "Customer birthday celebration", enabled: automationSettings?.sendCustomerBirthday ?? false, eventCount: 0 },
+        { id: "anniversary", name: "Membership Anniversary", description: "Annual loyalty anniversary", enabled: automationSettings?.sendCustomerAnniversary ?? false, eventCount: 0 },
       ];
 
       // Get recent Klaviyo events
@@ -500,6 +500,46 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     case "dismissChoiceModal": {
       await markChoiceModalSeen(shop);
       return json({ success: true });
+    }
+
+    case "toggleEvent": {
+      const eventId = formData.get("eventId") as string;
+      const enabled = formData.get("enabled") === "true";
+
+      // Map event toggle IDs to KlaviyoAutomationSettings field names
+      const eventFieldMap: Record<string, string> = {
+        customer_enrolled: "sendCustomerEnrolled",
+        tier_upgraded: "sendTierUpgraded",
+        tier_downgraded: "sendTierDowngraded",
+        order_placed: "sendOrderPlaced",
+        cashback_earned: "sendCashbackEarned",
+        cashback_redeemed: "sendCashbackRedeemed",
+        points_expiring: "sendPointsExpiring",
+        win_back: "sendWinBack",
+        birthday: "sendCustomerBirthday",
+        anniversary: "sendCustomerAnniversary",
+      };
+
+      const fieldName = eventFieldMap[eventId];
+      if (!fieldName) {
+        return json({ success: false, error: "Unknown event type" }, { status: 400 });
+      }
+
+      try {
+        await db.klaviyoAutomationSettings.upsert({
+          where: { shop },
+          create: {
+            shop,
+            [fieldName]: enabled,
+          },
+          update: {
+            [fieldName]: enabled,
+          },
+        });
+        return json({ success: true });
+      } catch (e: any) {
+        return json({ success: false, error: e.message }, { status: 500 });
+      }
     }
 
     default:
