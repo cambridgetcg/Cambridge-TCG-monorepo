@@ -13,9 +13,10 @@
  * - Webhook processing history
  */
 
-import { PrismaClient } from '@prisma/client';
 import { getDb, disconnectDb, checkDbConnection } from './db.js';
 import { assertValidShopDomain } from './validation.js';
+
+type DbClient = ReturnType<typeof getDb>;
 
 // ============================================
 // TYPES
@@ -46,10 +47,8 @@ export const INSPECTION_SECTIONS: InspectionSection[] = [
 ];
 
 export interface ShopInspectorConfig {
-  /** PostgreSQL connection URL (uses DATABASE_URL env var if not provided) */
-  databaseUrl?: string;
-  /** Prisma client instance (alternative to databaseUrl) */
-  db?: PrismaClient;
+  /** Data API Prisma client instance (alternative to default) */
+  db?: DbClient;
   /** Enable verbose logging */
   verbose?: boolean;
 }
@@ -150,36 +149,30 @@ export interface InspectionSummary {
 // ============================================
 
 export class ShopInspector {
-  private db: PrismaClient;
+  private db: DbClient;
   private verbose: boolean;
   private ownsConnection: boolean;
 
-  constructor(configOrDb: ShopInspectorConfig | PrismaClient) {
-    // Support both config object and direct PrismaClient instance
-    if (configOrDb instanceof PrismaClient) {
-      // Direct PrismaClient instance
-      this.db = configOrDb;
-      this.verbose = false;
-      this.ownsConnection = false;
-    } else if (configOrDb && typeof configOrDb === 'object') {
+  constructor(configOrDb: ShopInspectorConfig | DbClient) {
+    if (configOrDb && typeof configOrDb === 'object' && ('db' in configOrDb || 'verbose' in configOrDb)) {
       const config = configOrDb as ShopInspectorConfig;
       this.verbose = config.verbose || false;
 
       if (config.db) {
-        // Use provided db instance
         this.db = config.db;
         this.ownsConnection = false;
       } else {
-        // Initialize from databaseUrl or environment
-        this.db = getDb({
-          databaseUrl: config.databaseUrl,
-          verbose: this.verbose,
-        });
+        this.db = getDb({ verbose: this.verbose });
         this.ownsConnection = true;
       }
+    } else if (configOrDb && typeof configOrDb === 'object') {
+      // Direct DbClient instance
+      this.db = configOrDb as DbClient;
+      this.verbose = false;
+      this.ownsConnection = false;
     } else {
       throw new Error(
-        '[ShopInspector] Invalid config: provide either a PrismaClient instance or a config object with databaseUrl'
+        '[ShopInspector] Invalid config: provide either a DbClient instance or a config object'
       );
     }
   }
@@ -1053,7 +1046,7 @@ export class ShopInspector {
 /**
  * Create inspector instance with database connection
  */
-export function createInspector(db: PrismaClient): ShopInspector {
+export function createInspector(db: DbClient): ShopInspector {
   return new ShopInspector(db);
 }
 

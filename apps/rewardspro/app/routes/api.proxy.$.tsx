@@ -778,8 +778,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     log.info('=== RAFFLES ENDPOINT ===', { shop, customerId: customerId || 'guest' });
 
+    let currentStep = 'init';
     try {
       // Step 1: Check if raffles feature is enabled
+      currentStep = 'getEnabledFeatures';
       log.debug('=== RAFFLES STEP 1: Checking feature flags ===');
       let features;
       try {
@@ -805,6 +807,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       log.debug('=== RAFFLES STEP 1 SUCCESS: Feature enabled ===');
 
       // Step 2: Get active and public raffles
+      // NOTE: Data API adapter ignores `select` and nested relations (prizes).
+      // We query raffles first, then fetch prize names separately.
+      currentStep = 'raffle.findMany';
       log.debug('=== RAFFLES STEP 2: Querying active raffles ===');
       let raffles;
       try {
@@ -814,23 +819,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             status: "ACTIVE",
             isPublic: true,
             endsAt: { gt: new Date() },
-          },
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            imageUrl: true,
-            startsAt: true,
-            endsAt: true,
-            entryCost: true,
-            maxEntriesPerCustomer: true,
-            totalEntries: true,
-            dailyFreeEntries: true,
-            prizes: {
-              select: { name: true },
-              orderBy: { displayOrder: "asc" },
-              take: 1,
-            },
           },
           orderBy: { endsAt: "asc" },
           take: 10,
@@ -846,7 +834,32 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         throw queryErr;
       }
 
+      // Step 2b: Fetch first prize name for each raffle (separate query for Data API compat)
+      currentStep = 'rafflePrize.lookup';
+      const rafflePrizeNames: Record<string, string | null> = {};
+      if (raffles.length > 0) {
+        try {
+          const raffleIds = raffles.map((r: any) => r.id);
+          const prizes = await db.rafflePrize.findMany({
+            where: { raffleId: { in: raffleIds } },
+            orderBy: { displayOrder: "asc" },
+          });
+          // Group by raffleId and take first prize name
+          for (const prize of prizes) {
+            if (!rafflePrizeNames[prize.raffleId]) {
+              rafflePrizeNames[prize.raffleId] = prize.name;
+            }
+          }
+        } catch (prizeErr: any) {
+          log.warn('=== RAFFLES STEP 2b: Prize lookup failed (non-fatal) ===', {
+            error: prizeErr.message,
+          });
+          // Non-fatal — proceed without prize names
+        }
+      }
+
       // Step 3: Resolve customer, get entry counts and points balance
+      currentStep = 'customer.resolve';
       let customerEntries: Record<string, number> = {};
       let pointsBalance = 0;
       let internalCustomerId: string | null = null;
@@ -904,6 +917,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }
 
       // Step 4: Check free entry availability (reuse customer from Step 3)
+      currentStep = 'streakInfo';
       let canClaimFreeEntry = false;
       if (internalCustomerId) {
         try {
@@ -916,15 +930,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }
 
       // Step 5: Format response
+      currentStep = 'formatResponse';
       const formattedRaffles = raffles.map(raffle => ({
         id: raffle.id,
         name: raffle.name,
         description: raffle.description,
         imageUrl: raffle.imageUrl,
-        endsAt: raffle.endsAt?.toISOString(),
+        endsAt: raffle.endsAt instanceof Date ? raffle.endsAt.toISOString() : raffle.endsAt || null,
         costPerEntry: raffle.entryCost || 0,
         totalEntries: raffle.totalEntries,
-        prize: raffle.prizes[0]?.name || null,
+        prize: rafflePrizeNames[raffle.id] || null,
         status: "ACTIVE",
         customerEntries: customerEntries[raffle.id] || 0,
         maxEntriesPerCustomer: raffle.maxEntriesPerCustomer,
@@ -948,6 +963,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     } catch (error: any) {
       log.error("=== RAFFLES ENDPOINT FAILED ===", {
+        step: currentStep,
         message: error.message,
         name: error.name,
         code: error.code,
@@ -960,6 +976,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         success: false,
         error: "Failed to load raffles",
         message: error.message,
+        failedStep: currentStep,
+        errorCode: error.code || null,
         raffles: [],
       }, { status: 500, headers });
     }
@@ -1008,6 +1026,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }
 
       // Get active and public mystery boxes
+      // NOTE: Data API adapter ignores nested `select` relations (rewards, _count).
+      // We query boxes first, then fetch rewards separately.
       const boxes = await db.mysteryBox.findMany({
         where: {
           shop,
@@ -1015,31 +1035,30 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           isPublic: true,
           endsAt: { gt: new Date() },
         },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          imageUrl: true,
-          startsAt: true,
-          endsAt: true,
-          openCost: true,
-          maxOpensPerCustomer: true,
-          maxOpensTotal: true,
-          totalOpens: true,
-          rewards: {
-            select: {
-              rarity: true,
-              probability: true,
-            },
-            orderBy: { probability: "desc" },
-          },
-          _count: {
-            select: { opens: true },
-          },
-        },
         orderBy: { endsAt: "asc" },
         take: 10,
       });
+
+      // Fetch rewards for rarity preview (separate query for Data API compat)
+      let rewardsByBox: Record<string, Array<{ rarity: string; probability: number }>> = {};
+      if (boxes.length > 0) {
+        try {
+          const boxIds = boxes.map((b: any) => b.id);
+          const rewards = await db.mysteryBoxReward.findMany({
+            where: { boxId: { in: boxIds } },
+            orderBy: { probability: "desc" },
+          });
+          for (const reward of rewards) {
+            if (!rewardsByBox[reward.boxId]) rewardsByBox[reward.boxId] = [];
+            rewardsByBox[reward.boxId].push({
+              rarity: reward.rarity || "COMMON",
+              probability: Number(reward.probability || 0),
+            });
+          }
+        } catch (rewardErr: any) {
+          log.warn('Mystery boxes: reward lookup failed (non-fatal)', { error: rewardErr.message });
+        }
+      }
 
       // Get customer's opens for each box if authenticated
       let customerOpensMap: Record<string, number> = {};
@@ -1059,12 +1078,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }
 
       // Build rarity preview from rewards
-      const formattedBoxes = boxes.map(box => {
+      const formattedBoxes = boxes.map((box: any) => {
         // Group rewards by rarity and sum probabilities
         const rarityMap: Record<string, number> = {};
-        box.rewards.forEach(reward => {
-          const rarity = reward.rarity || "COMMON";
-          rarityMap[rarity] = (rarityMap[rarity] || 0) + Number(reward.probability || 0);
+        const boxRewards = rewardsByBox[box.id] || [];
+        boxRewards.forEach((reward: { rarity: string; probability: number }) => {
+          rarityMap[reward.rarity] = (rarityMap[reward.rarity] || 0) + reward.probability;
         });
 
         const rarityPreview = Object.entries(rarityMap)

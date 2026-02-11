@@ -1,6 +1,5 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import { query } from "../services/db/rds-data";
 import { csvHeader, csvRow } from "../utils/csv";
 import db from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
@@ -53,29 +52,20 @@ async function logExportAudit(
 async function* iterateTransactions(shopId: string, minDate: Date | null, batchSize = 5000) {
   let lastCreatedAt: string | null = null;
   let lastId: string | null = null;
-  const minDateStr = minDate ? minDate.toISOString() : null;
 
   while (true) {
-    const rows = await query<any>(
-      `SELECT id, "createdAt", "customerId", "netAmount", cashback_amount
-         FROM "Order"
-        WHERE shop = :shopId
-          AND (:minDateStr IS NULL OR "createdAt" >= :minDateStr)
-          AND (
-            :lastCreatedAt IS NULL
-            OR "createdAt" > :lastCreatedAt
-            OR ("createdAt" = :lastCreatedAt AND id > :lastId)
-          )
-        ORDER BY "createdAt", id
-        LIMIT :batch`,
-      {
-        shopId,
-        minDateStr,
-        lastCreatedAt,
-        lastId,
-        batch: batchSize,
-      }
-    );
+    const rows = await db.$queryRaw`
+      SELECT id, "createdAt", "customerId", "netAmount", cashback_amount
+        FROM "Order"
+       WHERE shop = ${shopId}
+         AND (${minDate}::timestamp IS NULL OR "createdAt" >= ${minDate}::timestamp)
+         AND (
+           ${lastCreatedAt}::timestamp IS NULL
+           OR "createdAt" > ${lastCreatedAt}::timestamp
+           OR ("createdAt" = ${lastCreatedAt}::timestamp AND id > ${lastId})
+         )
+       ORDER BY "createdAt", id
+       LIMIT ${batchSize}` as any[];
     if (!rows.length) return;
     for (const r of rows) yield r;
     const tail = rows[rows.length - 1];

@@ -12,15 +12,8 @@
  */
 
 import 'dotenv/config';
-import { RDSDataClient, ExecuteStatementCommand } from '@aws-sdk/client-rds-data';
+import { query, execute, param } from './lib/db.mjs';
 import { randomUUID } from 'crypto';
-
-const client = new RDSDataClient({ region: process.env.AWS_REGION || 'eu-north-1' });
-const databaseConfig = {
-  resourceArn: process.env.AURORA_RESOURCE_ARN!,
-  secretArn: process.env.AURORA_SECRET_ARN!,
-  database: process.env.AURORA_DATABASE_NAME!,
-};
 
 // Configuration
 const TOTAL_CUSTOMERS = 500;
@@ -65,15 +58,6 @@ const products = [
   { name: 'Winter Boots', basePrice: 129.99, variance: 30 },
 ];
 
-async function executeQuery(sql: string, parameters: any[] = []): Promise<any> {
-  const command = new ExecuteStatementCommand({
-    ...databaseConfig,
-    sql,
-    parameters,
-  });
-  return await client.send(command);
-}
-
 function randomElement<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
@@ -87,19 +71,12 @@ function randomPrice(base: number, variance: number): number {
 }
 
 async function getTiers(shop: string) {
-  const result = await executeQuery(`
+  return query(`
     SELECT id, name, "minSpend", "cashbackPercent"
     FROM "Tier"
     WHERE shop = :shop
     ORDER BY "minSpend" ASC
-  `, [{ name: 'shop', value: { stringValue: shop } }]);
-
-  return result.records.map((record: any) => ({
-    id: record[0].stringValue,
-    name: record[1].stringValue,
-    minSpend: parseFloat(record[2].stringValue || '0'),
-    cashbackPercent: record[3].longValue !== undefined ? Number(record[3].longValue) : 0,
-  }));
+  `, [param('shop', shop)]);
 }
 
 async function createCustomer(shop: string, tier: any, customerIndex: number) {
@@ -110,9 +87,9 @@ async function createCustomer(shop: string, tier: any, customerIndex: number) {
   const shopifyCustomerId = `gid://shopify/Customer/${1000000000000 + customerIndex}`;
 
   const now = new Date();
-  const customerCreatedAt = new Date(now.getTime() - Math.random() * 365 * 24 * 60 * 60 * 1000); // Random date within last year
+  const customerCreatedAt = new Date(now.getTime() - Math.random() * 365 * 24 * 60 * 60 * 1000);
 
-  await executeQuery(`
+  await execute(`
     INSERT INTO "Customer" (
       id, shop, email, "firstName", "lastName", "shopifyCustomerId",
       "orderCount", "totalSpent", "storeCredit", "totalCashbackEarned",
@@ -123,19 +100,19 @@ async function createCustomer(shop: string, tier: any, customerIndex: number) {
       :tierId, :createdAt::timestamp, :updatedAt::timestamp
     )
   `, [
-    { name: 'id', value: { stringValue: customerId } },
-    { name: 'shop', value: { stringValue: shop } },
-    { name: 'email', value: { stringValue: email } },
-    { name: 'firstName', value: { stringValue: firstName } },
-    { name: 'lastName', value: { stringValue: lastName } },
-    { name: 'shopifyCustomerId', value: { stringValue: shopifyCustomerId } },
-    { name: 'tierId', value: { stringValue: tier.id } },
-    { name: 'createdAt', value: { stringValue: customerCreatedAt.toISOString() } },
-    { name: 'updatedAt', value: { stringValue: now.toISOString() } },
+    param('id', customerId),
+    param('shop', shop),
+    param('email', email),
+    param('firstName', firstName),
+    param('lastName', lastName),
+    param('shopifyCustomerId', shopifyCustomerId),
+    param('tierId', tier.id),
+    param('createdAt', customerCreatedAt),
+    param('updatedAt', now),
   ]);
 
   // Create tier change log
-  await executeQuery(`
+  await execute(`
     INSERT INTO "TierChangeLog" (
       id, shop, "customerId", "fromTierId", "toTierId",
       "changeType", "triggerType", "createdAt"
@@ -144,20 +121,17 @@ async function createCustomer(shop: string, tier: any, customerIndex: number) {
       'INITIAL_ASSIGNMENT'::"TierChangeType", 'ACCOUNT_CREATED'::"TierTriggerType", :createdAt::timestamp
     )
   `, [
-    { name: 'id', value: { stringValue: randomUUID() } },
-    { name: 'shop', value: { stringValue: shop } },
-    { name: 'customerId', value: { stringValue: customerId } },
-    { name: 'toTierId', value: { stringValue: tier.id } },
-    { name: 'createdAt', value: { stringValue: now.toISOString() } },
+    param('id', randomUUID()),
+    param('shop', shop),
+    param('customerId', customerId),
+    param('toTierId', tier.id),
+    param('createdAt', now),
   ]);
 
   return {
-    customerId,
-    email,
-    firstName,
-    lastName,
+    customerId, email, firstName, lastName,
     tierName: tier.name,
-    cashbackPercent: tier.cashbackPercent,
+    cashbackPercent: tier.cashbackPercent || 0,
     createdAt: customerCreatedAt,
   };
 }
@@ -167,14 +141,12 @@ async function createOrder(shop: string, customer: any, orderNumber: number) {
   const shopifyOrderId = `gid://shopify/Order/${5000000000000 + orderNumber}`;
   const shopifyOrderNumber = `#${1000 + orderNumber}`;
 
-  // Random date between customer creation and now
   const now = new Date();
   const orderDate = new Date(
     customer.createdAt.getTime() +
     Math.random() * (now.getTime() - customer.createdAt.getTime())
   );
 
-  // Generate 1-4 line items per order
   const numItems = randomInt(1, 4);
   const lineItems = [];
   let subtotal = 0;
@@ -184,28 +156,17 @@ async function createOrder(shop: string, customer: any, orderNumber: number) {
     const quantity = randomInt(1, 3);
     const price = randomPrice(product.basePrice, product.variance);
     const itemTotal = Number((price * quantity).toFixed(2));
-
-    lineItems.push({
-      product,
-      quantity,
-      price,
-      itemTotal,
-    });
-
+    lineItems.push({ product, quantity, price, itemTotal });
     subtotal += itemTotal;
   }
 
-  // Calculate order totals
   const discount = Math.random() < 0.3 ? Number((subtotal * randomInt(5, 20) / 100).toFixed(2)) : 0;
   const shipping = Number((5 + Math.random() * 10).toFixed(2));
   const tax = Number((subtotal * randomInt(5, 15) / 100).toFixed(2));
   const totalPrice = Number((subtotal - discount + shipping + tax).toFixed(2));
-
-  // Calculate cashback
   const cashbackAmount = Number((totalPrice * customer.cashbackPercent / 100).toFixed(2));
 
-  // Create order
-  await executeQuery(`
+  await execute(`
     INSERT INTO "Order" (
       id, shop, "customerId", "shopifyOrderId", "shopifyOrderNumber", "shopifyOrderName",
       email, currency, "totalPrice", "subtotalPrice", "totalDiscounts", "totalShipping", "totalTax",
@@ -218,33 +179,33 @@ async function createOrder(shop: string, customer: any, orderNumber: number) {
       :shopifyCreatedAt::timestamp, :shopifyUpdatedAt::timestamp, :createdAt::timestamp, :updatedAt::timestamp
     )
   `, [
-    { name: 'id', value: { stringValue: orderId } },
-    { name: 'shop', value: { stringValue: shop } },
-    { name: 'customerId', value: { stringValue: customer.customerId } },
-    { name: 'shopifyOrderId', value: { stringValue: shopifyOrderId } },
-    { name: 'shopifyOrderNumber', value: { stringValue: shopifyOrderNumber } },
-    { name: 'shopifyOrderName', value: { stringValue: shopifyOrderNumber } },
-    { name: 'email', value: { stringValue: customer.email } },
-    { name: 'currency', value: { stringValue: 'USD' } },
-    { name: 'totalPrice', value: { doubleValue: totalPrice } },
-    { name: 'subtotalPrice', value: { doubleValue: subtotal } },
-    { name: 'totalDiscounts', value: { doubleValue: discount } },
-    { name: 'totalShipping', value: { doubleValue: shipping } },
-    { name: 'totalTax', value: { doubleValue: tax } },
-    { name: 'totalRefunded', value: { doubleValue: 0 } },
-    { name: 'netAmount', value: { doubleValue: totalPrice } },
-    { name: 'cashbackAmount', value: { doubleValue: cashbackAmount } },
-    { name: 'cashbackPercent', value: { longValue: customer.cashbackPercent } },
-    { name: 'shopifyCreatedAt', value: { stringValue: orderDate.toISOString() } },
-    { name: 'shopifyUpdatedAt', value: { stringValue: orderDate.toISOString() } },
-    { name: 'createdAt', value: { stringValue: orderDate.toISOString() } },
-    { name: 'updatedAt', value: { stringValue: orderDate.toISOString() } },
+    param('id', orderId),
+    param('shop', shop),
+    param('customerId', customer.customerId),
+    param('shopifyOrderId', shopifyOrderId),
+    param('shopifyOrderNumber', shopifyOrderNumber),
+    param('shopifyOrderName', shopifyOrderNumber),
+    param('email', customer.email),
+    param('currency', 'USD'),
+    param('totalPrice', totalPrice),
+    param('subtotalPrice', subtotal),
+    param('totalDiscounts', discount),
+    param('totalShipping', shipping),
+    param('totalTax', tax),
+    param('totalRefunded', 0),
+    param('netAmount', totalPrice),
+    param('cashbackAmount', cashbackAmount),
+    param('cashbackPercent', customer.cashbackPercent),
+    param('shopifyCreatedAt', orderDate),
+    param('shopifyUpdatedAt', orderDate),
+    param('createdAt', orderDate),
+    param('updatedAt', orderDate),
   ]);
 
   // Create line items
   for (let i = 0; i < lineItems.length; i++) {
     const item = lineItems[i];
-    await executeQuery(`
+    await execute(`
       INSERT INTO "OrderLineItem" (
         id, "orderId", "shopifyLineItemId", "shopifyProductId", "shopifyVariantId",
         title, "variantTitle", sku, vendor,
@@ -257,26 +218,26 @@ async function createOrder(shop: string, customer: any, orderNumber: number) {
         :createdAt::timestamp
       )
     `, [
-      { name: 'id', value: { stringValue: randomUUID() } },
-      { name: 'orderId', value: { stringValue: orderId } },
-      { name: 'lineItemId', value: { stringValue: `${shopifyOrderId}/line_${i}` } },
-      { name: 'productId', value: { stringValue: `gid://shopify/Product/${7000000000000 + Math.floor(Math.random() * 1000)}` } },
-      { name: 'variantId', value: { stringValue: `gid://shopify/ProductVariant/${8000000000000 + Math.floor(Math.random() * 1000)}` } },
-      { name: 'title', value: { stringValue: item.product.name } },
-      { name: 'variantTitle', value: { stringValue: randomElement(['Small', 'Medium', 'Large', 'X-Large']) } },
-      { name: 'sku', value: { stringValue: `SKU-${randomInt(10000, 99999)}` } },
-      { name: 'vendor', value: { stringValue: randomElement(['Premium Brand', 'Classic Co', 'Urban Style', 'Active Wear']) } },
-      { name: 'quantity', value: { longValue: item.quantity } },
-      { name: 'price', value: { doubleValue: item.price } },
-      { name: 'totalPrice', value: { doubleValue: item.itemTotal } },
-      { name: 'totalDiscount', value: { doubleValue: 0 } },
-      { name: 'createdAt', value: { stringValue: orderDate.toISOString() } },
+      param('id', randomUUID()),
+      param('orderId', orderId),
+      param('lineItemId', `${shopifyOrderId}/line_${i}`),
+      param('productId', `gid://shopify/Product/${7000000000000 + Math.floor(Math.random() * 1000)}`),
+      param('variantId', `gid://shopify/ProductVariant/${8000000000000 + Math.floor(Math.random() * 1000)}`),
+      param('title', item.product.name),
+      param('variantTitle', randomElement(['Small', 'Medium', 'Large', 'X-Large'])),
+      param('sku', `SKU-${randomInt(10000, 99999)}`),
+      param('vendor', randomElement(['Premium Brand', 'Classic Co', 'Urban Style', 'Active Wear'])),
+      param('quantity', item.quantity),
+      param('price', item.price),
+      param('totalPrice', item.itemTotal),
+      param('totalDiscount', 0),
+      param('createdAt', orderDate),
     ]);
   }
 
   // Create ledger entry for cashback
   if (cashbackAmount > 0) {
-    await executeQuery(`
+    await execute(`
       INSERT INTO "StoreCreditLedger" (
         id, shop, "customerId", type, amount, balance,
         "orderId", "createdAt"
@@ -285,54 +246,40 @@ async function createOrder(shop: string, customer: any, orderNumber: number) {
         :amount, :balance, :orderId, :createdAt::timestamp
       )
     `, [
-      { name: 'id', value: { stringValue: randomUUID() } },
-      { name: 'shop', value: { stringValue: shop } },
-      { name: 'customerId', value: { stringValue: customer.customerId } },
-      { name: 'amount', value: { doubleValue: cashbackAmount } },
-      { name: 'balance', value: { doubleValue: cashbackAmount } }, // Will be updated in batch
-      { name: 'orderId', value: { stringValue: orderId } },
-      { name: 'createdAt', value: { stringValue: orderDate.toISOString() } },
+      param('id', randomUUID()),
+      param('shop', shop),
+      param('customerId', customer.customerId),
+      param('amount', cashbackAmount),
+      param('balance', cashbackAmount),
+      param('orderId', orderId),
+      param('createdAt', orderDate),
     ]);
   }
 
-  return {
-    orderId,
-    totalPrice,
-    cashbackAmount,
-    lineItemCount: lineItems.length,
-  };
+  return { orderId, totalPrice, cashbackAmount, lineItemCount: lineItems.length };
 }
 
 async function updateCustomerTotals(shop: string, customerId: string) {
-  // Get order totals
-  const orderTotals = await executeQuery(`
+  const orderTotals = await query(`
     SELECT
       COUNT(*) as order_count,
       COALESCE(SUM("totalPrice"), 0) as total_spent
     FROM "Order"
     WHERE "customerId" = :customerId AND shop = :shop
-  `, [
-    { name: 'customerId', value: { stringValue: customerId } },
-    { name: 'shop', value: { stringValue: shop } },
-  ]);
+  `, [param('customerId', customerId), param('shop', shop)]);
 
-  const orderCount = orderTotals.records[0][0].longValue || 0;
-  const totalSpent = parseFloat(orderTotals.records[0][1].stringValue || '0');
+  const orderCount = orderTotals[0]?.order_count || 0;
+  const totalSpent = orderTotals[0]?.total_spent || 0;
 
-  // Get cashback totals
-  const cashbackTotals = await executeQuery(`
+  const cashbackTotals = await query(`
     SELECT COALESCE(SUM(amount), 0) as total_cashback
     FROM "StoreCreditLedger"
     WHERE "customerId" = :customerId AND shop = :shop
-  `, [
-    { name: 'customerId', value: { stringValue: customerId } },
-    { name: 'shop', value: { stringValue: shop } },
-  ]);
+  `, [param('customerId', customerId), param('shop', shop)]);
 
-  const totalCashback = parseFloat(cashbackTotals.records[0][0].stringValue || '0');
+  const totalCashback = cashbackTotals[0]?.total_cashback || 0;
 
-  // Update customer
-  await executeQuery(`
+  await execute(`
     UPDATE "Customer"
     SET
       "orderCount" = :orderCount,
@@ -342,13 +289,13 @@ async function updateCustomerTotals(shop: string, customerId: string) {
       "updatedAt" = :updatedAt::timestamp
     WHERE id = :customerId AND shop = :shop
   `, [
-    { name: 'orderCount', value: { longValue: orderCount } },
-    { name: 'totalSpent', value: { doubleValue: totalSpent } },
-    { name: 'storeCredit', value: { doubleValue: totalCashback } },
-    { name: 'totalCashback', value: { doubleValue: totalCashback } },
-    { name: 'updatedAt', value: { stringValue: new Date().toISOString() } },
-    { name: 'customerId', value: { stringValue: customerId } },
-    { name: 'shop', value: { stringValue: shop } },
+    param('orderCount', orderCount),
+    param('totalSpent', totalSpent),
+    param('storeCredit', totalCashback),
+    param('totalCashback', totalCashback),
+    param('updatedAt', new Date()),
+    param('customerId', customerId),
+    param('shop', shop),
   ]);
 
   return { orderCount, totalSpent, totalCashback };
@@ -358,7 +305,7 @@ async function main() {
   const shop = process.argv[2];
 
   if (!shop) {
-    console.error('❌ Error: Shop domain is required');
+    console.error('Error: Shop domain is required');
     console.error('Usage: npx tsx scripts/generate-bulk-data.ts <shop-domain>');
     process.exit(1);
   }
@@ -366,26 +313,24 @@ async function main() {
   console.log('╔═══════════════════════════════════════════════════════════╗');
   console.log('║           BULK DATA GENERATION - 500 Customers           ║');
   console.log('╚═══════════════════════════════════════════════════════════╝\n');
-  console.log(`🏪 Shop: ${shop}`);
-  console.log(`👥 Customers: ${TOTAL_CUSTOMERS}`);
-  console.log(`📦 Orders: ${TOTAL_ORDERS}`);
-  console.log(`📊 Distribution: ${CUSTOMERS_PER_TIER} customers per tier\n`);
+  console.log(`Shop: ${shop}`);
+  console.log(`Customers: ${TOTAL_CUSTOMERS}`);
+  console.log(`Orders: ${TOTAL_ORDERS}`);
+  console.log(`Distribution: ${CUSTOMERS_PER_TIER} customers per tier\n`);
 
   const startTime = Date.now();
 
-  // Get tiers
-  console.log('📋 Fetching tiers...');
+  console.log('Fetching tiers...');
   const tiers = await getTiers(shop);
   console.log(`   Found ${tiers.length} tiers\n`);
 
-  // Create customers
-  console.log('👥 Creating customers...');
+  console.log('Creating customers...');
   const customers: any[] = [];
   let globalCustomerIndex = 0;
 
   for (let tierIndex = 0; tierIndex < tiers.length; tierIndex++) {
     const tier = tiers[tierIndex];
-    console.log(`\n   🏆 ${tier.name} (${tier.cashbackPercent}% cashback):`);
+    console.log(`\n   ${tier.name} (${tier.cashbackPercent || 0}% cashback):`);
 
     for (let i = 0; i < CUSTOMERS_PER_TIER; i++) {
       const customer = await createCustomer(shop, tier, globalCustomerIndex);
@@ -393,30 +338,26 @@ async function main() {
       globalCustomerIndex++;
 
       if ((i + 1) % 25 === 0) {
-        process.stdout.write(`      ✓ ${i + 1}/${CUSTOMERS_PER_TIER} customers created\r`);
+        process.stdout.write(`      ${i + 1}/${CUSTOMERS_PER_TIER} customers created\r`);
       }
     }
-    console.log(`      ✓ ${CUSTOMERS_PER_TIER}/${CUSTOMERS_PER_TIER} customers created`);
+    console.log(`      ${CUSTOMERS_PER_TIER}/${CUSTOMERS_PER_TIER} customers created`);
   }
 
-  console.log(`\n✅ Created ${customers.length} customers\n`);
+  console.log(`\nCreated ${customers.length} customers\n`);
 
-  // Create orders
-  console.log('📦 Creating orders...');
+  console.log('Creating orders...');
   let ordersCreated = 0;
   let totalRevenue = 0;
   let totalCashback = 0;
 
-  // Distribute orders across customers (some get more, some get less)
   const ordersPerCustomer: number[] = [];
   let remainingOrders = TOTAL_ORDERS;
 
   for (let i = 0; i < customers.length; i++) {
     if (i === customers.length - 1) {
-      // Last customer gets remaining orders
       ordersPerCustomer.push(remainingOrders);
     } else {
-      // Random orders between 1 and 8, but ensure we don't run out
       const maxOrders = Math.min(8, remainingOrders - (customers.length - i - 1));
       const orders = randomInt(1, maxOrders);
       ordersPerCustomer.push(orders);
@@ -435,41 +376,38 @@ async function main() {
       totalCashback += order.cashbackAmount;
 
       if (ordersCreated % 100 === 0) {
-        process.stdout.write(`   ✓ ${ordersCreated}/${TOTAL_ORDERS} orders created ($${totalRevenue.toFixed(2)} revenue)\r`);
+        process.stdout.write(`   ${ordersCreated}/${TOTAL_ORDERS} orders created ($${totalRevenue.toFixed(2)} revenue)\r`);
       }
     }
   }
 
-  console.log(`   ✓ ${ordersCreated}/${TOTAL_ORDERS} orders created ($${totalRevenue.toFixed(2)} revenue)`);
-  console.log(`\n✅ Created ${ordersCreated} orders with ${totalCashback.toFixed(2)} total cashback\n`);
+  console.log(`   ${ordersCreated}/${TOTAL_ORDERS} orders created ($${totalRevenue.toFixed(2)} revenue)`);
+  console.log(`\nCreated ${ordersCreated} orders with ${totalCashback.toFixed(2)} total cashback\n`);
 
-  // Update customer totals
-  console.log('💰 Updating customer totals...');
+  console.log('Updating customer totals...');
   for (let i = 0; i < customers.length; i++) {
     await updateCustomerTotals(shop, customers[i].customerId);
 
     if ((i + 1) % 50 === 0) {
-      process.stdout.write(`   ✓ ${i + 1}/${customers.length} customers updated\r`);
+      process.stdout.write(`   ${i + 1}/${customers.length} customers updated\r`);
     }
   }
-  console.log(`   ✓ ${customers.length}/${customers.length} customers updated`);
+  console.log(`   ${customers.length}/${customers.length} customers updated`);
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-  console.log('\n╔═══════════════════════════════════════════════════════════╗');
-  console.log('║                  GENERATION COMPLETE                      ║');
-  console.log('╚═══════════════════════════════════════════════════════════╝\n');
-  console.log(`✅ Successfully created:`);
+  console.log('\n--- GENERATION COMPLETE ---\n');
+  console.log(`Successfully created:`);
   console.log(`   - ${customers.length} customers`);
   console.log(`   - ${ordersCreated} orders`);
   console.log(`   - ${ordersCreated} ledger entries`);
   console.log(`   - ${customers.length} tier change logs`);
-  console.log(`\n📊 Statistics:`);
+  console.log(`\nStatistics:`);
   console.log(`   - Total Revenue: $${totalRevenue.toFixed(2)}`);
   console.log(`   - Total Cashback: $${totalCashback.toFixed(2)}`);
   console.log(`   - Avg Order Value: $${(totalRevenue / ordersCreated).toFixed(2)}`);
   console.log(`   - Avg Orders/Customer: ${(ordersCreated / customers.length).toFixed(1)}`);
-  console.log(`\n⏱️  Duration: ${duration}s\n`);
+  console.log(`\nDuration: ${duration}s\n`);
 }
 
 main().catch(console.error);

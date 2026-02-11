@@ -2082,6 +2082,19 @@ export function createDataAPIPrismaClient() {
           aIArchitectureHealth: new DataAPIModelProxy("AIArchitectureHealth", txAuroraClient),
           aIInnovationTracker: new DataAPIModelProxy("AIInnovationTracker", txAuroraClient),
 
+          // Billing — previously missing
+          trialAuditLog: new DataAPIModelProxy("TrialAuditLog", txAuroraClient),
+          usageSummary: new DataAPIModelProxy("UsageSummary", txAuroraClient),
+          usageCapAlert: new DataAPIModelProxy("UsageCapAlert", txAuroraClient),
+          subscription: new DataAPIModelProxy("Subscription", txAuroraClient),
+          subscriptionProcessingLock: new DataAPIModelProxy("SubscriptionProcessingLock", txAuroraClient),
+
+          // Audit & Webhooks — previously missing
+          tierProductAuditLog: new DataAPIModelProxy("TierProductAuditLog", txAuroraClient),
+          processedWebhook: new DataAPIModelProxy("ProcessedWebhook", txAuroraClient),
+          webhookAuditLog: new DataAPIModelProxy("WebhookAuditLog", txAuroraClient),
+          systemAlert: new DataAPIModelProxy("SystemAlert", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -2341,6 +2354,19 @@ export function createDataAPIPrismaClient() {
 
     // Reconciliation
     reconciliationLog: new DataAPIModelProxy("ReconciliationLog", client),
+
+    // Billing — previously missing
+    trialAuditLog: new DataAPIModelProxy("TrialAuditLog", client),
+    usageSummary: new DataAPIModelProxy("UsageSummary", client),
+    usageCapAlert: new DataAPIModelProxy("UsageCapAlert", client),
+    subscription: new DataAPIModelProxy("Subscription", client),
+    subscriptionProcessingLock: new DataAPIModelProxy("SubscriptionProcessingLock", client),
+
+    // Audit & Webhooks — previously missing
+    tierProductAuditLog: new DataAPIModelProxy("TierProductAuditLog", client),
+    processedWebhook: new DataAPIModelProxy("ProcessedWebhook", client),
+    webhookAuditLog: new DataAPIModelProxy("WebhookAuditLog", client),
+    systemAlert: new DataAPIModelProxy("SystemAlert", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

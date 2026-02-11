@@ -2,54 +2,31 @@
  * Database Connection Utility
  *
  * Provides lazy initialization of Prisma client for CLI tools.
- * Handles connection pooling and proper cleanup.
+ * Uses Aurora Data API adapter (same as the app) instead of direct PrismaClient.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { createDataAPIPrismaClient } from '../../app/utils/prisma-data-api-adapter';
 
 // Singleton instance
-let prismaInstance: PrismaClient | null = null;
+let prismaInstance: ReturnType<typeof createDataAPIPrismaClient> | null = null;
 
 export interface DbConfig {
-  databaseUrl?: string;
   verbose?: boolean;
 }
 
 /**
- * Initialize or return existing Prisma client
- * Uses DATABASE_URL from environment if not provided
+ * Initialize or return existing Prisma client via Data API
  */
-export function getDb(config?: DbConfig): PrismaClient {
+export function getDb(config?: DbConfig): ReturnType<typeof createDataAPIPrismaClient> {
   if (prismaInstance) {
     return prismaInstance;
   }
 
-  const databaseUrl = config?.databaseUrl || process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error(
-      '[DB] DATABASE_URL is required. Set it in environment or pass databaseUrl in config.'
-    );
+  if (config?.verbose) {
+    console.log('[DB] Creating Data API Prisma client...');
   }
 
-  // Validate URL format
-  if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
-    throw new Error(
-      '[DB] Invalid DATABASE_URL format. Must start with postgres:// or postgresql://'
-    );
-  }
-
-  const logLevel = config?.verbose ? ['query', 'info', 'warn', 'error'] : ['error'];
-
-  prismaInstance = new PrismaClient({
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
-    log: logLevel as any,
-  });
-
+  prismaInstance = createDataAPIPrismaClient();
   return prismaInstance;
 }
 
@@ -58,16 +35,15 @@ export function getDb(config?: DbConfig): PrismaClient {
  * Should be called when CLI exits
  */
 export async function disconnectDb(): Promise<void> {
-  if (prismaInstance) {
-    await prismaInstance.$disconnect();
-    prismaInstance = null;
-  }
+  // Data API client doesn't maintain persistent connections,
+  // but we clear the singleton for clean state
+  prismaInstance = null;
 }
 
 /**
  * Check if database is connected and accessible
  */
-export async function checkDbConnection(db?: PrismaClient): Promise<{
+export async function checkDbConnection(db?: ReturnType<typeof createDataAPIPrismaClient>): Promise<{
   connected: boolean;
   latencyMs: number;
   error?: string;
