@@ -39,7 +39,7 @@ import { acknowledgeEvents, getUnacknowledgedEvents } from "../services/mission-
 
 // Debug logging controlled by PROXY_LOG_LEVEL environment variable
 // Set PROXY_LOG_LEVEL=debug for troubleshooting
-const FORCE_DEBUG = true; // TEMP: Enable full debug logging to diagnose raffles 500
+const FORCE_DEBUG = false;
 
 const LOG_LEVEL = process.env.PROXY_LOG_LEVEL || 'error';
 const isDebugLogging = FORCE_DEBUG || LOG_LEVEL === 'debug';

@@ -738,9 +738,16 @@ export class DataAPIModelProxy<T = any> {
       Raffle: ['status', 'drawType'],
       RafflePrize: ['prizeType'],
       RaffleWinner: ['deliveryStatus'],
+      // Raffle Psychology System
+      RaffleInstantWin: ['prizeType'],
+      RaffleActivity: ['activityType'],
+      RaffleBonusEvent: ['eventType'],
       // Mystery Box System
       MysteryBox: ['status'],
       MysteryBoxReward: ['rewardType', 'rarity'],
+      // Mystery Box Psychology System
+      MysteryBoxActivity: ['activityType'],
+      MysteryBoxBonusEvent: ['eventType'],
       // Third-Party Integration System
       Integration: ['provider', 'status'],
       IntegrationEvent: ['eventType', 'status'],
@@ -819,11 +826,24 @@ export class DataAPIModelProxy<T = any> {
       'RafflePrize',
       'RaffleEntry',
       'RaffleWinner',
+      // Raffle Psychology System
+      'RaffleStreak',
+      'RaffleInstantWin',
+      'RaffleInstantWinLog',
+      'RaffleActivity',
+      'RaffleBonusEvent',
+      'RaffleBonusEventUsage',
+      'RaffleLuckyNumber',
       // Mystery Box System
       'MysteryBox',
       'MysteryBoxReward',
       'MysteryBoxOpen',
       'MysteryBoxWinner',
+      // Mystery Box Psychology System
+      'MysteryBoxStreak',
+      'MysteryBoxActivity',
+      'MysteryBoxBonusEvent',
+      'MysteryBoxBonusEventUsage',
       // Third-Party Integration System
       'Integration',
       'IntegrationEvent',
@@ -910,11 +930,24 @@ export class DataAPIModelProxy<T = any> {
       'RafflePrize',
       'RaffleEntry',
       'RaffleWinner',
+      // Raffle Psychology System
+      'RaffleStreak',
+      'RaffleInstantWin',
+      'RaffleInstantWinLog',
+      'RaffleActivity',
+      'RaffleBonusEvent',
+      'RaffleBonusEventUsage',
+      'RaffleLuckyNumber',
       // Mystery Box System
       'MysteryBox',
       'MysteryBoxReward',
       'MysteryBoxOpen',
       'MysteryBoxWinner',
+      // Mystery Box Psychology System
+      'MysteryBoxStreak',
+      'MysteryBoxActivity',
+      'MysteryBoxBonusEvent',
+      // Note: MysteryBoxBonusEventUsage uses 'usedAt', not createdAt/updatedAt
       // Third-Party Integration System
       'Integration',
       'IntegrationEvent',
@@ -973,6 +1006,12 @@ export class DataAPIModelProxy<T = any> {
       'OrderLineItem',      // Line items are immutable (no updatedAt in schema)
       'OrderRefund',        // Refund records are immutable (no updatedAt in schema)
       'OrderRefundLineItem', // Refund line items are immutable (no updatedAt in schema)
+      // Raffle psychology log/activity tables (createdAt only, no updatedAt)
+      'RaffleInstantWinLog',
+      'RaffleActivity',
+      'RaffleLuckyNumber',
+      // Mystery box psychology activity table (createdAt only, no updatedAt)
+      'MysteryBoxActivity',
     ];
     return tablesWithOnlyCreatedAt.includes(this.tableName);
   }
@@ -994,6 +1033,11 @@ export class DataAPIModelProxy<T = any> {
     // Handle eventType field based on table
     if (field === 'eventType') {
       return this.getEventTypeEnumForTable();
+    }
+
+    // Handle activityType field based on table
+    if (field === 'activityType') {
+      return this.getActivityTypeEnumForTable();
     }
 
     // Handle pointsType for IntegrationPointsRule
@@ -1053,9 +1097,20 @@ export class DataAPIModelProxy<T = any> {
     const eventTypeEnumMap: Record<string, string> = {
       SubscriptionEvent: '"SubscriptionEventType"',
       IntegrationEvent: '"LoyaltyEventType"',
+      RaffleBonusEvent: '"RaffleBonusEventType"',
+      MysteryBoxBonusEvent: '"MysteryBoxBonusEventType"',
     };
 
     return eventTypeEnumMap[this.tableName] || '"SubscriptionEventType"';
+  }
+
+  private getActivityTypeEnumForTable(): string {
+    const activityTypeEnumMap: Record<string, string> = {
+      RaffleActivity: '"RaffleActivityType"',
+      MysteryBoxActivity: '"MysteryBoxActivityType"',
+    };
+
+    return activityTypeEnumMap[this.tableName] || '"RaffleActivityType"';
   }
 
   /**
