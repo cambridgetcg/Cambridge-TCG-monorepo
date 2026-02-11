@@ -22,7 +22,7 @@ import { appProxyRateLimit } from "../utils/rate-limiter-redis";
 // Points system imports
 import { getActiveEvents } from "../services/points-bonus-events.server";
 import { getRedemptionTiers } from "../services/points-redemption.server";
-import { getEnabledFeatures } from "../services/points-config.server";
+import { getEnabledFeatures, getCurrencyBranding } from "../services/points-config.server";
 // Engagement action imports
 import { purchaseRaffleEntries } from "../services/raffle-entry.server";
 import { claimChallengeReward } from "../services/challenge-claim.server";
@@ -774,10 +774,25 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     const customerId = url.searchParams.get("logged_in_customer_id");
 
+    log.info('=== RAFFLES ENDPOINT ===', { shop, customerId: customerId || 'guest' });
+
     try {
-      // Check if raffles feature is enabled
-      const features = await getEnabledFeatures(shop);
+      // Step 1: Check if raffles feature is enabled
+      log.debug('=== RAFFLES STEP 1: Checking feature flags ===');
+      let features;
+      try {
+        features = await getEnabledFeatures(shop);
+      } catch (featureErr: any) {
+        log.error('=== RAFFLES STEP 1 FAILED: getEnabledFeatures error ===', {
+          error: featureErr.message,
+          code: featureErr.code,
+          stack: featureErr.stack?.split('\n').slice(0, 5).join('\n'),
+        });
+        throw featureErr;
+      }
+
       if (!features.raffles) {
+        log.info('Raffles feature disabled for shop', { shop });
         return json({
           success: true,
           enabled: false,
@@ -785,84 +800,141 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           message: "Raffles are not enabled for this store",
         }, { headers });
       }
+      log.debug('=== RAFFLES STEP 1 SUCCESS: Feature enabled ===');
 
-      // Get active and public raffles
-      const raffles = await db.raffle.findMany({
-        where: {
-          shop,
-          status: "ACTIVE",
-          isPublic: true,
-          endsAt: { gt: new Date() },
-        },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          imageUrl: true,
-          startsAt: true,
-          endsAt: true,
-          entryCost: true,
-          maxEntriesPerCustomer: true,
-          totalEntries: true,
-          prizes: {
-            select: { name: true },
-            orderBy: { displayOrder: "asc" },
-            take: 1,
+      // Step 2: Get active and public raffles
+      log.debug('=== RAFFLES STEP 2: Querying active raffles ===');
+      let raffles;
+      try {
+        raffles = await db.raffle.findMany({
+          where: {
+            shop,
+            status: "ACTIVE",
+            isPublic: true,
+            endsAt: { gt: new Date() },
           },
-        },
-        orderBy: { endsAt: "asc" },
-        take: 10,
-      });
-
-      // Get customer entry counts if authenticated
-      let customerEntries: Record<string, number> = {};
-      if (customerId) {
-        const customer = await db.customer.findFirst({
-          where: { shop, shopifyCustomerId: customerId },
-          select: { id: true },
-        });
-
-        if (customer) {
-          const entries = await db.raffleEntry.groupBy({
-            by: ["raffleId"],
-            where: {
-              customerId: customer.id,
-              raffleId: { in: raffles.map(r => r.id) },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            imageUrl: true,
+            startsAt: true,
+            endsAt: true,
+            entryCost: true,
+            maxEntriesPerCustomer: true,
+            totalEntries: true,
+            prizes: {
+              select: { name: true },
+              orderBy: { displayOrder: "asc" },
+              take: 1,
             },
-            _sum: { entriesCount: true },
+          },
+          orderBy: { endsAt: "asc" },
+          take: 10,
+        });
+        log.debug('=== RAFFLES STEP 2 SUCCESS ===', { count: raffles.length });
+      } catch (queryErr: any) {
+        log.error('=== RAFFLES STEP 2 FAILED: Raffle query error ===', {
+          error: queryErr.message,
+          code: queryErr.code,
+          name: queryErr.name,
+          stack: queryErr.stack?.split('\n').slice(0, 5).join('\n'),
+        });
+        throw queryErr;
+      }
+
+      // Step 3: Get customer entry counts and points balance if authenticated
+      let customerEntries: Record<string, number> = {};
+      let pointsBalance = 0;
+      if (customerId) {
+        log.debug('=== RAFFLES STEP 3: Resolving customer ===', { customerId });
+        try {
+          const customer = await db.customer.findFirst({
+            where: { shop, shopifyCustomerId: customerId },
+            select: { id: true, pointsBalance: true },
           });
-          customerEntries = Object.fromEntries(
-            entries.map(e => [e.raffleId, e._sum.entriesCount || 0])
-          );
+
+          if (customer) {
+            pointsBalance = Number(customer.pointsBalance || 0);
+            log.debug('=== RAFFLES STEP 3a: Customer found ===', {
+              internalId: customer.id,
+              pointsBalance,
+            });
+
+            if (raffles.length > 0) {
+              const entries = await db.raffleEntry.groupBy({
+                by: ["raffleId"],
+                where: {
+                  customerId: customer.id,
+                  raffleId: { in: raffles.map(r => r.id) },
+                },
+                _sum: { entriesCount: true },
+              });
+              customerEntries = Object.fromEntries(
+                entries.map(e => [e.raffleId, e._sum.entriesCount || 0])
+              );
+              log.debug('=== RAFFLES STEP 3b: Entry counts loaded ===', {
+                entryCounts: customerEntries,
+              });
+            }
+          } else {
+            log.info('=== RAFFLES STEP 3: Customer not found in DB ===', { customerId });
+          }
+        } catch (custErr: any) {
+          log.error('=== RAFFLES STEP 3 FAILED: Customer lookup error ===', {
+            error: custErr.message,
+            code: custErr.code,
+            stack: custErr.stack?.split('\n').slice(0, 5).join('\n'),
+          });
+          throw custErr;
         }
       }
 
+      // Step 4: Format response
       const formattedRaffles = raffles.map(raffle => ({
         id: raffle.id,
         name: raffle.name,
         description: raffle.description,
         imageUrl: raffle.imageUrl,
-        endDate: raffle.endsAt?.toISOString(),
-        entryCost: raffle.entryCost || 0,
+        endsAt: raffle.endsAt?.toISOString(),
+        costPerEntry: raffle.entryCost || 0,
         totalEntries: raffle.totalEntries,
         prize: raffle.prizes[0]?.name || null,
         status: "ACTIVE",
         customerEntries: customerEntries[raffle.id] || 0,
         maxEntriesPerCustomer: raffle.maxEntriesPerCustomer,
+        freeEntryAvailable: false, // TODO: implement daily free entry check
       }));
+
+      log.info('=== RAFFLES ENDPOINT SUCCESS ===', {
+        shop,
+        raffleCount: formattedRaffles.length,
+        customerId: customerId || 'guest',
+        pointsBalance,
+      });
 
       return json({
         success: true,
         enabled: true,
         raffles: formattedRaffles,
+        pointsBalance,
         isAuthenticated: !!customerId,
       }, { headers });
 
     } catch (error: any) {
-      log.error("Raffles endpoint error:", error.message);
+      log.error("=== RAFFLES ENDPOINT FAILED ===", {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        stack: error.stack?.split('\n').slice(0, 10).join('\n'),
+        $metadata: error.$metadata,
+        shop,
+        customerId,
+      });
       return json({
         success: false,
         error: "Failed to load raffles",
+        message: error.message,
         raffles: [],
       }, { status: 500, headers });
     }
@@ -884,8 +956,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
 
     try {
-      // Check if mystery boxes feature is enabled
-      const features = await getEnabledFeatures(shop);
+      // Check if mystery boxes feature is enabled and fetch currency branding in parallel
+      const [features, currencyBranding] = await Promise.all([
+        getEnabledFeatures(shop),
+        getCurrencyBranding(shop),
+      ]);
       if (!features.mysteryBoxes) {
         return json({
           success: true,
@@ -1019,6 +1094,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         enabled: true,
         isAuthenticated: !!shopifyCustomerId,
         boxes: formattedBoxes,
+        pointsBalance: shopifyCustomerId ? customerPointsBalance : undefined,
+        config: { currencyName: currencyBranding.name, currencyIcon: currencyBranding.icon },
       }, { headers });
 
     } catch (error: any) {

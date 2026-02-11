@@ -78,6 +78,17 @@
     LEGENDARY: { label: 'Legendary', cssClass: 'rp-missions-rarity--legendary', accent: '#f59e0b' }
   };
 
+  // Streak emoji from streak count (mirrors STREAK_TIERS in mission-streak.server.ts)
+  // player.streakEmoji is deprecated (always ""), so we derive client-side from streak count
+  function getStreakEmoji(streakDays) {
+    if (streakDays >= 30) return '\uD83D\uDC8E'; // 💎 Legendary
+    if (streakDays >= 14) return '\u26A1';        // ⚡ Blazing
+    if (streakDays >= 7)  return '\uD83D\uDD25';  // 🔥 On Fire
+    if (streakDays >= 3)  return '\u2B50';         // ⭐ Star Streak
+    if (streakDays >= 1)  return '\u2728';         // ✨ Building
+    return '';
+  }
+
   const CADENCES = ['daily', 'weekly', 'monthly', 'special'];
 
   // ============================================
@@ -471,7 +482,8 @@
       var xpProgress = sanitizeNumber(player.xpProgress, 0, 0, Infinity);
       var xpToNext = sanitizeNumber(player.xpToNextLevel, 0, 0, Infinity);
       var streak = sanitizeNumber(player.streak, 0, 0, 9999);
-      var streakEmoji = escapeHtml(player.streakEmoji || '');
+      // player.streakEmoji is deprecated (always ""), derive from streak count instead
+      var streakEmoji = getStreakEmoji(streak);
       var streakBonus = sanitizeNumber(player.streakBonus, 0, 0, 1000);
       var comboCount = sanitizeNumber(player.todayComboCount, 0, 0, 999);
       var comboBonus = sanitizeNumber(player.comboBonus, 0, 0, 1000);
@@ -848,8 +860,8 @@
         content += '<div class="rp-missions-celebration__streak">';
         content += '<span class="rp-missions-celebration__icon">&#x1F525;</span>';
         content += '<h3>Streak Bonus!</h3>';
-        if (event.payload && event.payload.streak) {
-          content += '<p>' + sanitizeNumber(event.payload.streak, 0, 0, 9999) + ' day streak!</p>';
+        if (event.payload && event.payload.streakCount) {
+          content += '<p>' + sanitizeNumber(event.payload.streakCount, 0, 0, 9999) + ' day streak!</p>';
         }
         content += '</div>';
       } else {

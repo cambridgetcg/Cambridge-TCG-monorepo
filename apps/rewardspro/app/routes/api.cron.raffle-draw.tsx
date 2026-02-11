@@ -19,6 +19,7 @@ import { json } from "@remix-run/node";
 import db from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { executeRaffleDraw } from "../services/raffle-drawing.server";
+import { verifyCronAuth } from "../utils/cron-auth.server";
 import * as crypto from "crypto";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
@@ -40,11 +41,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   log('info', 'Raffle auto-draw cron started');
 
-  // 1. Verify authorization
-  const auth = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
-  if (!process.env.CRON_SECRET || auth !== expectedAuth) {
+  // 1. Verify authorization (Bearer token, x-vercel-cron, or dev bypass)
+  if (!verifyCronAuth(request)) {
     log('error', 'Unauthorized cron attempt');
     return new Response('Unauthorized', { status: 401 });
   }

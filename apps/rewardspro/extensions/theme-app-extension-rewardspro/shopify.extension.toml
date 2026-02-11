@@ -12,6 +12,14 @@ target = "body"
 module = "./blocks/membership_widget.liquid"
 
 [[extensions.targeting]]
-target = "section"
+target = "body"
 module = "./blocks/raffles.liquid"
+
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/mystery_boxes.liquid"
+
+[[extensions.targeting]]
+target = "body"
+module = "./blocks/missions_widget.liquid"
 
