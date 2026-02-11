@@ -22,7 +22,8 @@
     CACHE_VERSION: 1,
     TOAST_DURATION_MS: 4000,
     COUNTDOWN_INTERVAL_MS: 1000,
-    COUNTDOWN_URGENT_THRESHOLD_MS: 3600000 // 1 hour
+    COUNTDOWN_URGENT_THRESHOLD_MS: 3600000, // 1 hour
+    COUNTDOWN_CRITICAL_THRESHOLD_MS: 300000  // 5 minutes
   };
 
   // ============================================
@@ -574,11 +575,13 @@
       for (let i = 0; i < skeletonCount; i++) {
         skeletons += `
           <div class="rp-raffle-skeleton">
-            ${this.config.display.showImages ? '<div class="rp-raffle-skeleton__image"></div>' : ''}
+            ${this.config.display.showImages ? '<div class="rp-raffle-skeleton__hero"></div>' : ''}
+            <hr class="rp-raffle-skeleton__perforation">
             <div class="rp-raffle-skeleton__body">
-              <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--medium"></div>
+              <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--prize"></div>
               <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--full"></div>
               <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--short"></div>
+              <div class="rp-raffle-skeleton__bar"></div>
               <div class="rp-raffle-skeleton__btn"></div>
             </div>
           </div>`;
@@ -682,58 +685,100 @@
       let modifiers = '';
       if (ended) modifiers += ' rp-raffle--ended';
       if (maxReached) modifiers += ' rp-raffle--max-reached';
+      if (hasFreeEntry) modifiers += ' rp-raffle--free-entry';
 
-      // Badge
+      // Badge (top-left: LIVE / FREE ENTRY / ENDED)
       let badge = '';
       if (ended) {
         badge = '<span class="rp-raffle__badge rp-raffle__badge--ended">Ended</span>';
       } else if (hasFreeEntry) {
         badge = '<span class="rp-raffle__badge rp-raffle__badge--free">Free Entry</span>';
       } else {
-        badge = '<span class="rp-raffle__badge rp-raffle__badge--active">Active</span>';
+        badge = '<span class="rp-raffle__badge rp-raffle__badge--active">Live</span>';
       }
 
-      // Image
-      let imageHtml = '';
+      // Hero zone (image/gradient + overlay + badge + countdown + notches)
+      let heroHtml = '';
       if (this.config.display.showImages) {
-        if (raffle.imageUrl) {
-          imageHtml = `
-            <div class="rp-raffle__image">
-              ${badge}
-              <img src="${this.escapeHtml(raffle.imageUrl)}" alt="${this.escapeHtml(raffle.name)}" loading="lazy">
+        const imageContent = raffle.imageUrl
+          ? `<img src="${this.escapeHtml(raffle.imageUrl)}" alt="${this.escapeHtml(raffle.name)}" loading="lazy">`
+          : `<div class="rp-raffle__image-placeholder">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="56" height="56">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z"/>
+              </svg>
             </div>`;
-        } else {
-          imageHtml = `
-            <div class="rp-raffle__image">
-              ${badge}
-              <div class="rp-raffle__image-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
-                </svg>
+
+        // Countdown overlay inside hero
+        let countdownOverlay = '';
+        if (this.config.display.showCountdown && raffle.endsAt && !ended) {
+          countdownOverlay = `
+            <div class="rp-raffle__countdown-hero" data-countdown="${raffle.id}">
+              <div class="rp-raffle__countdown-label">Ends in</div>
+              <div class="rp-raffle__countdown-digits">
+                <div class="rp-raffle__countdown-segment">
+                  <span class="rp-raffle__countdown-value" data-countdown-days="${raffle.id}">--</span>
+                  <span class="rp-raffle__countdown-unit">Day</span>
+                </div>
+                <span class="rp-raffle__countdown-sep">:</span>
+                <div class="rp-raffle__countdown-segment">
+                  <span class="rp-raffle__countdown-value" data-countdown-hours="${raffle.id}">--</span>
+                  <span class="rp-raffle__countdown-unit">Hr</span>
+                </div>
+                <span class="rp-raffle__countdown-sep">:</span>
+                <div class="rp-raffle__countdown-segment">
+                  <span class="rp-raffle__countdown-value" data-countdown-minutes="${raffle.id}">--</span>
+                  <span class="rp-raffle__countdown-unit">Min</span>
+                </div>
+                <span class="rp-raffle__countdown-sep">:</span>
+                <div class="rp-raffle__countdown-segment">
+                  <span class="rp-raffle__countdown-value" data-countdown-seconds="${raffle.id}">--</span>
+                  <span class="rp-raffle__countdown-unit">Sec</span>
+                </div>
               </div>
             </div>`;
         }
-      }
 
-      // Countdown
-      let countdownHtml = '';
-      if (this.config.display.showCountdown && raffle.endsAt && !ended) {
-        countdownHtml = `
-          <div class="rp-raffle__countdown" data-countdown="${raffle.id}">
-            <svg class="rp-raffle__countdown-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <span data-countdown-text="${raffle.id}">Calculating...</span>
+        heroHtml = `
+          <div class="rp-raffle__hero">
+            ${imageContent}
+            <div class="rp-raffle__hero-overlay"></div>
+            ${badge}
+            <div class="rp-raffle__notch--left"></div>
+            <div class="rp-raffle__notch--right"></div>
+            ${countdownOverlay}
           </div>`;
       }
 
-      // Stats
+      // Prize name with trophy icon
+      const prizeHtml = `
+        <div class="rp-raffle__prize">
+          <svg class="rp-raffle__prize-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
+            <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+            <path d="M18 2H6v7a6 6 0 0012 0V2Z"/>
+          </svg>
+          <h3 class="rp-raffle__prize-name">${this.escapeHtml(raffle.name)}</h3>
+        </div>`;
+
+      // Stats with icons
       const totalEntries = raffle.totalEntries || 0;
       const customerEntries = raffle.customerEntries || 0;
       const statsHtml = `
         <div class="rp-raffle__stats">
-          <span class="rp-raffle__stat">${this.formatNumber(totalEntries)} total entries</span>
-          <span class="rp-raffle__stat">Your entries: ${this.formatNumber(customerEntries)}</span>
+          <span class="rp-raffle__stat">
+            <svg class="rp-raffle__stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+            ${this.formatNumber(totalEntries)} entries
+          </span>
+          <span class="rp-raffle__stat rp-raffle__stat--yours">
+            <svg class="rp-raffle__stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            You: ${this.formatNumber(customerEntries)}
+          </span>
         </div>`;
 
       // Entries progress bar
@@ -752,38 +797,44 @@
           </div>`;
       }
 
-      // Cost display
-      const costHtml = raffle.costPerEntry > 0 ? `
-        <div class="rp-raffle__cost" data-cost="${raffle.id}">
-          <span class="rp-raffle__cost-label">Cost</span>
-          <span class="rp-raffle__cost-value" data-cost-value="${raffle.id}">${this.formatNumber(totalCost)} pts</span>
-        </div>` : '';
+      // Cost + quantity row (combined)
+      let costRowHtml = '';
+      if (raffle.costPerEntry > 0 && !ended) {
+        let quantityHtml = '';
+        if (!maxReached && remaining > 1) {
+          quantityHtml = `
+            <div class="rp-raffle__quantity" data-quantity="${raffle.id}">
+              <button class="rp-raffle__quantity-btn" data-action="quantity-decrease" data-raffle-id="${raffle.id}"
+                      ${quantity <= 1 ? 'disabled' : ''} aria-label="Decrease quantity">\u2212</button>
+              <span class="rp-raffle__quantity-val" data-quantity-val="${raffle.id}">${quantity}</span>
+              <button class="rp-raffle__quantity-btn" data-action="quantity-increase" data-raffle-id="${raffle.id}"
+                      ${quantity >= remaining ? 'disabled' : ''} aria-label="Increase quantity">+</button>
+            </div>`;
+        }
 
-      // Quantity selector (only for paid entries with remaining capacity)
-      let quantityHtml = '';
-      if (!ended && !maxReached && raffle.costPerEntry > 0 && remaining > 1) {
-        quantityHtml = `
-          <div class="rp-raffle__quantity" data-quantity="${raffle.id}">
-            <button class="rp-raffle__quantity-btn" data-action="quantity-decrease" data-raffle-id="${raffle.id}"
-                    ${quantity <= 1 ? 'disabled' : ''} aria-label="Decrease quantity">−</button>
-            <span class="rp-raffle__quantity-val" data-quantity-val="${raffle.id}">${quantity}</span>
-            <button class="rp-raffle__quantity-btn" data-action="quantity-increase" data-raffle-id="${raffle.id}"
-                    ${quantity >= remaining ? 'disabled' : ''} aria-label="Increase quantity">+</button>
+        costRowHtml = `
+          <div class="rp-raffle__cost-row" data-cost="${raffle.id}">
+            <div class="rp-raffle__cost-info">
+              <span class="rp-raffle__cost-label">Cost</span>
+              <span class="rp-raffle__cost-value" data-cost-value="${raffle.id}">${this.formatNumber(totalCost)} pts</span>
+            </div>
+            ${quantityHtml}
           </div>`;
       }
 
-      // Enter button
+      // Enter button with shimmer
       let enterBtnHtml = '';
       if (!ended && !maxReached) {
         const btnDisabled = (raffle.costPerEntry > 0 && !affordable) || isPurchasing;
         const btnClass = isPurchasing ? 'rp-raffle__enter-btn rp-raffle__enter-btn--loading' : 'rp-raffle__enter-btn';
         const label = raffle.costPerEntry > 0
-          ? `Enter (${this.formatNumber(totalCost)} pts)`
+          ? `Enter \u2022 ${this.formatNumber(totalCost)} pts`
           : 'Enter Raffle';
 
         enterBtnHtml = `
           <button class="${btnClass}" data-action="purchase" data-raffle-id="${raffle.id}"
                   ${btnDisabled ? 'disabled' : ''} data-enter-btn="${raffle.id}">
+            <span class="rp-raffle__enter-shimmer"></span>
             ${this.escapeHtml(label)}
           </button>`;
       } else if (maxReached && !ended) {
@@ -806,15 +857,14 @@
 
       return `
         <div class="rp-raffle${modifiers}" data-raffle-card="${raffle.id}">
-          ${imageHtml}
+          ${heroHtml}
+          <hr class="rp-raffle__perforation">
           <div class="rp-raffle__body">
-            <h3 class="rp-raffle__name">${this.escapeHtml(raffle.name)}</h3>
+            ${prizeHtml}
             ${raffle.description ? `<p class="rp-raffle__description">${this.escapeHtml(raffle.description)}</p>` : ''}
-            ${countdownHtml}
             ${statsHtml}
             ${entriesBarHtml}
-            ${costHtml}
-            ${quantityHtml}
+            ${costRowHtml}
             <div class="rp-raffle__actions">
               ${enterBtnHtml}
               ${freeEntryHtml}
@@ -896,12 +946,20 @@
       const affordable = this.canAfford(raffle, quantity);
       const customerEntries = raffle.customerEntries || 0;
 
-      // Update stats
+      // Update stats (new structure: icon + text in each stat span)
       const statsEl = card.querySelector('.rp-raffle__stats');
       if (statsEl) {
         const stats = statsEl.querySelectorAll('.rp-raffle__stat');
-        if (stats[0]) stats[0].textContent = `${this.formatNumber(raffle.totalEntries || 0)} total entries`;
-        if (stats[1]) stats[1].textContent = `Your entries: ${this.formatNumber(customerEntries)}`;
+        if (stats[0]) {
+          const icon0 = stats[0].querySelector('.rp-raffle__stat-icon');
+          const iconHtml0 = icon0 ? icon0.outerHTML : '';
+          stats[0].innerHTML = `${iconHtml0} ${this.formatNumber(raffle.totalEntries || 0)} entries`;
+        }
+        if (stats[1]) {
+          const icon1 = stats[1].querySelector('.rp-raffle__stat-icon');
+          const iconHtml1 = icon1 ? icon1.outerHTML : '';
+          stats[1].innerHTML = `${iconHtml1} You: ${this.formatNumber(customerEntries)}`;
+        }
       }
 
       // Update entries bar
@@ -921,17 +979,17 @@
         costValue.textContent = `${this.formatNumber(totalCost)} pts`;
       }
 
-      // Update enter button
+      // Update enter button (preserve shimmer span)
       const enterBtn = card.querySelector(`[data-enter-btn="${raffleId}"]`);
       if (enterBtn) {
         if (remaining <= 0) {
           enterBtn.disabled = true;
-          enterBtn.textContent = 'Max Entries Reached';
+          enterBtn.innerHTML = 'Max Entries Reached';
           card.classList.add('rp-raffle--max-reached');
         } else {
           enterBtn.disabled = raffle.costPerEntry > 0 && !affordable;
           if (raffle.costPerEntry > 0) {
-            enterBtn.textContent = `Enter (${this.formatNumber(totalCost)} pts)`;
+            enterBtn.innerHTML = `<span class="rp-raffle__enter-shimmer"></span>Enter \u2022 ${this.formatNumber(totalCost)} pts`;
           }
         }
       }
@@ -1015,26 +1073,36 @@
 
     startCountdown(raffleId, endsAt) {
       const endTime = new Date(endsAt).getTime();
+      const pad = (n) => String(n).padStart(2, '0');
 
       const update = () => {
         const now = Date.now();
         const diff = endTime - now;
-        const textEl = this.root.querySelector(`[data-countdown-text="${raffleId}"]`);
         const wrapperEl = this.root.querySelector(`[data-countdown="${raffleId}"]`);
+        const card = this.root.querySelector(`[data-raffle-card="${raffleId}"]`);
 
-        if (!textEl) {
+        // Segment elements
+        const daysEl = this.root.querySelector(`[data-countdown-days="${raffleId}"]`);
+        const hoursEl = this.root.querySelector(`[data-countdown-hours="${raffleId}"]`);
+        const minutesEl = this.root.querySelector(`[data-countdown-minutes="${raffleId}"]`);
+        const secondsEl = this.root.querySelector(`[data-countdown-seconds="${raffleId}"]`);
+
+        if (!daysEl && !hoursEl) {
           this.stopCountdown(raffleId);
           return;
         }
 
         if (diff <= 0) {
-          textEl.textContent = 'Ended';
-          if (wrapperEl) wrapperEl.classList.add('rp-raffle__countdown--urgent');
+          // Set all segments to 00
+          if (daysEl) daysEl.textContent = '00';
+          if (hoursEl) hoursEl.textContent = '00';
+          if (minutesEl) minutesEl.textContent = '00';
+          if (secondsEl) secondsEl.textContent = '00';
 
-          // Disable buttons
-          const card = this.root.querySelector(`[data-raffle-card="${raffleId}"]`);
+          // Disable card
           if (card) {
             card.classList.add('rp-raffle--ended');
+            card.classList.remove('rp-raffle--urgent', 'rp-raffle--critical');
             const enterBtn = card.querySelector(`[data-enter-btn="${raffleId}"]`);
             if (enterBtn) enterBtn.disabled = true;
             const freeBtn = card.querySelector(`[data-free-btn="${raffleId}"]`);
@@ -1052,26 +1120,39 @@
           return;
         }
 
-        // Format remaining time
+        // Compute time parts
         const days = Math.floor(diff / 86400000);
         const hours = Math.floor((diff % 86400000) / 3600000);
         const minutes = Math.floor((diff % 3600000) / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
 
-        let timeStr;
-        if (days > 0) {
-          timeStr = `${days}d ${hours}h remaining`;
-        } else if (hours > 0) {
-          timeStr = `${hours}h ${minutes}m remaining`;
-        } else {
-          timeStr = `${minutes}m ${seconds}s remaining`;
-        }
+        // Populate segment elements
+        if (daysEl) daysEl.textContent = pad(days);
+        if (hoursEl) hoursEl.textContent = pad(hours);
+        if (minutesEl) minutesEl.textContent = pad(minutes);
+        if (secondsEl) secondsEl.textContent = pad(seconds);
 
-        textEl.textContent = timeStr;
-
-        // Urgent styling when < 1 hour
-        if (diff < CONFIG.COUNTDOWN_URGENT_THRESHOLD_MS) {
-          if (wrapperEl) wrapperEl.classList.add('rp-raffle__countdown--urgent');
+        // Urgency classes on countdown wrapper and card
+        if (diff < CONFIG.COUNTDOWN_CRITICAL_THRESHOLD_MS) {
+          // Critical (< 5 min)
+          if (wrapperEl) {
+            wrapperEl.classList.remove('rp-raffle__countdown-hero--urgent');
+            wrapperEl.classList.add('rp-raffle__countdown-hero--critical');
+          }
+          if (card) {
+            card.classList.remove('rp-raffle--urgent');
+            card.classList.add('rp-raffle--critical');
+          }
+        } else if (diff < CONFIG.COUNTDOWN_URGENT_THRESHOLD_MS) {
+          // Urgent (< 1 hr)
+          if (wrapperEl) {
+            wrapperEl.classList.add('rp-raffle__countdown-hero--urgent');
+            wrapperEl.classList.remove('rp-raffle__countdown-hero--critical');
+          }
+          if (card) {
+            card.classList.add('rp-raffle--urgent');
+            card.classList.remove('rp-raffle--critical');
+          }
         }
       };
 
@@ -1187,7 +1268,7 @@
       if (enterBtn && !this.state.purchasing[raffleId]) {
         const affordable = this.canAfford(raffle, newQty);
         enterBtn.disabled = !affordable;
-        enterBtn.textContent = `Enter (${this.formatNumber(totalCost)} pts)`;
+        enterBtn.innerHTML = `<span class="rp-raffle__enter-shimmer"></span>Enter \u2022 ${this.formatNumber(totalCost)} pts`;
       }
     }
 

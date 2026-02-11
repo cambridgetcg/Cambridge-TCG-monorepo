@@ -1,13 +1,12 @@
 /**
- * RewardsPro Raffles Block Styles
- * Standalone section block for displaying merchant raffles
+ * RewardsPro Raffles Block Styles — Gamified / Bold
+ * Raffle-ticket metaphor: vibrant gradients, glow effects, shimmer animations
  *
- * Design System: COAGULATION (shared tokens with membership-widget.css)
+ * Design System: COAGULATION (shared spacing tokens with membership-widget.css)
  */
 
 /* ============================================
-   CRYSTALLIZED DESIGN TOKENS
-   Re-declared for standalone block independence
+   DESIGN TOKENS
    ============================================ */
 
 :root {
@@ -19,7 +18,7 @@
   --rp-space-xl: 24px;
   --rp-space-2xl: 32px;
 
-  /* TYPOGRAPHY SCALE (Minor third ratio) */
+  /* TYPOGRAPHY SCALE */
   --rp-font-xs: 11px;
   --rp-font-sm: 12px;
   --rp-font-md: 14px;
@@ -27,23 +26,30 @@
   --rp-font-xl: 20px;
   --rp-font-2xl: 24px;
 
-  /* BORDER RADIUS SCALE */
+  /* BORDER RADIUS */
   --rp-radius-sm: 4px;
   --rp-radius-md: 8px;
   --rp-radius-lg: 12px;
   --rp-radius-full: 999px;
 
-  /* SHADOW SCALE (Elevation) */
+  /* SHADOWS */
   --rp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --rp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --rp-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
   --rp-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.2);
 
-  /* TRANSITION SCALE */
+  /* TRANSITIONS */
   --rp-duration-fast: 150ms;
   --rp-duration-normal: 200ms;
   --rp-duration-slow: 300ms;
   --rp-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* RAFFLE COLOR PALETTE */
+  --rp-raffle-gradient-start: #7c3aed;
+  --rp-raffle-gradient-mid: #a855f7;
+  --rp-raffle-gradient-end: #ec4899;
+  --rp-raffle-gold: #f59e0b;
+  --rp-raffle-urgent: #ef4444;
 }
 
 /* ============================================
@@ -79,11 +85,11 @@
   align-items: center;
   gap: var(--rp-space-sm);
   padding: var(--rp-space-sm) var(--rp-space-lg);
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+  background: linear-gradient(135deg, #f5f0ff 0%, #fce7f3 100%);
   border-radius: var(--rp-radius-full);
   font-size: var(--rp-font-md);
   font-weight: 600;
-  color: #3b82f6;
+  color: var(--rp-raffle-gradient-start);
 }
 
 .rp-raffles__balance-icon {
@@ -99,7 +105,7 @@
 }
 
 /* ============================================
-   RAFFLE CARD
+   RAFFLE CARD — BASE
    ============================================ */
 
 .rp-raffle {
@@ -107,38 +113,73 @@
   border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.08));
   border-radius: var(--rp-radius-lg);
   overflow: hidden;
-  box-shadow: var(--rp-shadow-sm);
+  box-shadow: var(--rp-shadow-md);
   transition: box-shadow var(--rp-duration-normal) var(--rp-easing),
-              transform var(--rp-duration-normal) var(--rp-easing);
+              transform var(--rp-duration-normal) var(--rp-easing),
+              border-color var(--rp-duration-normal) var(--rp-easing);
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .rp-raffle:hover {
-  box-shadow: var(--rp-shadow-md);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.25);
+  transform: translateY(-3px);
 }
 
+/* ============================================
+   CARD STATES
+   ============================================ */
+
+/* Ended */
 .rp-raffle--ended {
-  opacity: 0.65;
+  opacity: 0.6;
+  filter: saturate(0.3);
   pointer-events: none;
 }
 
+.rp-raffle--ended:hover {
+  transform: none;
+  box-shadow: var(--rp-shadow-md);
+}
+
+/* Max entries reached */
 .rp-raffle--max-reached .rp-raffle__enter-btn {
   opacity: 0.5;
   cursor: not-allowed;
+  filter: saturate(0.4);
 }
 
-/* Card Image */
-.rp-raffle__image {
+/* Free entry card */
+.rp-raffle--free-entry:hover {
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.3);
+}
+
+/* Urgent (< 1 hour) */
+.rp-raffle--urgent {
+  border-color: var(--rp-raffle-gold);
+  animation: rp-raffle-card-urgent 2s ease-in-out infinite;
+}
+
+/* Critical (< 5 minutes) */
+.rp-raffle--critical {
+  border-color: var(--rp-raffle-urgent);
+  animation: rp-raffle-card-critical 1s ease-in-out infinite;
+}
+
+/* ============================================
+   HERO ZONE (Image + Countdown Overlay)
+   ============================================ */
+
+.rp-raffle__hero {
   position: relative;
   width: 100%;
   padding-top: 56.25%; /* 16:9 */
   overflow: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start) 0%, var(--rp-raffle-gradient-mid) 50%, var(--rp-raffle-gradient-end) 100%);
 }
 
-.rp-raffle__image img {
+.rp-raffle__hero img {
   position: absolute;
   top: 0;
   left: 0;
@@ -148,53 +189,209 @@
   transition: transform var(--rp-duration-slow) var(--rp-easing);
 }
 
-.rp-raffle:hover .rp-raffle__image img {
-  transform: scale(1.03);
+.rp-raffle:hover .rp-raffle__hero img {
+  transform: scale(1.05);
 }
 
+/* Dark overlay for text readability over image */
+.rp-raffle__hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 30%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+  pointer-events: none;
+}
+
+/* Placeholder icon when no image */
 .rp-raffle__image-placeholder {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
+  animation: rp-raffle-float 3s ease-in-out infinite;
 }
 
 .rp-raffle__image-placeholder svg {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
 }
 
-/* Badge (Active / Ended / Free Entry Available) */
+/* ============================================
+   BADGE (Top-left pill)
+   ============================================ */
+
 .rp-raffle__badge {
   position: absolute;
   top: var(--rp-space-sm);
-  right: var(--rp-space-sm);
+  left: var(--rp-space-sm);
   padding: var(--rp-space-xs) var(--rp-space-md);
   border-radius: var(--rp-radius-full);
   font-size: var(--rp-font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  z-index: 1;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .rp-raffle__badge--active {
-  background: #22c55e;
+  background: rgba(34, 197, 94, 0.9);
   color: #ffffff;
+  animation: rp-raffle-badge-pulse 2s ease-in-out infinite;
+}
+
+/* Pulsing green dot before LIVE text */
+.rp-raffle__badge--active::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  flex-shrink: 0;
 }
 
 .rp-raffle__badge--ended {
-  background: #6b7280;
+  background: rgba(107, 114, 128, 0.9);
   color: #ffffff;
 }
 
 .rp-raffle__badge--free {
-  background: #f59e0b;
+  background: rgba(245, 158, 11, 0.9);
   color: #ffffff;
 }
 
-/* Card Body */
+/* ============================================
+   TICKET NOTCHES (left/right cutouts)
+   ============================================ */
+
+.rp-raffle__notch--left,
+.rp-raffle__notch--right {
+  position: absolute;
+  bottom: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--rp-background-color, #ffffff);
+  z-index: 3;
+}
+
+.rp-raffle__notch--left {
+  left: -10px;
+}
+
+.rp-raffle__notch--right {
+  right: -10px;
+}
+
+/* ============================================
+   COUNTDOWN — HERO OVERLAY
+   ============================================ */
+
+.rp-raffle__countdown-hero {
+  position: absolute;
+  bottom: var(--rp-space-md);
+  left: var(--rp-space-md);
+  right: var(--rp-space-md);
+  z-index: 2;
+  text-align: center;
+}
+
+.rp-raffle__countdown-label {
+  font-size: var(--rp-font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: var(--rp-space-xs);
+}
+
+.rp-raffle__countdown-digits {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  align-items: center;
+}
+
+.rp-raffle__countdown-segment {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--rp-radius-sm);
+  padding: 4px 8px;
+  min-width: 36px;
+  text-align: center;
+}
+
+.rp-raffle__countdown-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.rp-raffle__countdown-unit {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.rp-raffle__countdown-sep {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1;
+  padding-bottom: 10px;
+}
+
+/* Urgent countdown (< 1hr) */
+.rp-raffle__countdown-hero--urgent .rp-raffle__countdown-value {
+  color: var(--rp-raffle-gold);
+  animation: rp-raffle-urgent-pulse 1s ease-in-out infinite;
+}
+
+.rp-raffle__countdown-hero--urgent .rp-raffle__countdown-segment {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* Critical countdown (< 5min) */
+.rp-raffle__countdown-hero--critical .rp-raffle__countdown-value {
+  color: var(--rp-raffle-urgent);
+  animation: rp-raffle-critical-pulse 0.6s ease-in-out infinite;
+}
+
+.rp-raffle__countdown-hero--critical .rp-raffle__countdown-segment {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ============================================
+   PERFORATION LINE
+   ============================================ */
+
+.rp-raffle__perforation {
+  border: none;
+  border-top: 2px dashed var(--rp-border-color, rgba(0, 0, 0, 0.1));
+  margin: 0;
+}
+
+/* ============================================
+   CARD BODY
+   ============================================ */
+
 .rp-raffle__body {
   padding: var(--rp-space-lg);
   display: flex;
@@ -202,14 +399,33 @@
   flex: 1;
 }
 
-.rp-raffle__name {
-  font-size: var(--rp-font-lg);
-  font-weight: 700;
-  margin: 0 0 var(--rp-space-sm) 0;
-  color: inherit;
-  line-height: 1.3;
+/* Prize name — gradient text with trophy icon */
+.rp-raffle__prize {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rp-space-sm);
+  margin-bottom: var(--rp-space-sm);
 }
 
+.rp-raffle__prize-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.rp-raffle__prize-name {
+  font-size: var(--rp-font-xl);
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 0;
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Description */
 .rp-raffle__description {
   font-size: var(--rp-font-sm);
   color: var(--rp-text-secondary, #637381);
@@ -221,28 +437,10 @@
   overflow: hidden;
 }
 
-/* Countdown */
-.rp-raffle__countdown {
-  display: flex;
-  align-items: center;
-  gap: var(--rp-space-xs);
-  font-size: var(--rp-font-sm);
-  color: var(--rp-text-secondary, #637381);
-  margin-bottom: var(--rp-space-md);
-}
+/* ============================================
+   STATS ROW
+   ============================================ */
 
-.rp-raffle__countdown-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.rp-raffle__countdown--urgent {
-  color: #ef4444;
-  font-weight: 600;
-}
-
-/* Stats Row */
 .rp-raffle__stats {
   display: flex;
   justify-content: space-between;
@@ -257,7 +455,22 @@
   gap: var(--rp-space-xs);
 }
 
-/* Entries Progress Bar */
+.rp-raffle__stat-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.rp-raffle__stat--yours {
+  color: var(--rp-raffle-gradient-mid);
+  font-weight: 600;
+}
+
+/* ============================================
+   ENTRIES PROGRESS BAR
+   ============================================ */
+
 .rp-raffle__entries {
   margin-bottom: var(--rp-space-md);
 }
@@ -274,19 +487,44 @@
   height: 6px;
   background: var(--rp-border-color, rgba(0, 0, 0, 0.08));
   border-radius: var(--rp-radius-full);
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .rp-raffle__entries-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(90deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-mid), var(--rp-raffle-gradient-end));
   border-radius: var(--rp-radius-full);
   transition: width var(--rp-duration-slow) var(--rp-easing);
   min-width: 0;
+  position: relative;
 }
 
-/* Cost Display */
-.rp-raffle__cost {
+/* Sparkle dot at leading edge */
+.rp-raffle__entries-fill::after {
+  content: '';
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--rp-raffle-gradient-end);
+  box-shadow: 0 0 6px rgba(236, 72, 153, 0.6);
+  animation: rp-raffle-sparkle 1.5s ease-in-out infinite;
+}
+
+/* Hide sparkle when bar is at 0% */
+.rp-raffle__entries-fill[style*="width: 0"]::after,
+.rp-raffle__entries-fill[style*="width:0"]::after {
+  display: none;
+}
+
+/* ============================================
+   COST + QUANTITY ROW
+   ============================================ */
+
+.rp-raffle__cost-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -294,40 +532,44 @@
   background: var(--rp-background-subtle, #f8f9fa);
   border-radius: var(--rp-radius-md);
   margin-bottom: var(--rp-space-md);
-  font-size: var(--rp-font-sm);
+}
+
+.rp-raffle__cost-info {
+  display: flex;
+  flex-direction: column;
 }
 
 .rp-raffle__cost-label {
+  font-size: var(--rp-font-xs);
   color: var(--rp-text-secondary, #637381);
 }
 
 .rp-raffle__cost-value {
-  font-weight: 700;
-  color: #3b82f6;
+  font-size: var(--rp-font-lg);
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* ============================================
-   QUANTITY SELECTOR
-   ============================================ */
-
+/* Quantity selector (inline in cost row) */
 .rp-raffle__quantity {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--rp-space-md);
-  margin-bottom: var(--rp-space-md);
+  gap: var(--rp-space-sm);
 }
 
 .rp-raffle__quantity-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: var(--rp-background-color, #ffffff);
   border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.15));
   border-radius: var(--rp-radius-sm);
-  font-size: var(--rp-font-lg);
+  font-size: var(--rp-font-md);
   font-weight: 600;
   cursor: pointer;
   transition: all var(--rp-duration-fast) var(--rp-easing);
@@ -338,7 +580,7 @@
 
 .rp-raffle__quantity-btn:hover:not(:disabled) {
   background: var(--rp-background-subtle, #f8f9fa);
-  border-color: var(--rp-border-color, rgba(0, 0, 0, 0.25));
+  border-color: var(--rp-raffle-gradient-mid);
 }
 
 .rp-raffle__quantity-btn:disabled {
@@ -347,17 +589,16 @@
 }
 
 .rp-raffle__quantity-val {
-  font-size: var(--rp-font-lg);
+  font-size: var(--rp-font-md);
   font-weight: 700;
-  min-width: 32px;
+  min-width: 24px;
   text-align: center;
 }
 
 /* ============================================
-   BUTTONS
+   ACTIONS
    ============================================ */
 
-/* Actions Container */
 .rp-raffle__actions {
   margin-top: auto;
   display: flex;
@@ -365,7 +606,7 @@
   gap: var(--rp-space-sm);
 }
 
-/* Primary Enter Button */
+/* Primary enter button — gradient with shimmer */
 .rp-raffle__enter-btn {
   display: flex;
   align-items: center;
@@ -373,26 +614,30 @@
   gap: var(--rp-space-sm);
   width: 100%;
   padding: var(--rp-space-md) var(--rp-space-lg);
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start) 0%, var(--rp-raffle-gradient-mid) 50%, var(--rp-raffle-gradient-end) 100%);
   color: #ffffff;
   border: none;
   border-radius: var(--rp-radius-md);
   font-size: var(--rp-font-md);
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   cursor: pointer;
   transition: all var(--rp-duration-normal) var(--rp-easing);
-  box-shadow: var(--rp-shadow-sm);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  position: relative;
+  overflow: hidden;
 }
 
 .rp-raffle__enter-btn:hover:not(:disabled) {
-  box-shadow: var(--rp-shadow-md);
-  filter: brightness(1.08);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+  filter: brightness(1.1);
   transform: translateY(-1px);
 }
 
 .rp-raffle__enter-btn:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: var(--rp-shadow-sm);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
 }
 
 .rp-raffle__enter-btn:disabled {
@@ -401,11 +646,31 @@
   transform: none;
 }
 
+/* Shimmer sweep */
+.rp-raffle__enter-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  animation: rp-raffle-btn-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* Loading state */
 .rp-raffle__enter-btn--loading {
-  position: relative;
   color: transparent;
   pointer-events: none;
+}
+
+.rp-raffle__enter-btn--loading .rp-raffle__enter-shimmer {
+  display: none;
 }
 
 .rp-raffle__enter-btn--loading::after {
@@ -419,11 +684,7 @@
   animation: rp-spin 0.6s linear infinite;
 }
 
-@keyframes rp-spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Free Entry Button (Secondary) */
+/* Free entry button — gold outline */
 .rp-raffle__free-entry {
   display: flex;
   align-items: center;
@@ -432,22 +693,78 @@
   width: 100%;
   padding: var(--rp-space-sm) var(--rp-space-lg);
   background: transparent;
-  color: #f59e0b;
-  border: 1px solid #f59e0b;
+  color: var(--rp-raffle-gold);
+  border: 2px solid var(--rp-raffle-gold);
   border-radius: var(--rp-radius-md);
   font-size: var(--rp-font-sm);
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
   cursor: pointer;
   transition: all var(--rp-duration-fast) var(--rp-easing);
 }
 
 .rp-raffle__free-entry:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.08);
+  background: rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
 }
 
 .rp-raffle__free-entry:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes rp-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rp-raffle-btn-shimmer {
+  0%, 100% { left: -100%; }
+  50% { left: 100%; }
+}
+
+@keyframes rp-raffle-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 8px 2px rgba(34, 197, 94, 0.3); }
+}
+
+@keyframes rp-raffle-float {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+  50% { transform: translate(-50%, -50%) translateY(-8px); }
+}
+
+@keyframes rp-raffle-sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.7); }
+}
+
+@keyframes rp-raffle-urgent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes rp-raffle-critical-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+@keyframes rp-raffle-card-urgent {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { box-shadow: 0 0 12px 2px rgba(245, 158, 11, 0.3); }
+}
+
+@keyframes rp-raffle-card-critical {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  50% { box-shadow: 0 0 16px 3px rgba(239, 68, 68, 0.35); }
+}
+
+@keyframes rp-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* ============================================
@@ -466,7 +783,7 @@
   width: 48px;
   height: 48px;
   margin: 0 auto var(--rp-space-lg);
-  color: var(--rp-text-secondary, #637381);
+  color: var(--rp-raffle-gradient-mid);
 }
 
 .rp-raffles-guest__heading {
@@ -487,7 +804,7 @@
   justify-content: center;
   gap: var(--rp-space-sm);
   padding: var(--rp-space-md) var(--rp-space-2xl);
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start) 0%, var(--rp-raffle-gradient-end) 100%);
   color: #ffffff;
   border: none;
   border-radius: var(--rp-radius-md);
@@ -496,12 +813,12 @@
   text-decoration: none;
   cursor: pointer;
   transition: all var(--rp-duration-normal) var(--rp-easing);
-  box-shadow: var(--rp-shadow-sm);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
 }
 
 .rp-raffles-guest__cta:hover {
-  box-shadow: var(--rp-shadow-md);
-  filter: brightness(1.08);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+  filter: brightness(1.1);
   transform: translateY(-1px);
 }
 
@@ -532,7 +849,7 @@
 }
 
 .rp-raffles__error-icon {
-  color: #ef4444;
+  color: var(--rp-raffle-urgent);
 }
 
 .rp-raffles__retry-btn {
@@ -553,7 +870,7 @@
 
 .rp-raffles__retry-btn:hover {
   background: var(--rp-background-subtle, #f8f9fa);
-  border-color: var(--rp-border-color, rgba(0, 0, 0, 0.25));
+  border-color: var(--rp-raffle-gradient-mid);
 }
 
 /* ============================================
@@ -567,12 +884,28 @@
   overflow: hidden;
 }
 
+.rp-raffle-skeleton__hero {
+  width: 100%;
+  padding-top: 56.25%;
+  position: relative;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Legacy class alias */
 .rp-raffle-skeleton__image {
   width: 100%;
   padding-top: 56.25%;
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: rp-shimmer 1.5s ease-in-out infinite;
+}
+
+.rp-raffle-skeleton__perforation {
+  border: none;
+  border-top: 2px dashed rgba(0, 0, 0, 0.06);
+  margin: 0;
 }
 
 .rp-raffle-skeleton__body {
@@ -588,6 +921,12 @@
   margin-bottom: var(--rp-space-sm);
 }
 
+.rp-raffle-skeleton__line--prize {
+  height: 20px;
+  width: 70%;
+  margin-bottom: var(--rp-space-md);
+}
+
 .rp-raffle-skeleton__line--short {
   width: 60%;
 }
@@ -600,18 +939,22 @@
   width: 100%;
 }
 
+.rp-raffle-skeleton__bar {
+  height: 6px;
+  border-radius: var(--rp-radius-full);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.5s ease-in-out infinite;
+  margin: var(--rp-space-sm) 0 var(--rp-space-md);
+}
+
 .rp-raffle-skeleton__btn {
-  height: 40px;
+  height: 44px;
   border-radius: var(--rp-radius-md);
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: rp-shimmer 1.5s ease-in-out infinite;
   margin-top: var(--rp-space-md);
-}
-
-@keyframes rp-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 
 /* ============================================
@@ -643,12 +986,12 @@
 }
 
 .rp-raffle-toast--success {
-  background: #22c55e;
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-end));
   color: #ffffff;
 }
 
 .rp-raffle-toast--error {
-  background: #ef4444;
+  background: var(--rp-raffle-urgent);
   color: #ffffff;
 }
 
@@ -674,16 +1017,54 @@
   }
 
   .rp-raffles__balance {
-    background: linear-gradient(135deg, #1e3a5f 0%, #1e2d4a 100%);
-    color: #60a5fa;
+    background: linear-gradient(135deg, #2d1b69 0%, #4a1942 100%);
+    color: #c4b5fd;
   }
 
+  .rp-raffle__notch--left,
+  .rp-raffle__notch--right {
+    background: var(--rp-background-color, #1f2937);
+  }
+
+  .rp-raffle__prize-name {
+    background: linear-gradient(135deg, #c4b5fd, #f9a8d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .rp-raffle__cost-value {
+    background: linear-gradient(135deg, #c4b5fd, #f9a8d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .rp-raffle:hover {
+    box-shadow: 0 8px 24px rgba(168, 85, 247, 0.3);
+  }
+
+  .rp-raffle--free-entry:hover {
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25);
+  }
+
+  .rp-raffle-skeleton__hero,
   .rp-raffle-skeleton__image,
   .rp-raffle-skeleton__line,
+  .rp-raffle-skeleton__bar,
   .rp-raffle-skeleton__btn {
     background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
     background-size: 200% 100%;
     animation: rp-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .rp-raffle-skeleton__perforation {
+    border-top-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .rp-raffle__countdown-segment {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
   }
 }
 
@@ -703,6 +1084,19 @@
 
   .rp-raffles__heading {
     font-size: var(--rp-font-xl);
+  }
+
+  .rp-raffle__countdown-value {
+    font-size: 15px;
+  }
+
+  .rp-raffle__countdown-segment {
+    min-width: 30px;
+    padding: 3px 6px;
+  }
+
+  .rp-raffle__prize-name {
+    font-size: 18px;
   }
 }
 
@@ -724,7 +1118,7 @@
   .rp-raffle__enter-btn,
   .rp-raffle__free-entry,
   .rp-raffles-guest__cta,
-  .rp-raffle__image img,
+  .rp-raffle__hero img,
   .rp-raffle-toast {
     transition: none;
   }
@@ -733,7 +1127,7 @@
     transform: none;
   }
 
-  .rp-raffle:hover .rp-raffle__image img {
+  .rp-raffle:hover .rp-raffle__hero img {
     transform: none;
   }
 
@@ -742,8 +1136,33 @@
     transform: none;
   }
 
+  .rp-raffle__enter-shimmer,
+  .rp-raffle__image-placeholder {
+    animation: none;
+  }
+
+  .rp-raffle__entries-fill::after {
+    animation: none;
+  }
+
+  .rp-raffle__badge--active {
+    animation: none;
+  }
+
+  .rp-raffle--urgent,
+  .rp-raffle--critical {
+    animation: none;
+  }
+
+  .rp-raffle__countdown-hero--urgent .rp-raffle__countdown-value,
+  .rp-raffle__countdown-hero--critical .rp-raffle__countdown-value {
+    animation: none;
+  }
+
+  .rp-raffle-skeleton__hero,
   .rp-raffle-skeleton__image,
   .rp-raffle-skeleton__line,
+  .rp-raffle-skeleton__bar,
   .rp-raffle-skeleton__btn {
     animation: none;
     background: #e0e0e0;
@@ -765,7 +1184,8 @@
 
   .rp-raffle__actions,
   .rp-raffle__quantity,
-  .rp-raffle-toast {
+  .rp-raffle-toast,
+  .rp-raffle__enter-shimmer {
     display: none;
   }
 
@@ -778,5 +1198,23 @@
   .rp-raffle:hover {
     transform: none;
     box-shadow: none;
+  }
+
+  .rp-raffle__prize-name {
+    -webkit-text-fill-color: initial;
+    background: none;
+    color: inherit;
+  }
+
+  .rp-raffle__cost-value {
+    -webkit-text-fill-color: initial;
+    background: none;
+    color: inherit;
+  }
+
+  .rp-raffle--urgent,
+  .rp-raffle--critical {
+    animation: none;
+    border-color: #ccc;
   }
 }
