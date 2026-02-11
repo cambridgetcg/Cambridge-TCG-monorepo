@@ -112,8 +112,8 @@ export async function countOrdersDateExtraction(
       SELECT COUNT(*) as count
       FROM "Order"
       WHERE shop = ${shop}
-        AND EXTRACT(YEAR FROM "shopifyCreatedAt")::integer = ${yearInt}
-        AND EXTRACT(MONTH FROM "shopifyCreatedAt")::integer = ${monthInt}
+        AND EXTRACT(YEAR FROM "shopifyCreatedAt") = ${yearInt}
+        AND EXTRACT(MONTH FROM "shopifyCreatedAt") = ${monthInt}
     ` as any[];
 
     return Number(result[0]?.count || 0);
@@ -141,8 +141,8 @@ export async function countOrdersEpochComparison(
       SELECT COUNT(*) as count
       FROM "Order"
       WHERE shop = ${shop}
-        AND EXTRACT(EPOCH FROM "shopifyCreatedAt")::bigint >= ${startEpoch}
-        AND EXTRACT(EPOCH FROM "shopifyCreatedAt")::bigint <= ${endEpoch}
+        AND EXTRACT(EPOCH FROM "shopifyCreatedAt") >= ${startEpoch}
+        AND EXTRACT(EPOCH FROM "shopifyCreatedAt") <= ${endEpoch}
     ` as any[];
 
     return Number(result[0]?.count || 0);

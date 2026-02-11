@@ -94,13 +94,13 @@ async function fetchPeriodMetrics(
 
   // Get distinct active customers count via COUNT DISTINCT (avoids loading all IDs into memory)
   const activeCustomersResult = await db.$queryRaw`
-    SELECT COUNT(DISTINCT "customerId")::int as count
+    SELECT COUNT(DISTINCT "customerId") as count
     FROM "Order"
     WHERE shop = ${shop}
       AND "shopifyCreatedAt" >= ${start}
       AND "shopifyCreatedAt" <= ${end}
       AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
-  ` as { count: number }[];
+  ` as { count: number | bigint }[];
 
   // Try to get order count from MonthlyOrderUsage (cached)
   let orderCount = orderAggregation._count.id;
@@ -165,13 +165,13 @@ async function fetchPeriodMetricsForRange(
   });
 
   const activeCustomersResult = await db.$queryRaw`
-    SELECT COUNT(DISTINCT "customerId")::int as count
+    SELECT COUNT(DISTINCT "customerId") as count
     FROM "Order"
     WHERE shop = ${shop}
       AND "shopifyCreatedAt" >= ${start}
       AND "shopifyCreatedAt" <= ${end}
       AND "financialStatus" IN ('PAID', 'PARTIALLY_PAID')
-  ` as { count: number }[];
+  ` as { count: number | bigint }[];
 
   const totalCustomersCount = await db.customer.count({ where: { shop } });
 

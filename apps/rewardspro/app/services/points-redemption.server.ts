@@ -1,5 +1,11 @@
+// DEPRECATED: Points can no longer be redeemed for discount codes.
+// Points are now spent exclusively on raffles and mystery boxes.
+// This file is kept for reference and for any historical redemption queries.
+
 /**
  * Points Redemption Service
+ *
+ * @deprecated Points can no longer be redeemed for discount codes.
  *
  * Handles the conversion of points to discounts/rewards.
  * This service manages:

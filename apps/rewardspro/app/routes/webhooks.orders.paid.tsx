@@ -26,8 +26,6 @@ import {
   trackCashbackEarned,
 } from "../services/klaviyo-events.server";
 import { createLogger } from "../services/logger.server";
-import { isPointsEnabled } from "../services/points-config.server";
-import { awardOrderPoints } from "../services/points-ledger.server";
 import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
@@ -458,12 +456,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             admin,
           });
 
-          // Step 4.5: Award points (Points Engagement System)
-          await processPointsEarning(db, {
-            shop: shop!,
-            order,
-          });
-
           await updateCustomerSpendingFromOrders(db, {
             shop: shop!,
             order,
@@ -574,13 +566,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               }
             } else {
               console.log(`[OrderPaid] Customer not found in database for Shopify ID: ${order.customer.id}`);
-              // Customer might not exist yet - let's create them
-              const customerId = crypto.randomUUID();
-              await db.customer.create({
-                data: {
-                  id: customerId,
+
+              // Use upsert to handle race condition with customers/create webhook.
+              // If the customer was just created by another webhook, we'll find and use them.
+              const shopifyCustomerId = order.customer.id.toString();
+              const newCustomer = await db.customer.upsert({
+                where: {
+                  shop_shopifyCustomerId: {
+                    shop: shop!,
+                    shopifyCustomerId,
+                  }
+                },
+                create: {
+                  id: crypto.randomUUID(),
                   shop: shop!,
-                  shopifyCustomerId: order.customer.id.toString(),
+                  shopifyCustomerId,
                   email: order.customer?.email || order.email || `customer_${order.customer.id}@shop.com`,
                   firstName: order.customer?.first_name || null,
                   lastName: order.customer?.last_name || null,
@@ -591,17 +591,57 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                   orderCount: 0,
                   createdAt: new Date(),
                   updatedAt: new Date()
+                },
+                update: {
+                  // If already created by customers/create webhook, just touch updatedAt
+                  updatedAt: new Date(),
                 }
               });
-              console.log(`[OrderPaid] Created customer ${customerId}, now checking tier progression...`);
+              console.log(`[OrderPaid] Customer upserted: ${newCustomer.id} (shopify: ${shopifyCustomerId})`);
 
-              // Now check tier progression for the new customer
+              // Link the order we just created (which has customerId: "unknown") to the actual customer.
+              // Without this, tier calculation queries orders by customerId and finds nothing.
+              const shopifyOrderId = order.id.toString();
+              const linkedOrder = await db.order.updateMany({
+                where: {
+                  shop: shop!,
+                  shopifyOrderId,
+                  customerId: "unknown",
+                },
+                data: {
+                  customerId: newCustomer.id,
+                }
+              });
+              if (linkedOrder.count > 0) {
+                console.log(`[OrderPaid] Linked order ${shopifyOrderId} to customer ${newCustomer.id}`);
+              }
+
+              // Update spending from orders now that the order is linked to the customer.
+              // This was skipped earlier because the customer didn't exist yet.
+              await updateCustomerSpendingFromOrders(db, {
+                shop: shop!,
+                order,
+              });
+
+              // Check tier progression with actual spending data
               await checkTierProgression(db, {
                 shop: shop!,
-                customerId: customerId,
+                customerId: newCustomer.id,
                 admin: admin,
                 orderId: order.id?.toString()
               });
+
+              // Retry cashback — it was skipped earlier because the customer didn't exist.
+              // Now the customer has a tier assigned, so cashback can be calculated.
+              try {
+                await processCashback(db, {
+                  shop: shop!,
+                  order,
+                  admin,
+                });
+              } catch (cashbackError) {
+                console.error(`[OrderPaid] Cashback for new customer failed (non-fatal):`, cashbackError);
+              }
             }
           } else {
             console.log(`[OrderPaid] No customer ID in order, skipping tier progression`);
@@ -1614,128 +1654,3 @@ async function checkTierProgression(_dbOrTx: any, params: {
   }
 }
 
-/**
- * Process points earning for an order (Points Engagement System)
- *
- * Awards points based on order amount, customer's tier multiplier,
- * active bonus events, and streak bonuses.
- * Points are only awarded if the Points system is enabled for the shop.
- */
-async function processPointsEarning(_tx: any, params: {
-  shop: string;
-  order: any;
-}) {
-  const { shop, order } = params;
-
-  // Check if points system is enabled
-  const pointsEnabled = await isPointsEnabled(shop);
-  if (!pointsEnabled) {
-    console.log(`[OrderPaid] Points system not enabled for shop ${shop}, skipping points earning`);
-    return;
-  }
-
-  if (!order.customer?.id) {
-    console.log('[OrderPaid] No customer ID, skipping points earning');
-    return;
-  }
-
-  // Get customer with their current tier and tags
-  const customer = await db.customer.findFirst({
-    where: {
-      shop,
-      shopifyCustomerId: order.customer.id.toString(),
-    },
-    select: {
-      id: true,
-      currentTierId: true,
-      pointsBalance: true,
-      tags: true,
-    },
-  });
-
-  if (!customer) {
-    console.log('[OrderPaid] Customer not found, skipping points earning');
-    return;
-  }
-
-  // Calculate order amount (use subtotal minus discounts for points calculation)
-  const subtotal = parseFloat(order.subtotal_price || '0');
-  const discounts = parseFloat(order.total_discounts || '0');
-  let orderAmount = subtotal - discounts;
-
-  // Exclude tier product purchases from points earning
-  // Prevents circular value: buy VIP tier → earn points → spend points → buy another tier
-  if (order.line_items && Array.isArray(order.line_items)) {
-    for (const item of order.line_items) {
-      const tierProduct = await db.tierProduct.findFirst({
-        where: {
-          shop,
-          deletedAt: null,
-          OR: [
-            { shopifyProductId: item.product_id?.toString() },
-            { shopifyVariantId: item.variant_id?.toString() },
-            ...(item.sku ? [{ sku: item.sku }] : []),
-          ],
-        },
-        select: { id: true },
-      });
-
-      if (tierProduct) {
-        const itemTotal = parseFloat(item.price || '0') * (item.quantity || 1);
-        orderAmount -= itemTotal;
-        console.log(`[OrderPaid] Excluding tier product from points: ${item.title} ($${itemTotal})`);
-      }
-    }
-  }
-
-  if (orderAmount <= 0) {
-    console.log('[OrderPaid] Order amount is zero or negative after tier product exclusion, skipping points earning');
-    return;
-  }
-
-  try {
-    // Get bonus event multiplier
-    const { getOrderBonusMultiplier } = await import("~/services/points-bonus-events.server");
-    const bonusResult = await getOrderBonusMultiplier(shop, {
-      tierId: customer.currentTierId ?? undefined,
-      orderAmount,
-      customerTags: customer.tags?.split(',').map(t => t.trim()) ?? [],
-    });
-
-    // Record streak activity (this updates the streak counter)
-    const { recordStreakActivity } = await import("~/services/points-maintenance.server");
-    const streakResult = await recordStreakActivity(shop, customer.id);
-
-    // Calculate combined bonus multiplier (bonus events * streak bonus)
-    const combinedBonusMultiplier = bonusResult.multiplier * streakResult.bonusMultiplier;
-
-    // Award points using the points ledger service
-    const result = await awardOrderPoints(
-      shop,
-      customer.id,
-      order.id.toString(),
-      orderAmount,
-      customer.currentTierId,
-      combinedBonusMultiplier
-    );
-
-    console.log(`[OrderPaid] Awarded ${result.calculation.totalPoints} points for order ${order.name}:`, {
-      orderAmount,
-      basePoints: result.calculation.basePoints,
-      tierMultiplier: result.calculation.tierMultiplier,
-      tierName: result.calculation.tierName,
-      bonusEventMultiplier: bonusResult.multiplier,
-      appliedEvents: bonusResult.appliedEvents,
-      streakBonus: streakResult.bonusMultiplier,
-      currentStreak: streakResult.newStreak,
-      totalPoints: result.calculation.totalPoints,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('already awarded')) {
-      console.log(`[OrderPaid] Points already awarded for order ${order.name}`);
-    } else {
-      console.error(`[OrderPaid] Failed to award points for order ${order.name}:`, error);
-      // Don't fail the webhook - points are not critical
-    }
-  }
-}

@@ -7,7 +7,6 @@ import { BonusEventBadge, type ActiveBonusInfo } from './BonusEventBadge';
 import { StreakDisplay, type StreakInfo } from './StreakDisplay';
 import { ExpirationWarning, type ExpiringPointsInfo } from './ExpirationWarning';
 import { PointsBalance, type PointsBalanceInfo, type PointsCurrencyInfo } from './PointsBalance';
-import { PointsRedemption, type RedemptionTierInfo, type RedemptionResult } from './PointsRedemption';
 import { PointsTransactions, type PointsTransactionInfo } from './PointsTransactions';
 
 export interface PointsData {
@@ -20,7 +19,6 @@ export interface PointsData {
   };
   activeBonus: ActiveBonusInfo | null;
   streak: StreakInfo | null;
-  redemptionOptions: RedemptionTierInfo[];
   recentTransactions?: PointsTransactionInfo[];
 }
 
@@ -29,7 +27,6 @@ interface PointsSectionProps {
   shopCurrency: string;
   locale: string;
   translate: (key: string, options?: Record<string, string>) => string;
-  onRedeem: (tierId: string) => Promise<RedemptionResult>;
 }
 
 export function PointsSection({
@@ -37,7 +34,6 @@ export function PointsSection({
   shopCurrency,
   locale,
   translate,
-  onRedeem
 }: PointsSectionProps) {
   if (!points.enabled) {
     return null;
@@ -48,7 +44,6 @@ export function PointsSection({
     currency,
     activeBonus,
     streak,
-    redemptionOptions,
     recentTransactions
   } = points;
 
@@ -96,18 +91,6 @@ export function PointsSection({
         />
       )}
 
-      {/* Redemption Options */}
-      {redemptionOptions.length > 0 && (
-        <PointsRedemption
-          availablePoints={balance.available}
-          redemptionTiers={redemptionOptions}
-          currencyName={currency.plural}
-          shopCurrency={shopCurrency}
-          translate={translate}
-          onRedeem={onRedeem}
-        />
-      )}
-
       {/* Recent Points Transactions */}
       {recentTransactions && recentTransactions.length > 0 && (
         <PointsTransactions
@@ -129,7 +112,5 @@ export type {
   ExpiringPointsInfo,
   PointsBalanceInfo,
   PointsCurrencyInfo,
-  RedemptionTierInfo,
-  RedemptionResult,
   PointsTransactionInfo,
 };

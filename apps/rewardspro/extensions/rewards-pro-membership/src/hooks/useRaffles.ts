@@ -16,6 +16,7 @@ export interface RaffleInfo {
   maxEntriesPerCustomer: number;
   customerEntries: number;
   canEnter: boolean;
+  reason?: string;
   startsAt: string;
   endsAt: string;
   totalEntries: number;

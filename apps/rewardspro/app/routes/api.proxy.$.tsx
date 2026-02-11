@@ -803,8 +803,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           endsAt: true,
           entryCost: true,
           maxEntriesPerCustomer: true,
-          _count: {
-            select: { entries: true },
+          totalEntries: true,
+          prizes: {
+            select: { name: true },
+            orderBy: { displayOrder: "asc" },
+            take: 1,
           },
         },
         orderBy: { endsAt: "asc" },
@@ -841,7 +844,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         imageUrl: raffle.imageUrl,
         endDate: raffle.endsAt?.toISOString(),
         entryCost: raffle.entryCost || 0,
-        totalEntries: raffle._count.entries,
+        totalEntries: raffle.totalEntries,
+        prize: raffle.prizes[0]?.name || null,
         status: "ACTIVE",
         customerEntries: customerEntries[raffle.id] || 0,
         maxEntriesPerCustomer: raffle.maxEntriesPerCustomer,

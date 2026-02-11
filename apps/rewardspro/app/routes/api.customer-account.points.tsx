@@ -286,8 +286,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
         : 0,
     };
 
-    // Build redemption options (static for now, will be dynamic later)
-    const redemptionOptions = buildRedemptionOptions(balance.available, config.pointsPerDollar);
+    // Redemption options removed — points are now spent on raffles/mystery boxes only
+    const redemptionOptions: NonNullable<PointsAPIResponse["data"]>["redemptionOptions"] = [];
 
     // Get streak info if enabled
     let streakInfo = null;
@@ -353,32 +353,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-/**
- * Build redemption options based on available balance
- */
-function buildRedemptionOptions(
-  availablePoints: number,
-  _pointsPerDollar: number
-): NonNullable<PointsAPIResponse["data"]>["redemptionOptions"] {
-  // Standard redemption tiers
-  const tiers = [
-    { points: 500, discount: 5, type: "fixed" as const },
-    { points: 1000, discount: 10, type: "fixed" as const },
-    { points: 2500, discount: 25, type: "fixed" as const },
-    { points: 5000, discount: 50, type: "fixed" as const },
-    { points: 10000, discount: 100, type: "fixed" as const },
-  ];
-
-  return tiers.map((tier) => ({
-    id: `redeem-${tier.points}`,
-    name: `$${tier.discount} Off`,
-    pointsCost: tier.points,
-    discountValue: tier.discount,
-    discountType: tier.type,
-    available: availablePoints >= tier.points,
-  }));
-}
 
 /**
  * Get customer streak information

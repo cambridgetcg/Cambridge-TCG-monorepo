@@ -90,23 +90,22 @@ export function RaffleBonusEventBanner({
   event,
   translate,
 }: RaffleBonusEventBannerProps) {
-  const [secondsLeft, setSecondsLeft] = useState(event.secondsRemaining);
+  // Use target timestamp to avoid drift from setInterval inaccuracy
+  const endTime = new Date(event.endsAt).getTime();
+  const calcSecondsLeft = () => Math.max(0, Math.floor((endTime - Date.now()) / 1000));
 
-  // Countdown timer
+  const [secondsLeft, setSecondsLeft] = useState(calcSecondsLeft);
+
+  // Countdown timer - recalculates from wall clock each tick
   useEffect(() => {
-    if (secondsLeft <= 0) return;
-
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => Math.max(0, prev - 1));
+      const remaining = calcSecondsLeft();
+      setSecondsLeft(remaining);
+      if (remaining <= 0) clearInterval(timer);
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secondsLeft]);
-
-  // Reset when event changes
-  useEffect(() => {
-    setSecondsLeft(event.secondsRemaining);
-  }, [event.id, event.secondsRemaining]);
+  }, [endTime]);
 
   if (secondsLeft <= 0) {
     return null;

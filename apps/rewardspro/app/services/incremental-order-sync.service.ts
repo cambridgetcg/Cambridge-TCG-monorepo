@@ -335,13 +335,33 @@ export class IncrementalOrderSync {
       // Process line items if needed
       await this.syncLineItems(existingOrder.id, orderData.lineItems?.edges || []);
 
+      // Resolve orphaned orders: if customerId is "unknown" but Shopify has customer data,
+      // find or create the customer and link the order. This fixes orders created by
+      // webhooks.orders.paid before the customer record existed.
+      let resolvedCustomerId = existingOrder.customerId;
+      if (existingOrder.customerId === 'unknown' && orderData.customer?.id) {
+        const shopifyCustomerId = extractNumericId(orderData.customer.id) || orderData.customer.id;
+        const resolvedCustomer = await db.customer.findFirst({
+          where: { shop, shopifyCustomerId },
+          select: { id: true }
+        });
+        if (resolvedCustomer) {
+          await db.order.update({
+            where: { id: existingOrder.id },
+            data: { customerId: resolvedCustomer.id }
+          });
+          resolvedCustomerId = resolvedCustomer.id;
+          console.log(`[IncrementalSync] Linked orphaned order ${orderId} to customer ${resolvedCustomer.id}`);
+        }
+      }
+
       // Update customer spending totals after order update
-      if (existingOrder.customerId && existingOrder.customerId !== 'unknown') {
+      if (resolvedCustomerId && resolvedCustomerId !== 'unknown') {
         // Aggregate all-time spending
         const orderStats = await db.order.aggregate({
           where: {
             shop,
-            customerId: existingOrder.customerId,
+            customerId: resolvedCustomerId,
             financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
           },
           _sum: {
@@ -367,7 +387,7 @@ export class IncrementalOrderSync {
         const annualOrders = await db.order.findMany({
           where: {
             shop,
-            customerId: existingOrder.customerId,
+            customerId: resolvedCustomerId,
             shopifyCreatedAt: { gte: twelveMonthsAgo },
             financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
           },
@@ -393,7 +413,7 @@ export class IncrementalOrderSync {
         const annualOrderStats = await db.order.aggregate({
           where: {
             shop,
-            customerId: existingOrder.customerId,
+            customerId: resolvedCustomerId,
             shopifyCreatedAt: { gte: twelveMonthsAgo },
             financialStatus: { in: ['PAID', 'PARTIALLY_REFUNDED'] }
           },
@@ -408,7 +428,7 @@ export class IncrementalOrderSync {
         console.log(`[IncrementalSync] 💰 Annual spending calculation: ${annualOrderStats._sum.totalPrice} - ${annualOrderStats._sum.totalRefunded} = ${annualSpent}`);
 
         await db.customer.update({
-          where: { id: existingOrder.customerId },
+          where: { id: resolvedCustomerId },
           data: {
             totalSpent: orderStats._sum.totalPrice || 0,
             annualSpent,
@@ -420,7 +440,7 @@ export class IncrementalOrderSync {
           }
         });
 
-        console.log(`[IncrementalSync] ✅ Updated spending totals for customer ${existingOrder.customerId}:`);
+        console.log(`[IncrementalSync] ✅ Updated spending totals for customer ${resolvedCustomerId}:`);
         console.log(`[IncrementalSync]    - totalSpent (all-time): ${orderStats._sum.totalPrice}`);
         console.log(`[IncrementalSync]    - annualSpent (12 months): ${annualSpent}`);
         console.log(`[IncrementalSync]    - netSpent: ${(orderStats._sum.totalPrice || 0) - (orderStats._sum.totalRefunded || 0)}`);

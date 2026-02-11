@@ -24,7 +24,7 @@ import { useMysteryBoxes } from './hooks/useMysteryBoxes';
 import { useChallenges } from './hooks/useChallenges';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
-import { PointsSection, type PointsData, type RedemptionResult, RafflesTab, MysteryBoxesTab, ChallengesTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
+import { PointsSection, type PointsData, RafflesTab, MysteryBoxesTab, ChallengesTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
 import {
   safeBalance,
   safeCustomer,
@@ -384,11 +384,6 @@ function getMockData(): LoyaltyData {
         current: 5,
         bonusMultiplier: 1.25,
       },
-      redemptionOptions: [
-        { id: 'tier-1', name: '$5 Off', pointsCost: 500, discountValue: 5, discountType: 'fixed', available: true },
-        { id: 'tier-2', name: '$10 Off', pointsCost: 1000, discountValue: 10, discountType: 'fixed', available: true },
-        { id: 'tier-3', name: '$25 Off', pointsCost: 2500, discountValue: 25, discountType: 'fixed', available: true },
-      ],
       recentTransactions: [
         { id: 'pt-1', type: 'ORDER_POINTS', amount: 150, date: new Date().toISOString(), description: 'Order #1234' },
         { id: 'pt-2', type: 'STREAK_BONUS', amount: 50, date: new Date(Date.now() - 86400000).toISOString(), description: '5-day streak bonus' },
@@ -1635,9 +1630,21 @@ function MembershipBlock() {
     config: rafflesConfig,
     history: rafflesHistory,
     historyLoading: rafflesHistoryLoading,
+    // Psychology data
+    streak: raffleStreak,
+    activities: raffleActivities,
+    bonusEvents: raffleBonusEvents,
+    bestBonusEvent: raffleBestBonusEvent,
+    psychologyLoading: rafflePsychologyLoading,
+    lastPurchaseResult: raffleLastPurchaseResult,
+    clearPurchaseResult: raffleClearPurchaseResult,
+    isClaimingFreeEntry: raffleIsClaimingFreeEntry,
+    // Actions
     fetchRaffles,
     fetchHistory: fetchRafflesHistory,
     purchaseEntries,
+    fetchPsychology: fetchRafflePsychology,
+    claimFreeEntry: raffleClaimFreeEntry,
   } = useRaffles({ shopDomain });
 
   const {
@@ -1740,10 +1747,11 @@ function MembershipBlock() {
     if (isAuthenticated && sessionToken && !isInEditor) {
       // Fetch all activity data in parallel
       fetchRaffles(sessionToken);
+      fetchRafflePsychology(sessionToken);
       fetchBoxes(sessionToken);
       fetchChallenges(sessionToken);
     }
-  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchBoxes, fetchChallenges]);
+  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchRafflePsychology, fetchBoxes, fetchChallenges]);
 
   const handleRefresh = useCallback(() => {
     if (!isRefreshing) {
@@ -1752,49 +1760,6 @@ function MembershipBlock() {
   }, [isRefreshing, fetchLoyaltyData]);
 
   // Points redemption API client (separate base URL for points endpoint)
-  const pointsApiClient = useApiClient({
-    baseUrl: '/api/customer-account/points/redeem',
-    shopDomain: shopDomain,
-  });
-
-  // Handle points redemption
-  const handleRedeemPoints = useCallback(async (tierId: string): Promise<RedemptionResult> => {
-    if (!sessionToken) {
-      return { success: false, error: translate('points.redemption.error') };
-    }
-
-    // In preview mode, return mock success
-    if (isInEditor) {
-      return {
-        success: true,
-        discountCode: 'PREVIEW-DISCOUNT',
-        discountValue: 10,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        pointsSpent: 1000,
-        remainingBalance: 250,
-      };
-    }
-
-    try {
-      const response = await pointsApiClient.post<RedemptionResult>(sessionToken, '', { tierId });
-
-      if (response.success && response.data) {
-        // Refresh loyalty data to update points balance
-        fetchLoyaltyData(true);
-        return response.data;
-      }
-
-      return {
-        success: false,
-        error: response.error || translate('points.redemption.error'),
-      };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : translate('points.redemption.error');
-      logger.error('Points redemption error:', errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  }, [sessionToken, pointsApiClient, isInEditor, translate, fetchLoyaltyData]);
-
   // ============================================================================
   // Render States
   // ============================================================================
@@ -1906,6 +1871,11 @@ function MembershipBlock() {
     return purchaseEntries(sessionToken, raffleId, quantity);
   }, [sessionToken, purchaseEntries]);
 
+  const handleClaimFreeEntry = useCallback(async (raffleId: string) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return raffleClaimFreeEntry(sessionToken, raffleId);
+  }, [sessionToken, raffleClaimFreeEntry]);
+
   const handleOpenBox = useCallback(async (boxId: string) => {
     if (!sessionToken) return { success: false, error: 'Not authenticated' };
     return openBox(sessionToken, boxId);
@@ -1949,6 +1919,15 @@ function MembershipBlock() {
           historyLoading={rafflesHistoryLoading}
           onPurchaseEntries={handlePurchaseEntries}
           onFetchHistory={() => sessionToken && fetchRafflesHistory(sessionToken)}
+          streak={raffleStreak}
+          activities={raffleActivities}
+          bonusEvents={raffleBonusEvents}
+          bestBonusEvent={raffleBestBonusEvent}
+          psychologyLoading={rafflePsychologyLoading}
+          lastPurchaseResult={raffleLastPurchaseResult}
+          onClearPurchaseResult={raffleClearPurchaseResult}
+          onClaimFreeEntry={handleClaimFreeEntry}
+          isClaimingFreeEntry={raffleIsClaimingFreeEntry}
           translate={translate}
           locale={locale}
         />
@@ -2048,7 +2027,6 @@ function MembershipBlock() {
               shopCurrency={loyaltyData.currency}
               locale={locale}
               translate={translate}
-              onRedeem={handleRedeemPoints}
             />
           )}
 

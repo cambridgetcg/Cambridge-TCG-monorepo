@@ -174,8 +174,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // const currencyIconId = formData.get("currencyIconId") as string | null;
       // const currencyIconColor = formData.get("currencyIconColor") as string | null;
 
-      const pointsPerDollar = parseInt(formData.get("pointsPerDollar") as string, 10);
-      const roundingMode = formData.get("roundingMode") as PointsRoundingMode;
       const pointsExpire = formData.get("pointsExpire") === "true";
       const expirationDays = parseInt(formData.get("expirationDays") as string, 10);
       const expirationWarningDays = parseInt(formData.get("expirationWarningDays") as string, 10);
@@ -202,10 +200,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ success: false, error: "Currency name is required" }, { status: 400 });
       }
 
-      if (pointsPerDollar < 1 || pointsPerDollar > 1000) {
-        return json({ success: false, error: "Points per dollar must be between 1 and 1000" }, { status: 400 });
-      }
-
       // Update config
       await updatePointsConfig(shop, {
         isEnabled,
@@ -217,8 +211,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // currencyIconUrl: currencyIconUrl || null,
         // currencyIconId: currencyIconId || null,
         // currencyIconColor: currencyIconColor || null,
-        pointsPerDollar,
-        roundingMode,
         pointsExpire,
         expirationDays,
         expirationWarningDays,
@@ -301,8 +293,6 @@ export default function PointsConfiguration() {
     iconColor: null, // config.currencyIconColor - DISABLED
   });
 
-  const [pointsPerDollar, setPointsPerDollar] = useState(config.pointsPerDollar.toString());
-  const [roundingMode, setRoundingMode] = useState(config.roundingMode);
   const [pointsExpire, setPointsExpire] = useState(config.pointsExpire);
   const [expirationDays, setExpirationDays] = useState(config.expirationDays.toString());
   const [expirationWarningDays, setExpirationWarningDays] = useState(config.expirationWarningDays.toString());
@@ -382,8 +372,6 @@ export default function PointsConfiguration() {
     // if (iconValue.iconId) formData.append("currencyIconId", iconValue.iconId);
     // if (iconValue.iconColor) formData.append("currencyIconColor", iconValue.iconColor);
 
-    formData.append("pointsPerDollar", pointsPerDollar);
-    formData.append("roundingMode", roundingMode);
     formData.append("pointsExpire", pointsExpire.toString());
     formData.append("expirationDays", expirationDays);
     formData.append("expirationWarningDays", expirationWarningDays);
@@ -401,20 +389,14 @@ export default function PointsConfiguration() {
 
     submit(formData, { method: "post" });
   }, [
-    isEnabled, currencyName, currencyNamePlural, iconValue, pointsPerDollar,
-    roundingMode, pointsExpire, expirationDays, expirationWarningDays,
+    isEnabled, currencyName, currencyNamePlural, iconValue,
+    pointsExpire, expirationDays, expirationWarningDays,
     rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled,
     scratchCardsEnabled, givebackPoolsEnabled, dailySpinEnabled, dailySpinResetHour,
     premiumSpinCost, streakBonusEnabled, streakBonusMultiplier, submit
   ]);
 
   const dismissToast = useCallback(() => setToastActive(false), []);
-
-  const roundingOptions = [
-    { label: "Round Down (10.9 → 10)", value: "FLOOR" },
-    { label: "Round Up (10.1 → 11)", value: "CEIL" },
-    { label: "Standard Rounding (10.5 → 11)", value: "ROUND" },
-  ];
 
   const hourOptions = Array.from({ length: 24 }, (_, i) => ({
     label: `${i.toString().padStart(2, "0")}:00`,
@@ -494,40 +476,6 @@ export default function PointsConfiguration() {
               onUpload={handleIconUpload}
               uploadError={uploadError}
             />
-          </Layout.Section>
-
-          {/* Earning Rules */}
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h2">Earning Rules</Text>
-                <Text tone="subdued" as="p">
-                  Configure how customers earn points on purchases
-                </Text>
-                <Divider />
-                <FormLayout>
-                  <FormLayout.Group>
-                    <TextField
-                      type="number"
-                      label="Points per $1 spent"
-                      value={pointsPerDollar}
-                      onChange={setPointsPerDollar}
-                      min={1}
-                      max={1000}
-                      autoComplete="off"
-                      helpText="Base earning rate before tier multipliers"
-                    />
-                    <Select
-                      label="Rounding Mode"
-                      options={roundingOptions}
-                      value={roundingMode}
-                      onChange={(v) => setRoundingMode(v as PointsRoundingMode)}
-                      helpText="How to handle fractional points"
-                    />
-                  </FormLayout.Group>
-                </FormLayout>
-              </BlockStack>
-            </Card>
           </Layout.Section>
 
           {/* Expiration Settings */}

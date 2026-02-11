@@ -841,7 +841,7 @@ export default function RaffleDetail() {
     <Frame>
       <Page
         title={raffle.name}
-        subtitle={`${raffle.entryCost} ${pointsConfig.currencyName} per entry`}
+        subtitle={`${raffle.entryCost} ${pointsConfig.currencyName}/entry`}
         backAction={{ content: "Raffles", url: "/app/rewards/raffles" }}
         titleMetadata={getStatusBadge(raffle.status)}
         primaryAction={
@@ -883,280 +883,229 @@ export default function RaffleDetail() {
             </Layout.Section>
           )}
 
-          {/* Stats Row */}
+          {/* Main Content - Details & Prizes */}
           <Layout.Section>
-            <InlineStack gap="400" wrap={false}>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">Total Entries</Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {raffle.totalEntries.toLocaleString()}
-                  </Text>
-                  {raffle.maxEntriesTotal && (
-                    <ProgressBar progress={entriesProgress} size="small" />
+            <BlockStack gap="400">
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">Raffle Details</Text>
+
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Points per Entry</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={14} />
+                        <Text as="span" fontWeight="semibold">{raffle.entryCost}</Text>
+                      </InlineStack>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Max Entries per Customer</Text>
+                      <Text as="span" fontWeight="semibold">{raffle.maxEntriesPerCustomer}</Text>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Total Entry Limit</Text>
+                      <Text as="span" fontWeight="semibold">
+                        {raffle.maxEntriesTotal?.toLocaleString() || "Unlimited"}
+                      </Text>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Draw Type</Text>
+                      <Text as="span" fontWeight="semibold">{raffle.drawType}</Text>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Winners to Select</Text>
+                      <Text as="span" fontWeight="semibold">{raffle.totalWinners}</Text>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Visibility</Text>
+                      <Badge tone={raffle.isPublic ? "success" : "info"}>
+                        {raffle.isPublic ? "Public" : "Private"}
+                      </Badge>
+                    </InlineStack>
+                  </BlockStack>
+
+                  <BlockStack gap="200">
+                    <Text variant="headingSm" as="h4">Schedule</Text>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Starts</Text>
+                      <Text as="span" fontWeight="semibold">{formatDate(raffle.startsAt)}</Text>
+                    </InlineStack>
+                    <InlineStack align="space-between">
+                      <Text as="span" tone="subdued">Ends</Text>
+                      <Text as="span" fontWeight="semibold">{formatDate(raffle.endsAt)}</Text>
+                    </InlineStack>
+                    {raffle.drawAt && (
+                      <InlineStack align="space-between">
+                        <Text as="span" tone="subdued">Scheduled Draw</Text>
+                        <Text as="span" fontWeight="semibold">{formatDate(raffle.drawAt)}</Text>
+                      </InlineStack>
+                    )}
+                    {raffle.drawnAt && (
+                      <InlineStack align="space-between">
+                        <Text as="span" tone="subdued">Drawn At</Text>
+                        <Text as="span" fontWeight="semibold">{formatDate(raffle.drawnAt)}</Text>
+                      </InlineStack>
+                    )}
+                  </BlockStack>
+
+                  {raffle.description && (
+                    <BlockStack gap="100">
+                      <Text variant="headingSm" as="h4">Description</Text>
+                      <Text as="p">{raffle.description}</Text>
+                    </BlockStack>
                   )}
                 </BlockStack>
-              </Box>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">Unique Entrants</Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {raffle.uniqueEntrants.toLocaleString()}
-                  </Text>
-                </BlockStack>
-              </Box>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">Points Collected</Text>
-                  <InlineStack gap="100" blockAlign="center">
-                    <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={20} />
-                    <Text as="p" variant="headingLg" fontWeight="bold">
-                      {raffle.totalPrizePool.toLocaleString()}
-                    </Text>
+              </Card>
+
+              <Card>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text variant="headingMd" as="h3">Prizes ({raffle.prizes.length})</Text>
+                    {canAddPrizes && (
+                      <Button
+                        icon={PlusIcon}
+                        onClick={() => {
+                          resetPrizeForm();
+                          setEditingPrize(null);
+                          setShowPrizeModal(true);
+                        }}
+                      >
+                        Add Prize
+                      </Button>
+                    )}
                   </InlineStack>
+
+                  {raffle.prizes.length === 0 ? (
+                    <EmptyState
+                      heading="No prizes yet"
+                      image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      action={
+                        canAddPrizes
+                          ? {
+                              content: "Add first prize",
+                              onAction: () => {
+                                resetPrizeForm();
+                                setEditingPrize(null);
+                                setShowPrizeModal(true);
+                              },
+                            }
+                          : undefined
+                      }
+                    >
+                      <p>Add prizes to make this raffle exciting for your customers.</p>
+                    </EmptyState>
+                  ) : (
+                    <ResourceList
+                      items={raffle.prizes}
+                      renderItem={(prize) => (
+                        <ResourceItem
+                          id={prize.id}
+                          onClick={() => canEdit && openEditPrize(prize)}
+                        >
+                          <InlineStack align="space-between" blockAlign="center">
+                            <BlockStack gap="100">
+                              <InlineStack gap="200">
+                                <Text as="span" fontWeight="semibold">{prize.name}</Text>
+                                {getPrizeTypeBadge(prize.prizeType)}
+                              </InlineStack>
+                              <Text as="span" tone="subdued" variant="bodySm">
+                                {prize.quantity - prize.quantityWon} of {prize.quantity} available
+                                {prize.weight !== 100 && ` • Weight: ${prize.weight}`}
+                              </Text>
+                            </BlockStack>
+                            {canEdit && (
+                              <InlineStack gap="100">
+                                <Button
+                                  size="slim"
+                                  icon={EditIcon}
+                                  onClick={() => openEditPrize(prize)}
+                                />
+                                <Button
+                                  size="slim"
+                                  icon={DeleteIcon}
+                                  tone="critical"
+                                  onClick={() => handleDeletePrize(prize.id)}
+                                />
+                              </InlineStack>
+                            )}
+                          </InlineStack>
+                        </ResourceItem>
+                      )}
+                    />
+                  )}
                 </BlockStack>
-              </Box>
-              <Box
-                background="bg-surface"
-                padding="400"
-                borderRadius="200"
-                borderWidth="025"
-                borderColor="border"
-                minWidth="150px"
-              >
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">Prizes</Text>
-                  <Text as="p" variant="headingLg" fontWeight="bold">
-                    {raffle.prizes.length}
-                  </Text>
-                </BlockStack>
-              </Box>
-            </InlineStack>
+              </Card>
+            </BlockStack>
           </Layout.Section>
 
-          {/* Main Content Grid */}
-          <Layout.Section>
-            <InlineStack gap="400" align="start">
-              {/* Left Column - Raffle Details */}
-              <Box minWidth="400px">
-                <Card>
-                  <BlockStack gap="400">
-                    <Text variant="headingMd" as="h3">Raffle Details</Text>
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Entry Cost</Text>
-                        <InlineStack gap="100" blockAlign="center">
-                          <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={14} />
-                          <Text as="span" fontWeight="semibold">{raffle.entryCost}</Text>
-                        </InlineStack>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Max Entries per Customer</Text>
-                        <Text as="span" fontWeight="semibold">{raffle.maxEntriesPerCustomer}</Text>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Total Entry Limit</Text>
-                        <Text as="span" fontWeight="semibold">
-                          {raffle.maxEntriesTotal?.toLocaleString() || "Unlimited"}
+          {/* Sidebar - Overview & Recent Activity */}
+          <Layout.Section variant="oneThird">
+            <BlockStack gap="400">
+              <Card>
+                <BlockStack gap="400">
+                  <Text variant="headingMd" as="h3">Overview</Text>
+                  <BlockStack gap="300">
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Total Entries</Text>
+                      <Text as="p" variant="headingLg" fontWeight="bold">
+                        {raffle.totalEntries.toLocaleString()}
+                      </Text>
+                      {raffle.maxEntriesTotal && (
+                        <ProgressBar progress={entriesProgress} size="small" />
+                      )}
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Unique Entrants</Text>
+                      <Text as="p" variant="headingLg" fontWeight="bold">
+                        {raffle.uniqueEntrants.toLocaleString()}
+                      </Text>
+                    </BlockStack>
+                    <BlockStack gap="100">
+                      <Text as="p" variant="bodySm" tone="subdued">Points Collected</Text>
+                      <InlineStack gap="100" blockAlign="center">
+                        <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={20} />
+                        <Text as="p" variant="headingLg" fontWeight="bold">
+                          {raffle.totalPrizePool.toLocaleString()}
                         </Text>
                       </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Draw Type</Text>
-                        <Text as="span" fontWeight="semibold">{raffle.drawType}</Text>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Winners to Select</Text>
-                        <Text as="span" fontWeight="semibold">{raffle.totalWinners}</Text>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Visibility</Text>
-                        <Badge tone={raffle.isPublic ? "success" : "info"}>
-                          {raffle.isPublic ? "Public" : "Private"}
-                        </Badge>
-                      </InlineStack>
                     </BlockStack>
+                  </BlockStack>
+                </BlockStack>
+              </Card>
 
-                    <Divider />
-
+              <Card>
+                <BlockStack gap="300">
+                  <Text variant="headingMd" as="h3">Recent Entries</Text>
+                  {recentEntries.length === 0 ? (
+                    <Text as="p" tone="subdued">No entries yet.</Text>
+                  ) : (
                     <BlockStack gap="200">
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Starts</Text>
-                        <Text as="span" fontWeight="semibold">{formatDate(raffle.startsAt)}</Text>
-                      </InlineStack>
-                      <InlineStack align="space-between">
-                        <Text as="span" tone="subdued">Ends</Text>
-                        <Text as="span" fontWeight="semibold">{formatDate(raffle.endsAt)}</Text>
-                      </InlineStack>
-                      {raffle.drawAt && (
-                        <InlineStack align="space-between">
-                          <Text as="span" tone="subdued">Scheduled Draw</Text>
-                          <Text as="span" fontWeight="semibold">{formatDate(raffle.drawAt)}</Text>
-                        </InlineStack>
-                      )}
-                      {raffle.drawnAt && (
-                        <InlineStack align="space-between">
-                          <Text as="span" tone="subdued">Drawn At</Text>
-                          <Text as="span" fontWeight="semibold">{formatDate(raffle.drawnAt)}</Text>
-                        </InlineStack>
-                      )}
-                    </BlockStack>
-
-                    {raffle.description && (
-                      <>
-                        <Divider />
-                        <BlockStack gap="100">
-                          <Text as="p" tone="subdued" variant="bodySm">Description</Text>
-                          <Text as="p">{raffle.description}</Text>
-                        </BlockStack>
-                      </>
-                    )}
-                  </BlockStack>
-                </Card>
-              </Box>
-
-              {/* Right Column - Prizes */}
-              <Box minWidth="500px">
-                <Card>
-                  <BlockStack gap="400">
-                    <InlineStack align="space-between">
-                      <Text variant="headingMd" as="h3">Prizes</Text>
-                      {canAddPrizes && (
-                        <Button
-                          icon={PlusIcon}
-                          onClick={() => {
-                            resetPrizeForm();
-                            setEditingPrize(null);
-                            setShowPrizeModal(true);
-                          }}
-                        >
-                          Add Prize
-                        </Button>
-                      )}
-                    </InlineStack>
-                    <Divider />
-
-                    {raffle.prizes.length === 0 ? (
-                      <EmptyState
-                        heading="No prizes yet"
-                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                        action={
-                          canAddPrizes
-                            ? {
-                                content: "Add first prize",
-                                onAction: () => {
-                                  resetPrizeForm();
-                                  setEditingPrize(null);
-                                  setShowPrizeModal(true);
-                                },
-                              }
-                            : undefined
-                        }
-                      >
-                        <p>Add prizes to make this raffle exciting for your customers.</p>
-                      </EmptyState>
-                    ) : (
-                      <ResourceList
-                        items={raffle.prizes}
-                        renderItem={(prize) => (
-                          <ResourceItem
-                            id={prize.id}
-                            onClick={() => canEdit && openEditPrize(prize)}
-                          >
-                            <InlineStack align="space-between" blockAlign="center">
-                              <BlockStack gap="100">
-                                <InlineStack gap="200">
-                                  <Text as="span" fontWeight="semibold">{prize.name}</Text>
-                                  {getPrizeTypeBadge(prize.prizeType)}
-                                </InlineStack>
-                                <Text as="span" tone="subdued" variant="bodySm">
-                                  {prize.quantity - prize.quantityWon} of {prize.quantity} available
-                                  {prize.weight !== 100 && ` • Weight: ${prize.weight}`}
-                                </Text>
-                              </BlockStack>
-                              {canEdit && (
-                                <InlineStack gap="100">
-                                  <Button
-                                    size="slim"
-                                    icon={EditIcon}
-                                    onClick={() => openEditPrize(prize)}
-                                  />
-                                  <Button
-                                    size="slim"
-                                    icon={DeleteIcon}
-                                    tone="critical"
-                                    onClick={() => handleDeletePrize(prize.id)}
-                                  />
-                                </InlineStack>
-                              )}
-                            </InlineStack>
-                          </ResourceItem>
-                        )}
-                      />
-                    )}
-                  </BlockStack>
-                </Card>
-              </Box>
-            </InlineStack>
-          </Layout.Section>
-
-          {/* Recent Entries */}
-          <Layout.Section>
-            <Card>
-              <BlockStack gap="400">
-                <Text variant="headingMd" as="h3">Recent Entries</Text>
-                <Divider />
-                {recentEntries.length === 0 ? (
-                  <Text as="p" tone="subdued">No entries yet.</Text>
-                ) : (
-                  <BlockStack gap="200">
-                    {recentEntries.map((entry) => (
-                      <InlineStack key={entry.id} align="space-between">
-                        <BlockStack gap="050">
-                          <Text as="span">{entry.customerEmail}</Text>
-                          <Text as="span" tone="subdued" variant="bodySm">
-                            {formatDate(entry.createdAt)}
-                          </Text>
-                        </BlockStack>
-                        <BlockStack gap="050">
-                          <Text as="span" fontWeight="semibold" alignment="end">
-                            {entry.entriesCount} {entry.entriesCount === 1 ? "entry" : "entries"}
-                          </Text>
-                          <InlineStack gap="100" blockAlign="center">
-                            <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={12} />
-                            <Text as="span" tone="subdued" variant="bodySm" alignment="end">
-                              {entry.pointsSpent} spent
+                      {recentEntries.map((entry) => (
+                        <InlineStack key={entry.id} align="space-between">
+                          <BlockStack gap="050">
+                            <Text as="span" variant="bodySm">{entry.customerEmail}</Text>
+                            <Text as="span" tone="subdued" variant="bodySm">
+                              {formatDate(entry.createdAt)}
                             </Text>
-                          </InlineStack>
-                        </BlockStack>
-                      </InlineStack>
-                    ))}
-                  </BlockStack>
-                )}
-              </BlockStack>
-            </Card>
+                          </BlockStack>
+                          <BlockStack gap="050">
+                            <Text as="span" fontWeight="semibold" variant="bodySm" alignment="end">
+                              {entry.entriesCount} {entry.entriesCount === 1 ? "entry" : "entries"}
+                            </Text>
+                            <InlineStack gap="100" blockAlign="center">
+                              <PointsIcon iconType={pointsConfig.iconType} iconId={pointsConfig.iconId} iconColor={pointsConfig.iconColor} size={12} />
+                              <Text as="span" tone="subdued" variant="bodySm" alignment="end">
+                                {entry.pointsSpent} spent
+                              </Text>
+                            </InlineStack>
+                          </BlockStack>
+                        </InlineStack>
+                      ))}
+                    </BlockStack>
+                  )}
+                </BlockStack>
+              </Card>
+            </BlockStack>
           </Layout.Section>
 
           {/* Draw Winners Section - Only show for CLOSED status */}
@@ -1322,7 +1271,7 @@ export default function RaffleDetail() {
               />
               <InlineStack gap="400">
                 <TextField
-                  label={`Entry Cost (${pointsConfig.currencyName})`}
+                  label={`Points per Entry (${pointsConfig.currencyName})`}
                   type="number"
                   value={editForm.entryCost}
                   onChange={(v) => setEditForm({ ...editForm, entryCost: v })}

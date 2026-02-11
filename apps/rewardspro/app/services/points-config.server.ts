@@ -259,6 +259,7 @@ export async function isPointsEnabled(shop: string): Promise<boolean> {
 /**
  * Get the points earning rate for a shop (points per dollar)
  *
+ * @deprecated Points are no longer earned from orders. This function is kept for backward compatibility.
  * @param shop - Shop domain
  * @returns Points per dollar
  */

@@ -546,7 +546,7 @@ export default function RafflesList() {
                   headings={[
                     "Name",
                     "Status",
-                    "Entry Cost",
+                    "Points per Entry",
                     "Duration",
                     "Entries",
                     "Entrants",
@@ -587,7 +587,7 @@ export default function RafflesList() {
                 autoComplete="off"
               />
               <TextField
-                label={`Entry Cost (${pointsConfig.currencyName})`}
+                label={`Points per Entry (${pointsConfig.currencyName})`}
                 type="number"
                 value={entryCost}
                 onChange={setEntryCost}

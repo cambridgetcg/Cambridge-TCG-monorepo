@@ -360,7 +360,7 @@ async function awardWebhookPoints(
     data: {
       shop,
       customerId: customer.id,
-      type: "ORDER_EARNED", // Points earned from integration webhook
+      type: "BONUS_EVENT", // Points earned from integration webhook
       amount: points,
       balance: newBalance,
       description: `${provider} - ${result.action}`,

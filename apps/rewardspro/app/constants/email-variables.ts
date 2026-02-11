@@ -202,7 +202,7 @@ export const EMAIL_PERSONALIZATION_VARIABLES: EmailVariable[] = [
   },
   {
     variable: "{{raffle_entry_cost}}",
-    label: "Entry Cost",
+    label: "Points per Entry",
     description: "Points required per entry",
     example: "100 points",
     category: "raffle",

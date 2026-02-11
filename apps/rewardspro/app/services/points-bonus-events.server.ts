@@ -335,7 +335,8 @@ export async function getActiveEvents(
 /**
  * Get the bonus multiplier for an order
  *
- * This is the main function called during points calculation.
+ * @deprecated Points are no longer earned from orders. Only caller was processPointsEarning (now removed).
+ * Kept for reference only.
  */
 export async function getOrderBonusMultiplier(
   shop: string,
