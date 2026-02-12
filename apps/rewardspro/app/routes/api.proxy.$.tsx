@@ -1475,53 +1475,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // MISSIONS/EVENTS/ACK endpoint - Acknowledge events after display (POST)
-  // ═══════════════════════════════════════════════════════════════════════
-  if (proxyPath === "missions/events/ack" && request.method === "POST") {
-    const shop = session?.shop;
-
-    if (!shop) {
-      return json({
-        success: false,
-        error: "Authentication required"
-      }, { status: 401, headers });
-    }
-
-    try {
-      const body = await request.json();
-      const { eventIds, logged_in_customer_id } = body;
-
-      if (!logged_in_customer_id) {
-        return json({
-          success: false,
-          error: "Please sign in"
-        }, { status: 401, headers });
-      }
-
-      if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) {
-        return json({
-          success: false,
-          error: "Event IDs are required"
-        }, { status: 400, headers });
-      }
-
-      const count = await acknowledgeEvents(eventIds);
-
-      return json({
-        success: true,
-        acknowledgedCount: count,
-      }, { headers });
-
-    } catch (error: any) {
-      log.error("Missions events ack error:", error.message);
-      return json({
-        success: false,
-        error: "Failed to acknowledge events",
-      }, { status: 500, headers });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
   // MISSIONS/PLAYER endpoint - Get just player stats (lightweight)
   // ═══════════════════════════════════════════════════════════════════════
   if (proxyPath === "missions/player") {
@@ -1570,374 +1523,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         success: false,
         error: "Failed to load player stats",
         player: null,
-      }, { status: 500, headers });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // RAFFLES/ENTER endpoint - Enter a raffle from storefront (POST)
-  // ═══════════════════════════════════════════════════════════════════════
-  if (proxyPath === "raffles/enter" && request.method === "POST") {
-    const shop = session?.shop;
-
-    if (!shop) {
-      return json({
-        success: false,
-        error: "Authentication required"
-      }, { status: 401, headers });
-    }
-
-    try {
-      const body = await request.json();
-      const { raffleId, quantity = 1, logged_in_customer_id } = body;
-
-      if (!raffleId) {
-        return json({
-          success: false,
-          error: "Raffle ID is required",
-        }, { status: 400, headers });
-      }
-
-      if (!logged_in_customer_id) {
-        return json({
-          success: false,
-          error: "Please sign in to enter raffles",
-        }, { status: 401, headers });
-      }
-
-      // Resolve internal customer ID
-      const customer = await db.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
-        select: { id: true, pointsBalance: true },
-      });
-
-      if (!customer) {
-        return json({
-          success: false,
-          error: "Customer not found. Please contact support.",
-        }, { status: 404, headers });
-      }
-
-      // Use the existing raffle entry service
-      const result = await purchaseRaffleEntries({
-        shop,
-        customerId: customer.id,
-        raffleId,
-        quantity: Math.max(1, Math.min(10, parseInt(quantity) || 1)),
-      });
-
-      if (!result.success) {
-        return json({
-          success: false,
-          error: result.error,
-        }, { headers });
-      }
-
-      return json({
-        success: true,
-        entriesAdded: quantity,
-        totalEntries: result.totalEntriesCount || result.entriesCount,
-        pointsSpent: result.pointsSpent,
-        newPointsBalance: result.newBalance,
-      }, { headers });
-
-    } catch (error: any) {
-      log.error("Raffle entry error:", error.message);
-      return json({
-        success: false,
-        error: "Failed to enter raffle. Please try again.",
-      }, { status: 500, headers });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // CHALLENGES/CLAIM endpoint - Claim a completed challenge reward (POST)
-  // ═══════════════════════════════════════════════════════════════════════
-  if (proxyPath === "challenges/claim" && request.method === "POST") {
-    const shop = session?.shop;
-
-    if (!shop) {
-      return json({
-        success: false,
-        error: "Authentication required"
-      }, { status: 401, headers });
-    }
-
-    try {
-      const body = await request.json();
-      const { challengeId, logged_in_customer_id } = body;
-
-      if (!challengeId) {
-        return json({
-          success: false,
-          error: "Challenge ID is required",
-        }, { status: 400, headers });
-      }
-
-      if (!logged_in_customer_id) {
-        return json({
-          success: false,
-          error: "Please sign in to claim rewards",
-        }, { status: 401, headers });
-      }
-
-      // Resolve internal customer ID
-      const customer = await db.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
-        select: { id: true },
-      });
-
-      if (!customer) {
-        return json({
-          success: false,
-          error: "Customer not found. Please contact support.",
-        }, { status: 404, headers });
-      }
-
-      // Get admin API for Shopify discount creation
-      let proxyAdmin: any;
-      try {
-        const unauthResult = await unauthenticated.admin(shop);
-        proxyAdmin = unauthResult.admin;
-      } catch (e) {
-        console.error(`[ProxyChallenges] Failed to get admin API (non-fatal):`, e);
-      }
-
-      // Use the existing challenge claim service
-      const result = await claimChallengeReward(shop, customer.id, challengeId, proxyAdmin);
-
-      if (!result.success) {
-        return json({
-          success: false,
-          error: result.error,
-        }, { headers });
-      }
-
-      // Get updated points balance
-      const updatedCustomer = await db.customer.findUnique({
-        where: { id: customer.id },
-        select: { pointsBalance: true },
-      });
-
-      return json({
-        success: true,
-        reward: {
-          type: result.rewardType,
-          value: result.rewardValue,
-          description: result.message || 'Reward claimed!',
-        },
-        newPointsBalance: updatedCustomer?.pointsBalance || 0,
-      }, { headers });
-
-    } catch (error: any) {
-      log.error("Challenge claim error:", error.message);
-      return json({
-        success: false,
-        error: "Failed to claim reward. Please try again.",
-      }, { status: 500, headers });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // CHALLENGES/JOIN endpoint - Explicitly join a challenge (POST)
-  // ═══════════════════════════════════════════════════════════════════════
-  if (proxyPath === "challenges/join" && request.method === "POST") {
-    const shop = session?.shop;
-
-    if (!shop) {
-      return json({
-        success: false,
-        error: "Authentication required"
-      }, { status: 401, headers });
-    }
-
-    try {
-      const body = await request.json();
-      const { challengeId, logged_in_customer_id } = body;
-
-      if (!challengeId) {
-        return json({ success: false, error: "Challenge ID is required" }, { headers });
-      }
-
-      // Resolve internal customer ID
-      if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to join challenges" }, { status: 401, headers });
-      }
-
-      const customer = await db.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
-        select: { id: true, currentTierId: true },
-      });
-
-      if (!customer) {
-        return json({ success: false, error: "Customer not found" }, { headers });
-      }
-
-      // Verify challenge exists and is active
-      const now = new Date();
-      const challenge = await db.challenge.findFirst({
-        where: {
-          id: challengeId,
-          shop,
-          status: "ACTIVE",
-          isPublic: true,
-          startsAt: { lte: now },
-          endsAt: { gte: now },
-        },
-        include: { reward: true },
-      });
-
-      if (!challenge) {
-        return json({ success: false, error: "Challenge not found or not available" }, { headers });
-      }
-
-      // Check tier eligibility
-      if (challenge.tierRestrictions) {
-        const restrictions = challenge.tierRestrictions as { allowedTierIds?: string[] };
-        if (restrictions.allowedTierIds?.length &&
-            (!customer.currentTierId || !restrictions.allowedTierIds.includes(customer.currentTierId))) {
-          return json({ success: false, error: "This challenge is not available for your tier" }, { headers });
-        }
-      }
-
-      // Check if already participating
-      const existing = await db.challengeParticipant.findUnique({
-        where: {
-          challengeId_customerId: { challengeId, customerId: customer.id },
-        },
-      });
-
-      if (existing) {
-        return json({
-          success: true,
-          alreadyJoined: true,
-          participant: {
-            id: existing.id,
-            status: existing.status,
-            currentProgress: existing.currentProgress,
-            progressPercent: existing.progressPercent,
-          },
-        }, { headers });
-      }
-
-      // Create participant record
-      const participant = await db.challengeParticipant.create({
-        data: {
-          challengeId,
-          customerId: customer.id,
-          shop,
-          currentProgress: 0,
-          progressPercent: 0,
-          status: "IN_PROGRESS",
-        },
-      });
-
-      // Update challenge statistics
-      await db.challenge.update({
-        where: { id: challengeId },
-        data: { totalParticipants: { increment: 1 } },
-      });
-
-      log.info(`Customer ${customer.id} joined challenge ${challengeId}`);
-
-      return json({
-        success: true,
-        alreadyJoined: false,
-        participant: {
-          id: participant.id,
-          status: participant.status,
-          currentProgress: participant.currentProgress,
-          progressPercent: participant.progressPercent,
-        },
-        challenge: {
-          id: challenge.id,
-          name: challenge.name,
-          targetValue: challenge.targetValue,
-          objectiveType: challenge.objectiveType,
-          reward: challenge.reward ? {
-            type: challenge.reward.rewardType,
-            description: challenge.reward.description,
-          } : null,
-        },
-      }, { headers });
-
-    } catch (error: any) {
-      log.error("Challenge join error:", error.message);
-      return json({
-        success: false,
-        error: "Failed to join challenge. Please try again.",
-      }, { status: 500, headers });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // MYSTERY-BOXES/OPEN endpoint - Open a mystery box (POST)
-  // ═══════════════════════════════════════════════════════════════════════
-  if (proxyPath === "mystery-boxes/open" && request.method === "POST") {
-    const shop = session?.shop;
-
-    if (!shop) {
-      return json({
-        success: false,
-        error: "Authentication required"
-      }, { status: 401, headers });
-    }
-
-    try {
-      const body = await request.json();
-      const { boxId, logged_in_customer_id } = body;
-
-      if (!boxId) {
-        return json({ success: false, error: "Box ID is required" }, { headers });
-      }
-
-      // Resolve internal customer ID
-      if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to open mystery boxes" }, { status: 401, headers });
-      }
-
-      const customer = await db.customer.findFirst({
-        where: { shop, shopifyCustomerId: logged_in_customer_id },
-        select: { id: true, pointsBalance: true },
-      });
-
-      if (!customer) {
-        return json({ success: false, error: "Customer not found" }, { headers });
-      }
-
-      // Open the mystery box
-      const result = await openMysteryBox({
-        shop,
-        customerId: customer.id,
-        boxId,
-      });
-
-      if (!result.success) {
-        return json({
-          success: false,
-          error: result.error || "Failed to open mystery box",
-        }, { headers });
-      }
-
-      return json({
-        success: true,
-        openId: result.openId,
-        reward: {
-          name: result.rewardName,
-          description: result.rewardDescription,
-          type: result.rewardType,
-          rarity: result.rarity,
-          value: result.rewardValue,
-        },
-        pointsSpent: result.pointsSpent,
-        newPointsBalance: result.newBalance,
-      }, { headers });
-
-    } catch (error: any) {
-      log.error("Mystery box open error:", error.message);
-      return json({
-        success: false,
-        error: "Failed to open mystery box. Please try again.",
       }, { status: 500, headers });
     }
   }
@@ -2133,7 +1718,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         const result = await claimDailyFreeEntry(shop, customer.id, raffleId);
 
         if (!result.success) {
-          return json({ success: false, error: result.error }, { headers });
+          log.warn("Free entry rejected:", result.error, { shop, customerId: customer.id, raffleId });
+          return json({ success: false, error: result.error, message: result.error }, { headers });
         }
 
         return json({
@@ -2153,7 +1739,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!result.success) {
-        return json({ success: false, error: result.error }, { headers });
+        log.warn("Raffle purchase rejected:", result.error, { shop, customerId: customer.id, raffleId, quantity });
+        return json({ success: false, error: result.error, message: result.error }, { headers });
       }
 
       return json({
@@ -2168,7 +1755,348 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Raffle entry error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return json({ success: false, error: "Failed to enter raffle. Please try again.", message: "Failed to enter raffle. Please try again." }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MISSIONS/EVENTS/ACK POST - Acknowledge events after display
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "missions/events/ack") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { eventIds, logged_in_customer_id } = body;
+
+      if (!logged_in_customer_id) {
+        return json({ success: false, error: "Please sign in" }, { status: 401, headers });
+      }
+
+      if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) {
+        return json({ success: false, error: "Event IDs are required" }, { status: 400, headers });
+      }
+
+      const count = await acknowledgeEvents(eventIds);
+
+      return json({ success: true, acknowledgedCount: count }, { headers });
+
+    } catch (error: any) {
+      log.error("Missions events ack error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return json({ success: false, error: "Failed to acknowledge events" }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RAFFLES/ENTER POST - Enter a raffle from storefront
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "raffles/enter") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { raffleId, quantity = 1, logged_in_customer_id } = body;
+
+      if (!raffleId) {
+        return json({ success: false, error: "Raffle ID is required" }, { status: 400, headers });
+      }
+
+      if (!logged_in_customer_id) {
+        return json({ success: false, error: "Please sign in to enter raffles" }, { status: 401, headers });
+      }
+
+      const customer = await db.customer.findFirst({
+        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        select: { id: true, pointsBalance: true },
+      });
+
+      if (!customer) {
+        return json({ success: false, error: "Customer not found. Please contact support." }, { status: 404, headers });
+      }
+
+      const result = await purchaseRaffleEntries({
+        shop,
+        customerId: customer.id,
+        raffleId,
+        quantity: Math.max(1, Math.min(10, parseInt(quantity) || 1)),
+      });
+
+      if (!result.success) {
+        return json({ success: false, error: result.error }, { headers });
+      }
+
+      return json({
+        success: true,
+        entriesAdded: quantity,
+        totalEntries: result.totalEntriesCount || result.entriesCount,
+        pointsSpent: result.pointsSpent,
+        newPointsBalance: result.newBalance,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Raffle entry error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
       return json({ success: false, error: "Failed to enter raffle. Please try again." }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHALLENGES/CLAIM POST - Claim a completed challenge reward
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "challenges/claim") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { challengeId, logged_in_customer_id } = body;
+
+      if (!challengeId) {
+        return json({ success: false, error: "Challenge ID is required" }, { status: 400, headers });
+      }
+
+      if (!logged_in_customer_id) {
+        return json({ success: false, error: "Please sign in to claim rewards" }, { status: 401, headers });
+      }
+
+      const customer = await db.customer.findFirst({
+        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        select: { id: true },
+      });
+
+      if (!customer) {
+        return json({ success: false, error: "Customer not found. Please contact support." }, { status: 404, headers });
+      }
+
+      let proxyAdmin: any;
+      try {
+        const unauthResult = await unauthenticated.admin(shop);
+        proxyAdmin = unauthResult.admin;
+      } catch (e) {
+        console.error(`[ProxyChallenges] Failed to get admin API (non-fatal):`, e);
+      }
+
+      const result = await claimChallengeReward(shop, customer.id, challengeId, proxyAdmin);
+
+      if (!result.success) {
+        return json({ success: false, error: result.error }, { headers });
+      }
+
+      const updatedCustomer = await db.customer.findUnique({
+        where: { id: customer.id },
+        select: { pointsBalance: true },
+      });
+
+      return json({
+        success: true,
+        reward: {
+          type: result.rewardType,
+          value: result.rewardValue,
+          description: result.message || 'Reward claimed!',
+        },
+        newPointsBalance: updatedCustomer?.pointsBalance || 0,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Challenge claim error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return json({ success: false, error: "Failed to claim reward. Please try again." }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHALLENGES/JOIN POST - Explicitly join a challenge
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "challenges/join") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { challengeId, logged_in_customer_id } = body;
+
+      if (!challengeId) {
+        return json({ success: false, error: "Challenge ID is required" }, { status: 400, headers });
+      }
+
+      if (!logged_in_customer_id) {
+        return json({ success: false, error: "Please sign in to join challenges" }, { status: 401, headers });
+      }
+
+      const customer = await db.customer.findFirst({
+        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        select: { id: true, currentTierId: true },
+      });
+
+      if (!customer) {
+        return json({ success: false, error: "Customer not found" }, { status: 404, headers });
+      }
+
+      const now = new Date();
+      const challenge = await db.challenge.findFirst({
+        where: {
+          id: challengeId,
+          shop,
+          status: "ACTIVE",
+          isPublic: true,
+          startsAt: { lte: now },
+          endsAt: { gte: now },
+        },
+        include: { reward: true },
+      });
+
+      if (!challenge) {
+        return json({ success: false, error: "Challenge not found or not available" }, { headers });
+      }
+
+      if (challenge.tierRestrictions) {
+        const restrictions = challenge.tierRestrictions as { allowedTierIds?: string[] };
+        if (restrictions.allowedTierIds?.length &&
+            (!customer.currentTierId || !restrictions.allowedTierIds.includes(customer.currentTierId))) {
+          return json({ success: false, error: "This challenge is not available for your tier" }, { headers });
+        }
+      }
+
+      const existing = await db.challengeParticipant.findUnique({
+        where: {
+          challengeId_customerId: { challengeId, customerId: customer.id },
+        },
+      });
+
+      if (existing) {
+        return json({
+          success: true,
+          alreadyJoined: true,
+          participant: {
+            id: existing.id,
+            status: existing.status,
+            currentProgress: existing.currentProgress,
+            progressPercent: existing.progressPercent,
+          },
+        }, { headers });
+      }
+
+      const participant = await db.challengeParticipant.create({
+        data: {
+          challengeId,
+          customerId: customer.id,
+          shop,
+          currentProgress: 0,
+          progressPercent: 0,
+          status: "IN_PROGRESS",
+        },
+      });
+
+      await db.challenge.update({
+        where: { id: challengeId },
+        data: { totalParticipants: { increment: 1 } },
+      });
+
+      log.info(`Customer ${customer.id} joined challenge ${challengeId}`);
+
+      return json({
+        success: true,
+        alreadyJoined: false,
+        participant: {
+          id: participant.id,
+          status: participant.status,
+          currentProgress: participant.currentProgress,
+          progressPercent: participant.progressPercent,
+        },
+        challenge: {
+          id: challenge.id,
+          name: challenge.name,
+          targetValue: challenge.targetValue,
+          objectiveType: challenge.objectiveType,
+          reward: challenge.reward ? {
+            type: challenge.reward.rewardType,
+            description: challenge.reward.description,
+          } : null,
+        },
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Challenge join error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return json({ success: false, error: "Failed to join challenge. Please try again." }, { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MYSTERY-BOXES/OPEN POST - Open a mystery box
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "mystery-boxes/open") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { boxId, logged_in_customer_id } = body;
+
+      if (!boxId) {
+        return json({ success: false, error: "Box ID is required" }, { status: 400, headers });
+      }
+
+      if (!logged_in_customer_id) {
+        return json({ success: false, error: "Please sign in to open mystery boxes" }, { status: 401, headers });
+      }
+
+      const customer = await db.customer.findFirst({
+        where: { shop, shopifyCustomerId: logged_in_customer_id },
+        select: { id: true, pointsBalance: true },
+      });
+
+      if (!customer) {
+        return json({ success: false, error: "Customer not found" }, { status: 404, headers });
+      }
+
+      const result = await openMysteryBox({
+        shop,
+        customerId: customer.id,
+        boxId,
+      });
+
+      if (!result.success) {
+        return json({
+          success: false,
+          error: result.error || "Failed to open mystery box",
+        }, { headers });
+      }
+
+      return json({
+        success: true,
+        openId: result.openId,
+        reward: {
+          name: result.rewardName,
+          description: result.rewardDescription,
+          type: result.rewardType,
+          rarity: result.rarity,
+          value: result.rewardValue,
+        },
+        pointsSpent: result.pointsSpent,
+        newPointsBalance: result.newBalance,
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Mystery box open error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return json({
+        success: false,
+        error: "Failed to open mystery box. Please try again.",
+      }, { status: 500, headers });
     }
   }
 

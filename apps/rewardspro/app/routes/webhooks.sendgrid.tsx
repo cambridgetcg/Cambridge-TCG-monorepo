@@ -94,8 +94,31 @@ async function processEvents(events: SendGridEvent[]): Promise<{
     }
   >();
 
+  // Deduplication: collect event IDs to check against database
+  const eventIds = events
+    .map((e) => e.sg_event_id)
+    .filter((id): id is string => !!id);
+
+  let processedEventIds = new Set<string>();
+  if (eventIds.length > 0) {
+    try {
+      const existing = await db.emailEvent.findMany({
+        where: { id: { in: eventIds } },
+        select: { id: true },
+      });
+      processedEventIds = new Set(existing.map((e) => e.id));
+    } catch (e) {
+      // If emailEvent table doesn't exist yet, skip dedup
+    }
+  }
+
   for (const event of events) {
     try {
+      // Deduplicate: skip events we've already processed
+      if (event.sg_event_id && processedEventIds.has(event.sg_event_id)) {
+        continue;
+      }
+
       // Skip if no campaign ID
       const campaignId = event.campaign_id || (event.category?.[0] ?? null);
       const shop = event.shop || (event.category?.[1] ?? null);
@@ -133,15 +156,82 @@ async function processEvents(events: SendGridEvent[]): Promise<{
         case "bounce":
         case "dropped":
           updates.bounced++;
+          // Suppress customer on hard bounce to protect sender reputation
+          if (event.email && event.type === "bounce") {
+            try {
+              await db.customer.updateMany({
+                where: { shop, email: event.email, emailSuppressed: false },
+                data: {
+                  emailSuppressed: true,
+                  suppressedAt: new Date(),
+                  suppressionReason: "bounce",
+                },
+              });
+            } catch (e) {
+              // Non-critical — field may not exist yet until migration runs
+            }
+          }
           break;
         case "unsubscribe":
+          updates.unsubscribed++;
+          // Respect unsubscribe by updating marketing consent
+          if (event.email) {
+            try {
+              await db.customer.updateMany({
+                where: { shop, email: event.email },
+                data: { acceptsMarketing: false },
+              });
+            } catch (e) {
+              // Non-critical
+            }
+          }
+          break;
         case "spam_report":
           updates.unsubscribed++;
+          // Suppress customer on spam complaint
+          if (event.email) {
+            try {
+              await db.customer.updateMany({
+                where: { shop, email: event.email, emailSuppressed: false },
+                data: {
+                  emailSuppressed: true,
+                  suppressedAt: new Date(),
+                  suppressionReason: "spam_report",
+                  acceptsMarketing: false,
+                },
+              });
+            } catch (e) {
+              // Non-critical
+            }
+          }
           break;
         case "processed":
         case "deferred":
           // Don't count these as metrics
           break;
+      }
+
+      // Record event for deduplication
+      if (event.sg_event_id) {
+        try {
+          await db.emailEvent.create({
+            data: {
+              id: event.sg_event_id,
+              shop,
+              eventType: event.event.toUpperCase(),
+              campaignId,
+              customerEmail: event.email || "",
+              metadata: {
+                sg_message_id: event.sg_message_id,
+                url: event.url,
+                reason: event.reason,
+              },
+              createdAt: new Date(event.timestamp * 1000),
+            },
+          });
+        } catch (e) {
+          // Unique constraint violation = already processed, or table doesn't exist
+        }
       }
 
       processed++;

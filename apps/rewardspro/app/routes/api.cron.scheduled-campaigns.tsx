@@ -128,12 +128,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
         let recipients: Array<{ email: string; name?: string; customerId?: string }> = [];
 
         if (segmentRules?.fromRecommendation && segmentRules?.targetCustomerIds?.length) {
-          // Recommendation-based targeting
+          // Recommendation-based targeting (exclude suppressed/unsubscribed)
           const customers = await db.customer.findMany({
             where: {
               shop: campaign.shop,
               id: { in: segmentRules.targetCustomerIds },
               email: { not: null },
+              acceptsMarketing: true,
+              emailSuppressed: false,
             },
             select: { id: true, email: true, firstName: true, lastName: true },
           });
@@ -145,12 +147,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
               customerId: c.id,
             }));
         } else if (segmentRules?.selectedTiers?.length) {
-          // Tier-based targeting
+          // Tier-based targeting (exclude suppressed/unsubscribed)
           const customers = await db.customer.findMany({
             where: {
               shop: campaign.shop,
               email: { not: null },
               tierId: { in: segmentRules.selectedTiers },
+              acceptsMarketing: true,
+              emailSuppressed: false,
             },
             select: { id: true, email: true, firstName: true, lastName: true },
           });
@@ -162,9 +166,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
               customerId: c.id,
             }));
         } else {
-          // All customers with email
+          // All customers with email (exclude suppressed/unsubscribed)
           const customers = await db.customer.findMany({
-            where: { shop: campaign.shop, email: { not: null } },
+            where: { shop: campaign.shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
             select: { id: true, email: true, firstName: true, lastName: true },
           });
           recipients = customers
@@ -192,7 +196,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             status: 'sent',
             metrics: {
               sent: sendResult.sent,
-              delivered: sendResult.sent,
+              delivered: 0, // Actual delivery count comes from SendGrid webhook events
               opened: 0,
               clicked: 0,
               bounced: sendResult.failed,

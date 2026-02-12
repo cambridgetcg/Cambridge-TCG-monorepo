@@ -200,12 +200,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         const targetCustomerIds = segmentRules?.targetCustomerIds || [];
 
         if (targetCustomerIds.length > 0) {
-          // Get customers from the recommendation segment
+          // Get customers from the recommendation segment (exclude suppressed/unsubscribed)
           const customers = await db.customer.findMany({
             where: {
               shop,
               id: { in: targetCustomerIds },
               email: { not: null },
+              acceptsMarketing: true,
+              emailSuppressed: false,
             },
             select: { id: true, email: true, firstName: true, lastName: true },
           });
@@ -218,9 +220,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
             }));
         }
       } else if (sendToAll) {
-        // Get all customers with email
+        // Get all customers with email (exclude suppressed/unsubscribed)
         const customers = await db.customer.findMany({
-          where: { shop, email: { not: null } },
+          where: { shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
           select: { id: true, email: true, firstName: true, lastName: true },
         });
         recipients = customers
@@ -231,12 +233,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
             customerId: c.id,
           }));
       } else if (selectedTiers.length > 0) {
-        // Get customers in selected tiers
+        // Get customers in selected tiers (exclude suppressed/unsubscribed)
         const customers = await db.customer.findMany({
           where: {
             shop,
             email: { not: null },
             tierId: { in: selectedTiers },
+            acceptsMarketing: true,
+            emailSuppressed: false,
           },
           select: { id: true, email: true, firstName: true, lastName: true },
         });
@@ -295,7 +299,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           status: "sent",
           metrics: {
             sent: sendResult.sent,
-            delivered: sendResult.sent, // Assume delivered = sent initially
+            delivered: 0, // Actual delivery count comes from SendGrid webhook events
             opened: 0,
             clicked: 0,
             bounced: sendResult.failed,

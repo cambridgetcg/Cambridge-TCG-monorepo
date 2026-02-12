@@ -158,28 +158,29 @@ export async function getActiveBonusEvents(params: {
   const { shop, boxId } = params;
   const now = new Date();
 
-  // Get non-recurring active events
-  const events = await db.mysteryBoxBonusEvent.findMany({
+  // Get active events — use AND to combine two OR conditions
+  const allEvents = await db.mysteryBoxBonusEvent.findMany({
     where: {
       shop,
       isActive: true,
-      OR: [
-        { boxId: null }, // Global events
-        ...(boxId ? [{ boxId }] : []),
-      ],
       startsAt: { lte: now },
       endsAt: { gt: now },
-      OR: [
-        { maxUses: null },
+      AND: [
         {
-          currentUses: {
-            lt: db.mysteryBoxBonusEvent.fields.maxUses,
-          },
+          OR: [
+            { boxId: null }, // Global events
+            ...(boxId ? [{ boxId }] : []),
+          ],
         },
       ],
     },
     orderBy: [{ discountPercent: "desc" }, { bonusMultiplier: "desc" }],
   });
+
+  // Filter out events that have exceeded maxUses (can't compare two columns in Prisma/Data API)
+  const events = allEvents.filter((e: any) =>
+    e.maxUses === null || e.currentUses < e.maxUses
+  );
 
   const result: BonusEventInfo[] = [];
 

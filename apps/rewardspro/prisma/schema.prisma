@@ -428,6 +428,12 @@ model Customer {
   orderCount          Int       @default(0) // Number of orders
   lastOrderDate       DateTime? // Date of most recent order
 
+  // Email marketing consent and suppression
+  acceptsMarketing  Boolean   @default(true) // Opt-in to marketing emails (campaigns)
+  emailSuppressed   Boolean   @default(false) // Hard bounce or spam complaint — suppress all marketing
+  suppressedAt      DateTime? // When suppression was applied
+  suppressionReason String?   @db.VarChar(255) // bounce, spam_report, unsubscribe
+
   // Shopify timestamps for sync tracking
   shopifyCreatedAt DateTime? // When customer was created in Shopify
   shopifyUpdatedAt DateTime? // Last update in Shopify
@@ -2411,6 +2417,36 @@ model EmailAutomation {
 
   @@index([shop, trigger])
   @@index([shop, isEnabled])
+}
+
+/// Stores delayed automation executions for processing by a cron job.
+model PendingAutomation {
+  id             String   @id @default(uuid())
+  shop           String
+  automationId   String
+  automationName String
+  templateId     String
+
+  // Recipient
+  recipientEmail     String @db.VarChar(255)
+  recipientFirstName String? @db.VarChar(255)
+  recipientLastName  String? @db.VarChar(255)
+
+  // Trigger context
+  triggerType String
+  triggerData Json? // Original event data for template personalization
+
+  // Scheduling
+  executeAt DateTime // When this should be sent
+  status    String   @default("pending") // pending, sent, failed, cancelled
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+  error     String?  @db.Text
+
+  @@index([status, executeAt])
+  @@index([shop])
 }
 
 model EmailSettings {

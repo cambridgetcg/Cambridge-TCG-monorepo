@@ -331,10 +331,19 @@ export async function purchaseRaffleEntries(
       celebrations: psychologyResult.celebrations,
     };
   } catch (error) {
-    console.error(`${LOG_PREFIX} Error purchasing entries:`, error);
+    const errorMsg = error instanceof Error ? error.message : "An error occurred";
+    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : '';
+    console.error(`${LOG_PREFIX} Error purchasing entries:`, {
+      error: errorMsg,
+      stack: errorStack,
+      shop,
+      customerId,
+      raffleId,
+      quantity,
+    });
     return {
       success: false,
-      error: error instanceof Error ? error.message : "An error occurred",
+      error: errorMsg,
     };
   }
 }

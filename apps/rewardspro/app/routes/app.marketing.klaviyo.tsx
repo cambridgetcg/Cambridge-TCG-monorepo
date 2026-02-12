@@ -47,6 +47,7 @@ import db from "~/db.server";
 import { KlaviyoService } from "~/services/klaviyo.server";
 import type { EmailProvider } from "@prisma/client";
 import { klaviyoConnectionSchema, safeValidate } from "~/utils/validation.server";
+import { encryptSecret, decryptSecret } from "~/utils/encryption.server";
 
 // ============================================
 // TYPES
@@ -146,7 +147,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     if (emailSettings?.klaviyoApiKey) {
       try {
         const klaviyo = new KlaviyoService({
-          apiKey: emailSettings.klaviyoApiKey,
+          apiKey: decryptSecret(emailSettings.klaviyoApiKey),
         });
         klaviyoLists = await klaviyo.getLists();
       } catch (error) {
@@ -259,7 +260,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const connectionData = {
       emailProvider: emailProvider as EmailProvider,
       klaviyoEnabled: emailProvider !== "SENDGRID",
-      klaviyoApiKey: klaviyoApiKey || null,
+      klaviyoApiKey: klaviyoApiKey ? encryptSecret(klaviyoApiKey) : null,
       klaviyoPublicKey: klaviyoPublicKey || null,
       klaviyoDefaultListId: klaviyoDefaultListId || null,
       klaviyoSyncProfiles,
@@ -373,7 +374,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     try {
-      const klaviyo = new KlaviyoService({ apiKey: settings.klaviyoApiKey });
+      const klaviyo = new KlaviyoService({ apiKey: decryptSecret(settings.klaviyoApiKey) });
       const isValid = await klaviyo.validateApiKey();
       return json({
         success: isValid,

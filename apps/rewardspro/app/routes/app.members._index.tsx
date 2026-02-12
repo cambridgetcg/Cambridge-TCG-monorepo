@@ -300,10 +300,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Search filter (case-insensitive)
     if (searchQuery) {
-      whereClause.email = {
-        contains: searchQuery,
-        mode: 'insensitive'
-      };
+      whereClause.OR = [
+        { email: { contains: searchQuery, mode: 'insensitive' } },
+        { shopifyCustomerId: { contains: searchQuery, mode: 'insensitive' } },
+        { firstName: { contains: searchQuery, mode: 'insensitive' } },
+        { lastName: { contains: searchQuery, mode: 'insensitive' } },
+      ];
     }
 
     // Credit range filter with validation
@@ -1291,6 +1293,30 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           getPointsBalance(customerId, session.shop),
           getTransactionHistory(customerId, session.shop, { limit: 50 }),
         ]);
+
+        // Send points email notification (non-blocking)
+        try {
+          if (customer.email) {
+            const { getCurrencyBranding } = await import("~/services/points-config.server");
+            const { sendPointsEarnedEmail, sendPointsRedeemedEmail } = await import("~/services/email-notifications.server");
+            const branding = await getCurrencyBranding(session.shop);
+
+            if (actionType === "add") {
+              sendPointsEarnedEmail(session.shop, {
+                customerId,
+                email: customer.email,
+                firstName: customer.firstName,
+                pointsEarned: amount,
+                totalBalance: updatedBalance.available,
+                currencyName: branding.name,
+                currencyIcon: branding.icon,
+              }).catch((e: any) => console.error("[Points] Email notification failed:", e));
+            }
+          }
+        } catch (emailError) {
+          // Email is non-critical — don't block the points adjustment response
+          console.error("[Points] Email notification setup error:", emailError);
+        }
 
         return json({
           success: true,
@@ -3290,7 +3316,7 @@ export default function Customers() {
                 <Box minWidth="300px" maxWidth="400px">
                   <TextField
                     label=""
-                    placeholder="Search by customer email or ID"
+                    placeholder="Search by name, email, or ID"
                     value={queryValue}
                     onChange={handleSearch}
                     clearButton

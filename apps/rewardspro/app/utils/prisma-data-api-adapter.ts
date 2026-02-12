@@ -69,6 +69,15 @@ export class DataAPIModelProxy<T = any> {
                 } else if ('lt' in orValue) {
                   orConditions.push(`"${orKey}" < :${paramName}`);
                   params.push(AuroraDataAPI.buildParameter(paramName, orValue.lt));
+                } else if ('contains' in orValue) {
+                  const searchVal = orValue.contains;
+                  const searchMode = orValue.mode || 'sensitive';
+                  if (searchMode === 'insensitive') {
+                    orConditions.push(`LOWER("${orKey}") LIKE LOWER(:${paramName})`);
+                  } else {
+                    orConditions.push(`"${orKey}" LIKE :${paramName}`);
+                  }
+                  params.push(AuroraDataAPI.buildParameter(paramName, `%${searchVal}%`));
                 } else {
                   // Default to equality for other object values
                   orConditions.push(`"${orKey}" = :${paramName}`);
@@ -2137,6 +2146,9 @@ export function createDataAPIPrismaClient() {
           webhookAuditLog: new DataAPIModelProxy("WebhookAuditLog", txAuroraClient),
           systemAlert: new DataAPIModelProxy("SystemAlert", txAuroraClient),
 
+          // Pending Automations (delayed email sends)
+          pendingAutomation: new DataAPIModelProxy("PendingAutomation", txAuroraClient),
+
           // Raw query support for the transaction
           $executeRaw: async (sql: any, ...params: any[]) => {
             // Handle Prisma template literal syntax
@@ -2409,6 +2421,9 @@ export function createDataAPIPrismaClient() {
     processedWebhook: new DataAPIModelProxy("ProcessedWebhook", client),
     webhookAuditLog: new DataAPIModelProxy("WebhookAuditLog", client),
     systemAlert: new DataAPIModelProxy("SystemAlert", client),
+
+    // Pending Automations (delayed email sends)
+    pendingAutomation: new DataAPIModelProxy("PendingAutomation", client),
 
     // Disconnect (no-op for Data API)
     $disconnect: async () => {

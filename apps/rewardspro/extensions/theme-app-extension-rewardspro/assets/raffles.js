@@ -359,7 +359,9 @@
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.message || 'Purchase failed');
+          const serverError = data.error || data.message || 'Purchase failed';
+          log.error('Purchase rejected by server:', { success: data.success, error: data.error, message: data.message, status: response.status });
+          throw new Error(serverError);
         }
 
         // Update local state from response
@@ -395,7 +397,7 @@
         );
 
       } catch (error) {
-        log.error('Purchase error:', error.message);
+        log.error('Purchase error:', error.message, { raffleId, quantity, stack: error.stack });
         this.showToast(error.message || 'Purchase failed', 'error');
       } finally {
         this.state.purchasing[raffleId] = false;
@@ -435,7 +437,9 @@
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.message || 'Failed to claim free entry');
+          const serverError = data.error || data.message || 'Failed to claim free entry';
+          log.error('Free entry rejected by server:', { success: data.success, error: data.error, message: data.message, status: response.status });
+          throw new Error(serverError);
         }
 
         // Update local state
@@ -455,7 +459,7 @@
         this.showToast('Free entry claimed!', 'success');
 
       } catch (error) {
-        log.error('Free entry error:', error.message);
+        log.error('Free entry error:', error.message, { raffleId, stack: error.stack });
         this.showToast(error.message || 'Failed to claim free entry', 'error');
       } finally {
         this.state.purchasing[raffleId] = false;

@@ -31,8 +31,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     );
   }
 
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Validate email format (RFC 5322 simplified — requires local part, @, domain with TLD)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(toEmail)) {
     return json(
       { success: false, error: "Invalid email address" },

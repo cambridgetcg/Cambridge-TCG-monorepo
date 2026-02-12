@@ -18,6 +18,48 @@ import * as sendgrid from "./sendgrid.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
 
 // ============================================
+// HTML SANITIZATION
+// ============================================
+
+/**
+ * Sanitize HTML content for email sending.
+ * Strips dangerous tags (script, iframe, object, embed, form, etc.) and
+ * event handler attributes (onclick, onerror, onload, etc.) to prevent
+ * XSS if an admin account is compromised.
+ */
+function sanitizeEmailHtml(html: string): string {
+  // Remove dangerous tags and their contents
+  let sanitized = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed\b[^>]*>[\s\S]*?<\/embed>/gi, "")
+    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, "")
+    .replace(/<input\b[^>]*\/?>/gi, "")
+    .replace(/<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi, "")
+    .replace(/<select\b[^>]*>[\s\S]*?<\/select>/gi, "")
+    .replace(/<button\b[^>]*>[\s\S]*?<\/button>/gi, "")
+    .replace(/<applet\b[^>]*>[\s\S]*?<\/applet>/gi, "")
+    .replace(/<base\b[^>]*\/?>/gi, "")
+    .replace(/<link\b[^>]*\/?>/gi, "")
+    .replace(/<meta\b[^>]*\/?>/gi, "");
+
+  // Remove self-closing dangerous tags
+  sanitized = sanitized
+    .replace(/<script\b[^>]*\/>/gi, "")
+    .replace(/<iframe\b[^>]*\/>/gi, "");
+
+  // Remove event handler attributes (on*)
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+
+  // Remove javascript: and data: protocol URLs in href/src attributes
+  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""');
+  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi, '$1=""');
+
+  return sanitized;
+}
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -330,11 +372,14 @@ export async function sendCampaignEmails(
     where: { id: campaign.templateId, shop },
   });
 
-  const htmlContent = template?.htmlContent || "";
+  const rawHtmlContent = template?.htmlContent || "";
 
-  if (!htmlContent) {
+  if (!rawHtmlContent) {
     return { sent: 0, failed: recipients.length, errors: ["No email content - template not found or has no content"] };
   }
+
+  // Sanitize HTML to strip dangerous tags/attributes (XSS prevention)
+  const htmlContent = sanitizeEmailHtml(rawHtmlContent);
 
   // Filter recipients with valid emails
   const validRecipients = recipients.filter((r) => r.email && r.email.includes("@"));

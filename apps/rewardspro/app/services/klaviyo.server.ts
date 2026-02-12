@@ -17,6 +17,7 @@ import {
 import db from "~/db.server";
 import type { Customer, Tier } from "@prisma/client";
 import crypto from "crypto";
+import { decryptSecret } from "~/utils/encryption.server";
 
 // ============================================
 // TYPES
@@ -458,7 +459,7 @@ export async function getKlaviyoService(
   // Fall back to API key if OAuth not connected
   if (settings.klaviyoApiKey) {
     return new KlaviyoService({
-      apiKey: settings.klaviyoApiKey,
+      apiKey: decryptSecret(settings.klaviyoApiKey),
       publicKey: settings.klaviyoPublicKey || undefined,
       defaultListId: settings.klaviyoDefaultListId || undefined,
     });

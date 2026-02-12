@@ -495,12 +495,57 @@ export class SQSEmailQueueService {
           dlqResponse.Attributes?.ApproximateNumberOfMessages || "0",
           10
         );
+
+        // Alert if DLQ has messages — these are permanently failed emails
+        if (stats.dlqMessages > 0) {
+          console.error(
+            `[SQS Email] ALERT: ${stats.dlqMessages} message(s) in DLQ! ` +
+            `These emails failed after 3 retries and need manual review. ` +
+            `DLQ URL: ${this.dlqUrl}`
+          );
+        }
       }
 
       return stats;
     } catch (error) {
       console.error("[SQS Email] Failed to get queue stats:", error);
       return null;
+    }
+  }
+
+  /**
+   * Check DLQ health and log alerts for failed messages.
+   * Can be called from a cron job for periodic monitoring.
+   */
+  async checkDlqHealth(): Promise<{ healthy: boolean; dlqMessages: number }> {
+    if (!this.enabled || !this.dlqUrl) {
+      return { healthy: true, dlqMessages: 0 };
+    }
+
+    try {
+      const client = getSQSClient();
+      const dlqCommand = new GetQueueAttributesCommand({
+        QueueUrl: this.dlqUrl,
+        AttributeNames: ["ApproximateNumberOfMessages"],
+      });
+
+      const dlqResponse = await client.send(dlqCommand);
+      const dlqMessages = parseInt(
+        dlqResponse.Attributes?.ApproximateNumberOfMessages || "0",
+        10
+      );
+
+      if (dlqMessages > 0) {
+        console.error(
+          `[SQS Email] DLQ HEALTH CHECK FAILED: ${dlqMessages} unprocessed message(s). ` +
+          `Action required: review and reprocess failed emails.`
+        );
+      }
+
+      return { healthy: dlqMessages === 0, dlqMessages };
+    } catch (error) {
+      console.error("[SQS Email] DLQ health check error:", error);
+      return { healthy: false, dlqMessages: -1 };
     }
   }
 }

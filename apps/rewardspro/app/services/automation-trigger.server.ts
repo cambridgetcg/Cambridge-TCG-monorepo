@@ -24,6 +24,26 @@
 import db from "~/db.server";
 import * as sendgrid from "./sendgrid.server";
 
+/**
+ * Strip dangerous HTML tags/attributes for email safety (XSS prevention)
+ */
+function sanitizeEmailHtml(html: string): string {
+  let sanitized = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed\b[^>]*>[\s\S]*?<\/embed>/gi, "")
+    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, "")
+    .replace(/<input\b[^>]*\/?>/gi, "")
+    .replace(/<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi, "")
+    .replace(/<select\b[^>]*>[\s\S]*?<\/select>/gi, "")
+    .replace(/<button\b[^>]*>[\s\S]*?<\/button>/gi, "");
+  sanitized = sanitized.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""');
+  sanitized = sanitized.replace(/(href|src|action)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi, '$1=""');
+  return sanitized;
+}
+
 // ============================================
 // TYPES
 // ============================================
@@ -132,11 +152,31 @@ export async function processAutomationTrigger(
         }
 
         if (automation.delayMinutes > 0) {
-          // Delayed execution — log for now, needs queue/cron in production
-          result.delayed++;
-          console.log(
-            `[AutomationTrigger] Automation ${automation.id} (${automation.name}) has ${automation.delayMinutes}min delay — skipping (delayed execution not yet implemented)`
-          );
+          // Delayed execution — store in PendingAutomation for cron processing
+          try {
+            const executeAt = new Date(Date.now() + automation.delayMinutes * 60 * 1000);
+            await db.pendingAutomation.create({
+              data: {
+                shop: event.shop,
+                automationId: automation.id,
+                automationName: automation.name,
+                templateId: automation.templateId,
+                recipientEmail: event.customer.email,
+                recipientFirstName: event.customer.firstName || null,
+                recipientLastName: event.customer.lastName || null,
+                triggerType: event.type,
+                triggerData: event.data || {},
+                executeAt,
+              },
+            });
+            result.delayed++;
+            console.log(
+              `[AutomationTrigger] Automation ${automation.id} (${automation.name}) scheduled for ${executeAt.toISOString()} (${automation.delayMinutes}min delay)`
+            );
+          } catch (delayError: any) {
+            result.errors.push(`Failed to schedule delayed automation ${automation.id}: ${delayError.message}`);
+            console.error(`[AutomationTrigger] Failed to schedule delayed automation:`, delayError.message);
+          }
           continue;
         }
 
@@ -225,10 +265,13 @@ async function executeAutomationAction(
     throw new Error(`Template ${automation.templateId} not found`);
   }
 
-  const htmlContent = template.htmlContent || template.bodyHtml;
-  if (!htmlContent) {
+  const rawHtmlContent = template.htmlContent || template.bodyHtml;
+  if (!rawHtmlContent) {
     throw new Error(`Template ${automation.templateId} has no HTML content`);
   }
+
+  // Sanitize HTML to strip dangerous tags/attributes
+  const htmlContent = sanitizeEmailHtml(rawHtmlContent);
 
   // Resolve recipient name
   const recipientName = [event.customer.firstName, event.customer.lastName]
@@ -261,4 +304,109 @@ async function executeAutomationAction(
     // Non-critical — don't fail the send if metrics update fails
     console.error(`[AutomationTrigger] Failed to update metrics for automation ${automation.id}`);
   }
+}
+
+// ============================================
+// DELAYED AUTOMATION PROCESSING
+// ============================================
+
+/**
+ * Process pending delayed automations that are due.
+ * Should be called from a cron job (e.g., every minute or every 5 minutes).
+ *
+ * @returns Summary of processed automations
+ */
+export async function processDelayedAutomations(): Promise<{
+  processed: number;
+  sent: number;
+  failed: number;
+}> {
+  const result = { processed: 0, sent: 0, failed: 0 };
+
+  try {
+    // Fetch pending automations that are due
+    const pending = await db.pendingAutomation.findMany({
+      where: {
+        status: "pending",
+        executeAt: { lte: new Date() },
+      },
+      take: 50, // Process in batches to avoid timeouts
+      orderBy: { executeAt: "asc" },
+    });
+
+    if (pending.length === 0) {
+      return result;
+    }
+
+    console.log(`[AutomationTrigger] Processing ${pending.length} delayed automation(s)`);
+
+    for (const item of pending) {
+      result.processed++;
+
+      try {
+        // Fetch template
+        const template = await db.emailTemplate.findFirst({
+          where: { id: item.templateId, shop: item.shop },
+          select: { subject: true, htmlContent: true, bodyHtml: true },
+        });
+
+        if (!template) {
+          throw new Error(`Template ${item.templateId} not found`);
+        }
+
+        const rawHtmlContent = template.htmlContent || template.bodyHtml;
+        if (!rawHtmlContent) {
+          throw new Error(`Template ${item.templateId} has no HTML content`);
+        }
+
+        const htmlContent = sanitizeEmailHtml(rawHtmlContent);
+        const recipientName = [item.recipientFirstName, item.recipientLastName]
+          .filter(Boolean)
+          .join(" ") || undefined;
+
+        // Send via SendGrid
+        await sendgrid.sendEmail(item.shop, {
+          to: { email: item.recipientEmail, name: recipientName },
+          subject: template.subject || "Update from your store",
+          html: htmlContent,
+          categories: ["automation", item.automationId],
+          customArgs: {
+            automation_id: item.automationId,
+            trigger: item.triggerType,
+            shop: item.shop,
+          },
+        });
+
+        // Mark as sent
+        await db.pendingAutomation.update({
+          where: { id: item.id },
+          data: { status: "sent", sentAt: new Date() },
+        });
+
+        // Update automation metrics
+        try {
+          await db.emailAutomation.update({
+            where: { id: item.automationId },
+            data: { totalSent: { increment: 1 }, updatedAt: new Date() },
+          });
+        } catch (e) {
+          // Non-critical
+        }
+
+        result.sent++;
+      } catch (error: any) {
+        // Mark as failed
+        await db.pendingAutomation.update({
+          where: { id: item.id },
+          data: { status: "failed", error: error.message },
+        });
+        result.failed++;
+        console.error(`[AutomationTrigger] Failed to send delayed automation ${item.id}:`, error.message);
+      }
+    }
+  } catch (error: any) {
+    console.error(`[AutomationTrigger] Error processing delayed automations:`, error.message);
+  }
+
+  return result;
 }

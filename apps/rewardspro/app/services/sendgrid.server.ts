@@ -534,6 +534,11 @@ export async function verifyCustomDomain(
     const result = await validateDomainAuthentication(domain.sendgridDomainId);
 
     if (!result.success || !result.data) {
+      // Exponential backoff: calculate next retry time based on error count
+      const currentErrorCount = domain.errorCount || 0;
+      const backoffMinutes = Math.min(Math.pow(2, currentErrorCount) * 5, 1440); // 5min, 10min, 20min, ... up to 24h
+      const nextRetryAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
+
       await db.sendGridDomain.update({
         where: { id: domainId },
         data: {
@@ -542,6 +547,12 @@ export async function verifyCustomDomain(
           errorCount: { increment: 1 },
         },
       });
+
+      console.log(
+        `[SendGrid] Domain verification failed (attempt ${currentErrorCount + 1}). ` +
+        `Next retry suggested after ${nextRetryAt.toISOString()} (${backoffMinutes}min backoff)`
+      );
+
       return { success: false, verified: false, error: result.error };
     }
 
