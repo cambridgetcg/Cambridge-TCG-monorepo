@@ -1,12 +1,12 @@
 /**
  * RewardsPro Raffles Block Styles — Gamified / Bold
  * Raffle-ticket metaphor: vibrant gradients, glow effects, shimmer animations
- *
- * Design System: COAGULATION (shared spacing tokens with membership-widget.css)
  */
 
 /* ============================================
-   DESIGN TOKENS
+   REWARDSPRO SHARED DESIGN TOKENS (v2)
+   KEEP IDENTICAL across all widget CSS files:
+     raffles.css, missions-widget.css, mystery-boxes-widget.css
    ============================================ */
 
 :root {
@@ -44,7 +44,31 @@
   --rp-duration-slow: 300ms;
   --rp-easing: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* RAFFLE COLOR PALETTE */
+  /* SEMANTIC COLORS */
+  --rp-text-color: #212B36;
+  --rp-text-secondary: #637381;
+  --rp-background-color: #ffffff;
+  --rp-background-subtle: #f8f9fa;
+  --rp-border-color: rgba(0, 0, 0, 0.08);
+
+  /* STATE COLORS */
+  --rp-color-success: #22c55e;
+  --rp-color-error: #ef4444;
+  --rp-color-warning: #f59e0b;
+
+  /* RARITY COLORS */
+  --rp-rarity-common: #6B7280;
+  --rp-rarity-uncommon: #22c55e;
+  --rp-rarity-rare: #3b82f6;
+  --rp-rarity-epic: #a855f7;
+  --rp-rarity-legendary: #f59e0b;
+}
+
+/* ============================================
+   RAFFLE MODULE TOKENS
+   ============================================ */
+
+:root {
   --rp-raffle-gradient-start: #7c3aed;
   --rp-raffle-gradient-mid: #a855f7;
   --rp-raffle-gradient-end: #ec4899;

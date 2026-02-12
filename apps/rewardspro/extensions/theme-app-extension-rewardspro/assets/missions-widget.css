@@ -2,9 +2,78 @@
  * Missions Widget Styles
  * Gamified missions UI with rarity effects and celebration animations
  *
- * Reuses existing --rp-* design tokens from membership-widget.css.
  * All classes prefixed .rp-missions- to avoid conflicts.
  */
+
+/* ============================================
+   REWARDSPRO SHARED DESIGN TOKENS (v2)
+   KEEP IDENTICAL across all widget CSS files:
+     raffles.css, missions-widget.css, mystery-boxes-widget.css
+   ============================================ */
+
+:root {
+  /* SPACING SCALE (4px base) */
+  --rp-space-xs: 4px;
+  --rp-space-sm: 8px;
+  --rp-space-md: 12px;
+  --rp-space-lg: 16px;
+  --rp-space-xl: 24px;
+  --rp-space-2xl: 32px;
+
+  /* TYPOGRAPHY SCALE */
+  --rp-font-xs: 11px;
+  --rp-font-sm: 12px;
+  --rp-font-md: 14px;
+  --rp-font-lg: 16px;
+  --rp-font-xl: 20px;
+  --rp-font-2xl: 24px;
+
+  /* BORDER RADIUS */
+  --rp-radius-sm: 4px;
+  --rp-radius-md: 8px;
+  --rp-radius-lg: 12px;
+  --rp-radius-full: 999px;
+
+  /* SHADOWS */
+  --rp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --rp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --rp-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --rp-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.2);
+
+  /* TRANSITIONS */
+  --rp-duration-fast: 150ms;
+  --rp-duration-normal: 200ms;
+  --rp-duration-slow: 300ms;
+  --rp-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* SEMANTIC COLORS */
+  --rp-text-color: #212B36;
+  --rp-text-secondary: #637381;
+  --rp-background-color: #ffffff;
+  --rp-background-subtle: #f8f9fa;
+  --rp-border-color: rgba(0, 0, 0, 0.08);
+
+  /* STATE COLORS */
+  --rp-color-success: #22c55e;
+  --rp-color-error: #ef4444;
+  --rp-color-warning: #f59e0b;
+
+  /* RARITY COLORS */
+  --rp-rarity-common: #6B7280;
+  --rp-rarity-uncommon: #22c55e;
+  --rp-rarity-rare: #3b82f6;
+  --rp-rarity-epic: #a855f7;
+  --rp-rarity-legendary: #f59e0b;
+}
+
+/* ============================================
+   MISSIONS MODULE TOKENS
+   ============================================ */
+
+:root {
+  --rp-missions-primary: #4f46e5;
+  --rp-missions-primary-light: #6366f1;
+}
 
 /* ============================================
    WIDGET CONTAINER
@@ -13,14 +82,14 @@
 .rp-missions-root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
-  color: #1f2937;
+  color: var(--rp-text-color);
   -webkit-font-smoothing: antialiased;
 }
 
 .rp-missions-widget {
-  background: #ffffff;
-  border-radius: var(--rp-radius-lg, 12px);
-  box-shadow: var(--rp-shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+  background: var(--rp-background-color);
+  border-radius: var(--rp-radius-lg);
+  box-shadow: var(--rp-shadow-md);
   overflow: hidden;
   max-width: 480px;
   margin: 0 auto;
@@ -31,7 +100,7 @@
    ============================================ */
 
 .rp-missions-stats {
-  padding: var(--rp-space-lg, 16px) var(--rp-space-xl, 24px);
+  padding: var(--rp-space-lg) var(--rp-space-xl);
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   color: #ffffff;
 }
@@ -39,15 +108,15 @@
 .rp-missions-stats__level {
   display: flex;
   align-items: center;
-  gap: var(--rp-space-md, 12px);
-  margin-bottom: var(--rp-space-md, 12px);
+  gap: var(--rp-space-md);
+  margin-bottom: var(--rp-space-md);
 }
 
 .rp-missions-stats__level-badge {
   width: 48px;
   height: 48px;
-  border-radius: var(--rp-radius-full, 999px);
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-radius: var(--rp-radius-full);
+  background: linear-gradient(135deg, var(--rp-color-warning), #d97706);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -56,7 +125,7 @@
 }
 
 .rp-missions-stats__level-num {
-  font-size: var(--rp-font-xl, 20px);
+  font-size: var(--rp-font-xl);
   font-weight: 800;
   color: #ffffff;
 }
@@ -67,76 +136,76 @@
 }
 
 .rp-missions-stats__xp-label {
-  font-size: var(--rp-font-sm, 12px);
+  font-size: var(--rp-font-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: 0.8;
-  margin-bottom: var(--rp-space-xs, 4px);
+  margin-bottom: var(--rp-space-xs);
 }
 
 .rp-missions-stats__xp-bar {
   height: 8px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: var(--rp-radius-full, 999px);
+  border-radius: var(--rp-radius-full);
   overflow: hidden;
-  margin-bottom: var(--rp-space-xs, 4px);
+  margin-bottom: var(--rp-space-xs);
 }
 
 .rp-missions-stats__xp-fill {
   height: 100%;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  border-radius: var(--rp-radius-full, 999px);
-  transition: width var(--rp-duration-slow, 300ms) var(--rp-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  background: linear-gradient(90deg, var(--rp-color-warning), #fbbf24);
+  border-radius: var(--rp-radius-full);
+  transition: width var(--rp-duration-slow) var(--rp-easing);
 }
 
 .rp-missions-stats__xp-text {
-  font-size: var(--rp-font-xs, 11px);
+  font-size: var(--rp-font-xs);
   opacity: 0.7;
 }
 
 /* Bonuses row */
 .rp-missions-stats__bonuses {
   display: flex;
-  gap: var(--rp-space-lg, 16px);
+  gap: var(--rp-space-lg);
   flex-wrap: wrap;
-  margin-bottom: var(--rp-space-sm, 8px);
+  margin-bottom: var(--rp-space-sm);
 }
 
 .rp-missions-stats__streak,
 .rp-missions-stats__combo {
   display: flex;
   align-items: center;
-  gap: var(--rp-space-xs, 4px);
-  font-size: var(--rp-font-sm, 12px);
+  gap: var(--rp-space-xs);
+  font-size: var(--rp-font-sm);
 }
 
 .rp-missions-stats__streak-emoji {
-  font-size: var(--rp-font-lg, 16px);
+  font-size: var(--rp-font-lg);
 }
 
 .rp-missions-stats__streak-count,
 .rp-missions-stats__combo-count {
-  font-size: var(--rp-font-sm, 12px);
+  font-size: var(--rp-font-sm);
   font-weight: 500;
 }
 
 .rp-missions-stats__combo-icon {
-  font-size: var(--rp-font-lg, 16px);
+  font-size: var(--rp-font-lg);
 }
 
 .rp-missions-stats__bonus-badge {
   display: inline-block;
   padding: 1px 6px;
   background: rgba(245, 158, 11, 0.3);
-  border-radius: var(--rp-radius-full, 999px);
-  font-size: var(--rp-font-xs, 11px);
+  border-radius: var(--rp-radius-full);
+  font-size: var(--rp-font-xs);
   font-weight: 600;
   color: #fbbf24;
 }
 
 .rp-missions-stats__total {
-  font-size: var(--rp-font-xs, 11px);
+  font-size: var(--rp-font-xs);
   opacity: 0.6;
 }
 
@@ -146,35 +215,35 @@
 
 .rp-missions-tabs {
   display: flex;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafafa;
+  border-bottom: 1px solid var(--rp-border-color);
+  background: var(--rp-background-subtle);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .rp-missions-tab {
   flex: 1;
-  padding: var(--rp-space-md, 12px) var(--rp-space-lg, 16px);
+  padding: var(--rp-space-md) var(--rp-space-lg);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  font-size: var(--rp-font-md, 14px);
+  font-size: var(--rp-font-md);
   font-weight: 500;
-  color: #6b7280;
+  color: var(--rp-text-secondary);
   cursor: pointer;
-  transition: all var(--rp-duration-fast, 150ms) var(--rp-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  transition: all var(--rp-duration-fast) var(--rp-easing);
   white-space: nowrap;
   font-family: inherit;
 }
 
 .rp-missions-tab:hover {
-  color: #374151;
-  background: #f3f4f6;
+  color: var(--rp-text-color);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .rp-missions-tab--active {
-  color: #4f46e5;
-  border-bottom-color: #4f46e5;
+  color: var(--rp-missions-primary);
+  border-bottom-color: var(--rp-missions-primary);
   font-weight: 600;
 }
 
@@ -185,17 +254,17 @@
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  margin-left: 4px;
-  background: #e5e7eb;
-  border-radius: var(--rp-radius-full, 999px);
-  font-size: var(--rp-font-xs, 11px);
+  margin-left: var(--rp-space-xs);
+  background: var(--rp-border-color);
+  border-radius: var(--rp-radius-full);
+  font-size: var(--rp-font-xs);
   font-weight: 600;
-  color: #6b7280;
+  color: var(--rp-text-secondary);
 }
 
 .rp-missions-tab--active .rp-missions-tab__count {
   background: #eef2ff;
-  color: #4f46e5;
+  color: var(--rp-missions-primary);
 }
 
 /* ============================================
@@ -215,31 +284,32 @@
    ============================================ */
 
 .rp-missions-cards {
-  padding: var(--rp-space-md, 12px);
+  padding: var(--rp-space-md);
   display: flex;
   flex-direction: column;
-  gap: var(--rp-space-md, 12px);
+  gap: var(--rp-space-md);
 }
 
 .rp-missions-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--rp-radius-md, 8px);
-  padding: var(--rp-space-lg, 16px);
-  transition: all var(--rp-duration-normal, 200ms) var(--rp-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  background: var(--rp-background-color);
+  border: 1px solid var(--rp-border-color);
+  border-radius: var(--rp-radius-md);
+  padding: var(--rp-space-lg);
+  transition: all var(--rp-duration-normal) var(--rp-easing);
 }
 
 .rp-missions-card:hover {
-  border-color: #d1d5db;
-  box-shadow: var(--rp-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+  transform: translateY(-2px);
+  border-color: rgba(79, 70, 229, 0.2);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
 }
 
 /* Card header */
 .rp-missions-card__header {
   display: flex;
   align-items: flex-start;
-  gap: var(--rp-space-md, 12px);
-  margin-bottom: var(--rp-space-md, 12px);
+  gap: var(--rp-space-md);
+  margin-bottom: var(--rp-space-md);
 }
 
 .rp-missions-card__icon {
@@ -255,16 +325,16 @@
 
 .rp-missions-card__name {
   margin: 0;
-  font-size: var(--rp-font-md, 14px);
+  font-size: var(--rp-font-md);
   font-weight: 600;
-  color: #111827;
+  color: var(--rp-text-color);
   line-height: 1.3;
 }
 
 .rp-missions-card__desc {
   margin: 2px 0 0;
-  font-size: var(--rp-font-sm, 12px);
-  color: #6b7280;
+  font-size: var(--rp-font-sm);
+  color: var(--rp-text-secondary);
   line-height: 1.4;
 }
 
@@ -273,9 +343,9 @@
   align-items: center;
   padding: 2px 8px;
   background: #eef2ff;
-  color: #4f46e5;
-  border-radius: var(--rp-radius-full, 999px);
-  font-size: var(--rp-font-xs, 11px);
+  color: var(--rp-missions-primary);
+  border-radius: var(--rp-radius-full);
+  font-size: var(--rp-font-xs);
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
@@ -283,57 +353,57 @@
 
 /* Progress bar */
 .rp-missions-card__progress {
-  margin-bottom: var(--rp-space-md, 12px);
+  margin-bottom: var(--rp-space-md);
 }
 
 .rp-missions-card__progress-bar {
   height: 6px;
-  background: #f3f4f6;
-  border-radius: var(--rp-radius-full, 999px);
+  background: var(--rp-background-subtle);
+  border-radius: var(--rp-radius-full);
   overflow: hidden;
-  margin-bottom: var(--rp-space-xs, 4px);
+  margin-bottom: var(--rp-space-xs);
 }
 
 .rp-missions-card__progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4f46e5, #6366f1);
-  border-radius: var(--rp-radius-full, 999px);
-  transition: width var(--rp-duration-slow, 300ms) var(--rp-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  background: linear-gradient(90deg, var(--rp-missions-primary), var(--rp-missions-primary-light));
+  border-radius: var(--rp-radius-full);
+  transition: width var(--rp-duration-slow) var(--rp-easing);
 }
 
 .rp-missions-card__progress-text {
   display: flex;
   justify-content: space-between;
-  font-size: var(--rp-font-xs, 11px);
-  color: #9ca3af;
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary);
 }
 
 /* Card footer */
 .rp-missions-card__footer {
   display: flex;
   align-items: center;
-  gap: var(--rp-space-sm, 8px);
+  gap: var(--rp-space-sm);
   flex-wrap: wrap;
 }
 
 .rp-missions-card__reward {
-  font-size: var(--rp-font-xs, 11px);
-  color: #6b7280;
-  background: #f9fafb;
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary);
+  background: var(--rp-background-subtle);
   padding: 2px 8px;
-  border-radius: var(--rp-radius-sm, 4px);
+  border-radius: var(--rp-radius-sm);
 }
 
 .rp-missions-card__time {
-  font-size: var(--rp-font-xs, 11px);
-  color: #9ca3af;
+  font-size: var(--rp-font-xs);
+  color: var(--rp-text-secondary);
   margin-left: auto;
 }
 
 .rp-missions-card__claimed {
-  font-size: var(--rp-font-sm, 12px);
+  font-size: var(--rp-font-sm);
   font-weight: 600;
-  color: #22c55e;
+  color: var(--rp-color-success);
   margin-left: auto;
 }
 
@@ -396,7 +466,7 @@
 
 .rp-missions-rarity--legendary {
   border-color: rgba(245, 158, 11, 0.4);
-  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #fffbeb 0%, var(--rp-background-color) 100%);
 }
 
 .rp-missions-rarity--legendary:hover {
@@ -435,33 +505,33 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--rp-space-sm, 8px);
-  padding: var(--rp-space-sm, 8px) var(--rp-space-lg, 16px);
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-sm) var(--rp-space-lg);
   border: none;
-  border-radius: var(--rp-radius-md, 8px);
-  font-size: var(--rp-font-sm, 12px);
+  border-radius: var(--rp-radius-md);
+  font-size: var(--rp-font-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--rp-duration-fast, 150ms) var(--rp-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  transition: all var(--rp-duration-fast) var(--rp-easing);
   text-decoration: none;
   font-family: inherit;
   line-height: 1.4;
 }
 
 .rp-missions-btn--primary {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  background: linear-gradient(135deg, var(--rp-missions-primary), var(--rp-missions-primary-light));
   color: #ffffff;
-  box-shadow: var(--rp-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+  box-shadow: var(--rp-shadow-sm);
 }
 
 .rp-missions-btn--primary:hover {
   transform: translateY(-1px);
-  box-shadow: var(--rp-shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+  box-shadow: var(--rp-shadow-md);
   filter: brightness(1.1);
 }
 
 .rp-missions-btn--claim {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, var(--rp-color-success), #16a34a);
   color: #ffffff;
   margin-left: auto;
 }
@@ -478,12 +548,12 @@
 }
 
 .rp-missions-btn--secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--rp-background-subtle);
+  color: var(--rp-text-color);
 }
 
 .rp-missions-btn--secondary:hover {
-  background: #e5e7eb;
+  background: var(--rp-border-color);
 }
 
 /* ============================================
@@ -492,24 +562,24 @@
 
 .rp-missions-empty {
   text-align: center;
-  padding: var(--rp-space-2xl, 32px) var(--rp-space-lg, 16px);
-  color: #9ca3af;
+  padding: var(--rp-space-2xl) var(--rp-space-lg);
+  color: var(--rp-text-secondary);
 }
 
 .rp-missions-empty__icon {
   font-size: 32px;
   display: block;
-  margin-bottom: var(--rp-space-sm, 8px);
+  margin-bottom: var(--rp-space-sm);
 }
 
 .rp-missions-empty p {
   margin: 0;
-  font-size: var(--rp-font-md, 14px);
+  font-size: var(--rp-font-md);
 }
 
 .rp-missions-empty__sub {
-  font-size: var(--rp-font-sm, 12px);
-  margin-top: var(--rp-space-xs, 4px);
+  font-size: var(--rp-font-sm);
+  margin-top: var(--rp-space-xs);
 }
 
 /* ============================================
@@ -518,55 +588,26 @@
 
 .rp-missions-guest {
   text-align: center;
-  padding: var(--rp-space-2xl, 32px) var(--rp-space-xl, 24px);
+  padding: var(--rp-space-2xl) var(--rp-space-xl);
 }
 
 .rp-missions-guest__icon {
   font-size: 40px;
   display: block;
-  margin-bottom: var(--rp-space-md, 12px);
+  margin-bottom: var(--rp-space-md);
 }
 
 .rp-missions-guest__title {
-  margin: 0 0 var(--rp-space-sm, 8px);
-  font-size: var(--rp-font-xl, 20px);
+  margin: 0 0 var(--rp-space-sm);
+  font-size: var(--rp-font-xl);
   font-weight: 700;
-  color: #111827;
+  color: var(--rp-text-color);
 }
 
 .rp-missions-guest__message {
-  margin: 0 0 var(--rp-space-lg, 16px);
-  font-size: var(--rp-font-md, 14px);
-  color: #6b7280;
-}
-
-/* ============================================
-   LOADING STATE
-   ============================================ */
-
-.rp-missions-loader {
-  text-align: center;
-  padding: var(--rp-space-2xl, 32px) var(--rp-space-lg, 16px);
-  color: #9ca3af;
-}
-
-.rp-missions-loader__spinner {
-  width: 32px;
-  height: 32px;
-  margin: 0 auto var(--rp-space-md, 12px);
-  border: 3px solid #e5e7eb;
-  border-top-color: #4f46e5;
-  border-radius: 50%;
-  animation: rp-missions-spin 0.8s linear infinite;
-}
-
-@keyframes rp-missions-spin {
-  to { transform: rotate(360deg); }
-}
-
-.rp-missions-loader p {
-  margin: 0;
-  font-size: var(--rp-font-sm, 12px);
+  margin: 0 0 var(--rp-space-lg);
+  font-size: var(--rp-font-md);
+  color: var(--rp-text-secondary);
 }
 
 /* ============================================
@@ -575,19 +616,19 @@
 
 .rp-missions-error {
   text-align: center;
-  padding: var(--rp-space-2xl, 32px) var(--rp-space-lg, 16px);
-  color: #6b7280;
+  padding: var(--rp-space-2xl) var(--rp-space-lg);
+  color: var(--rp-text-secondary);
 }
 
 .rp-missions-error__icon {
   font-size: 32px;
   display: block;
-  margin-bottom: var(--rp-space-sm, 8px);
+  margin-bottom: var(--rp-space-sm);
 }
 
 .rp-missions-error p {
-  margin: 0 0 var(--rp-space-lg, 16px);
-  font-size: var(--rp-font-md, 14px);
+  margin: 0 0 var(--rp-space-lg);
+  font-size: var(--rp-font-md);
 }
 
 /* ============================================
@@ -596,24 +637,37 @@
 
 .rp-missions-toast {
   position: fixed;
-  bottom: 20px;
+  bottom: var(--rp-space-xl);
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: #1f2937;
-  color: #ffffff;
-  padding: var(--rp-space-md, 12px) var(--rp-space-xl, 24px);
-  border-radius: var(--rp-radius-md, 8px);
-  font-size: var(--rp-font-sm, 12px);
-  box-shadow: var(--rp-shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.15));
+  padding: var(--rp-space-md) var(--rp-space-xl);
+  border-radius: var(--rp-radius-md);
+  font-size: var(--rp-font-sm);
+  box-shadow: var(--rp-shadow-lg);
   opacity: 0;
-  transition: all var(--rp-duration-normal, 200ms) var(--rp-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  transition: all var(--rp-duration-normal) var(--rp-easing);
   z-index: 10000;
   pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+  font-weight: 600;
+  background: #1f2937;
+  color: #ffffff;
 }
 
 .rp-missions-toast--visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+.rp-missions-toast--success {
+  background: var(--rp-color-success);
+  color: #ffffff;
+}
+
+.rp-missions-toast--error {
+  background: var(--rp-color-error);
+  color: #ffffff;
 }
 
 /* ============================================
@@ -652,25 +706,25 @@
 .rp-missions-celebration__icon {
   font-size: 64px;
   display: block;
-  margin-bottom: var(--rp-space-md, 12px);
+  margin-bottom: var(--rp-space-md);
   animation: rp-missions-bounce 0.6s ease;
 }
 
 .rp-missions-celebration__content h3 {
-  margin: 0 0 var(--rp-space-sm, 8px);
+  margin: 0 0 var(--rp-space-sm);
   font-size: 28px;
   font-weight: 800;
 }
 
 .rp-missions-celebration__content p {
   margin: 0;
-  font-size: var(--rp-font-lg, 16px);
+  font-size: var(--rp-font-lg);
   opacity: 0.9;
 }
 
 .rp-missions-celebration__xp {
-  margin-top: var(--rp-space-lg, 16px);
-  font-size: var(--rp-font-xl, 20px);
+  margin-top: var(--rp-space-lg);
+  font-size: var(--rp-font-xl);
   font-weight: 700;
   color: #fbbf24;
 }
@@ -708,18 +762,183 @@
 }
 
 /* ============================================
+   SKELETON LOADING
+   ============================================ */
+
+@keyframes rp-missions-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes rp-missions-skeleton-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rp-missions-skeleton {
+  animation: rp-missions-skeleton-fade-in 0.4s ease-out both;
+}
+
+.rp-missions-skeleton__shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-missions-skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--rp-radius-sm);
+}
+
+/* Stats header skeleton */
+.rp-missions-skeleton__stats {
+  padding: var(--rp-space-lg) var(--rp-space-xl);
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-md);
+}
+
+.rp-missions-skeleton__badge {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--rp-radius-full);
+  background: rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.rp-missions-skeleton__stats-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-sm);
+}
+
+.rp-missions-skeleton__stats-line {
+  border-radius: var(--rp-radius-sm);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rp-missions-skeleton__stats-line--label {
+  height: 12px;
+  width: 60px;
+}
+
+.rp-missions-skeleton__stats-line--bar {
+  height: 8px;
+  width: 100%;
+  border-radius: var(--rp-radius-full);
+}
+
+.rp-missions-skeleton__stats-line--xp {
+  height: 10px;
+  width: 80px;
+}
+
+/* Tabs skeleton */
+.rp-missions-skeleton__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--rp-border-color);
+  background: var(--rp-background-subtle);
+  padding: var(--rp-space-md) var(--rp-space-md) 0;
+  gap: var(--rp-space-xl);
+}
+
+.rp-missions-skeleton__tab {
+  height: 14px;
+  width: 60px;
+  border-radius: var(--rp-radius-sm);
+  margin-bottom: var(--rp-space-md);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-missions-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Card skeleton */
+.rp-missions-skeleton__cards {
+  padding: var(--rp-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-md);
+}
+
+.rp-missions-skeleton__card {
+  border: 1px solid var(--rp-border-color);
+  border-radius: var(--rp-radius-md);
+  padding: var(--rp-space-lg);
+  animation: rp-missions-skeleton-fade-in 0.4s ease-out both;
+}
+
+.rp-missions-skeleton__card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rp-space-md);
+  margin-bottom: var(--rp-space-md);
+}
+
+.rp-missions-skeleton__card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--rp-radius-sm);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-missions-skeleton-shimmer 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.rp-missions-skeleton__card-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-xs);
+}
+
+.rp-missions-skeleton__card-line {
+  border-radius: var(--rp-radius-sm);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-missions-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.rp-missions-skeleton__card-line--name {
+  height: 14px;
+  width: 65%;
+}
+
+.rp-missions-skeleton__card-line--desc {
+  height: 12px;
+  width: 90%;
+  animation-delay: 0.1s;
+}
+
+.rp-missions-skeleton__card-xp {
+  width: 52px;
+  height: 20px;
+  border-radius: var(--rp-radius-full);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-missions-skeleton-shimmer 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.rp-missions-skeleton__card-bar {
+  height: 6px;
+  border-radius: var(--rp-radius-full);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-missions-skeleton-shimmer 1.5s ease-in-out infinite;
+  animation-delay: 0.15s;
+}
+
+/* ============================================
    NOSCRIPT FALLBACK
    ============================================ */
 
 .rp-missions-noscript {
-  padding: var(--rp-space-lg, 16px);
+  padding: var(--rp-space-lg);
   text-align: center;
-  font-size: var(--rp-font-md, 14px);
-  color: #6b7280;
+  font-size: var(--rp-font-md);
+  color: var(--rp-text-secondary);
 }
 
 .rp-missions-noscript a {
-  color: #4f46e5;
+  color: var(--rp-missions-primary);
   text-decoration: underline;
 }
 
@@ -729,14 +948,122 @@
 
 .rp-missions-loading {
   text-align: center;
-  padding: var(--rp-space-xl, 24px);
-  color: #9ca3af;
-  font-size: var(--rp-font-sm, 12px);
+  padding: var(--rp-space-xl);
+  color: var(--rp-text-secondary);
+  font-size: var(--rp-font-sm);
 }
 
 /* ============================================
-   RESPONSIVE
+   DARK MODE
    ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .rp-missions-root {
+    --rp-text-color: #e4e5e7;
+    --rp-text-secondary: #9ca3af;
+    --rp-background-color: #1f2937;
+    --rp-background-subtle: #374151;
+    --rp-border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .rp-missions-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--rp-text-color);
+  }
+
+  .rp-missions-tab--active {
+    color: #818cf8;
+    border-bottom-color: #818cf8;
+  }
+
+  .rp-missions-tab--active .rp-missions-tab__count {
+    background: rgba(129, 140, 248, 0.15);
+    color: #818cf8;
+  }
+
+  .rp-missions-card__xp-badge {
+    background: rgba(129, 140, 248, 0.15);
+    color: #818cf8;
+  }
+
+  .rp-missions-rarity--legendary {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, var(--rp-background-color) 100%);
+  }
+
+  .rp-missions-rarity--legendary .rp-missions-card__xp-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+  }
+
+  .rp-missions-rarity--rare .rp-missions-card__xp-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+  }
+
+  .rp-missions-rarity--epic .rp-missions-card__xp-badge {
+    background: rgba(168, 85, 247, 0.15);
+    color: #c4b5fd;
+  }
+
+  .rp-missions-btn--secondary {
+    background: var(--rp-background-subtle);
+    color: var(--rp-text-color);
+  }
+
+  .rp-missions-btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .rp-missions-guest__title {
+    color: var(--rp-text-color);
+  }
+
+  .rp-missions-noscript a {
+    color: #818cf8;
+  }
+
+  /* Skeleton dark mode */
+  .rp-missions-skeleton__tab,
+  .rp-missions-skeleton__card-icon,
+  .rp-missions-skeleton__card-line,
+  .rp-missions-skeleton__card-xp,
+  .rp-missions-skeleton__card-bar {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+  }
+
+  .rp-missions-skeleton__stats-line {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .rp-missions-skeleton__badge {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+@media (max-width: 768px) {
+  .rp-missions-widget {
+    max-width: 100%;
+    border-radius: var(--rp-radius-md);
+  }
+
+  .rp-missions-stats {
+    padding: var(--rp-space-md) var(--rp-space-lg);
+  }
+
+  .rp-missions-stats__level-badge {
+    width: 42px;
+    height: 42px;
+  }
+
+  .rp-missions-stats__level-num {
+    font-size: var(--rp-font-lg);
+  }
+}
 
 @media (max-width: 480px) {
   .rp-missions-widget {
@@ -745,7 +1072,7 @@
   }
 
   .rp-missions-stats {
-    padding: var(--rp-space-md, 12px) var(--rp-space-lg, 16px);
+    padding: var(--rp-space-md) var(--rp-space-lg);
   }
 
   .rp-missions-stats__level-badge {
@@ -754,16 +1081,16 @@
   }
 
   .rp-missions-stats__level-num {
-    font-size: var(--rp-font-lg, 16px);
+    font-size: var(--rp-font-lg);
   }
 
   .rp-missions-cards {
-    padding: var(--rp-space-sm, 8px);
-    gap: var(--rp-space-sm, 8px);
+    padding: var(--rp-space-sm);
+    gap: var(--rp-space-sm);
   }
 
   .rp-missions-card {
-    padding: var(--rp-space-md, 12px);
+    padding: var(--rp-space-md);
   }
 
   .rp-missions-card__icon {
@@ -771,7 +1098,111 @@
   }
 
   .rp-missions-tab {
-    padding: var(--rp-space-sm, 8px) var(--rp-space-md, 12px);
-    font-size: var(--rp-font-sm, 12px);
+    padding: var(--rp-space-sm) var(--rp-space-md);
+    font-size: var(--rp-font-sm);
+  }
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .rp-missions-card,
+  .rp-missions-btn,
+  .rp-missions-tab,
+  .rp-missions-stats__xp-fill,
+  .rp-missions-card__progress-fill,
+  .rp-missions-toast,
+  .rp-missions-celebration,
+  .rp-missions-celebration__content {
+    transition: none;
+  }
+
+  .rp-missions-card:hover {
+    transform: none;
+  }
+
+  .rp-missions-btn--primary:hover,
+  .rp-missions-btn--claim:hover {
+    transform: none;
+  }
+
+  .rp-missions-rarity--legendary .rp-missions-card__name {
+    animation: none;
+    -webkit-text-fill-color: #d97706;
+    background: none;
+  }
+
+  .rp-missions-celebration__icon {
+    animation: none;
+  }
+
+  .rp-missions-confetti {
+    animation: none;
+    display: none;
+  }
+
+  /* Skeleton: static gray instead of shimmer */
+  .rp-missions-skeleton,
+  .rp-missions-skeleton__tab,
+  .rp-missions-skeleton__card,
+  .rp-missions-skeleton__card-icon,
+  .rp-missions-skeleton__card-line,
+  .rp-missions-skeleton__card-xp,
+  .rp-missions-skeleton__card-bar {
+    animation: none;
+  }
+
+  .rp-missions-skeleton__tab,
+  .rp-missions-skeleton__card-icon,
+  .rp-missions-skeleton__card-line,
+  .rp-missions-skeleton__card-xp,
+  .rp-missions-skeleton__card-bar {
+    background: #e0e0e0;
+  }
+}
+
+/* ============================================
+   PRINT
+   ============================================ */
+
+@media print {
+  .rp-missions-widget {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+
+  .rp-missions-card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .rp-missions-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .rp-missions-btn,
+  .rp-missions-toast,
+  .rp-missions-celebration {
+    display: none;
+  }
+
+  .rp-missions-stats {
+    background: #333;
+    color: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .rp-missions-rarity--legendary .rp-missions-card__name {
+    -webkit-text-fill-color: initial;
+    background: none;
+    color: #d97706;
+  }
+
+  .rp-missions-card__claimed {
+    color: #16a34a;
   }
 }

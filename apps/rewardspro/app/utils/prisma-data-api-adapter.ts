@@ -1211,7 +1211,28 @@ export class DataAPIModelProxy<T = any> {
     const setClauses = setFields.map((field, i) => {
       const value = dataWithTimestamp[field];
 
-      // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
+      // Handle Prisma atomic number operations (increment, decrement, multiply, divide)
+      // These arrive as e.g. { increment: 50 } and must become "field" = "field" + :param
+      if (value != null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        if ('increment' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.increment));
+          return `"${field}" = "${field}" + :set${i}`;
+        }
+        if ('decrement' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.decrement));
+          return `"${field}" = "${field}" - :set${i}`;
+        }
+        if ('multiply' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.multiply));
+          return `"${field}" = "${field}" * :set${i}`;
+        }
+        if ('divide' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.divide));
+          return `"${field}" = "${field}" / :set${i}`;
+        }
+      }
+
+      // Handle arrays and objects by JSON-stringifying them
       // Aurora Data API doesn't support array parameters directly
       let paramValue = value;
       let needsJsonbCast = false;
@@ -1297,7 +1318,28 @@ export class DataAPIModelProxy<T = any> {
     const setClauses = setFields.map((field, i) => {
       const value = dataWithTimestamp[field];
 
-      // CRITICAL FIX: Handle arrays and objects by JSON-stringifying them
+      // Handle Prisma atomic number operations (increment, decrement, multiply, divide)
+      // These arrive as e.g. { increment: 50 } and must become "field" = "field" + :param
+      if (value != null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        if ('increment' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.increment));
+          return `"${field}" = "${field}" + :set${i}`;
+        }
+        if ('decrement' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.decrement));
+          return `"${field}" = "${field}" - :set${i}`;
+        }
+        if ('multiply' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.multiply));
+          return `"${field}" = "${field}" * :set${i}`;
+        }
+        if ('divide' in value) {
+          params.push(AuroraDataAPI.buildParameter(`set${i}`, value.divide));
+          return `"${field}" = "${field}" / :set${i}`;
+        }
+      }
+
+      // Handle arrays and objects by JSON-stringifying them
       // Aurora Data API doesn't support array parameters directly
       let paramValue = value;
       let needsJsonbCast = false;

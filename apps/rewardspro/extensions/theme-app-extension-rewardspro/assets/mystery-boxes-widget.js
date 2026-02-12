@@ -209,9 +209,8 @@
       } catch (error) {
         log.error('Open box error:', error.message);
         this.dismissModal();
-        this.renderError(error.message);
-        // Re-render after brief delay to show the error then restore
-        setTimeout(() => this.renderBoxes(), 3000);
+        this.showToast(error.message, 'error');
+        this.renderBoxes();
       }
     }
 
@@ -294,11 +293,32 @@
     // ─── Render: States ────────────────────────────────────
 
     renderLoading() {
+      const skeletonCard = (delay) => `
+        <div class="rp-mb-skeleton" style="animation-delay:${delay}s">
+          <div class="rp-mb-skeleton__image"></div>
+          <div class="rp-mb-skeleton__body">
+            <div class="rp-mb-skeleton__line rp-mb-skeleton__line--name"></div>
+            <div class="rp-mb-skeleton__line rp-mb-skeleton__line--desc"></div>
+            <div class="rp-mb-skeleton__line rp-mb-skeleton__line--desc-short"></div>
+            <div class="rp-mb-skeleton__rarity-row">
+              <div class="rp-mb-skeleton__rarity-dot"></div>
+              <div class="rp-mb-skeleton__rarity-bar"></div>
+            </div>
+            <div class="rp-mb-skeleton__rarity-row">
+              <div class="rp-mb-skeleton__rarity-dot"></div>
+              <div class="rp-mb-skeleton__rarity-bar"></div>
+            </div>
+            <div class="rp-mb-skeleton__cost"></div>
+            <div class="rp-mb-skeleton__btn"></div>
+          </div>
+        </div>`;
+
       this.root.innerHTML = `
         <div class="rp-mb-container">
-          <div class="rp-mb-loading">
-            <div class="rp-mb-loading__spinner"></div>
-            <p class="rp-mb-loading__text">Loading mystery boxes...</p>
+          <div class="rp-mb-grid">
+            ${skeletonCard(0)}
+            ${skeletonCard(0.1)}
+            ${skeletonCard(0.2)}
           </div>
         </div>
       `;
@@ -438,6 +458,7 @@
                       ${canOpen ? '' : 'disabled'}
                       aria-label="Open ${this.escapeHtml(box.name)}">
                 ${canOpen ? 'Open Box' : (box.reason || 'Unavailable')}
+                ${canOpen ? '<span class="rp-mb-btn__shimmer"></span>' : ''}
               </button>
             </div>
           </div>
@@ -634,6 +655,26 @@
           if (box) this.renderConfirmModal(box);
         });
       });
+    }
+
+    // ─── Toast ───────────────────────────────────────────
+
+    showToast(message, type) {
+      const toast = document.createElement('div');
+      toast.className = 'rp-mb-toast rp-mb-toast--' + (type || 'error');
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      // Trigger reflow then animate in
+      toast.offsetHeight; // eslint-disable-line no-unused-expressions
+      toast.classList.add('rp-mb-toast--visible');
+
+      setTimeout(() => {
+        toast.classList.remove('rp-mb-toast--visible');
+        setTimeout(() => {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 300);
+      }, 3000);
     }
 
     // ─── Utilities ─────────────────────────────────────────
