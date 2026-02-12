@@ -10,6 +10,7 @@
 
 import db from "~/db.server";
 import type { TierProduct, Tier } from "@prisma/client";
+import { isShopifyGid, toShopifyGid } from "~/utils/shopify-id-normalizer";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -43,7 +44,9 @@ export interface DeletionResult {
     purchasesDeleted: number;
     subscriptionsUnlinked: number;
     sellingPlanGroupUpdated: boolean;
+    sellingPlanGroupWarning?: string; // Set if SPG removal failed but deletion continued
   };
+  auditTrail?: Array<Record<string, unknown>>; // Full audit history preserved before cascade
 }
 
 export interface RestoreResult {
@@ -373,6 +376,10 @@ export async function deleteTierProduct(
   }
 
   const product = validation.product!;
+  // CRITICAL: Use the resolved DB ID for all subsequent operations.
+  // The input tierProductId may be a Shopify GID or numeric ID, but DB
+  // operations need the actual UUID from the lookup.
+  const resolvedId = product.id;
 
   // Create snapshot of current state for audit log
   const previousState = {
@@ -387,15 +394,23 @@ export async function deleteTierProduct(
   };
 
   try {
-    // Helper: Ensure Shopify Product ID is in GID format
-    const ensureProductGID = (id: string) =>
-      id.includes('gid://shopify') ? id : `gid://shopify/Product/${id}`;
+    // Ensure Shopify Product ID is in GID format using validated normalizer
+    const ensureProductGID = (id: string): string => {
+      if (isShopifyGid(id)) return id;
+      const gid = toShopifyGid(id, "Product");
+      if (!gid) {
+        throw new Error(`[TierProductDeletion] Cannot convert "${id}" to a valid Shopify Product GID`);
+      }
+      return gid;
+    };
 
     // 2. Remove from selling plan group (if has one)
     let sellingPlanGroupUpdated = false;
+    let sellingPlanGroupWarning: string | undefined;
 
     if (product.shopifySellingPlanGroupId) {
-      console.log(`[TierProductDeletion] Removing from selling plan group: ${product.shopifySellingPlanGroupId}`);
+      const spgId = product.shopifySellingPlanGroupId;
+      console.log(`[TierProductDeletion] Removing from selling plan group: ${spgId}`);
 
       try {
         const removeResult = await admin.graphql(`
@@ -410,7 +425,7 @@ export async function deleteTierProduct(
           }
         `, {
           variables: {
-            id: product.shopifySellingPlanGroupId,
+            id: spgId,
             productIds: [ensureProductGID(product.shopifyProductId)]
           }
         });
@@ -425,17 +440,19 @@ export async function deleteTierProduct(
         };
 
         if (removeData.data?.sellingPlanGroupRemoveProducts?.userErrors?.length) {
-          console.warn(`[TierProductDeletion] Selling plan group removal warning:`,
-            removeData.data.sellingPlanGroupRemoveProducts.userErrors);
-          // Non-blocking - continue with deletion
+          const errors = removeData.data.sellingPlanGroupRemoveProducts.userErrors;
+          sellingPlanGroupWarning = `Selling plan group ${spgId} removal failed: ${errors.map(e => e.message).join(', ')}. Group may be orphaned in Shopify.`;
+          console.warn(`[TierProductDeletion] ${sellingPlanGroupWarning}`, errors);
+          // Non-blocking — continue with deletion, but track warning
         } else {
           sellingPlanGroupUpdated = true;
           console.log(`[TierProductDeletion] Removed from selling plan group successfully`);
         }
       } catch (spgError: unknown) {
         const errorMessage = spgError instanceof Error ? spgError.message : 'Unknown error';
-        console.warn(`[TierProductDeletion] Failed to remove from selling plan group:`, errorMessage);
-        // Non-blocking - continue with deletion
+        sellingPlanGroupWarning = `Selling plan group ${spgId} removal threw error: ${errorMessage}. Group may be orphaned in Shopify.`;
+        console.warn(`[TierProductDeletion] ${sellingPlanGroupWarning}`);
+        // Non-blocking — continue with deletion, but track warning
       }
     }
 
@@ -491,28 +508,44 @@ export async function deleteTierProduct(
     }
 
     // 4. Soft delete database record (AFTER Shopify success)
+    // Shopify product is now deleted — no new purchases can come in via checkout.
+    // Re-check for active purchases that may have been created during the mutation window (TOCTOU guard).
     console.log(`[TierProductDeletion] Soft deleting database record`);
+
+    const now = new Date();
+    const lateActivePurchases = await db.tierPurchase.count({
+      where: { tierProductId: resolvedId, status: 'ACTIVE', endDate: { gte: now } }
+    }) + await db.tierPurchase.count({
+      where: { tierProductId: resolvedId, status: 'ACTIVE', endDate: null }
+    });
+
+    if (lateActivePurchases > 0) {
+      console.warn(
+        `[TierProductDeletion] TOCTOU: ${lateActivePurchases} active purchase(s) appeared after validation. ` +
+        `Proceeding with soft delete since Shopify product is already removed.`
+      );
+    }
 
     // Count related records for audit log
     const purchasesCount = await db.tierPurchase.count({
-      where: { tierProductId }
+      where: { tierProductId: resolvedId }
     });
 
     const subscriptionsCount = await db.tierSubscription.count({
-      where: { tierProductId }
+      where: { tierProductId: resolvedId }
     });
 
     // 4a. Unlink subscriptions (set tierProductId to null) - do this even for soft delete
     // to prevent issues if product is restored
     const subscriptionsUnlinked = await db.tierSubscription.updateMany({
-      where: { tierProductId },
+      where: { tierProductId: resolvedId },
       data: { tierProductId: null }
     });
     console.log(`[TierProductDeletion] Unlinked ${subscriptionsUnlinked.count} subscription(s)`);
 
     // 4b. Soft delete tier product record (set deletedAt instead of deleting)
     await db.tierProduct.update({
-      where: { id: tierProductId },
+      where: { id: resolvedId },
       data: {
         deletedAt: new Date(),
         deletedBy: options?.performedBy || null,
@@ -523,7 +556,7 @@ export async function deleteTierProduct(
     console.log(`[TierProductDeletion] Tier product soft deleted`);
 
     // 5. Create audit log entry
-    await createAuditLog(shop, tierProductId, {
+    await createAuditLog(shop, resolvedId, {
       action: 'DELETE',
       performedBy: options?.performedBy,
       previousState,
@@ -534,6 +567,8 @@ export async function deleteTierProduct(
         purchasesAffected: purchasesCount,
         subscriptionsUnlinked: subscriptionsUnlinked.count,
         sellingPlanGroupUpdated,
+        sellingPlanGroupWarning,
+        lateActivePurchases: lateActivePurchases > 0 ? lateActivePurchases : undefined,
         softDelete: true,
         recoveryDeadline: new Date(Date.now() + SOFT_DELETE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
       }
@@ -548,7 +583,8 @@ export async function deleteTierProduct(
       cleanupSummary: {
         purchasesDeleted: 0, // Purchases NOT deleted in soft delete
         subscriptionsUnlinked: subscriptionsUnlinked.count,
-        sellingPlanGroupUpdated
+        sellingPlanGroupUpdated,
+        sellingPlanGroupWarning,
       }
     };
 
@@ -675,9 +711,12 @@ export async function restoreTierProduct(
       isActive: product.isActive,
     };
 
+    // Use the resolved DB ID for all subsequent operations
+    const resolvedId = product.id;
+
     // Restore the product
     await db.tierProduct.update({
-      where: { id: tierProductId },
+      where: { id: resolvedId },
       data: {
         deletedAt: null,
         deletedBy: null,
@@ -688,7 +727,7 @@ export async function restoreTierProduct(
     });
 
     // Create audit log
-    await createAuditLog(shop, tierProductId, {
+    await createAuditLog(shop, resolvedId, {
       action: 'RESTORE',
       performedBy: options?.performedBy,
       previousState,
@@ -699,11 +738,11 @@ export async function restoreTierProduct(
       }
     });
 
-    console.log(`[TierProductDeletion] Successfully restored tier product: ${tierProductId}`);
+    console.log(`[TierProductDeletion] Successfully restored tier product: ${resolvedId}`);
 
     return {
       success: true,
-      restoredProductId: tierProductId
+      restoredProductId: resolvedId
     };
 
   } catch (error: unknown) {
@@ -765,7 +804,10 @@ export async function permanentlyDeleteTierProduct(
       };
     }
 
-    // Create snapshot for audit log
+    // Use the resolved DB ID for all subsequent operations
+    const resolvedId = product.id;
+
+    // Create snapshot for audit log (persisted to console since DB audit cascades)
     const previousState = {
       id: product.id,
       shop: product.shop,
@@ -778,29 +820,53 @@ export async function permanentlyDeleteTierProduct(
       deletedBy: product.deletedBy,
     };
 
-    // Delete related records first
-    // 1. Delete tier purchases
-    const purchasesDeleted = await db.tierPurchase.deleteMany({
-      where: { tierProductId }
-    });
-    console.log(`[TierProductDeletion] Deleted ${purchasesDeleted.count} purchase(s)`);
+    // Fetch full audit history BEFORE delete (cascade will destroy DB audit logs)
+    let auditTrail: Array<Record<string, unknown>> = [];
+    try {
+      const auditLogs = await db.tierProductAuditLog.findMany({
+        where: { tierProductId: resolvedId },
+        orderBy: { createdAt: 'asc' as const },
+      });
+      auditTrail = auditLogs.map((log: any) => ({
+        action: log.action,
+        performedBy: log.performedBy,
+        previousState: log.previousState,
+        newState: log.newState,
+        metadata: log.metadata,
+        createdAt: log.createdAt?.toISOString?.() || log.createdAt,
+      }));
+    } catch (e) {
+      console.warn(`[TierProductDeletion] Could not fetch audit history:`, e);
+    }
 
-    // 2. Audit logs will cascade delete due to relation
-
-    // 3. Delete the tier product permanently
-    await db.tierProduct.delete({
-      where: { id: tierProductId }
-    });
-    console.log(`[TierProductDeletion] Tier product permanently deleted`);
-
-    // Note: We can't create an audit log after deleting since it would cascade delete
-    // Instead, log to console for monitoring
-    console.log(`[TierProductDeletion] PERMANENT_DELETE audit:`, {
+    // Persist complete audit trail to console (durable in Vercel logs)
+    console.log(`[TierProductDeletion] PERMANENT_DELETE audit:`, JSON.stringify({
       action: 'PERMANENT_DELETE',
+      resolvedId,
       performedBy: options?.performedBy,
       previousState,
-      timestamp: new Date().toISOString()
+      auditHistory: auditTrail,
+      timestamp: new Date().toISOString(),
+    }));
+
+    // Wrap in transaction: purchase delete + product delete must be atomic.
+    // If product delete fails, we don't want orphaned deleted purchases.
+    const purchasesDeleted = await (db as any).$transaction(async (tx: any) => {
+      // 1. Delete tier purchases (no onDelete cascade — must be explicit)
+      const deleted = await tx.tierPurchase.deleteMany({
+        where: { tierProductId: resolvedId }
+      });
+
+      // 2. Audit logs will cascade delete due to onDelete: Cascade on TierProductAuditLog
+
+      // 3. Delete the tier product permanently
+      await tx.tierProduct.delete({
+        where: { id: resolvedId }
+      });
+
+      return deleted;
     });
+    console.log(`[TierProductDeletion] Tier product permanently deleted: ${resolvedId} (${purchasesDeleted.count} purchase(s) cleaned up)`);
 
     return {
       success: true,
@@ -809,8 +875,9 @@ export async function permanentlyDeleteTierProduct(
       cleanupSummary: {
         purchasesDeleted: purchasesDeleted.count,
         subscriptionsUnlinked: 0, // Already unlinked during soft delete
-        sellingPlanGroupUpdated: false // Already done during soft delete
-      }
+        sellingPlanGroupUpdated: false, // Already done during soft delete
+      },
+      auditTrail, // Full history preserved before cascade deletion
     };
 
   } catch (error: unknown) {

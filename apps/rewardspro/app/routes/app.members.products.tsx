@@ -776,24 +776,44 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
             // If subscription is enabled, create selling plans
             if (enableSubscription && subscriptionOptions) {
-              const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
-                shop,
-                admin,
-                name: `${tierName} Tier Subscription`,
-                merchantCode: `TIER_${tierName.toUpperCase()}`,
-                description: `Subscription plans for ${tierName} tier membership`,
-                options: [duration as "MONTHLY" | "ANNUAL"],
-                products: [product.id]
-              });
-
-              if (!sellingPlanResult.success) {
-                console.warn('[TierProducts] Could not create selling plans:', sellingPlanResult.error);
+              try {
+                const productVariantMap = new Map<string, string>();
+                productVariantMap.set(tier.id, variant.id);
+                const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
+                  shop,
+                  admin,
+                  tierIds: [tier.id],
+                  productVariantMap,
+                });
+                console.log('[TierProducts] Selling plan group created:', sellingPlanResult.id);
+              } catch (spError: any) {
+                console.warn('[TierProducts] Could not create selling plans:', spError?.message || spError);
               }
             }
           } catch (dbError: any) {
             console.error('[TierProducts] ❌ CRITICAL: Could not create database record!');
             console.error('[TierProducts] Error:', dbError?.message || dbError);
-            // Continue but log the error - the product was created in Shopify
+
+            // Rollback: delete the orphaned Shopify product
+            try {
+              console.log('[TierProducts] Rolling back — deleting orphaned Shopify product:', product.id);
+              await admin.graphql(`
+                mutation DeleteProduct($id: ID!) {
+                  productDelete(input: { id: $id }) {
+                    deletedProductId
+                    userErrors { field message }
+                  }
+                }
+              `, { variables: { id: product.id } });
+              console.log('[TierProducts] Rollback successful — Shopify product deleted');
+            } catch (rollbackError: any) {
+              console.error('[TierProducts] Rollback FAILED — orphaned product remains:', product.id, rollbackError?.message);
+            }
+
+            return json({
+              success: false,
+              error: `Failed to save tier product record: ${dbError?.message || 'Unknown error'}. The Shopify product has been cleaned up. Please try again.`,
+            }, { status: 500 });
           }
         }
 
@@ -961,18 +981,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
             // If subscription is enabled, create selling plans
             if (enableSubscription && subscriptionOptions) {
-              const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
-                shop,
-                admin,
-                name: `${tierName} Tier Subscription`,
-                merchantCode: `TIER_${tierName.toUpperCase()}`,
-                description: `Subscription plans for ${tierName} tier membership`,
-                options: [duration as "MONTHLY" | "ANNUAL"],
-                products: [result.productId]
-              });
-              
-              if (!sellingPlanResult.success) {
-                console.warn('[TierProducts] Could not create selling plans:', sellingPlanResult.error);
+              try {
+                const productVariantMap = new Map<string, string>();
+                productVariantMap.set(tier.id, result.variantId!);
+                const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
+                  shop,
+                  admin,
+                  tierIds: [tier.id],
+                  productVariantMap,
+                });
+                console.log('[TierProducts] Selling plan group created:', sellingPlanResult.id);
+              } catch (spError: any) {
+                console.warn('[TierProducts] Could not create selling plans:', spError?.message || spError);
               }
             }
           } catch (dbError: any) {
@@ -980,11 +1000,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.error('[TierProducts] Error:', dbError?.message || dbError);
             console.error('[TierProducts] Tier Product Data:', JSON.stringify(tierProductData, null, 2));
 
-            // Return error - don't silently fail!
+            // Rollback: delete the orphaned Shopify product
+            try {
+              console.log('[TierProducts] Rolling back — deleting orphaned Shopify product:', result.productId);
+              await admin.graphql(`
+                mutation DeleteProduct($id: ID!) {
+                  productDelete(input: { id: $id }) {
+                    deletedProductId
+                    userErrors { field message }
+                  }
+                }
+              `, { variables: { id: result.productId } });
+              console.log('[TierProducts] Rollback successful — Shopify product deleted');
+            } catch (rollbackError: any) {
+              console.error('[TierProducts] Rollback FAILED — orphaned product remains:', result.productId, rollbackError?.message);
+            }
+
             return json({
               success: false,
-              error: `Shopify product was created but database record failed: ${dbError?.message || 'Unknown error'}. Please check the product in Shopify admin.`,
-              productId: result.productId,  // Include product ID so user can find it in Shopify
+              error: `Failed to save tier product record: ${dbError?.message || 'Unknown error'}. The Shopify product has been cleaned up. Please try again.`,
             }, { status: 500 });
           }
         } else {
@@ -1596,6 +1630,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         if (!tierProduct) {
           return json({ success: false, error: "Tier product not found or does not belong to this shop", message: "Tier product not found or does not belong to this shop" }, { status: 404 });
         }
+
+        // Guard: check for linked purchases before orphan cleanup delete
+        const linkedPurchases = await (db as any).tierPurchase.count({
+          where: { tierProductId },
+        });
+        if (linkedPurchases > 0) {
+          // Delete linked purchases first to avoid FK constraint failure
+          await (db as any).tierPurchase.deleteMany({
+            where: { tierProductId },
+          });
+          console.log(`[TierProducts] Cleaned up ${linkedPurchases} linked purchase(s) before record deletion`);
+        }
+
+        // Unlink any subscriptions referencing this product
+        await (db as any).tierSubscription.updateMany({
+          where: { tierProductId },
+          data: { tierProductId: null },
+        });
 
         // Delete the tier product record
         await (db as any).tierProduct.delete({

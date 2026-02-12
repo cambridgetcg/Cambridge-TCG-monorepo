@@ -670,8 +670,8 @@ export class DataAPIModelProxy<T = any> {
 
       params.push(AuroraDataAPI.buildParameter(`param${i}`, paramValue));
 
-      // Check if this field needs enum casting
-      if (this.isEnumField(field)) {
+      // Check if this field needs enum casting (skip for NULL — PostgreSQL rejects NULL::text::EnumType)
+      if (this.isEnumField(field) && value !== null && value !== undefined) {
         return `:param${i}::text::${this.getEnumType(field)}`;
       }
 
@@ -1254,8 +1254,8 @@ export class DataAPIModelProxy<T = any> {
 
       params.push(AuroraDataAPI.buildParameter(`set${i}`, paramValue));
 
-      // Check if this field needs enum casting
-      if (this.isEnumField(field)) {
+      // Check if this field needs enum casting (skip for NULL — PostgreSQL rejects NULL::text::EnumType)
+      if (this.isEnumField(field) && value !== null && value !== undefined) {
         return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
       }
 
@@ -1361,8 +1361,8 @@ export class DataAPIModelProxy<T = any> {
 
       params.push(AuroraDataAPI.buildParameter(`set${i}`, paramValue));
 
-      // Check if this field needs enum casting
-      if (this.isEnumField(field)) {
+      // Check if this field needs enum casting (skip for NULL — PostgreSQL rejects NULL::text::EnumType)
+      if (this.isEnumField(field) && value !== null && value !== undefined) {
         return `"${field}" = :set${i}::text::${this.getEnumType(field)}`;
       }
 

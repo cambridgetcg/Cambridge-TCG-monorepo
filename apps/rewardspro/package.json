@@ -51,7 +51,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "type": "module",
   "engines": {
