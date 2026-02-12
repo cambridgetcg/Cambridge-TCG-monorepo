@@ -251,11 +251,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         isCurrentTier: tier?.id === t.id
       })),
       isMaxTier,
-      // Points data
+      // Points data — enforce integers (pointsBalance is Decimal(10,2) in DB)
       pointsBalance: {
-        available: pointsBalance.available,
-        lifetime: pointsBalance.lifetime,
-        expiringSoon: pointsBalance.expiringSoon,
+        available: Math.floor(pointsBalance.available),
+        lifetime: Math.floor(pointsBalance.lifetime),
+        expiringSoon: Math.floor(pointsBalance.expiringSoon),
       },
       pointsHistory: pointsHistoryResult.transactions.map(t => ({
         id: t.id,

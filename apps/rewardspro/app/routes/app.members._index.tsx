@@ -1270,8 +1270,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           return json({ success: false, message: "Customer not found" });
         }
 
-        const { adjustPoints } = await import("~/services/points-ledger.server");
-        const { getPointsBalance, getTransactionHistory } = await import("~/services/points-ledger.server");
+        const { adjustPoints, getPointsBalance, getTransactionHistory } = await import("~/services/points-ledger.server");
+
+        // Pre-check balance for removals with user-friendly error
+        if (actionType === "remove") {
+          const currentBalance = await getPointsBalance(customerId, session.shop);
+          if (amount > currentBalance.available) {
+            return json({
+              success: false,
+              message: `Cannot remove ${amount.toLocaleString()} points. Customer only has ${currentBalance.available.toLocaleString()} points available.`
+            });
+          }
+        }
 
         const signedAmount = actionType === "add" ? amount : -amount;
         await adjustPoints(session.shop, customerId, signedAmount, reason, "admin");

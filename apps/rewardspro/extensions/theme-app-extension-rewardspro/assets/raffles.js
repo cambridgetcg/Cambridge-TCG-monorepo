@@ -713,15 +713,39 @@
       let skeletons = '';
 
       for (let i = 0; i < skeletonCount; i++) {
+        const delay = i * 0.15;
+        const heroHtml = this.config.display.showImages
+          ? `<div class="rp-raffle-skeleton__hero">
+              <div class="rp-raffle-skeleton__badge"></div>
+              <div class="rp-raffle-skeleton__notch--left"></div>
+              <div class="rp-raffle-skeleton__notch--right"></div>
+            </div>`
+          : '';
+
         skeletons += `
-          <div class="rp-raffle-skeleton">
-            ${this.config.display.showImages ? '<div class="rp-raffle-skeleton__hero"></div>' : ''}
+          <div class="rp-raffle-skeleton" style="animation-delay: ${delay}s">
+            ${heroHtml}
             <hr class="rp-raffle-skeleton__perforation">
             <div class="rp-raffle-skeleton__body">
-              <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--prize"></div>
-              <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--full"></div>
-              <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--short"></div>
+              <div class="rp-raffle-skeleton__prize-row">
+                <div class="rp-raffle-skeleton__thumb"></div>
+                <div class="rp-raffle-skeleton__prize-details">
+                  <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--prize"></div>
+                  <div class="rp-raffle-skeleton__meta-row">
+                    <div class="rp-raffle-skeleton__badge-pill"></div>
+                    <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--value"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="rp-raffle-skeleton__stats-row">
+                <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--stat"></div>
+                <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--stat"></div>
+              </div>
               <div class="rp-raffle-skeleton__bar"></div>
+              <div class="rp-raffle-skeleton__cost-box">
+                <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--cost-label"></div>
+                <div class="rp-raffle-skeleton__line rp-raffle-skeleton__line--cost-val"></div>
+              </div>
               <div class="rp-raffle-skeleton__btn"></div>
             </div>
           </div>`;
@@ -730,6 +754,7 @@
       this.root.innerHTML = `
         <div class="rp-raffles__header">
           <h2 class="rp-raffles__heading">${this.escapeHtml(this.config.display.heading)}</h2>
+          <div class="rp-raffle-skeleton__balance-pill"></div>
         </div>
         <div class="rp-raffles__grid">${skeletons}</div>
       `;

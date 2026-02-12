@@ -970,6 +970,11 @@
   100% { background-position: -200% 0; }
 }
 
+@keyframes rp-skeleton-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ============================================
    GUEST STATE
    ============================================ */
@@ -1080,13 +1085,33 @@
    SKELETON LOADING
    ============================================ */
 
+/* Shared shimmer background for all skeleton elements */
+.rp-raffle-skeleton__shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Card container — fade in with staggered delay */
 .rp-raffle-skeleton {
   background: var(--rp-background-color, #ffffff);
   border: 1px solid var(--rp-border-color, rgba(0, 0, 0, 0.08));
   border-radius: var(--rp-radius-lg);
   overflow: hidden;
+  animation: rp-skeleton-fade-in 0.4s ease-out both;
 }
 
+/* Header balance pill skeleton */
+.rp-raffle-skeleton__balance-pill {
+  width: 100px;
+  height: 34px;
+  border-radius: var(--rp-radius-full);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Hero zone — matches real card 16:9 ratio + notches + badge */
 .rp-raffle-skeleton__hero {
   width: 100%;
   padding-top: 56.25%;
@@ -1096,68 +1121,161 @@
   animation: rp-shimmer 1.5s ease-in-out infinite;
 }
 
-/* Legacy class alias */
-.rp-raffle-skeleton__image {
-  width: 100%;
-  padding-top: 56.25%;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: rp-shimmer 1.5s ease-in-out infinite;
+.rp-raffle-skeleton__badge {
+  position: absolute;
+  top: var(--rp-space-sm);
+  left: var(--rp-space-sm);
+  width: 52px;
+  height: 20px;
+  border-radius: var(--rp-radius-full);
+  background: rgba(255, 255, 255, 0.25);
 }
 
+.rp-raffle-skeleton__notch--left,
+.rp-raffle-skeleton__notch--right {
+  position: absolute;
+  bottom: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--rp-background-color, #ffffff);
+  z-index: 3;
+}
+
+.rp-raffle-skeleton__notch--left { left: -10px; }
+.rp-raffle-skeleton__notch--right { right: -10px; }
+
+/* Perforation */
 .rp-raffle-skeleton__perforation {
   border: none;
   border-top: 2px dashed rgba(0, 0, 0, 0.06);
   margin: 0;
 }
 
+/* Body */
 .rp-raffle-skeleton__body {
   padding: var(--rp-space-lg);
 }
 
+/* Prize row — thumbnail + details (mirrors real prize-item layout) */
+.rp-raffle-skeleton__prize-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-sm);
+  margin-bottom: var(--rp-space-md);
+}
+
+.rp-raffle-skeleton__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rp-radius-md);
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.5s ease-in-out infinite;
+  animation-delay: 0.1s;
+}
+
+.rp-raffle-skeleton__prize-details {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Meta row — badge pill + value */
+.rp-raffle-skeleton__meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-xs);
+  margin-top: var(--rp-space-xs);
+}
+
+.rp-raffle-skeleton__badge-pill {
+  width: 48px;
+  height: 16px;
+  border-radius: var(--rp-radius-full);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: rp-shimmer 1.5s ease-in-out infinite;
+  animation-delay: 0.2s;
+  flex-shrink: 0;
+}
+
+/* Stats row — two columns side-by-side */
+.rp-raffle-skeleton__stats-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rp-space-md);
+  margin-bottom: var(--rp-space-md);
+}
+
+/* Cost box — matches real cost-row bg box */
+.rp-raffle-skeleton__cost-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--rp-space-sm) var(--rp-space-md);
+  background: var(--rp-background-subtle, #f8f9fa);
+  border-radius: var(--rp-radius-md);
+  margin-bottom: var(--rp-space-md);
+}
+
+/* Shared line element */
 .rp-raffle-skeleton__line {
   height: 14px;
   border-radius: var(--rp-radius-sm);
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: rp-shimmer 1.5s ease-in-out infinite;
-  margin-bottom: var(--rp-space-sm);
+  margin-bottom: 0;
 }
 
 .rp-raffle-skeleton__line--prize {
-  height: 20px;
-  width: 70%;
-  margin-bottom: var(--rp-space-md);
+  height: 18px;
+  width: 75%;
+  animation-delay: 0.15s;
 }
 
-.rp-raffle-skeleton__line--short {
-  width: 60%;
+.rp-raffle-skeleton__line--value {
+  height: 12px;
+  width: 50px;
 }
 
-.rp-raffle-skeleton__line--medium {
-  width: 80%;
+.rp-raffle-skeleton__line--stat {
+  height: 12px;
+  width: 45%;
+  animation-delay: 0.25s;
 }
 
-.rp-raffle-skeleton__line--full {
-  width: 100%;
+.rp-raffle-skeleton__line--cost-label {
+  height: 10px;
+  width: 32px;
 }
 
+.rp-raffle-skeleton__line--cost-val {
+  height: 18px;
+  width: 64px;
+  animation-delay: 0.3s;
+}
+
+/* Progress bar */
 .rp-raffle-skeleton__bar {
   height: 6px;
   border-radius: var(--rp-radius-full);
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: rp-shimmer 1.5s ease-in-out infinite;
-  margin: var(--rp-space-sm) 0 var(--rp-space-md);
+  animation-delay: 0.2s;
+  margin-bottom: var(--rp-space-md);
 }
 
+/* CTA button */
 .rp-raffle-skeleton__btn {
   height: 44px;
   border-radius: var(--rp-radius-md);
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: rp-shimmer 1.5s ease-in-out infinite;
-  margin-top: var(--rp-space-md);
+  animation-delay: 0.35s;
 }
 
 /* ============================================
@@ -1283,13 +1401,27 @@
   }
 
   .rp-raffle-skeleton__hero,
-  .rp-raffle-skeleton__image,
   .rp-raffle-skeleton__line,
   .rp-raffle-skeleton__bar,
-  .rp-raffle-skeleton__btn {
+  .rp-raffle-skeleton__btn,
+  .rp-raffle-skeleton__thumb,
+  .rp-raffle-skeleton__badge-pill,
+  .rp-raffle-skeleton__balance-pill {
     background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
     background-size: 200% 100%;
-    animation: rp-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .rp-raffle-skeleton__badge {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .rp-raffle-skeleton__notch--left,
+  .rp-raffle-skeleton__notch--right {
+    background: var(--rp-background-color, #1f2937);
+  }
+
+  .rp-raffle-skeleton__cost-box {
+    background: rgba(255, 255, 255, 0.05);
   }
 
   .rp-raffle-skeleton__perforation {
@@ -1409,13 +1541,20 @@
     animation: none;
   }
 
+  .rp-raffle-skeleton,
   .rp-raffle-skeleton__hero,
-  .rp-raffle-skeleton__image,
   .rp-raffle-skeleton__line,
   .rp-raffle-skeleton__bar,
-  .rp-raffle-skeleton__btn {
+  .rp-raffle-skeleton__btn,
+  .rp-raffle-skeleton__thumb,
+  .rp-raffle-skeleton__badge-pill,
+  .rp-raffle-skeleton__balance-pill {
     animation: none;
     background: #e0e0e0;
+  }
+
+  .rp-raffle-skeleton {
+    background: var(--rp-background-color, #ffffff);
   }
 
   .rp-raffle__enter-btn--loading::after {

@@ -507,19 +507,34 @@ export function CustomerDetailModal({
               )}
 
               {/* Points Tab */}
-              {selectedTab === 2 && details.currencyConfig && (
+              {selectedTab === 2 && (
                 <Box paddingBlockStart="400">
-                  <PointsTab
-                    customer={{
-                      id: details.customer.id,
-                      email: details.customer.email,
-                      pointsBalance: details.pointsBalance?.available || 0,
-                    }}
-                    currencyConfig={details.currencyConfig}
-                    initialTransactions={details.pointsHistory}
-                    lifetimePoints={details.pointsBalance?.lifetime || 0}
-                    expiringSoon={details.pointsBalance?.expiringSoon || 0}
-                  />
+                  {details.currencyConfig ? (
+                    <PointsTab
+                      customer={{
+                        id: details.customer.id,
+                        email: details.customer.email,
+                        pointsBalance: details.pointsBalance?.available || 0,
+                      }}
+                      currencyConfig={details.currencyConfig}
+                      initialTransactions={details.pointsHistory}
+                      lifetimePoints={details.pointsBalance?.lifetime || 0}
+                      expiringSoon={details.pointsBalance?.expiringSoon || 0}
+                    />
+                  ) : (
+                    <Card>
+                      <Box padding="400">
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodyMd" tone="subdued" alignment="center">
+                            Points system is not configured for this shop.
+                          </Text>
+                          <Text as="p" variant="bodySm" tone="subdued" alignment="center">
+                            Enable the points system in Settings to start tracking customer points.
+                          </Text>
+                        </BlockStack>
+                      </Box>
+                    </Card>
+                  )}
                 </Box>
               )}
 

@@ -71,6 +71,7 @@ export function PointsTab({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPageSize, setSelectedPageSize] = useState(25);
   const [activeAction, setActiveAction] = useState<ActionType>('none');
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const [currentBalance, setCurrentBalance] = useState(customer.pointsBalance);
   const [currentLifetime, setCurrentLifetime] = useState(lifetimePoints);
@@ -79,6 +80,8 @@ export function PointsTab({
   useEffect(() => {
     setCurrentBalance(customer.pointsBalance);
     setCurrentLifetime(lifetimePoints);
+    setCurrentPage(1);
+    setTransactionSearch("");
     if (initialTransactions) {
       setTransactions(initialTransactions);
     }
@@ -118,6 +121,7 @@ export function PointsTab({
 
   const handleAddPoints = useCallback((amount: number, reason: string) => {
     setActiveAction('add');
+    setBannerDismissed(false);
     const formData = new FormData();
     formData.append("intent", "adjustPoints");
     formData.append("customerId", customer.id);
@@ -129,6 +133,7 @@ export function PointsTab({
 
   const handleRemovePoints = useCallback((amount: number, reason: string) => {
     setActiveAction('remove');
+    setBannerDismissed(false);
     const formData = new FormData();
     formData.append("intent", "adjustPoints");
     formData.append("customerId", customer.id);
@@ -144,7 +149,7 @@ export function PointsTab({
     return (
       transaction.type?.toLowerCase().includes(search) ||
       transaction.description?.toLowerCase().includes(search) ||
-      (transaction.metadata as any)?.reason?.toLowerCase().includes(search)
+      (typeof (transaction.metadata as any)?.reason === 'string' && (transaction.metadata as any).reason.toLowerCase().includes(search))
     );
   });
 
@@ -337,6 +342,12 @@ export function PointsTab({
               >
                 <p>{currencyConfig.name} transactions will appear here once the customer earns or spends {currencyConfig.plural.toLowerCase()}.</p>
               </EmptyState>
+            ) : filteredTransactions.length === 0 ? (
+              <Box padding="400">
+                <Text as="p" variant="bodyMd" tone="subdued" alignment="center">
+                  No transactions match your search.
+                </Text>
+              </Box>
             ) : (
               <BlockStack gap="400">
                 <DataTable
@@ -421,6 +432,7 @@ export function PointsTab({
       >
         <Modal.Section>
           <PointsAdjustmentForm
+            key={`add-${showAddModal}`}
             customer={customer}
             type="add"
             onSubmit={handleAddPoints}
@@ -440,6 +452,7 @@ export function PointsTab({
       >
         <Modal.Section>
           <PointsAdjustmentForm
+            key={`remove-${showRemoveModal}`}
             customer={customer}
             type="remove"
             onSubmit={handleRemovePoints}
@@ -451,10 +464,10 @@ export function PointsTab({
       </Modal>
 
       {/* Success/Error Messages */}
-      {actionFetcher.data && (actionFetcher.data as any).message && (
+      {!bannerDismissed && actionFetcher.data && (actionFetcher.data as any).message && (
         <Banner
           tone={(actionFetcher.data as any).success ? "success" : "critical"}
-          onDismiss={() => {}}
+          onDismiss={() => setBannerDismissed(true)}
         >
           <p>{(actionFetcher.data as any).message}</p>
         </Banner>
