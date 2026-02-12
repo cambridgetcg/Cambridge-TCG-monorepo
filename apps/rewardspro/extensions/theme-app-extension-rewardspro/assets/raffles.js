@@ -544,6 +544,127 @@
       return Number(num).toLocaleString();
     }
 
+    formatPrizeValue(prize) {
+      if (!prize || !prize.prizeType) return null;
+      const val = prize.prizeValue || {};
+      switch (prize.prizeType) {
+        case 'DISCOUNT':
+          if (val.type === 'percentage') return `${val.value}% OFF`;
+          if (val.type === 'fixed') return `$${(val.value / 100).toFixed(val.value % 100 === 0 ? 0 : 2)} OFF`;
+          return null;
+        case 'STORE_CREDIT':
+          if (val.amount != null) {
+            const dollars = val.amount / 100;
+            return `$${dollars.toFixed(dollars % 1 === 0 ? 0 : 2)} Credit`;
+          }
+          return null;
+        case 'POINTS':
+          return val.amount != null ? `${this.formatNumber(val.amount)} Points` : null;
+        case 'PRODUCT':
+          return 'Free Product';
+        case 'CUSTOM':
+        default:
+          return null;
+      }
+    }
+
+    prizeTypeBadgeLabel(prizeType) {
+      switch (prizeType) {
+        case 'DISCOUNT': return 'Discount';
+        case 'STORE_CREDIT': return 'Credit';
+        case 'POINTS': return 'Points';
+        case 'PRODUCT': return 'Product';
+        case 'CUSTOM':
+        default: return 'Prize';
+      }
+    }
+
+    buildPrizeSectionHtml(raffle) {
+      const prizes = raffle.prizes;
+
+      // Fallback: no prizes array or empty — show trophy + raffle name (backward-compatible)
+      if (!prizes || prizes.length === 0) {
+        const prizeName = raffle.name;
+        return `
+          <div class="rp-raffle__prize">
+            <svg class="rp-raffle__prize-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
+              <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+              <path d="M18 2H6v7a6 6 0 0012 0V2Z"/>
+            </svg>
+            <h3 class="rp-raffle__prize-name">${this.escapeHtml(prizeName)}</h3>
+          </div>`;
+      }
+
+      const trophySvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2Z"/></svg>';
+
+      if (prizes.length === 1) {
+        // Single prize — hero layout
+        const p = prizes[0];
+        const remaining = p.quantity - p.quantityWon;
+        const valueLabel = this.formatPrizeValue(p);
+        const badgeLabel = this.prizeTypeBadgeLabel(p.prizeType);
+        const badgeType = (p.prizeType || 'custom').toLowerCase();
+
+        const thumbHtml = p.imageUrl
+          ? `<img class="rp-raffle__prize-thumb rp-raffle__prize-thumb--hero" src="${this.escapeHtml(p.imageUrl)}" alt="${this.escapeHtml(p.name)}" loading="lazy">`
+          : `<div class="rp-raffle__prize-thumb-placeholder rp-raffle__prize-thumb-placeholder--hero">${trophySvg}</div>`;
+
+        return `
+          <div class="rp-raffle__prizes">
+            <div class="rp-raffle__prize-item rp-raffle__prize-item--hero">
+              ${thumbHtml}
+              <div class="rp-raffle__prize-item-details">
+                <h3 class="rp-raffle__prize-item-name rp-raffle__prize-item-name--hero">${this.escapeHtml(p.name)}</h3>
+                <div class="rp-raffle__prize-meta">
+                  <span class="rp-raffle__prize-badge rp-raffle__prize-badge--${badgeType}">${this.escapeHtml(badgeLabel)}</span>
+                  ${valueLabel ? `<span class="rp-raffle__prize-value">${this.escapeHtml(valueLabel)}</span>` : ''}
+                  ${remaining > 0 ? `<span class="rp-raffle__prize-remaining">${remaining} left</span>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      // Multiple prizes — header + scrollable list
+      let itemsHtml = '';
+      for (const p of prizes) {
+        const remaining = p.quantity - p.quantityWon;
+        const valueLabel = this.formatPrizeValue(p);
+        const badgeLabel = this.prizeTypeBadgeLabel(p.prizeType);
+        const badgeType = (p.prizeType || 'custom').toLowerCase();
+
+        const thumbHtml = p.imageUrl
+          ? `<img class="rp-raffle__prize-thumb" src="${this.escapeHtml(p.imageUrl)}" alt="${this.escapeHtml(p.name)}" loading="lazy">`
+          : `<div class="rp-raffle__prize-thumb-placeholder">${trophySvg}</div>`;
+
+        itemsHtml += `
+          <div class="rp-raffle__prize-item">
+            ${thumbHtml}
+            <div class="rp-raffle__prize-item-details">
+              <span class="rp-raffle__prize-item-name">${this.escapeHtml(p.name)}</span>
+              <div class="rp-raffle__prize-meta">
+                <span class="rp-raffle__prize-badge rp-raffle__prize-badge--${badgeType}">${this.escapeHtml(badgeLabel)}</span>
+                ${valueLabel ? `<span class="rp-raffle__prize-value">${this.escapeHtml(valueLabel)}</span>` : ''}
+                ${remaining > 0 ? `<span class="rp-raffle__prize-remaining">${remaining} left</span>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      return `
+        <div class="rp-raffle__prizes">
+          <div class="rp-raffle__prizes-header">
+            ${trophySvg}
+            <span>${prizes.length} Prizes</span>
+          </div>
+          <div class="rp-raffle__prizes-list">
+            ${itemsHtml}
+          </div>
+        </div>`;
+    }
+
     getRemainingEntries(raffle) {
       const max = raffle.maxEntriesPerCustomer || Infinity;
       const current = raffle.customerEntries || 0;
@@ -750,18 +871,8 @@
           </div>`;
       }
 
-      // Prize name with trophy icon (raffle.prize = prize name from API, raffle.name = raffle title)
-      const prizeName = raffle.prize || raffle.name;
-      const prizeHtml = `
-        <div class="rp-raffle__prize">
-          <svg class="rp-raffle__prize-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/>
-            <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-            <path d="M18 2H6v7a6 6 0 0012 0V2Z"/>
-          </svg>
-          <h3 class="rp-raffle__prize-name">${this.escapeHtml(prizeName)}</h3>
-        </div>`;
+      // Prize section — rich display with type badges, thumbnails, values
+      const prizeHtml = this.buildPrizeSectionHtml(raffle);
 
       // Stats with icons
       const totalEntries = raffle.totalEntries || 0;

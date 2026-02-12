@@ -834,9 +834,18 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         throw queryErr;
       }
 
-      // Step 2b: Fetch first prize name for each raffle (separate query for Data API compat)
+      // Step 2b: Fetch all prizes for each raffle (separate query for Data API compat)
       currentStep = 'rafflePrize.lookup';
-      const rafflePrizeNames: Record<string, string | null> = {};
+      const rafflePrizesMap: Record<string, Array<{
+        name: string;
+        description: string | null;
+        imageUrl: string | null;
+        prizeType: string;
+        prizeValue: any;
+        quantity: number;
+        quantityWon: number;
+        displayOrder: number;
+      }>> = {};
       if (raffles.length > 0) {
         try {
           const raffleIds = raffles.map((r: any) => r.id);
@@ -844,17 +853,26 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             where: { raffleId: { in: raffleIds } },
             orderBy: { displayOrder: "asc" },
           });
-          // Group by raffleId and take first prize name
           for (const prize of prizes) {
-            if (!rafflePrizeNames[prize.raffleId]) {
-              rafflePrizeNames[prize.raffleId] = prize.name;
+            if (!rafflePrizesMap[prize.raffleId]) {
+              rafflePrizesMap[prize.raffleId] = [];
             }
+            rafflePrizesMap[prize.raffleId].push({
+              name: prize.name,
+              description: prize.description,
+              imageUrl: prize.imageUrl,
+              prizeType: prize.prizeType,
+              prizeValue: prize.prizeValue,
+              quantity: prize.quantity,
+              quantityWon: prize.quantityWon,
+              displayOrder: prize.displayOrder,
+            });
           }
         } catch (prizeErr: any) {
           log.warn('=== RAFFLES STEP 2b: Prize lookup failed (non-fatal) ===', {
             error: prizeErr.message,
           });
-          // Non-fatal — proceed without prize names
+          // Non-fatal — proceed without prize data
         }
       }
 
@@ -939,7 +957,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         endsAt: raffle.endsAt instanceof Date ? raffle.endsAt.toISOString() : raffle.endsAt || null,
         costPerEntry: raffle.entryCost || 0,
         totalEntries: raffle.totalEntries,
-        prize: rafflePrizeNames[raffle.id] || null,
+        prizes: rafflePrizesMap[raffle.id] || [],
         status: "ACTIVE",
         customerEntries: customerEntries[raffle.id] || 0,
         maxEntriesPerCustomer: raffle.maxEntriesPerCustomer,

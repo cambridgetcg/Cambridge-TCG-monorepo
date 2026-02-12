@@ -323,7 +323,9 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     // Remove reward
     if (intent === "removeReward") {
       const rewardId = formData.get("rewardId") as string;
+      console.log(`${LOG_PREFIX} removeReward: rewardId=${rewardId}, boxId=${boxId}, shop=${shop}`);
       await removeReward(rewardId, shop);
+      console.log(`${LOG_PREFIX} removeReward SUCCESS: rewardId=${rewardId}`);
       return json<ActionData>({ success: true, message: "Reward removed" });
     }
 

@@ -159,7 +159,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         uniqueOpeners: box.uniqueOpeners,
         startsAt: box.startsAt.toISOString(),
         endsAt: box.endsAt.toISOString(),
-        rewardCount: box.rewards?.length || box._count?.rewards || 0,
+        rewardCount: box.rewards?.length || 0,
       })),
       stats,
     });

@@ -424,15 +424,84 @@ async function diagnoseMysteryBoxes(shop: string): Promise<ModuleResult> {
     });
   }
 
-  // Step 8: Currency branding
-  const step8 = await runStep("getCurrencyBranding", "Load currency branding", async () => {
+  // Step 8: Canary: include { box: true } on reward (the removeReward/updateReward root cause)
+  const anyRewardId = boxIds.length > 0
+    ? (await db.mysteryBoxReward.findFirst({ where: { boxId: { in: boxIds } }, select: { id: true } }))?.id
+    : null;
+
+  if (anyRewardId) {
+    const step8 = await runStep(
+      "canary.reward.include.box",
+      "Canary: include { box: true } on reward (root cause of remove bug)",
+      async () => {
+        const reward = await db.mysteryBoxReward.findFirst({
+          where: { id: anyRewardId },
+          include: { box: true },
+        } as any);
+        const hasBox = (reward as any)?.box !== undefined;
+        if (hasBox) {
+          return {
+            detail: "reward.box is populated — adapter supports single-level include on this model (unexpected)",
+          };
+        }
+        return {
+          detail: "reward.box is undefined — confirms Data API drops include { box: true }. Use separate queries for reward + box.",
+        };
+      }
+    );
+    steps.push(step8);
+  } else {
+    steps.push({
+      step: "canary.reward.include.box",
+      label: "Canary: include { box: true } on reward",
+      status: "skip",
+      durationMs: 0,
+      detail: "No rewards to test",
+    });
+  }
+
+  // Step 9: Flattened reward-then-box lookup (the fix pattern for removeReward/updateReward)
+  if (anyRewardId) {
+    const step9 = await runStep(
+      "reward.flat.then.box",
+      "Flattened: reward.findFirst flat + box.findFirst by reward.boxId (fix pattern)",
+      async () => {
+        const reward = await db.mysteryBoxReward.findFirst({
+          where: { id: anyRewardId },
+        });
+        if (!reward) throw new Error("Reward not found in flat query");
+
+        const box = await db.mysteryBox.findFirst({
+          where: { id: reward.boxId, shop },
+        });
+        if (!box) throw new Error(`Box ${reward.boxId} not found for shop ${shop}`);
+
+        return {
+          detail: `reward "${reward.name}" → box "${box.name}" (status=${box.status}) — flattened lookup OK`,
+          data: { rewardId: reward.id, boxId: box.id, boxStatus: box.status },
+        };
+      }
+    );
+    steps.push(step9);
+  } else {
+    steps.push({
+      step: "reward.flat.then.box",
+      label: "Flattened reward → box lookup",
+      status: "skip",
+      durationMs: 0,
+      detail: "No rewards to test",
+    });
+  }
+
+  // Step 10: Currency branding
+  const step10 = await runStep("getCurrencyBranding", "Load currency branding", async () => {
     const branding = await getCurrencyBranding(shop);
     return {
       detail: `name="${branding.name}", icon="${branding.icon}"`,
       data: branding,
     };
   });
-  steps.push(step8);
+  steps.push(step10);
 
   const hasFail = steps.some((s) => s.status === "fail");
   const allPass = steps.every((s) => s.status === "pass" || s.status === "skip");

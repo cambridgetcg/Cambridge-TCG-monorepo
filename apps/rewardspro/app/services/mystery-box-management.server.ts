@@ -175,20 +175,17 @@ export async function getMysteryBox(
 
   const box = await db.mysteryBox.findFirst({
     where: { id, shop },
-    include: {
-      rewards: {
-        orderBy: { position: "asc" },
-      },
-      _count: {
-        select: {
-          opens: true,
-          winners: true,
-        },
-      },
-    },
   });
 
-  return box as MysteryBoxWithRewards | null;
+  if (!box) return null;
+
+  // Separate rewards query — Data API adapter drops nested include
+  const rewards = await db.mysteryBoxReward.findMany({
+    where: { boxId: id },
+    orderBy: { position: "asc" },
+  });
+
+  return { ...box, rewards } as MysteryBoxWithRewards;
 }
 
 /**
@@ -214,15 +211,29 @@ export async function getMysteryBoxes(
 
   const boxes = await db.mysteryBox.findMany({
     where,
-    include: options?.includeRewards
-      ? {
-          rewards: { orderBy: { position: "asc" } },
-          _count: { select: { opens: true, winners: true } },
-        }
-      : undefined,
     orderBy: { createdAt: "desc" },
     take: options?.limit,
   });
+
+  // Separate rewards query — Data API adapter drops nested include
+  if (options?.includeRewards && boxes.length > 0) {
+    const boxIds = boxes.map((b) => b.id);
+    const rewards = await db.mysteryBoxReward.findMany({
+      where: { boxId: { in: boxIds } },
+      orderBy: { position: "asc" },
+    });
+
+    const rewardsByBox = new Map<string, typeof rewards>();
+    for (const r of rewards) {
+      const list = rewardsByBox.get(r.boxId) || [];
+      list.push(r);
+      rewardsByBox.set(r.boxId, list);
+    }
+
+    for (const box of boxes) {
+      (box as any).rewards = rewardsByBox.get(box.id) || [];
+    }
+  }
 
   return boxes;
 }
@@ -282,7 +293,6 @@ export async function transitionStatus(
 
   const box = await db.mysteryBox.findFirst({
     where: { id, shop },
-    include: { rewards: true },
   });
 
   if (!box) {
@@ -300,13 +310,18 @@ export async function transitionStatus(
 
   // Validation for specific transitions
   if (newStatus === "SCHEDULED" || newStatus === "ACTIVE") {
+    // Separate rewards query — Data API adapter drops nested include
+    const rewards = await db.mysteryBoxReward.findMany({
+      where: { boxId: id },
+    });
+
     // Must have at least one reward
-    if (box.rewards.length === 0) {
+    if (rewards.length === 0) {
       throw new Error("Mystery box must have at least one reward before activation");
     }
 
     // Probabilities must sum to 100%
-    const probabilityResult = validateProbabilities(box.rewards);
+    const probabilityResult = validateProbabilities(rewards);
     if (!probabilityResult.valid) {
       throw new Error(`Invalid probabilities: ${probabilityResult.errors.join(", ")}`);
     }
@@ -384,12 +399,22 @@ export async function updateReward(
   console.log(`${LOG_PREFIX} updateReward: ${rewardId}`);
 
   // Verify reward's box belongs to shop
+  // NOTE: Flat queries — Data API adapter silently drops include: { box: true }
   const reward = await db.mysteryBoxReward.findFirst({
     where: { id: rewardId },
-    include: { box: true },
   });
 
-  if (!reward?.box || reward.box.shop !== shop) {
+  if (!reward) {
+    console.error(`${LOG_PREFIX} updateReward FAILED: reward ${rewardId} not found`);
+    throw new Error("Reward not found");
+  }
+
+  const box = await db.mysteryBox.findFirst({
+    where: { id: reward.boxId, shop },
+  });
+
+  if (!box) {
+    console.error(`${LOG_PREFIX} updateReward FAILED: box ${reward.boxId} not found for shop ${shop}`);
     throw new Error("Reward not found");
   }
 
@@ -420,17 +445,28 @@ export async function removeReward(rewardId: string, shop: string): Promise<void
   console.log(`${LOG_PREFIX} removeReward: ${rewardId}`);
 
   // Verify reward's box belongs to shop
+  // NOTE: Flat queries — Data API adapter silently drops include: { box: true }
   const reward = await db.mysteryBoxReward.findFirst({
     where: { id: rewardId },
-    include: { box: true },
   });
 
-  if (!reward?.box || reward.box.shop !== shop) {
+  if (!reward) {
+    console.error(`${LOG_PREFIX} removeReward FAILED: reward ${rewardId} not found in DB`);
+    throw new Error("Reward not found");
+  }
+
+  const box = await db.mysteryBox.findFirst({
+    where: { id: reward.boxId, shop },
+  });
+
+  if (!box) {
+    console.error(`${LOG_PREFIX} removeReward FAILED: box ${reward.boxId} not found for shop ${shop}`);
     throw new Error("Reward not found");
   }
 
   // Check if box is active
-  if (reward.box.status === "ACTIVE") {
+  if (box.status === "ACTIVE") {
+    console.warn(`${LOG_PREFIX} removeReward BLOCKED: box ${box.id} is ACTIVE`);
     throw new Error("Cannot remove rewards from an active mystery box");
   }
 

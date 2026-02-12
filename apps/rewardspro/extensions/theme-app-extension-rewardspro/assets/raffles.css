@@ -425,6 +425,196 @@
   background-clip: text;
 }
 
+/* ============================================
+   RICH PRIZE SECTION
+   ============================================ */
+
+/* Container */
+.rp-raffle__prizes {
+  margin-bottom: var(--rp-space-sm);
+}
+
+/* Multi-prize header */
+.rp-raffle__prizes-header {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-sm);
+  font-size: var(--rp-font-md);
+  font-weight: 700;
+  margin-bottom: var(--rp-space-sm);
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.rp-raffle__prizes-header svg {
+  flex-shrink: 0;
+  stroke: var(--rp-raffle-gradient-mid);
+}
+
+/* Scrollable prize list */
+.rp-raffle__prizes-list {
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-xs);
+  scrollbar-width: thin;
+  scrollbar-color: var(--rp-raffle-gradient-mid) transparent;
+}
+
+.rp-raffle__prizes-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rp-raffle__prizes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rp-raffle__prizes-list::-webkit-scrollbar-thumb {
+  background: var(--rp-raffle-gradient-mid);
+  border-radius: var(--rp-radius-full);
+}
+
+/* Prize item — flex row */
+.rp-raffle__prize-item {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-sm);
+  padding: var(--rp-space-sm);
+  background: var(--rp-background-subtle, #f8f9fa);
+  border-radius: var(--rp-radius-md);
+}
+
+/* Hero variant — single prize, gradient border + bg */
+.rp-raffle__prize-item--hero {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(236, 72, 153, 0.06));
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  padding: var(--rp-space-md);
+}
+
+/* Thumbnails */
+.rp-raffle__prize-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rp-radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.rp-raffle__prize-thumb--hero {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rp-radius-md);
+}
+
+/* Placeholder thumbnail */
+.rp-raffle__prize-thumb-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--rp-radius-sm);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-end));
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.rp-raffle__prize-thumb-placeholder--hero {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rp-radius-md);
+}
+
+/* Item details */
+.rp-raffle__prize-item-details {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Item name — gradient text, ellipsis */
+.rp-raffle__prize-item-name {
+  font-size: var(--rp-font-sm);
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: linear-gradient(135deg, var(--rp-raffle-gradient-start), var(--rp-raffle-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.rp-raffle__prize-item-name--hero {
+  font-size: var(--rp-font-lg);
+  font-weight: 800;
+  white-space: normal;
+}
+
+/* Meta row — badge + value + remaining */
+.rp-raffle__prize-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--rp-space-xs);
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+/* Type badges — colored pills */
+.rp-raffle__prize-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--rp-radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.6;
+}
+
+.rp-raffle__prize-badge--discount {
+  background: rgba(236, 72, 153, 0.12);
+  color: #db2777;
+}
+
+.rp-raffle__prize-badge--store_credit {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.rp-raffle__prize-badge--points {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+.rp-raffle__prize-badge--product {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.rp-raffle__prize-badge--custom {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+/* Value label */
+.rp-raffle__prize-value {
+  font-size: var(--rp-font-xs);
+  font-weight: 700;
+  color: var(--rp-text-color, #212B36);
+}
+
+/* Remaining count */
+.rp-raffle__prize-remaining {
+  font-size: 10px;
+  color: var(--rp-text-secondary, #637381);
+  margin-left: auto;
+}
+
 /* Description */
 .rp-raffle__description {
   font-size: var(--rp-font-sm);
@@ -1033,6 +1223,37 @@
     background-clip: text;
   }
 
+  .rp-raffle__prize-item {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .rp-raffle__prize-item--hero {
+    background: linear-gradient(135deg, rgba(196, 181, 253, 0.08), rgba(249, 168, 212, 0.08));
+    border-color: rgba(196, 181, 253, 0.2);
+  }
+
+  .rp-raffle__prize-item-name {
+    background: linear-gradient(135deg, #c4b5fd, #f9a8d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .rp-raffle__prizes-header {
+    background: linear-gradient(135deg, #c4b5fd, #f9a8d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .rp-raffle__prizes-header svg {
+    stroke: #c4b5fd;
+  }
+
+  .rp-raffle__prize-value {
+    color: #e4e5e7;
+  }
+
   .rp-raffle__cost-value {
     background: linear-gradient(135deg, #c4b5fd, #f9a8d4);
     -webkit-background-clip: text;
@@ -1097,6 +1318,22 @@
 
   .rp-raffle__prize-name {
     font-size: 18px;
+  }
+
+  .rp-raffle__prize-thumb,
+  .rp-raffle__prize-thumb-placeholder {
+    width: 30px;
+    height: 30px;
+  }
+
+  .rp-raffle__prize-thumb--hero,
+  .rp-raffle__prize-thumb-placeholder--hero {
+    width: 36px;
+    height: 36px;
+  }
+
+  .rp-raffle__prizes-list {
+    max-height: 120px;
   }
 }
 
@@ -1207,6 +1444,13 @@
   }
 
   .rp-raffle__cost-value {
+    -webkit-text-fill-color: initial;
+    background: none;
+    color: inherit;
+  }
+
+  .rp-raffle__prize-item-name,
+  .rp-raffle__prizes-header {
     -webkit-text-fill-color: initial;
     background: none;
     color: inherit;
