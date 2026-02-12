@@ -682,14 +682,43 @@
     }
 
     /**
-     * Loading state
+     * Loading state — skeleton UI matching real layout
      */
     renderLoading() {
+      var cardSkeleton = function(delay) {
+        return '<div class="rp-missions-skeleton__card" style="animation-delay:' + delay + 's">' +
+          '<div class="rp-missions-skeleton__card-header">' +
+            '<div class="rp-missions-skeleton__card-icon"></div>' +
+            '<div class="rp-missions-skeleton__card-lines">' +
+              '<div class="rp-missions-skeleton__card-line rp-missions-skeleton__card-line--name"></div>' +
+              '<div class="rp-missions-skeleton__card-line rp-missions-skeleton__card-line--desc"></div>' +
+            '</div>' +
+            '<div class="rp-missions-skeleton__card-xp"></div>' +
+          '</div>' +
+          '<div class="rp-missions-skeleton__card-bar"></div>' +
+        '</div>';
+      };
+
       this.root.innerHTML =
-        '<div class="rp-missions-widget rp-missions-widget--loading">' +
-          '<div class="rp-missions-loader">' +
-            '<div class="rp-missions-loader__spinner"></div>' +
-            '<p>Loading missions...</p>' +
+        '<div class="rp-missions-widget rp-missions-skeleton">' +
+          '<div class="rp-missions-skeleton__stats">' +
+            '<div class="rp-missions-skeleton__badge"></div>' +
+            '<div class="rp-missions-skeleton__stats-lines">' +
+              '<div class="rp-missions-skeleton__stats-line rp-missions-skeleton__stats-line--label"></div>' +
+              '<div class="rp-missions-skeleton__stats-line rp-missions-skeleton__stats-line--bar"></div>' +
+              '<div class="rp-missions-skeleton__stats-line rp-missions-skeleton__stats-line--xp"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rp-missions-skeleton__tabs">' +
+            '<div class="rp-missions-skeleton__tab"></div>' +
+            '<div class="rp-missions-skeleton__tab"></div>' +
+            '<div class="rp-missions-skeleton__tab"></div>' +
+            '<div class="rp-missions-skeleton__tab"></div>' +
+          '</div>' +
+          '<div class="rp-missions-skeleton__cards">' +
+            cardSkeleton(0) +
+            cardSkeleton(0.1) +
+            cardSkeleton(0.2) +
           '</div>' +
         '</div>';
     }
