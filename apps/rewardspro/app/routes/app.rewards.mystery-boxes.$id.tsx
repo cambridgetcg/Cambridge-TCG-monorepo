@@ -426,6 +426,11 @@ export default function MysteryBoxDetail() {
           resetRewardForm();
         }
         setEditBoxModalOpen(false);
+        // Sync inline edit values with refreshed loader data
+        setInlineCost(box.openCost.toString());
+        setInlineLimit(box.maxOpensPerCustomer.toString());
+        setEditOpenCost(box.openCost.toString());
+        setEditMaxOpensPerCustomer(box.maxOpensPerCustomer.toString());
       } else if (actionData.error) {
         setToastMessage(actionData.error);
         setToastError(true);

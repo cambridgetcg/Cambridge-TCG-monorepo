@@ -608,6 +608,19 @@
   color: var(--rp-text-color, #212B36);
 }
 
+/* Product link — inherits gradient text, underline on hover */
+.rp-raffle__prize-link {
+  color: inherit;
+  text-decoration: none;
+  -webkit-text-fill-color: inherit;
+}
+
+.rp-raffle__prize-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--rp-raffle-gradient-mid);
+  text-underline-offset: 2px;
+}
+
 /* Remaining count */
 .rp-raffle__prize-remaining {
   font-size: 10px;

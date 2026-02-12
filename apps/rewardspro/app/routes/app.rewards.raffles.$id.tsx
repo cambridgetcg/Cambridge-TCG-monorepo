@@ -352,6 +352,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         prizeValue = {
           productId: formData.get("productId") as string,
           variantId: formData.get("variantId") as string,
+          productHandle: formData.get("productHandle") as string,
           quantity: parseInt(formData.get("productQuantityPerWinner") as string) || 1,
           // Cached for display
           productTitle: formData.get("productTitle") as string,
@@ -638,6 +639,7 @@ export default function RaffleDetail() {
     } else if (prizeForm.prizeType === "PRODUCT" && prizeForm.selectedProduct) {
       formData.append("productId", prizeForm.selectedProduct.productId);
       formData.append("variantId", prizeForm.selectedProduct.variantId);
+      formData.append("productHandle", prizeForm.selectedProduct.handle);
       formData.append("productTitle", prizeForm.selectedProduct.title);
       formData.append("productImage", prizeForm.selectedProduct.image || "");
       formData.append("productPrice", prizeForm.selectedProduct.price);

@@ -599,6 +599,14 @@
 
       const trophySvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2Z"/></svg>';
 
+      // Helper: get product page URL for PRODUCT prizes with a stored handle
+      const getProductUrl = (prize) => {
+        if (prize.prizeType === 'PRODUCT' && prize.prizeValue && prize.prizeValue.productHandle) {
+          return '/products/' + encodeURIComponent(prize.prizeValue.productHandle);
+        }
+        return null;
+      };
+
       if (prizes.length === 1) {
         // Single prize — hero layout
         const p = prizes[0];
@@ -606,17 +614,22 @@
         const valueLabel = this.formatPrizeValue(p);
         const badgeLabel = this.prizeTypeBadgeLabel(p.prizeType);
         const badgeType = (p.prizeType || 'custom').toLowerCase();
+        const productUrl = getProductUrl(p);
 
         const thumbHtml = p.imageUrl
           ? `<img class="rp-raffle__prize-thumb rp-raffle__prize-thumb--hero" src="${this.escapeHtml(p.imageUrl)}" alt="${this.escapeHtml(p.name)}" loading="lazy">`
           : `<div class="rp-raffle__prize-thumb-placeholder rp-raffle__prize-thumb-placeholder--hero">${trophySvg}</div>`;
 
+        const nameHtml = productUrl
+          ? `<a href="${this.escapeHtml(productUrl)}" class="rp-raffle__prize-link" target="_blank" rel="noopener">${this.escapeHtml(p.name)}</a>`
+          : this.escapeHtml(p.name);
+
         return `
           <div class="rp-raffle__prizes">
             <div class="rp-raffle__prize-item rp-raffle__prize-item--hero">
-              ${thumbHtml}
+              ${productUrl ? `<a href="${this.escapeHtml(productUrl)}" target="_blank" rel="noopener">${thumbHtml}</a>` : thumbHtml}
               <div class="rp-raffle__prize-item-details">
-                <h3 class="rp-raffle__prize-item-name rp-raffle__prize-item-name--hero">${this.escapeHtml(p.name)}</h3>
+                <h3 class="rp-raffle__prize-item-name rp-raffle__prize-item-name--hero">${nameHtml}</h3>
                 <div class="rp-raffle__prize-meta">
                   <span class="rp-raffle__prize-badge rp-raffle__prize-badge--${badgeType}">${this.escapeHtml(badgeLabel)}</span>
                   ${valueLabel ? `<span class="rp-raffle__prize-value">${this.escapeHtml(valueLabel)}</span>` : ''}
@@ -634,16 +647,21 @@
         const valueLabel = this.formatPrizeValue(p);
         const badgeLabel = this.prizeTypeBadgeLabel(p.prizeType);
         const badgeType = (p.prizeType || 'custom').toLowerCase();
+        const productUrl = getProductUrl(p);
 
         const thumbHtml = p.imageUrl
           ? `<img class="rp-raffle__prize-thumb" src="${this.escapeHtml(p.imageUrl)}" alt="${this.escapeHtml(p.name)}" loading="lazy">`
           : `<div class="rp-raffle__prize-thumb-placeholder">${trophySvg}</div>`;
 
+        const nameHtml = productUrl
+          ? `<a href="${this.escapeHtml(productUrl)}" class="rp-raffle__prize-link" target="_blank" rel="noopener">${this.escapeHtml(p.name)}</a>`
+          : this.escapeHtml(p.name);
+
         itemsHtml += `
           <div class="rp-raffle__prize-item">
-            ${thumbHtml}
+            ${productUrl ? `<a href="${this.escapeHtml(productUrl)}" target="_blank" rel="noopener">${thumbHtml}</a>` : thumbHtml}
             <div class="rp-raffle__prize-item-details">
-              <span class="rp-raffle__prize-item-name">${this.escapeHtml(p.name)}</span>
+              <span class="rp-raffle__prize-item-name">${nameHtml}</span>
               <div class="rp-raffle__prize-meta">
                 <span class="rp-raffle__prize-badge rp-raffle__prize-badge--${badgeType}">${this.escapeHtml(badgeLabel)}</span>
                 ${valueLabel ? `<span class="rp-raffle__prize-value">${this.escapeHtml(valueLabel)}</span>` : ''}
