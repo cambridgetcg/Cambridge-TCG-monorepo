@@ -999,9 +999,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     } else if (intent === "update-product") {
       const productId = formData.get("productId") as string;
+      const shopifyProductId = formData.get("shopifyProductId") as string;
       const price = parseFloat(formData.get("price") as string);
       const tierName = formData.get("tierName") as string;
       const duration = formData.get("duration") as string;
+
+      // Use the Shopify GID for all GraphQL mutations (productId may be a DB UUID)
+      const shopifyGid = shopifyProductId || productId;
 
       // Update product using productUpdate mutation
       const updateProductResponse = await admin.graphql(
@@ -1032,7 +1036,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         {
           variables: {
             input: {
-              id: productId,
+              id: shopifyGid,
               title: `${tierName} Tier Membership - ${formatDuration(duration)}`,
               status: "ACTIVE",
             }
@@ -1072,7 +1076,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 }
               }
             }`,
-            { variables: { id: productId } }
+            { variables: { id: shopifyGid } }
           );
 
           const optionsResult = await getOptionsResponse.json();
@@ -1112,7 +1116,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             {
               variables: {
                 input: {
-                  id: productId,
+                  id: shopifyGid,
                   // Include productOptions at the product level
                   productOptions: productOptions.map((opt: any) => ({
                     name: opt.name,
@@ -1148,7 +1152,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
     } else if (intent === "sync-product") {
       const productId = formData.get("productId") as string;
-      
+      const shopifyProductId = formData.get("shopifyProductId") as string;
+
+      // Use the Shopify GID for GraphQL queries (productId may be a DB UUID)
+      const shopifyGid = shopifyProductId || productId;
+
       // Fetch product details from Shopify
       const response = await admin.graphql(
         `#graphql
@@ -1171,7 +1179,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }`,
         {
           variables: {
-            id: productId,
+            id: shopifyGid,
           },
         }
       );
@@ -1238,9 +1246,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
     } else if (intent === "publish-product") {
       const productId = formData.get("productId") as string;
+      const shopifyProductId = formData.get("shopifyProductId") as string;
       const publish = formData.get("publish") === "true";
 
-      console.log(`[TierProducts] ${publish ? 'Publishing' : 'Unpublishing'} product: ${productId}`);
+      // Use the Shopify GID for GraphQL mutations (productId may be a DB UUID)
+      const shopifyGid = shopifyProductId || productId;
+
+      console.log(`[TierProducts] ${publish ? 'Publishing' : 'Unpublishing'} product: ${shopifyGid}`);
 
       // First, get the available publications
       const publicationsQuery = `#graphql
@@ -1294,7 +1306,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const publishResponse = await admin.graphql(publishMutation, {
             variables: {
               input: {
-                id: productId,
+                id: shopifyGid,
                 productPublications: [
                   {
                     publicationId: onlineStore.node.id,
@@ -1385,7 +1397,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           const unpublishResponse = await admin.graphql(unpublishMutation, {
             variables: {
               input: {
-                id: productId,
+                id: shopifyGid,
                 productPublications: [
                   {
                     publicationId: onlineStore.node.id
@@ -1875,6 +1887,7 @@ export default function TierProducts() {
     const formData = new FormData();
     formData.append("intent", "update-product");
     formData.append("productId", editingProduct.id);
+    formData.append("shopifyProductId", editingProduct.shopifyProductId);
     formData.append("tierName", editingProduct.tierName);
     formData.append("price", price);
     formData.append("duration", duration);
@@ -2721,6 +2734,7 @@ export default function TierProducts() {
                                   const formData = new FormData();
                                   formData.append("intent", "publish-product");
                                   formData.append("productId", product.id);
+                                  formData.append("shopifyProductId", product.shopifyProductId);
                                   formData.append("publish", product.publishedAt ? "false" : "true");
                                   submit(formData, { method: "post" });
                                 }}
