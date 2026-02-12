@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * RewardsPro Raffles Widget
  * Standalone section block for raffle display and entry
@@ -5,6 +6,24 @@
  * Security: CSS injection protection via sanitizeColor/sanitizeNumber, XSS via escapeHtml
  * Performance: LocalStorage caching with shop-specific keys
  * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
+ */
+
+/**
+ * @typedef {Object} ProxyErrorResponse
+ * @property {false} success
+ * @property {string} error - Machine-readable error message
+ * @property {string} message - Human-readable error message (same as error)
+ */
+
+/**
+ * @typedef {Object} ProxySuccessResponse
+ * @property {true} success
+ * @property {string} [message] - Success message
+ * @property {number} [newBalance] - Updated points balance
+ * @property {number} [newEntryCount] - Customer's entry count for this raffle
+ * @property {number} [totalEntries] - Total entries in raffle
+ * @property {number} [pointsSpent] - Points deducted
+ * @property {string[]} [bonuses] - Applied bonus names
  */
 
 (function() {
@@ -356,6 +375,7 @@
           })
         });
 
+        /** @type {ProxySuccessResponse | ProxyErrorResponse} */
         const data = await response.json();
 
         if (!data.success) {
@@ -434,6 +454,7 @@
           })
         });
 
+        /** @type {ProxySuccessResponse | ProxyErrorResponse} */
         const data = await response.json();
 
         if (!data.success) {

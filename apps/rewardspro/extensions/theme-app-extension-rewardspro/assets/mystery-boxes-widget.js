@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * RewardsPro Mystery Boxes Widget
  * Displays mystery boxes on the storefront with open/reveal flow
@@ -5,6 +6,19 @@
  * Security: HTML escaping on all user-provided content
  * Performance: LocalStorage caching with version + TTL
  * Accessibility: Keyboard support, ARIA attributes, focus management
+ */
+
+/**
+ * @typedef {Object} ProxyErrorResponse
+ * @property {false} success
+ * @property {string} error - Machine-readable error message
+ * @property {string} message - Human-readable error message
+ */
+
+/**
+ * @typedef {Object} ProxySuccessResponse
+ * @property {true} success
+ * @property {string} [message]
  */
 
 (function() {
@@ -142,10 +156,11 @@
           credentials: 'same-origin'
         });
 
+        /** @type {ProxySuccessResponse | ProxyErrorResponse} */
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || 'Failed to load mystery boxes');
+          throw new Error(data.error || data.message || 'Failed to load mystery boxes');
         }
 
         if (!data.enabled) {
@@ -194,10 +209,11 @@
           })
         });
 
+        /** @type {ProxySuccessResponse | ProxyErrorResponse} */
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || 'Failed to open mystery box');
+          throw new Error(data.error || data.message || 'Failed to open mystery box');
         }
 
         // Update local state optimistically

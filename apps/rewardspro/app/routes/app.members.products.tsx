@@ -52,7 +52,7 @@ import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
-import { extractNumericId } from "../utils/shopify-id-normalizer";
+import { extractNumericId, assertShopifyGid } from "../utils/shopify-id-normalizer";
 import { getEntitlements } from "../services/entitlements.server";
 import { FeatureGate, LockedFeature } from "../components/FeatureGate";
 import { useToast } from "../hooks/useToast";
@@ -331,6 +331,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       dbTierProducts.map(p => [extractNumericId(p.shopifyProductId), p])
     );
 
+    // Build set of soft-deleted product IDs to exclude from Shopify results
+    const deletedProductIds = new Set(
+      deletedTierProducts.map((p: any) => extractNumericId(p.shopifyProductId))
+    );
+
     if (productsResult.data?.products?.edges) {
       for (const edge of productsResult.data.products.edges) {
         const product = edge.node;
@@ -363,6 +368,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           // OPTIMIZED: O(1) lookup using pre-built map instead of O(n) find
           // Handles both full GraphQL ID (gid://shopify/Product/123) and numeric ID (123)
           const productNumericId = extractNumericId(product.id);
+
+          // Skip products that were soft-deleted — Shopify may still return them
+          // if the Shopify deletion failed or there's a sync delay
+          if (deletedProductIds.has(productNumericId)) {
+            console.log(`[TierProducts] Skipping soft-deleted product "${product.title}" (${product.id})`);
+            continue;
+          }
+
           const dbProduct = dbProductByNumericId.get(productNumericId);
 
           // Debug logging for tier product resolution
@@ -1006,6 +1019,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // Use the Shopify GID for all GraphQL mutations (productId may be a DB UUID)
       const shopifyGid = shopifyProductId || productId;
+      assertShopifyGid(shopifyGid, "Product");
 
       // Update product using productUpdate mutation
       const updateProductResponse = await admin.graphql(
@@ -1156,6 +1170,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // Use the Shopify GID for GraphQL queries (productId may be a DB UUID)
       const shopifyGid = shopifyProductId || productId;
+      assertShopifyGid(shopifyGid, "Product");
 
       // Fetch product details from Shopify
       const response = await admin.graphql(
@@ -1251,6 +1266,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       // Use the Shopify GID for GraphQL mutations (productId may be a DB UUID)
       const shopifyGid = shopifyProductId || productId;
+      assertShopifyGid(shopifyGid, "Product");
 
       console.log(`[TierProducts] ${publish ? 'Publishing' : 'Unpublishing'} product: ${shopifyGid}`);
 
@@ -1563,7 +1579,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const tierProductId = formData.get("tierProductId") as string;
 
       if (!tierProductId) {
-        return json({ success: false, error: "Tier product ID is required" }, { status: 400 });
+        return json({ success: false, error: "Tier product ID is required", message: "Tier product ID is required" }, { status: 400 });
       }
 
       console.log(`[TierProducts] Deleting tier product record: ${tierProductId}`);
@@ -1578,7 +1594,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         if (!tierProduct) {
-          return json({ success: false, error: "Tier product not found or does not belong to this shop" }, { status: 404 });
+          return json({ success: false, error: "Tier product not found or does not belong to this shop", message: "Tier product not found or does not belong to this shop" }, { status: 404 });
         }
 
         // Delete the tier product record
@@ -1594,9 +1610,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
       } catch (error) {
         console.error('[TierProducts] Error deleting tier product record:', error);
+        const errMsg = error instanceof Error ? error.message : "Failed to delete tier product record";
         return json({
           success: false,
-          error: error instanceof Error ? error.message : "Failed to delete tier product record"
+          error: errMsg,
+          message: errMsg,
         }, { status: 500 });
       }
     } else if (intent === "restore-tier-product") {
@@ -1672,13 +1690,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
     }
 
-    return json({ success: false, error: "Invalid action" }, { status: 400 });
-    
+    return json({ success: false, error: "Invalid action", message: "Invalid action" }, { status: 400 });
+
   } catch (error) {
     console.error("[TierProducts] Action error:", error);
-    return json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : "An error occurred" 
+    const errMsg = error instanceof Error ? error.message : "An error occurred";
+    return json({
+      success: false,
+      error: errMsg,
+      message: errMsg,
     }, { status: 500 });
   }
 };

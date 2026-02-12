@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * RewardsPro Missions Widget
  * Gamified missions UI with XP, streaks, combos, and celebrations
@@ -5,6 +6,19 @@
  * Security: HTML escaping on all dynamic content
  * Performance: LocalStorage caching with shop-specific keys
  * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
+ */
+
+/**
+ * @typedef {Object} ProxyErrorResponse
+ * @property {false} success
+ * @property {string} error - Machine-readable error message
+ * @property {string} message - Human-readable error message
+ */
+
+/**
+ * @typedef {Object} ProxySuccessResponse
+ * @property {true} success
+ * @property {string} [message]
  */
 
 (function() {
@@ -243,11 +257,12 @@
           credentials: 'same-origin'
         });
 
+        /** @type {ProxySuccessResponse | ProxyErrorResponse} */
         const data = await response.json();
         log.debug('Missions response', { success: data.success, enabled: data.enabled });
 
         if (!data.success) {
-          throw new Error(data.error || 'Failed to load missions');
+          throw new Error(data.error || data.message || 'Failed to load missions');
         }
 
         // Missions disabled — show nothing
@@ -319,10 +334,11 @@
           })
         });
 
+        /** @type {ProxySuccessResponse | ProxyErrorResponse} */
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || 'Failed to claim reward');
+          throw new Error(data.error || data.message || 'Failed to claim reward');
         }
 
         log.debug('Reward claimed', data.reward);

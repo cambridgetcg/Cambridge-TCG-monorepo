@@ -9,6 +9,77 @@
  * but the database may store GraphQL format.
  */
 
+// ============================================
+// GID VALIDATION & ASSERTION
+// ============================================
+
+const GID_PATTERN = /^gid:\/\/shopify\/\w+\/\d+$/;
+
+/**
+ * Assert that an ID is a valid Shopify GID before passing it to a GraphQL mutation.
+ * Throws an error with a descriptive message if the ID is not a valid GID.
+ *
+ * @example
+ *   assertShopifyGid(productId, "Product"); // throws if UUID or numeric
+ *   await admin.graphql(mutation, { variables: { input: { id: productId } } });
+ */
+export function assertShopifyGid(id: string, resourceLabel?: string): asserts id is string {
+  if (!GID_PATTERN.test(id)) {
+    const label = resourceLabel || "Resource";
+    throw new Error(
+      `[ShopifyGID] Invalid Shopify GID for ${label}: "${id}". ` +
+      `Expected format: gid://shopify/${label}/<numeric_id>. ` +
+      `Got what looks like a ${id.includes("-") ? "database UUID" : "raw numeric ID"}.`
+    );
+  }
+}
+
+/**
+ * Check if a string is a valid Shopify GID (non-throwing).
+ */
+export function isShopifyGid(id: string): boolean {
+  return GID_PATTERN.test(id);
+}
+
+/**
+ * Convert a numeric ID to a Shopify GID, or pass through if already a GID.
+ * Returns null if the input cannot be converted.
+ *
+ * @example
+ *   toShopifyGid("12345", "Product");       // "gid://shopify/Product/12345"
+ *   toShopifyGid("gid://shopify/Product/12345", "Product"); // pass-through
+ *   toShopifyGid("some-uuid-here", "Product"); // null (cannot convert)
+ */
+export function toShopifyGid(
+  id: string | number | null | undefined,
+  resource: string
+): string | null {
+  if (id === null || id === undefined || id === "") return null;
+
+  const idStr = String(id);
+
+  // Already a GID
+  if (GID_PATTERN.test(idStr)) return idStr;
+
+  // Numeric — convert to GID
+  if (/^\d+$/.test(idStr)) {
+    return `gid://shopify/${resource}/${idStr}`;
+  }
+
+  // GID with different resource type — extract numeric and re-wrap
+  const gidMatch = idStr.match(/gid:\/\/shopify\/\w+\/(\d+)/);
+  if (gidMatch) {
+    return `gid://shopify/${resource}/${gidMatch[1]}`;
+  }
+
+  // UUID or other format — cannot safely convert
+  return null;
+}
+
+// ============================================
+// ID NORMALIZATION
+// ============================================
+
 export interface NormalizedIds {
   productId: string | null;
   variantId: string | null;

@@ -144,34 +144,48 @@ export async function getTierProductSummary(shop: string): Promise<TierProductSu
 
 /**
  * Get metrics per tier product
+ *
+ * NOTE: Uses separate queries instead of nested include because the
+ * Data API adapter silently ignores nested select on relations.
+ * See: MEMORY.md "Critical: Data API Adapter Limitations"
  */
 export async function getTierProductMetrics(shop: string): Promise<TierProductMetrics[]> {
-  // Fetch tier products with their purchases
+  // Fetch tier products (include: tier is safe — hardcoded in adapter)
   const tierProducts = await db.tierProduct.findMany({
     where: {
       shop,
-      deletedAt: null, // Only active products
+      deletedAt: null,
     },
     include: {
-      tier: { select: { name: true } },
-      purchases: {
-        select: {
-          id: true,
-          purchasePrice: true,
-          status: true,
-        },
-      },
+      tier: true,
     },
   });
 
-  return tierProducts.map(product => {
-    const totalSales = product.purchases.length;
-    const revenue = product.purchases.reduce(
-      (sum, p) => sum + toNumber(p.purchasePrice),
+  // Fetch purchases separately (Data API adapter ignores nested include on purchases)
+  const tierProductIds = tierProducts.map((tp: any) => tp.id);
+  const allPurchases = tierProductIds.length > 0
+    ? await db.tierPurchase.findMany({
+        where: { tierProductId: { in: tierProductIds } },
+      })
+    : [];
+
+  // Group purchases by tier product ID
+  const purchasesByProduct = new Map<string, any[]>();
+  for (const p of allPurchases) {
+    const list = purchasesByProduct.get(p.tierProductId) || [];
+    list.push(p);
+    purchasesByProduct.set(p.tierProductId, list);
+  }
+
+  return tierProducts.map((product: any) => {
+    const purchases = purchasesByProduct.get(product.id) || [];
+    const totalSales = purchases.length;
+    const revenue = purchases.reduce(
+      (sum: number, p: any) => sum + toNumber(p.purchasePrice),
       0
     );
-    const activePurchases = product.purchases.filter(p => p.status === 'ACTIVE').length;
-    const expiredPurchases = product.purchases.filter(p => p.status === 'EXPIRED').length;
+    const activePurchases = purchases.filter((p: any) => p.status === 'ACTIVE').length;
+    const expiredPurchases = purchases.filter((p: any) => p.status === 'EXPIRED').length;
 
     // Churn rate = expired / total (if any sales)
     const churnRate = totalSales > 0 ? (expiredPurchases / totalSales) * 100 : 0;

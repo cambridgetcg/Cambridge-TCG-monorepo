@@ -55,6 +55,21 @@ const log = {
 // NOTE: calculateTierProgress function removed (2025-12-20)
 // Progress is now pre-computed in CustomerTierState and updated by write path
 
+/**
+ * Standardized proxy error response.
+ * Always includes both `error` and `message` fields so frontend JS
+ * can read either field without a mismatch bug.
+ */
+function proxyError(
+  msg: string,
+  opts?: { status?: number; headers?: Record<string, string> }
+) {
+  return json(
+    { success: false as const, error: msg, message: msg },
+    { status: opts?.status, headers: opts?.headers }
+  );
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const proxyPath = params["*"] || "";
   const url = new URL(request.url);
@@ -1660,7 +1675,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     session = authResult.session;
   } catch (authError: any) {
     log.error('[Action] AUTH FAILED', { message: authError.message });
-    return json({ success: false, error: "Authentication failed" }, { status: 401 });
+    return proxyError("Authentication failed", { status: 401 });
   }
 
   const origin = request.headers.get('origin') || '';
@@ -1688,7 +1703,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const shop = session?.shop;
 
     if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+      return proxyError("Authentication required", { status: 401, headers });
     }
 
     try {
@@ -1696,11 +1711,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const { intent, raffleId, quantity = 1, logged_in_customer_id } = body;
 
       if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to enter raffles" }, { status: 401, headers });
+        return proxyError("Please sign in to enter raffles", { status: 401, headers });
       }
 
       if (!raffleId) {
-        return json({ success: false, error: "Raffle ID is required" }, { status: 400, headers });
+        return proxyError("Raffle ID is required", { status: 400, headers });
       }
 
       // Resolve internal customer ID from Shopify customer ID
@@ -1710,7 +1725,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!customer) {
-        return json({ success: false, error: "Customer not found. Please contact support." }, { status: 404, headers });
+        return proxyError("Customer not found. Please contact support.", { status: 404, headers });
       }
 
       // Free entry claim
@@ -1719,7 +1734,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
         if (!result.success) {
           log.warn("Free entry rejected:", result.error, { shop, customerId: customer.id, raffleId });
-          return json({ success: false, error: result.error, message: result.error }, { headers });
+          return proxyError(result.error || "Failed to claim free entry", { headers });
         }
 
         return json({
@@ -1740,7 +1755,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
       if (!result.success) {
         log.warn("Raffle purchase rejected:", result.error, { shop, customerId: customer.id, raffleId, quantity });
-        return json({ success: false, error: result.error, message: result.error }, { headers });
+        return proxyError(result.error || "Purchase failed", { headers });
       }
 
       return json({
@@ -1755,7 +1770,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Raffle entry error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return json({ success: false, error: "Failed to enter raffle. Please try again.", message: "Failed to enter raffle. Please try again." }, { status: 500, headers });
+      return proxyError("Failed to enter raffle. Please try again.", { status: 500, headers });
     }
   }
 
@@ -1766,7 +1781,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const shop = session?.shop;
 
     if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+      return proxyError("Authentication required", { status: 401, headers });
     }
 
     try {
@@ -1774,11 +1789,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const { eventIds, logged_in_customer_id } = body;
 
       if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in" }, { status: 401, headers });
+        return proxyError("Please sign in", { status: 401, headers });
       }
 
       if (!eventIds || !Array.isArray(eventIds) || eventIds.length === 0) {
-        return json({ success: false, error: "Event IDs are required" }, { status: 400, headers });
+        return proxyError("Event IDs are required", { status: 400, headers });
       }
 
       const count = await acknowledgeEvents(eventIds);
@@ -1787,7 +1802,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Missions events ack error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return json({ success: false, error: "Failed to acknowledge events" }, { status: 500, headers });
+      return proxyError("Failed to acknowledge events", { status: 500, headers });
     }
   }
 
@@ -1798,7 +1813,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const shop = session?.shop;
 
     if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+      return proxyError("Authentication required", { status: 401, headers });
     }
 
     try {
@@ -1806,11 +1821,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const { raffleId, quantity = 1, logged_in_customer_id } = body;
 
       if (!raffleId) {
-        return json({ success: false, error: "Raffle ID is required" }, { status: 400, headers });
+        return proxyError("Raffle ID is required", { status: 400, headers });
       }
 
       if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to enter raffles" }, { status: 401, headers });
+        return proxyError("Please sign in to enter raffles", { status: 401, headers });
       }
 
       const customer = await db.customer.findFirst({
@@ -1819,7 +1834,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!customer) {
-        return json({ success: false, error: "Customer not found. Please contact support." }, { status: 404, headers });
+        return proxyError("Customer not found. Please contact support.", { status: 404, headers });
       }
 
       const result = await purchaseRaffleEntries({
@@ -1830,7 +1845,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!result.success) {
-        return json({ success: false, error: result.error }, { headers });
+        return proxyError(result.error || "Operation failed", { headers });
       }
 
       return json({
@@ -1843,7 +1858,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Raffle entry error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return json({ success: false, error: "Failed to enter raffle. Please try again." }, { status: 500, headers });
+      return proxyError("Failed to enter raffle. Please try again.", { status: 500, headers });
     }
   }
 
@@ -1854,7 +1869,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const shop = session?.shop;
 
     if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+      return proxyError("Authentication required", { status: 401, headers });
     }
 
     try {
@@ -1862,11 +1877,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const { challengeId, logged_in_customer_id } = body;
 
       if (!challengeId) {
-        return json({ success: false, error: "Challenge ID is required" }, { status: 400, headers });
+        return proxyError("Challenge ID is required", { status: 400, headers });
       }
 
       if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to claim rewards" }, { status: 401, headers });
+        return proxyError("Please sign in to claim rewards", { status: 401, headers });
       }
 
       const customer = await db.customer.findFirst({
@@ -1875,7 +1890,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!customer) {
-        return json({ success: false, error: "Customer not found. Please contact support." }, { status: 404, headers });
+        return proxyError("Customer not found. Please contact support.", { status: 404, headers });
       }
 
       let proxyAdmin: any;
@@ -1889,7 +1904,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const result = await claimChallengeReward(shop, customer.id, challengeId, proxyAdmin);
 
       if (!result.success) {
-        return json({ success: false, error: result.error }, { headers });
+        return proxyError(result.error || "Operation failed", { headers });
       }
 
       const updatedCustomer = await db.customer.findUnique({
@@ -1909,7 +1924,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Challenge claim error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return json({ success: false, error: "Failed to claim reward. Please try again." }, { status: 500, headers });
+      return proxyError("Failed to claim reward. Please try again.", { status: 500, headers });
     }
   }
 
@@ -1920,7 +1935,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const shop = session?.shop;
 
     if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+      return proxyError("Authentication required", { status: 401, headers });
     }
 
     try {
@@ -1928,11 +1943,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const { challengeId, logged_in_customer_id } = body;
 
       if (!challengeId) {
-        return json({ success: false, error: "Challenge ID is required" }, { status: 400, headers });
+        return proxyError("Challenge ID is required", { status: 400, headers });
       }
 
       if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to join challenges" }, { status: 401, headers });
+        return proxyError("Please sign in to join challenges", { status: 401, headers });
       }
 
       const customer = await db.customer.findFirst({
@@ -1941,7 +1956,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!customer) {
-        return json({ success: false, error: "Customer not found" }, { status: 404, headers });
+        return proxyError("Customer not found", { status: 404, headers });
       }
 
       const now = new Date();
@@ -1958,14 +1973,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!challenge) {
-        return json({ success: false, error: "Challenge not found or not available" }, { headers });
+        return proxyError("Challenge not found or not available", { headers });
       }
 
       if (challenge.tierRestrictions) {
         const restrictions = challenge.tierRestrictions as { allowedTierIds?: string[] };
         if (restrictions.allowedTierIds?.length &&
             (!customer.currentTierId || !restrictions.allowedTierIds.includes(customer.currentTierId))) {
-          return json({ success: false, error: "This challenge is not available for your tier" }, { headers });
+          return proxyError("This challenge is not available for your tier", { headers });
         }
       }
 
@@ -2029,7 +2044,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Challenge join error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return json({ success: false, error: "Failed to join challenge. Please try again." }, { status: 500, headers });
+      return proxyError("Failed to join challenge. Please try again.", { status: 500, headers });
     }
   }
 
@@ -2040,7 +2055,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const shop = session?.shop;
 
     if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+      return proxyError("Authentication required", { status: 401, headers });
     }
 
     try {
@@ -2048,11 +2063,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const { boxId, logged_in_customer_id } = body;
 
       if (!boxId) {
-        return json({ success: false, error: "Box ID is required" }, { status: 400, headers });
+        return proxyError("Box ID is required", { status: 400, headers });
       }
 
       if (!logged_in_customer_id) {
-        return json({ success: false, error: "Please sign in to open mystery boxes" }, { status: 401, headers });
+        return proxyError("Please sign in to open mystery boxes", { status: 401, headers });
       }
 
       const customer = await db.customer.findFirst({
@@ -2061,7 +2076,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!customer) {
-        return json({ success: false, error: "Customer not found" }, { status: 404, headers });
+        return proxyError("Customer not found", { status: 404, headers });
       }
 
       const result = await openMysteryBox({
@@ -2071,10 +2086,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
 
       if (!result.success) {
-        return json({
-          success: false,
-          error: result.error || "Failed to open mystery box",
-        }, { headers });
+        return proxyError(result.error || "Failed to open mystery box", { headers });
       }
 
       return json({
@@ -2093,10 +2105,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
     } catch (error: any) {
       log.error("Mystery box open error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return json({
-        success: false,
-        error: "Failed to open mystery box. Please try again.",
-      }, { status: 500, headers });
+      return proxyError("Failed to open mystery box. Please try again.", { status: 500, headers });
     }
   }
 
