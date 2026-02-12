@@ -63,6 +63,7 @@ export interface SelectedProduct {
   productId: string;
   variantId: string;
   title: string;
+  handle: string;
   variantTitle: string | null;
   image: string | null;
   price: string;
@@ -275,6 +276,7 @@ export function ProductPicker({
       productId: selectedProduct.id,
       variantId: variant.id,
       title: selectedProduct.title,
+      handle: selectedProduct.handle,
       variantTitle:
         variant.title !== "Default Title" ? variant.title : null,
       image: selectedProduct.featuredImage?.url || null,

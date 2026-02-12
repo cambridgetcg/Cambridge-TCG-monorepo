@@ -1248,6 +1248,66 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
+    if (intent === "adjustPoints") {
+      const customerId = formData.get("customerId") as string;
+      const actionType = formData.get("actionType") as "add" | "remove";
+      const amount = parseInt(formData.get("amount") as string || "0", 10);
+      const reason = formData.get("reason") as string;
+
+      if (!customerId || !actionType || isNaN(amount) || amount <= 0 || !reason) {
+        return json({ success: false, message: "Invalid input data" });
+      }
+
+      try {
+        const customer = await db.customer.findFirst({
+          where: {
+            id: customerId,
+            shop: session.shop
+          }
+        });
+
+        if (!customer) {
+          return json({ success: false, message: "Customer not found" });
+        }
+
+        const { adjustPoints } = await import("~/services/points-ledger.server");
+        const { getPointsBalance, getTransactionHistory } = await import("~/services/points-ledger.server");
+
+        const signedAmount = actionType === "add" ? amount : -amount;
+        await adjustPoints(session.shop, customerId, signedAmount, reason, "admin");
+
+        // Fetch updated balance and transactions
+        const [updatedBalance, updatedHistory] = await Promise.all([
+          getPointsBalance(customerId, session.shop),
+          getTransactionHistory(customerId, session.shop, { limit: 50 }),
+        ]);
+
+        return json({
+          success: true,
+          message: `Successfully ${actionType === "add" ? "added" : "removed"} ${amount.toLocaleString()} points`,
+          newBalance: updatedBalance.available,
+          newLifetime: updatedBalance.lifetime,
+          transactions: updatedHistory.transactions.map(t => ({
+            id: t.id,
+            amount: t.amount,
+            balance: t.balance,
+            type: t.type,
+            description: t.description,
+            createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+            expiresAt: t.expiresAt instanceof Date ? t.expiresAt.toISOString() : t.expiresAt,
+            metadata: t.metadata,
+          }))
+        });
+
+      } catch (error) {
+        console.error("[Points] Error adjusting points:", error);
+        return json({
+          success: false,
+          message: "Failed to adjust points: " + (error instanceof Error ? error.message : "Unknown error")
+        });
+      }
+    }
+
     if (intent === "syncCredit") {
       const customerId = formData.get("customerId") as string;
 

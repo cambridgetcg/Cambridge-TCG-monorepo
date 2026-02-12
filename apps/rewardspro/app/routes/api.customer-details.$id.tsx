@@ -7,6 +7,8 @@ import {
   getCustomerDetailedOrders,
   getActivityStatusBadge,
 } from "../services/customer-order-summary.server";
+import { getPointsBalance, getTransactionHistory } from "../services/points-ledger.server";
+import { getCurrencyBranding } from "../services/points-config.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -110,6 +112,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
     // Get order summary metrics
     const orderSummary = await getCustomerOrderSummary(session.shop, customer.id);
+
+    // Fetch points data in parallel
+    const [pointsBalance, pointsHistoryResult, currencyConfig] = await Promise.all([
+      getPointsBalance(customer.id, session.shop),
+      getTransactionHistory(customer.id, session.shop, { limit: 50 }),
+      getCurrencyBranding(session.shop),
+    ]);
 
     // Format orders with line items from local database
     const orders = await Promise.all(
@@ -241,7 +250,24 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         cashbackPercent: t.cashbackPercent,
         isCurrentTier: tier?.id === t.id
       })),
-      isMaxTier
+      isMaxTier,
+      // Points data
+      pointsBalance: {
+        available: pointsBalance.available,
+        lifetime: pointsBalance.lifetime,
+        expiringSoon: pointsBalance.expiringSoon,
+      },
+      pointsHistory: pointsHistoryResult.transactions.map(t => ({
+        id: t.id,
+        amount: t.amount,
+        balance: t.balance,
+        type: t.type,
+        description: t.description,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+        expiresAt: t.expiresAt instanceof Date ? t.expiresAt.toISOString() : t.expiresAt,
+        metadata: t.metadata,
+      })),
+      currencyConfig,
     });
     
   } catch (error) {

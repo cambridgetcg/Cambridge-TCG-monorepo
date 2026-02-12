@@ -408,6 +408,12 @@ export default function MysteryBoxDetail() {
   const [editEndsAt, setEditEndsAt] = useState(box.endsAt.slice(0, 16));
   const [editIsPublic, setEditIsPublic] = useState(box.isPublic);
 
+  // Inline edit state for quick fields
+  const [editingCost, setEditingCost] = useState(false);
+  const [editingLimit, setEditingLimit] = useState(false);
+  const [inlineCost, setInlineCost] = useState(box.openCost.toString());
+  const [inlineLimit, setInlineLimit] = useState(box.maxOpensPerCustomer.toString());
+
   // Show toast on action completion
   useEffect(() => {
     if (actionData) {
@@ -508,6 +514,42 @@ export default function MysteryBoxDetail() {
     formData.append("endsAt", editEndsAt);
     formData.append("isPublic", editIsPublic.toString());
     submit(formData, { method: "post" });
+  };
+
+  // Handle inline cost save
+  const handleSaveCost = () => {
+    const cost = parseInt(inlineCost);
+    if (isNaN(cost) || cost < 0) return;
+    const formData = new FormData();
+    formData.append("intent", "updateBox");
+    formData.append("name", box.name);
+    formData.append("description", box.description || "");
+    formData.append("openCost", inlineCost);
+    formData.append("maxOpensPerCustomer", box.maxOpensPerCustomer.toString());
+    formData.append("maxOpensTotal", box.maxOpensTotal?.toString() || "");
+    formData.append("startsAt", box.startsAt);
+    formData.append("endsAt", box.endsAt);
+    formData.append("isPublic", box.isPublic.toString());
+    submit(formData, { method: "post" });
+    setEditingCost(false);
+  };
+
+  // Handle inline limit save
+  const handleSaveLimit = () => {
+    const limit = parseInt(inlineLimit);
+    if (isNaN(limit) || limit < 1) return;
+    const formData = new FormData();
+    formData.append("intent", "updateBox");
+    formData.append("name", box.name);
+    formData.append("description", box.description || "");
+    formData.append("openCost", box.openCost.toString());
+    formData.append("maxOpensPerCustomer", inlineLimit);
+    formData.append("maxOpensTotal", box.maxOpensTotal?.toString() || "");
+    formData.append("startsAt", box.startsAt);
+    formData.append("endsAt", box.endsAt);
+    formData.append("isPublic", box.isPublic.toString());
+    submit(formData, { method: "post" });
+    setEditingLimit(false);
   };
 
   // Handle add reward
@@ -665,9 +707,32 @@ export default function MysteryBoxDetail() {
               <Card>
                 <BlockStack gap="100">
                   <Text variant="bodySm" tone="subdued" as="p">Cost per Open</Text>
-                  <Text variant="headingLg" as="p">
-                    {pointsConfig.currencyIcon} {box.openCost}
-                  </Text>
+                  {editingCost ? (
+                    <InlineStack gap="200" blockAlign="center">
+                      <div style={{ maxWidth: 100 }}>
+                        <TextField
+                          label=""
+                          labelHidden
+                          type="number"
+                          value={inlineCost}
+                          onChange={setInlineCost}
+                          autoComplete="off"
+                          min={0}
+                        />
+                      </div>
+                      <Button size="slim" onClick={handleSaveCost} loading={isSubmitting}>Save</Button>
+                      <Button size="slim" variant="plain" onClick={() => { setEditingCost(false); setInlineCost(box.openCost.toString()); }}>Cancel</Button>
+                    </InlineStack>
+                  ) : (
+                    <InlineStack gap="200" blockAlign="center">
+                      <Text variant="headingLg" as="p">
+                        {pointsConfig.currencyIcon} {box.openCost}
+                      </Text>
+                      {canModify && (
+                        <Button size="slim" variant="plain" onClick={() => setEditingCost(true)}>Edit</Button>
+                      )}
+                    </InlineStack>
+                  )}
                 </BlockStack>
               </Card>
             </InlineStack>
@@ -690,7 +755,30 @@ export default function MysteryBoxDetail() {
                   </BlockStack>
                   <BlockStack gap="100">
                     <Text variant="bodySm" tone="subdued" as="p">Max Opens/Customer</Text>
-                    <Text as="p">{box.maxOpensPerCustomer}</Text>
+                    {editingLimit ? (
+                      <InlineStack gap="200" blockAlign="center">
+                        <div style={{ maxWidth: 80 }}>
+                          <TextField
+                            label=""
+                            labelHidden
+                            type="number"
+                            value={inlineLimit}
+                            onChange={setInlineLimit}
+                            autoComplete="off"
+                            min={1}
+                          />
+                        </div>
+                        <Button size="slim" onClick={handleSaveLimit} loading={isSubmitting}>Save</Button>
+                        <Button size="slim" variant="plain" onClick={() => { setEditingLimit(false); setInlineLimit(box.maxOpensPerCustomer.toString()); }}>Cancel</Button>
+                      </InlineStack>
+                    ) : (
+                      <InlineStack gap="200" blockAlign="center">
+                        <Text as="p">{box.maxOpensPerCustomer}</Text>
+                        {canModify && (
+                          <Button size="slim" variant="plain" onClick={() => setEditingLimit(true)}>Edit</Button>
+                        )}
+                      </InlineStack>
+                    )}
                   </BlockStack>
                   <BlockStack gap="100">
                     <Text variant="bodySm" tone="subdued" as="p">Max Total Opens</Text>

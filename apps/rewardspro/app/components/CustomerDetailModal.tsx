@@ -35,6 +35,7 @@ import {
 } from '@shopify/polaris-icons';
 import { formatCurrency } from '../utils/currency';
 import { StoreCreditTab } from './StoreCredit';
+import { PointsTab } from './Points';
 import { CustomerHeroStats } from './CustomerDetails/CustomerHeroStats';
 import { TierProgressBar } from './CustomerDetails/TierProgressBar';
 import { StatusDot } from './CustomerDetails/StatusDot';
@@ -146,6 +147,27 @@ interface CustomerDetails {
   shopSettings: {
     storeCurrency: string;
     currencyDisplayType: string;
+  } | null;
+  // Points data
+  pointsBalance?: {
+    available: number;
+    lifetime: number;
+    expiringSoon: number;
+  } | null;
+  pointsHistory?: Array<{
+    id: string;
+    amount: number;
+    balance: number;
+    type: string;
+    description: string | null;
+    createdAt: string;
+    expiresAt: string | null;
+    metadata: Record<string, unknown> | null;
+  }>;
+  currencyConfig?: {
+    name: string;
+    plural: string;
+    icon: string;
   } | null;
   // Tier progression data from API
   nextTier: {
@@ -317,6 +339,11 @@ export function CustomerDetailModal({
       panelID: 'store-credit-panel',
     },
     {
+      id: 'points',
+      content: details?.currencyConfig?.name || 'Points',
+      panelID: 'points-panel',
+    },
+    {
       id: 'orders',
       content: `Orders (${details?.orders.length || 0})`,
       panelID: 'orders-panel',
@@ -479,8 +506,25 @@ export function CustomerDetailModal({
                 </Box>
               )}
 
+              {/* Points Tab */}
+              {selectedTab === 2 && details.currencyConfig && (
+                <Box paddingBlockStart="400">
+                  <PointsTab
+                    customer={{
+                      id: details.customer.id,
+                      email: details.customer.email,
+                      pointsBalance: details.pointsBalance?.available || 0,
+                    }}
+                    currencyConfig={details.currencyConfig}
+                    initialTransactions={details.pointsHistory}
+                    lifetimePoints={details.pointsBalance?.lifetime || 0}
+                    expiringSoon={details.pointsBalance?.expiringSoon || 0}
+                  />
+                </Box>
+              )}
+
               {/* Orders Tab */}
-              {selectedTab === 2 && (
+              {selectedTab === 3 && (
                 <Box paddingBlockStart="400">
                   <BlockStack gap="400">
                     {/* Order Summary Metrics */}
@@ -694,7 +738,7 @@ export function CustomerDetailModal({
               )}
 
               {/* Tier Changes Tab */}
-              {selectedTab === 3 && (
+              {selectedTab === 4 && (
                 <Box paddingBlockStart="400">
                   <Card>
                     <BlockStack gap="300">
