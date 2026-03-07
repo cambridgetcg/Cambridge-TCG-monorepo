@@ -12,15 +12,15 @@ import type { Currency, CurrencyDisplayType } from "@prisma/client";
  * - Neutral amounts: Default text color
  */
 
-// Currency symbols mapping
-const CURRENCY_SYMBOLS: Record<Currency, string> = {
+// Currency symbols mapping (Record<string, ...> to support currencies beyond the Prisma enum)
+const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
   EUR: "€",
   GBP: "£",
   CAD: "C$",
   AUD: "A$",
   JPY: "¥",
-  CHF: "CHF",
+  CHF: "Fr",
   CNY: "¥",
   SEK: "kr",
   NZD: "NZ$",
@@ -46,16 +46,25 @@ const CURRENCY_SYMBOLS: Record<Currency, string> = {
   RON: "lei",
   MYR: "RM",
   IDR: "Rp",
+  // Extended currencies (not in Prisma enum but needed for formatting)
+  VND: "₫",
+  PYG: "₲",
+  BHD: "BD",
+  KWD: "KD",
+  OMR: "ر.ع.",
+  JOD: "JD",
+  TND: "DT",
+  BTC: "₿",
 };
 
 // Currency decimal places
-const CURRENCY_DECIMALS: Record<Currency, number> = {
+const CURRENCY_DECIMALS: Record<string, number> = {
   USD: 2,
   EUR: 2,
   GBP: 2,
   CAD: 2,
   AUD: 2,
-  JPY: 0, // Japanese Yen has no decimal places
+  JPY: 0,
   CHF: 2,
   CNY: 2,
   SEK: 2,
@@ -64,7 +73,7 @@ const CURRENCY_DECIMALS: Record<Currency, number> = {
   MXN: 2,
   SGD: 2,
   HKD: 2,
-  KRW: 0, // Korean Won has no decimal places
+  KRW: 0,
   INR: 2,
   BRL: 2,
   RUB: 2,
@@ -74,14 +83,23 @@ const CURRENCY_DECIMALS: Record<Currency, number> = {
   PLN: 2,
   THB: 2,
   DKK: 2,
-  HUF: 0, // Hungarian Forint typically shown without decimals
+  HUF: 0,
   CZK: 2,
   ILS: 2,
-  CLP: 0, // Chilean Peso has no decimal places
+  CLP: 0,
   PHP: 2,
   RON: 2,
   MYR: 2,
-  IDR: 0, // Indonesian Rupiah has no decimal places
+  IDR: 0,
+  // Extended currencies
+  VND: 0,
+  PYG: 0,
+  BHD: 3,
+  KWD: 3,
+  OMR: 3,
+  JOD: 3,
+  TND: 3,
+  BTC: 8,
 };
 
 export interface ShopSettings {
@@ -94,8 +112,13 @@ export interface ShopSettings {
  */
 export function formatCurrency(
   amount: number | string,
-  settings?: ShopSettings | null
+  settingsOrCurrency?: ShopSettings | string | null
 ): string {
+  // Accept either a ShopSettings object or a currency code string
+  const settings = typeof settingsOrCurrency === 'string'
+    ? { storeCurrency: settingsOrCurrency as Currency, currencyDisplayType: 'SYMBOL' as const }
+    : settingsOrCurrency;
+
   // Default settings if none provided
   const currency = settings?.storeCurrency || "USD";
   const displayType = settings?.currencyDisplayType || "SYMBOL";
@@ -115,28 +138,36 @@ export function formatCurrency(
   
   // Get decimal places for currency
   const decimals = CURRENCY_DECIMALS[currency] ?? 2;
+
+  // Handle negative amounts — sign goes before symbol
+  const isNegative = numAmount < 0;
+  const absAmount = Math.abs(numAmount);
   
-  // Format the number
-  const formatted = numAmount.toFixed(decimals);
+  // Format the number with thousand separators
+  const fixed = absAmount.toFixed(decimals);
+  const [intPart, decPart] = fixed.split('.');
+  const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const formatted = decPart !== undefined ? `${withCommas}.${decPart}` : withCommas;
+  const sign = isNegative ? '-' : '';
   
   // Return based on display type
   if (displayType === "SYMBOL") {
     const symbol = CURRENCY_SYMBOLS[currency] || "$";
     // Some currencies put symbol after (e.g., Swedish krona)
     if (["SEK", "NOK", "DKK", "CZK", "PLN"].includes(currency)) {
-      return `${formatted} ${symbol}`;
+      return `${sign}${formatted} ${symbol}`;
     }
-    return `${symbol}${formatted}`;
+    return `${sign}${symbol}${formatted}`;
   } else {
     // CODE display type
-    return `${formatted} ${currency}`;
+    return `${sign}${formatted} ${currency}`;
   }
 }
 
 /**
  * Get currency symbol
  */
-export function getCurrencySymbol(currency: Currency): string {
+export function getCurrencySymbol(currency: Currency | string): string {
   return CURRENCY_SYMBOLS[currency] || "$";
 }
 
@@ -152,7 +183,7 @@ export function parseCurrency(value: string): number {
 /**
  * Round amount to currency precision
  */
-export function roundToCurrencyPrecision(amount: number, currency: Currency): number {
+export function roundToCurrencyPrecision(amount: number, currency: Currency | string): number {
   const decimals = CURRENCY_DECIMALS[currency] ?? 2;
   const multiplier = Math.pow(10, decimals);
   return Math.round(amount * multiplier) / multiplier;

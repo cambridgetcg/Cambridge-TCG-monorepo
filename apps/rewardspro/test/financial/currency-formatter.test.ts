@@ -68,8 +68,9 @@ describe('Currency Formatter - All 33 Currencies', () => {
           const amount = 123.456789;
           const formatted = formatCurrency(amount, currency);
 
-          // Extract numeric part from formatted string
-          const numericPart = formatted.replace(/[^0-9.-]/g, '');
+          // Extract numeric part — first strip the known symbol, then non-numeric chars
+          const withoutSymbol = formatted.replace(config.symbol, '');
+          const numericPart = withoutSymbol.replace(/[^0-9.-]/g, '');
           const parts = numericPart.split('.');
 
           if (config.decimals === 0) {
@@ -218,7 +219,9 @@ describe('Currency Formatter - All 33 Currencies', () => {
 
         amounts.forEach(amount => {
           const formatted = formatCurrency(amount, currency);
-          const numericPart = formatted.replace(/[^0-9.-]/g, '');
+          const config = CURRENCY_CONFIG[currency];
+          const withoutSymbol = formatted.replace(config.symbol, '');
+          const numericPart = withoutSymbol.replace(/[^0-9.-]/g, '');
           const parts = numericPart.split('.');
 
           expect(parts[1]).toHaveLength(3);
@@ -292,9 +295,9 @@ describe('Currency Formatter - All 33 Currencies', () => {
         balance = balance.times(rate.div(periods).plus(1));
       }
 
-      // Should be exactly $1053.81 (rounded to cents)
+      // $1000 * (1 + 0.0525/12)^12 = $1053.78 (rounded to cents)
       const finalAmount = balance.toDecimalPlaces(2);
-      expect(finalAmount.toNumber()).toBeCloseTo(1053.81, 2);
+      expect(finalAmount.toNumber()).toBeCloseTo(1053.78, 2);
     });
 
     it('should maintain precision across multiple operations', () => {
@@ -318,12 +321,12 @@ describe('Currency Formatter - All 33 Currencies', () => {
 
   describe('Rounding Strategies', () => {
     it('should use half-up rounding (standard for finance)', () => {
-      // Half-up: .5 always rounds up
+      // ROUND_HALF_UP in Decimal.js rounds away from zero (not toward +inf)
       const testCases = [
         { input: 2.5, expected: 3 },
         { input: 3.5, expected: 4 },
-        { input: -2.5, expected: -2 }, // Towards positive infinity
-        { input: -3.5, expected: -3 }
+        { input: -2.5, expected: -3 }, // Away from zero
+        { input: -3.5, expected: -4 }
       ];
 
       testCases.forEach(({ input, expected }) => {

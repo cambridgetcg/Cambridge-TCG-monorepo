@@ -8,8 +8,17 @@
  * - FIFO: First entries win (early bird advantage)
  */
 
+import * as crypto from "crypto";
 import db from "../db.server";
 import type { RaffleDrawType, RafflePrizeDeliveryStatus } from "./raffle-management.server";
+
+/**
+ * Cryptographically secure random number in [0, 1).
+ * Replaces Math.random() for fair prize/winner selection.
+ */
+function cryptoRandom(): number {
+  return crypto.randomBytes(4).readUInt32BE(0) / 0x100000000;
+}
 
 const LOG_PREFIX = "[RaffleDrawing]";
 
@@ -318,7 +327,7 @@ function selectRandomWinners(
 
   // Fisher-Yates shuffle
   for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(cryptoRandom() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
 
@@ -359,7 +368,7 @@ function selectWeightedWinners(
     if (totalWeight === 0) break;
 
     // Generate random value
-    let randomValue = Math.random() * totalWeight;
+    let randomValue = cryptoRandom() * totalWeight;
 
     // Find the selected entry
     let selectedIndex = -1;

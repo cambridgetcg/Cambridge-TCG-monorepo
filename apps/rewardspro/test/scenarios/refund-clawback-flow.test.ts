@@ -160,8 +160,7 @@ describe('Refund Clawback Scenario - Full Order Refund', () => {
         },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
-            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance
+            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance (full refund path uses aggregate, not findFirst)
           create: vi.fn().mockImplementation((data) => {
             clawbackAmount = Math.abs(data.data.amount);
           }),
@@ -202,8 +201,7 @@ describe('Refund Clawback Scenario - Full Order Refund', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
-            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance
+            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance (full refund path uses aggregate, not findFirst)
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
         },
@@ -257,8 +255,7 @@ describe('Refund Clawback Scenario - Partial Refunds', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
-            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance
+            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance (full refund path uses aggregate, not findFirst)
           create: vi.fn().mockImplementation((data) => {
             clawbackAmount = Math.abs(data.data.amount);
           }),
@@ -301,7 +298,6 @@ describe('Refund Clawback Scenario - Partial Refunds', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback for this refund
             .mockResolvedValueOnce({ balance: createDecimal(96) }), // 100 - 4 (current balance)
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({
@@ -346,7 +342,6 @@ describe('Refund Clawback Scenario - Partial Refunds', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(46) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({
@@ -471,7 +466,6 @@ describe('Refund Clawback Scenario - Negative Balance', () => {
         },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(10) }), // Only $10 balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -525,7 +519,6 @@ describe('Refund Clawback Scenario - Points Integration', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -580,7 +573,6 @@ describe('Refund Clawback Scenario - Points Integration', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -638,8 +630,7 @@ describe('Refund Clawback Scenario - Ledger Entries', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
-            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance
+            .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance (full refund path uses aggregate, not findFirst)
           create: vi.fn().mockImplementation((data) => {
             ledgerEntry = data.data;
           }),

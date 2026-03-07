@@ -187,23 +187,23 @@ describe("AuroraDataAPI", () => {
     });
 
     it("should_build_date_parameter", () => {
-      // Converts dates to ISO strings
+      // Converts dates to AWS Data API timestamp format (not ISO)
       const date = new Date("2025-09-01T12:00:00Z");
       const param = AuroraDataAPI.buildParameter("createdAt", date);
-      expect(param.value).toEqual({ stringValue: "2025-09-01T12:00:00.000Z" });
+      expect(param.value).toEqual({ stringValue: "2025-09-01 12:00:00.000" });
+      expect(param.typeHint).toBe("TIMESTAMP");
     });
 
     it("should_build_array_parameter", () => {
-      // Handles PostgreSQL arrays
-      const stringArray = AuroraDataAPI.buildParameter("tags", ["red", "blue"]);
-      expect(stringArray.value).toEqual({
-        arrayValue: { stringValues: ["red", "blue"] },
-      });
+      // AWS RDS Data API does not support array parameters directly
+      // Arrays must be expanded into individual named parameters
+      expect(() => AuroraDataAPI.buildParameter("tags", ["red", "blue"])).toThrow(
+        /Cannot bind array directly/
+      );
 
-      const numberArray = AuroraDataAPI.buildParameter("scores", [95, 87, 92]);
-      expect(numberArray.value).toEqual({
-        arrayValue: { longValues: [95, 87, 92] },
-      });
+      expect(() => AuroraDataAPI.buildParameter("scores", [95, 87, 92])).toThrow(
+        /Cannot bind array directly/
+      );
     });
 
     it("should_build_json_parameter_for_objects", () => {

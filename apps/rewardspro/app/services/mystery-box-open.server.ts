@@ -8,7 +8,16 @@
  * - Customer queries for available boxes and history
  */
 
+import * as crypto from "crypto";
 import db from "../db.server";
+
+/**
+ * Cryptographically secure random number in [0, 1).
+ * Replaces Math.random() for fair prize selection.
+ */
+function cryptoRandom(): number {
+  return crypto.randomBytes(4).readUInt32BE(0) / 0x100000000;
+}
 import { spendPoints, earnPoints, getPointsBalance } from "./points-ledger.server";
 import { checkMysteryBoxEligibility } from "./mystery-box-management.server";
 import { trackMysteryBoxOpened, trackMysteryBoxWon, trackPointsSpent } from "./klaviyo-events.server";
@@ -217,20 +226,60 @@ export async function openMysteryBox(
       Object.assign(reward, alternateReward);
     }
 
-    // 7. Process opening in transaction
+    // 7. Process opening — wrap record creation in transaction for atomicity.
+    // spendPoints has its own internal transaction, so it stays outside.
+    // Order: create records first, THEN deduct points. If points deduction
+    // fails after records are created, it's a "free open" (reconcilable).
+    // The reverse (points deducted, records fail) would lose customer points
+    // with no prize — unacceptable.
     const isNewOpener = existingOpens === 0;
 
-    // Create opening record
-    const open = await db.mysteryBoxOpen.create({
-      data: {
-        boxId,
-        customerId,
-        shop,
-        pointsSpent: box.openCost,
-      },
+    const { open, winner } = await db.$transaction(async (tx) => {
+      // Create opening record
+      const open = await tx.mysteryBoxOpen.create({
+        data: {
+          boxId,
+          customerId,
+          shop,
+          pointsSpent: box.openCost,
+        },
+      });
+
+      // Create winner record
+      const winner = await tx.mysteryBoxWinner.create({
+        data: {
+          boxId,
+          openId: open.id,
+          rewardId: reward.id,
+          customerId,
+          shop,
+          deliveryStatus: "PENDING",
+        },
+      });
+
+      // Update reward quantity won
+      await tx.mysteryBoxReward.update({
+        where: { id: reward.id },
+        data: {
+          quantityWon: { increment: 1 },
+        },
+      });
+
+      // Update box statistics
+      await tx.mysteryBox.update({
+        where: { id: boxId },
+        data: {
+          totalOpens: { increment: 1 },
+          uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
+          totalSpent: { increment: box.openCost },
+          updatedAt: new Date(),
+        },
+      });
+
+      return { open, winner };
     });
 
-    // Spend points
+    // Spend points (separate transaction — spendPoints manages its own)
     await spendPoints({
       shop,
       customerId,
@@ -238,37 +287,6 @@ export async function openMysteryBox(
       type: "MYSTERY_BOX_OPEN",
       description: `Opened "${box.name}" mystery box`,
       mysteryBoxOpenId: open.id,
-    });
-
-    // Create winner record
-    const winner = await db.mysteryBoxWinner.create({
-      data: {
-        boxId,
-        openId: open.id,
-        rewardId: reward.id,
-        customerId,
-        shop,
-        deliveryStatus: "PENDING",
-      },
-    });
-
-    // Update reward quantity won
-    await db.mysteryBoxReward.update({
-      where: { id: reward.id },
-      data: {
-        quantityWon: { increment: 1 },
-      },
-    });
-
-    // Update box statistics
-    await db.mysteryBox.update({
-      where: { id: boxId },
-      data: {
-        totalOpens: { increment: 1 },
-        uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
-        totalSpent: { increment: box.openCost },
-        updatedAt: new Date(),
-      },
     });
 
     // 8. Get updated balance
@@ -390,11 +408,11 @@ export function selectRewardByProbability(
 
   if (totalProbability <= 0) {
     // Fallback to uniform distribution
-    return available[Math.floor(Math.random() * available.length)];
+    return available[Math.floor(cryptoRandom() * available.length)];
   }
 
   // Generate random value scaled to available probability
-  const random = Math.random() * totalProbability;
+  const random = cryptoRandom() * totalProbability;
 
   // CDF selection
   let cumulative = 0;
@@ -612,12 +630,12 @@ export function selectRewardWithPity(
   );
 
   if (totalProbability <= 0) {
-    const randomIndex = Math.floor(Math.random() * selectionPool.length);
-    return { reward: selectionPool[randomIndex], randomValue: Math.random() };
+    const randomIndex = Math.floor(cryptoRandom() * selectionPool.length);
+    return { reward: selectionPool[randomIndex], randomValue: cryptoRandom() };
   }
 
   // Generate random value
-  const randomValue = Math.random();
+  const randomValue = cryptoRandom();
   const scaledRandom = randomValue * totalProbability;
 
   // CDF selection
@@ -867,32 +885,63 @@ export async function openMysteryBoxEnhanced(input: {
       reward.name
     );
 
-    // 11. Create opening record with psychology tracking
+    // 11. Create all records atomically, then spend points separately.
+    // Same rationale as openMysteryBox: records first, points after.
     const isNewOpener = existingOpens === 0;
 
-    const open = await db.mysteryBoxOpen.create({
-      data: {
-        boxId,
-        customerId,
-        shop,
-        pointsSpent: discountedCost,
-        streakDay: psychologyResult.streakInfo.currentStreak,
-        streakBonusApplied: psychologyResult.bonuses.streak.applied
-          ? psychologyResult.bonuses.streak.multiplier
-          : null,
-        luckyStreakCount: psychologyResult.bonuses.luckyStreak.count,
-        luckyStreakBonus: psychologyResult.bonuses.luckyStreak.applied
-          ? psychologyResult.bonuses.luckyStreak.multiplier
-          : null,
-        bonusEventId: psychologyResult.bonusEventId,
-        discountApplied: box.openCost - discountedCost,
-        isFreeOpen,
-        pityTriggered,
-        nearMissRewardId: nearMiss?.rewardId || null,
-      },
+    const { open, winner } = await db.$transaction(async (tx) => {
+      const open = await tx.mysteryBoxOpen.create({
+        data: {
+          boxId,
+          customerId,
+          shop,
+          pointsSpent: discountedCost,
+          streakDay: psychologyResult.streakInfo.currentStreak,
+          streakBonusApplied: psychologyResult.bonuses.streak.applied
+            ? psychologyResult.bonuses.streak.multiplier
+            : null,
+          luckyStreakCount: psychologyResult.bonuses.luckyStreak.count,
+          luckyStreakBonus: psychologyResult.bonuses.luckyStreak.applied
+            ? psychologyResult.bonuses.luckyStreak.multiplier
+            : null,
+          bonusEventId: psychologyResult.bonusEventId,
+          discountApplied: box.openCost - discountedCost,
+          isFreeOpen,
+          pityTriggered,
+          nearMissRewardId: nearMiss?.rewardId || null,
+        },
+      });
+
+      const winner = await tx.mysteryBoxWinner.create({
+        data: {
+          boxId,
+          openId: open.id,
+          rewardId: reward.id,
+          customerId,
+          shop,
+          deliveryStatus: "PENDING",
+        },
+      });
+
+      await tx.mysteryBoxReward.update({
+        where: { id: reward.id },
+        data: { quantityWon: { increment: 1 } },
+      });
+
+      await tx.mysteryBox.update({
+        where: { id: boxId },
+        data: {
+          totalOpens: { increment: 1 },
+          uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
+          totalSpent: { increment: discountedCost },
+          updatedAt: new Date(),
+        },
+      });
+
+      return { open, winner };
     });
 
-    // 12. Spend points (if not free)
+    // 12. Spend points (separate transaction — spendPoints manages its own)
     if (!isFreeOpen && discountedCost > 0) {
       await spendPoints({
         shop,
@@ -903,35 +952,6 @@ export async function openMysteryBoxEnhanced(input: {
         mysteryBoxOpenId: open.id,
       });
     }
-
-    // 13. Create winner record
-    const winner = await db.mysteryBoxWinner.create({
-      data: {
-        boxId,
-        openId: open.id,
-        rewardId: reward.id,
-        customerId,
-        shop,
-        deliveryStatus: "PENDING",
-      },
-    });
-
-    // 14. Update reward quantity
-    await db.mysteryBoxReward.update({
-      where: { id: reward.id },
-      data: { quantityWon: { increment: 1 } },
-    });
-
-    // 15. Update box statistics
-    await db.mysteryBox.update({
-      where: { id: boxId },
-      data: {
-        totalOpens: { increment: 1 },
-        uniqueOpeners: isNewOpener ? { increment: 1 } : undefined,
-        totalSpent: { increment: discountedCost },
-        updatedAt: new Date(),
-      },
-    });
 
     // 16. Get updated balance
     const newBalance = await getPointsBalance(shop, customerId);

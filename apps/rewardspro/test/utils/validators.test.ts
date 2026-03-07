@@ -18,7 +18,7 @@ const validateCashbackPercent = (percent: number): boolean => {
 };
 
 const validateSpendingThreshold = (amount: number): boolean => {
-  if (typeof amount !== 'number' || isNaN(amount)) return false;
+  if (typeof amount !== 'number' || isNaN(amount) || !isFinite(amount)) return false;
   return amount >= 0;
 };
 

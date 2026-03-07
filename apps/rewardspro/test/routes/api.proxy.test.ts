@@ -15,7 +15,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
-const PROXY_FILE = path.resolve(__dirname, "api.proxy.$.tsx");
+const PROXY_FILE = path.resolve(__dirname, "../../app/routes/api.proxy.$.tsx");
 
 describe("api.proxy.$.tsx response shape contract", () => {
   let source: string;

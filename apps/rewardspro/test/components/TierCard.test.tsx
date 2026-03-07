@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 // Mock Polaris components
 vi.mock('@shopify/polaris', () => ({
@@ -13,17 +14,9 @@ vi.mock('@shopify/polaris', () => ({
     <span data-testid={`badge-${tone || 'default'}`}>{children}</span>,
   Button: ({ children, onClick, variant, tone }: any) => 
     <button data-testid={`button-${variant || 'default'}`} onClick={onClick}>{children}</button>,
-  Icon: ({ source }: { source: string }) => <span data-testid={`icon-${source}`} />,
-  Modal: ({ open, children }: { open: boolean, children: React.ReactNode }) => 
-    open ? <div data-testid="modal">{children}</div> : null
-}));
-
-// Mock Polaris icons
-vi.mock('@shopify/polaris-icons', () => ({
-  TrophyIcon: 'TrophyIcon',
-  EditIcon: 'EditIcon',
-  DeleteIcon: 'DeleteIcon',
-  DiamondIcon: 'DiamondIcon'
+  Modal: ({ children, open, title }: any) =>
+    open ? <div data-testid="modal"><span>{title}</span>{children}</div> : null,
+  Icon: ({ source }: any) => <span data-testid={`icon-${source}`} />
 }));
 
 // Mock TierCard component
@@ -90,7 +83,7 @@ const TierCard: React.FC<TierCardProps> = ({ tier, onEdit, onDelete }) => {
           )}
           {onDelete && (
             <button 
-              data-testid="button-plain" 
+              data-testid="button-critical" 
               onClick={() => setShowDeleteModal(true)}
             >
               Delete
@@ -128,11 +121,7 @@ describe('TierCard', () => {
   };
 
   it('renders tier information correctly', () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    
-    const root = require('react-dom/client').createRoot(container);
-    root.render(<TierCard tier={mockTier} />);
+    const { container } = render(<TierCard tier={mockTier} />);
 
     expect(container.textContent).toContain('Gold');
     expect(container.textContent).toContain('$1,000+ annual spending');
@@ -142,89 +131,50 @@ describe('TierCard', () => {
 
   it('calls onEdit when edit button is clicked', () => {
     const onEdit = vi.fn();
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    
-    const root = require('react-dom/client').createRoot(container);
-    root.render(<TierCard tier={mockTier} onEdit={onEdit} />);
+    render(<TierCard tier={mockTier} onEdit={onEdit} />);
 
-    const editButton = container.querySelector('[data-testid="button-plain"]');
-    editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const editButton = screen.getByTestId('button-plain');
+    fireEvent.click(editButton);
     
     expect(onEdit).toHaveBeenCalledWith(mockTier);
   });
 
   it('shows delete confirmation modal', () => {
     const onDelete = vi.fn();
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    
-    const root = require('react-dom/client').createRoot(container);
-    root.render(<TierCard tier={mockTier} onDelete={onDelete} />);
+    const { container } = render(<TierCard tier={mockTier} onDelete={onDelete} />);
 
-    const deleteButton = Array.from(container.querySelectorAll('button')).find(
-      btn => btn.textContent === 'Delete'
-    );
-    deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const deleteButton = screen.getByTestId('button-critical');
+    fireEvent.click(deleteButton);
     
     expect(container.textContent).toContain('Delete tier?');
     
-    const confirmButton = Array.from(container.querySelectorAll('button')).find(
-      btn => btn.textContent === 'Confirm'
-    );
-    confirmButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const confirmButton = screen.getByText('Confirm');
+    fireEvent.click(confirmButton);
     
     expect(onDelete).toHaveBeenCalledWith('1');
   });
 
   it('displays correct icon based on tier level', () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
+    const { rerender } = render(<TierCard tier={{ ...mockTier, name: 'Bronze' }} />);
+    expect(screen.getByTestId('bronze-icon')).toBeTruthy();
     
-    const bronzeTier = { ...mockTier, name: 'Bronze' };
-    const root = require('react-dom/client').createRoot(container);
-    root.render(<TierCard tier={bronzeTier} />);
-    
-    expect(container.querySelector('[data-testid="bronze-icon"]')).toBeTruthy();
-    
-    const diamondTier = { ...mockTier, name: 'Diamond' };
-    root.render(<TierCard tier={diamondTier} />);
-    
-    expect(container.querySelector('[data-testid="diamond-icon"]')).toBeTruthy();
+    rerender(<TierCard tier={{ ...mockTier, name: 'Diamond' }} />);
+    expect(screen.getByTestId('diamond-icon')).toBeTruthy();
   });
 
   it('handles lifetime evaluation period', () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    
     const lifetimeTier = { ...mockTier, evaluationPeriod: 'LIFETIME' as const };
-    const root = require('react-dom/client').createRoot(container);
-    root.render(<TierCard tier={lifetimeTier} />);
+    const { container } = render(<TierCard tier={lifetimeTier} />);
     
     expect(container.textContent).toContain('$1,000+ lifetime spending');
   });
 
   it('renders without customer count', () => {
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    
     const tierWithoutCount = { ...mockTier };
     delete tierWithoutCount.customerCount;
     
-    const root = require('react-dom/client').createRoot(container);
-    root.render(<TierCard tier={tierWithoutCount} />);
+    const { container } = render(<TierCard tier={tierWithoutCount} />);
     
     expect(container.textContent).not.toContain('customers');
   });
 });
-
-// Mock react-dom/client for testing
-vi.mock('react-dom/client', () => ({
-  createRoot: (container: HTMLElement) => ({
-    render: (element: React.ReactElement) => {
-      const React = require('react');
-      const ReactDOM = require('react-dom');
-      ReactDOM.render(element, container);
-    }
-  })
-}));

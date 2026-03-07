@@ -397,7 +397,7 @@ describe('Aurora Data API Client', () => {
       expect(record?.[2].doubleValue).toBe(123.45);
       expect(record?.[3].booleanValue).toBe(true);
       expect(record?.[4].isNull).toBe(true);
-      expect(record?.[5].blobValue).toBeInstanceOf(Uint8Array);
+      expect(Buffer.isBuffer(record?.[5].blobValue) || record?.[5].blobValue instanceof Uint8Array).toBe(true);
     });
 
     it('should handle BigInt values', async () => {

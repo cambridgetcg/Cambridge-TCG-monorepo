@@ -260,7 +260,8 @@ export async function action({ request }: ActionFunctionArgs) {
       refund.order_id.toString(),
       shopDomain,
       Number(refundAmount),
-      isFullRefund
+      isFullRefund,
+      refund.id.toString()
     );
 
     if (!clawbackResult.success) {

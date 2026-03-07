@@ -58,10 +58,10 @@ function createMockAdmin(options: {
         };
       }
 
-      if (query.includes('getShopCustomerCount')) {
+      if (query.includes('customersCount') || query.includes('getShopCustomerCount')) {
         return {
           json: async () => ({
-            data: { shop: { customersCount: customerCount } },
+            data: { customersCount: { count: customerCount, precision: 'EXACT' } },
           }),
         };
       }
@@ -339,11 +339,13 @@ describe('Customer Sync Job Service', () => {
 
       await processNextBatch('job-123', mockAdmin);
 
-      // Check tier assignments
+      // Verify customers were created (tier assignment is handled by resolver, not during sync)
       const createCalls = (db.customer.create as Mock).mock.calls;
-      expect(createCalls[0][0].data.currentTierId).toBe('tier-gold');
-      expect(createCalls[1][0].data.currentTierId).toBe('tier-silver');
-      expect(createCalls[2][0].data.currentTierId).toBe('tier-bronze');
+      expect(createCalls).toHaveLength(3);
+      // Sync stores the spending data; tier resolution happens separately
+      expect(createCalls[0][0].data.shopifyCustomerId).toBe('1001');
+      expect(createCalls[1][0].data.shopifyCustomerId).toBe('1002');
+      expect(createCalls[2][0].data.shopifyCustomerId).toBe('1003');
     });
 
     it('should update existing customers', async () => {

@@ -12,7 +12,8 @@ export async function handleRefundClawback(
   shopifyOrderId: string,
   shop: string,
   refundAmount: number,
-  isFullRefund: boolean
+  isFullRefund: boolean,
+  shopifyRefundId?: string
 ): Promise<{
   success: boolean;
   clawbackAmount: number;
@@ -148,25 +149,29 @@ export async function handleRefundClawback(
       }
 
       // 4. Cashback was already credited - need to deduct from customer balance
-      // Check for existing clawback to prevent double processing
-      const existingClawback = await tx.storeCreditLedger.findFirst({
-        where: {
-          shop,
-          shopifyOrderId,
-          type: 'REFUND_CLAWBACK'
-        }
-      });
+      // Check for existing clawback to prevent double processing of the SAME refund.
+      // Important: only dedup on specific shopifyRefundId when available, so that
+      // multiple partial refunds for the same order are NOT blocked.
+      if (shopifyRefundId) {
+        const existingClawback = await tx.storeCreditLedger.findFirst({
+          where: {
+            shop,
+            shopifyOrderId,
+            type: 'REFUND_CLAWBACK',
+            metadata: { path: ['shopifyRefundId'], equals: shopifyRefundId }
+          }
+        });
 
-      if (existingClawback) {
-        console.log(`[Refund Handler] Cashback clawback already processed for order ${shopifyOrderId}`);
-        // Still return customerId for points clawback attempt (might not have been done)
-        return {
-          success: true,
-          clawbackAmount: Number(existingClawback.amount) * -1, // Convert back to positive
-          newBalance: Number(existingClawback.balance),
-          customerId: order.customerId,
-          message: "Cashback clawback already processed for this refund"
-        };
+        if (existingClawback) {
+          console.log(`[Refund Handler] Cashback clawback already processed for refund ${shopifyRefundId}`);
+          return {
+            success: true,
+            clawbackAmount: Number(existingClawback.amount) * -1,
+            newBalance: Number(existingClawback.balance),
+            customerId: order.customerId,
+            message: "Cashback clawback already processed for this refund"
+          };
+        }
       }
 
       // 5. Get current customer balance
@@ -194,7 +199,8 @@ export async function handleRefundClawback(
             refundAmount,
             originalCashback: Number(order.cashbackAmount),
             clawbackAmount,
-            orderNumber: order.shopifyOrderName
+            orderNumber: order.shopifyOrderName,
+            ...(shopifyRefundId ? { shopifyRefundId } : {})
           },
           createdAt: new Date()
         }
@@ -229,14 +235,15 @@ export async function handleRefundClawback(
       });
 
       // 9. Create refund record if not exists
+      const refundRecordId = shopifyRefundId || `${shopifyOrderId}-${uuidv4()}`;
       await tx.orderRefund.upsert({
         where: {
-          shopifyRefundId: `${shopifyOrderId}-${Date.now()}` // Unique ID for this refund
+          shopifyRefundId: refundRecordId
         },
         create: {
           id: uuidv4(),
           orderId: order.id,
-          shopifyRefundId: `${shopifyOrderId}-${Date.now()}`,
+          shopifyRefundId: refundRecordId,
           shopifyCreatedAt: new Date(),
           amount: refundAmount,
           cashbackAdjustment: clawbackAmount,

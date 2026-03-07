@@ -220,7 +220,6 @@ describe('Cashback Clawback - Partial Refund', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(100) }), // Current balance
           create: vi.fn().mockImplementation((data) => {
             capturedClawbackAmount = Math.abs(data.data.amount);
@@ -262,7 +261,6 @@ describe('Cashback Clawback - Partial Refund', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(42) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({
@@ -309,7 +307,6 @@ describe('Cashback Clawback - Cumulative Refund Validation', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -408,7 +405,9 @@ describe('Cashback Clawback - Already Processed', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain('already processed');
+    // When all cashback already clawed back, clawback amount is 0 — no "already processed" message,
+    // handler just processes a zero clawback (no further deduction needed)
+    expect(result.clawbackAmount).toBe(0);
   });
 });
 
@@ -509,7 +508,6 @@ describe('Cashback Clawback - Ledger Entry Creation', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(100) }), // Last balance
           create: vi.fn().mockImplementation((data) => {
             capturedLedgerData = data;
@@ -556,7 +554,6 @@ describe('Cashback Clawback - Ledger Entry Creation', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(100) }), // Last balance
           create: vi.fn().mockImplementation((data) => {
             capturedMetadata = data.data.metadata;
@@ -602,7 +599,6 @@ describe('Cashback Clawback - Customer Balance Updates', () => {
         },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance: 50
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -646,7 +642,6 @@ describe('Cashback Clawback - Customer Balance Updates', () => {
         },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(5) }), // Only $5 balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -765,7 +760,6 @@ describe('Cashback Clawback - Points Integration', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -864,7 +858,6 @@ describe('Cashback Clawback - Order Updates', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),
@@ -900,7 +893,6 @@ describe('Cashback Clawback - Order Updates', () => {
         customer: { update: vi.fn() },
         storeCreditLedger: {
           findFirst: vi.fn()
-            .mockResolvedValueOnce(null) // No existing clawback
             .mockResolvedValueOnce({ balance: createDecimal(50) }), // Current balance
           create: vi.fn(),
           aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null } }),

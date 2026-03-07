@@ -141,7 +141,8 @@ export class ExchangeRateService {
     const toRate = rates.rates[to] || 1;
 
     // Calculate cross rate and convert
-    const rate = fromRate / toRate;
+    // Rates are "1 BASE = X CURRENCY", so to convert from→to: amount * toRate / fromRate
+    const rate = toRate / fromRate;
     const converted = amount * rate;
 
     return {
@@ -153,6 +154,22 @@ export class ExchangeRateService {
       ratesDate: rates.fetchedAt,
       isStale: rates.isStale,
     };
+  }
+
+  /**
+   * Round a conversion result to the target currency's standard decimal places.
+   * JPY, KRW, VND etc. → 0 decimals; KWD, BHD, OMR → 3 decimals; most → 2 decimals.
+   */
+  roundToTargetCurrency(result: ConversionResult, currency: string): number {
+    const zeroDecimal = ['JPY', 'KRW', 'VND', 'CLP', 'ISK', 'UGX', 'PYG', 'RWF'];
+    const threeDecimal = ['KWD', 'BHD', 'OMR'];
+
+    let decimals = 2;
+    if (zeroDecimal.includes(currency)) decimals = 0;
+    else if (threeDecimal.includes(currency)) decimals = 3;
+
+    const factor = Math.pow(10, decimals);
+    return Math.round(result.converted * factor) / factor;
   }
 
   /**

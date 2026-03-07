@@ -387,8 +387,10 @@ describe('Webhook: orders/paid', () => {
         shopifyCustomerId: '123456789',
       });
 
-      // First call - not processed yet
-      (mockPrisma.webhookProcessed.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      // First call - webhook create succeeds
+      (mockPrisma.webhookProcessed.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: 'wp-1', webhookId, topic: 'orders/paid', processedAt: new Date(),
+      });
 
       const ctx1 = createWebhookTestContext({
         topic: 'orders/paid',
@@ -400,13 +402,10 @@ describe('Webhook: orders/paid', () => {
       const response1 = await ctx1.execute(action);
       expect(response1.status).toBe(200);
 
-      // Second call - already processed
-      (mockPrisma.webhookProcessed.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        id: 'wp-1',
-        webhookId,
-        topic: 'orders/paid',
-        processedAt: new Date(),
-      });
+      // Second call - create throws unique constraint error (already processed)
+      const uniqueError = new Error('Unique constraint violation');
+      (uniqueError as any).code = 'P2002';
+      (mockPrisma.webhookProcessed.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(uniqueError);
 
       const ctx2 = createWebhookTestContext({
         topic: 'orders/paid',
@@ -418,9 +417,10 @@ describe('Webhook: orders/paid', () => {
       const response2 = await ctx2.execute(action);
       expect(response2.status).toBe(200);
 
-      // The message should indicate already processed
+      // The message should indicate already processed (check message or status field)
       const body2 = response2.body as Record<string, unknown>;
-      expect(body2.message?.toString().toLowerCase()).toContain('already');
+      const bodyStr = JSON.stringify(body2).toLowerCase();
+      expect(bodyStr).toContain('already');
     });
 
     it('should handle different webhook IDs for same order (prevent double processing)', async () => {
