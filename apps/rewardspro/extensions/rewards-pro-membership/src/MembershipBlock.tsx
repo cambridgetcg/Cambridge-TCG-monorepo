@@ -22,9 +22,10 @@ import { useAuthenticatedCustomer } from './hooks/useAuthenticatedCustomer';
 import { useRaffles } from './hooks/useRaffles';
 import { useMysteryBoxes } from './hooks/useMysteryBoxes';
 import { useChallenges } from './hooks/useChallenges';
+import { useMissions } from './hooks/useMissions';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
-import { PointsSection, type PointsData, RafflesTab, MysteryBoxesTab, ChallengesTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
+import { PointsSection, type PointsData, RafflesTab, MysteryBoxesTab, ChallengesTab, MissionsTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
 import {
   safeBalance,
   safeCustomer,
@@ -1528,7 +1529,7 @@ function AllTiersCard({ tiers, currency, locale, currentSpending, translate }: A
 // Tab Navigation Component
 // ============================================================================
 
-type TabId = 'membership' | 'raffles' | 'boxes' | 'challenges';
+type TabId = 'membership' | 'raffles' | 'boxes' | 'challenges' | 'missions';
 
 interface TabInfo {
   id: TabId;
@@ -1676,6 +1677,20 @@ function MembershipBlock() {
     claimReward,
   } = useChallenges({ shopDomain });
 
+  const {
+    player: missionsPlayer,
+    missions: missionsData,
+    pendingEvents: missionsPendingEvents,
+    config: missionsConfig,
+    isEnabled: missionsEnabled,
+    isLoading: missionsLoading,
+    error: missionsError,
+    message: missionsMessage,
+    fetchMissions,
+    claimReward: claimMissionReward,
+    acknowledgeEvents: acknowledgeMissionEvents,
+  } = useMissions({ shopDomain });
+
   const customerId = authCustomerId || tokenCustomerId;
   const isAuthenticated = authIsAuthenticated || tokenIsAuthenticated;
   const isLoading = tokenLoading || dataLoading;
@@ -1750,8 +1765,9 @@ function MembershipBlock() {
       fetchRafflePsychology(sessionToken);
       fetchBoxes(sessionToken);
       fetchChallenges(sessionToken);
+      fetchMissions(sessionToken);
     }
-  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchRafflePsychology, fetchBoxes, fetchChallenges]);
+  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchRafflePsychology, fetchBoxes, fetchChallenges, fetchMissions]);
 
   const handleRefresh = useCallback(() => {
     if (!isRefreshing) {
@@ -1852,12 +1868,13 @@ function MembershipBlock() {
   const hasHigherTiers = loyaltyData.allTiers?.some(t => t.cashbackPercent > 0) ?? false;
 
   // Tab configuration - only show tabs for enabled features with data
-  const hasActivities = rafflesEnabled || boxesEnabled || challengesEnabled;
+  const hasActivities = rafflesEnabled || boxesEnabled || challengesEnabled || missionsEnabled;
   const tabs: TabInfo[] = [
     { id: 'membership', icon: '⭐', labelKey: 'tabs.membership' },
     ...(rafflesEnabled ? [{ id: 'raffles' as TabId, icon: '🎟️', labelKey: 'tabs.raffles', badge: raffles.filter(r => r.status === 'ACTIVE').length }] : []),
     ...(boxesEnabled ? [{ id: 'boxes' as TabId, icon: '🎁', labelKey: 'tabs.boxes', badge: boxes.filter(b => b.status === 'ACTIVE').length }] : []),
     ...(challengesEnabled ? [{ id: 'challenges' as TabId, icon: '🏆', labelKey: 'tabs.challenges', badge: challenges.filter(c => c.status === 'ACTIVE' || c.status === 'COMPLETED').length }] : []),
+    ...(missionsEnabled ? [{ id: 'missions' as TabId, icon: '🎯', labelKey: 'tabs.missions', badge: (missionsData.daily.length + missionsData.weekly.length + missionsData.monthly.length + missionsData.special.length) }] : []),
   ];
 
   // Handler for tab change
@@ -1963,6 +1980,27 @@ function MembershipBlock() {
           onFetchHistory={() => sessionToken && fetchChallengesHistory(sessionToken)}
           translate={translate}
           locale={locale}
+        />
+      )}
+
+      {activeTab === 'missions' && missionsEnabled && (
+        <MissionsTab
+          player={missionsPlayer}
+          missions={missionsData}
+          pendingEvents={missionsPendingEvents}
+          isLoading={missionsLoading}
+          error={missionsError}
+          config={missionsConfig}
+          message={missionsMessage}
+          onClaimReward={async (missionId: string) => {
+            if (!sessionToken) return { success: false, error: 'Not authenticated' };
+            return claimMissionReward(sessionToken, missionId);
+          }}
+          onAcknowledgeEvents={async (eventIds: string[]) => {
+            if (!sessionToken) return;
+            return acknowledgeMissionEvents(sessionToken, eventIds);
+          }}
+          translate={translate}
         />
       )}
 
