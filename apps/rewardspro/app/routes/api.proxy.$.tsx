@@ -1634,13 +1634,84 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // GIFT-CARDS endpoint — bundles and issued cards for storefront widget
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "gift-cards" && request.method === "GET") {
+    const shop = session?.shop;
+    const customerId = url.searchParams.get("logged_in_customer_id");
+
+    if (!shop) {
+      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
+    }
+    if (!customerId) {
+      return json({ success: false, error: "Customer ID required" }, { status: 400, headers });
+    }
+
+    try {
+      const [config, bundles, issuedCards] = await Promise.all([
+        db.giftCardConfig.findUnique({ where: { shop } }),
+        db.giftCardBundle.findMany({
+          where: { shop, isActive: true },
+          orderBy: { giftCardValue: "asc" },
+        }),
+        db.issuedGiftCard.findMany({
+          where: { shop, customerId },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+      ]);
+
+      // Feature disabled
+      if (!config?.enabled) {
+        return json({ success: true, enabled: false, bundles: [], issuedGiftCards: [] }, { headers });
+      }
+
+      const transformedBundles = bundles.map((b) => ({
+        id: b.id,
+        name: b.name,
+        bundleType: b.bundleType,
+        giftCardValue: Number(b.giftCardValue),
+        cashbackCost: Number(b.cashbackCost),
+        description: b.description ?? null,
+      }));
+
+      const transformedCards = issuedCards.map((c) => ({
+        id: c.id,
+        code: c.maskedCode ?? null,
+        giftCardValue: Number(c.giftCardValue),
+        remainingBalance: Number(c.remainingBalance ?? c.giftCardValue),
+        currency: c.currency,
+        expiresAt: c.expiresAt?.toISOString() ?? null,
+        createdAt: c.createdAt.toISOString(),
+        status: c.status,
+      }));
+
+      // Store credit balance from membership data
+      const memberRecord = await db.customer.findFirst({ where: { shop, shopifyCustomerId: customerId } });
+      const storeCredit = memberRecord ? Number(memberRecord.storeCredit ?? 0) : 0;
+
+      return json({
+        success: true,
+        enabled: true,
+        bundles: transformedBundles,
+        issuedGiftCards: transformedCards,
+        storeCredit,
+        currency: config.currency ?? "USD",
+      }, { headers });
+    } catch (error) {
+      log.error("Failed to load gift card data:", error);
+      return json({ success: false, error: "Failed to load gift card data" }, { status: 500, headers });
+    }
+  }
+
   // 404 for unknown paths
   log.debug('Unknown path requested:', proxyPath);
   return json({
     success: false,
     error: "not_found",
     message: `Endpoint '${proxyPath}' not found`,
-    availablePaths: ["test", "membership", "feature-flags", "raffles", "mystery-boxes", "challenges", "missions", "missions/events", "missions/events/ack", "missions/player", "customer-summary"]
+    availablePaths: ["test", "membership", "feature-flags", "raffles", "mystery-boxes", "challenges", "missions", "missions/events", "missions/events/ack", "missions/player", "customer-summary", "gift-cards"]
   }, { status: 404, headers });
 }
 

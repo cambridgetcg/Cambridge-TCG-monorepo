@@ -1,0 +1,143 @@
+<!-- RewardsPro Gift Cards Block -->
+{% comment %}
+  Storefront section block showing:
+  - Gift card bundles customers can purchase with store credit
+  - Customer's issued/active gift cards with balances
+  - Store credit balance and conversion CTA
+
+  API: /apps/rewardspro/gift-cards (GET)
+{% endcomment %}
+
+{% if customer %}
+  {% comment %} AUTHENTICATED STATE {% endcomment %}
+  <div class="rp-giftcards-root"
+       data-state="authenticated"
+       data-customer-id="{{ customer.id }}"
+       data-customer-email="{{ customer.email }}"
+       data-customer-name="{{ customer.first_name | default: 'Member' }}"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-shop-currency="{{ shop.currency }}"
+       data-api-endpoint="/apps/rewardspro/gift-cards"
+       data-heading="{{ block.settings.heading | default: 'Gift Cards' }}"
+       data-show-bundles="{{ block.settings.show_bundles | default: true }}"
+       data-show-issued="{{ block.settings.show_issued | default: true }}"
+       data-columns="{{ block.settings.grid_columns | default: 3 }}"
+       data-cache-duration="{{ block.settings.cache_duration | default: 60 }}"
+       data-empty-message="{{ block.settings.empty_message | default: 'No gift cards yet. Earn store credit to redeem one!' }}"
+       data-primary-color="{{ block.settings.primary_color | default: '#FFD700' }}"
+       data-bg-color="{{ block.settings.bg_color | default: '#1a1a2e' }}">
+    <div class="rp-widget-loading" aria-live="polite">Loading gift cards…</div>
+  </div>
+{% else %}
+  {% comment %} GUEST STATE {% endcomment %}
+  <div class="rp-giftcards-root rp-giftcards-guest"
+       data-state="guest"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-heading="{{ block.settings.heading | default: 'Gift Cards' }}"
+       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to view and redeem gift cards.' }}"
+       data-guest-cta="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
+       data-guest-url="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+       data-primary-color="{{ block.settings.primary_color | default: '#FFD700' }}"
+       data-bg-color="{{ block.settings.bg_color | default: '#1a1a2e' }}">
+  </div>
+{% endif %}
+
+<noscript>
+  <p>
+    {% if customer %}
+      <a href="/account">View your gift cards</a>
+    {% else %}
+      <a href="/account/login">Sign in</a> to view gift cards
+    {% endif %}
+  </p>
+</noscript>
+
+{% schema %}
+{
+  "name": "RewardsPro Gift Cards",
+  "target": "section",
+  "stylesheet": "gift-cards.css",
+  "javascript": "gift-cards.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Section heading",
+      "default": "Gift Cards"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_bundles",
+      "label": "Show purchasable bundles",
+      "default": true,
+      "info": "Display gift card bundles customers can buy with store credit"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_issued",
+      "label": "Show issued gift cards",
+      "default": true,
+      "info": "Display gift cards already issued to the customer"
+    },
+    {
+      "type": "range",
+      "id": "grid_columns",
+      "label": "Bundle columns (desktop)",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "text",
+      "id": "empty_message",
+      "label": "Empty state message",
+      "default": "No gift cards yet. Earn store credit to redeem one!"
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Accent color",
+      "default": "#FFD700"
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Card background",
+      "default": "#1a1a2e"
+    },
+    {
+      "type": "range",
+      "id": "cache_duration",
+      "label": "Cache duration (seconds)",
+      "min": 30,
+      "max": 300,
+      "step": 30,
+      "default": 60,
+      "unit": "sec"
+    },
+    {
+      "type": "header",
+      "content": "Guest settings"
+    },
+    {
+      "type": "text",
+      "id": "guest_message",
+      "label": "Guest message",
+      "default": "Sign in to view and redeem gift cards."
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Sign-in button text",
+      "default": "Sign In"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_url",
+      "label": "Sign-in URL",
+      "default": "/account/login"
+    }
+  ]
+}
+{% endschema %}

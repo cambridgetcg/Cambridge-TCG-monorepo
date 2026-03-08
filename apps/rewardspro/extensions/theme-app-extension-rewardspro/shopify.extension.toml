@@ -23,3 +23,7 @@ module = "./blocks/mystery_boxes.liquid"
 target = "body"
 module = "./blocks/missions_widget.liquid"
 
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/gift_cards.liquid"
+
