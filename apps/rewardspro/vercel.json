@@ -52,6 +52,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/session-health",
+      "schedule": "30 7 * * *"
+    },
+    {
       "path": "/api/cron/mission-status",
       "schedule": "0 * * * *"
     },
