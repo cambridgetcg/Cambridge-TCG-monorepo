@@ -1025,3 +1025,86 @@
     color: inherit;
   }
 }
+
+/* ─── Improved guest state with teaser cards ─────────────────────────────── */
+.rp-mb-guest__header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.rp-mb-guest__message {
+  font-size: 14px;
+  opacity: 0.7;
+  margin: 8px 0 20px;
+}
+
+.rp-mb-guest__cta {
+  display: inline-flex !important;
+}
+
+.rp-mb-guest__teasers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+@media (max-width: 600px) {
+  .rp-mb-guest__teasers { grid-template-columns: 1fr; }
+}
+
+.rp-mb-guest__teaser-card {
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 16px 14px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-mb-guest__teaser-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.rp-mb-guest__teaser-icon {
+  font-size: 28px;
+  filter: grayscale(0.5);
+}
+
+.rp-mb-guest__teaser-rarity {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.rp-mb-guest__teaser-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.rp-mb-guest__teaser-cost {
+  font-size: 12px;
+  opacity: 0.5;
+  color: #FFD700;
+}
+
+.rp-mb-guest__teaser-overlay {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  font-size: 14px;
+  opacity: 0.35;
+}
+
+.rp-mb-guest__note {
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.4;
+  margin: 0;
+}

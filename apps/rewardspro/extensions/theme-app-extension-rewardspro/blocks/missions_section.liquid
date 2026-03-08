@@ -1,0 +1,144 @@
+<!-- RewardsPro Missions Section Block -->
+{% comment %}
+  Inline section version of the Missions widget.
+  Use this on the /pages/missions page template.
+  The floating missions_widget.liquid is the body-target overlay for all pages.
+{% endcomment %}
+
+{% if customer %}
+  <div class="rp-missions-section-root"
+       data-state="authenticated"
+       data-customer-id="{{ customer.id }}"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-api-endpoint="/apps/rewardspro/missions"
+       data-claim-endpoint="/apps/rewardspro/challenges/claim"
+       data-events-ack-endpoint="/apps/rewardspro/missions/events/ack"
+       data-cache-duration="{{ block.settings.cache_duration | default: 30 }}"
+       data-default-tab="{{ block.settings.default_tab | default: 'daily' }}"
+       data-inline="true">
+    <div class="rp-missions-loading" aria-live="polite">Loading missions…</div>
+  </div>
+{% else %}
+  <div class="rp-missions-section-root rp-missions-section-guest"
+       data-state="guest"
+       data-shop-domain="{{ shop.permanent_domain }}"
+       data-inline="true">
+    <div class="rp-missions-section-guest__wrap">
+      <div class="rp-missions-section-guest__hero">
+        <span class="rp-missions-section-guest__icon" aria-hidden="true">🎯</span>
+        <h2 class="rp-missions-section-guest__title">{{ block.settings.heading | default: 'Complete Missions. Earn Rewards.' }}</h2>
+        <p class="rp-missions-section-guest__subtitle">{{ block.settings.guest_message | default: 'Sign in to unlock daily, weekly, and special missions. Earn XP, level up your tier, and claim exclusive rewards.' }}</p>
+        <a href="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+           class="rp-missions-section-guest__cta">
+          {{ block.settings.guest_cta_text | default: 'Sign In to Start' }}
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      <div class="rp-missions-section-guest__preview" aria-label="Sample missions preview" role="list">
+        <div class="rp-missions-section-guest__card rp-missions-section-guest__card--locked" role="listitem">
+          <div class="rp-missions-section-guest__card-icon">🛒</div>
+          <div class="rp-missions-section-guest__card-body">
+            <div class="rp-missions-section-guest__card-name">Daily Purchase</div>
+            <div class="rp-missions-section-guest__card-desc">Make a purchase today</div>
+            <div class="rp-missions-section-guest__card-bar">
+              <div class="rp-missions-section-guest__card-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="rp-missions-section-guest__card-xp">+50 XP</div>
+        </div>
+
+        <div class="rp-missions-section-guest__card rp-missions-section-guest__card--locked" role="listitem">
+          <div class="rp-missions-section-guest__card-icon">📦</div>
+          <div class="rp-missions-section-guest__card-body">
+            <div class="rp-missions-section-guest__card-name">Collector</div>
+            <div class="rp-missions-section-guest__card-desc">Buy 3 items this week</div>
+            <div class="rp-missions-section-guest__card-bar">
+              <div class="rp-missions-section-guest__card-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="rp-missions-section-guest__card-xp">+150 XP</div>
+        </div>
+
+        <div class="rp-missions-section-guest__card rp-missions-section-guest__card--locked" role="listitem">
+          <div class="rp-missions-section-guest__card-icon">⭐</div>
+          <div class="rp-missions-section-guest__card-body">
+            <div class="rp-missions-section-guest__card-name">Monthly Champion</div>
+            <div class="rp-missions-section-guest__card-desc">Reach £100 spend this month</div>
+            <div class="rp-missions-section-guest__card-bar">
+              <div class="rp-missions-section-guest__card-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="rp-missions-section-guest__card-xp">+500 XP</div>
+        </div>
+      </div>
+
+      <p class="rp-missions-section-guest__note">🔒 Sign in to see your real missions and progress</p>
+    </div>
+  </div>
+{% endif %}
+
+<noscript>
+  {% if customer %}
+    <p>Loading your missions… <a href="/account">View account</a></p>
+  {% else %}
+    <p><a href="/account/login">Sign in</a> to view missions and earn rewards.</p>
+  {% endif %}
+</noscript>
+
+{% schema %}
+{
+  "name": "RewardsPro Missions (Page)",
+  "target": "section",
+  "stylesheet": "missions-widget.css",
+  "javascript": "missions-widget.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Complete Missions. Earn Rewards."
+    },
+    {
+      "type": "text",
+      "id": "guest_message",
+      "label": "Guest message",
+      "default": "Sign in to unlock daily, weekly, and special missions. Earn XP, level up your tier, and claim exclusive rewards."
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_text",
+      "label": "Sign-in button text",
+      "default": "Sign In to Start"
+    },
+    {
+      "type": "text",
+      "id": "guest_cta_url",
+      "label": "Sign-in URL",
+      "default": "/account/login"
+    },
+    {
+      "type": "range",
+      "id": "cache_duration",
+      "label": "Cache (seconds)",
+      "min": 15,
+      "max": 120,
+      "step": 15,
+      "default": 30,
+      "unit": "sec"
+    },
+    {
+      "type": "select",
+      "id": "default_tab",
+      "label": "Default tab",
+      "default": "daily",
+      "options": [
+        { "value": "daily",   "label": "Daily"   },
+        { "value": "weekly",  "label": "Weekly"  },
+        { "value": "monthly", "label": "Monthly" },
+        { "value": "special", "label": "Special" }
+      ]
+    }
+  ]
+}
+{% endschema %}

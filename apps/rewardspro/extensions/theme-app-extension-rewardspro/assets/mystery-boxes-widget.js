@@ -342,22 +342,42 @@
 
     renderGuest() {
       const { message, ctaText, ctaUrl } = this.config.guest;
+
+      // Teaser boxes shown locked to drive sign-ups
+      const teaserBoxes = [
+        { icon: '🃏', rarity: 'RARE', name: 'Holo Rare Box', cost: '200 pts', rarityColor: '#3b82f6' },
+        { icon: '💜', rarity: 'EPIC', name: 'Alt-Art Mystery Box', cost: '500 pts', rarityColor: '#8b5cf6' },
+        { icon: '✨', rarity: 'LEGENDARY', name: 'Secret Rare Treasure', cost: '1000 pts', rarityColor: '#f59e0b' },
+      ];
+
+      const teaserHtml = teaserBoxes.map(b => `
+        <div class="rp-mb-guest__teaser-card" role="listitem">
+          <div class="rp-mb-guest__teaser-top">
+            <span class="rp-mb-guest__teaser-icon">${b.icon}</span>
+            <span class="rp-mb-guest__teaser-rarity" style="color:${b.rarityColor}">${b.rarity}</span>
+          </div>
+          <div class="rp-mb-guest__teaser-name">${this.escapeHtml(b.name)}</div>
+          <div class="rp-mb-guest__teaser-cost">${this.escapeHtml(b.cost)}</div>
+          <div class="rp-mb-guest__teaser-overlay">🔒</div>
+        </div>`).join('');
+
       this.root.innerHTML = `
         <div class="rp-mb-container">
-          <h2 class="rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
           <div class="rp-mb-guest">
-            <div class="rp-mb-guest__icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
-              </svg>
+            <div class="rp-mb-guest__header">
+              <h2 class="rp-mb-title">${this.escapeHtml(this.config.sectionTitle)}</h2>
+              <p class="rp-mb-guest__message">${this.escapeHtml(message)}</p>
+              <a href="${this.escapeHtml(ctaUrl)}" class="rp-mb-btn rp-mb-btn--primary rp-mb-guest__cta">
+                ${this.escapeHtml(ctaText)}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </a>
             </div>
-            <p class="rp-mb-guest__message">${this.escapeHtml(message)}</p>
-            <a href="${this.escapeHtml(ctaUrl)}" class="rp-mb-btn rp-mb-btn--primary">
-              ${this.escapeHtml(ctaText)}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
-            </a>
+            <div class="rp-mb-guest__teasers" aria-label="Sample mystery boxes" role="list">
+              ${teaserHtml}
+            </div>
+            <p class="rp-mb-guest__note">🔒 Sign in to open mystery boxes with your points</p>
           </div>
         </div>
       `;

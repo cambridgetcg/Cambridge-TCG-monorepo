@@ -1206,3 +1206,150 @@
     color: #16a34a;
   }
 }
+
+/* ============================================
+   MISSIONS SECTION (inline page block)
+   ============================================ */
+
+.rp-missions-section-root {
+  font-family: inherit;
+  box-sizing: border-box;
+  padding: 40px 0;
+}
+
+.rp-missions-section-guest__wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.rp-missions-section-guest__hero {
+  margin-bottom: 32px;
+}
+
+.rp-missions-section-guest__icon {
+  display: block;
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.rp-missions-section-guest__title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+
+.rp-missions-section-guest__subtitle {
+  font-size: 15px;
+  opacity: 0.7;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.rp-missions-section-guest__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFD700;
+  color: #1a1a2e;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.rp-missions-section-guest__cta:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Teaser mission cards */
+.rp-missions-section-guest__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.rp-missions-section-guest__card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-missions-section-guest__card--locked::after {
+  content: '🔒';
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 14px;
+  opacity: 0.5;
+}
+
+.rp-missions-section-guest__card-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.rp-missions-section-guest__card-body {
+  flex: 1;
+}
+
+.rp-missions-section-guest__card-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.rp-missions-section-guest__card-desc {
+  font-size: 12px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+}
+
+.rp-missions-section-guest__card-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.rp-missions-section-guest__card-fill {
+  height: 100%;
+  background: #FFD700;
+  border-radius: 2px;
+}
+
+.rp-missions-section-guest__card-xp {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFD700;
+  opacity: 0.5;
+  flex-shrink: 0;
+  padding-right: 24px;
+}
+
+.rp-missions-section-guest__note {
+  font-size: 12px;
+  opacity: 0.45;
+  margin: 0;
+}
+
+/* Inline authenticated state: re-use missions widget styles */
+.rp-missions-section-root[data-state="authenticated"] .rp-missions-widget {
+  max-width: 680px;
+  margin: 0 auto;
+}

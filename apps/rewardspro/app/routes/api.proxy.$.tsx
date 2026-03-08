@@ -613,9 +613,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         },
         theme: {
           mode: row.widgetThemeMode || 'LIGHT',
-          primaryColor: row.widgetPrimaryColor || '#5C6AC4',
-          backgroundColor: row.widgetBackgroundColor || '#FFFFFF',
-          textColor: row.widgetTextColor || '#212B36',
+          primaryColor: row.widgetPrimaryColor || '#FFD700',
+          backgroundColor: row.widgetBackgroundColor || '#1a1a2e',
+          textColor: row.widgetTextColor || '#FFFFFF',
           accentColor: row.widgetAccentColor || '#008060',
           secondaryTextColor: null, // Not yet migrated to production
           borderRadius: row.widgetBorderRadius || 12,

@@ -27,3 +27,7 @@ module = "./blocks/missions_widget.liquid"
 target = "section"
 module = "./blocks/gift_cards.liquid"
 
+[[extensions.targeting]]
+target = "section"
+module = "./blocks/missions_section.liquid"
+

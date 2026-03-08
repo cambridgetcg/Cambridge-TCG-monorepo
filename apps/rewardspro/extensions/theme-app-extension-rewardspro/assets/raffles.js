@@ -793,16 +793,38 @@
       const { message, ctaText, ctaUrl } = this.config.guest;
       const heading = this.config.display.heading;
 
+      // Teaser raffle cards shown in locked state to drive sign-ups
+      const teaserRaffles = [
+        { icon: '🃏', name: 'Monthly Mystery Pack Raffle', cost: '100 pts', entries: '47 entered', ends: '6 days left' },
+        { icon: '⭐', name: 'Rare Card Collector Prize', cost: '250 pts', entries: '23 entered', ends: '12 days left' },
+        { icon: '🎁', name: 'Booster Box Bundle', cost: '500 pts', entries: '89 entered', ends: '3 days left' },
+      ];
+
+      const teaserCardsHtml = teaserRaffles.map(r => `
+        <div class="rp-raffles-guest__teaser-card">
+          <div class="rp-raffles-guest__teaser-icon">${r.icon}</div>
+          <div class="rp-raffles-guest__teaser-body">
+            <div class="rp-raffles-guest__teaser-name">${this.escapeHtml(r.name)}</div>
+            <div class="rp-raffles-guest__teaser-meta">
+              <span>🎟 ${this.escapeHtml(r.cost)}</span>
+              <span>👥 ${this.escapeHtml(r.entries)}</span>
+              <span>⏱ ${this.escapeHtml(r.ends)}</span>
+            </div>
+          </div>
+          <div class="rp-raffles-guest__teaser-lock" aria-label="Sign in to enter">🔒</div>
+        </div>`).join('');
+
       this.root.innerHTML = `
         <div class="rp-raffles-guest">
-          <div class="rp-raffles-guest__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-              <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
-            </svg>
+          <div class="rp-raffles-guest__header">
+            <h2 class="rp-raffles-guest__heading">${this.escapeHtml(heading)}</h2>
+            <p class="rp-raffles-guest__message">${this.escapeHtml(message)}</p>
+            <a href="${this.escapeHtml(ctaUrl)}" class="rp-raffles-guest__cta">${this.escapeHtml(ctaText)}</a>
           </div>
-          <h2 class="rp-raffles-guest__heading">${this.escapeHtml(heading)}</h2>
-          <p class="rp-raffles-guest__message">${this.escapeHtml(message)}</p>
-          <a href="${this.escapeHtml(ctaUrl)}" class="rp-raffles-guest__cta">${this.escapeHtml(ctaText)}</a>
+          <div class="rp-raffles-guest__teasers" aria-label="Sample raffles" role="list">
+            ${teaserCardsHtml}
+          </div>
+          <p class="rp-raffles-guest__note">🔒 Sign in to enter raffles with your points</p>
         </div>
       `;
     }
