@@ -675,7 +675,7 @@ export default function Dashboard() {
   const reviewFetcher = useFetcher();
 
   const handleLeaveReview = useCallback(() => {
-    window.open('https://apps.shopify.com/rewardspromembership#modal-show=ReviewListingModal', '_blank');
+    window.open('https://apps.shopify.com/rewards-pro#modal-show=ReviewListingModal', '_blank');
     setReviewBannerState('leaving');
   }, []);
 
