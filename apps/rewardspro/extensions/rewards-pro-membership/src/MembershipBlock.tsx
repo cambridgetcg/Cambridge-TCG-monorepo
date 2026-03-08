@@ -23,9 +23,10 @@ import { useRaffles } from './hooks/useRaffles';
 import { useMysteryBoxes } from './hooks/useMysteryBoxes';
 import { useChallenges } from './hooks/useChallenges';
 import { useMissions } from './hooks/useMissions';
+import { useGiftCards } from './hooks/useGiftCards';
 import { logger } from './utils/logger';
 import { MAX_TRANSACTIONS_DISPLAY } from './config';
-import { PointsSection, type PointsData, RafflesTab, MysteryBoxesTab, ChallengesTab, MissionsTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
+import { PointsSection, type PointsData, RafflesTab, MysteryBoxesTab, ChallengesTab, MissionsTab, GiftCardsTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
 import {
   safeBalance,
   safeCustomer,
@@ -1529,7 +1530,7 @@ function AllTiersCard({ tiers, currency, locale, currentSpending, translate }: A
 // Tab Navigation Component
 // ============================================================================
 
-type TabId = 'membership' | 'raffles' | 'boxes' | 'challenges' | 'missions';
+type TabId = 'membership' | 'raffles' | 'boxes' | 'challenges' | 'missions' | 'giftcards';
 
 interface TabInfo {
   id: TabId;
@@ -1691,6 +1692,20 @@ function MembershipBlock() {
     acknowledgeEvents: acknowledgeMissionEvents,
   } = useMissions({ shopDomain });
 
+  const {
+    bundles: giftCardBundles,
+    issuedGiftCards,
+    storeCredit: giftCardStoreCredit,
+    tierName: giftCardTierName,
+    tierBonus: giftCardTierBonus,
+    enableConversion: giftCardEnableConversion,
+    isEnabled: giftCardsEnabled,
+    isLoading: giftCardsLoading,
+    error: giftCardsError,
+    fetchGiftCards,
+    convertToGiftCard,
+  } = useGiftCards({ shopDomain });
+
   const customerId = authCustomerId || tokenCustomerId;
   const isAuthenticated = authIsAuthenticated || tokenIsAuthenticated;
   const isLoading = tokenLoading || dataLoading;
@@ -1766,8 +1781,9 @@ function MembershipBlock() {
       fetchBoxes(sessionToken);
       fetchChallenges(sessionToken);
       fetchMissions(sessionToken);
+      fetchGiftCards(sessionToken);
     }
-  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchRafflePsychology, fetchBoxes, fetchChallenges, fetchMissions]);
+  }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchRafflePsychology, fetchBoxes, fetchChallenges, fetchMissions, fetchGiftCards]);
 
   const handleRefresh = useCallback(() => {
     if (!isRefreshing) {
@@ -1868,13 +1884,14 @@ function MembershipBlock() {
   const hasHigherTiers = loyaltyData.allTiers?.some(t => t.cashbackPercent > 0) ?? false;
 
   // Tab configuration - only show tabs for enabled features with data
-  const hasActivities = rafflesEnabled || boxesEnabled || challengesEnabled || missionsEnabled;
+  const hasActivities = rafflesEnabled || boxesEnabled || challengesEnabled || missionsEnabled || giftCardsEnabled;
   const tabs: TabInfo[] = [
     { id: 'membership', icon: '⭐', labelKey: 'tabs.membership' },
     ...(rafflesEnabled ? [{ id: 'raffles' as TabId, icon: '🎟️', labelKey: 'tabs.raffles', badge: raffles.filter(r => r.status === 'ACTIVE').length }] : []),
     ...(boxesEnabled ? [{ id: 'boxes' as TabId, icon: '🎁', labelKey: 'tabs.boxes', badge: boxes.filter(b => b.status === 'ACTIVE').length }] : []),
     ...(challengesEnabled ? [{ id: 'challenges' as TabId, icon: '🏆', labelKey: 'tabs.challenges', badge: challenges.filter(c => c.status === 'ACTIVE' || c.status === 'COMPLETED').length }] : []),
     ...(missionsEnabled ? [{ id: 'missions' as TabId, icon: '🎯', labelKey: 'tabs.missions', badge: (missionsData.daily.length + missionsData.weekly.length + missionsData.monthly.length + missionsData.special.length) }] : []),
+    ...(giftCardsEnabled ? [{ id: 'giftcards' as TabId, icon: '🎁', labelKey: 'tabs.giftcards', badge: issuedGiftCards.filter(c => c.status === 'ACTIVE').length }] : []),
   ];
 
   // Handler for tab change
@@ -1999,6 +2016,25 @@ function MembershipBlock() {
           onAcknowledgeEvents={async (eventIds: string[]) => {
             if (!sessionToken) return;
             return acknowledgeMissionEvents(sessionToken, eventIds);
+          }}
+          translate={translate}
+        />
+      )}
+
+      {activeTab === 'giftcards' && giftCardsEnabled && (
+        <GiftCardsTab
+          bundles={giftCardBundles}
+          issuedGiftCards={issuedGiftCards}
+          storeCredit={giftCardStoreCredit}
+          tierName={giftCardTierName}
+          tierBonus={giftCardTierBonus}
+          enableConversion={giftCardEnableConversion}
+          isLoading={giftCardsLoading}
+          error={giftCardsError}
+          customerId={customerId}
+          onConvert={async (amount: number) => {
+            if (!sessionToken || !customerId) return { success: false, error: 'Not authenticated' };
+            return convertToGiftCard(sessionToken, customerId, amount);
           }}
           translate={translate}
         />

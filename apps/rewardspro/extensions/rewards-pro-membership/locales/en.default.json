@@ -181,7 +181,8 @@
     "raffles": "Raffles",
     "boxes": "Mystery Boxes",
     "challenges": "Challenges",
-    "missions": "Missions"
+    "missions": "Missions",
+    "giftcards": "Gift Cards"
   },
   "challenges": {
     "errorTitle": "Unable to Load Challenges",
@@ -406,5 +407,27 @@
       "epic": "Epic",
       "legendary": "Legendary"
     }
+  },
+  "giftCards": {
+    "availableCredit": "Available Store Credit",
+    "tierBonus": "+{bonus}% tier bonus",
+    "availableBundles": "Convert Credit to Gift Card",
+    "value": "Gift Card Value",
+    "cost": "Credit Required",
+    "convertCta": "Get {value} Gift Card",
+    "convertA11y": "Convert store credit to {value} gift card",
+    "converting": "Converting\u2026",
+    "insufficientCredit": "Insufficient credit",
+    "convertSuccess": "Gift card issued! Check your email for the code.",
+    "convertError": "Conversion failed. Please try again.",
+    "convertAll": "Convert Store Credit",
+    "convertAllDesc": "Convert your entire store credit balance into a Shopify gift card.",
+    "convertAllCta": "Convert {amount} to Gift Card",
+    "myCards": "My Gift Cards",
+    "issued": "Issued",
+    "redeemed": "Redeemed",
+    "pendingCode": "Code pending",
+    "emptyTitle": "No Gift Cards Yet",
+    "emptySubtitle": "Earn store credit to unlock gift card conversions."
   }
 }

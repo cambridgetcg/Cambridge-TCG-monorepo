@@ -11,6 +11,7 @@ export { RafflesTab } from './RafflesTab';
 export { MysteryBoxesTab } from './MysteryBoxesTab';
 export { ChallengesTab } from './ChallengesTab';
 export { MissionsTab } from './MissionsTab';
+export { GiftCardsTab } from './GiftCardsTab';
 
 // Raffle Psychology Components
 export { RaffleStreakBanner, type RaffleStreakInfo as RafflePsychologyStreakInfo } from './RaffleStreakBanner';
