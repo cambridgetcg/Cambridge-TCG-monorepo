@@ -51,12 +51,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const alerts: string[] = [];
 
   try {
-    // Get all shops with an active offline session
+    // Get all shops with an active offline session + billing status
+    // Skip INACTIVE billing stores — revoked sessions on uninstalled/lapsed stores are expected
     const sessionRows = await aurora.executeStatement(
-      `SELECT shop, "isActive", LEFT("accessToken", 15) AS tok
-       FROM "Session"
-       WHERE "isOnline" = false
-       ORDER BY shop ASC`
+      `SELECT ses.shop, ses."isActive", LEFT(ses."accessToken", 15) AS tok,
+              COALESCE(ss."billingStatus", 'UNKNOWN') AS billing_status
+       FROM "Session" ses
+       LEFT JOIN "ShopSettings" ss ON ss.shop = ses.shop
+       WHERE ses."isOnline" = false
+       ORDER BY ses.shop ASC`
     );
 
     if (!sessionRows.records || sessionRows.records.length === 0) {
@@ -73,6 +76,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       const shop: string = row.shop ?? "";
       const isActive: boolean = row.isActive ?? false;
       const hasToken: boolean = typeof row.tok === "string" && row.tok.length > 0;
+      const billingStatus: string = row.billing_status ?? "UNKNOWN";
+
+      // Skip INACTIVE/UNINSTALLED stores — revoked sessions are expected there
+      if (billingStatus === "INACTIVE" || billingStatus === "UNINSTALLED") {
+        // Resolve any lingering alert for this shop
+        const staleAlert = await db.systemAlert.findFirst({
+          where: { type: "SESSION_TOKEN_REVOKED", resolved: false, message: { contains: shop } } as any,
+        });
+        if (staleAlert) {
+          await db.systemAlert.update({
+            where: { id: staleAlert.id },
+            data: { resolved: true, resolvedAt: new Date(), updatedAt: new Date() },
+          });
+        }
+        continue;
+      }
 
       // Check last WebhookProcessed for this shop
       const lastWebhookRows = await aurora.executeStatement(
