@@ -142,6 +142,9 @@ interface DashboardData {
     };
     webhookHealth: 'healthy' | 'degraded' | 'critical';
   };
+  // Review banner
+  reviewBannerDismissed: boolean;
+
   // Billing data
   currentPlan: any | null;
   activeSubscription: any;
@@ -230,6 +233,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             customersSyncInProgress: true,
             widgetIsActive: true,
             widgetSetupDismissed: true,
+            reviewBannerDismissed: true,
           }
         })
       ),
@@ -466,6 +470,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Simplified dashboard data
     const dashboardData: DashboardData = {
       shop,
+      reviewBannerDismissed: shopSettings?.reviewBannerDismissed ?? false,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency || 'USD',
         tierRecalculationEnabled: false,
@@ -664,6 +669,27 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
+  // Review banner state: 'idle' | 'leaving' | 'claimed'
+  const [reviewBannerState, setReviewBannerState] = useState<'idle' | 'leaving' | 'claimed'>('idle');
+  const [reviewBannerVisible, setReviewBannerVisible] = useState(!data.reviewBannerDismissed);
+  const reviewFetcher = useFetcher();
+
+  const handleLeaveReview = useCallback(() => {
+    window.open('https://apps.shopify.com/rewardspromembership#modal-show=ReviewListingModal', '_blank');
+    setReviewBannerState('leaving');
+  }, []);
+
+  const handleReviewClaimed = useCallback(() => {
+    setReviewBannerState('claimed');
+    reviewFetcher.submit({}, { method: 'POST', action: '/api/review-claimed' });
+    setTimeout(() => setReviewBannerVisible(false), 3000);
+  }, [reviewFetcher]);
+
+  const handleDismissReviewBanner = useCallback(() => {
+    setReviewBannerVisible(false);
+    reviewFetcher.submit({}, { method: 'POST', action: '/api/dismiss-review-banner' });
+  }, [reviewFetcher]);
+
   // Analytics tracking
   const { trackCustomEvent } = useAnalytics({ pageTitle: 'Dashboard' });
 
@@ -763,6 +789,146 @@ export default function Dashboard() {
     <Frame>
       <Page title="Dashboard">
       <Layout>
+        {/* Review Request Banner */}
+        {reviewBannerVisible && (
+          <Layout.Section>
+            <div style={{
+              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+              borderRadius: '12px',
+              padding: '24px 28px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {/* Decorative star accents */}
+              <div style={{
+                position: 'absolute', top: '-20px', right: '-20px',
+                width: '120px', height: '120px', borderRadius: '50%',
+                background: 'rgba(255,215,0,0.08)', pointerEvents: 'none'
+              }} />
+              <div style={{
+                position: 'absolute', bottom: '-30px', right: '100px',
+                width: '80px', height: '80px', borderRadius: '50%',
+                background: 'rgba(255,215,0,0.05)', pointerEvents: 'none'
+              }} />
+
+              {reviewBannerState === 'claimed' ? (
+                /* Thank-you state */
+                <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                  <InlineStack gap="400" blockAlign="center">
+                    <div style={{ fontSize: '32px' }}>🎉</div>
+                    <BlockStack gap="100">
+                      <Text variant="headingMd" as="h3" fontWeight="bold">
+                        <span style={{ color: '#ffffff' }}>Thank you! Your 3 months of Pro is on its way.</span>
+                      </Text>
+                      <Text variant="bodySm" as="p">
+                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
+                          We'll apply your upgrade shortly. We truly appreciate your support.
+                        </span>
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                </InlineStack>
+              ) : reviewBannerState === 'leaving' ? (
+                /* Confirmation step — after opening App Store */
+                <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                  <InlineStack gap="400" blockAlign="center">
+                    <div style={{ fontSize: '28px' }}>⭐</div>
+                    <BlockStack gap="100">
+                      <Text variant="headingMd" as="h3" fontWeight="bold">
+                        <span style={{ color: '#ffffff' }}>Done writing your review?</span>
+                      </Text>
+                      <Text variant="bodySm" as="p">
+                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
+                          Once you've submitted it, click below and we'll activate 3 months of Pro for you.
+                        </span>
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                  <InlineStack gap="300" blockAlign="center">
+                    <div
+                      onClick={handleDismissReviewBanner}
+                      style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}
+                    >
+                      Not yet
+                    </div>
+                    <div
+                      onClick={handleReviewClaimed}
+                      style={{
+                        background: 'linear-gradient(135deg, #FFD700, #FFA500)',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        fontSize: '14px',
+                        color: '#1a1a2e',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 4px 12px rgba(255,215,0,0.3)',
+                      }}
+                    >
+                      ✓ I've left my review
+                    </div>
+                  </InlineStack>
+                </InlineStack>
+              ) : (
+                /* Default state */
+                <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                  <InlineStack gap="400" blockAlign="center">
+                    <div style={{
+                      background: 'rgba(255,215,0,0.15)',
+                      borderRadius: '12px',
+                      width: '52px',
+                      height: '52px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <span style={{ fontSize: '26px' }}>⭐</span>
+                    </div>
+                    <BlockStack gap="050">
+                      <Text variant="headingMd" as="h3" fontWeight="bold">
+                        <span style={{ color: '#ffffff' }}>Enjoying Rewards Pro? Leave us a review.</span>
+                      </Text>
+                      <Text variant="bodySm" as="p">
+                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
+                          Share your experience on the Shopify App Store and we'll give you{' '}
+                          <span style={{ color: '#FFD700', fontWeight: '600' }}>3 months of Pro, free</span>
+                          {' '}— as a thank you.
+                        </span>
+                      </Text>
+                    </BlockStack>
+                  </InlineStack>
+                  <InlineStack gap="300" blockAlign="center">
+                    <div
+                      onClick={handleDismissReviewBanner}
+                      style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.45)', fontSize: '13px' }}
+                    >
+                      Maybe later
+                    </div>
+                    <div
+                      onClick={handleLeaveReview}
+                      style={{
+                        background: 'linear-gradient(135deg, #FFD700, #FFA500)',
+                        borderRadius: '8px',
+                        padding: '10px 22px',
+                        cursor: 'pointer',
+                        fontWeight: '700',
+                        fontSize: '14px',
+                        color: '#1a1a2e',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 4px 16px rgba(255,215,0,0.35)',
+                        transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+                      }}
+                    >
+                      ⭐ Leave a Review
+                    </div>
+                  </InlineStack>
+                </InlineStack>
+              )}
+            </div>
+          </Layout.Section>
+        )}
+
         {/* System Status - Full Width */}
         <Layout.Section>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

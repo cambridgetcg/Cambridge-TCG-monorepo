@@ -106,6 +106,10 @@ model ShopSettings {
   widgetIsActive       Boolean @default(false) // Cache of last known widget status from theme detection
   widgetSetupDismissed Boolean @default(false) // Has merchant clicked "Enable widget" button
 
+  // Review Request Banner
+  reviewBannerDismissed Boolean   @default(false) // Has merchant dismissed the review request banner
+  reviewClickedAt       DateTime? // When merchant clicked "I've left my review"
+
   // Customer Account Block Detection (Cache-based)
   customerAccountBlockDismissed Boolean @default(false) // Has merchant clicked "Enable customer account block" button
   customerAccountBlockIsActive  Boolean @default(false) // Cache of last known block status
