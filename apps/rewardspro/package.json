@@ -179,10 +179,10 @@
   "author": "alex",
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --cache --cache-location ./node_modules/.cache/eslint --no-warn-ignored"
+      "eslint --cache --cache-location ./node_modules/.cache/eslint"
     ],
     "extensions/**/*.js": [
-      "eslint --cache --cache-location ./node_modules/.cache/eslint --no-warn-ignored --no-eslintrc --env browser --env es2020 --rule '{\"no-dupe-keys\": \"error\", \"no-undef\": \"off\", \"no-unused-vars\": [\"warn\", {\"args\": \"none\"}]}'"
+      "eslint --cache --cache-location ./node_modules/.cache/eslint --no-eslintrc --env browser --env es2020 --rule '{\"no-dupe-keys\": \"error\", \"no-undef\": \"off\", \"no-unused-vars\": [\"warn\", {\"args\": \"none\"}]}'"
     ]
   }
 }
