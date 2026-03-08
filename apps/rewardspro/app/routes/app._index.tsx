@@ -682,8 +682,27 @@ export default function Dashboard() {
   const handleReviewClaimed = useCallback(() => {
     setReviewBannerState('claimed');
     reviewFetcher.submit({}, { method: 'POST', action: '/api/review-claimed' });
-    setTimeout(() => setReviewBannerVisible(false), 3000);
   }, [reviewFetcher]);
+
+  // Watch for the confirmationUrl coming back from the review-claimed API
+  useEffect(() => {
+    if (reviewFetcher.state === 'idle' && reviewFetcher.data) {
+      const d = reviewFetcher.data as {
+        success?: boolean;
+        confirmationUrl?: string;
+        billingError?: string;
+        alreadyClaimed?: boolean;
+        skipped?: boolean;
+      };
+      if (d.confirmationUrl) {
+        // Redirect merchant to Shopify billing confirmation page
+        window.location.href = d.confirmationUrl;
+      } else {
+        // Billing failed or skipped — still hide the banner after a beat
+        setTimeout(() => setReviewBannerVisible(false), 3000);
+      }
+    }
+  }, [reviewFetcher.state, reviewFetcher.data]);
 
   const handleDismissReviewBanner = useCallback(() => {
     setReviewBannerVisible(false);
@@ -812,17 +831,17 @@ export default function Dashboard() {
               }} />
 
               {reviewBannerState === 'claimed' ? (
-                /* Thank-you state */
+                /* Thank-you / redirect state */
                 <InlineStack align="space-between" blockAlign="center" wrap={false}>
                   <InlineStack gap="400" blockAlign="center">
                     <div style={{ fontSize: '32px' }}>🎉</div>
                     <BlockStack gap="100">
                       <Text variant="headingMd" as="h3" fontWeight="bold">
-                        <span style={{ color: '#ffffff' }}>Thank you! Your 3 months of Pro is on its way.</span>
+                        <span style={{ color: '#ffffff' }}>Thank you! Setting up your 3 months of Pro…</span>
                       </Text>
                       <Text variant="bodySm" as="p">
                         <span style={{ color: 'rgba(255,255,255,0.65)' }}>
-                          We'll apply your upgrade shortly. We truly appreciate your support.
+                          You'll be redirected to confirm the plan — it's free for 90 days, then $39/mo.
                         </span>
                       </Text>
                     </BlockStack>
