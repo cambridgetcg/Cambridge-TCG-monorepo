@@ -53,7 +53,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     // Get all shops with an active offline session
     const sessionRows = await aurora.executeStatement(
-      `SELECT id, shop, "isActive", "accessToken"
+      `SELECT shop, "isActive", LEFT("accessToken", 15) AS tok
        FROM "Session"
        WHERE "isOnline" = false
        ORDER BY shop ASC`
@@ -68,29 +68,35 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       });
     }
 
-    for (const row of sessionRows.records) {
-      const shop = row[1].stringValue ?? "";
-      const isActive = row[2].booleanValue ?? false;
-      const hasToken = !row[3].isNull && (row[3].stringValue ?? "").length > 0;
+    for (const row of sessionRows.records as any[]) {
+      // executeStatement returns typed objects keyed by column name
+      const shop: string = row.shop ?? "";
+      const isActive: boolean = row.isActive ?? false;
+      const hasToken: boolean = typeof row.tok === "string" && row.tok.length > 0;
 
       // Check last WebhookProcessed for this shop
       const lastWebhookRows = await aurora.executeStatement(
-        `SELECT MAX("processedAt") as last_processed
+        `SELECT MAX("processedAt")::text as last_processed
          FROM "WebhookProcessed"
          WHERE shop = :shop AND topic = 'ORDERS_PAID'`,
         [{ name: "shop", value: { stringValue: shop } }]
       );
-      const lastWebhookDate =
-        lastWebhookRows.records?.[0]?.[0]?.stringValue ?? null;
+      const lastWebhookRaw = (lastWebhookRows.records?.[0] as any)?.last_processed;
+      const lastWebhookDate: string | null =
+        lastWebhookRaw instanceof Date
+          ? lastWebhookRaw.toISOString()
+          : typeof lastWebhookRaw === "string"
+          ? lastWebhookRaw
+          : null;
 
       // Count orders newer than last webhook (indicating active store)
       const newOrdersRows = await aurora.executeStatement(
         lastWebhookDate
-          ? `SELECT COUNT(*) FROM "Order"
+          ? `SELECT COUNT(*)::int as cnt FROM "Order"
              WHERE shop = :shop
                AND "customerId" IS NOT NULL
                AND "createdAt" > :last_webhook::timestamp`
-          : `SELECT COUNT(*) FROM "Order"
+          : `SELECT COUNT(*)::int as cnt FROM "Order"
              WHERE shop = :shop AND "customerId" IS NOT NULL`,
         lastWebhookDate
           ? [
@@ -99,12 +105,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             ]
           : [{ name: "shop", value: { stringValue: shop } }]
       );
-      const newOrderCount = parseInt(
-        String(
-          Object.values(newOrdersRows.records?.[0]?.[0] ?? { longValue: 0 })[0]
-        ),
-        10
-      );
+      const newOrderCount: number = Number((newOrdersRows.records?.[0] as any)?.cnt ?? 0);
 
       // Determine health status
       let status: ShopHealthStatus["status"] = "healthy";
