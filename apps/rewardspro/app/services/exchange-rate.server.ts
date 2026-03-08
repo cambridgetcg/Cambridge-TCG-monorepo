@@ -22,6 +22,7 @@ const CONFIG = {
   provider: 'ExchangeRate-API',
   apiKey: process.env.EXCHANGE_RATE_API_KEY?.trim() || '',
   apiUrl: 'https://v6.exchangerate-api.com/v6',
+  openApiUrl: 'https://open.er-api.com/v6/latest', // Keyless fallback, same provider
   updateIntervalHours: 6,     // Update 4 times per day
   staleThresholdHours: 72,    // Alert if rates >3 days old
   criticalThresholdHours: 168, // Critical alert if >7 days old
@@ -58,7 +59,7 @@ export interface ConversionResult {
   isStale: boolean;
 }
 
-// ExchangeRate-API response schema
+// ExchangeRate-API response schema (authenticated endpoint)
 const ExchangeRateAPIResponse = z.object({
   result: z.string(),
   documentation: z.string().optional(),
@@ -69,6 +70,17 @@ const ExchangeRateAPIResponse = z.object({
   time_next_update_utc: z.string(),
   base_code: z.string(),
   conversion_rates: z.record(z.string(), z.number()),
+});
+
+// Open ExchangeRate-API response schema (keyless endpoint, uses "rates" not "conversion_rates")
+const OpenExchangeRateAPIResponse = z.object({
+  result: z.string(),
+  time_last_update_unix: z.number().optional(),
+  time_last_update_utc: z.string().optional(),
+  time_next_update_unix: z.number().optional(),
+  time_next_update_utc: z.string().optional(),
+  base_code: z.string(),
+  rates: z.record(z.string(), z.number()),
 });
 
 // ============================================================================
@@ -243,11 +255,17 @@ export class ExchangeRateService {
   }
 
   /**
-   * Fetch fresh rates from ExchangeRate-API
+   * Fetch fresh rates from ExchangeRate-API (authenticated or open keyless endpoint)
    */
   private async fetchFreshRates(baseCurrency: Currency): Promise<CachedRates> {
-    if (!CONFIG.apiKey) {
-      throw new Error('EXCHANGE_RATE_API_KEY not configured');
+    // Use authenticated endpoint if key is set, otherwise fall back to open API
+    const useOpenApi = !CONFIG.apiKey;
+    const url = useOpenApi
+      ? `${CONFIG.openApiUrl}/${baseCurrency}`
+      : `${CONFIG.apiUrl}/${CONFIG.apiKey}/latest/${baseCurrency}`;
+
+    if (useOpenApi) {
+      console.log(`[ExchangeRate] No API key configured — using open (keyless) endpoint`);
     }
 
     let lastError: Error | null = null;
@@ -257,7 +275,6 @@ export class ExchangeRateService {
       try {
         console.log(`[ExchangeRate] Fetching rates for ${baseCurrency} (attempt ${attempt})`);
 
-        const url = `${CONFIG.apiUrl}/${CONFIG.apiKey}/latest/${baseCurrency}`;
         const response = await fetch(url);
 
         if (!response.ok) {
@@ -265,10 +282,28 @@ export class ExchangeRateService {
         }
 
         const data = await response.json();
-        const parsed = ExchangeRateAPIResponse.parse(data);
 
-        if (parsed.result !== 'success') {
-          throw new Error(`API error: ${parsed.result}`);
+        // Parse with appropriate schema
+        let conversionRates: Record<string, number>;
+        let lastUpdateUnix: number;
+        let nextUpdateUtc: string | undefined;
+
+        if (useOpenApi) {
+          const parsed = OpenExchangeRateAPIResponse.parse(data);
+          if (parsed.result !== 'success') {
+            throw new Error(`API error: ${parsed.result}`);
+          }
+          conversionRates = parsed.rates;
+          lastUpdateUnix = parsed.time_last_update_unix ?? Math.floor(Date.now() / 1000);
+          nextUpdateUtc = parsed.time_next_update_utc;
+        } else {
+          const parsed = ExchangeRateAPIResponse.parse(data);
+          if (parsed.result !== 'success') {
+            throw new Error(`API error: ${parsed.result}`);
+          }
+          conversionRates = parsed.conversion_rates;
+          lastUpdateUnix = parsed.time_last_update_unix;
+          nextUpdateUtc = parsed.time_next_update_utc;
         }
 
         // Save to database
@@ -276,12 +311,13 @@ export class ExchangeRateService {
           data: {
             id: `${baseCurrency}-${Date.now()}`,
             baseCurrency,
-            rates: parsed.conversion_rates,
-            provider: CONFIG.provider,
-            fetchedAt: new Date(parsed.time_last_update_unix * 1000),
+            rates: conversionRates,
+            provider: useOpenApi ? `${CONFIG.provider} (open)` : CONFIG.provider,
+            fetchedAt: new Date(lastUpdateUnix * 1000),
             metadata: {
-              nextUpdate: parsed.time_next_update_utc,
-              baseCode: parsed.base_code,
+              nextUpdate: nextUpdateUtc,
+              baseCode: baseCurrency,
+              keyless: useOpenApi,
             },
           },
         });
@@ -289,7 +325,7 @@ export class ExchangeRateService {
         const cachedRates: CachedRates = {
           id: saved.id,
           baseCurrency: saved.baseCurrency,
-          rates: parsed.conversion_rates,
+          rates: conversionRates,
           provider: saved.provider,
           fetchedAt: saved.fetchedAt,
           isStale: false,
@@ -299,7 +335,7 @@ export class ExchangeRateService {
         // Update memory cache
         this.memoryCache.set(baseCurrency, cachedRates);
 
-        console.log(`[ExchangeRate] Successfully fetched ${Object.keys(parsed.conversion_rates).length} rates`);
+        console.log(`[ExchangeRate] Successfully fetched ${Object.keys(conversionRates).length} rates`);
 
         // Clean up old rates (keep last 30 days)
         await this.cleanupOldRates();
@@ -419,25 +455,33 @@ export async function monitorExchangeRates(): Promise<void> {
 async function sendAlert(message: string, details?: any): Promise<void> {
   console.error(`[ALERT] ${message}`, details);
 
-  // TODO: Implement actual alerting
-  // Options:
-  // - Send email via SendGrid/AWS SES
-  // - Post to Slack webhook
-  // - Create incident in PagerDuty
-  // - Log to monitoring service (Datadog, New Relic, etc.)
-
-  // For now, just log to database
   try {
-    await db.systemAlert.create({
-      data: {
-        id: `alert-${Date.now()}`,
-        type: 'EXCHANGE_RATE_STALENESS',
-        severity: message.includes('CRITICAL') ? 'CRITICAL' : 'WARNING',
-        message,
-        details: details || {},
-        createdAt: new Date(),
-      },
+    const severity = message.includes('CRITICAL') ? 'CRITICAL' : 'WARNING';
+
+    // Upsert: only keep one unresolved alert per type to prevent pile-up
+    const existing = await db.systemAlert.findFirst({
+      where: { type: 'EXCHANGE_RATE_STALENESS', resolved: false },
+      orderBy: { createdAt: 'desc' },
     });
+
+    if (existing) {
+      // Update the existing alert rather than creating a new one
+      await db.systemAlert.update({
+        where: { id: existing.id },
+        data: { severity, message, details: details || {}, updatedAt: new Date() },
+      });
+    } else {
+      await db.systemAlert.create({
+        data: {
+          id: `alert-${Date.now()}`,
+          type: 'EXCHANGE_RATE_STALENESS',
+          severity,
+          message,
+          details: details || {},
+          createdAt: new Date(),
+        },
+      });
+    }
   } catch (error) {
     console.error('[ALERT] Failed to save alert:', error);
   }
