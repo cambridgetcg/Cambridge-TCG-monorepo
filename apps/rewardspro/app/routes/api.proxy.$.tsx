@@ -31,6 +31,7 @@ import { openMysteryBox } from "../services/mystery-box-open.server";
 // Mission gamification imports
 import { getMissionsForCustomer, getPlayerStats } from "../services/mission-stats.server";
 import { acknowledgeEvents, getUnacknowledgedEvents } from "../services/mission-events.server";
+import { GiftCardService } from "../services/gift-card";
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity
@@ -1711,7 +1712,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     success: false,
     error: "not_found",
     message: `Endpoint '${proxyPath}' not found`,
-    availablePaths: ["test", "membership", "feature-flags", "raffles", "mystery-boxes", "challenges", "missions", "missions/events", "missions/events/ack", "missions/player", "customer-summary", "gift-cards"]
+    availablePaths: ["test", "membership", "feature-flags", "raffles", "mystery-boxes", "challenges", "missions", "missions/events", "missions/events/ack", "missions/player", "customer-summary", "gift-cards", "gift-cards/convert"]
   }, { status: 404, headers });
 }
 
@@ -2177,6 +2178,102 @@ export async function action({ request, params }: ActionFunctionArgs) {
     } catch (error: any) {
       log.error("Mystery box open error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
       return proxyError("Failed to open mystery box. Please try again.", { status: 500, headers });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // GIFT-CARDS/CONVERT POST - Convert store credit cashback to a gift card
+  // ═══════════════════════════════════════════════════════════════════════
+  if (proxyPath === "gift-cards/convert") {
+    const shop = session?.shop;
+
+    if (!shop) {
+      return proxyError("Authentication required", { status: 401, headers });
+    }
+
+    try {
+      const body = await request.json();
+      const { bundleId, customerId: shopifyCustomerId } = body;
+
+      if (!bundleId) {
+        return proxyError("Bundle ID is required", { status: 400, headers });
+      }
+      if (!shopifyCustomerId) {
+        return proxyError("Please sign in to redeem gift cards", { status: 401, headers });
+      }
+
+      // Look up bundle and config in parallel
+      const [bundle, config] = await Promise.all([
+        db.giftCardBundle.findFirst({ where: { id: bundleId, shop, isActive: true } }),
+        db.giftCardConfig.findUnique({ where: { shop } }),
+      ]);
+
+      if (!bundle) {
+        return proxyError("Bundle not found or no longer available", { status: 404, headers });
+      }
+      if (!config?.enabled) {
+        return proxyError("Gift cards are not enabled for this store", { status: 403, headers });
+      }
+
+      // Look up internal customer
+      const customer = await db.customer.findFirst({
+        where: { shop, shopifyCustomerId: String(shopifyCustomerId) },
+        select: { id: true, storeCredit: true },
+      });
+
+      if (!customer) {
+        return proxyError("Customer not found. Please contact support.", { status: 404, headers });
+      }
+
+      const cashbackCost = Number(bundle.cashbackCost);
+      if (Number(customer.storeCredit) < cashbackCost) {
+        return proxyError(
+          `Insufficient store credit. You need ${cashbackCost} but have ${Number(customer.storeCredit).toFixed(2)}.`,
+          { status: 400, headers }
+        );
+      }
+
+      // Get admin API for Shopify gift card creation
+      let proxyAdmin: any;
+      try {
+        const unauthResult = await unauthenticated.admin(shop);
+        proxyAdmin = unauthResult.admin;
+      } catch (e) {
+        log.error("[ProxyGiftCards] Failed to get admin API:", e);
+        return proxyError("Failed to connect to store. Please try again.", { status: 503, headers });
+      }
+
+      const result = await GiftCardService.convertCashbackToGiftCard(proxyAdmin, {
+        shop,
+        customerId: customer.id,
+        amount: cashbackCost,
+        currency: config.currency ?? "USD",
+      });
+
+      if (!result.success) {
+        log.warn("Gift card convert rejected:", result.error, { shop, customerId: customer.id, bundleId });
+        return proxyError(result.error || "Conversion failed", { headers });
+      }
+
+      // Fetch updated store credit balance
+      const updated = await db.customer.findFirst({
+        where: { id: customer.id },
+        select: { storeCredit: true },
+      });
+
+      return json({
+        success: true,
+        giftCardId: result.giftCardId,
+        issuedGiftCardId: result.issuedGiftCardId,
+        lastFourDigits: result.lastFourDigits,
+        amountConverted: cashbackCost,
+        newStoreCredit: Number(updated?.storeCredit ?? 0),
+        message: "Gift card issued! Check your email for the code.",
+      }, { headers });
+
+    } catch (error: any) {
+      log.error("Gift card convert error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
+      return proxyError("Failed to convert store credit. Please try again.", { status: 500, headers });
     }
   }
 
