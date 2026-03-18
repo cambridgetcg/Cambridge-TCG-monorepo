@@ -19,7 +19,7 @@
  * @see https://shopify.dev/docs/api/admin-graphql/latest/queries/shopifyqlquery
  */
 
-import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
+type AdminClient = { graphql: (...args: any[]) => Promise<any> };
 
 // ============================================
 // CUSTOM ERRORS
@@ -148,7 +148,7 @@ const cache = new ShopifyQLCache();
  * Execute a raw ShopifyQL query
  */
 export async function executeShopifyQLQuery(
-  admin: AdminApiContext['admin'],
+  admin: AdminClient,
   query: string
 ): Promise<ShopifyQLResponse> {
   try {
@@ -224,7 +224,7 @@ export async function executeShopifyQLQuery(
  * @param cacheTTL - Cache time-to-live in minutes (default: 10)
  */
 export async function getMonthlyOrderCount(
-  admin: AdminApiContext['admin'],
+  admin: AdminClient,
   useCacheIfAvailable: boolean = true,
   cacheTTL: number = 10
 ): Promise<OrderCountResult> {
@@ -274,7 +274,7 @@ export async function getMonthlyOrderCount(
  * Get order count for a specific date range
  */
 export async function getOrderCountForPeriod(
-  admin: AdminApiContext['admin'],
+  admin: AdminClient,
   sinceClause: string, // e.g., "-7d", "-1m", "-3m"
   useCacheIfAvailable: boolean = true,
   cacheTTL: number = 15
@@ -324,7 +324,7 @@ export async function getOrderCountForPeriod(
  * Get revenue metrics for current month
  */
 export async function getMonthlyRevenue(
-  admin: AdminApiContext['admin'],
+  admin: AdminClient,
   useCacheIfAvailable: boolean = true,
   cacheTTL: number = 10
 ): Promise<RevenueResult> {
@@ -380,7 +380,7 @@ export async function getMonthlyRevenue(
  * Get monthly order and revenue trends
  */
 export async function getMonthlyTrends(
-  admin: AdminApiContext['admin'],
+  admin: AdminClient,
   months: number = 3,
   useCacheIfAvailable: boolean = true,
   cacheTTL: number = 30
@@ -443,7 +443,7 @@ export interface DashboardMetrics {
  * Combines revenue, orders, and customer data for dashboard cards
  */
 export async function getDashboardMetrics(
-  admin: AdminApiContext['admin'],
+  admin: AdminClient,
   sinceClause: string = '-1m',
   useCacheIfAvailable: boolean = true,
   cacheTTL: number = 10

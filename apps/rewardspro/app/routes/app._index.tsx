@@ -1370,8 +1370,8 @@ export default function Dashboard() {
                             <Icon source={ChartVerticalIcon} tone={isEnabled ? 'success' : 'subdued'} />
                           </div>
                           <BlockStack gap="050">
-                            <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">Advanced Analytics</Text>
-                            <Text variant="bodySm" as="span" tone="subdued" as="span">Analytics and reporting features</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold">Advanced Analytics</Text>
+                            <Text variant="bodySm" as="span" tone="subdued">Analytics and reporting features</Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="300" blockAlign="center">
@@ -1434,8 +1434,8 @@ export default function Dashboard() {
                             <Icon source={CashDollarIcon} tone={isEnabled ? 'success' : 'subdued'} />
                           </div>
                           <BlockStack gap="050">
-                            <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
-                            <Text variant="bodySm" as="span" tone="subdued" as="span">Process rewards automatically for orders</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold">Automatic Cashback Processing</Text>
+                            <Text variant="bodySm" as="span" tone="subdued">Process rewards automatically for orders</Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="300" blockAlign="center">
@@ -1500,8 +1500,8 @@ export default function Dashboard() {
                             <Icon source={DatabaseIcon} tone={isEnabled ? 'success' : 'subdued'} />
                           </div>
                           <BlockStack gap="050">
-                            <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">Membership Tiers Module</Text>
-                            <Text variant="bodySm" as="span" tone="subdued" as="span">Tiered loyalty program with benefits</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold">Membership Tiers Module</Text>
+                            <Text variant="bodySm" as="span" tone="subdued">Tiered loyalty program with benefits</Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="300" blockAlign="center">

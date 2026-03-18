@@ -50,7 +50,7 @@ export function GoodVisualHierarchy() {
           </Text>
           
           {/* Supporting details - smallest and subdued */}
-          <Text variant="bodySm" as="span" tone="subdued" as="p" alignment="center">
+          <Text variant="bodySm" as="span" tone="subdued" alignment="center">
             Last 30 days • Updated 5 min ago
           </Text>
           
@@ -198,7 +198,7 @@ export function GoodTypography() {
             <Text variant="headingMd" as="h2">Recent Activity</Text>
             <BlockStack gap="200">
               <Text variant="bodyMd" as="span">Order #1234 - Delivered</Text>
-              <Text variant="bodySm" as="span" tone="subdued" as="p">2 days ago</Text>
+              <Text variant="bodySm" as="span" tone="subdued">2 days ago</Text>
             </BlockStack>
           </BlockStack>
           
@@ -272,7 +272,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={PersonIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">245</Text>
-                    <Text variant="bodySm" as="span" tone="subdued" as="p">Customers</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">Customers</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -284,7 +284,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={CashDollarIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">$12.5k</Text>
-                    <Text variant="bodySm" as="span" tone="subdued" as="p">Revenue</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">Revenue</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -296,7 +296,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={ChartLineIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">18%</Text>
-                    <Text variant="bodySm" as="span" tone="subdued" as="p">Growth</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">Growth</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -308,7 +308,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={StarIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">4.8</Text>
-                    <Text variant="bodySm" as="span" tone="subdued" as="p">Rating</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">Rating</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -457,7 +457,7 @@ export function CompleteVisualExample() {
                       <Text variant="heading2xl" as="h2" fontWeight="bold">
                         {metric.value}
                       </Text>
-                      <Text variant="bodySm" as="span" tone="subdued" as="p">
+                      <Text variant="bodySm" as="span" tone="subdued">
                         {metric.label}
                       </Text>
                       {/* Semantic color usage */}

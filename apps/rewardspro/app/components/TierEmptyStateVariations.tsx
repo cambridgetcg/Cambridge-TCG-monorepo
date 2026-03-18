@@ -97,10 +97,10 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
                     <Icon source={benefit.icon} tone={benefit.iconColor} />
                   </Box>
                   <BlockStack gap="050">
-                    <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">
+                    <Text variant="bodyMd" as="span" fontWeight="semibold">
                       {benefit.title}
                     </Text>
-                    <Text variant="bodySm" as="span" tone="subdued" as="span">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       {benefit.description}
                     </Text>
                   </BlockStack>
@@ -136,7 +136,7 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
               >
                 <InlineStack gap="200" blockAlign="center">
                   <Icon source={StarIcon} tone="base" />
-                  <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">
+                  <Text variant="bodyMd" as="span" fontWeight="semibold">
                     {tier.name}
                   </Text>
                 </InlineStack>

@@ -6,8 +6,9 @@
 
 import db from '../db.server';
 import { v4 as uuidv4 } from 'uuid';
-import type { AdminApiContext } from '@shopify/shopify-app-remix/server';
 import { updateCustomerToEffectiveTier } from './tier-resolution.server';
+
+type AdminClient = { graphql: (...args: any[]) => Promise<any> };
 
 // Helper function to extract numeric ID from GraphQL ID
 function extractNumericId(gid: string | null | undefined): string | null {
@@ -58,7 +59,7 @@ export class IncrementalOrderSync {
   /**
    * Main sync orchestrator - determines what needs syncing
    */
-  async syncOrders(shop: string, admin: AdminApiContext['admin']): Promise<SyncResult> {
+  async syncOrders(shop: string, admin: AdminClient): Promise<SyncResult> {
     const startTime = Date.now();
     console.log(`[IncrementalSync] Starting sync for shop: ${shop}`);
 
@@ -86,7 +87,7 @@ export class IncrementalOrderSync {
   /**
    * Check if there are new orders since last sync (quick check)
    */
-  async hasNewOrders(shop: string, admin: AdminApiContext['admin']): Promise<boolean> {
+  async hasNewOrders(shop: string, admin: AdminClient): Promise<boolean> {
     const syncStatus = await this.getSyncStatus(shop);
     if (!syncStatus) return true; // First sync, definitely has orders
 
@@ -111,7 +112,7 @@ export class IncrementalOrderSync {
   /**
    * Initial sync - limited to recent orders
    */
-  private async initialSync(shop: string, admin: AdminApiContext['admin']): Promise<SyncResult> {
+  private async initialSync(shop: string, admin: AdminClient): Promise<SyncResult> {
     const syncFromDate = new Date();
     syncFromDate.setDate(syncFromDate.getDate() - this.INITIAL_SYNC_DAYS);
 
@@ -134,7 +135,7 @@ export class IncrementalOrderSync {
   /**
    * Catch-up sync for when there's been a long gap
    */
-  private async catchUpSync(shop: string, admin: AdminApiContext['admin'], syncStatus: any): Promise<SyncResult> {
+  private async catchUpSync(shop: string, admin: AdminClient, syncStatus: any): Promise<SyncResult> {
     // Update status to running
     await db.syncStatus.update({
       where: { id: syncStatus.id },
@@ -154,7 +155,7 @@ export class IncrementalOrderSync {
   /**
    * Incremental sync - only new/updated orders
    */
-  private async incrementalSync(shop: string, admin: AdminApiContext['admin'], syncStatus: any): Promise<SyncResult> {
+  private async incrementalSync(shop: string, admin: AdminClient, syncStatus: any): Promise<SyncResult> {
     // Update status to running
     await db.syncStatus.update({
       where: { id: syncStatus.id },
@@ -172,7 +173,7 @@ export class IncrementalOrderSync {
    */
   private async syncWithQuery(
     shop: string,
-    admin: AdminApiContext['admin'],
+    admin: AdminClient,
     query: string,
     syncStatus: any
   ): Promise<SyncResult> {
@@ -481,11 +482,11 @@ export class IncrementalOrderSync {
         const { normalizeToBaseCurrency, calculateCashbackInCurrency } = await import('./currency-normalization.server');
 
         // Normalize amounts for tier calculation
-        const normalizedNet = normalizeToBaseCurrency(netAmount, orderCurrency, 'USD');
+        void normalizeToBaseCurrency(netAmount, orderCurrency, 'USD');
 
         let cashbackPercent = 0;
         let cashbackAmount = 0;
-        let cashbackAmountNormalized = 0;
+        // cashbackAmountNormalized reserved for future multi-currency aggregation
         let tierIdAtOrder: string | null = null;
         let tierNameAtOrder: string | null = null;
 
@@ -502,7 +503,7 @@ export class IncrementalOrderSync {
           );
 
           cashbackAmount = cashbackResult.cashbackAmount;
-          cashbackAmountNormalized = cashbackResult.normalizedAmount; // USD amount for aggregation
+          // normalizedAmount available in cashbackResult for multi-currency aggregation
 
           tierIdAtOrder = customer.currentTier.id;
           tierNameAtOrder = customer.currentTier.name;
