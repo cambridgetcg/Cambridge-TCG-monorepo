@@ -92,7 +92,7 @@ export class TierProductManagerEnhanced {
       console.log(`${this.SERVICE_PREFIX} Starting transaction for tier product creation:`, {
         tier: config.tier.name,
         shop: config.shop,
-        currency: config.shopSettings.currency
+        currency: config.shopSettings.storeCurrency
       });
 
       // Step 1: Create product in Shopify
@@ -187,7 +187,7 @@ export class TierProductManagerEnhanced {
     // Format price based on shop currency
     const formattedPrice = this.formatPriceForCurrency(
       config.product.price,
-      config.shopSettings.currency
+      config.shopSettings.storeCurrency
     );
 
     const variables = {

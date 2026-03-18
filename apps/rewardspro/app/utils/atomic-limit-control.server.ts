@@ -233,8 +233,8 @@ export const atomicCampaignCreate = async (
   return atomicWithinLimit(
     shop,
     "maxCampaigns",
-    (tx) => tx.campaign.count({ where: { shop } }),
-    (tx) => tx.campaign.create({ data: { ...data, shop } })
+    (tx) => (tx as any).campaign.count({ where: { shop } }),
+    (tx) => (tx as any).campaign.create({ data: { ...data, shop } })
   );
 };
 
@@ -248,8 +248,8 @@ export const atomicAutomationCreate = async (
   return atomicWithinLimit(
     shop,
     "maxAutomations",
-    (tx) => tx.automation.count({ where: { shop } }),
-    (tx) => tx.automation.create({ data: { ...data, shop } })
+    (tx) => (tx as any).automation.count({ where: { shop } }),
+    (tx) => (tx as any).automation.create({ data: { ...data, shop } })
   );
 };
 

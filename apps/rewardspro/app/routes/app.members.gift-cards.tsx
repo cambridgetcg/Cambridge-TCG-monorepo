@@ -780,10 +780,10 @@ export default function GiftCardsConfigPage() {
                             <Text variant="bodySm" tone="subdued" as="span">
                               {bundle.tierName || "No Tier"} •{" "}
                               {bundle.bundleType === "VALUE_PLUS_MEMBERSHIP"
-                                ? `${formatCurrency(bundle.giftCardValue, { storeCurrency: currency })} + Membership`
+                                ? `${formatCurrency(bundle.giftCardValue, { storeCurrency: currency } as any)} + Membership`
                                 : bundle.bundleType === "MEMBERSHIP_ONLY"
                                   ? "Membership Only"
-                                  : `${formatCurrency(bundle.giftCardValue, { storeCurrency: currency })} Value`}{" "}
+                                  : `${formatCurrency(bundle.giftCardValue, { storeCurrency: currency } as any)} Value`}{" "}
                               •{" "}
                               {bundle.membershipDuration === "MONTHLY"
                                 ? "1 Month"
@@ -797,7 +797,7 @@ export default function GiftCardsConfigPage() {
 
                           <InlineStack gap="200" blockAlign="center">
                             <Text variant="bodyMd" fontWeight="semibold" as="span">
-                              {formatCurrency(bundle.price, { storeCurrency: currency })}
+                              {formatCurrency(bundle.price, { storeCurrency: currency } as any)}
                             </Text>
                             <Button
                               variant="plain"
@@ -1042,7 +1042,7 @@ function FeatureToggle({
               justifyContent: "center",
             }}
           >
-            <Icon source={icon} tone={enabled ? "success" : "subdued"} />
+            <Icon source={icon as any} tone={enabled ? "success" : "subdued"} />
           </div>
           <BlockStack gap="050">
             <Text variant="bodyMd" fontWeight="semibold" as="span">

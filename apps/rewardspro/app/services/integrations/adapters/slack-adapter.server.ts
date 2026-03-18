@@ -627,7 +627,7 @@ class SlackAdapter extends BaseIntegrationAdapter {
     const blocks: SlackBlock[] = [];
     let text = "";
 
-    switch (event.type) {
+    switch (event.type as string) {
       case "TIER_UPGRADED":
         text = `${event.customerEmail} upgraded to ${event.data.newTier}!`;
         blocks.push(
@@ -704,6 +704,14 @@ class SlackAdapter extends BaseIntegrationAdapter {
     return { text, blocks };
   }
 
+  private generateOAuthState(shop: string, redirectUri: string): string {
+    return Buffer.from(JSON.stringify({ shop, redirectUri, ts: Date.now() })).toString('base64');
+  }
+
+  private getAccessToken(integration: any): string | null {
+    return integration?.config?.accessToken || integration?.credentials?.accessToken || null;
+  }
+
   private buildHeaderBlock(text: string): SlackBlock {
     return {
       type: "header",
@@ -743,8 +751,8 @@ class SlackAdapter extends BaseIntegrationAdapter {
       elements: [
         {
           type: "mrkdwn",
-          text,
-        },
+          text: { type: "mrkdwn", text },
+        } as any,
       ],
     };
   }
@@ -866,7 +874,7 @@ export function buildPointsAwardedResponse(
       {
         type: "context",
         elements: [
-          { type: "mrkdwn", text: `New balance: *${newBalance.toLocaleString()} points*` },
+          { type: "mrkdwn", text: `New balance: *${newBalance.toLocaleString()} points*` } as any,
         ],
       },
     ],

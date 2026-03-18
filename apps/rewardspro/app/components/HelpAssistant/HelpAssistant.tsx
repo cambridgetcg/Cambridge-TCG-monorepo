@@ -468,7 +468,7 @@ export function HelpAssistant({
                         <Badge>{selectedCategory}</Badge>
                       </InlineStack>
                       <BlockStack gap="100">
-                        {QUICK_ACTIONS.find((a) => a.category === selectedCategory)?.questions.map(
+                        {(QUICK_ACTIONS.find((a) => a.category === selectedCategory)?.questions ?? []).map(
                           (q) => (
                             <button
                               key={q}

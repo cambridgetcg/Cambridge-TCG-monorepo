@@ -3,7 +3,7 @@ import { useNavigate, useActionData, useSubmit, useLoaderData } from "@remix-run
 import { useState, useCallback } from "react";
 import { SortableBlockList } from "~/components/EmailEditor";
 import type { ContentBlock, TemplateStyles } from "~/components/EmailEditor/types";
-import { BrandKitPanel, type BrandKit } from "~/components/BrandKit";
+import { BrandKitPanel, type BrandKit as ImportedBrandKit } from "~/components/BrandKit";
 import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { TextFieldWithVariables } from "~/components/TextFieldWithVariables";
@@ -454,12 +454,12 @@ export default function CreateEmailTemplate() {
       setType(template.type);
       setSubject(template.subject);
       setPreviewText(template.previewText);
-      setBlocks(template.blocks.map(b => ({ ...b, id: uuidv4() })));
+      setBlocks(template.blocks.map(b => ({ ...b, id: uuidv4() })) as any);
       if (template.id !== "blank") {
         setName(template.name);
       }
       setCurrentStep("customize");
-      setHistory([template.blocks]);
+      setHistory([template.blocks] as any);
       setHistoryIndex(0);
     }
   }, []);
@@ -664,13 +664,13 @@ ${contentHtml}
     saveToHistory(newBlocks);
   }, [selectedBlockId, blocks, saveToHistory]);
 
+  const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
+
   // Get selected block content for AI enhancement
-  const selectedBlockContent = selectedBlock?.type === "text" ? selectedBlock.content.text : undefined;
+  const selectedBlockContent = selectedBlock?.type === "text" ? (selectedBlock as any).content.text : undefined;
 
   // Get current template type info
   const currentTemplateType = TEMPLATE_TYPES.find(t => t.value === type);
-
-  const selectedBlock = blocks.find((b) => b.id === selectedBlockId);
 
   const tabs = [
     { id: "content", content: "Content", accessibilityLabel: "Content blocks" },
@@ -996,7 +996,7 @@ ${contentHtml}
                 {activeTab === 1 && (
                   <BrandKitPanel
                     brandKit={loaderData.brandKit}
-                    currentStyles={styles}
+                    currentStyles={styles as any}
                     onApplyBrandKit={applyBrandKit}
                     onStyleChange={updateStyle}
                     brandKitEnabled={loaderData.brandKitEnabled}
@@ -1006,7 +1006,7 @@ ${contentHtml}
                 {activeTab === 2 && (
                   <AIAssistantPanel
                     templateType={type}
-                    shopName={loaderData.shop.replace(".myshopify.com", "")}
+                    shopName={(loaderData as any).shop?.replace(".myshopify.com", "") || ""}
                     currentSubject={subject}
                     previewText={previewText}
                     selectedBlockContent={selectedBlockContent}

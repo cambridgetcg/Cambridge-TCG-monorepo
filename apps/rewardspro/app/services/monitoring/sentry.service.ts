@@ -197,13 +197,13 @@ export class SentryService {
       if (context?.shop) {
         scope.setTag('shop.domain', context.shop.domain);
         if (context.shop.plan) scope.setTag('shop.plan', context.shop.plan);
-        scope.setContext('shop', context.shop);
+        scope.setContext('shop', context.shop as any);
         scope.setUser({ id: context.shop.domain });
       }
 
       // Set customer context
       if (context?.customer) {
-        scope.setContext('customer', context.customer);
+        scope.setContext('customer', context.customer as any);
         scope.setTag('customer.tier', context.customer.tierName || 'none');
       }
 
@@ -211,12 +211,12 @@ export class SentryService {
       if (context?.operation) {
         scope.setTag('operation.type', context.operation.type);
         scope.setTag('operation.name', context.operation.name);
-        scope.setContext('operation', context.operation);
+        scope.setContext('operation', context.operation as any);
       }
 
       // Set business impact (critical for prioritization)
       if (context?.businessImpact) {
-        scope.setContext('business_impact', context.businessImpact);
+        scope.setContext('business_impact', context.businessImpact as any);
 
         // Add impact-based tags for alerting
         if (context.businessImpact.potentialRevenueLoss) {
@@ -263,7 +263,7 @@ export class SentryService {
     return Sentry.withScope((scope) => {
       if (context?.shop) {
         scope.setTag('shop.domain', context.shop.domain);
-        scope.setContext('shop', context.shop);
+        scope.setContext('shop', context.shop as any);
       }
       if (context?.tags) {
         Object.entries(context.tags).forEach(([key, value]) => {

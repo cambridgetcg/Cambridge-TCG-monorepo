@@ -69,7 +69,7 @@ export class DatadogService {
     options: { resource?: string; tags?: Record<string, any> } = {},
     fn: (span: Span) => T | Promise<T>
   ): T | Promise<T> {
-    return tracer.trace(name, options, fn);
+    return tracer.trace(name, options, fn as any);
   }
 
   // Get current trace and span IDs for correlation

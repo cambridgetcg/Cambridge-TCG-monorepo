@@ -148,7 +148,7 @@ export default function StoreMetricsSettings() {
   }, []);
 
   const isSaving = fetcher.state === "submitting";
-  const showSuccess = fetcher.data?.success && fetcher.state === "idle";
+  const showSuccess = (fetcher.data as any)?.success && fetcher.state === "idle";
 
   return (
     <Page

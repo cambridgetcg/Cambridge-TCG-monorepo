@@ -164,14 +164,14 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
     }
   }
   
-  async create(input: CreateCustomerInput): Promise<CustomerWithRelations> {
+  async create(input: Partial<CustomerWithRelations> | CreateCustomerInput): Promise<CustomerWithRelations> {
     try {
       const customer = await db.customer.create({
         data: {
           id: uuidv4(),
           shop: this.shop,
           shopifyCustomerId: input.shopifyCustomerId,
-          email: input.email.toLowerCase(),
+          email: (input.email || '').toLowerCase(),
           firstName: input.firstName || '',
           lastName: input.lastName || '',
           phone: input.phone || '',
@@ -199,7 +199,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
     }
   }
   
-  async update(id: string, input: UpdateCustomerInput): Promise<CustomerWithRelations> {
+  async update(id: string, input: Partial<CustomerWithRelations> | UpdateCustomerInput): Promise<CustomerWithRelations> {
     try {
       // Verify ownership
       const existing = await this.findById(id);
@@ -414,7 +414,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
         totalStoreCredit: this.serializeDecimal(creditSum._sum.storeCredit),
       };
       
-      this.setCache(cacheKey, stats);
+      this.setCache(cacheKey, stats as any);
       return stats;
     } catch (error) {
       console.error('[CustomerRepository] getStats error:', error);

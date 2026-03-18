@@ -215,7 +215,7 @@ export class SESEmailService {
               ReplacementTemplate: undefined,
             },
           })),
-        });
+        } as any);
 
         // Note: SendBulkEmailCommand requires templates
         // For simple bulk sends, we fall back to individual sends

@@ -209,16 +209,14 @@ export default function CampaignsList() {
     );
   }
 
-  const rows = filteredCampaigns.map((campaign: any) => [
+  const rows: any[] = (filteredCampaigns as any[]).map((campaign: any) => [
     <BlockStack gap="100" key={campaign.id}>
       <Button
         variant="plain"
         textAlign="left"
         onClick={() => navigate(`/app/marketing/campaigns/${campaign.id}`)}
       >
-        <Text as="span" fontWeight="semibold">
-          {campaign.name}
-        </Text>
+        {campaign.name}
       </Button>
       <Text as="p" variant="bodySm" tone="subdued">
         {campaign.subject || "No subject"}
@@ -267,7 +265,7 @@ export default function CampaignsList() {
         </Button>
       )}
     </InlineStack>,
-  ]);
+  ] as any);
 
   return (
     <Page
@@ -307,7 +305,7 @@ export default function CampaignsList() {
               <DataTable
                 columnContentTypes={["text", "text", "text", "text", "text"]}
                 headings={["Campaign", "Status", "Date", "Performance", "Actions"]}
-                rows={rows}
+                rows={rows as any}
               />
             )}
           </Card>

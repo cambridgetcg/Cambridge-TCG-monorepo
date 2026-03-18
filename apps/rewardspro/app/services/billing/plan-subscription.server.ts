@@ -201,7 +201,7 @@ export async function logBillingAttempt(
  */
 export async function getSubscriptionStatus(
   shop: string,
-  billing: AdminApiContext['billing'],
+  billing: any,
   admin?: AdminApiContext
 ): Promise<SubscriptionStatus> {
   try {
@@ -267,7 +267,7 @@ export async function getSubscriptionStatus(
 export async function createSubscription(
   shop: string,
   planId: string,
-  billing: AdminApiContext['billing'],
+  billing: any,
   admin?: AdminApiContext,
   metadata?: Record<string, any>
 ): Promise<BillingResult> {
@@ -456,7 +456,7 @@ async function saveBillingSubscription(
  */
 export async function cancelSubscription(
   shop: string,
-  billing: AdminApiContext['billing']
+  billing: any
 ): Promise<BillingResult> {
   try {
     console.log(`[BillingService] Cancelling subscription for ${shop}`);

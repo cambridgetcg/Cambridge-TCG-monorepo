@@ -551,7 +551,7 @@ export class TierProductSubscriptionService {
           currentPrice: price,
           metadata: {
             tierProductId: input.tierProduct.id,
-            productTitle: `${input.tierProduct.tier} Tier Membership`,
+            productTitle: `${(input.tierProduct as any).tier} Tier Membership`,
             sku: input.tierProduct.sku,
           },
           createdAt: new Date(),

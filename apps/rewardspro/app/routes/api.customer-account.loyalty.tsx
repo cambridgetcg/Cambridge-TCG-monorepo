@@ -607,7 +607,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       tierSourceDetails = {
         type: 'spending',
         annualSpend: currentSpending,
-        evaluationPeriod: tier?.evaluationPeriod || 'LIFETIME',
+        evaluationPeriod: (tier as any)?.evaluationPeriod || 'LIFETIME',
         daysRemaining: null,
         expiryType: 'none',
         willAutoRenew: false

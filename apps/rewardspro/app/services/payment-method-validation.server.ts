@@ -227,7 +227,7 @@ export class PaymentMethodValidationService {
       }
 
       const paymentMethod = this.parsePaymentMethod(node);
-      const validation = this.validatePaymentMethodDetails(paymentMethod);
+      const validation = this.validatePaymentMethodDetails(paymentMethod!);
 
       return {
         isValid: validation.isValid,

@@ -47,7 +47,7 @@ import { v4 as uuidv4 } from "uuid";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 import { SortableBlockList } from "~/components/EmailEditor";
 import type { ContentBlock, TemplateStyles } from "~/components/EmailEditor/types";
-import { BrandKitPanel, type BrandKit } from "~/components/BrandKit";
+import { BrandKitPanel, type BrandKit as ImportedBrandKit } from "~/components/BrandKit";
 import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { TextFieldWithVariables } from "~/components/TextFieldWithVariables";

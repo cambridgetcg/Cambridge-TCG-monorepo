@@ -73,7 +73,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Parse multipart form data
     const formData = await unstable_parseMultipartFormData(
       request,
-      async ({ name, contentType, data, filename }) => {
+      (async ({ name, contentType, data, filename }: any) => {
         if (name !== "file") return undefined;
 
         // Validate content type
@@ -102,7 +102,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           buffer,
           size,
         };
-      }
+      }) as any
     );
 
     const fileData = formData.get("file") as {
@@ -158,7 +158,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Add the file
-    const blob = new Blob([fileData.buffer], { type: fileData.contentType });
+    const blob = new Blob([new Uint8Array(fileData.buffer)], { type: fileData.contentType });
     uploadFormData.append("file", blob, fileData.filename);
 
     const uploadResponse = await fetch(target.url, {

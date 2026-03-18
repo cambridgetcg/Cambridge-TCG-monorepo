@@ -99,7 +99,7 @@ export default function OrdersSyncPage() {
   const revalidator = useRevalidator();
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SyncJobStatus | null>(data.currentJob);
+  const [syncStatus, setSyncStatus] = useState<SyncJobStatus | null>(data.currentJob as any);
   const [isProcessing, setIsProcessing] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -119,7 +119,7 @@ export default function OrdersSyncPage() {
   // Start polling if there's an in-progress job
   useEffect(() => {
     if (data.currentJob?.status === 'IN_PROGRESS') {
-      setSyncStatus(data.currentJob);
+      setSyncStatus(data.currentJob as any);
       processNextBatch(data.currentJob.jobId!);
     }
   }, []);

@@ -130,14 +130,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({ error: "Authentication failed" }, { status: 401, headers });
   }
 
-  const shop = new URL(authContext.sessionToken.dest).hostname;
+  const shop = new URL((authContext as any).sessionToken.dest).hostname;
 
   if (!shop) {
     return json({ error: "Shop not found in session" }, { status: 401, headers });
   }
 
   // Rate limiting (requires customerId, extracted from token sub)
-  const rateLimitResponse = await customerActionRateLimit(request, authContext.sessionToken.sub || "anonymous");
+  const rateLimitResponse = await customerActionRateLimit(request, (authContext as any).sessionToken.sub || "anonymous");
   if (rateLimitResponse) {
     return rateLimitResponse;
   }
@@ -277,14 +277,14 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "Authentication failed" }, { status: 401, headers });
   }
 
-  const shop = new URL(authContext.sessionToken.dest).hostname;
+  const shop = new URL((authContext as any).sessionToken.dest).hostname;
 
   if (!shop) {
     return json({ error: "Shop not found in session" }, { status: 401, headers });
   }
 
   // Rate limiting
-  const rateLimitResponse = await customerActionRateLimit(request, authContext.sessionToken.sub || "anonymous");
+  const rateLimitResponse = await customerActionRateLimit(request, (authContext as any).sessionToken.sub || "anonymous");
   if (rateLimitResponse) {
     return rateLimitResponse;
   }

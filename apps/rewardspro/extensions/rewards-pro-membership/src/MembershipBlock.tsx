@@ -2031,7 +2031,7 @@ function MembershipBlock() {
           enableConversion={giftCardEnableConversion}
           isLoading={giftCardsLoading}
           error={giftCardsError}
-          customerId={customerId}
+          customerId={customerId ?? null}
           onConvert={async (amount: number) => {
             if (!sessionToken || !customerId) return { success: false, error: 'Not authenticated' };
             return convertToGiftCard(sessionToken, customerId, amount);

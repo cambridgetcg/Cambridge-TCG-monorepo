@@ -238,13 +238,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
           scopes: process.env.SCOPES?.split(",") || [],
           hostName: process.env.SHOPIFY_APP_URL!.replace(/https?:\/\//, ""),
           apiVersion: ApiVersion.January24,
-        });
+        } as any);
 
         const adminClient = new shopify.clients.Graphql({
           session: {
             shop: session.shop,
             accessToken: session.accessToken!,
-          }
+          } as any
         });
 
         // Process daily usage batch

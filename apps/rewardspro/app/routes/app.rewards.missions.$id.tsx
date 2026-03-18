@@ -182,7 +182,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         status: challenge.status,
         objectiveType: challenge.objectiveType,
         targetValue: challenge.targetValue,
-        objectiveConfig: challenge.objectiveConfig,
+        objectiveConfig: challenge.objectiveConfig as any,
         startsAt: challenge.startsAt.toISOString(),
         endsAt: challenge.endsAt.toISOString(),
         isPublic: challenge.isPublic,

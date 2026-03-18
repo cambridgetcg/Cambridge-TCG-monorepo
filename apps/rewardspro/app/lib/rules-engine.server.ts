@@ -711,7 +711,7 @@ class RulesEngine {
       {
         name: 'Anniversary Celebration',
         description: 'Bonus points on customer anniversary',
-        trigger: { type: 'event', event: 'customer.birthday' as RuleEvent },
+        trigger: { type: 'event', event: 'customer.anniversary' as any },
         conditions: [
           { type: 'customer_anniversary', operator: 'is_today' }
         ],

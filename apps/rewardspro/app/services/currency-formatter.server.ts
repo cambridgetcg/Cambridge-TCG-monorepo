@@ -21,7 +21,7 @@ export const CURRENCY_DECIMALS: Record<Currency, number> = {
   CHF: 2, SEK: 2, NOK: 2, MXN: 2, SGD: 2, BRL: 2,
   RUB: 2, ZAR: 2, TRY: 2, AED: 2, PLN: 2, THB: 2,
   DKK: 2, CZK: 2, ILS: 2, PHP: 2, RON: 2, MYR: 2,
-  INR: 2, CNY: 2,
+  INR: 2, CNY: 2, HKD: 2,
 
   // Zero decimal currencies (no minor units)
   JPY: 0,  // Japanese Yen

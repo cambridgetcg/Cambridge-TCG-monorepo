@@ -358,12 +358,12 @@ export default function MonitoringDashboard() {
         </Card>
 
         {/* Error Message */}
-        {data.error && (
+        {(data as any).error && (
           <Card>
             <Box padding="400">
               <InlineStack gap="200">
                 <Badge tone="warning">Warning</Badge>
-                <Text as="p">{data.error}</Text>
+                <Text as="p">{(data as any).error}</Text>
               </InlineStack>
             </Box>
           </Card>

@@ -159,7 +159,8 @@ export function TextFieldWithVariables({
           monospaced={monospaced}
           disabled={disabled}
           suffix={variableButton}
-          onFocus={(e) => {
+          onFocus={(e?: React.FocusEvent) => {
+            if (!e) return;
             // Store reference to input element
             inputRef.current = e.target as HTMLTextAreaElement | HTMLInputElement;
           }}

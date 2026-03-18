@@ -199,12 +199,12 @@ export async function getUnsupportedCurrencyStats(): Promise<Array<{
   lastSeen: Date;
 }>> {
   try {
-    const stats = await db.$queryRawUnsafe<Array<{
+    const stats: Array<{
       code: string;
       count: bigint;
       first_seen: Date;
       last_seen: Date;
-    }>>(
+    }> = await (db as any).$queryRawUnsafe(
       `SELECT
         payload->>'currencyCode' as code,
         COUNT(*) as count,

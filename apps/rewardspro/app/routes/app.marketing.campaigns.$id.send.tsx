@@ -523,7 +523,7 @@ export default function SendCampaign() {
               <InlineStack align="space-between">
                 <Text as="span">Estimated recipients:</Text>
                 <Badge tone={sendToRecommended ? "success" : "info"}>
-                  {getEstimatedRecipients().toLocaleString()} {sendToRecommended && "(targeted)" as string}
+                  {`${getEstimatedRecipients().toLocaleString()}${sendToRecommended ? " (targeted)" : ""}`}
                 </Badge>
               </InlineStack>
             </BlockStack>
