@@ -4,7 +4,7 @@ import {
   Text,
   View,
   Button,
-  ProgressBar,
+  Progress,
 } from '@shopify/ui-extensions-react/customer-account';
 
 // ============================================
@@ -81,7 +81,7 @@ export function MysteryBoxStreakBanner({
         {/* Progress Bar */}
         {hasStreak && streak.currentStreak < 30 && (
           <View>
-            <ProgressBar progress={progress} size="small" />
+            <Progress progress={progress} size="small" />
             <Text size="small" appearance="subdued">
               {nextTier - streak.currentStreak} {translate('mysteryBoxes.daysToNextTier')}
             </Text>

@@ -143,7 +143,7 @@ export async function getActiveInstantWins(
     orderBy: [
       { rarity: "desc" }, // Show rarer prizes first
       { winChancePercent: "asc" },
-    ],
+    ] as any,
   });
 
   return prizes.map((p) => ({

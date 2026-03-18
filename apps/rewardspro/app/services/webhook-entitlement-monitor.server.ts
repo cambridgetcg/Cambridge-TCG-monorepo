@@ -78,9 +78,9 @@ export async function logWebhookEntitlementContext(
         maxTiers: entitlements.limitMaxTiers,
         maxOrders: entitlements.limitMaxOrders,
         maxEmails: entitlements.limitMaxEmails,
-        maxCustomers: entitlements.limitMaxCustomers,
+        maxCustomers: entitlements.limitMaxCustomersSync,
         maxActiveRaffles: entitlements.limitMaxActiveRaffles,
-        maxActiveCampaigns: entitlements.limitMaxActiveCampaigns,
+        maxActiveCampaigns: entitlements.limitMaxCampaigns,
       },
       currentUsage: usage,
       warnings: [],
@@ -107,9 +107,9 @@ export async function logWebhookEntitlementContext(
 
     checkLimit("Tiers", usage.tiers, entitlements.limitMaxTiers);
     checkLimit("Orders", usage.orders, entitlements.limitMaxOrders);
-    checkLimit("Customers", usage.customers, entitlements.limitMaxCustomers);
+    checkLimit("Customers", usage.customers, entitlements.limitMaxCustomersSync);
     checkLimit("Active Raffles", usage.activeRaffles, entitlements.limitMaxActiveRaffles);
-    checkLimit("Active Campaigns", usage.activeCampaigns, entitlements.limitMaxActiveCampaigns);
+    checkLimit("Active Campaigns", usage.activeCampaigns, entitlements.limitMaxCampaigns);
 
     // Log the context
     const logger = monitorLogger.withContext({

@@ -157,8 +157,9 @@ export function useOptimisticData<T>(
   // Handle fetcher response
   useEffect(() => {
     if (fetcher.state === 'idle' && fetcher.data) {
-      if (fetcher.data.error) {
-        const error = new Error(fetcher.data.error);
+      const fetcherData = fetcher.data as any;
+      if (fetcherData.error) {
+        const error = new Error(fetcherData.error);
         dispatch({ type: 'ERROR', payload: error });
         
         // Revert to previous data if specified
@@ -169,10 +170,10 @@ export function useOptimisticData<T>(
         // Call error callback
         options.onError?.(error);
       } else {
-        dispatch({ type: 'CONFIRM', payload: fetcher.data });
+        dispatch({ type: 'CONFIRM', payload: fetcherData });
         
         // Call success callback
-        options.onSuccess?.(fetcher.data);
+        options.onSuccess?.(fetcherData);
       }
     }
   }, [fetcher.state, fetcher.data, options]);

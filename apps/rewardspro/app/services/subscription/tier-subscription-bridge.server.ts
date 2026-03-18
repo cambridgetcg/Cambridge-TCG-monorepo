@@ -431,8 +431,9 @@ export class TierSubscriptionBridgeV2 {
    */
   private static calculateNextBillingDate(from: Date, interval: BillingInterval): Date {
     const next = new Date(from);
-    
-    switch (interval) {
+    const intervalStr = interval as string;
+
+    switch (intervalStr) {
       case 'WEEKLY':
         next.setDate(next.getDate() + 7);
         break;

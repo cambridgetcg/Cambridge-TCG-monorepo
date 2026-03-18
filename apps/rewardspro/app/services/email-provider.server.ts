@@ -173,23 +173,21 @@ export async function sendTransactionalEmail(
     default:
       // Use SendGrid for transactional emails
       try {
-        const result = await sendGridSendEmail({
-          to: params.to.email,
-          toName: params.to.name,
+        const result = await sendGridSendEmail(shop, {
+          to: { email: params.to.email, name: params.to.name },
           subject: params.subject,
           html: params.html,
           text: params.text,
-          from: params.from?.email,
-          fromName: params.from?.name,
-          replyTo: params.replyTo,
+          from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
+          replyTo: params.replyTo ? { email: params.replyTo } : undefined,
           categories: params.categories,
           customArgs: params.customArgs,
         });
-        if (result) {
+        if (result.success) {
           // Record successful email send
           await recordEmailSent(shop, 1, "transactional");
         }
-        return { success: result, messageId: result ? "sent" : undefined };
+        return { success: result.success, messageId: result.success ? "sent" : undefined };
       } catch (error) {
         return {
           success: false,
@@ -249,12 +247,12 @@ export async function sendWelcomeEmailUnified(
       return false;
     }
 
-    await sendGridWelcomeEmail({
-      to: customer.email,
-      storeName,
-      customerName: customer.firstName || undefined,
-      tierName: tierName || customer.currentTier?.name,
-      cashbackPercent: cashbackPercent || customer.currentTier?.cashbackPercent,
+    await sendGridWelcomeEmail(shop, {
+      email: customer.email,
+      firstName: customer.firstName || undefined,
+    }, {
+      name: tierName || customer.currentTier?.name || "Member",
+      cashbackPercent: cashbackPercent || customer.currentTier?.cashbackPercent || 0,
     });
 
     // Record successful email send
@@ -327,18 +325,18 @@ export async function sendTierUpgradeEmailUnified(
       return false;
     }
 
-    const store = await db.store.findUnique({
+    const store = await db.shopSettings.findUnique({
       where: { shop },
-      select: { name: true },
+      select: { storeName: true },
     });
 
-    await sendGridTierUpgradeEmail({
-      to: customer.email,
-      storeName: store?.name || shop,
-      customerName: customer.firstName || undefined,
-      previousTierName: previousTier?.name,
-      newTierName: newTier.name,
-      newCashbackPercent: newTier.cashbackPercent,
+    await sendGridTierUpgradeEmail(shop, {
+      email: customer.email,
+      firstName: customer.firstName || undefined,
+    }, {
+      previousTier: previousTier?.name || "None",
+      newTier: newTier.name,
+      newCashbackPercent: Number(newTier.cashbackPercent),
     });
 
     // Record successful email send
@@ -446,23 +444,26 @@ export async function sendBatchMarketingEmails(
   // Use SendGrid for batch emails
   try {
     const result = await sendGridBatchEmails(
+      shop,
       params.recipients.map((r) => ({
         email: r.email,
         name: r.name,
         customerId: r.customerId,
       })),
-      params.subject,
-      params.html,
-      params.text,
-      params.categories
+      {
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+        categories: params.categories,
+      }
     );
 
-    if (result > 0) {
+    if (result.sent > 0) {
       // Record successful email sends
-      await recordEmailSent(shop, result, "campaign");
+      await recordEmailSent(shop, result.sent, "campaign");
     }
 
-    return { success: result > 0 };
+    return { success: result.sent > 0 };
   } catch (error) {
     return {
       success: false,

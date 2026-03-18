@@ -400,7 +400,7 @@ export default function GiftCardsConfigPage() {
   const navigation = useNavigation();
 
   const isSubmitting = navigation.state === "submitting";
-  const currency = shopSettings?.storeCurrency || "USD";
+  const currency = (shopSettings?.storeCurrency || "USD") as import("@prisma/client").Currency;
 
   // Toast state
   const [toastActive, setToastActive] = useState(false);

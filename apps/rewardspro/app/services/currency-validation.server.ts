@@ -174,7 +174,7 @@ async function logUnsupportedCurrency(code: string): Promise<void> {
   try {
     // Check if we have a DeadLetterQueue table for tracking
     // This could also be stored in SystemAlert or a dedicated table
-    await db.$executeRawUnsafe(
+    await (db as any).$executeRawUnsafe(
       `INSERT INTO "DeadLetterQueue" (id, type, payload, error, "createdAt")
        VALUES (gen_random_uuid(), 'UNSUPPORTED_CURRENCY', $1::jsonb, $2, CURRENT_TIMESTAMP)
        ON CONFLICT DO NOTHING`,
@@ -216,7 +216,7 @@ export async function getUnsupportedCurrencyStats(): Promise<Array<{
        ORDER BY count DESC`
     );
 
-    return stats.map(row => ({
+    return stats.map((row: any) => ({
       code: row.code,
       count: Number(row.count),
       firstSeen: row.first_seen,

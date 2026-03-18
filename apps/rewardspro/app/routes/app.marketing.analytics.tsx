@@ -290,9 +290,7 @@ function CampaignPerformanceCard({ campaign }: CampaignPerformanceCardProps) {
                     {campaign.performance.responseRate.actual}% {campaign.performance.responseRate.exceeded ? '✓' : ''}
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                    <Badge tone={campaign.performance.responseRate.exceeded ? 'success' : 'critical'}>
-                      {campaign.performance.responseRate.performance}%
-                    </Badge>
+                    <Badge tone={campaign.performance.responseRate.exceeded ? 'success' : 'critical'} children={`${campaign.performance.responseRate.performance}%`} />
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
@@ -304,9 +302,7 @@ function CampaignPerformanceCard({ campaign }: CampaignPerformanceCardProps) {
                     ${campaign.performance.revenue.actual.toLocaleString()} {campaign.performance.revenue.exceeded ? '✓' : ''}
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                    <Badge tone={campaign.performance.revenue.exceeded ? 'success' : 'critical'}>
-                      {campaign.performance.revenue.performance}%
-                    </Badge>
+                    <Badge tone={campaign.performance.revenue.exceeded ? 'success' : 'critical'} children={`${campaign.performance.revenue.performance}%`} />
                   </td>
                 </tr>
               </tbody>

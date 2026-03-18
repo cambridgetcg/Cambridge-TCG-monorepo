@@ -24,7 +24,7 @@ import {
 import {
   SettingsIcon,
   StarIcon,
-  ChartVerticalFilledIcon,
+  ChartVerticalIcon as ChartVerticalFilledIcon,
   GiftCardIcon,
   EmailIcon,
   AutomationIcon,
@@ -405,7 +405,7 @@ export default function PointsOverview() {
                             </Text>
                             {features.raffles ? (
                               moduleStats.raffles.activeRaffles > 0 ? (
-                                <Badge tone="success">{moduleStats.raffles.activeRaffles} Live</Badge>
+                                <Badge tone="success">{`${moduleStats.raffles.activeRaffles} Live`}</Badge>
                               ) : (
                                 <Badge tone="attention">No Active</Badge>
                               )
@@ -505,7 +505,7 @@ export default function PointsOverview() {
                             </Text>
                             {features.mysteryBoxes ? (
                               moduleStats.mysteryBoxes.activeBoxes > 0 ? (
-                                <Badge tone="success">{moduleStats.mysteryBoxes.activeBoxes} Live</Badge>
+                                <Badge tone="success">{`${moduleStats.mysteryBoxes.activeBoxes} Live`}</Badge>
                               ) : (
                                 <Badge tone="attention">No Active</Badge>
                               )
@@ -602,7 +602,7 @@ export default function PointsOverview() {
                             </Text>
                             {features.challenges ? (
                               moduleStats.challenges.activeChallenges > 0 ? (
-                                <Badge tone="success">{moduleStats.challenges.activeChallenges} Live</Badge>
+                                <Badge tone="success">{`${moduleStats.challenges.activeChallenges} Live`}</Badge>
                               ) : (
                                 <Badge tone="attention">No Active</Badge>
                               )

@@ -975,7 +975,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           } catch (dbError: any) {
             console.error('[TierProducts] ❌ CRITICAL: Could not create database record!');
             console.error('[TierProducts] Error:', dbError?.message || dbError);
-            console.error('[TierProducts] Tier Product Data:', JSON.stringify(tierProductData, null, 2));
+            console.error('[TierProducts] Tier Product Data: tierId=' + tier.id + ', sku=' + sku + ', price=' + price);
 
             // Rollback: delete the orphaned Shopify product
             try {
@@ -1818,8 +1818,8 @@ export default function TierProducts() {
 
   // Automatically revalidate when navigation completes (after create/update/delete)
   useEffect(() => {
-    if (navigation.state === "idle" && navigation.formData) {
-      const intent = navigation.formData.get("intent");
+    if (navigation.state === "idle" && (navigation as any).formData) {
+      const intent = (navigation as any).formData.get("intent");
       if (intent === "create-product" || intent === "delete-product" || intent === "update-product" || intent === "delete-tier-product-record") {
         // Add small delay to ensure database operation completes
         setTimeout(() => {
@@ -1969,7 +1969,7 @@ export default function TierProducts() {
         setEditModalActive(false);
         shouldRevalidate = true;
       } else {
-        showError(actionData.error || "Operation failed. Please try again.");
+        showError((actionData as any).error || "Operation failed. Please try again.");
       }
 
       // Revalidate loader data to refresh the tier products list
@@ -2227,7 +2227,7 @@ export default function TierProducts() {
                       Tier Product Coverage
                     </Text>
                     <Badge tone="info">
-                      {data.tierProducts.length} / {data.tiers.length * 3} products created
+                      {`${data.tierProducts.length} / ${data.tiers.length * 3} products created`}
                     </Badge>
                   </InlineStack>
 
@@ -2341,8 +2341,8 @@ export default function TierProducts() {
                                         )}
                                       </InlineStack>
                                     </InlineStack>
-                                    <Text variant="bodySm" tone="subdued" as="code" truncate>
-                                      {monthlyProduct.sku}
+                                    <Text variant="bodySm" tone="subdued" as="span" truncate>
+                                      <code>{monthlyProduct.sku}</code>
                                     </Text>
                                     <InlineStack gap="100">
                                       <Button
@@ -2428,8 +2428,8 @@ export default function TierProducts() {
                                         )}
                                       </InlineStack>
                                     </InlineStack>
-                                    <Text variant="bodySm" tone="subdued" as="code" truncate>
-                                      {annualProduct.sku}
+                                    <Text variant="bodySm" tone="subdued" as="span" truncate>
+                                      <code>{annualProduct.sku}</code>
                                     </Text>
                                     <InlineStack gap="100">
                                       <Button
@@ -2515,8 +2515,8 @@ export default function TierProducts() {
                                         )}
                                       </InlineStack>
                                     </InlineStack>
-                                    <Text variant="bodySm" tone="subdued" as="code" truncate>
-                                      {lifetimeProduct.sku}
+                                    <Text variant="bodySm" tone="subdued" as="span" truncate>
+                                      <code>{lifetimeProduct.sku}</code>
                                     </Text>
                                     <InlineStack gap="100">
                                       <Button
@@ -2661,7 +2661,9 @@ export default function TierProducts() {
                 }}>
                   {data.tierProducts.map((product) => {
                     const tier = data.tiers.find(t => t.id === product.tierId);
-                    const tierStyle = tier ? getTierStyle(tier.name) : { gradient: '', icon: '🏆' };
+                    const tierStyle = tier ? getTierStyle(tier.name) : null;
+                    const tierGradient = tierStyle ? `linear-gradient(135deg, ${tierStyle.gradientFrom} 0%, ${tierStyle.gradientTo} 100%)` : '';
+                    const tierIcon = tierStyle ? tierStyle.icon : '🏆';
                     
                     return (
                       <Card key={product.id}>
@@ -2675,13 +2677,13 @@ export default function TierProducts() {
                                     width: '40px',
                                     height: '40px',
                                     borderRadius: '8px',
-                                    background: tierStyle.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    background: tierGradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     fontSize: '20px'
                                   }}>
-                                    {tierStyle.icon}
+                                    {tierIcon}
                                   </div>
                                   <BlockStack gap="050">
                                     <Text variant="headingMd" as="h3">
@@ -2725,8 +2727,8 @@ export default function TierProducts() {
                               
                               <InlineStack align="space-between">
                                 <Text variant="bodySm" tone="subdued" as="span">SKU</Text>
-                                <Text variant="bodySm" as="code" fontWeight="medium">
-                                  {product.sku}
+                                <Text variant="bodySm" as="span" fontWeight="medium">
+                                  <code>{product.sku}</code>
                                 </Text>
                               </InlineStack>
                               
@@ -2734,7 +2736,7 @@ export default function TierProducts() {
                                 <InlineStack align="space-between">
                                   <Text variant="bodySm" tone="subdued" as="span">Cashback</Text>
                                   <Badge tone="info">
-                                    {tier.cashbackPercent}%
+                                    {`${tier.cashbackPercent}%`}
                                   </Badge>
                                 </InlineStack>
                               )}
@@ -2755,7 +2757,7 @@ export default function TierProducts() {
                             
                             {/* Action Buttons - Symmetrical */}
                             <BlockStack gap="200">
-                              <InlineStack gap="200" align="stretch">
+                              <InlineStack gap="200" align="space-between">
                                 <div style={{ flex: 1 }}>
                                   <Button
                                     fullWidth
@@ -3065,7 +3067,7 @@ export default function TierProducts() {
                             </InlineStack>
                           </BlockStack>
                           
-                          <Banner status="info">
+                          <Banner tone="info">
                             <p>
                               Customers will be able to choose from the enabled billing frequencies:
                             </p>

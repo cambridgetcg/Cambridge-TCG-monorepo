@@ -894,7 +894,7 @@ function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetr
   }, [formValues, fetcher]);
 
   const isSaving = fetcher.state === "submitting";
-  const showSuccess = fetcher.data?.success && fetcher.state === "idle";
+  const showSuccess = (fetcher.data as any)?.success && fetcher.state === "idle";
 
   return (
     <BlockStack gap="400">
@@ -1040,7 +1040,7 @@ export default function AnalyticsPage() {
   // Build tabs based on feature access - Overview is always visible
   // Advanced tabs require Advanced Analytics feature (from Feature Manager toggle)
   const tabs = useMemo(() => {
-    const baseTabs = [{ id: 'overview', content: 'Overview' }];
+    const baseTabs: Array<{ id: string; content: string; badge?: string }> = [{ id: 'overview', content: 'Overview' }];
 
     if (hasAdvancedAnalytics) {
       baseTabs.push(
@@ -1059,7 +1059,7 @@ export default function AnalyticsPage() {
     const healthScore = data.healthScore?.overall || 0;
     const usageRate = data.programImpact.currentUsageRate;
     const hasCustomers = data.overviewMetrics.totalCustomers > 0;
-    const hasActiveMembers = data.overviewMetrics.activeMembers > 0;
+    const hasActiveMembers = data.overviewMetrics.activeCustomers > 0;
 
     if (!hasCustomers || !hasActiveMembers) {
       return {
@@ -1153,7 +1153,7 @@ export default function AnalyticsPage() {
                             <Box padding="200" background="bg-surface" borderRadius="100">
                               <BlockStack gap="100">
                                 <Text as="span" variant="bodySm" tone="subdued">Active Members</Text>
-                                <Text as="span" variant="headingSm">{data.overviewMetrics.activeMembers.toLocaleString()}</Text>
+                                <Text as="span" variant="headingSm">{data.overviewMetrics.activeCustomers.toLocaleString()}</Text>
                               </BlockStack>
                             </Box>
                             <Box padding="200" background="bg-surface" borderRadius="100">
@@ -1189,7 +1189,7 @@ export default function AnalyticsPage() {
                       {/* Insights Widget */}
                       <InsightWidget
                         id="insights-feed"
-                        insights={data.aiInsights}
+                        insights={data.aiInsights as any}
                         maxItems={3}
                         size="medium"
                       />
@@ -1308,8 +1308,7 @@ export default function AnalyticsPage() {
                                 {data.programImpact.usageRateChange !== 0 ? (
                                   <>
                                     <Badge tone={data.programImpact.usageRateChange > 0 ? 'success' : 'critical'}>
-                                      {data.programImpact.usageRateChange > 0 ? '+' : ''}
-                                      {data.programImpact.usageRateChange.toFixed(1)}%
+                                      {`${data.programImpact.usageRateChange > 0 ? '+' : ''}${data.programImpact.usageRateChange.toFixed(1)}%`}
                                     </Badge>
                                     <Text variant="bodySm" tone="subdued" as="span">
                                       vs last month
@@ -1432,9 +1431,9 @@ export default function AnalyticsPage() {
                                             const label = context.dataset.label || '';
                                             const value = context.parsed.y;
                                             if (context.datasetIndex === 0) {
-                                              return `${label}: ${value.toFixed(1)}%`;
+                                              return `${label}: ${(value ?? 0).toFixed(1)}%`;
                                             } else {
-                                              return `${label}: ${formatAmount(value)}`;
+                                              return `${label}: ${formatAmount(value ?? 0)}`;
                                             }
                                           },
                                         },
@@ -1645,7 +1644,7 @@ export default function AnalyticsPage() {
                                   tooltip: {
                                     callbacks: {
                                       label: function(context) {
-                                        return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+                                        return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
                                       }
                                     }
                                   }
@@ -2123,7 +2122,7 @@ export default function AnalyticsPage() {
                                 {/* Header with badges */}
                                 <InlineStack gap="200" blockAlign="center">
                                   <Badge tone={recommendation.priority >= 8 ? 'critical' : recommendation.priority >= 5 ? 'attention' : 'info'}>
-                                    {recommendation.priority >= 8 ? 'High' : recommendation.priority >= 5 ? 'Medium' : 'Low'} Priority
+                                    {`${recommendation.priority >= 8 ? 'High' : recommendation.priority >= 5 ? 'Medium' : 'Low'} Priority`}
                                   </Badge>
                                   <Badge tone="info">
                                     {recommendation.type.replace(/_/g, ' ')}
@@ -2207,7 +2206,7 @@ export default function AnalyticsPage() {
                           </Text>
                         </BlockStack>
                         <Badge tone="info">
-                          Engagement Score: {data.healthScore?.overall || data.customerBehaviourData.engagementMetrics.programEngagementScore}/100
+                          {`Engagement Score: ${data.healthScore?.overall || data.customerBehaviourData.engagementMetrics.programEngagementScore}/100`}
                         </Badge>
                       </InlineStack>
                     </BlockStack>
@@ -2232,7 +2231,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between" blockAlign="center">
                                   <Text variant="bodySm" as="span">Habit Strength</Text>
                                   <Badge tone={data.customerBehaviourData.behavioralInsights.habitStrength >= 60 ? 'success' : 'warning'}>
-                                    {data.customerBehaviourData.behavioralInsights.habitStrength}%
+                                    {`${data.customerBehaviourData.behavioralInsights.habitStrength}%`}
                                   </Badge>
                                 </InlineStack>
                                 <ProgressBar
@@ -2256,7 +2255,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between" blockAlign="center">
                                   <Text variant="bodySm" as="span">Emotional Loyalty</Text>
                                   <Badge tone={data.customerBehaviourData.behavioralInsights.emotionalLoyaltyScore >= 60 ? 'success' : 'warning'}>
-                                    {data.customerBehaviourData.behavioralInsights.emotionalLoyaltyScore}%
+                                    {`${data.customerBehaviourData.behavioralInsights.emotionalLoyaltyScore}%`}
                                   </Badge>
                                 </InlineStack>
                                 <ProgressBar
@@ -2280,7 +2279,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between" blockAlign="center">
                                   <Text variant="bodySm" as="span">Churn Risk</Text>
                                   <Badge tone={data.customerBehaviourData.behavioralInsights.churnProbability <= 30 ? 'success' : data.customerBehaviourData.behavioralInsights.churnProbability <= 60 ? 'warning' : 'critical'}>
-                                    {data.customerBehaviourData.behavioralInsights.churnProbability}%
+                                    {`${data.customerBehaviourData.behavioralInsights.churnProbability}%`}
                                   </Badge>
                                 </InlineStack>
                                 <ProgressBar
@@ -2304,7 +2303,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between" blockAlign="center">
                                   <Text variant="bodySm" as="span">Upsell Potential</Text>
                                   <Badge tone={data.customerBehaviourData.behavioralInsights.upsellPotential >= 60 ? 'success' : 'info'}>
-                                    {data.customerBehaviourData.behavioralInsights.upsellPotential}%
+                                    {`${data.customerBehaviourData.behavioralInsights.upsellPotential}%`}
                                   </Badge>
                                 </InlineStack>
                                 <ProgressBar
@@ -2519,7 +2518,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between">
                                   <Text variant="bodyMd" as="span">Order Frequency</Text>
                                   <Badge tone={data.customerBehaviourData.orderFrequencyLift >= 1.3 ? 'success' : 'info'}>
-                                    {data.customerBehaviourData.orderFrequencyLift.toFixed(1)}x
+                                    {`${data.customerBehaviourData.orderFrequencyLift.toFixed(1)}x`}
                                   </Badge>
                                 </InlineStack>
                                 <InlineStack gap="400">
@@ -2539,7 +2538,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between">
                                   <Text variant="bodyMd" as="span">Avg Order Value</Text>
                                   <Badge tone={data.customerBehaviourData.aovIncrease >= 10 ? 'success' : 'info'}>
-                                    +{Math.round(data.customerBehaviourData.aovIncrease)}%
+                                    {`+${Math.round(data.customerBehaviourData.aovIncrease)}%`}
                                   </Badge>
                                 </InlineStack>
                                 <InlineStack gap="200">
@@ -2553,7 +2552,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between">
                                   <Text variant="bodyMd" as="span">12mo Lifetime Value</Text>
                                   <Badge tone={data.customerBehaviourData.revenueLift >= 20 ? 'success' : 'info'}>
-                                    +{Math.round(data.customerBehaviourData.revenueLift)}%
+                                    {`+${Math.round(data.customerBehaviourData.revenueLift)}%`}
                                   </Badge>
                                 </InlineStack>
                                 <InlineStack gap="200">
@@ -2567,7 +2566,7 @@ export default function AnalyticsPage() {
                                 <InlineStack align="space-between">
                                   <Text variant="bodyMd" as="span">Repeat Purchase Rate</Text>
                                   <Badge tone={data.customerBehaviourData.members.repeatPurchaseRate > data.customerBehaviourData.nonMembers.repeatPurchaseRate ? 'success' : 'info'}>
-                                    +{(data.customerBehaviourData.members.repeatPurchaseRate - data.customerBehaviourData.nonMembers.repeatPurchaseRate).toFixed(0)}%
+                                    {`+${(data.customerBehaviourData.members.repeatPurchaseRate - data.customerBehaviourData.nonMembers.repeatPurchaseRate).toFixed(0)}%`}
                                   </Badge>
                                 </InlineStack>
                                 <InlineStack gap="200">
@@ -2709,11 +2708,11 @@ export default function AnalyticsPage() {
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="span">Avg LTV (90 Days)</Text>
                             <Text variant="headingLg" as="p" fontWeight="bold">
-                              {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV90Days, data.shopSettings)}
+                              {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV90Days, data.shopSettings as any)}
                             </Text>
                             <Text variant="bodySm" tone="subdued" as="span">
-                              30d: {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV30Days, data.shopSettings)} |
-                              180d: {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV180Days, data.shopSettings)}
+                              30d: {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV30Days, data.shopSettings as any)} |
+                              180d: {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV180Days, data.shopSettings as any)}
                             </Text>
                           </BlockStack>
                         </Box>
@@ -2740,7 +2739,7 @@ export default function AnalyticsPage() {
                           <BlockStack gap="200">
                             <Text variant="bodySm" tone="subdued" as="span">Avg LTV (12 Months)</Text>
                             <Text variant="headingLg" as="p" fontWeight="bold">
-                              {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV365Days, data.shopSettings)}
+                              {formatCurrency(data.cohortAnalysis.summaryMetrics.avgLTV365Days, data.shopSettings as any)}
                             </Text>
                             <Text variant="bodySm" tone="subdued" as="span">
                               12-month retention: {data.cohortAnalysis.summaryMetrics.avgRetentionMonth12.toFixed(1)}%
@@ -2927,7 +2926,7 @@ export default function AnalyticsPage() {
                                     tooltip: {
                                       callbacks: {
                                         label: function(context) {
-                                          return `${context.dataset.label}: ${formatCurrency(context.parsed.y, data.shopSettings)}`;
+                                          return `${context.dataset.label}: ${formatCurrency(context.parsed.y ?? 0, data.shopSettings as any)}`;
                                         }
                                       }
                                     }
@@ -3012,7 +3011,7 @@ export default function AnalyticsPage() {
                                           tooltip: {
                                             callbacks: {
                                               label: function(context) {
-                                                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                                return `${context.dataset.label}: ${(context.parsed.y ?? 0).toFixed(1)}%`;
                                               }
                                             }
                                           }

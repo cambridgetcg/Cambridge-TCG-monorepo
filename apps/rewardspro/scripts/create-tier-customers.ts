@@ -386,7 +386,7 @@ async function main() {
   // Get tiers
   const tiers = await getTiers(shop);
   console.log(`Found ${tiers.length} tiers:\n`);
-  tiers.forEach((tier, idx) => {
+  tiers.forEach((tier: any, idx: number) => {
     console.log(`   ${idx + 1}. ${tier.name}: ${tier.cashbackPercent}% cashback`);
   });
 
@@ -432,7 +432,7 @@ async function main() {
   console.log(`✅ Successfully created ${totalCustomers} customers`);
   console.log(`   Duration: ${duration}s\n`);
   console.log('Distribution:');
-  tiers.forEach((tier) => {
+  tiers.forEach((tier: any) => {
     console.log(`   - ${tier.name}: ${customersPerTier} customers`);
   });
   console.log(`\n   Total Revenue: $${totalRevenue.toFixed(2)}`);

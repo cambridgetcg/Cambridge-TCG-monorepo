@@ -279,7 +279,7 @@ export class GraphQLBillingService {
       // Add usage pricing if configured
       if (planConfig.usageRate && planConfig.usageCap) {
         const usageTerms = planConfig.usageTerms ||
-          `$${(planConfig.usageRate * 100).toFixed(2)} per 100 orders over ${planConfig.orderLimit} orders/month (max $${planConfig.usageCap}/month)`;
+          `$${(Number(planConfig.usageRate) * 100).toFixed(2)} per 100 orders over ${planConfig.orderLimit} orders/month (max $${planConfig.usageCap}/month)`;
 
         lineItems.push({
           plan: {

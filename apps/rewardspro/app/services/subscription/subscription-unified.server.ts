@@ -134,7 +134,7 @@ export class UnifiedSubscriptionService {
           const existing = await this.findByIdempotencyKey(input.shop, idempotencyKey);
           if (existing) {
             subscriptionLogger.idempotencyCheck(idempotencyKey, true);
-            return { success: true, subscription: existing, contractId: existing.shopifyContractId || undefined };
+            return { success: true, subscription: existing, contractId: existing.subscriptionContractId || undefined };
           }
 
           subscriptionLogger.idempotencyCheck(idempotencyKey, false);
@@ -326,7 +326,7 @@ export class UnifiedSubscriptionService {
           switch (input.newStatus) {
             case 'CANCELLED':
             case 'EXPIRED':
-              updateData.endDate = now;
+              updateData.cancelledAt = now;
               break;
             case 'PAUSED':
               // Could track pause date in metadata
@@ -342,8 +342,8 @@ export class UnifiedSubscriptionService {
               break;
             case 'ACTIVE':
               // Clear any failure data when recovering
-              updateData.failureCount = 0;
-              updateData.lastFailureReason = null;
+              updateData.failedPaymentCount = 0;
+              updateData.lastPaymentFailure = null;
               break;
           }
 
@@ -569,10 +569,9 @@ export class UnifiedSubscriptionService {
             where: { id: subscriptionId },
             data: {
               lastBillingDate: billingData.billingDate,
-              lastBillingAmount: billingData.amount,
               nextBillingDate,
-              failureCount: 0,
-              lastFailureReason: null,
+              failedPaymentCount: 0,
+              lastPaymentFailure: null,
               updatedAt: new Date(),
             },
           });
@@ -634,7 +633,7 @@ export class UnifiedSubscriptionService {
             return { success: false, error: 'Subscription not found' };
           }
 
-          const newFailureCount = (subscription.failureCount || 0) + 1;
+          const newFailureCount = (subscription.failedPaymentCount || 0) + 1;
           const idempotencyKey = `${subscriptionId}-fail-${failureData.billingDate.toISOString()}`;
 
           // Check idempotency
@@ -672,8 +671,8 @@ export class UnifiedSubscriptionService {
           await db.tierSubscription.update({
             where: { id: subscriptionId },
             data: {
-              failureCount: newFailureCount,
-              lastFailureReason: failureData.errorMessage,
+              failedPaymentCount: newFailureCount,
+              lastPaymentFailure: new Date(),
               updatedAt: new Date(),
             },
           });

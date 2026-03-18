@@ -135,9 +135,7 @@ function MetricCard({ title, value, trend, icon }: any) {
           </InlineStack>
           <Text variant="heading2xl" as="p">{value}</Text>
           {trend && (
-            <Badge tone={trend > 0 ? 'success' : 'critical'}>
-              {trend > 0 ? '+' : ''}{trend}%
-            </Badge>
+            <Badge tone={trend > 0 ? 'success' : 'critical'} children={`${trend > 0 ? '+' : ''}${trend}%`} />
           )}
         </BlockStack>
       </Box>
@@ -246,12 +244,8 @@ export default function AnalyticsPage() {
                 <InlineStack align="space-between">
                   <Text variant="headingSm" as="h3">Live Updates</Text>
                   <InlineStack gap="400">
-                    <Badge tone="success">
-                      Today's Revenue: {formatAmount(realtimeData.todayRevenue || 0)}
-                    </Badge>
-                    <Badge tone="info">
-                      Today's Cashback: {formatAmount(realtimeData.todayCashback || 0)}
-                    </Badge>
+                    <Badge tone="success" children={`Today's Revenue: ${formatAmount(realtimeData.todayRevenue || 0)}`} />
+                    <Badge tone="info" children={`Today's Cashback: ${formatAmount(realtimeData.todayCashback || 0)}`} />
                   </InlineStack>
                 </InlineStack>
               </Box>

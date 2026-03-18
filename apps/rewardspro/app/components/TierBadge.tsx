@@ -134,22 +134,23 @@ export function TierBadge({
     
     return (
       <Badge tone={style.badgeTone}>
-        {badgeContent}
+        {badgeContent as unknown as string}
       </Badge>
     );
   }
   
   // Card variant for tier displays
   return (
-    <Box
-      padding="400"
-      background="bg-surface"
-      borderColor="border"
-      borderWidth="025"
-      borderRadius="200"
+    <div
       className={`tier-card ${className}`}
       onClick={onClick}
       style={{
+        padding: 'var(--p-space-400)',
+        background: 'var(--p-color-bg-surface)',
+        borderColor: 'var(--p-color-border)',
+        borderWidth: 'var(--p-border-width-025)',
+        borderStyle: 'solid',
+        borderRadius: 'var(--p-border-radius-200)',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all 0.2s ease',
         position: 'relative',
@@ -226,7 +227,7 @@ export function TierBadge({
           <div>{children}</div>
         )}
       </InlineStack>
-    </Box>
+    </div>
   );
 }
 

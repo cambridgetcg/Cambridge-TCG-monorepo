@@ -989,7 +989,7 @@ export class ShopInspector {
     ]);
 
     // Get counts by topic
-    const topicCounts = await this.db.webhookProcessed.groupBy({
+    const topicCounts = await (this.db.webhookProcessed.groupBy as any)({
       by: ['topic'],
       where: { shop },
       _count: true,

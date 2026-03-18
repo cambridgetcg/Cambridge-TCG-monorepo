@@ -8,6 +8,7 @@
  * - Psychology bonuses (streaks, instant wins, lucky numbers)
  */
 
+import type { RafflePrizeType } from "@prisma/client";
 import db from "../db.server";
 import { spendPoints, earnPoints, getPointsBalance, adjustPoints } from "./points-ledger.server";
 import { checkRaffleEligibility, type RaffleStatus } from "./raffle-management.server";
@@ -146,7 +147,7 @@ export async function purchaseRaffleEntries(
     const basePointsCost = raffle.entryCost * quantity;
 
     // 5. Check customer has sufficient points
-    const currentBalance = await getPointsBalance(shop, customerId);
+    const currentBalance = Number(await getPointsBalance(shop, customerId));
     if (currentBalance < basePointsCost) {
       return {
         success: false,
@@ -306,7 +307,7 @@ export async function purchaseRaffleEntries(
             {
               raffleName: raffle.name,
               raffleId: raffle.id,
-              bonusEntries: finalEntries - quantity, // Track bonus entries separately
+              redemptionValue: finalEntries - quantity, // Track bonus entries separately
             }
           );
         }
@@ -322,7 +323,7 @@ export async function purchaseRaffleEntries(
       entriesCount: quantity,
       totalEntriesCount: entry.entriesCount,
       pointsSpent: pointsCost,
-      newBalance,
+      newBalance: Number(newBalance),
       // Psychology data
       finalEntries,
       bonuses: psychologyResult.bonuses,

@@ -516,12 +516,12 @@ export function FeatureLockedCard({
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Icon source={IconComponent} tone="subdued" />
+            <Icon source={IconComponent as any} tone="subdued" />
           </div>
           <BlockStack gap="100">
             <InlineStack gap="200" blockAlign="center">
               <Text variant="headingMd" as="h3">{feature}</Text>
-              <Badge tone={getPlanBadgeTone(requiredPlan)}>{planDetails.name}+</Badge>
+              <Badge tone={getPlanBadgeTone(requiredPlan)}>{`${planDetails.name}+`}</Badge>
             </InlineStack>
             <Text variant="bodySm" tone="subdued" as="p">{description}</Text>
           </BlockStack>
@@ -647,7 +647,7 @@ export function LimitHint({
       <Box
         paddingInline="300"
         paddingBlock="150"
-        background={isAtLimit ? 'bg-surface-critical-subdued' : 'bg-surface-secondary'}
+        background={isAtLimit ? 'bg-surface-critical' : 'bg-surface-secondary'}
         borderRadius="200"
       >
         <InlineStack gap="300" blockAlign="center" wrap={false}>
@@ -673,12 +673,10 @@ export function LimitHint({
             <Button
               size="slim"
               variant="plain"
+              icon={ArrowUpIcon}
               onClick={() => navigate('/app/billing')}
             >
-              <InlineStack gap="100" blockAlign="center">
-                <Icon source={ArrowUpIcon} tone="info" />
-                <span>Upgrade</span>
-              </InlineStack>
+              Upgrade
             </Button>
           )}
         </InlineStack>
@@ -711,7 +709,7 @@ export function LimitHint({
     return (
       <Box
         padding="300"
-        background={isAtLimit ? 'bg-surface-critical-subdued' : 'bg-surface-secondary'}
+        background={isAtLimit ? 'bg-surface-critical' : 'bg-surface-secondary'}
         borderRadius="200"
       >
         <BlockStack gap="200">
@@ -837,7 +835,7 @@ export function PageLimitStatus({
       <Box
         paddingInline="200"
         paddingBlock="100"
-        background={isAtLimit ? 'bg-surface-critical-subdued' : 'bg-surface-secondary'}
+        background={isAtLimit ? 'bg-surface-critical' : 'bg-surface-secondary'}
         borderRadius="150"
       >
         <Text as="span" variant="bodySm" tone={isAtLimit ? 'critical' : 'subdued'}>
@@ -918,7 +916,7 @@ export function LimitAwareButton({
   return (
     <InlineStack gap="300" blockAlign="center">
       <Button variant={variant} onClick={onClick}>
-        {children}
+        {children as string}
       </Button>
       {remaining <= 2 && remaining > 0 && (
         <Text as="span" variant="bodySm" tone="subdued">
@@ -1088,7 +1086,7 @@ export function LimitExceededModal({
           {/* Current status */}
           <Box
             padding="400"
-            background="bg-surface-critical-subdued"
+            background="bg-surface-critical"
             borderRadius="200"
           >
             <BlockStack gap="200">
@@ -1120,7 +1118,7 @@ export function LimitExceededModal({
           {/* Upgrade incentive */}
           <Box
             padding="400"
-            background="bg-surface-success-subdued"
+            background="bg-surface-success"
             borderRadius="200"
           >
             <BlockStack gap="300">
@@ -1147,10 +1145,10 @@ export function LimitExceededModal({
                 </Text>
                 <Box paddingBlockStart="200">
                   <InlineStack gap="200" wrap>
-                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.mysteryBoxes)} Mystery Boxes</Badge>
-                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.raffles)} Raffles</Badge>
-                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.challenges)} Challenges</Badge>
-                    <Badge tone="info">{formatLimit(upgradeInfo.incentives.campaigns)} Campaigns</Badge>
+                    <Badge tone="info">{`${formatLimit(upgradeInfo.incentives.mysteryBoxes)} Mystery Boxes`}</Badge>
+                    <Badge tone="info">{`${formatLimit(upgradeInfo.incentives.raffles)} Raffles`}</Badge>
+                    <Badge tone="info">{`${formatLimit(upgradeInfo.incentives.challenges)} Challenges`}</Badge>
+                    <Badge tone="info">{`${formatLimit(upgradeInfo.incentives.campaigns)} Campaigns`}</Badge>
                   </InlineStack>
                 </Box>
               </Box>

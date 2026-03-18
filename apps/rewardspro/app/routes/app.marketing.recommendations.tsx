@@ -130,8 +130,9 @@ export default function RecommendationsView() {
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
-  const handleTabChange = (value: string) => {
-    navigate(`?filter=${value}`);
+  const handleTabChange = (index: number) => {
+    const tabId = tabs[index]?.id || 'all';
+    navigate(`?filter=${tabId}`);
   };
 
   const handleAction = (action: string, recommendationId: string) => {

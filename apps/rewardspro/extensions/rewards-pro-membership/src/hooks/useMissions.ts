@@ -142,7 +142,12 @@ interface UseMissionsReturn {
 // DEFAULT STATE
 // ============================================
 
-const defaultMissions = {
+const defaultMissions: {
+  daily: MissionInfo[];
+  weekly: MissionInfo[];
+  monthly: MissionInfo[];
+  special: MissionInfo[];
+} = {
   daily: [],
   weekly: [],
   monthly: [],

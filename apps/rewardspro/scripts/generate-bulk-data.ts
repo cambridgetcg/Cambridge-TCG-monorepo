@@ -268,8 +268,8 @@ async function updateCustomerTotals(shop: string, customerId: string) {
     WHERE "customerId" = :customerId AND shop = :shop
   `, [param('customerId', customerId), param('shop', shop)]);
 
-  const orderCount = orderTotals[0]?.order_count || 0;
-  const totalSpent = orderTotals[0]?.total_spent || 0;
+  const orderCount = (orderTotals as any)[0]?.order_count || 0;
+  const totalSpent = (orderTotals as any)[0]?.total_spent || 0;
 
   const cashbackTotals = await query(`
     SELECT COALESCE(SUM(amount), 0) as total_cashback
@@ -277,7 +277,7 @@ async function updateCustomerTotals(shop: string, customerId: string) {
     WHERE "customerId" = :customerId AND shop = :shop
   `, [param('customerId', customerId), param('shop', shop)]);
 
-  const totalCashback = cashbackTotals[0]?.total_cashback || 0;
+  const totalCashback = (cashbackTotals as any)[0]?.total_cashback || 0;
 
   await execute(`
     UPDATE "Customer"
@@ -330,7 +330,7 @@ async function main() {
 
   for (let tierIndex = 0; tierIndex < tiers.length; tierIndex++) {
     const tier = tiers[tierIndex];
-    console.log(`\n   ${tier.name} (${tier.cashbackPercent || 0}% cashback):`);
+    console.log(`\n   ${(tier as any).name} (${(tier as any).cashbackPercent || 0}% cashback):`);
 
     for (let i = 0; i < CUSTOMERS_PER_TIER; i++) {
       const customer = await createCustomer(shop, tier, globalCustomerIndex);

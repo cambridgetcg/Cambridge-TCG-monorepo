@@ -42,7 +42,7 @@ import {
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, type ShopSettings } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
 import { useToast } from "../hooks/useToast";
 
@@ -112,9 +112,7 @@ interface LoaderData {
     processedCashback: number;
     totalRefunded: number;
   };
-  shopSettings: {
-    storeCurrency: string;
-    currencyDisplayType: string;
+  shopSettings: ShopSettings & {
     autoCashbackProcessingEnabled?: boolean;
   } | null;
   pagination: {
@@ -438,7 +436,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             ? parseFloat(order.customer.lifetimeSpent.toString())
             : 0
         } : null,
-        creditLedgerEntries: order.creditLedgerEntries?.map(entry => ({
+        creditLedgerEntries: order.creditLedgerEntries?.map((entry: any) => ({
           ...entry,
           amount: entry.amount ? parseFloat(entry.amount.toString()) : 0,
           balance: entry.balance ? parseFloat(entry.balance.toString()) : 0
@@ -1427,7 +1425,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export default function OrdersPage() {
-  const loaderData = useLoaderData<LoaderData>();
+  const loaderData = useLoaderData<LoaderData>() as unknown as LoaderData;
   const { orders, stats, shopSettings, pagination } = loaderData;
 
   // Client-side logging
@@ -1489,16 +1487,17 @@ export default function OrdersPage() {
   // Only process when we're actively fetching (fetchingBalance is true)
   // This prevents stale fetcher.data from reopening the modal after submission
   useEffect(() => {
-    if (fetcher.data && fetcher.data.action === "fetch-store-credit-balance" && fetchingBalance) {
-      if (fetcher.data.success && processingCustomer) {
+    const fd = fetcher.data as any;
+    if (fd && fd.action === "fetch-store-credit-balance" && fetchingBalance) {
+      if (fd.success && processingCustomer) {
         // Update the customer's store credit with the fetched balance
         setProcessingCustomer({
           ...processingCustomer,
-          storeCredit: fetcher.data.balance || 0
+          storeCredit: fd.balance || 0
         });
         setFetchingBalance(false);
         setIsCashbackModalOpen(true);
-      } else if (fetcher.data.error) {
+      } else if (fd.error) {
         // If fetch failed, use existing balance and show modal
         setFetchingBalance(false);
         setIsCashbackModalOpen(true);
@@ -1508,18 +1507,19 @@ export default function OrdersPage() {
 
   // Handle response from processing all cashback
   useEffect(() => {
-    if (actionData?.successCount !== undefined || actionData?.failCount !== undefined) {
+    const ad = actionData as any;
+    if (ad?.successCount !== undefined || ad?.failCount !== undefined) {
       // Reset processing state
       setIsProcessingAll(false);
       setProcessAllProgress({ current: 0, total: 0 });
 
       // Show result toast
-      if (actionData.message) {
-        const isError = actionData.failCount > 0 && actionData.successCount === 0;
+      if (ad.message) {
+        const isError = ad.failCount > 0 && ad.successCount === 0;
         if (isError) {
-          showError(actionData.message);
+          showError(ad.message);
         } else {
-          showSuccess(actionData.message);
+          showSuccess(ad.message);
         }
       }
     }
@@ -1573,7 +1573,7 @@ export default function OrdersPage() {
 
   // Selection state for bulk actions
   const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } =
-    useIndexResourceState(orders);
+    useIndexResourceState(orders as any);
 
   // Bulk actions for selected orders
   const bulkActions = useMemo(() => {
@@ -1842,15 +1842,15 @@ export default function OrdersPage() {
     setProcessingLog(logEntries);
 
     // Submit batch processing request with full order data
-    submit(
-      {
-        action: "process-all-cashback",
-        orderIds: confirmModalData.orderIds.join(','),
-        ordersData: confirmModalData.orders ? JSON.stringify(confirmModalData.orders) : undefined,
-        enableDebugLog: "true" // Enable server-side logging
-      },
-      { method: "post" }
-    );
+    const submitData: Record<string, string> = {
+      action: "process-all-cashback",
+      orderIds: confirmModalData.orderIds.join(','),
+      enableDebugLog: "true" // Enable server-side logging
+    };
+    if (confirmModalData.orders) {
+      submitData.ordersData = JSON.stringify(confirmModalData.orders);
+    }
+    submit(submitData, { method: "post" });
 
     // Clear selection if processing selected orders
     if (confirmModalData.action === "process-selected" && clearSelection) {
@@ -2080,8 +2080,7 @@ export default function OrdersPage() {
             <Button
               size="slim"
               variant="primary"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 handleProcessCashback(order.id);
               }}
               loading={navigation.state === "submitting"}
@@ -2128,7 +2127,7 @@ export default function OrdersPage() {
                   </Text>
                   <ProgressBar
                     progress={(processAllProgress.current / processAllProgress.total) * 100}
-                    tone="emphasis"
+                    tone="highlight"
                     size="small"
                   />
                 </BlockStack>
@@ -2320,7 +2319,7 @@ export default function OrdersPage() {
                                       setSearchParams(params);
                                     }}
                                   >
-                                    {i}
+                                    {`${i}`}
                                   </Button>
                                 );
                               }
@@ -2341,7 +2340,7 @@ export default function OrdersPage() {
                                       setSearchParams(params);
                                     }}
                                   >
-                                    {totalPages}
+                                    {`${totalPages}`}
                                   </Button>
                                 );
                               }
@@ -2382,7 +2381,7 @@ export default function OrdersPage() {
             content: "Close",
             onAction: () => setIsDetailModalOpen(false),
           }}
-          large
+          size="large"
         >
           {selectedOrder && (
             <Modal.Section>
@@ -2547,7 +2546,7 @@ export default function OrdersPage() {
                       {selectedOrder.creditLedgerEntries?.map((entry) => (
                         <InlineStack key={entry.id} align="space-between">
                           <InlineStack gap="200">
-                            <Badge tone={entry.amount > 0 ? "success" : "critical"}>
+                            <Badge tone={Number(entry.amount) > 0 ? "success" : "critical"}>
                               {entry.type.replace(/_/g, " ")}
                             </Badge>
                             <Text variant="bodySm" as="span" tone="subdued">
@@ -2673,10 +2672,10 @@ export default function OrdersPage() {
                 >
                   <BlockStack gap="200">
                     <Text as="h3" variant="headingSm">Activity Log</Text>
-                    <Box maxHeight="400px" overflowY="auto">
+                    <div style={{ maxHeight: "400px", overflowY: "auto" }}>
                       <BlockStack gap="100">
                         {processingLog.map((log, index) => {
-                          let tone: "base" | "success" | "critical" | "warning" | "subdued" = "subdued";
+                          let tone: "base" | "success" | "critical" | "caution" | "subdued" = "subdued";
                           let icon = null;
 
                           // Convert technical log to merchant-friendly message
@@ -2722,7 +2721,7 @@ export default function OrdersPage() {
                             tone = "success";
                             icon = <Icon source={CheckCircleIcon} tone="success" />;
                           } else if (log.includes('[SKIP]') || log.includes('[WARNING]')) {
-                            tone = "warning";
+                            tone = "caution";
                             icon = <Icon source={InfoIcon} tone="caution" />;
                           } else if (log.includes('[START]')) {
                             icon = <Icon source={RefreshIcon} tone="info" />;
@@ -2745,7 +2744,7 @@ export default function OrdersPage() {
                           );
                         }).filter(Boolean)}
                       </BlockStack>
-                    </Box>
+                    </div>
                   </BlockStack>
                 </Box>
 

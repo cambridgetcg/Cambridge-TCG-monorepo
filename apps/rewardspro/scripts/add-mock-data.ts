@@ -106,7 +106,7 @@ async function getShopSettings(shop: string): Promise<any> {
   );
 
   if (rows.length === 0) return null;
-  return { currency: rows[0].storeCurrency || 'USD' };
+  return { currency: (rows[0] as any).storeCurrency || 'USD' };
 }
 
 async function getTiers(shop: string): Promise<any[]> {
@@ -353,7 +353,7 @@ async function getCustomerStoreCredit(customerId: string): Promise<number> {
     'SELECT "storeCredit" FROM "Customer" WHERE id = :id',
     [param('id', customerId)]
   );
-  return rows.length > 0 ? (rows[0].storeCredit || 0) : 0;
+  return rows.length > 0 ? ((rows[0] as any).storeCredit || 0) : 0;
 }
 
 async function getCustomerTotalSpent(customerId: string): Promise<any> {
@@ -362,7 +362,7 @@ async function getCustomerTotalSpent(customerId: string): Promise<any> {
     [param('id', customerId)]
   );
   if (rows.length === 0) return { totalSpent: 0, totalCashbackEarned: 0, orderCount: 0 };
-  return rows[0];
+  return rows[0] as any;
 }
 
 async function updateCustomerTotals(customerId: string, shop: string): Promise<void> {
@@ -380,7 +380,7 @@ async function updateCustomerTotals(customerId: string, shop: string): Promise<v
 
   if (rows.length === 0) return;
 
-  const r = rows[0];
+  const r = rows[0] as any;
   const netSpent = (r.totalSpent || 0) - (r.totalRefunded || 0);
 
   await execute(

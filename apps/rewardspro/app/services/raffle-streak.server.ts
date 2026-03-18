@@ -220,16 +220,7 @@ export async function getOrCreateStreakRecord(
         currentStreak: 0,
         longestStreak: 0,
       },
-      select: {
-        id: true,
-        currentStreak: true,
-        longestStreak: true,
-        lastEntryDate: true,
-        streakStartDate: true,
-        freeEntriesUsedToday: true,
-        freeEntryLastUsedAt: true,
-      },
-    });
+    } as any);
     console.log(`${LOG_PREFIX} Created streak record for customer ${customerId}`);
   }
 

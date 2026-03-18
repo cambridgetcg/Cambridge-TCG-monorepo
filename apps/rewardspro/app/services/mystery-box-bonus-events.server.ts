@@ -174,7 +174,7 @@ export async function getActiveBonusEvents(params: {
         },
       ],
     },
-    orderBy: [{ discountPercent: "desc" }, { bonusMultiplier: "desc" }],
+    orderBy: [{ discountPercent: "desc" }, { bonusMultiplier: "desc" }] as any,
   });
 
   // Filter out events that have exceeded maxUses (can't compare two columns in Prisma/Data API)

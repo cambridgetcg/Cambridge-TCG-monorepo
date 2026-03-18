@@ -27,6 +27,7 @@ export interface CronLockResult {
   lockId?: string;
   existingLock?: {
     lockedAt: Date;
+    acquiredAt: Date;
     instanceId: string | null;
     expiresAt: Date;
   };
@@ -121,6 +122,7 @@ export async function acquireCronLock(
           acquired: false,
           existingLock: {
             lockedAt: existingLock.lockedAt,
+            acquiredAt: existingLock.lockedAt,
             instanceId: existingLock.instanceId,
             expiresAt: existingLock.expiresAt,
           },

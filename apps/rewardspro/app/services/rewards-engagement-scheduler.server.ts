@@ -384,7 +384,7 @@ export async function announceNewRaffle(
           startsAt: raffle.startsAt,
           endsAt: raffle.endsAt,
           entryCost: raffle.entryCost,
-          prizes: raffle.prizes.map((p) => ({
+          prizes: raffle.prizes.map((p: any) => ({
             name: p.name,
             type: p.prizeType,
             value: (p.prizeValue as any)?.amount,

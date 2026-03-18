@@ -44,6 +44,7 @@ export interface DynamoDBLockResult {
   existingLock?: {
     instanceId: string;
     acquiredAt: Date;
+    lockedAt: Date;
     expiresAt: Date;
   };
   error?: string;
@@ -195,6 +196,7 @@ export class DynamoDBCronLockService {
             existingLock: {
               instanceId: existingLock.instanceId || "unknown",
               acquiredAt: existingLock.acquiredAt || new Date(),
+              lockedAt: existingLock.acquiredAt || new Date(),
               expiresAt: existingLock.expiresAt || new Date(),
             },
           };
@@ -399,6 +401,7 @@ export async function acquireCronLockWithFallback(
   existingLock?: {
     instanceId: string | null;
     acquiredAt: Date;
+    lockedAt: Date;
     expiresAt: Date;
   };
 }> {

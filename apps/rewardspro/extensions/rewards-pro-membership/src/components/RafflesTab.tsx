@@ -645,7 +645,7 @@ export function RafflesTab({
             pointsSpent={entry.pointsSpent}
             enteredAt={entry.enteredAt}
             isWinner={entry.isWinner}
-            prize={entry.prize}
+            prize={entry.prize?.name ?? undefined}
             locale={locale}
             translate={translate}
           />

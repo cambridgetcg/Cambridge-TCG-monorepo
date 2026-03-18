@@ -526,7 +526,7 @@ export default function PointsConfiguration() {
                 <InlineStack align="space-between" blockAlign="center">
                   <Text variant="headingMd" as="h2">Feature Toggles</Text>
                   <Badge tone={[rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled, scratchCardsEnabled, givebackPoolsEnabled].filter(Boolean).length === 6 ? 'success' : 'info'}>
-                    {[rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled, scratchCardsEnabled, givebackPoolsEnabled].filter(Boolean).length}/6 Active
+                    {`${[rafflesEnabled, mysteryBoxesEnabled, spinWheelEnabled, challengesEnabled, scratchCardsEnabled, givebackPoolsEnabled].filter(Boolean).length}/6 Active`}
                   </Badge>
                 </InlineStack>
                 <Text tone="subdued" as="p">

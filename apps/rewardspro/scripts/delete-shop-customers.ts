@@ -131,8 +131,8 @@ async function getRelatedCounts(shop: string): Promise<{
 
     for (const query of countQueries) {
       const result = await executeQuery(
-        `SELECT COUNT(*) as count FROM "${query.table}" WHERE "${query.field}" IN (${customerIds.map((_, i) => `:id${i}`).join(', ')})`,
-        customerIds.map((id, i) => ({ name: `id${i}`, value: { stringValue: id } }))
+        `SELECT COUNT(*) as count FROM "${query.table}" WHERE "${query.field}" IN (${customerIds.map((_: any, i: number) => `:id${i}`).join(', ')})`,
+        customerIds.map((id: any, i: number) => ({ name: `id${i}`, value: { stringValue: id } }))
       );
       counts[query.key as keyof typeof counts] = Number(result.records?.[0]?.[0]?.longValue ?? 0);
     }
@@ -179,8 +179,8 @@ async function deleteCustomers(shop: string): Promise<{
   }
 
   const customerIds = customerIdsResult.records.map((r: any) => r[0].stringValue);
-  const customerIdParams = customerIds.map((id, i) => ({ name: `id${i}`, value: { stringValue: id } }));
-  const customerIdPlaceholders = customerIds.map((_, i) => `:id${i}`).join(', ');
+  const customerIdParams = customerIds.map((id: any, i: number) => ({ name: `id${i}`, value: { stringValue: id } }));
+  const customerIdPlaceholders = customerIds.map((_: any, i: number) => `:id${i}`).join(', ');
 
   // Delete in correct order (respecting foreign key constraints)
 

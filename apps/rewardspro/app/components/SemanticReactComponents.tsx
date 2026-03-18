@@ -153,16 +153,16 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
 
   return (
     <InlineStack gap="200" align="center">
-      <Box
+      <div
         role="status"
         aria-label={label || config.ariaLabel}
         style={{
           animation: pulse ? 'pulse 2s infinite' : undefined,
         }}
       >
-        <Icon source={config.icon} tone={config.tone} />
-      </Box>
-      <Text as="span" tone={config.tone}>
+        <Icon source={config.icon} tone={config.tone as any} />
+      </div>
+      <Text as="span" tone={config.tone as any}>
         {children}
       </Text>
     </InlineStack>
@@ -212,22 +212,22 @@ export const TierBadge: React.FC<TierBadgeProps> = ({
       </InlineStack>
       
       {isCurrentTier && nextTierName && progressToNext !== undefined && (
-        <Box
+        <div
           role="progressbar"
           aria-label={`Progress to ${nextTierName} tier`}
           aria-valuenow={progressToNext}
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <ProgressBar 
-            progress={progressToNext} 
-            tone="emphasis"
+          <ProgressBar
+            progress={progressToNext}
+            tone="highlight"
             size="small"
           />
           <Text as="span" variant="bodySm" tone="subdued">
             {progressToNext}% to {nextTierName}
           </Text>
-        </Box>
+        </div>
       )}
     </BlockStack>
   );
@@ -414,7 +414,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
 
   return (
     <InlineStack gap="200" align="center">
-      <Box
+      <div
         role="img"
         aria-label={`Avatar for ${name}`}
         style={{
@@ -447,8 +447,8 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
             <Icon source={StarIcon} tone="warning" />
           </div>
         )}
-      </Box>
-      
+      </div>
+
       <BlockStack gap="0">
         <Text as="span" variant="bodyMd" fontWeight="medium">
           {name}
@@ -579,7 +579,7 @@ export const SemanticField: React.FC<SemanticFieldProps> = ({
       min={min}
       max={max}
       step={step}
-      autoComplete={type === 'email' ? 'email' : undefined}
+      autoComplete={type === 'email' ? 'email' : 'off'}
       aria-required={required}
       aria-invalid={!!error}
       aria-describedby={helpText ? `${label}-help` : undefined}
@@ -620,12 +620,12 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
             {Array.from({ length: lines }).map((_, i) => (
               <Card key={i}>
                 <InlineStack gap="200" align="center">
-                  <Box style={{ width: 40, height: 40 }}>
+                  <div style={{ width: 40, height: 40 }}>
                     <SkeletonDisplayText size="small" />
-                  </Box>
-                  <Box style={{ flex: 1 }}>
+                  </div>
+                  <div style={{ flex: 1 }}>
                     <SkeletonBodyText lines={1} />
-                  </Box>
+                  </div>
                 </InlineStack>
               </Card>
             ))}
@@ -638,9 +638,9 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
             {Array.from({ length: lines }).map((_, i) => (
               <BlockStack key={i} gap="100">
                 <SkeletonDisplayText size="small" />
-                <Box style={{ height: 36 }}>
+                <div style={{ height: 36 }}>
                   <SkeletonBodyText lines={1} />
-                </Box>
+                </div>
               </BlockStack>
             ))}
           </FormLayout>
@@ -715,12 +715,12 @@ export const SemanticEmptyState: React.FC<EmptyStateProps> = ({
   return (
     <Card>
       <BlockStack gap="400" inlineAlign="center">
-        <Box style={{ opacity: 0.5 }}>
-          <Icon 
-            source={illustrationIcons[illustration]} 
+        <div style={{ opacity: 0.5 }}>
+          <Icon
+            source={illustrationIcons[illustration]}
             tone="subdued"
           />
-        </Box>
+        </div>
         
         <BlockStack gap="200" inlineAlign="center">
           <Text as="h2" variant="headingMd">

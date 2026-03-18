@@ -17,12 +17,7 @@ export interface PlanConfig {
 export interface BillingConfigType {
   useNewBilling: boolean;
   isDevelopment: boolean;
-  plans: {
-    free: PlanConfig;
-    starter: PlanConfig;
-    growth: PlanConfig;
-    enterprise?: PlanConfig;
-  };
+  plans: Record<string, PlanConfig>;
   trialDays: number;
   replacementBehavior: {
     upgrade: string;

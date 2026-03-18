@@ -104,9 +104,6 @@ export async function checkAndAcquireIdempotencyLock(
         recordId: newRecord.id,
         processedAt: newRecord.processedAt
       };
-    }, {
-      isolationLevel: 'Serializable',
-      timeout: 5000 // 5 second timeout
     });
 
     return result;

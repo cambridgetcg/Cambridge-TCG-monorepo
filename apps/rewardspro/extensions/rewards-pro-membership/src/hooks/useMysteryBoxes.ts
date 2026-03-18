@@ -256,15 +256,16 @@ export function useMysteryBoxes({ shopDomain }: UseMysteryBoxesProps): UseMyster
         setConfig(response.data.config || null);
 
         // Update basic streak info from main response
-        if (response.data.streak) {
+        if (response.data?.streak) {
+          const streakData = response.data.streak;
           setStreak((prev) => ({
             ...prev,
-            currentStreak: response.data.streak!.currentStreak,
-            bonusPercent: response.data.streak!.bonusPercent,
-            streakEmoji: response.data.streak!.streakEmoji,
-            streakLabel: response.data.streak!.streakLabel,
-            freeOpensAvailable: response.data.streak!.freeOpensAvailable,
-            canClaimFreeOpen: response.data.streak!.canClaimFreeOpen,
+            currentStreak: streakData.currentStreak,
+            bonusPercent: streakData.bonusPercent,
+            streakEmoji: streakData.streakEmoji,
+            streakLabel: streakData.streakLabel,
+            freeOpensAvailable: streakData.freeOpensAvailable,
+            canClaimFreeOpen: streakData.canClaimFreeOpen,
             longestStreak: prev?.longestStreak || 0,
             bonusMultiplier: prev?.bonusMultiplier || 1,
             hoursUntilStreakLoss: prev?.hoursUntilStreakLoss || 0,

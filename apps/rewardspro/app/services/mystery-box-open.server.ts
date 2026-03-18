@@ -210,7 +210,7 @@ export async function openMysteryBox(
     if (reward.quantity !== null && reward.quantityWon >= reward.quantity) {
       // This reward is depleted, try to select another
       const availableRewards = box.rewards.filter(
-        (r) => r.quantity === null || r.quantityWon < r.quantity
+        (r: any) => r.quantity === null || r.quantityWon < r.quantity
       );
 
       if (availableRewards.length === 0) {
@@ -852,7 +852,7 @@ export async function openMysteryBoxEnhanced(input: {
     // 8. Calculate near-miss
     const nearMiss = calculateNearMiss(
       reward.rarity as MysteryBoxRarity,
-      box.rewards.map((r) => ({
+      box.rewards.map((r: any) => ({
         id: r.id,
         name: r.name,
         rarity: r.rarity as MysteryBoxRarity,

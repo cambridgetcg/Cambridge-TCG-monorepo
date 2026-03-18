@@ -108,7 +108,7 @@ export function SyncActionCard({
             {isSyncing && variant === 'full' && (
               <InlineStack gap="100" blockAlign="center">
                 <Spinner size="small" />
-                <Badge tone="info">Syncing</Badge>
+                <Badge tone={"info" as any}>Syncing</Badge>
               </InlineStack>
             )}
           </InlineStack>
@@ -164,7 +164,7 @@ export function SyncActionCard({
                       </Text>
                     )}
                     {progress.updatedCount !== undefined && progress.updatedCount > 0 && (
-                      <Text as="span" variant="bodySm" tone="info">
+                      <Text as="span" variant="bodySm" tone="base">
                         {progress.updatedCount.toLocaleString()} updated
                       </Text>
                     )}
@@ -347,7 +347,7 @@ export function SyncProgressCard({
             </Text>
           )}
           {progress.updatedCount !== undefined && (
-            <Text as="span" variant="bodyMd" tone="info">
+            <Text as="span" variant="bodyMd" tone="base">
               {progress.updatedCount.toLocaleString()} updated
             </Text>
           )}

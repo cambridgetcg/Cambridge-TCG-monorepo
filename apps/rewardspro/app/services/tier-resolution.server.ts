@@ -53,6 +53,14 @@ export interface TierSourceInfo {
     changeLogId?: string;
     endDate?: string;
     isExpired?: boolean;
+    setAt?: string;
+    setBy?: string;
+    expiresAt?: string;
+    note?: string;
+    totalSpending?: number;
+    isDefault?: boolean;
+    autoDetected?: boolean;
+    [key: string]: unknown;
   };
 }
 
@@ -148,7 +156,7 @@ export async function resolveEffectiveTier(
     // FIX: Pass transaction client to getManualOverride for proper isolation
     // FIX: Use the stored override tier ID, not customer.currentTierId
     // FIX: Clear expired overrides from database to prevent stale data
-    const overrideInfo = await getManualOverride(customerId, prisma, { clearIfExpired: true });
+    const overrideInfo = await getManualOverride(customerId, prisma as any, { clearIfExpired: true });
 
     if (overrideInfo.hasOverride && overrideInfo.tierId) {
       resolutionLogger.debug('Manual override detected', { tierName: overrideInfo.tierName, tierId: overrideInfo.tierId });
@@ -170,9 +178,9 @@ export async function resolveEffectiveTier(
         tierMinSpend,
         metadata: {
           setAt: overrideInfo.setAt?.toISOString(),
-          setBy: overrideInfo.setBy,
+          setBy: overrideInfo.setBy ?? undefined,
           expiresAt: overrideInfo.expiresAt?.toISOString(),
-          note: overrideInfo.note,
+          note: overrideInfo.note ?? undefined,
         }
       });
     } else {
@@ -702,11 +710,7 @@ export async function updateCustomerToEffectiveTier(
         changed: true,
         source: resolution.effectiveSource
       };
-    }, {
-      // Transaction options for race condition prevention
-      isolationLevel: 'ReadCommitted',  // Prevents dirty reads
-      timeout: 10000,                   // 10 second timeout
-    });
+    }) as { success: boolean; previousTierId: string | null; newTierId: string | null; changed: boolean; source: TierSource; error?: string };
 
     // Record successful tier resolution in Sentry
     sentryTier.recordResult({

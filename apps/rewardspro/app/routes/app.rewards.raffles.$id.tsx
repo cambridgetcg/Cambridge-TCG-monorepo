@@ -35,7 +35,7 @@ import {
   DeleteIcon,
   PlusIcon,
   PlayIcon,
-  PauseIcon,
+  PauseCircleIcon as PauseIcon,
   CheckIcon,
   XIcon,
 } from "~/utils/polaris-icons";
@@ -195,7 +195,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   let winners: WinnerData[] = [];
   if (["DRAWING", "COMPLETED"].includes(raffle.status)) {
     try {
-      const winnersData = await getRaffleWinners(raffleId);
+      const winnersData = await getRaffleWinners(raffleId, shop);
       winners = winnersData.map((w: any) => ({
         id: w.id,
         customerId: w.customerId,
@@ -296,7 +296,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         description: description || undefined,
         entryCost,
         maxEntriesPerCustomer,
-        maxEntriesTotal: maxEntriesTotal ? parseInt(maxEntriesTotal) : null,
+        maxEntriesTotal: maxEntriesTotal ? parseInt(maxEntriesTotal) : undefined,
         drawType,
         totalWinners,
         startsAt,
@@ -408,7 +408,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         const deliveryResult = await deliverAllRafflePrizes(raffleId, shop);
         return json({
           success: true,
-          message: `Draw complete! ${result.winnersCount} winners selected. ${deliveryResult.successful} prizes delivered, ${deliveryResult.requiresManual} require manual action.`,
+          message: `Draw complete! ${result.winnersSelected} winners selected. ${deliveryResult.successful} prizes delivered, ${deliveryResult.requiresManual} require manual action.`,
           winners: result.winners,
         });
       } else {
@@ -740,6 +740,8 @@ export default function RaffleDetail() {
       storeCreditAmount: prize.prizeValue?.amount?.toString() || "500",
       pointsAmount: prize.prizeValue?.amount?.toString() || "100",
       customInstructions: prize.prizeValue?.fulfillmentInstructions || "",
+      selectedProduct: null,
+      productQuantity: "1",
     });
     setShowPrizeModal(true);
   }, []);
@@ -1002,7 +1004,7 @@ export default function RaffleDetail() {
                       renderItem={(prize) => (
                         <ResourceItem
                           id={prize.id}
-                          onClick={() => canEdit && openEditPrize(prize)}
+                          onClick={() => canEdit && openEditPrize(prize as unknown as PrizeData)}
                         >
                           <InlineStack align="space-between" blockAlign="center">
                             <BlockStack gap="100">
@@ -1020,7 +1022,7 @@ export default function RaffleDetail() {
                                 <Button
                                   size="slim"
                                   icon={EditIcon}
-                                  onClick={() => openEditPrize(prize)}
+                                  onClick={() => openEditPrize(prize as unknown as PrizeData)}
                                 />
                                 <Button
                                   size="slim"
@@ -1149,10 +1151,10 @@ export default function RaffleDetail() {
                       {(pendingDeliveries > 0 || failedDeliveries > 0) && (
                         <InlineStack gap="200">
                           {pendingDeliveries > 0 && (
-                            <Badge tone="warning">{pendingDeliveries} pending delivery</Badge>
+                            <Badge tone="warning">{`${pendingDeliveries} pending delivery`}</Badge>
                           )}
                           {failedDeliveries > 0 && (
-                            <Badge tone="critical">{failedDeliveries} failed</Badge>
+                            <Badge tone="critical">{`${failedDeliveries} failed`}</Badge>
                           )}
                         </InlineStack>
                       )}
@@ -1183,12 +1185,13 @@ export default function RaffleDetail() {
                     renderItem={(winner) => (
                       <ResourceItem
                         id={winner.id}
+                        url=""
                         accessibilityLabel={`Winner ${winner.position}: ${winner.customerEmail}`}
                       >
                         <InlineStack align="space-between" blockAlign="center">
                           <BlockStack gap="100">
                             <InlineStack gap="200" blockAlign="center">
-                              <Badge tone="info">#{winner.position}</Badge>
+                              <Badge tone="info">{`#${winner.position}`}</Badge>
                               <Text as="span" fontWeight="semibold">{winner.customerEmail}</Text>
                             </InlineStack>
                             <InlineStack gap="200">

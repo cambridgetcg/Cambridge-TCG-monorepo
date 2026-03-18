@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
     environment: process.env.NODE_ENV || 'development',
 
     // Smart sampling: 100% for critical ops, 20% default
-    tracesSampler: createSmartSampler(0.2),
+    tracesSampler: createSmartSampler(0.2) as any,
 
     // Set sample rate for profiling
     profilesSampleRate: 0.1,
@@ -50,7 +50,7 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
 
       // Remove sensitive data from query strings
       if (event.request?.query_string) {
-        event.request.query_string = event.request.query_string.replace(
+        event.request.query_string = (event.request.query_string as string).replace(
           /token=[^&]*/g,
           'token=[REDACTED]'
         ).replace(

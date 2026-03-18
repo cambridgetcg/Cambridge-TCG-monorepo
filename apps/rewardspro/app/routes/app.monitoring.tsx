@@ -70,7 +70,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // Get recent error count
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentErrors = await db.$queryRaw<[{ count: bigint }]>`
+    const recentErrors = await db.$queryRaw`
       SELECT COUNT(*) as count
       FROM "StoreCreditLedger"
       WHERE shop = ${session.shop}
@@ -82,11 +82,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const metrics = await MetricsService.reportDailyMetrics(session.shop);
 
     // Get recent webhook activity
-    const webhookActivity = await db.$queryRaw<Array<{
-      topic: string;
-      success_count: bigint;
-      failure_count: bigint;
-    }>>`
+    const webhookActivity = await db.$queryRaw`
       SELECT
         topic,
         SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count,
@@ -258,9 +254,7 @@ export default function MonitoringDashboard() {
                   <Text as="h3" variant="headingSm">Memory Usage</Text>
                   <InlineStack gap="400" wrap>
                     <Text as="p">Heap: {data.health.memory.heapUsed} / {data.health.memory.heapTotal}</Text>
-                    <Badge tone={parseFloat(data.health.memory.heapUsagePercent) > 80 ? "warning" : "success"}>
-                      {data.health.memory.heapUsagePercent} Used
-                    </Badge>
+                    <Badge tone={(parseFloat(data.health.memory.heapUsagePercent) > 80 ? "warning" : "success") as any} children={`${data.health.memory.heapUsagePercent} Used`} />
                   </InlineStack>
                 </BlockStack>
               </BlockStack>
@@ -321,7 +315,7 @@ export default function MonitoringDashboard() {
                     <Divider />
                     <InlineStack gap="200">
                       <Badge tone="warning">
-                        {data.metrics.ledgerConsistency.discrepancyCount} Ledger Discrepancies
+                        {`${data.metrics.ledgerConsistency.discrepancyCount} Ledger Discrepancies`}
                       </Badge>
                       <Text as="p" tone="subdued">
                         ({data.metrics.ledgerConsistency.discrepancyRate.toFixed(2)}% of checked)
@@ -341,7 +335,7 @@ export default function MonitoringDashboard() {
               <InlineStack align="space-between">
                 <Text as="h2" variant="headingMd">Recent Activity</Text>
                 {data.recentErrors > 0 && (
-                  <Badge tone="critical">{data.recentErrors} Errors (24h)</Badge>
+                  <Badge tone="critical">{`${data.recentErrors} Errors (24h)`}</Badge>
                 )}
               </InlineStack>
 

@@ -6,7 +6,7 @@ import {
   View,
   Button,
   Modal,
-  ProgressBar,
+  Progress,
   Badge,
 } from '@shopify/ui-extensions-react/customer-account';
 
@@ -356,7 +356,7 @@ export function MysteryBoxRewardReveal({
               <Text size="small" appearance="subdued">
                 {translate('mysteryBoxes.luckProtection')}
               </Text>
-              <ProgressBar
+              <Progress
                 progress={(pityProgress.current / pityProgress.threshold) * 100}
                 size="small"
               />

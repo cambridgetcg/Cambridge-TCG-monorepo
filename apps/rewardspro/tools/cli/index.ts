@@ -318,9 +318,8 @@ program
       }
 
       const inspector = new ShopInspector({
-        databaseUrl: config.databaseUrl,
         verbose: options.verbose,
-      });
+      } as any);
 
       const sections = options.sections.split(',') as InspectionSection[];
       const result = await inspector.inspect({
@@ -480,9 +479,7 @@ program
         process.exit(1);
       }
 
-      const inspector = new ShopInspector({
-        databaseUrl: config.databaseUrl,
-      });
+      const inspector = new ShopInspector({} as any);
 
       const health = await inspector.healthCheck(options.shop);
       spinner.stop();

@@ -177,7 +177,7 @@ export function TextFieldWithVariables({
       preferredPosition="below"
     >
       <div style={{ minWidth: "300px", maxHeight: "400px", overflowY: "auto" }}>
-        <ActionList actionRole="menuitem" sections={sections} />
+        <ActionList actionRole="menuitem" sections={sections as any} />
       </div>
     </Popover>
   );

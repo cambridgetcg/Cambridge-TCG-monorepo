@@ -73,7 +73,6 @@ export default function LockedPage() {
               action={{
                 content: "Upgrade Plan",
                 onAction: () => navigate('/app/billing'),
-                variant: "primary",
               }}
               secondaryAction={{
                 content: "View Billing Details",

@@ -545,14 +545,14 @@ class RulesEngine {
     if (!context.customerId || points <= 0) return { awarded: false };
 
     // Use existing points ledger service
-    const { awardPoints } = await import('~/services/points-ledger.server');
-    await awardPoints({
+    const { earnPoints } = await import('~/services/points-ledger.server');
+    await earnPoints({
       shop: context.shop,
       customerId: context.customerId,
       amount: points,
-      source: 'RULE',
+      type: 'MANUAL_CREDIT',
       description: 'Points awarded by loyalty rule',
-      referenceType: 'RULE',
+      metadata: { referenceType: 'RULE' },
     });
 
     return { awarded: true, points };
@@ -711,7 +711,7 @@ class RulesEngine {
       {
         name: 'Anniversary Celebration',
         description: 'Bonus points on customer anniversary',
-        trigger: { type: 'event', event: 'customer.anniversary' },
+        trigger: { type: 'event', event: 'customer.birthday' as RuleEvent },
         conditions: [
           { type: 'customer_anniversary', operator: 'is_today' }
         ],

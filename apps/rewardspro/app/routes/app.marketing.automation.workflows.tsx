@@ -377,7 +377,7 @@ export default function AutomationWorkflows() {
 
   // Check which templates are already in use
   const usedTemplates = new Set(
-    data.automations.map((a) => (a.conditions as any)?.templateSource).filter(Boolean)
+    data.automations.map((a: any) => (a.conditions as any)?.templateSource).filter(Boolean)
   );
 
   const tabs = [
@@ -401,18 +401,18 @@ export default function AutomationWorkflows() {
     >
       <Layout>
         {/* Feedback Banners */}
-        {actionData?.error && (
+        {(actionData as any)?.error && (
           <Layout.Section>
             <Banner tone="critical" onDismiss={() => {}}>
-              {actionData.error}
+              {(actionData as any).error}
             </Banner>
           </Layout.Section>
         )}
 
-        {actionData?.success && (
+        {(actionData as any)?.success && (
           <Layout.Section>
             <Banner tone="success" onDismiss={() => {}}>
-              {actionData.message}
+              {(actionData as any).message}
             </Banner>
           </Layout.Section>
         )}
@@ -426,7 +426,7 @@ export default function AutomationWorkflows() {
                   Performance Overview
                 </Text>
                 {data.stats.totalSent > 0 && (
-                  <Badge tone="success">{String(data.stats.openRate)}% open rate</Badge>
+                  <Badge tone="success">{`${data.stats.openRate}% open rate`}</Badge>
                 )}
               </InlineStack>
 
@@ -486,7 +486,7 @@ export default function AutomationWorkflows() {
                       </Box>
                     ) : (
                       <BlockStack gap="300">
-                        {data.automations.map((automation) => (
+                        {data.automations.map((automation: any) => (
                           <AutomationCard
                             key={automation.id}
                             automation={automation}
@@ -650,7 +650,7 @@ function AutomationCard({ automation, onToggle, onEdit, onDelete }: AutomationCa
   return (
     <Box
       padding="400"
-      background={automation.isEnabled ? "bg-surface-success-subdued" : "bg-surface-secondary"}
+      background={automation.isEnabled ? "bg-surface-success" : "bg-surface-secondary"}
       borderRadius="200"
       borderWidth="025"
       borderColor={automation.isEnabled ? "border-success" : "border"}
@@ -744,8 +744,8 @@ function TemplateCard({ template, isUsed, onCreate }: TemplateCardProps) {
         </Box>
 
         <InlineStack gap="200">
-          <Badge tone="success">{template.avgOpenRate} avg. open rate</Badge>
-          <Badge>{template.estimatedSetup} setup</Badge>
+          <Badge tone="success">{`${template.avgOpenRate} avg. open rate`}</Badge>
+          <Badge>{`${template.estimatedSetup} setup`}</Badge>
         </InlineStack>
 
         <Button

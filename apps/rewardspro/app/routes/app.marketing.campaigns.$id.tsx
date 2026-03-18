@@ -271,15 +271,15 @@ export default function CampaignDetail() {
       ]}
     >
       <Layout>
-        {actionData?.error && (
+        {(actionData as any)?.error && (
           <Layout.Section>
             <Banner tone="critical" title="Error">
-              <p>{actionData.error}</p>
+              <p>{(actionData as any).error}</p>
             </Banner>
           </Layout.Section>
         )}
 
-        {actionData?.success && (
+        {(actionData as any)?.success && (
           <Layout.Section>
             <Banner tone="success" title="Campaign updated">
               <p>Your changes have been saved.</p>

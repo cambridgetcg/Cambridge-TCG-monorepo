@@ -65,7 +65,7 @@ export function RefundToStoreCreditForm({
   const orderOptions = [
     { label: 'Select an order...', value: '' },
     ...orders.map(order => ({
-      label: `${order.name} - ${formatCurrency(parseFloat(order.total.amount), shopSettings)} (${order.financialStatus})`,
+      label: `${order.name} - ${formatCurrency(parseFloat(order.total.amount), shopSettings as any)} (${order.financialStatus})`,
       value: order.id
     }))
   ];
@@ -177,7 +177,7 @@ export function RefundToStoreCreditForm({
               <InlineStack align="space-between">
                 <Text as="span" variant="bodySm" tone="subdued">Order Total</Text>
                 <Text as="span" variant="bodySm" fontWeight="semibold">
-                  {formatCurrency(parseFloat(selectedOrder.total.amount), shopSettings)}
+                  {formatCurrency(parseFloat(selectedOrder.total.amount), shopSettings as any)}
                 </Text>
               </InlineStack>
               <InlineStack align="space-between">
@@ -199,7 +199,7 @@ export function RefundToStoreCreditForm({
           error={errors.amount}
           disabled={loading || !selectedOrderId}
           autoComplete="off"
-          helpText={selectedOrderId ? `Maximum: ${formatCurrency(maxRefundAmount, shopSettings)}` : 'Select an order first'}
+          helpText={selectedOrderId ? `Maximum: ${formatCurrency(maxRefundAmount, shopSettings as any)}` : 'Select an order first'}
         />
 
         <TextField

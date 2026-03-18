@@ -289,7 +289,7 @@ function crystallizeSensoryData(
     const existing = subscriptionSignals.get(sub.customerId);
     if (!existing || sub.tier.minSpend > existing.tierMinSpend) {
       subscriptionSignals.set(sub.customerId, {
-        tierId: sub.tierId,
+        tierId: sub.tierId ?? "",
         tierMinSpend: sub.tier.minSpend,
       });
       subscriptionCustomers.add(sub.customerId);
@@ -305,7 +305,7 @@ function crystallizeSensoryData(
     const existing = purchaseSignals.get(purchase.customerId);
     if (!existing || purchase.tier.minSpend > existing.tierMinSpend) {
       purchaseSignals.set(purchase.customerId, {
-        tierId: purchase.tierId,
+        tierId: purchase.tierId ?? "",
         tierMinSpend: purchase.tier.minSpend,
       });
       purchaseCustomers.add(purchase.customerId);
@@ -767,7 +767,7 @@ async function writeTierChangeBatch(
             },
           });
         }
-      }, { timeout: 30000 });
+      });
 
       updated += batch.length;
     } catch (error) {
@@ -839,7 +839,7 @@ async function writeProgressUpdateBatch(
             },
           });
         }
-      }, { timeout: 30000 });
+      });
     } catch (error) {
       logger.error('Progress update batch failed', { batchStart: i, error });
     }

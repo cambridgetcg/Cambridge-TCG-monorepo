@@ -117,11 +117,10 @@ export function MetricCardWidget({
                     ? 'success'
                     : 'attention'
                 }
-              >
-                {typeof value === 'number' && value >= benchmark.value
+                children={`${typeof value === 'number' && value >= benchmark.value
                   ? 'Above'
-                  : 'Below'} {benchmark.label}
-              </Badge>
+                  : 'Below'} ${benchmark.label}`}
+              />
               <Tooltip content={`${benchmark.label}: ${formatValue(benchmark.value)}`}>
                 <Icon source={InfoIcon} tone="subdued" />
               </Tooltip>

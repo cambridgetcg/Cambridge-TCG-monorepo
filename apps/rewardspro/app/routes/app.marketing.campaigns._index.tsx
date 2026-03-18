@@ -123,7 +123,7 @@ export default function CampaignsList() {
   };
 
   // Filter campaigns
-  const filteredCampaigns = campaigns.filter((campaign) => {
+  const filteredCampaigns = campaigns.filter((campaign: any) => {
     const matchesStatus =
       statusFilter.length === 0 || statusFilter.includes(campaign.status);
     const matchesQuery =
@@ -209,7 +209,7 @@ export default function CampaignsList() {
     );
   }
 
-  const rows = filteredCampaigns.map((campaign) => [
+  const rows = filteredCampaigns.map((campaign: any) => [
     <BlockStack gap="100" key={campaign.id}>
       <Button
         variant="plain"

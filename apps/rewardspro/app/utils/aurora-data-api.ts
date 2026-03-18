@@ -419,7 +419,7 @@ export function getAuroraClient(): AuroraDataAPI {
     console.log("[AuroraClient] Creating new client with trimmed config:", {
       resourceArnLength: { raw: rawResourceArn.length, trimmed: config.resourceArn.length },
       secretArnLength: { raw: rawSecretArn.length, trimmed: config.secretArn.length },
-      regionLength: { raw: rawRegion.length, trimmed: config.region.length },
+      regionLength: { raw: rawRegion.length, trimmed: config.region!.length },
       region: config.region,
     });
 

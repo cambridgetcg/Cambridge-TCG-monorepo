@@ -96,12 +96,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return new Response(null, { status: 204, headers });
   }
 
-  // Rate limiting
-  const rateLimitResponse = await customerActionRateLimit(request);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   // Get session token from Authorization header
   const authHeader = request.headers.get("Authorization");
   const sessionToken = authHeader?.replace("Bearer ", "");
@@ -128,20 +122,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Authenticate
-  let session;
+  let authContext;
   try {
-    const authResult = await authenticate.public.customerAccount(request);
-    session = authResult.session;
+    authContext = await authenticate.public.customerAccount(request);
   } catch (error) {
     log.error("Authentication failed:", error);
     return json({ error: "Authentication failed" }, { status: 401, headers });
   }
 
-  if (!session?.shop) {
+  const shop = new URL(authContext.sessionToken.dest).hostname;
+
+  if (!shop) {
     return json({ error: "Shop not found in session" }, { status: 401, headers });
   }
 
-  const shop = session.shop;
+  // Rate limiting (requires customerId, extracted from token sub)
+  const rateLimitResponse = await customerActionRateLimit(request, authContext.sessionToken.sub || "anonymous");
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
 
   // Extract customer ID from query param (provided by extension)
   const shopifyCustomerId = url.searchParams.get("customer_id");
@@ -261,12 +260,6 @@ export async function action({ request }: ActionFunctionArgs) {
     return new Response(null, { status: 204, headers });
   }
 
-  // Rate limiting
-  const rateLimitResponse = await customerActionRateLimit(request);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-
   // Get session token from Authorization header
   const authHeader = request.headers.get("Authorization");
   const sessionToken = authHeader?.replace("Bearer ", "");
@@ -276,20 +269,25 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   // Authenticate
-  let session;
+  let authContext;
   try {
-    const authResult = await authenticate.public.customerAccount(request);
-    session = authResult.session;
+    authContext = await authenticate.public.customerAccount(request);
   } catch (error) {
     log.error("Authentication failed:", error);
     return json({ error: "Authentication failed" }, { status: 401, headers });
   }
 
-  if (!session?.shop) {
+  const shop = new URL(authContext.sessionToken.dest).hostname;
+
+  if (!shop) {
     return json({ error: "Shop not found in session" }, { status: 401, headers });
   }
 
-  const shop = session.shop;
+  // Rate limiting
+  const rateLimitResponse = await customerActionRateLimit(request, authContext.sessionToken.sub || "anonymous");
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
 
   // Parse request body
   let body;
@@ -368,14 +366,14 @@ export async function action({ request }: ActionFunctionArgs) {
       });
 
       // Debit the store credit
-      await db.$transaction([
-        db.customer.update({
+      await db.$transaction(async (tx: any) => {
+        await tx.customer.update({
           where: { id: customer.id },
           data: {
             storeCredit: { decrement: convertAmount },
           },
-        }),
-        db.storeCreditLedger.create({
+        });
+        await tx.storeCreditLedger.create({
           data: {
             shop,
             customerId: customer.id,
@@ -388,8 +386,8 @@ export async function action({ request }: ActionFunctionArgs) {
               recipientEmail: recipient_email || customer.email,
             },
           },
-        }),
-      ]);
+        });
+      });
 
       log.info("Store credit conversion queued", {
         customerId: customer.id,

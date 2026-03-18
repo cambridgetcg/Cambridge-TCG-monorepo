@@ -467,7 +467,7 @@ export default function CreateCampaign() {
                       </Banner>
                     ) : (
                       <BlockStack gap="300">
-                        {data.templates.map((template) => (
+                        {data.templates.map((template: any) => (
                           <Box
                             key={template.id}
                             padding="400"
@@ -545,7 +545,7 @@ export default function CreateCampaign() {
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Target Audience</Text>
                 <BlockStack gap="300">
-                  {data.segments.map((segment) => (
+                  {data.segments.map((segment: any) => (
                     <Box
                       key={segment.id}
                       padding="400"
@@ -564,7 +564,7 @@ export default function CreateCampaign() {
                           />
                           <Text as="span" fontWeight="semibold">{segment.name}</Text>
                         </InlineStack>
-                        <Badge tone="info">{segment.customerCount.toLocaleString()} customers</Badge>
+                        <Badge tone="info" children={`${segment.customerCount.toLocaleString()} customers`} />
                       </InlineStack>
                     </Box>
                   ))}
@@ -690,7 +690,7 @@ export default function CreateCampaign() {
                       <Text as="span" tone="subdued">Content:</Text>
                       <Text as="span" fontWeight="semibold">
                         {contentMode === "template"
-                          ? (data.templates.find(t => t.id === selectedTemplate)?.name || "No template selected")
+                          ? (data.templates.find((t: any) => t.id === selectedTemplate)?.name || "No template selected")
                           : (inlineSubject || "Inline content")
                         }
                       </Text>
@@ -698,8 +698,8 @@ export default function CreateCampaign() {
                     <InlineStack align="space-between">
                       <Text as="span" tone="subdued">Audience:</Text>
                       <Text as="span" fontWeight="semibold">
-                        {data.segments.find(s => s.id === selectedSegment)?.name || "All Customers"}
-                        {" "}({data.segments.find(s => s.id === selectedSegment)?.customerCount || 0} customers)
+                        {data.segments.find((s: any) => s.id === selectedSegment)?.name || "All Customers"}
+                        {" "}({data.segments.find((s: any) => s.id === selectedSegment)?.customerCount || 0} customers)
                       </Text>
                     </InlineStack>
                     <InlineStack align="space-between">

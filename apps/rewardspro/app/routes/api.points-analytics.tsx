@@ -172,13 +172,13 @@ async function getPointsAnalytics(shop: string): Promise<PointsAnalytics> {
   return {
     overview: overviewData,
     economy: {
-      healthScore: economyHealth.overallScore,
-      healthStatus: getHealthStatus(economyHealth.overallScore),
-      circulationRatio: economyHealth.circulationRatio,
-      redemptionRate: economyHealth.redemptionRate,
-      expirationRate: economyHealth.expirationRate,
-      velocityScore: economyHealth.velocityScore,
-      recommendations: economyHealth.recommendations,
+      healthScore: economyHealth.economyHealthScore,
+      healthStatus: getHealthStatus(economyHealth.economyHealthScore),
+      circulationRatio: economyHealth.totalPointsInCirculation / (economyHealth.totalLifetimePointsIssued || 1),
+      redemptionRate: economyHealth.pointsRedemptionRate,
+      expirationRate: economyHealth.expiringIn30Days,
+      velocityScore: economyHealth.averageBalancePerCustomer,
+      recommendations: economyHealth.warnings,
     },
     engagement: {
       last30Days: last30DaysData,

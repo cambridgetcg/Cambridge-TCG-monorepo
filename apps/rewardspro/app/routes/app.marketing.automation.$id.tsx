@@ -322,7 +322,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
 export default function AutomationDetail() {
   const { automation, templates, selectedTemplate } = useLoaderData<typeof loader>();
-  const actionData = useActionData<typeof action>();
+  const actionData = useActionData<typeof action>() as any;
   const navigate = useNavigate();
   const submit = useSubmit();
 
@@ -410,8 +410,7 @@ export default function AutomationDetail() {
         content: hasChanges ? "Save Changes" : (isEnabled ? "Pause" : "Activate"),
         icon: hasChanges ? undefined : (isEnabled ? PauseCircleIcon : PlayIcon),
         onAction: hasChanges ? handleSave : handleToggle,
-        variant: hasChanges ? "primary" : (isEnabled ? "secondary" : "primary"),
-      }}
+      } as any}
       secondaryActions={[
         ...(hasChanges ? [{
           content: isEnabled ? "Pause" : "Activate",

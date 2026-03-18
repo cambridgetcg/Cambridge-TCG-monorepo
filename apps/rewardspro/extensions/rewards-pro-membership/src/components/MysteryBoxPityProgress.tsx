@@ -3,7 +3,7 @@ import {
   InlineStack,
   Text,
   View,
-  ProgressBar,
+  Progress,
 } from '@shopify/ui-extensions-react/customer-account';
 
 // ============================================
@@ -63,7 +63,7 @@ export function MysteryBoxPityProgress({
         {/* Progress bar */}
         {!isGuaranteed && (
           <>
-            <ProgressBar
+            <Progress
               progress={pity.progress}
               size="small"
             />

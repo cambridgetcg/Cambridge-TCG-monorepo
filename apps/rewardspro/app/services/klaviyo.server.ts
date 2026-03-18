@@ -197,7 +197,7 @@ export class KlaviyoService {
     try {
       const response = await this.profilesApi.createOrUpdateProfile({
         data: {
-          type: "profile" as ProfileEnum,
+          type: "profile" as unknown as ProfileEnum,
           attributes: {
             email: data.email,
             firstName: data.firstName,
@@ -209,7 +209,7 @@ export class KlaviyoService {
         },
       });
 
-      return response.body.data.id;
+      return response.body.data.id!;
     } catch (error) {
       console.error("[Klaviyo] Failed to create/update profile:", error);
       throw error;
@@ -232,7 +232,7 @@ export class KlaviyoService {
 
       const profile = profiles[0];
       return {
-        id: profile.id,
+        id: profile.id!,
         email: profile.attributes.email || "",
         firstName: profile.attributes.firstName || undefined,
         lastName: profile.attributes.lastName || undefined,
@@ -250,13 +250,13 @@ export class KlaviyoService {
    */
   async getProfileById(profileId: string): Promise<KlaviyoProfile | null> {
     try {
-      const response = await this.profilesApi.getProfile({
-        id: profileId,
-      });
+      const response = await this.profilesApi.getProfile(
+        profileId as any,
+      );
 
       const profile = response.body.data;
       return {
-        id: profile.id,
+        id: profile.id!,
         email: profile.attributes.email || "",
         firstName: profile.attributes.firstName || undefined,
         lastName: profile.attributes.lastName || undefined,
@@ -280,9 +280,9 @@ export class KlaviyoService {
           attributes: {
             profiles: {
               data: emails.map((email) => ({
-                type: "profile" as ProfileEnum,
+                type: "profile" as unknown as ProfileEnum,
                 attributes: { email },
-              })),
+              })) as any,
             },
           },
           relationships: {
@@ -324,7 +324,7 @@ export class KlaviyoService {
             },
             profile: {
               data: {
-                type: "profile" as ProfileEnum,
+                type: "profile" as unknown as ProfileEnum,
                 attributes: {
                   email: data.email,
                 },
@@ -333,7 +333,7 @@ export class KlaviyoService {
             properties: data.properties,
             value: data.value,
             uniqueId: data.uniqueId,
-            time: data.time?.toISOString(),
+            time: data.time as any,
           },
         },
       });
@@ -355,10 +355,10 @@ export class KlaviyoService {
       const response = await this.listsApi.getLists({});
 
       return (response.body.data || []).map((list) => ({
-        id: list.id,
+        id: list.id!,
         name: list.attributes.name || "",
-        created: list.attributes.created,
-        updated: list.attributes.updated,
+        created: list.attributes.created?.toISOString(),
+        updated: list.attributes.updated?.toISOString(),
       }));
     } catch (error) {
       console.error("[Klaviyo] Failed to get lists:", error);
@@ -380,7 +380,7 @@ export class KlaviyoService {
         },
       });
 
-      return response.body.data.id;
+      return response.body.data.id!;
     } catch (error) {
       console.error("[Klaviyo] Failed to create list:", error);
       throw error;
@@ -392,13 +392,10 @@ export class KlaviyoService {
    */
   async addProfilesToList(listId: string, profileIds: string[]): Promise<void> {
     try {
-      await this.listsApi.createListRelationships({
-        id: listId,
-        data: profileIds.map((id) => ({
-          type: "profile" as ProfileEnum,
-          id,
-        })),
-      });
+      await this.listsApi.createListRelationships(listId, profileIds.map((id) => ({
+        type: "profile" as unknown as ProfileEnum,
+        id,
+      })) as any);
     } catch (error) {
       console.error("[Klaviyo] Failed to add profiles to list:", error);
       throw error;
@@ -414,7 +411,7 @@ export class KlaviyoService {
    */
   async validateApiKey(): Promise<boolean> {
     try {
-      await this.listsApi.getLists({ pageSize: 1 });
+      await this.listsApi.getLists({ pageCursor: undefined } as any);
       return true;
     } catch (error) {
       return false;
@@ -576,14 +573,14 @@ export function buildProfileProperties(
   let progressToNextTier: number | null = null;
 
   if (tiers && tier) {
-    const sortedTiers = [...tiers].sort((a, b) => a.minSpend - b.minSpend);
+    const sortedTiers = [...tiers].sort((a, b) => Number(a.minSpend) - Number(b.minSpend));
     const currentIndex = sortedTiers.findIndex((t) => t.id === tier.id);
     if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
       nextTier = sortedTiers[currentIndex + 1];
-      spendToNextTier = nextTier.minSpend - customer.totalSpent;
+      spendToNextTier = Number(nextTier.minSpend) - Number(customer.totalSpent);
       progressToNextTier = Math.min(
         100,
-        Math.round((customer.totalSpent / nextTier.minSpend) * 100)
+        Math.round((Number(customer.totalSpent) / Number(nextTier.minSpend)) * 100)
       );
     }
   }
@@ -591,13 +588,13 @@ export function buildProfileProperties(
   // Check if VIP (highest tier)
   const isVip =
     tiers && tier
-      ? !tiers.some((t) => t.minSpend > tier.minSpend)
+      ? !tiers.some((t) => Number(t.minSpend) > Number(tier.minSpend))
       : false;
 
   // Get tier rank
   const tierRank = tiers
     ? [...tiers]
-        .sort((a, b) => a.minSpend - b.minSpend)
+        .sort((a, b) => Number(a.minSpend) - Number(b.minSpend))
         .findIndex((t) => t.id === tier?.id) + 1
     : 0;
 
@@ -620,28 +617,28 @@ export function buildProfileProperties(
     // Tier & Status
     rewardspro_tier: tier?.name || "None",
     rewardspro_tier_id: tier?.id || "",
-    rewardspro_cashback_percent: tier?.cashbackPercent || 0,
+    rewardspro_cashback_percent: Number(tier?.cashbackPercent || 0),
     rewardspro_is_vip: isVip,
     rewardspro_tier_rank: tierRank,
 
     // Balances
-    rewardspro_cashback_balance: customer.storeCredit,
-    rewardspro_points_balance: customer.pointsBalance || 0,
-    rewardspro_has_redeemable_balance: customer.storeCredit > 0,
+    rewardspro_cashback_balance: Number(customer.storeCredit),
+    rewardspro_points_balance: Number(customer.pointsBalance || 0),
+    rewardspro_has_redeemable_balance: Number(customer.storeCredit) > 0,
 
     // Spending & Activity
-    rewardspro_lifetime_spend: customer.totalSpent,
+    rewardspro_lifetime_spend: Number(customer.totalSpent),
     rewardspro_orders_count: customer.orderCount,
     rewardspro_average_order_value:
       customer.orderCount > 0
-        ? customer.totalSpent / customer.orderCount
+        ? Number(customer.totalSpent) / customer.orderCount
         : 0,
     rewardspro_last_order_date: customer.lastOrderDate?.toISOString().split("T")[0] || null,
     rewardspro_days_since_last_order: daysSinceLastOrder,
 
     // Cashback Metrics
-    rewardspro_total_cashback_earned: customer.totalCashbackEarned || 0,
-    rewardspro_total_cashback_redeemed: customer.totalCashbackRedeemed || 0,
+    rewardspro_total_cashback_earned: Number(customer.totalCashbackEarned || 0),
+    rewardspro_total_cashback_redeemed: Number((customer as any).totalCashbackRedeemed || 0),
 
     // Tier Progress
     rewardspro_next_tier: nextTier?.name || null,
@@ -667,7 +664,7 @@ export function buildProfileProperties(
     // via the rewardsActivity parameter. If not provided, defaults are used.
 
     // Points Activity
-    rewardspro_lifetime_points: customer.lifetimePoints || 0,
+    rewardspro_lifetime_points: Number(customer.lifetimePoints || 0),
     rewardspro_points_earned_30d: 0, // Requires aggregation query
     rewardspro_points_spent_30d: 0, // Requires aggregation query
 
@@ -684,7 +681,7 @@ export function buildProfileProperties(
 
     // Engagement Score & Activity (calculated from activity data)
     rewardspro_rewards_engagement_score: calculateEngagementScore(customer, daysSinceLastOrder),
-    rewardspro_is_rewards_active: (customer.lifetimePoints || 0) > 0 && daysSinceLastOrder !== null && daysSinceLastOrder < 30,
+    rewardspro_is_rewards_active: Number(customer.lifetimePoints || 0) > 0 && daysSinceLastOrder !== null && daysSinceLastOrder < 30,
     rewardspro_days_since_rewards_activity: daysSinceLastOrder, // Use order activity as proxy
     rewardspro_engagement_level: getEngagementLevel(customer, daysSinceLastOrder),
 
@@ -695,11 +692,11 @@ export function buildProfileProperties(
     // If not provided, defaults are used. Full data comes from buildExtendedProfileProperties.
 
     // Store Credit (uses existing cashback fields as baseline)
-    rewardspro_store_credit_balance: customer.storeCredit || customer.storeCredit,
-    rewardspro_total_store_credit_earned: customer.totalCashbackEarned || 0,
-    rewardspro_total_store_credit_spent: customer.totalCashbackRedeemed || 0,
+    rewardspro_store_credit_balance: Number(customer.storeCredit || customer.storeCredit),
+    rewardspro_total_store_credit_earned: Number(customer.totalCashbackEarned || 0),
+    rewardspro_total_store_credit_spent: Number((customer as any).totalCashbackRedeemed || 0),
     rewardspro_store_credit_earned_30d: 0, // Requires aggregation query
-    rewardspro_store_credit_conversion_available: (customer.storeCredit || customer.storeCredit) > 0,
+    rewardspro_store_credit_conversion_available: Number(customer.storeCredit || customer.storeCredit) > 0,
     rewardspro_last_store_credit_earned_date: null, // Requires ledger query
     rewardspro_last_store_credit_spent_date: null, // Requires ledger query
 
@@ -727,7 +724,7 @@ function calculateEngagementScore(
   let score = 0;
 
   // Points balance contribution (max 20 points)
-  const pointsBalance = customer.pointsBalance || 0;
+  const pointsBalance = Number(customer.pointsBalance || 0);
   score += Math.min(20, Math.floor(pointsBalance / 50));
 
   // Order frequency (max 30 points)
@@ -744,9 +741,9 @@ function calculateEngagementScore(
   }
 
   // Lifetime spend (max 20 points)
-  if (customer.totalSpent >= 1000) score += 20;
-  else if (customer.totalSpent >= 500) score += 15;
-  else if (customer.totalSpent >= 100) score += 10;
+  if (Number(customer.totalSpent) >= 1000) score += 20;
+  else if (Number(customer.totalSpent) >= 500) score += 15;
+  else if (Number(customer.totalSpent) >= 100) score += 10;
 
   return Math.min(100, score);
 }
@@ -758,7 +755,7 @@ function getEngagementLevel(
   customer: Customer,
   daysSinceLastOrder: number | null
 ): "HIGH" | "MEDIUM" | "LOW" | "DORMANT" {
-  const hasPoints = (customer.pointsBalance || 0) > 0;
+  const hasPoints = Number(customer.pointsBalance || 0) > 0;
   const hasRecentActivity = daysSinceLastOrder !== null && daysSinceLastOrder <= 30;
   const hasOrders = customer.orderCount > 0;
 

@@ -639,7 +639,7 @@ export async function findPotentialIssues(shop: string): Promise<{
   invalidTransitions: Array<{ id: string; lastTransition: any }>;
 }> {
   // Find duplicate contract IDs
-  const duplicates = await db.$queryRaw<Array<{ shopifyContractId: string; count: bigint }>>`
+  const duplicates = await db.$queryRaw`
     SELECT "shopifyContractId", COUNT(*) as count
     FROM "TierSubscription"
     WHERE shop = ${shop}

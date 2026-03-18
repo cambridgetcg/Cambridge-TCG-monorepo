@@ -505,7 +505,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   try {
     // Map plan ID to plan constant
-    const planConstant = getPlanConstant(planId) as keyof typeof import("../shopify.server");
+    const planConstant = getPlanConstant(planId);
 
     console.log(`[Billing Action] Requesting billing for plan: ${planConstant}`);
 
@@ -517,7 +517,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // and then return the user back to the returnUrl after approval
     // Use the API callback route to handle the top-level redirect and re-embed into the app
     await billing.request({
-      plan: planConstant,
+      plan: planConstant as any,
       isTest: actionTestMode,
       returnUrl: `${process.env.SHOPIFY_APP_URL}/api/billing/callback?success=true&shop=${session.shop}`,
     });
@@ -593,8 +593,9 @@ export default function BillingPage() {
   useEffect(() => {
     console.log('[Billing Page] useEffect triggered, actionData:', actionData);
 
-    if (actionData?.success && actionData?.confirmationUrl) {
-      console.log('[Billing Page] Conditions met, redirecting to:', actionData.confirmationUrl);
+    const ad = actionData as any;
+    if (ad?.success && ad?.confirmationUrl) {
+      console.log('[Billing Page] Conditions met, redirecting to:', ad.confirmationUrl);
       console.log('[Billing Page] window.top exists:', !!window.top);
       console.log('[Billing Page] window.top === window:', window.top === window);
 
@@ -603,23 +604,23 @@ export default function BillingPage() {
         // This ensures the Shopify charge approval page loads in the main window
         if (window.top && window.top !== window) {
           console.log('[Billing Page] Attempting top-level redirect (in iframe)');
-          window.top.location.href = actionData.confirmationUrl;
+          window.top.location.href = ad.confirmationUrl;
         } else {
           console.log('[Billing Page] Attempting standard redirect (not in iframe or top is same)');
-          window.location.href = actionData.confirmationUrl;
+          window.location.href = ad.confirmationUrl;
         }
         console.log('[Billing Page] Redirect command executed');
       } catch (error) {
         console.error('[Billing Page] Redirect failed:', error);
         // If top-level redirect fails (blocked by browser), fallback to window.open
         console.log('[Billing Page] Attempting window.open fallback');
-        window.open(actionData.confirmationUrl, '_top');
+        window.open(ad.confirmationUrl, '_top');
       }
     } else {
       console.log('[Billing Page] Conditions not met:', {
         hasActionData: !!actionData,
-        hasSuccess: actionData?.success,
-        hasUrl: !!actionData?.confirmationUrl,
+        hasSuccess: ad?.success,
+        hasUrl: !!ad?.confirmationUrl,
         actionDataKeys: actionData ? Object.keys(actionData) : []
       });
     }
@@ -797,7 +798,7 @@ export default function BillingPage() {
             )}
 
             {/* Show success message when subscription is cancelled (downgrade to Free) */}
-            {actionData?.success && actionData?.cancelled && (
+            {(actionData as any)?.success && (actionData as any)?.cancelled && (
               <Banner tone="success">
                 <Text as="p">
                   Your subscription has been cancelled. You are now on the Free plan.
@@ -806,9 +807,9 @@ export default function BillingPage() {
             )}
 
             {/* Show errors if billing.request() fails */}
-            {actionData && !actionData.success && actionData.error && (
+            {actionData && !(actionData as any).success && (actionData as any).error && (
               <Banner tone="critical">
-                <p>{actionData.error}</p>
+                <p>{(actionData as any).error}</p>
               </Banner>
             )}
 

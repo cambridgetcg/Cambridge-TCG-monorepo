@@ -559,7 +559,7 @@ export default function EmailSettings() {
                     <ProgressBar
                       progress={data.emailUsageStats.percentage}
                       size="small"
-                      tone={data.emailUsageStats.percentage >= 90 ? "critical" : data.emailUsageStats.percentage >= 75 ? "warning" : "primary"}
+                      tone={(data.emailUsageStats.percentage >= 90 ? "critical" : "primary") as any}
                     />
                   )}
                 </BlockStack>

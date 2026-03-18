@@ -1,3 +1,17 @@
+/* eslint-disable @typescript-eslint/no-namespace */
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      's-page': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { heading?: string }, HTMLElement>;
+      's-section': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement> & { heading?: string; slot?: string }, HTMLElement>;
+      's-paragraph': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+      's-link': React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLElement> & { href?: string; target?: string }, HTMLElement>;
+      's-unordered-list': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+      's-list-item': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+    }
+  }
+}
+
 export default function AdditionalPage() {
   return (
     <s-page heading="Additional page">

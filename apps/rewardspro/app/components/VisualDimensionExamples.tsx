@@ -137,11 +137,11 @@ export function BadColorBalance() {
       <Box padding="400">
         <BlockStack gap="400">
           <Text tone="success" variant="headingLg" as="h2">Order Summary</Text>
-          <Text tone="warning">Review your recent orders</Text>
+          <Text as="span" tone="caution">Review your recent orders</Text>
           <Badge tone="critical">Important</Badge>
           <Badge tone="info">New</Badge>
           <Badge tone="success">Active</Badge>
-          <Button tone="warning">Action 1</Button>
+          <Button tone="critical">Action 1</Button>
           <Button tone="critical">Action 2</Button>
           {/* Rainbow of colors without purpose */}
         </BlockStack>
@@ -333,8 +333,10 @@ export function GoodSpatialComposition() {
                       {label: 'Active', value: 'active'},
                       {label: 'Inactive', value: 'inactive'},
                     ]}
+                    value="all"
+                    onChange={() => {}}
                   />
-                  <TextField label="Search" placeholder="Enter name..." />
+                  <TextField label="Search" placeholder="Enter name..." value="" onChange={() => {}} autoComplete="off" />
                   <Button fullWidth>Apply Filters</Button>
                 </BlockStack>
               </Box>
@@ -370,23 +372,29 @@ export function BadSpatialComposition() {
   return (
     <div>
       {/* Inconsistent, arbitrary spacing */}
-      <Card style={{marginBottom: '7px'}}>
-        <div style={{padding: '3px'}}>
-          <Text as="span">Cramped content</Text>
-        </div>
-      </Card>
-      
-      <Card style={{marginBottom: '23px', marginLeft: '11px'}}>
-        <div style={{padding: '5px'}}>
-          <Text as="span">Misaligned element</Text>
-        </div>
-      </Card>
-      
-      <Card style={{marginTop: '45px'}}>
-        <div style={{padding: '2px'}}>
-          <Text as="span">Random spacing</Text>
-        </div>
-      </Card>
+      <div style={{marginBottom: '7px'}}>
+        <Card>
+          <div style={{padding: '3px'}}>
+            <Text as="span">Cramped content</Text>
+          </div>
+        </Card>
+      </div>
+
+      <div style={{marginBottom: '23px', marginLeft: '11px'}}>
+        <Card>
+          <div style={{padding: '5px'}}>
+            <Text as="span">Misaligned element</Text>
+          </div>
+        </Card>
+      </div>
+
+      <div style={{marginTop: '45px'}}>
+        <Card>
+          <div style={{padding: '2px'}}>
+            <Text as="span">Random spacing</Text>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -401,20 +409,20 @@ export function ProximityPrinciple() {
           {/* Group 1: Tightly related items */}
           <BlockStack gap="200">  {/* Small gap within group */}
             <Text variant="headingMd" as="h2">Billing Information</Text>
-            <TextField label="Card Number" />
+            <TextField label="Card Number" value="" onChange={() => {}} autoComplete="off" />
             <InlineStack gap="200">
-              <TextField label="Expiry" />
-              <TextField label="CVV" />
+              <TextField label="Expiry" value="" onChange={() => {}} autoComplete="off" />
+              <TextField label="CVV" value="" onChange={() => {}} autoComplete="off" />
             </InlineStack>
           </BlockStack>
-          
+
           {/* Group 2: Another related set */}
           <BlockStack gap="200">
             <Text variant="headingMd" as="h2">Shipping Address</Text>
-            <TextField label="Street Address" />
+            <TextField label="Street Address" value="" onChange={() => {}} autoComplete="off" />
             <InlineStack gap="200">
-              <TextField label="City" />
-              <TextField label="ZIP" />
+              <TextField label="City" value="" onChange={() => {}} autoComplete="off" />
+              <TextField label="ZIP" value="" onChange={() => {}} autoComplete="off" />
             </InlineStack>
           </BlockStack>
           
@@ -522,11 +530,15 @@ export function CompleteVisualExample() {
                   <BlockStack gap="300">
                     <Text variant="headingMd" as="h2">Period</Text>
                     <Select
+                      label="Period"
+                      labelHidden
                       options={[
                         {label: 'Last 7 days', value: '7d'},
                         {label: 'Last 30 days', value: '30d'},
                         {label: 'Last 90 days', value: '90d'},
                       ]}
+                      value="7d"
+                      onChange={() => {}}
                     />
                   </BlockStack>
                 </Box>

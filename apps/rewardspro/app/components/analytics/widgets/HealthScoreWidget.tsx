@@ -97,7 +97,7 @@ export function HealthScoreWidget({
             <Text
               as="p"
               variant="headingSm"
-              tone={getScoreTone(healthScore.overall)}
+              tone={getScoreTone(healthScore.overall) === 'warning' ? 'caution' : getScoreTone(healthScore.overall) as any}
             >
               {getScoreLabel(healthScore.overall)}
             </Text>
@@ -122,7 +122,7 @@ export function HealthScoreWidget({
               <div style={{ marginTop: '4px' }}>
                 <ProgressBar
                   progress={item.score}
-                  tone={getScoreTone(item.score)}
+                  tone={getScoreTone(item.score) === 'warning' ? 'primary' : getScoreTone(item.score) as any}
                   size="small"
                 />
               </div>

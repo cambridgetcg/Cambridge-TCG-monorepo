@@ -226,9 +226,9 @@ function determineBillingInterval(sellingPlanName: string): "MONTHLY" | "QUARTER
   // Check patterns from neural config
   const { intervalPatterns } = SUBSCRIPTION_NEURAL_CONFIG.billingDetection;
 
-  if (intervalPatterns.ANNUAL.some((p) => name.includes(p))) {
+  if (intervalPatterns.ANNUAL.some((p: string) => name.includes(p))) {
     return "ANNUAL";
-  } else if (intervalPatterns.QUARTERLY.some((p) => name.includes(p))) {
+  } else if (intervalPatterns.QUARTERLY.some((p: string) => name.includes(p))) {
     return "QUARTERLY";
   } else {
     return "MONTHLY";

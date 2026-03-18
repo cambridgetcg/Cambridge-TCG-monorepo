@@ -577,7 +577,7 @@ function MetricCard({
           <Text as="span" variant="bodySm" tone="subdued">{title}</Text>
           {change !== undefined && (
             <Badge tone={change >= 0 ? "success" : "critical"}>
-              {change >= 0 ? "+" : ""}{change}%
+              {`${change >= 0 ? "+" : ""}${change}%`}
             </Badge>
           )}
         </InlineStack>
@@ -995,7 +995,7 @@ export default function MarketingHub() {
                           <Badge tone="warning">All Paused</Badge>
                         ) : (
                           <Badge tone="success">
-                            {data.automations.filter(a => a.isEnabled).length} Running
+                            {`${data.automations.filter(a => a.isEnabled).length} Running`}
                           </Badge>
                         )}
                       </InlineStack>
@@ -1239,7 +1239,7 @@ export default function MarketingHub() {
                       ) : data.customerStats.withEmail / data.customerStats.total >= 0.8 ? (
                         <Badge tone="success">Strong</Badge>
                       ) : (
-                        <Badge tone="info">{data.customerStats.total} members</Badge>
+                        <Badge tone="info">{`${data.customerStats.total} members`}</Badge>
                       )}
                     </InlineStack>
                     <Text as="p" variant="bodySm" tone="subdued">
@@ -1324,7 +1324,7 @@ export default function MarketingHub() {
                       <InlineStack gap="200" blockAlign="center">
                         <Text as="h2" variant="headingMd">Recommendations</Text>
                         {data.recommendations.length > 0 ? (
-                          <Badge tone="attention">{data.recommendations.length} new</Badge>
+                          <Badge tone="attention">{`${data.recommendations.length} new`}</Badge>
                         ) : (
                           <Badge tone="success">Up to date</Badge>
                         )}

@@ -116,7 +116,7 @@ async function saveStoredEvents(shop: string, events: BonusEvent[]): Promise<voi
       metadata: {
         ...metadata,
         pointsBonusEvents: events,
-      } as Prisma.JsonValue,
+      } as unknown as Prisma.JsonValue,
     },
   });
 }

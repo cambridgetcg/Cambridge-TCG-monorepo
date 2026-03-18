@@ -375,8 +375,8 @@ export async function processNextBatch(
         maxAttempts: 3,
         initialDelayMs: 1000,
         maxDelayMs: 10000,
-        onRetry: (error, attempt) => {
-          console.log(`[Sync Job] Retry attempt ${attempt} for batch fetch: ${error.message}`);
+        onRetry: (error: any, attempt: any) => {
+          console.log(`[Sync Job] Retry attempt ${attempt} for batch fetch: ${error?.message}`);
         }
       }
     );

@@ -75,6 +75,7 @@ const TIER_SOURCE_PRIORITY: Record<TierSource, number> = {
   TIER_SUBSCRIPTION: 2,
   TIER_PURCHASE: 3,
   SPENDING_BASED: 4,
+  DEFAULT_BASE_TIER: 5,
   NONE: 999,
 };
 
@@ -523,7 +524,7 @@ async function collectTierSources(
       status: 'ACTIVE',
     },
     include: { tier: true },
-    orderBy: { tier: { minSpend: 'desc' } }, // Get highest tier subscription
+    orderBy: { tier: { minSpend: 'desc' } as any }, // Get highest tier subscription
   });
 
   if (activeSubscription?.tier) {
@@ -549,7 +550,7 @@ async function collectTierSources(
       ],
     },
     include: { tier: true },
-    orderBy: { tier: { minSpend: 'desc' } }, // Get highest tier purchase
+    orderBy: { tier: { minSpend: 'desc' } as any }, // Get highest tier purchase
   });
 
   if (activePurchase?.tier) {
@@ -671,6 +672,7 @@ async function logTierChange(
     TIER_SUBSCRIPTION: 'SUBSCRIPTION_STARTED',
     TIER_PURCHASE: 'PRODUCT_PURCHASE',
     SPENDING_BASED: 'SPENDING_MILESTONE',
+    DEFAULT_BASE_TIER: 'DEFAULT_ASSIGNMENT',
     NONE: 'PERIODIC_REVIEW',
   };
 

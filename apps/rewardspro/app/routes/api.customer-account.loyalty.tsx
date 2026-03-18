@@ -521,7 +521,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           }
         },
         orderBy: {
-          tier: { minSpend: 'asc' }
+          tier: { minSpend: 'asc' } as any
         },
         take: 6 // Max 2 tiers x 3 durations = 6 products
       })
@@ -607,7 +607,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       tierSourceDetails = {
         type: 'spending',
         annualSpend: currentSpending,
-        evaluationPeriod: evaluationPeriod,
+        evaluationPeriod: tier?.evaluationPeriod || 'LIFETIME',
         daysRemaining: null,
         expiryType: 'none',
         willAutoRenew: false
@@ -685,10 +685,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
           ? (nextSpendingTier.minSpend as any).toNumber()
           : Number(nextSpendingTier.minSpend);
 
-        amountToNextSpendingTier = Math.max(0, nextSpendingTierMinSpend - currentSpending);
+        amountToNextSpendingTier = Math.max(0, nextSpendingTierMinSpend! - currentSpending);
 
         const progressInTier = currentSpending - spendingBasedMinSpend;
-        const tierRange = nextSpendingTierMinSpend - spendingBasedMinSpend;
+        const tierRange = nextSpendingTierMinSpend! - spendingBasedMinSpend;
         progressToNextSpendingTier = tierRange > 0
           ? Math.min(100, Math.max(0, (progressInTier / tierRange) * 100))
           : 100;
@@ -769,7 +769,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         firstName: customer.firstName || null,
         lastName: customer.lastName || null,
         memberSince: customer.createdAt.toISOString(),
-        tags: customer.tags ? customer.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+        tags: customer.tags ? customer.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : []
       },
 
       // Balance information (compact format)

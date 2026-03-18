@@ -54,13 +54,13 @@ async function clearTestData() {
     }
 
     // 2. Delete membership history
-    const membershipHistoryCount = await prisma.membershipHistory.count({
+    const membershipHistoryCount = await (prisma as any).membershipHistory.count({
       where: { customer: { shopDomain: CONFIG.shopDomain } }
     });
 
     if (membershipHistoryCount > 0) {
       console.log(`🎖️  Deleting ${membershipHistoryCount} membership history records...`);
-      const deletedHistory = await prisma.membershipHistory.deleteMany({
+      const deletedHistory = await (prisma as any).membershipHistory.deleteMany({
         where: { customer: { shopDomain: CONFIG.shopDomain } }
       });
       console.log(`  ✓ Deleted ${deletedHistory.count} membership history records`);

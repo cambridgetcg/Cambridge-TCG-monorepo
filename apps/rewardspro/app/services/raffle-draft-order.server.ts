@@ -113,7 +113,7 @@ export async function createRaffleDraftOrder(
     let variantId = input.variantId;
     if (!variantId) {
       console.log(`${LOG_PREFIX} No variant specified, fetching first variant`);
-      variantId = await getFirstVariantId(admin, input.productId);
+      variantId = await getFirstVariantId(admin, input.productId) ?? undefined;
 
       if (!variantId) {
         return {

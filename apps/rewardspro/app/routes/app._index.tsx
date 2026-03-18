@@ -947,9 +947,7 @@ export default function Dashboard() {
                   <Icon source={StatusActiveIcon} tone="base" />
                   <Text variant="headingMd" as="h2">System Status</Text>
                 </InlineStack>
-                <Badge tone="success">
-                  {data.shopifyMetrics?.source !== 'unavailable' ? '100%' : '99%'} Health
-                </Badge>
+                <Badge tone="success" children={`${data.shopifyMetrics?.source !== 'unavailable' ? '100%' : '99%'} Health`} />
               </InlineStack>
 
               <Divider />

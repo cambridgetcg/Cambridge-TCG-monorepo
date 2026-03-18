@@ -24,7 +24,7 @@ type BillingContext = {
   require: (options: {
     plans: string[];
     isTest?: boolean;
-    onFailure?: () => never;
+    onFailure?: () => never | Promise<unknown>;
   }) => Promise<void>;
   check: (options: {
     plans: string[];

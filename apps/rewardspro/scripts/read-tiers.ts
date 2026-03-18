@@ -26,9 +26,9 @@ async function query(sql: string, params: any[] = []) {
     ORDER BY "minSpend" ASC
   `, [{ name: 'shop', value: { stringValue: shop } }]);
 
-  console.log(`Found ${tiers.records.length} tiers:\n`);
+  console.log(`Found ${(tiers as any).records.length} tiers:\n`);
 
-  tiers.records.forEach((record: any, index: number) => {
+  (tiers as any).records.forEach((record: any, index: number) => {
     const id = record[0].stringValue;
     const name = record[1].stringValue;
     const minSpend = record[2].doubleValue !== undefined ? record[2].doubleValue : 0;
@@ -44,7 +44,7 @@ async function query(sql: string, params: any[] = []) {
   });
 
   // Export as JSON for the next script
-  const tierData = tiers.records.map((record: any) => ({
+  const tierData = (tiers as any).records.map((record: any) => ({
     id: record[0].stringValue,
     name: record[1].stringValue,
     minSpend: record[2].doubleValue !== undefined ? record[2].doubleValue : 0,

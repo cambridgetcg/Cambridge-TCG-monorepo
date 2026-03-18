@@ -159,9 +159,8 @@ function InsightCard({ insight, onDismiss, showDivider }: InsightCardProps) {
           <InlineStack gap="200">
             {insight.action && (
               <Link to={insight.action.href}>
-                <Button size="slim" variant="primary">
+                <Button size="slim" variant="primary" icon={ChevronRightIcon}>
                   {insight.action.label}
-                  <Icon source={ChevronRightIcon} />
                 </Button>
               </Link>
             )}

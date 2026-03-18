@@ -194,32 +194,32 @@ async function handleCustomerDataRequest(
         tierSource: customer.tierState.tierSource,
         hasManualOverride: customer.tierState.hasManualOverride
       } : null,
-      tierHistory: customer.tierChangeLogs.map(log => ({
+      tierHistory: customer.tierChangeLogs.map((log: any) => ({
         date: log.createdAt,
         fromTier: log.fromTierName,
         toTier: log.toTierName,
         changeType: log.changeType,
         triggerType: log.triggerType
       })),
-      orders: customer.orders.map(order => ({
+      orders: customer.orders.map((order: any) => ({
         orderId: order.shopifyOrderId,
         orderNumber: order.shopifyOrderNumber,
         date: order.createdAt,
         total: order.totalPrice,
         currency: order.currency,
         cashbackEarned: order.cashbackEarned,
-        refunds: order.refunds.map(r => ({
+        refunds: order.refunds.map((r: any) => ({
           amount: r.amount,
           date: r.shopifyCreatedAt
         }))
       })),
-      subscriptions: customer.tierSubscriptions.map(sub => ({
+      subscriptions: customer.tierSubscriptions.map((sub: any) => ({
         tierId: sub.tierId,
         status: sub.status,
         startDate: sub.currentPeriodStart,
         billingInterval: sub.billingInterval
       })),
-      storeCreditTransactions: customer.storeCreditLedger.map(entry => ({
+      storeCreditTransactions: customer.storeCreditLedger.map((entry: any) => ({
         date: entry.createdAt,
         amount: entry.amount,
         type: entry.type,
@@ -449,7 +449,7 @@ async function handleShopRedact(
         where: { shop },
         select: { id: true }
       });
-      const orderIds = shopOrders.map(o => o.id);
+      const orderIds = shopOrders.map((o: any) => o.id);
 
       if (orderIds.length > 0) {
         // Delete refund line items

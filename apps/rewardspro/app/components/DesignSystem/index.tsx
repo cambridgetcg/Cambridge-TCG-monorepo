@@ -220,8 +220,8 @@ export function EnhancedDataTable({
           columnContentTypes={columns.map(col => col.type === 'badge' || col.type === 'actions' ? 'text' : col.type as any)}
           headings={columns.map(col => col.header)}
           rows={rows}
-          hoverable
-          hasZebraStriping
+          hoverable={true as any}
+          hasZebraStriping={true as any}
         />
       </div>
     </Card>

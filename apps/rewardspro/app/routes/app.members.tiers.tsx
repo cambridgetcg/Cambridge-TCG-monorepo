@@ -506,18 +506,16 @@ export default function TiersPage() {
                                           {tier.name}
                                         </Text>
                                         <Badge tone="success">
-                                          {tier.cashbackPercent}% Cashback
+                                          {`${tier.cashbackPercent}% Cashback`}
                                         </Badge>
                                         {customerCount > 0 && (
                                           <Badge tone="info">
-                                            {customerCount}{" "}
-                                            {customerCount === 1 ? "customer" : "customers"}
+                                            {`${customerCount} ${customerCount === 1 ? "customer" : "customers"}`}
                                           </Badge>
                                         )}
                                         {hasProducts ? (
                                           <Badge tone="success" icon={PackageIcon}>
-                                            {productCoverage.productCount}{" "}
-                                            {productCoverage.productCount === 1 ? "product" : "products"}
+                                            {`${productCoverage.productCount} ${productCoverage.productCount === 1 ? "product" : "products"}`}
                                           </Badge>
                                         ) : data.hasPurchasableTiers ? (
                                           <Badge tone="attention">No products</Badge>

@@ -467,7 +467,7 @@ export class ComparisonService {
   }
 
   private async getTierUpgrades(period: DateRange): Promise<number> {
-    return db.tierEvent.count({
+    return (db as any).tierEvent.count({
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },

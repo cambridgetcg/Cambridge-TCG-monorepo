@@ -76,7 +76,7 @@ function formatLimitName(limit: LimitKey): string {
     maxAutomations: "automations",
     maxTierProducts: "tier products",
     maxApiRequestsPerMinute: "API requests per minute",
-  };
+  } as Record<string, string>;
   return names[limit] || limit;
 }
 
@@ -228,7 +228,7 @@ export const atomicRaffleCreate = async (
  */
 export const atomicCampaignCreate = async (
   shop: string,
-  data: Parameters<typeof db.campaign.create>[0]["data"]
+  data: any
 ) => {
   return atomicWithinLimit(
     shop,
@@ -243,7 +243,7 @@ export const atomicCampaignCreate = async (
  */
 export const atomicAutomationCreate = async (
   shop: string,
-  data: Parameters<typeof db.automation.create>[0]["data"]
+  data: any
 ) => {
   return atomicWithinLimit(
     shop,

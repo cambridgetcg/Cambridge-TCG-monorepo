@@ -150,9 +150,8 @@ export function ExecutiveSummary({
                 {summary.action}
               </Text>
               <Link to="/app/marketing/recommendations">
-                <Button variant="plain" size="slim">
+                <Button variant="plain" size="slim" icon={ChevronRightIcon}>
                   View All Actions
-                  <Icon source={ChevronRightIcon} />
                 </Button>
               </Link>
             </InlineStack>

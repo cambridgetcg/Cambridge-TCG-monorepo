@@ -726,8 +726,9 @@ export class ContractUpdater {
     interval: BillingInterval
   ): Date {
     const nextDate = new Date(currentDate);
-    
-    switch (interval) {
+    const intervalStr = interval as string;
+
+    switch (intervalStr) {
       case "WEEKLY":
         nextDate.setDate(nextDate.getDate() + 7);
         break;

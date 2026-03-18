@@ -226,7 +226,7 @@ export async function generateMissionInstances(options: {
   // Get all active templates that match criteria
   const templates = await db.missionTemplate.findMany({
     where,
-    orderBy: [{ shop: "asc" }, { cadence: "asc" }, { sortOrder: "asc" }]
+    orderBy: [{ shop: "asc" }, { cadence: "asc" }, { sortOrder: "asc" }] as any
   });
 
   for (const template of templates) {

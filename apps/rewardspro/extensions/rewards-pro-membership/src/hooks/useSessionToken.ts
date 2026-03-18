@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApi } from '@shopify/ui-extensions-react/customer-account';
-import { decodeSessionToken, type DecodedSessionToken } from '../utils/sessionToken';
+import { decodeSessionToken } from '../utils/sessionToken';
+import type { DecodedSessionToken } from '../types/session';
 import { logger } from '../utils/logger';
 import { TOKEN_REFRESH_INTERVAL } from '../config';
 

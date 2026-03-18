@@ -145,7 +145,7 @@ export class TierProductSubscriptionService {
         tierProduct,
         shopifyProductId: productId,
         shopifyVariantId: variantId,
-        sellingPlanGroupId,
+        sellingPlanGroupId: sellingPlanGroupId ?? undefined,
       };
     } catch (error) {
       console.error("[TierProductSubscription] Error creating tier product:", error);
@@ -687,8 +687,9 @@ export class TierProductSubscriptionService {
 
   private static getNextBillingDate(interval: BillingInterval): string {
     const date = new Date();
-    
-    switch (interval) {
+    const intervalStr = interval as string;
+
+    switch (intervalStr) {
       case "WEEKLY":
         date.setDate(date.getDate() + 7);
         break;

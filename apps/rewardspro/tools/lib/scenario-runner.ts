@@ -529,9 +529,8 @@ export class ScenarioRunner {
     });
 
     this.shopInspector = new ShopInspector({
-      databaseUrl: config.databaseUrl,
       verbose: config.verbose,
-    });
+    } as any);
   }
 
   /**

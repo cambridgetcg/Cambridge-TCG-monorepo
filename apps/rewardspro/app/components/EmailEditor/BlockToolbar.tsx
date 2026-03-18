@@ -32,8 +32,7 @@ export function BlockToolbar({
         <Tooltip content="Duplicate block">
           <Button
             icon={DuplicateIcon}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onDuplicate();
             }}
             accessibilityLabel="Duplicate block"
@@ -43,8 +42,7 @@ export function BlockToolbar({
         <Tooltip content="Delete block">
           <Button
             icon={DeleteIcon}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onDelete();
             }}
             accessibilityLabel="Delete block"

@@ -163,7 +163,7 @@ async function saveStoredTiers(shop: string, tiers: RedemptionTier[]): Promise<v
       metadata: {
         ...metadata,
         pointsRedemptionTiers: tiers,
-      } as Prisma.JsonValue,
+      } as unknown as Prisma.JsonValue,
     },
   });
 }
@@ -299,7 +299,7 @@ async function saveCustomerRedemption(
       metadata: {
         ...metadata,
         pointsRedemptions: redemptions,
-      } as Prisma.JsonValue,
+      } as unknown as Prisma.JsonValue,
     },
   });
 }
@@ -335,7 +335,7 @@ async function updateRedemptionStatus(
         metadata: {
           ...metadata,
           pointsRedemptions: redemptions,
-        } as Prisma.JsonValue,
+        } as unknown as Prisma.JsonValue,
       },
     });
   }
@@ -615,7 +615,7 @@ export async function processExpiredRedemptions(shop: string): Promise<number> {
           metadata: {
             ...metadata,
             pointsRedemptions: redemptions,
-          } as Prisma.JsonValue,
+          } as unknown as Prisma.JsonValue,
         },
       });
     }

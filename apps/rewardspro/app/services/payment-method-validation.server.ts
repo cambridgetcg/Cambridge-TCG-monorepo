@@ -231,7 +231,7 @@ export class PaymentMethodValidationService {
 
       return {
         isValid: validation.isValid,
-        paymentMethod,
+        paymentMethod: paymentMethod ?? undefined,
         errors: validation.errors,
         warnings: validation.warnings,
         requiresUpdate: validation.requiresUpdate,
@@ -434,7 +434,7 @@ export class PaymentMethodValidationService {
   ): Promise<void> {
     try {
       // Store in PaymentMethodValidation model (to be created)
-      await db.$executeRawUnsafe(`
+      await (db as any).$executeRawUnsafe(`
         INSERT INTO "PaymentMethodValidation" (
           id, shop, "customerId", "paymentMethodId", "isValid", 
           errors, warnings, "validatedAt", "createdAt", "updatedAt"

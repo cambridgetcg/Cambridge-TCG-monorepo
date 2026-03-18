@@ -175,7 +175,7 @@ async function createCustomers(tiers: any[]) {
           console.log(`    ✓ Created ${createdCount}/${CONFIG.customerCount} customers`);
         }
       } catch (error) {
-        console.error(`    ❌ Failed to create customer ${shopifyCustomerId}:`, error.message);
+        console.error(`    ❌ Failed to create customer ${shopifyCustomerId}:`, (error as Error).message);
       }
     }
   }
@@ -242,7 +242,7 @@ async function createOrders(customers: any[]) {
           console.log(`  ✓ Created ${createdCount}/${CONFIG.orderCount} orders`);
         }
       } catch (error) {
-        console.error(`  ❌ Failed to create order for customer ${customer.shopifyCustomerId}:`, error.message);
+        console.error(`  ❌ Failed to create order for customer ${customer.shopifyCustomerId}:`, (error as Error).message);
       }
     }
   }

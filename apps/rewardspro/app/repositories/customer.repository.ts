@@ -115,7 +115,7 @@ export class CustomerRepository extends BaseRepository<CustomerWithRelations> {
       const serialized = {
         ...customer,
         storeCredit: this.serializeDecimal(customer.storeCredit),
-        creditLedger: customer.creditLedger?.map(entry => ({
+        creditLedger: customer.creditLedger?.map((entry: any) => ({
           ...entry,
           amount: this.serializeDecimal(entry.amount),
           balance: this.serializeDecimal(entry.balance),

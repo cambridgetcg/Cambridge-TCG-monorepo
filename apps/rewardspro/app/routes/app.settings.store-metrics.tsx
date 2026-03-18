@@ -136,11 +136,11 @@ export default function StoreMetricsSettings() {
   const fetcher = useFetcher();
 
   const [formValues, setFormValues] = useState({
-    averageProfitMargin: metrics.averageProfitMargin || "",
-    averageCogsPercent: metrics.averageCogsPercent || "",
-    averageShippingCost: metrics.averageShippingCost || "",
-    averageOrderValue: metrics.averageOrderValue || "",
-    targetRoiPercent: metrics.targetRoiPercent || "",
+    averageProfitMargin: metrics.averageProfitMargin ? String(metrics.averageProfitMargin) : "",
+    averageCogsPercent: metrics.averageCogsPercent ? String(metrics.averageCogsPercent) : "",
+    averageShippingCost: metrics.averageShippingCost ? String(metrics.averageShippingCost) : "",
+    averageOrderValue: metrics.averageOrderValue ? String(metrics.averageOrderValue) : "",
+    targetRoiPercent: metrics.targetRoiPercent ? String(metrics.targetRoiPercent) : "",
   });
 
   const handleChange = useCallback((field: string) => (value: string) => {
@@ -201,9 +201,9 @@ export default function StoreMetricsSettings() {
                     suffix="%"
                     helpText="Your average profit margin as a percentage (e.g., 45 for 45%)"
                     autoComplete="off"
-                    min="0"
-                    max="100"
-                    step="0.01"
+                    min={0}
+                    max={100}
+                    step={0.01}
                   />
 
                   {/* COGS Percent */}
@@ -216,9 +216,9 @@ export default function StoreMetricsSettings() {
                     suffix="%"
                     helpText="Cost of goods sold as a percentage of revenue (e.g., 55 for 55%)"
                     autoComplete="off"
-                    min="0"
-                    max="100"
-                    step="0.01"
+                    min={0}
+                    max={100}
+                    step={0.01}
                   />
 
                   <Divider />
@@ -233,8 +233,8 @@ export default function StoreMetricsSettings() {
                     prefix={metrics.storeCurrency}
                     helpText="Your average shipping cost per order"
                     autoComplete="off"
-                    min="0"
-                    step="0.01"
+                    min={0}
+                    step={0.01}
                   />
 
                   {/* Average Order Value */}
@@ -247,8 +247,8 @@ export default function StoreMetricsSettings() {
                     prefix={metrics.storeCurrency}
                     helpText="Your store's typical average order value"
                     autoComplete="off"
-                    min="0"
-                    step="0.01"
+                    min={0}
+                    step={0.01}
                   />
 
                   <Divider />
@@ -263,8 +263,8 @@ export default function StoreMetricsSettings() {
                     suffix="%"
                     helpText="Your target return on investment for the loyalty program (e.g., 300 for 3x return)"
                     autoComplete="off"
-                    min="0"
-                    step="0.01"
+                    min={0}
+                    step={0.01}
                   />
                 </FormLayout>
 

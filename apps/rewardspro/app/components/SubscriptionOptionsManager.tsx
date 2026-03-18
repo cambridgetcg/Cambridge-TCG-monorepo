@@ -163,7 +163,7 @@ export function SubscriptionOptionsManager({
                     suffix="%"
                     autoComplete="off"
                     connectedRight={
-                      <Button size="slim" plain>
+                      <Button size="slim" variant="plain">
                         {currency} {pricingData.monthly.final}
                       </Button>
                     }
@@ -186,7 +186,7 @@ export function SubscriptionOptionsManager({
                     suffix="%"
                     autoComplete="off"
                     connectedRight={
-                      <Button size="slim" plain>
+                      <Button size="slim" variant="plain">
                         {currency} {pricingData.quarterly.final}
                       </Button>
                     }
@@ -209,7 +209,7 @@ export function SubscriptionOptionsManager({
                     suffix="%"
                     autoComplete="off"
                     connectedRight={
-                      <Button size="slim" plain>
+                      <Button size="slim" variant="plain">
                         {currency} {pricingData.annual.final}
                       </Button>
                     }
@@ -301,7 +301,7 @@ export function SubscriptionOptionsManager({
                           </Text>
                           {pricingData.monthly.savings && (
                             <Badge tone="success">
-                              Saves {currency} {pricingData.monthly.savings}
+                              {`Saves ${currency} ${pricingData.monthly.savings}`}
                             </Badge>
                           )}
                         </InlineStack>
@@ -356,7 +356,7 @@ export function SubscriptionOptionsManager({
                           </Text>
                           {pricingData.quarterly.savings && (
                             <Badge tone="success">
-                              Saves {currency} {pricingData.quarterly.savings}
+                              {`Saves ${currency} ${pricingData.quarterly.savings}`}
                             </Badge>
                           )}
                         </InlineStack>
@@ -409,7 +409,7 @@ export function SubscriptionOptionsManager({
                           </Text>
                           {pricingData.annual.savings && (
                             <Badge tone="success">
-                              Saves {currency} {pricingData.annual.savings}
+                              {`Saves ${currency} ${pricingData.annual.savings}`}
                             </Badge>
                           )}
                         </InlineStack>
@@ -430,7 +430,7 @@ export function SubscriptionOptionsManager({
                       Customer Pricing Preview
                     </Text>
                     <Button
-                      plain
+                      variant="plain"
                       onClick={() => setShowPricingPreview(!showPricingPreview)}
                       icon={showPricingPreview ? ChevronUpIcon : ChevronDownIcon}
                     >
@@ -452,7 +452,7 @@ export function SubscriptionOptionsManager({
                           {options.enableMonthly && (
                             <InlineStack gap="400" align="space-between">
                               <InlineStack gap="200">
-                                <Icon source={CheckCircleIcon} tone="positive" />
+                                <Icon source={CheckCircleIcon} tone="success" />
                                 <Text variant="bodyMd" as="span">
                                   Monthly
                                 </Text>
@@ -465,7 +465,7 @@ export function SubscriptionOptionsManager({
                           {options.enableQuarterly && (
                             <InlineStack gap="400" align="space-between">
                               <InlineStack gap="200">
-                                <Icon source={CheckCircleIcon} tone="positive" />
+                                <Icon source={CheckCircleIcon} tone="success" />
                                 <Text variant="bodyMd" as="span">
                                   Every 3 months
                                 </Text>
@@ -488,7 +488,7 @@ export function SubscriptionOptionsManager({
                           {options.enableAnnual && (
                             <InlineStack gap="400" align="space-between">
                               <InlineStack gap="200">
-                                <Icon source={CheckCircleIcon} tone="positive" />
+                                <Icon source={CheckCircleIcon} tone="success" />
                                 <Text variant="bodyMd" as="span">
                                   Annual
                                 </Text>
@@ -531,7 +531,7 @@ export function SubscriptionOptionsManager({
                       </Tooltip>
                     </InlineStack>
                     <Button
-                      plain
+                      variant="plain"
                       onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
                       icon={showAdvancedOptions ? ChevronUpIcon : ChevronDownIcon}
                     >

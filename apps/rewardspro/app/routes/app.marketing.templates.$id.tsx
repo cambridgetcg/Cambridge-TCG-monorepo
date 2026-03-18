@@ -707,18 +707,18 @@ ${contentHtml}
       ]}
     >
       <Layout>
-        {actionData?.error && (
+        {(actionData as any)?.error && (
           <Layout.Section>
             <Banner tone="critical" title="Error">
-              <p>{actionData.error}</p>
+              <p>{(actionData as any).error}</p>
             </Banner>
           </Layout.Section>
         )}
 
-        {actionData?.success && (
+        {(actionData as any)?.success && (
           <Layout.Section>
             <Banner tone="success" title="Success">
-              <p>{actionData.message || "Template saved successfully"}</p>
+              <p>{(actionData as any).message || "Template saved successfully"}</p>
             </Banner>
           </Layout.Section>
         )}
@@ -843,7 +843,7 @@ ${contentHtml}
                 {activeTab === 1 && (
                   <BrandKitPanel
                     brandKit={loaderData.brandKit}
-                    currentStyles={styles}
+                    currentStyles={styles as any}
                     onApplyBrandKit={applyBrandKit}
                     onStyleChange={updateStyle}
                     brandKitEnabled={loaderData.brandKitEnabled}
@@ -853,7 +853,7 @@ ${contentHtml}
                 {activeTab === 2 && (
                   <AIAssistantPanel
                     templateType={type}
-                    shopName={loaderData.shop.replace(".myshopify.com", "")}
+                    shopName={(loaderData as any).shop?.replace(".myshopify.com", "") || ""}
                     currentSubject={subject}
                     previewText={previewText}
                     selectedBlockContent={selectedBlockContent}

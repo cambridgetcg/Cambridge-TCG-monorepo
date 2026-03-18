@@ -22,10 +22,12 @@
 
 import {
   SendEmailCommand,
-  SendBulkEmailCommand,
+  SendBulkTemplatedEmailCommand,
   GetSendQuotaCommand,
-  type BulkEmailEntry,
 } from "@aws-sdk/client-ses";
+
+type BulkEmailEntry = any;
+const SendBulkEmailCommand = SendBulkTemplatedEmailCommand;
 import { getSESClient, getAWSConfig } from "~/utils/aws-clients.server";
 import type {
   SendEmailParams,

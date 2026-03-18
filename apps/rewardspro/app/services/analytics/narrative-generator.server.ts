@@ -41,7 +41,7 @@ export interface ExecutiveSummary {
 export interface TrendNarrative {
   metric: string;
   description: string;
-  direction: 'up' | 'down' | 'stable';
+  direction: 'up' | 'down' | 'flat';
   keyPoints: string[];
   notableEvents?: string[];
 }
@@ -200,7 +200,7 @@ export class NarrativeGenerator {
       return {
         metric,
         description: 'Not enough data to analyze trend.',
-        direction: 'stable',
+        direction: 'flat',
         keyPoints: [],
       };
     }
@@ -211,10 +211,10 @@ export class NarrativeGenerator {
     const changePercent = first > 0 ? (change / first) * 100 : 0;
 
     // Determine overall direction
-    let direction: 'up' | 'down' | 'stable';
+    let direction: 'up' | 'down' | 'flat';
     if (changePercent > 5) direction = 'up';
     else if (changePercent < -5) direction = 'down';
-    else direction = 'stable';
+    else direction = 'flat';
 
     // Find notable points
     const values = dataPoints.map(d => d.value);

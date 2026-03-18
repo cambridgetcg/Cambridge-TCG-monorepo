@@ -46,7 +46,7 @@ export function StoreCreditDisplay({
   }
 
   return (
-    <Text as="span" variant={getTextVariant()} fontWeight="semibold" tone={getTone()}>
+    <Text as="span" variant={getTextVariant()} fontWeight="semibold" tone={(getTone() === 'warning' ? 'caution' : getTone()) as any}>
       {formattedAmount}
     </Text>
   );

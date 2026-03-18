@@ -646,12 +646,7 @@ export default function KlaviyoSettings() {
                             </Text>
                             {data.emailSettings?.klaviyoOAuthConnected ? (
                               <InlineStack gap="300" blockAlign="center">
-                                <Badge tone="success">
-                                  <InlineStack gap="100" blockAlign="center">
-                                    <Icon source={CheckCircleIcon} />
-                                    Connected via OAuth
-                                  </InlineStack>
-                                </Badge>
+                                <Badge tone="success">Connected via OAuth</Badge>
                                 <Button
                                   variant="plain"
                                   tone="critical"
@@ -817,6 +812,7 @@ export default function KlaviyoSettings() {
                             <TextField
                               label="Tier nudge threshold (%)"
                               type="number"
+                              autoComplete="off"
                               value={String(cooldownSettings.tierNudgeThreshold)}
                               onChange={(value) =>
                                 setCooldownSettings((prev) => ({
@@ -831,6 +827,7 @@ export default function KlaviyoSettings() {
                             <TextField
                               label="Balance reminder after (days)"
                               type="number"
+                              autoComplete="off"
                               value={String(cooldownSettings.balanceReminderDays)}
                               onChange={(value) =>
                                 setCooldownSettings((prev) => ({
@@ -845,6 +842,7 @@ export default function KlaviyoSettings() {
                             <TextField
                               label="Expiry reminder cooldown (days)"
                               type="number"
+                              autoComplete="off"
                               value={String(cooldownSettings.expiryReminderCooldownDays)}
                               onChange={(value) =>
                                 setCooldownSettings((prev) => ({
@@ -859,6 +857,7 @@ export default function KlaviyoSettings() {
                             <TextField
                               label="Balance reminder cooldown (days)"
                               type="number"
+                              autoComplete="off"
                               value={String(cooldownSettings.balanceReminderCooldownDays)}
                               onChange={(value) =>
                                 setCooldownSettings((prev) => ({
@@ -873,6 +872,7 @@ export default function KlaviyoSettings() {
                             <TextField
                               label="Win-back cooldown (days)"
                               type="number"
+                              autoComplete="off"
                               value={String(cooldownSettings.winBackCooldownDays)}
                               onChange={(value) =>
                                 setCooldownSettings((prev) => ({
@@ -887,6 +887,7 @@ export default function KlaviyoSettings() {
                             <TextField
                               label="Tier nudge cooldown (days)"
                               type="number"
+                              autoComplete="off"
                               value={String(cooldownSettings.tierNudgeCooldownDays)}
                               onChange={(value) =>
                                 setCooldownSettings((prev) => ({

@@ -98,7 +98,7 @@ const SYNAPTIC_WEIGHTS = Object.freeze({
     STANDARD: 50,
     ENTRY: 25,
   }),
-}) as const;
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CRYSTAL STRUCTURES (Immutable Data Types)
@@ -805,7 +805,7 @@ async function medullaReflex(
             },
           });
         }
-      }, { timeout: 30000 });
+      });
 
       updated += batch.length;
     } catch (error) {
@@ -874,7 +874,7 @@ async function ponsRelay(
             },
           });
         }
-      }, { timeout: 30000 });
+      });
     } catch (error) {
       logger.error('Pons relay failed', { batchStart: i, error });
     }

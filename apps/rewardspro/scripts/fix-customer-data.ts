@@ -22,7 +22,7 @@ async function fixCustomerData() {
     },
     select: {
       id: true,
-      shopDomain: true,
+      shop: true,
       shopifyCustomerId: true,
       email: true,
       storeCredit: true,
@@ -41,7 +41,7 @@ async function fixCustomerData() {
   console.log('Customers to update:');
   customersToFix.forEach((customer, index) => {
     console.log(`${index + 1}. ${customer.email}`);
-    console.log(`   Shop: ${customer.shopDomain}`);
+    console.log(`   Shop: ${customer.shop}`);
     console.log(`   Shopify ID: ${customer.shopifyCustomerId}`);
     console.log(`   Current Store Credit: ${customer.storeCredit}`);
     console.log('');

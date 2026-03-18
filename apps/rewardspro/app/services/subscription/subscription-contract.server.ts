@@ -49,7 +49,7 @@ export class SubscriptionContractService {
 
     // Calculate pricing
     const intervalDetails = SUBSCRIPTION_CONFIG.BILLING_INTERVALS[billingInterval];
-    const basePrice = tier.monthlyPrice || 0;
+    const basePrice = Number(tier.monthlyPrice) || 0;
     const discountedPrice = basePrice * (1 - intervalDetails.discountPercentage / 100);
     const nextBillingDate = getNextBillingDate(new Date(), billingInterval);
 

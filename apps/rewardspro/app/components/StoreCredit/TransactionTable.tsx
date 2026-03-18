@@ -44,6 +44,7 @@ export function TransactionTable({
       REFUND_CLAWBACK: { tone: "critical", label: "Clawback" },
       MANUAL_ADJUSTMENT: { tone: "info", label: "Adjustment" },
       SHOPIFY_SYNC: { tone: "info", label: "Sync" },
+      CONVERTED_TO_GIFT_CARD: { tone: "success", label: "Gift Card" },
     };
 
     const { tone, label } = config[type] || { tone: "info", label: type };

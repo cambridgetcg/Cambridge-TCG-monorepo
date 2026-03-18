@@ -9,5 +9,5 @@ import { query, param } from './lib/db.mjs';
     [param('shop', shop)]
   );
 
-  console.log(`Customers in database: ${rows[0]?.count ?? 0}`);
+  console.log(`Customers in database: ${(rows as any)[0]?.count ?? 0}`);
 })();

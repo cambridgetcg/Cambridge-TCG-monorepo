@@ -426,18 +426,7 @@ function IconLibraryTab({
                     onClick={() => setColorPopoverActive(!colorPopoverActive)}
                     disclosure={colorPopoverActive ? "up" : "down"}
                   >
-                    <InlineStack gap="200" blockAlign="center">
-                      <div
-                        style={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: 4,
-                          backgroundColor: currentColor,
-                          border: "1px solid var(--p-color-border)",
-                        }}
-                      />
-                      Custom
-                    </InlineStack>
+                    Custom
                   </Button>
                 }
                 onClose={() => setColorPopoverActive(false)}
@@ -636,19 +625,7 @@ export function IconPicker({
             <InlineStack gap="200">
               <Badge tone="info">{getTypeLabel()}</Badge>
               {value.iconType === "library" && value.iconColor && (
-                <Badge>
-                  <InlineStack gap="100" blockAlign="center">
-                    <div
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        backgroundColor: value.iconColor,
-                      }}
-                    />
-                    {value.iconColor}
-                  </InlineStack>
-                </Badge>
+                <Badge>{value.iconColor}</Badge>
               )}
             </InlineStack>
           </BlockStack>

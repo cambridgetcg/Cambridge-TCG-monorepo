@@ -27,7 +27,7 @@ async function query(sql: string, params: any[] = []) {
     WHERE scl.shop = :shop AND c.id IS NULL
   `, [{ name: 'shop', value: { stringValue: shop } }]);
 
-  const orphanedCount = orphanedLedgers.records[0][0].longValue || 0;
+  const orphanedCount = orphanedLedgers.records![0][0].longValue || 0;
   console.log(`📋 Orphaned Ledger Entries: ${orphanedCount} ${orphanedCount === 0 ? '✅' : '❌'}`);
 
   // 2. Check orphaned orders
@@ -38,7 +38,7 @@ async function query(sql: string, params: any[] = []) {
     WHERE o.shop = :shop AND c.id IS NULL
   `, [{ name: 'shop', value: { stringValue: shop } }]);
 
-  const orphanedOrderCount = orphanedOrders.records[0][0].longValue || 0;
+  const orphanedOrderCount = orphanedOrders.records![0][0].longValue || 0;
   console.log(`📦 Orphaned Orders: ${orphanedOrderCount} ${orphanedOrderCount === 0 ? '✅' : '❌'}`);
 
   // 3. Line items properly linked (all line items should have parent orders)
@@ -52,7 +52,7 @@ async function query(sql: string, params: any[] = []) {
     WHERE c.shop = :shop AND c."currentTierId" IS NOT NULL AND t.id IS NULL
   `, [{ name: 'shop', value: { stringValue: shop } }]);
 
-  const customersWithoutTierCount = customersWithoutTiers.records[0][0].longValue || 0;
+  const customersWithoutTierCount = customersWithoutTiers.records![0][0].longValue || 0;
   console.log(`👤 Customers with Invalid Tier: ${customersWithoutTierCount} ${customersWithoutTierCount === 0 ? '✅' : '❌'}`);
 
   // 5. Verify customer totals match orders
@@ -93,11 +93,11 @@ async function query(sql: string, params: any[] = []) {
   `, [{ name: 'shop', value: { stringValue: shop } }]);
 
   console.log('\n📊 Record Counts:');
-  console.log(`   Customers: ${totalRecords.records[0][0].longValue}`);
-  console.log(`   Orders: ${totalRecords.records[0][1].longValue}`);
-  console.log(`   Line Items: ${totalRecords.records[0][2].longValue}`);
-  console.log(`   Ledger Entries: ${totalRecords.records[0][3].longValue}`);
-  console.log(`   Tier Logs: ${totalRecords.records[0][4].longValue}`);
+  console.log(`   Customers: ${totalRecords.records![0][0].longValue}`);
+  console.log(`   Orders: ${totalRecords.records![0][1].longValue}`);
+  console.log(`   Line Items: ${totalRecords.records![0][2].longValue}`);
+  console.log(`   Ledger Entries: ${totalRecords.records![0][3].longValue}`);
+  console.log(`   Tier Logs: ${totalRecords.records![0][4].longValue}`);
 
   const allGood = orphanedCount === 0 &&
                   orphanedOrderCount === 0 &&

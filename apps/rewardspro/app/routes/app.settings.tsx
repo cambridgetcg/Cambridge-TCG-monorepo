@@ -900,7 +900,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         // Request the billing plan
         const billingResponse = await billing.request({
-          plan: requestPlan,
+          plan: requestPlan as any,
           isTest: process.env.NODE_ENV === 'development',
           returnUrl: `${process.env.SHOPIFY_APP_URL}/app/settings`,
         });
@@ -1180,7 +1180,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Secondary text color is optional - empty string means "auto-derive from mode"
     const widgetSecondaryTextColorRaw = formData.get("widgetSecondaryTextColor") as string;
     const widgetSecondaryTextColor = widgetSecondaryTextColorRaw && widgetSecondaryTextColorRaw.trim()
-      ? sanitizeColor(widgetSecondaryTextColorRaw, null)
+      ? sanitizeColor(widgetSecondaryTextColorRaw, undefined)
       : null;
 
     // Validate border radius bounds
@@ -2183,10 +2183,10 @@ export default function SettingsPage() {
                             {shopifyCurrencyResult && (
                               <InlineStack gap="200" blockAlign="center">
                                 <Badge tone={shopifyCurrencyResult.shopifyCurrency === shopifyCurrencyResult.currentCurrency ? "success" : "warning"}>
-                                  Shopify: {shopifyCurrencyResult.shopifyCurrency}
+                                  {`Shopify: ${shopifyCurrencyResult.shopifyCurrency}`}
                                 </Badge>
                                 <Badge tone="info">
-                                  Current: {shopifyCurrencyResult.currentCurrency}
+                                  {`Current: ${shopifyCurrencyResult.currentCurrency}`}
                                 </Badge>
                                 {shopifyCurrencyResult.shopifyCurrency !== shopifyCurrencyResult.currentCurrency && (
                                   <Text as="span" variant="bodySm" tone="caution">
@@ -2655,6 +2655,7 @@ export default function SettingsPage() {
                             min={7}
                             max={90}
                             suffix="days"
+                            autoComplete="off"
                           />
 
                           <TextField
@@ -2666,6 +2667,7 @@ export default function SettingsPage() {
                             min={7}
                             max={365}
                             suffix="days"
+                            autoComplete="off"
                           />
                         </FormLayout.Group>
                       </FormLayout>
@@ -2959,7 +2961,7 @@ export default function SettingsPage() {
                           <FormLayout.Group>
                             <ColorPickerFieldInline
                               label="Secondary Text"
-                              color={widgetSecondaryTextColor || (widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)")}
+                              color={widgetSecondaryTextColor || "rgba(0,0,0,0.6)"}
                               onChange={setWidgetSecondaryTextColor}
                             />
                             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>

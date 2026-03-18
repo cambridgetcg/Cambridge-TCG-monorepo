@@ -238,9 +238,7 @@ export default function SmartCampaignCreator() {
                       {data.specificRecommendation.description}
                     </Text>
                   </BlockStack>
-                  <Badge tone="success">
-                    {data.specificRecommendation.affectedCount} customers
-                  </Badge>
+                  <Badge tone="success" children={`${data.specificRecommendation.affectedCount} customers`} />
                 </InlineStack>
 
                 <div style={{
@@ -442,7 +440,7 @@ function RecommendationCard({ recommendation, onSelect, onDismiss }: Recommendat
       text = 'Medium';
     }
 
-    return <Badge tone={tone}>{text} Priority</Badge>;
+    return <Badge tone={tone as any} children={`${text} Priority`} />;
   };
 
   const getTypeBadge = () => {

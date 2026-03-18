@@ -16,9 +16,9 @@ export function useAuthenticatedCustomer() {
 
   logger.debug('Customer data:', {
     customerId: customer?.id,
-    email: customer?.email,
-    firstName: customer?.firstName,
-    lastName: customer?.lastName,
+    email: (customer as any)?.email,
+    firstName: (customer as any)?.firstName,
+    lastName: (customer as any)?.lastName,
   });
 
   logger.debug('Purchasing company data:', {

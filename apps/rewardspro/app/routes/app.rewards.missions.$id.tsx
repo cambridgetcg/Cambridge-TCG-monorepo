@@ -752,7 +752,7 @@ export default function ChallengeDetailPage() {
                                   {template.rewardDescription}
                                 </Badge>
                                 <Badge size="small" tone="info">
-                                  +{template.xpReward} XP
+                                  {`+${template.xpReward} XP`}
                                 </Badge>
                               </InlineStack>
                             </BlockStack>

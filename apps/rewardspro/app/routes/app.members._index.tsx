@@ -887,7 +887,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[MANUAL TIER ASSIGNMENT] New Tier ID:", tierId);
       console.log("[MANUAL TIER ASSIGNMENT] Permanent Override:", permanentOverride);
       console.log("[MANUAL TIER ASSIGNMENT] Reason:", reason);
-      console.log("[MANUAL TIER ASSIGNMENT] Admin User ID:", session.userId?.toString() || "admin");
+      console.log("[MANUAL TIER ASSIGNMENT] Admin User ID:", (session as any).userId?.toString() || "admin");
       console.log("[MANUAL TIER ASSIGNMENT] Shop:", shop);
 
       // Check current state before assignment
@@ -905,7 +905,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         shop,
         customerId,
         tierId === "none" ? null : tierId,
-        session.userId?.toString() || "admin",
+        (session as any).userId?.toString() || "admin",
         reason,
         { permanentOverride }
       );
@@ -1916,7 +1916,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               shop,
               customerId,
               tierId === "none" ? null : tierId,
-              session.userId?.toString() || "admin",
+              (session as any).userId?.toString() || "admin",
               "Bulk tier assignment",
               { permanentOverride: false }
             );
@@ -2302,7 +2302,7 @@ function CustomersTableContent({
             {customer.membershipStatus?.isPurchased && customer.membershipStatus.needsRenewal && (
               <InlineStack gap="100">
                 <Icon source={AlertTriangleIcon} tone="warning" />
-                <Text variant="bodySm" tone="warning" as="span">
+                <Text variant="bodySm" tone="caution" as="span">
                   Expires in {customer.membershipStatus.daysRemaining} days
                 </Text>
               </InlineStack>
@@ -2364,8 +2364,7 @@ function CustomersTableContent({
             <Button
               size="slim"
               variant="plain"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 handleViewCustomer(customer.id, 2); // 2 = Orders tab
               }}
             >
@@ -2373,8 +2372,7 @@ function CustomersTableContent({
             </Button>
             <Button
               size="slim"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 handleManualTierAssignment(customer);
               }}
             >
@@ -2419,7 +2417,7 @@ function CustomersTableContent({
             loading={isLoading}
             selectable={true}
             selectedItemsCount={selectedResources.length}
-            onSelectionChange={(selectionType, isSelecting, selection) => {
+            onSelectionChange={(selectionType: any, isSelecting: any, selection: any) => {
               onSelectionChange(selectionType, isSelecting, selection);
             }}
             bulkActions={[
@@ -2795,7 +2793,7 @@ export default function Customers() {
           : prev.filter(id => id !== selection)
       );
     } else if (selectionType === "page") {
-      const pageIds = displayCustomers.map((c: Customer) => c.id);
+      const pageIds = displayCustomers.map((c: any) => c.id);
       setSelectedResources(prev =>
         isSelecting
           ? [...new Set([...prev, ...pageIds])]
@@ -2803,7 +2801,7 @@ export default function Customers() {
       );
     } else if (selectionType === "all") {
       // For "all" we only select current page since we don't have all IDs loaded
-      const pageIds = displayCustomers.map((c: Customer) => c.id);
+      const pageIds = displayCustomers.map((c: any) => c.id);
       setSelectedResources(isSelecting ? pageIds : []);
     }
   }, [displayCustomers]);
@@ -2966,28 +2964,29 @@ export default function Customers() {
   // Handle action results for bulk operations - completion feedback
   useEffect(() => {
     if (!actionData) return;
+    const ad = actionData as any;
 
     // Check if we have sync results
-    if ('results' in actionData && actionData.results &&
-        typeof actionData.results === 'object') {
+    if ('results' in ad && ad.results &&
+        typeof ad.results === 'object') {
 
       // Check for sync completion (new format)
-      if ('total' in actionData.results && 'syncCompleted' in actionData.results) {
-        const results = actionData.results as { total: number; syncCompleted: boolean };
-        showSuccess(actionData.message || `Sync complete! Total customers: ${results.total}`);
+      if ('total' in ad.results && 'syncCompleted' in ad.results) {
+        const results = ad.results as { total: number; syncCompleted: boolean };
+        showSuccess(ad.message || `Sync complete! Total customers: ${results.total}`);
       }
       // Check for calculate-all results
-      else if ('total' in actionData.results && 'changed' in actionData.results) {
-        const results = actionData.results as { total: number; changed: number; errors: number };
+      else if ('total' in ad.results && 'changed' in ad.results) {
+        const results = ad.results as { total: number; changed: number; errors: number };
         if (results.errors > 0) {
-          showError(actionData.message || `Calculation completed with errors: ${results.errors}`);
+          showError(ad.message || `Calculation completed with errors: ${results.errors}`);
         } else {
-          showSuccess(actionData.message || `Calculated tiers for ${results.total} customers. ${results.changed} tiers updated.`);
+          showSuccess(ad.message || `Calculated tiers for ${results.total} customers. ${results.changed} tiers updated.`);
         }
       }
       // Legacy format support (old sync results)
-      else if ('imported' in actionData.results && 'updated' in actionData.results && 'errors' in actionData.results) {
-        const results = actionData.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
+      else if ('imported' in ad.results && 'updated' in ad.results && 'errors' in ad.results) {
+        const results = ad.results as { imported: number; updated: number; errors: number; total: number; details: any[] };
         if (results.errors > 0) {
           showError(`Sync complete with errors! Imported: ${results.imported}, Updated: ${results.updated}, Errors: ${results.errors}`);
         } else {
@@ -2995,20 +2994,20 @@ export default function Customers() {
         }
       }
       // Check for recalculate-all results
-      else if ('processed' in actionData.results && 'changed' in actionData.results) {
-        const results = actionData.results as { processed: number; changed: number; unchanged: number; errors: number };
+      else if ('processed' in ad.results && 'changed' in ad.results) {
+        const results = ad.results as { processed: number; changed: number; unchanged: number; errors: number };
         if (results.errors > 0) {
-          showError(actionData.message || `Recalculation completed with ${results.errors} errors`);
+          showError(ad.message || `Recalculation completed with ${results.errors} errors`);
         } else {
-          showSuccess(actionData.message || `Recalculated ${results.processed} customers: ${results.changed} changed`);
+          showSuccess(ad.message || `Recalculated ${results.processed} customers: ${results.changed} changed`);
         }
       }
-    } else if (actionData.success && actionData.message) {
+    } else if (ad.success && ad.message) {
       // Other successful operations with message
-      showSuccess(actionData.message as string);
-    } else if (!actionData.success && actionData.message) {
+      showSuccess(ad.message as string);
+    } else if (!ad.success && ad.message) {
       // Error operations
-      showError(actionData.message as string);
+      showError(ad.message as string);
     }
   }, [actionData, showSuccess, showError]);
 
@@ -3039,18 +3038,18 @@ export default function Customers() {
             orderSummary: enhancedData[customer.id]?.orderSummary ?? null,
           }));
 
-          setEnhancedCustomers(merged);
+          setEnhancedCustomers(merged as any);
           setEnhancedDataLoaded(true);
         })
         .catch((error: Error) => {
           console.error('Failed to load enhanced metadata:', error);
           // Fall back to base customers with placeholders
-          setEnhancedCustomers(baseCustomers);
+          setEnhancedCustomers(baseCustomers as any);
           setEnhancedDataLoaded(true);
         });
     } else {
       // No deferred data, use base customers
-      setEnhancedCustomers(baseCustomers);
+      setEnhancedCustomers(baseCustomers as any);
       setEnhancedDataLoaded(true);
     }
   }, [data.customersData?.customers, data.enhancedMetadata]);
@@ -3176,7 +3175,7 @@ export default function Customers() {
                                 flex: Math.max(percentage, 5),
                                 height: '6px',
                                 borderRadius: '3px',
-                                background: style.badgeColor || style.borderColor,
+                                background: (style as any).badgeColor || style.borderColor,
                                 minWidth: '8px',
                               }} />
                             </Tooltip>
@@ -3346,7 +3345,7 @@ export default function Customers() {
                       icon={FilterIcon}
                       disclosure={showFilters ? "up" : "down"}
                     >
-                      More Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+                      {`More Filters${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}`}
                     </Button>
                   }
                   onClose={() => setShowFilters(false)}
@@ -3490,7 +3489,7 @@ export default function Customers() {
 
         {/* Customer Table - Now loads immediately with enhanced data streaming in! */}
         <CustomersTableContent
-          customers={displayCustomers}
+          customers={displayCustomers as Customer[]}
           pagination={data.customersData?.pagination}
           shopSettings={data.shopSettings}
           tiers={data.tiers}

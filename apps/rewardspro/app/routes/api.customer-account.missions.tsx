@@ -59,7 +59,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Get points config to check if missions are enabled
     const config = await getPointsConfig(shop);
 
-    if (!config.isEnabled || !config.missionsEnabled) {
+    if (!config.isEnabled || !(config as any).missionsEnabled) {
       return json({
         success: true,
         enabled: false,
@@ -178,7 +178,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Check if missions are enabled
     const config = await getPointsConfig(shop);
-    if (!config.isEnabled || !config.missionsEnabled) {
+    if (!config.isEnabled || !(config as any).missionsEnabled) {
       return json({
         success: false,
         error: "Missions are not enabled for this store",
@@ -238,7 +238,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400, headers: corsHeaders });
       }
 
-      await acknowledgeEvents(shop, customerId, eventIds);
+      await acknowledgeEvents(eventIds);
 
       return json({
         success: true,

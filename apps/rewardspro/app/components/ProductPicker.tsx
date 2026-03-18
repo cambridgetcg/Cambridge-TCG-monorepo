@@ -306,7 +306,7 @@ export function ProductPicker({
         disabled: !selectedProductId || !selectedVariantId,
       }}
       secondaryActions={[{ content: "Cancel", onAction: onClose }]}
-      large
+      size="large"
     >
       <Modal.Section>
         <BlockStack gap="400">

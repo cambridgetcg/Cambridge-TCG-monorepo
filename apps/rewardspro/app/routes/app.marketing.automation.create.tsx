@@ -322,7 +322,7 @@ export default function CreateAutomation() {
             <BlockStack gap="500">
               {/* Progress Steps - Bordered Cards */}
               <InlineGrid columns={4} gap="300">
-                <Card background={currentStep === 1 ? "bg-surface-brand-subdued" : currentStep > 1 ? "bg-surface-success-subdued" : "bg-surface"}>
+                <Card background={(currentStep === 1 ? "bg-surface-brand-subdued" : currentStep > 1 ? "bg-surface-success-subdued" : "bg-surface") as any}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
                       <Text variant="bodyMd" as="span" fontWeight="semibold">Step 1</Text>
@@ -337,7 +337,7 @@ export default function CreateAutomation() {
                   </BlockStack>
                 </Card>
 
-                <Card background={currentStep === 2 ? "bg-surface-brand-subdued" : currentStep > 2 ? "bg-surface-success-subdued" : "bg-surface"}>
+                <Card background={(currentStep === 2 ? "bg-surface-brand-subdued" : currentStep > 2 ? "bg-surface-success-subdued" : "bg-surface") as any}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
                       <Text variant="bodyMd" as="span" fontWeight="semibold" tone={currentStep < 2 ? "subdued" : undefined}>Step 2</Text>
@@ -352,7 +352,7 @@ export default function CreateAutomation() {
                   </BlockStack>
                 </Card>
 
-                <Card background={currentStep === 3 ? "bg-surface-brand-subdued" : currentStep > 3 ? "bg-surface-success-subdued" : "bg-surface"}>
+                <Card background={(currentStep === 3 ? "bg-surface-brand-subdued" : currentStep > 3 ? "bg-surface-success-subdued" : "bg-surface") as any}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
                       <Text variant="bodyMd" as="span" fontWeight="semibold" tone={currentStep < 3 ? "subdued" : undefined}>Step 3</Text>
@@ -367,7 +367,7 @@ export default function CreateAutomation() {
                   </BlockStack>
                 </Card>
 
-                <Card background={currentStep === 4 ? "bg-surface-brand-subdued" : "bg-surface"}>
+                <Card background={(currentStep === 4 ? "bg-surface-brand-subdued" : "bg-surface") as any}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
                       <Text variant="bodyMd" as="span" fontWeight="semibold" tone={currentStep < 4 ? "subdued" : undefined}>Step 4</Text>
@@ -885,7 +885,7 @@ export default function CreateAutomation() {
                           label="Target specific tier"
                           options={[
                             { label: "All tiers", value: "" },
-                            ...data.tiers.map((tier) => ({
+                            ...data.tiers.map((tier: any) => ({
                               label: `${tier.name} (${tier.cashbackPercent}% cashback)`,
                               value: tier.id,
                             })),
@@ -1039,7 +1039,7 @@ export default function CreateAutomation() {
                             label="Email Template"
                             options={[
                               { label: "Select a template...", value: "" },
-                              ...data.templates.map((t) => ({
+                              ...data.templates.map((t: any) => ({
                                 label: t.name,
                                 value: t.id,
                               })),
@@ -1166,7 +1166,7 @@ export default function CreateAutomation() {
                             <InlineStack gap="200" blockAlign="center">
                               <Text variant="bodyMd" as="span" tone="subdued">Tier Filter:</Text>
                               <Badge>
-                                {data.tiers.find(t => t.id === tierFilter)?.name || tierFilter}
+                                {data.tiers.find((t: any) => t.id === tierFilter)?.name || tierFilter}
                               </Badge>
                             </InlineStack>
                           )}
@@ -1226,7 +1226,7 @@ export default function CreateAutomation() {
                         Once activated, this automation will run automatically based on your settings. You can pause, edit, or delete it at any time from the Automations page.
                       </Banner>
 
-                      <Card background="bg-surface-success-subdued">
+                      <Card background={"bg-surface-success-subdued" as any}>
                         <BlockStack gap="200">
                           <Text variant="headingSm" as="h3" fontWeight="semibold">
                             Estimated Impact

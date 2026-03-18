@@ -262,7 +262,7 @@ export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
     } catch (error) {
       const appError = toAppError(error);
       if (context) {
-        appError.details = { ...appError.details, context };
+        (appError as any).details = { ...((appError as any).details || {}), context };
       }
       throw appError;
     }

@@ -184,7 +184,7 @@ export default function RecalculateCashbackPage() {
                       loading={isProcessing && navigation.formData?.get("action") === "recalculate"}
                       disabled={isProcessing || stats.ordersWithoutCashback === 0}
                     >
-                      Calculate Cashback for {stats.ordersWithoutCashback} Orders
+                      Calculate Cashback for {stats.ordersWithoutCashback.toString()} Orders
                     </Button>
                   </Form>
                 </BlockStack>
@@ -214,7 +214,7 @@ export default function RecalculateCashbackPage() {
                       loading={isProcessing && navigation.formData?.get("action") === "process"}
                       disabled={isProcessing || stats.unprocessedCashback === 0}
                     >
-                      Process {stats.unprocessedCashback} Orders (Credit {formatAmount(Number(stats.totalUnprocessedAmount))})
+                      Process {stats.unprocessedCashback.toString()} Orders (Credit {formatAmount(Number(stats.totalUnprocessedAmount))})
                     </Button>
                   </Form>
                 </BlockStack>

@@ -535,15 +535,14 @@ class ReferralService {
     try {
       switch (config.referrerRewardType) {
         case 'POINTS':
-          const { awardPoints } = await import('~/services/points-ledger.server');
-          await awardPoints({
+          const { earnPoints } = await import('~/services/points-ledger.server');
+          await earnPoints({
             shop,
             customerId: referral.referrerId,
             amount: config.referrerRewardAmount,
-            source: 'REFERRAL',
+            type: 'REFERRAL_BONUS',
             description: `Referral reward - ${referral.refereeEmail || 'friend'} signed up`,
-            referenceType: 'REFERRAL',
-            referenceId: referral.id,
+            metadata: { referenceType: 'REFERRAL', referenceId: referral.id },
           });
           break;
 
@@ -581,15 +580,14 @@ class ReferralService {
     try {
       switch (config.refereeRewardType) {
         case 'POINTS':
-          const { awardPoints } = await import('~/services/points-ledger.server');
-          await awardPoints({
+          const { earnPoints } = await import('~/services/points-ledger.server');
+          await earnPoints({
             shop,
             customerId: referral.refereeId,
             amount: config.refereeRewardAmount,
-            source: 'REFERRAL',
+            type: 'REFERRAL_BONUS',
             description: 'Welcome bonus - Referred by a friend',
-            referenceType: 'REFERRAL',
-            referenceId: referral.id,
+            metadata: { referenceType: 'REFERRAL', referenceId: referral.id },
           });
           break;
 

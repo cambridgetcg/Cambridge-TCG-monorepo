@@ -425,10 +425,10 @@ export async function trackOrderPlaced(
     if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
       const nextTier = sortedTiers[currentIndex + 1];
       nextTierName = nextTier.name;
-      spendToNextTier = Math.max(0, nextTier.minSpend - customer.totalSpent);
+      spendToNextTier = Math.max(0, nextTier.minSpend - Number(customer.totalSpent));
       progressToNextTier = Math.min(
         100,
-        Math.round((customer.totalSpent / nextTier.minSpend) * 100)
+        Math.round((Number(customer.totalSpent) / nextTier.minSpend) * 100)
       );
     }
   }
@@ -503,7 +503,7 @@ export async function trackTierUpgraded(
     if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
       const nextTier = sortedTiers[currentIndex + 1];
       nextTierName = nextTier.name;
-      spendToNextTier = nextTier.minSpend - customer.totalSpent;
+      spendToNextTier = nextTier.minSpend - Number(customer.totalSpent);
     }
   }
 
@@ -659,7 +659,7 @@ export async function trackCashbackRedeemed(
       order_id: orderId,
       order_number: orderNumber,
       remaining_balance: customer.storeCredit,
-      total_redeemed: customer.totalCashbackRedeemed,
+      total_redeemed: customer.totalCashbackEarned,
       current_tier: customer.currentTier?.name || "None",
     },
   });
@@ -1165,7 +1165,7 @@ export async function trackRaffleEndingSoon(
       prizes_available: raffle.prizes.map((p) => p.name),
       prizes_count: raffle.prizes.length,
       points_balance: customer.pointsBalance,
-      can_afford_entry: customer.pointsBalance >= raffle.entryCost,
+      can_afford_entry: Number(customer.pointsBalance) >= raffle.entryCost,
       current_tier: customer.currentTier?.name || "None",
     },
   });
@@ -1281,7 +1281,7 @@ export async function trackNewRaffleAvailable(
       top_prize: raffle.prizes[0]?.name,
       total_prizes: raffle.prizes.length,
       points_balance: customer.pointsBalance,
-      can_afford_entry: customer.pointsBalance >= raffle.entryCost,
+      can_afford_entry: Number(customer.pointsBalance) >= raffle.entryCost,
       current_tier: customer.currentTier?.name || "None",
     },
   });
@@ -1325,7 +1325,7 @@ export async function trackNewMysteryBoxAvailable(
       has_legendary: rarityDistribution["LEGENDARY"] > 0,
       has_epic: rarityDistribution["EPIC"] > 0,
       points_balance: customer.pointsBalance,
-      can_afford: customer.pointsBalance >= mysteryBox.openCost,
+      can_afford: Number(customer.pointsBalance) >= mysteryBox.openCost,
       current_tier: customer.currentTier?.name || "None",
     },
   });
@@ -1367,7 +1367,7 @@ export async function trackBonusEventStarted(
       description: bonusEvent.description,
       current_tier: customer.currentTier?.name || "None",
       effective_multiplier:
-        bonusEvent.multiplier * (customer.currentTier?.pointsMultiplier || 1),
+        bonusEvent.multiplier * Number(customer.currentTier?.pointsMultiplier || 1),
     },
   });
 }
@@ -1394,7 +1394,7 @@ export async function trackRewardsDormant(
     properties: {
       days_since_engagement: dormancyDays,
       points_balance: customer.pointsBalance,
-      has_points: customer.pointsBalance > 0,
+      has_points: Number(customer.pointsBalance) > 0,
       active_raffles: availableRewards.activeRaffles,
       active_mystery_boxes: availableRewards.activeMysteryBoxes,
       active_challenges: availableRewards.activeChallenges,
@@ -1431,7 +1431,7 @@ export async function trackHighPointsNoActivity(
       days_since_spend: daysSinceLastSpend,
       suggested_redemption: suggestedRedemption,
       can_afford_suggested: suggestedRedemption
-        ? customer.pointsBalance >= suggestedRedemption.cost
+        ? Number(customer.pointsBalance) >= suggestedRedemption.cost
         : false,
       current_tier: customer.currentTier?.name || "None",
       potential_value_unused: customer.pointsBalance, // Could calculate redemption value
@@ -1702,7 +1702,7 @@ export async function trackStoreCreditSpent(
       order_total: spend.orderTotal,
       percent_of_order: spend.orderTotal ? Math.round((spend.amount / spend.orderTotal) * 100) : null,
       current_tier: customer.currentTier?.name || "None",
-      total_redeemed: customer.totalCashbackRedeemed,
+      total_redeemed: customer.totalCashbackEarned,
     },
   });
 }
@@ -1863,7 +1863,7 @@ export async function syncCustomerToKlaviyo(
   }
 
   const properties = buildProfileProperties(customer, shop, tiers);
-  const dataHash = hashProfileData(properties as Record<string, unknown>);
+  const dataHash = hashProfileData(properties as unknown as Record<string, unknown>);
 
   // Check if we need to sync (compare hash)
   const existingProfile = await db.klaviyoProfile.findUnique({
@@ -1883,7 +1883,7 @@ export async function syncCustomerToKlaviyo(
       lastName: customer.lastName || undefined,
       phone: customer.phone || undefined,
       externalId: customer.shopifyCustomerId,
-      properties: properties as Record<string, unknown>,
+      properties: properties as unknown as Record<string, unknown>,
     });
 
     // Update or create local record

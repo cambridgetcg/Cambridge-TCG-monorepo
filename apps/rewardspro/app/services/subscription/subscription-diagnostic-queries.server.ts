@@ -589,7 +589,7 @@ export class SubscriptionDiagnosticQueries {
     }
 
     // 2. Duplicate contract IDs
-    const duplicates = await db.$queryRaw<Array<{ count: bigint }>>`
+    const duplicates = await db.$queryRaw`
       SELECT COUNT(*) as count FROM (
         SELECT "shopifyContractId"
         FROM "TierSubscription"

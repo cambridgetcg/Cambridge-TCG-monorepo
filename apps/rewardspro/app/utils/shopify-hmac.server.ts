@@ -101,7 +101,7 @@ export function verifyWebhookHMAC(
     // Generate HMAC using SHA256
     const calculatedHmac = crypto
       .createHmac('sha256', secret)
-      .update(rawBody, 'utf8')
+      .update(typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8'), 'utf8')
       .digest('base64');
 
     // Compare HMACs

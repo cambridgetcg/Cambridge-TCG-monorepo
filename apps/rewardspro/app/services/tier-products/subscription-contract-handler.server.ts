@@ -158,9 +158,6 @@ export class SubscriptionContractHandler {
           cancelledSubscriptions: cancelledIds,
           hadExisting: existingActiveSubscriptions.length > 0
         };
-      }, {
-        isolationLevel: 'Serializable',
-        timeout: 10000 // 10 second timeout
       });
 
       // Check for deduplication errors

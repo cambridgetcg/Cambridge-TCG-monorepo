@@ -379,8 +379,8 @@ export default function AutomationManager() {
                   </Text>
                 </BlockStack>
                 <InlineStack gap="200" blockAlign="center">
-                  <Badge tone="success">{enabledCount} Active</Badge>
-                  <Badge>{totalCount - enabledCount} Paused</Badge>
+                  <Badge tone="success">{`${enabledCount} Active`}</Badge>
+                  <Badge>{`${totalCount - enabledCount} Paused`}</Badge>
                 </InlineStack>
               </InlineStack>
 

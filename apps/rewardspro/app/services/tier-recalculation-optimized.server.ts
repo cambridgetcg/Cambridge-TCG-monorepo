@@ -552,8 +552,6 @@ async function applyTierChanges(
             },
           });
         }
-      }, {
-        timeout: 30000, // 30 second timeout for batch
       });
 
       updated += batch.length;
@@ -638,8 +636,6 @@ async function updateUnchangedCustomerStates(
             },
           });
         }
-      }, {
-        timeout: 30000,
       });
     } catch (error) {
       updateLogger.error('State update batch failed', { batchStart: i, error });

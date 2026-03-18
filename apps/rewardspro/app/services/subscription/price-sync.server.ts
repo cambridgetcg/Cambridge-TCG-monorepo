@@ -5,7 +5,6 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
-import { SubscriptionPricingManager } from "./pricing-manager.server";
 
 interface SyncPriceInput {
   shop: string;
@@ -148,13 +147,19 @@ export class PriceSyncService {
             }
 
             // Track price history
-            await SubscriptionPricingManager.trackPriceHistory({
-              shop,
-              sellingPlanId: plan.shopifySellingPlanId,
-              oldPrice: plan.currentPrice || 0,
-              newPrice: discountedPrice,
-              changeReason: 'Product price sync',
-              changedBy: 'System',
+            await db.subscriptionPricingHistory.create({
+              data: {
+                shop,
+                sellingPlanId: plan.id,
+                billingInterval: plan.billingInterval,
+                previousPrice: plan.currentPrice || 0,
+                newPrice: discountedPrice,
+                previousDiscount: plan.discountValue || 0,
+                newDiscount: plan.discountValue || discountPercentage,
+                changeReason: 'Product price sync',
+                changedBy: 'System',
+                effectiveDate: new Date(),
+              },
             });
 
             // Update current price in database

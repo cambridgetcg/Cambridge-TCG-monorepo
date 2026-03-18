@@ -5,7 +5,8 @@
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
-import type { BillingInterval, Decimal } from "@prisma/client";
+import type { BillingInterval } from "@prisma/client";
+type Decimal = number | string | { toNumber(): number };
 import { GraphqlQueryError } from "@shopify/shopify-api";
 
 interface UpdatePricingInput {

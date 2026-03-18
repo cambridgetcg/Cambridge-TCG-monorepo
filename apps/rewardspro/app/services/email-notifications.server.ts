@@ -500,7 +500,7 @@ export async function sendPointsEarnedEmail(
       </div>
     `;
 
-    const result = await sendgrid.sendTransactionalEmail(shop, {
+    const result = await sendgrid.sendEmail(shop, {
       to: data.email,
       subject,
       html: htmlContent,
@@ -578,7 +578,7 @@ export async function sendPointsExpiringEmail(
       </div>
     `;
 
-    const result = await sendgrid.sendTransactionalEmail(shop, {
+    const result = await sendgrid.sendEmail(shop, {
       to: data.email,
       subject,
       html: htmlContent,
@@ -677,7 +677,7 @@ export async function sendPointsRedeemedEmail(
       </div>
     `;
 
-    const result = await sendgrid.sendTransactionalEmail(shop, {
+    const result = await sendgrid.sendEmail(shop, {
       to: data.email,
       subject,
       html: htmlContent,
@@ -757,7 +757,7 @@ export async function sendStreakMilestoneEmail(
       </div>
     `;
 
-    const result = await sendgrid.sendTransactionalEmail(shop, {
+    const result = await sendgrid.sendEmail(shop, {
       to: data.email,
       subject,
       html: htmlContent,
@@ -883,7 +883,7 @@ export async function sendTierExpirationWarningEmail(
       </div>
     `;
 
-    const result = await sendgrid.sendTransactionalEmail(shop, {
+    const result = await sendgrid.sendEmail(shop, {
       to: data.email,
       subject,
       html: htmlContent,
@@ -1014,7 +1014,7 @@ export async function sendTierExpiredEmail(
       </div>
     `;
 
-    const result = await sendgrid.sendTransactionalEmail(shop, {
+    const result = await sendgrid.sendEmail(shop, {
       to: data.email,
       subject,
       html: htmlContent,

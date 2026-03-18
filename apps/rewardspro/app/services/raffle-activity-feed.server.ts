@@ -212,7 +212,7 @@ export async function logActivity(
       activityType,
       customerId,
       displayName: finalDisplayName,
-      data: data as Record<string, unknown>,
+      data: data as unknown as Record<string, unknown>,
       isPublic: true,
       expiresAt,
     },

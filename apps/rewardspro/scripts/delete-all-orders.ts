@@ -37,7 +37,7 @@ async function deleteAllOrders(shop: string) {
       [param('shop', shop)]
     );
 
-    const orderCount = rows[0]?.count || 0;
+    const orderCount = (rows as any)[0]?.count || 0;
 
     if (orderCount === 0) {
       console.log('No orders found for this shop. Nothing to delete.');
@@ -64,7 +64,7 @@ async function deleteAllOrders(shop: string) {
       'DELETE FROM "OrderLineItem" WHERE "orderId" IN (SELECT id FROM "Order" WHERE shop = :shop)',
       [param('shop', shop)]
     );
-    console.log(`   Deleted ${lineItemsResult.numberOfRecordsUpdated || 0} line items`);
+    console.log(`   Deleted ${(lineItemsResult as any).numberOfRecordsUpdated || 0} line items`);
 
     // 2. Delete order refunds
     console.log('   Deleting order refunds...');
@@ -72,7 +72,7 @@ async function deleteAllOrders(shop: string) {
       'DELETE FROM "OrderRefund" WHERE "orderId" IN (SELECT id FROM "Order" WHERE shop = :shop)',
       [param('shop', shop)]
     );
-    console.log(`   Deleted ${refundsResult.numberOfRecordsUpdated || 0} refunds`);
+    console.log(`   Deleted ${(refundsResult as any).numberOfRecordsUpdated || 0} refunds`);
 
     // 3. Delete store credit ledger entries related to orders
     console.log('   Deleting store credit ledger entries...');
@@ -80,7 +80,7 @@ async function deleteAllOrders(shop: string) {
       'DELETE FROM "StoreCreditLedger" WHERE "orderId" IN (SELECT id FROM "Order" WHERE shop = :shop)',
       [param('shop', shop)]
     );
-    console.log(`   Deleted ${ledgerResult.numberOfRecordsUpdated || 0} ledger entries`);
+    console.log(`   Deleted ${(ledgerResult as any).numberOfRecordsUpdated || 0} ledger entries`);
 
     // 4. Finally, delete the orders themselves
     console.log('   Deleting orders...');
@@ -88,7 +88,7 @@ async function deleteAllOrders(shop: string) {
       'DELETE FROM "Order" WHERE shop = :shop',
       [param('shop', shop)]
     );
-    console.log(`   Deleted ${ordersResult.numberOfRecordsUpdated || 0} orders`);
+    console.log(`   Deleted ${(ordersResult as any).numberOfRecordsUpdated || 0} orders`);
 
     console.log('\nSuccessfully deleted all orders and related data!');
 

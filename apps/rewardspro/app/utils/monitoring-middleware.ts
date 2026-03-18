@@ -52,7 +52,7 @@ export function withMonitoring<T extends LoaderFunction | ActionFunction>(
             url.pathname,
             request.method,
             duration,
-            response.status || 200
+            ((response as any)?.status as number) || 200
           );
 
           // Add correlation ID to response

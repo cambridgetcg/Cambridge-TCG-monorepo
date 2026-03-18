@@ -176,8 +176,7 @@ export async function deliverPrize(
         discountCode: result.discountCode,
         storeCreditId: result.storeCreditId,
         pointsLedgerId: result.pointsLedgerId,
-        draftOrderId: result.draftOrderId,
-        draftOrderUrl: result.draftOrderUrl,
+        deliveryNotes: result.draftOrderId ? `Draft order: ${result.draftOrderId}` : undefined,
       });
 
       // Mark as notified (in a real implementation, this would send an email)
@@ -482,7 +481,7 @@ async function deliverProductPrize(
     let resolvedVariantId = variantId;
     if (!resolvedVariantId) {
       console.log(`${LOG_PREFIX} No variant specified, fetching first variant`);
-      resolvedVariantId = await getFirstVariantId(admin, productId);
+      resolvedVariantId = await getFirstVariantId(admin, productId) ?? undefined;
 
       if (!resolvedVariantId) {
         return {

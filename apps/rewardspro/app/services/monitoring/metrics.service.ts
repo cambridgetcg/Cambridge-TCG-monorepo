@@ -362,7 +362,7 @@ export class MetricsService {
     // Note: Aurora Data API doesn't have connection pools, but we can track query performance
 
     // Get recent query performance
-    const recentQueries = await db.$queryRaw<Array<{ query: string; duration: number }>>`
+    const recentQueries = await db.$queryRaw`
       SELECT
         query,
         total_time as duration

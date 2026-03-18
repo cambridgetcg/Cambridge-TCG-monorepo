@@ -389,9 +389,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             results.push(itemResult);
 
             // Check if this was a tier purchase that needs resolution
-            if (itemResult?.needsResolution && itemResult?.customerId) {
+            if ((itemResult as any)?.needsResolution && (itemResult as any)?.customerId) {
               tierPurchaseMade = true;
-              tierPurchaseCustomerId = itemResult.customerId;
+              tierPurchaseCustomerId = (itemResult as any).customerId;
             }
           } catch (e) {
             console.error(`[OrderPaid] Error processing line item ${lineItem.id}:`, e);
@@ -407,24 +407,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log('========================================');
             console.log(`[TIER RESOLUTION] Customer ID: ${tierPurchaseCustomerId}`);
 
-            const tierPurchaseResults = results.filter(r => r?.type === 'one_time_tier' && r?.needsResolution);
+            const tierPurchaseResults = results.filter(r => (r as any)?.type === 'one_time_tier' && (r as any)?.needsResolution);
             console.log(`[TIER RESOLUTION] Number of tier purchases to resolve: ${tierPurchaseResults.length}`);
 
             for (const purchaseResult of tierPurchaseResults) {
+              const pr = purchaseResult as any;
               console.log('[TIER RESOLUTION] Processing purchase:');
-              console.log(`  - Customer ID: ${purchaseResult.customerId}`);
-              console.log(`  - Tier ID: ${purchaseResult.tierId}`);
-              console.log(`  - Purchase ID: ${purchaseResult.tierPurchaseId}`);
+              console.log(`  - Customer ID: ${pr.customerId}`);
+              console.log(`  - Tier ID: ${pr.tierId}`);
+              console.log(`  - Purchase ID: ${pr.tierPurchaseId}`);
               console.log(`  - Order ID: ${order.id}`);
               console.log('[TIER RESOLUTION] → Calling updateCustomerToEffectiveTier()...');
 
               const resolutionResult = await updateCustomerToEffectiveTier(
                 shop!,
-                purchaseResult.customerId,
+                pr.customerId,
                 {
                   triggeredBy: 'TIER_PURCHASE',
                   orderId: order.id?.toString(),
-                  purchaseId: purchaseResult.tierPurchaseId
+                  purchaseId: pr.tierPurchaseId
                 }
               );
 
@@ -477,9 +478,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 // Calculate order amount for challenge progress
                 const orderAmount = parseFloat(order.subtotal_price || order.total_price || '0');
                 const orderData = {
-                  id: order.id.toString(),
-                  name: order.name,
-                  amount: orderAmount,
+                  orderId: order.id.toString(),
+                  orderNumber: order.name,
+                  totalAmount: orderAmount,
+                  customerId: dbCustomerForChallenge.id,
                   lineItems: (order.line_items || []).map((item: any) => ({
                     productId: item.product_id?.toString(),
                     variantId: item.variant_id?.toString(),
@@ -499,7 +501,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     challengeResults.map(r => ({
                       challengeId: r.challengeId,
                       newProgress: r.newProgress,
-                      completed: r.completed,
+                      isCompleted: r.isCompleted,
                     }))
                   );
                 }

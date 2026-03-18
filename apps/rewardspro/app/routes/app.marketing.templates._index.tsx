@@ -111,7 +111,7 @@ export default function EmailTemplates() {
     );
   }
 
-  const rows = templates.map((template) => [
+  const rows = templates.map((template: any) => [
     <BlockStack gap="100" key={template.id}>
       <Text as="p" fontWeight="semibold">
         {template.name}

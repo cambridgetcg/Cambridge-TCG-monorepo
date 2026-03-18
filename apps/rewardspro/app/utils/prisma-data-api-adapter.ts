@@ -72,7 +72,7 @@ export class DataAPIModelProxy<T = any> {
                   params.push(AuroraDataAPI.buildParameter(paramName, orValue.lt));
                 } else if ('contains' in orValue) {
                   const searchVal = orValue.contains;
-                  const searchMode = orValue.mode || 'sensitive';
+                  const searchMode = (orValue as any).mode || 'sensitive';
                   if (searchMode === 'insensitive') {
                     orConditions.push(`LOWER("${orKey}") LIKE LOWER(:${paramName})`);
                   } else {
@@ -212,7 +212,7 @@ export class DataAPIModelProxy<T = any> {
       const orderClauses = Object.entries(args.orderBy).map(
         ([field, direction]) => {
           // Handle both string and object notation for orderBy
-          const dir = typeof direction === 'string' ? direction : (direction?.sort || 'asc');
+          const dir = typeof direction === 'string' ? direction : ((direction as any)?.sort || 'asc');
           return `"${field}" ${dir.toUpperCase()}`;
         }
       );
