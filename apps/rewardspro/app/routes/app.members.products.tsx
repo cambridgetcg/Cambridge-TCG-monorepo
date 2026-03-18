@@ -16,20 +16,17 @@ import {
   Badge,
   EmptyState,
   Box,
-  DataTable,
   Modal,
   FormLayout,
   Checkbox,
   Icon,
   Divider,
   SkeletonBodyText,
-  Thumbnail,
   Toast,
   Frame,
   Spinner,
 } from "@shopify/polaris";
 import {
-  ProductIcon,
   PlusIcon,
   DeleteIcon,
   EditIcon,
@@ -37,24 +34,21 @@ import {
   AlertTriangleIcon,
   CalendarIcon,
   UndoIcon,
-  ClockIcon,
   ArchiveIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
-import { TierBadge } from "../components/TierBadge";
 import { getTierStyle } from "../utils/tier-styles";
 import { SellingPlanManagerEnhanced } from "../services/subscription/selling-plan-manager-enhanced.server";
-import { TierProductManagerEnhanced } from "../services/tier-products/tier-product-manager-enhanced.server";
 import { ProductCreatorV2 } from "../services/tier-products/product-creator-v2.server";
 import { PriceSyncService } from "../services/subscription/price-sync.server";
 import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
-import { generateTierSKU as generateSKUFromUtils, isValidSKU } from "../utils/sku-generator";
+import { generateTierSKU as generateSKUFromUtils } from "../utils/sku-generator";
 import { extractNumericId, assertShopifyGid } from "../utils/shopify-id-normalizer";
 import { getEntitlements } from "../services/entitlements.server";
-import { FeatureGate, LockedFeature } from "../components/FeatureGate";
+import { LockedFeature } from "../components/FeatureGate";
 import { useToast } from "../hooks/useToast";
 // Note: TierEmptyStateV1B moved to app.members.tiers.tsx
 import {
@@ -62,14 +56,11 @@ import {
   deleteTierProduct,
   restoreTierProduct,
   permanentlyDeleteTierProduct,
-  type DeletionValidationResult,
   type DeletionBlocker,
   type DeletionWarning,
-  type RestoreResult,
 } from "../services/tier-products/tier-product-deletion.server";
 import {
   getTierProductQuickStats,
-  type TierProductSummary,
 } from "../services/tier-product-analytics.server";
 
 // ============================================
@@ -160,20 +151,6 @@ function formatDuration(duration: string): string {
     'LIFETIME': 'Lifetime'
   };
   return durations[duration] || duration;
-}
-
-// Calculate subscription interval for Shopify
-function getSubscriptionInterval(duration: string): { interval: string; intervalCount: number } {
-  switch (duration) {
-    case 'MONTHLY':
-      return { interval: 'MONTH', intervalCount: 1 };
-    case 'ANNUAL':
-      return { interval: 'YEAR', intervalCount: 1 };
-    case 'LIFETIME':
-      return { interval: 'YEAR', intervalCount: 99 }; // Effectively lifetime
-    default:
-      return { interval: 'MONTH', intervalCount: 1 };
-  }
 }
 
 // ============================================
@@ -708,10 +685,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 }
               });
 
-              const updateResult = await variantUpdate.json();
+              const updateResult = await variantUpdate.json() as { data: any; errors?: Array<{ message: string }> };
 
               // Handle both userErrors and GraphQL errors as per best practice
-              if (updateResult.errors?.length > 0) {
+              if (updateResult.errors && updateResult.errors.length > 0) {
                 const errors = updateResult.errors.map((e: any) => e.message).join(', ');
                 throw new Error(`GraphQL Errors: ${errors}`);
               }
@@ -1805,7 +1782,7 @@ export default function TierProducts() {
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<string>("MONTHLY");
   const [enableSubscription, setEnableSubscription] = useState(false);
-  const [subscriptionDiscountPercent, setSubscriptionDiscountPercent] = useState("10");
+  const [, setSubscriptionDiscountPercent] = useState("10");
   const [subscriptionOptions, setSubscriptionOptions] = useState({
     enableMonthly: true,
     enableAnnual: true,

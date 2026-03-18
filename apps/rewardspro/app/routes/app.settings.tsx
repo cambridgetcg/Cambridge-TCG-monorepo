@@ -1,8 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useFetcher, useNavigation, useSearchParams } from "@remix-run/react";
-import { StaggerChildren, PageLoader, usePageAnimation } from "~/components/PageAnimation";
-export { ErrorBoundary } from "../components/ErrorBoundary";
+import { useLoaderData, useFetcher, useNavigation, useSearchParams, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -25,17 +23,14 @@ import {
   Tabs,
   Toast,
   Frame,
-  ProgressBar,
-  Spinner,
 } from "@shopify/polaris";
-import { RefreshIcon, CreditCardIcon } from "~/utils/polaris-icons";
+import { RefreshIcon } from "~/utils/polaris-icons";
 import { SubscriptionCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { invalidateShopSettings } from "../services/shop-data-provider.server";
-import { useNavigate } from "@remix-run/react";
 import { getCreditSyncStats } from "../services/credit-sync-job.server";
 import { getCustomerSyncStats } from "../services/customer-sync-job.server";
 import { getOrderSyncStats } from "../services/order-sync-job.server";
@@ -46,7 +41,8 @@ import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { DEMO_VALUES } from "~/utils/angel-numbers";
-import { SyncActionCard, SyncStatusBanner } from "~/components/SyncActionCard";
+import { SyncActionCard } from "~/components/SyncActionCard";
+export { ErrorBoundary } from "../components/ErrorBoundary";
 
 // ============= TYPES =============
 type Currency = 
@@ -827,8 +823,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Handle order sync
     if (intent === "sync-orders") {
       const syncRange = formData.get("syncRange") as string;
-      const reconcile = formData.get("reconcile") === "true";
-      const updateMetrics = formData.get("updateMetrics") === "true";
 
       try {
         // Calculate date range
@@ -1093,7 +1087,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         `;
         const response = await admin.graphql(shopQuery);
-        const shopData = await response.json();
+        const shopData = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
         if (shopData.errors) {
           console.error("[Settings Action] GraphQL errors fetching currency:", shopData.errors);
@@ -1324,8 +1318,6 @@ export default function SettingsPage() {
     activeSubscription,
     subscriptionInfo, // Live subscription data from GraphQL (most accurate)
     monthlyOrderUsage,
-    currentMonth,
-    daysRemaining
   } = useLoaderData<LoaderData>();
   const fetcher = useFetcher();
   const currencyFetcher = useFetcher();
@@ -1939,12 +1931,6 @@ export default function SettingsPage() {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "Never";
     return new Date(dateStr).toLocaleDateString();
-  };
-
-  // Format date range helper
-  const formatDateRange = (oldest: string | null, newest: string | null) => {
-    if (!oldest || !newest) return "No orders";
-    return `${formatDate(oldest)} - ${formatDate(newest)}`;
   };
 
   // Show success/error messages

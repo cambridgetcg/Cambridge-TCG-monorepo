@@ -328,7 +328,7 @@ export async function searchProducts(
       },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error(`${LOG_PREFIX} GraphQL errors:`, data.errors);
@@ -367,7 +367,7 @@ export async function getProductById(
       variables: { id: productId },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error(`${LOG_PREFIX} GraphQL errors:`, data.errors);
@@ -525,7 +525,7 @@ export async function listProducts(
       },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error(`${LOG_PREFIX} GraphQL errors:`, data.errors);
@@ -564,7 +564,7 @@ export async function listCollections(
       variables: { first: Math.min(first, 100) },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error(`${LOG_PREFIX} GraphQL errors:`, data.errors);
@@ -611,7 +611,7 @@ export async function listCollectionProducts(
       },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error(`${LOG_PREFIX} GraphQL errors:`, data.errors);

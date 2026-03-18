@@ -174,7 +174,7 @@ export async function getSubscriptionDetails(
 
   try {
     const response = await admin.graphql(query);
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error("[Subscription Details] GraphQL errors:", data.errors);
@@ -342,7 +342,7 @@ export async function getSubscriptionByChargeId(
       },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error('[Subscription Details] GraphQL errors:', data.errors);

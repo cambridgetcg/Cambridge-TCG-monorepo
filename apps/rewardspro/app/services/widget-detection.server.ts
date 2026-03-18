@@ -97,7 +97,7 @@ async function getMainThemeId(admin: AdminApiContext): Promise<{ id: string; nam
 
   try {
     const response = await admin.graphql(query);
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error("[Widget Detection] GraphQL errors getting themes:", data.errors);
@@ -147,7 +147,7 @@ async function getThemeSettings(admin: AdminApiContext, themeId: string): Promis
     const response = await admin.graphql(query, {
       variables: { themeId },
     });
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     if (data.errors) {
       console.error("[Widget Detection] GraphQL errors getting theme settings:", data.errors);
@@ -230,7 +230,7 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
 
     // Also check sections for app blocks (some themes use section-based blocks)
     const sections = current.sections || {};
-    for (const [sectionId, sectionData] of Object.entries(sections)) {
+    for (const [, sectionData] of Object.entries(sections)) {
       const section = sectionData as any;
 
       if (section.type && typeof section.type === 'string') {
@@ -247,7 +247,7 @@ function checkAppEmbedEnabled(settingsData: any): { isEnabled: boolean; blockTyp
 
       // Check blocks within sections
       const sectionBlocks = section.blocks || {};
-      for (const [blockId, blockData] of Object.entries(sectionBlocks)) {
+      for (const [, blockData] of Object.entries(sectionBlocks)) {
         const block = blockData as any;
 
         if (block.type && typeof block.type === 'string') {

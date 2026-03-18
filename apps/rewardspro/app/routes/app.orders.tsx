@@ -550,7 +550,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             },
           });
 
-          const responseJson = await response.json();
+          const responseJson = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
           if (responseJson.errors) {
             console.error('GraphQL errors:', responseJson.errors);

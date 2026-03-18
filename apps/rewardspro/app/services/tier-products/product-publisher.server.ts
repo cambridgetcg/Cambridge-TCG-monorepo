@@ -73,7 +73,7 @@ export class ProductPublisher {
       `;
 
       const response = await admin.graphql(query);
-      const data = await response.json();
+      const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
       if (data.errors) {
         console.error(`${this.SERVICE_PREFIX} Error fetching publications:`, data.errors);
@@ -122,7 +122,7 @@ export class ProductPublisher {
         }
       });
 
-      const publishData = await publishResponse.json();
+      const publishData = await publishResponse.json() as { data: any; errors?: Array<{ message: string }> };
 
       if (publishData.errors) {
         console.error(`${this.SERVICE_PREFIX} GraphQL errors:`, publishData.errors);
@@ -184,7 +184,7 @@ export class ProductPublisher {
         }
       });
 
-      const data = await response.json();
+      const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
       if (data.errors) {
         console.error(`${this.SERVICE_PREFIX} GraphQL errors in productSet:`, data.errors);
@@ -250,7 +250,7 @@ export class ProductPublisher {
         }
       });
 
-      const data = await response.json();
+      const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
       if (data.errors) {
         console.error(`${this.SERVICE_PREFIX} GraphQL errors in resource publication:`, data.errors);

@@ -150,7 +150,7 @@ export async function createRaffleDraftOrder(
       variables: { input: draftOrderInput },
     });
 
-    const data = await response.json();
+    const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
     // Check for user errors
     if (data.data?.draftOrderCreate?.userErrors?.length > 0) {

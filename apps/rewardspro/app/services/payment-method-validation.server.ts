@@ -145,36 +145,6 @@ const VALIDATE_PAYMENT_METHOD_QUERY = `#graphql
   }
 `;
 
-// For creating subscription contracts, we need to check if payment method can be tokenized
-const PAYMENT_METHOD_TOKEN_QUERY = `#graphql
-  query GetPaymentMethodForSubscription($customerId: ID!) {
-    customer(id: $customerId) {
-      id
-      
-      # Get payment methods that have been used in subscription contracts
-      subscriptionContracts(first: 5) {
-        edges {
-          node {
-            id
-            status
-            customerPaymentMethod {
-              id
-              instrument {
-                __typename
-                ... on CustomerCreditCard {
-                  brand
-                  lastDigits
-                  isExpired
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
 // ============================================================================
 // SERVICE CLASS
 // ============================================================================
@@ -197,7 +167,7 @@ export class PaymentMethodValidationService {
         variables: { customerId },
       });
 
-      const data = await response.json();
+      const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
       if (data.errors) {
         console.error('[PaymentValidation] GraphQL errors:', data.errors);
@@ -235,7 +205,7 @@ export class PaymentMethodValidationService {
         variables: { paymentMethodId },
       });
 
-      const data = await response.json();
+      const data = await response.json() as { data: any; errors?: Array<{ message: string }> };
 
       if (data.errors) {
         return {
