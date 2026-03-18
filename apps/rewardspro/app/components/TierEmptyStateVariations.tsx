@@ -80,7 +80,7 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
               <Text variant="headingXl" as="h2">
                 Reward Your Best Customers
               </Text>
-              <Text variant="bodyLg" tone="subdued">
+              <Text variant="bodyLg" as="span" tone="subdued">
                 Create a tiered loyalty program that keeps customers coming back
               </Text>
             </BlockStack>
@@ -97,10 +97,10 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
                     <Icon source={benefit.icon} tone={benefit.iconColor} />
                   </Box>
                   <BlockStack gap="050">
-                    <Text variant="bodyMd" fontWeight="semibold" as="span">
+                    <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">
                       {benefit.title}
                     </Text>
-                    <Text variant="bodySm" tone="subdued" as="span">
+                    <Text variant="bodySm" as="span" tone="subdued" as="span">
                       {benefit.description}
                     </Text>
                   </BlockStack>
@@ -136,7 +136,7 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
               >
                 <InlineStack gap="200" blockAlign="center">
                   <Icon source={StarIcon} tone="base" />
-                  <Text variant="bodyMd" fontWeight="semibold" as="span">
+                  <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">
                     {tier.name}
                   </Text>
                 </InlineStack>
@@ -145,7 +145,7 @@ export function TierEmptyStateV1B({ onCreateTier }: TierEmptyStateProps) {
                 </Text>
               </div>
             ))}
-            <Text variant="bodySm" tone="subdued" alignment="center">
+            <Text variant="bodySm" as="span" tone="subdued" alignment="center">
               Example tiers
             </Text>
           </BlockStack>

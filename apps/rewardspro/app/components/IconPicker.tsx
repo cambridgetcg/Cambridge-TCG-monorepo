@@ -35,7 +35,6 @@ import {
   getVectorIcon,
   isValidHexColor,
   DEFAULT_ICON_CONFIG,
-  type VectorIcon,
 } from "../utils/points-icon-library";
 import type { CurrencyIconType } from "../services/points-config.server";
 
@@ -157,7 +156,7 @@ function QuickSelectTab({
 
   return (
     <BlockStack gap="400">
-      <Text variant="headingMd" as="h3">
+      <Text variant="headingMd" as="h2">
         Popular Icons
       </Text>
       <div
@@ -215,7 +214,7 @@ function QuickSelectTab({
               >
                 <path d={icon.path} />
               </svg>
-              <Text variant="bodySm" tone={isSelected ? undefined : "subdued"}>
+              <Text variant="bodySm" as="span" tone={isSelected ? undefined : "subdued"}>
                 {icon.name}
               </Text>
             </button>
@@ -309,7 +308,7 @@ function UploadTab({
         ) : value.iconType === "upload" && value.iconUrl ? (
           <BlockStack gap="200" inlineAlign="center">
             <Thumbnail source={value.iconUrl} alt="Uploaded icon" size="large" />
-            <Text variant="bodySm" tone="subdued">
+            <Text variant="bodySm" as="span" tone="subdued">
               Drop a new file to replace
             </Text>
           </BlockStack>
@@ -319,10 +318,10 @@ function UploadTab({
       </DropZone>
 
       <BlockStack gap="200">
-        <Text variant="headingSm" as="h4">
+        <Text variant="headingSm" as="h3">
           Requirements
         </Text>
-        <Text variant="bodySm" tone="subdued">
+        <Text variant="bodySm" as="span" tone="subdued">
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             <li>SVG, PNG, JPEG, GIF, or WebP format</li>
             <li>Maximum file size: 1MB</li>
@@ -390,7 +389,7 @@ function IconLibraryTab({
       {/* Color picker */}
       <Card>
         <BlockStack gap="300">
-          <Text variant="headingSm" as="h4">
+          <Text variant="headingSm" as="h3">
             Icon Color
           </Text>
           <InlineStack gap="200" align="start" blockAlign="center">
@@ -499,7 +498,7 @@ function IconLibraryTab({
       {/* Selected category icons */}
       <Card>
         <BlockStack gap="300">
-          <Text variant="headingSm" as="h4">
+          <Text variant="headingSm" as="h3">
             {VECTOR_ICON_CATEGORIES[selectedCategory].description}
           </Text>
           <div
@@ -548,7 +547,7 @@ function IconLibraryTab({
                   >
                     <path d={icon.path} />
                   </svg>
-                  <Text variant="bodySm" tone={isSelected ? undefined : "subdued"}>
+                  <Text variant="bodySm" as="span" tone={isSelected ? undefined : "subdued"}>
                     {icon.name}
                   </Text>
                 </button>

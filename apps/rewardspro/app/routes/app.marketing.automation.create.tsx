@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSubmit, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
 import { useState, useCallback } from "react";
 import {
   Page,
@@ -14,9 +14,7 @@ import {
   Select,
   TextField,
   Divider,
-  Box,
   InlineGrid,
-  ChoiceList,
   RadioButton,
   Banner,
   Checkbox,
@@ -217,7 +215,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 export default function CreateAutomation() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<{ error?: string }>();
-  const navigate = useNavigate();
   const submit = useSubmit();
 
   // Step state
@@ -328,13 +325,13 @@ export default function CreateAutomation() {
                 <Card background={currentStep === 1 ? "bg-surface-brand-subdued" : currentStep > 1 ? "bg-surface-success-subdued" : "bg-surface"}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodyMd" fontWeight="semibold">Step 1</Text>
+                      <Text variant="bodyMd" as="span" fontWeight="semibold">Step 1</Text>
                       <Badge tone={currentStep > 1 ? "success" : currentStep === 1 ? "info" : undefined}>
                         {currentStep > 1 ? "Done" : currentStep === 1 ? "Active" : "Pending"}
                       </Badge>
                     </InlineStack>
-                    <Text variant="headingSm">Setup</Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="headingSm" as="h3">Setup</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">
                       Basic information
                     </Text>
                   </BlockStack>
@@ -343,13 +340,13 @@ export default function CreateAutomation() {
                 <Card background={currentStep === 2 ? "bg-surface-brand-subdued" : currentStep > 2 ? "bg-surface-success-subdued" : "bg-surface"}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodyMd" fontWeight="semibold" tone={currentStep < 2 ? "subdued" : undefined}>Step 2</Text>
+                      <Text variant="bodyMd" as="span" fontWeight="semibold" tone={currentStep < 2 ? "subdued" : undefined}>Step 2</Text>
                       <Badge tone={currentStep > 2 ? "success" : currentStep === 2 ? "info" : undefined}>
                         {currentStep > 2 ? "Done" : currentStep === 2 ? "Active" : "Pending"}
                       </Badge>
                     </InlineStack>
-                    <Text variant="headingSm" tone={currentStep < 2 ? "subdued" : undefined}>Trigger</Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="headingSm" as="h3" tone={currentStep < 2 ? "subdued" : undefined}>Trigger</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">
                       When to run
                     </Text>
                   </BlockStack>
@@ -358,13 +355,13 @@ export default function CreateAutomation() {
                 <Card background={currentStep === 3 ? "bg-surface-brand-subdued" : currentStep > 3 ? "bg-surface-success-subdued" : "bg-surface"}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodyMd" fontWeight="semibold" tone={currentStep < 3 ? "subdued" : undefined}>Step 3</Text>
+                      <Text variant="bodyMd" as="span" fontWeight="semibold" tone={currentStep < 3 ? "subdued" : undefined}>Step 3</Text>
                       <Badge tone={currentStep > 3 ? "success" : currentStep === 3 ? "info" : undefined}>
                         {currentStep > 3 ? "Done" : currentStep === 3 ? "Active" : "Pending"}
                       </Badge>
                     </InlineStack>
-                    <Text variant="headingSm" tone={currentStep < 3 ? "subdued" : undefined}>Action</Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="headingSm" as="h3" tone={currentStep < 3 ? "subdued" : undefined}>Action</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">
                       What to do
                     </Text>
                   </BlockStack>
@@ -373,13 +370,13 @@ export default function CreateAutomation() {
                 <Card background={currentStep === 4 ? "bg-surface-brand-subdued" : "bg-surface"}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodyMd" fontWeight="semibold" tone={currentStep < 4 ? "subdued" : undefined}>Step 4</Text>
+                      <Text variant="bodyMd" as="span" fontWeight="semibold" tone={currentStep < 4 ? "subdued" : undefined}>Step 4</Text>
                       <Badge tone={currentStep === 4 ? "info" : undefined}>
                         {currentStep === 4 ? "Active" : "Pending"}
                       </Badge>
                     </InlineStack>
-                    <Text variant="headingSm" tone={currentStep < 4 ? "subdued" : undefined}>Review</Text>
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="headingSm" as="h3" tone={currentStep < 4 ? "subdued" : undefined}>Review</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">
                       Confirm & launch
                     </Text>
                   </BlockStack>
@@ -397,11 +394,11 @@ export default function CreateAutomation() {
                         <Text variant="headingLg" as="h2">
                           Basic Information
                         </Text>
-                        <Text variant="bodyMd" tone="subdued">
+                        <Text variant="bodyMd" as="span" tone="subdued">
                           Step 1 of 4
                         </Text>
                       </InlineStack>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text variant="bodyMd" as="span" tone="subdued">
                         Give your automation a name and description
                       </Text>
                     </BlockStack>
@@ -446,11 +443,11 @@ export default function CreateAutomation() {
                         <Text variant="headingLg" as="h2">
                           Select Trigger Event
                         </Text>
-                        <Text variant="bodyMd" tone="subdued">
+                        <Text variant="bodyMd" as="span" tone="subdued">
                           Step 2 of 4
                         </Text>
                       </InlineStack>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text variant="bodyMd" as="span" tone="subdued">
                         Choose the event that will activate this automation workflow
                       </Text>
                     </BlockStack>
@@ -458,7 +455,7 @@ export default function CreateAutomation() {
                     <Divider />
 
                     <BlockStack gap="400">
-                      <Text variant="headingMd" as="h3">
+                      <Text variant="headingMd" as="h2">
                         Trigger Type
                       </Text>
 
@@ -473,10 +470,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("tier_change")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Tier Change
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when a customer moves to a new tier
                                   </Text>
                                 </BlockStack>
@@ -495,10 +492,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("purchase")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Purchase Made
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered after a customer completes a purchase
                                   </Text>
                                 </BlockStack>
@@ -517,10 +514,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("birthday")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Customer Birthday
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered on the customer's birthday
                                   </Text>
                                 </BlockStack>
@@ -539,10 +536,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("inactive")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Inactive Customer
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when a customer hasn't purchased in 30+ days
                                   </Text>
                                 </BlockStack>
@@ -561,10 +558,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("cashback_earned")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Cashback Earned
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when a customer earns cashback
                                   </Text>
                                 </BlockStack>
@@ -583,10 +580,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("points_milestone")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Points Milestone
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer reaches specific points
                                   </Text>
                                 </BlockStack>
@@ -597,7 +594,7 @@ export default function CreateAutomation() {
                       </InlineGrid>
 
                       <Divider />
-                      <Text variant="headingSm" fontWeight="semibold">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
                         Rewards Engagement Triggers
                       </Text>
 
@@ -612,10 +609,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("raffle_entered")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Raffle Entry
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer enters a raffle
                                   </Text>
                                 </BlockStack>
@@ -634,10 +631,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("raffle_won")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Raffle Win
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer wins a raffle prize
                                   </Text>
                                 </BlockStack>
@@ -656,10 +653,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("raffle_ending")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Raffle Ending Soon
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Reminder when a raffle is about to close
                                   </Text>
                                 </BlockStack>
@@ -678,10 +675,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("mystery_box_opened")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Mystery Box Opened
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer opens a mystery box
                                   </Text>
                                 </BlockStack>
@@ -700,10 +697,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("mystery_box_won")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Mystery Box Prize
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer wins a prize
                                   </Text>
                                 </BlockStack>
@@ -722,10 +719,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("rewards_dormant")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Rewards Dormant
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Customer hasn't used rewards in a while
                                   </Text>
                                 </BlockStack>
@@ -736,7 +733,7 @@ export default function CreateAutomation() {
                       </InlineGrid>
 
                       <Divider />
-                      <Text variant="headingSm" fontWeight="semibold">
+                      <Text variant="headingSm" as="h3" fontWeight="semibold">
                         Gift Card & Store Credit Triggers
                       </Text>
 
@@ -751,10 +748,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("gift_card_purchased")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Gift Card Purchased
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer buys a gift card
                                   </Text>
                                 </BlockStack>
@@ -773,10 +770,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("gift_card_received")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Gift Card Received
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer receives a gift card
                                   </Text>
                                 </BlockStack>
@@ -795,10 +792,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("store_credit_earned")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Store Credit Earned
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Triggered when customer earns store credit
                                   </Text>
                                 </BlockStack>
@@ -817,10 +814,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("store_credit_converted")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Credit Converted
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Store credit converted to gift card
                                   </Text>
                                 </BlockStack>
@@ -839,10 +836,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("store_credit_milestone")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Store Credit Milestone
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Customer reaches credit balance milestone
                                   </Text>
                                 </BlockStack>
@@ -861,10 +858,10 @@ export default function CreateAutomation() {
                                   onChange={() => setTrigger("store_credit_balance_reminder")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Balance Reminder
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Remind about unused store credit
                                   </Text>
                                 </BlockStack>
@@ -876,10 +873,10 @@ export default function CreateAutomation() {
 
                       <Divider />
 
-                      <Text variant="headingMd" as="h3">
+                      <Text variant="headingMd" as="h2">
                         Conditions (Optional)
                       </Text>
-                      <Text variant="bodySm" tone="subdued">
+                      <Text variant="bodySm" as="span" tone="subdued">
                         Add filters to target specific customers
                       </Text>
 
@@ -924,11 +921,11 @@ export default function CreateAutomation() {
                         <Text variant="headingLg" as="h2">
                           Configure Action
                         </Text>
-                        <Text variant="bodyMd" tone="subdued">
+                        <Text variant="bodyMd" as="span" tone="subdued">
                           Step 3 of 4
                         </Text>
                       </InlineStack>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text variant="bodyMd" as="span" tone="subdued">
                         Choose what happens when this automation is triggered
                       </Text>
                     </BlockStack>
@@ -936,7 +933,7 @@ export default function CreateAutomation() {
                     <Divider />
 
                     <BlockStack gap="400">
-                      <Text variant="headingMd" as="h3">
+                      <Text variant="headingMd" as="h2">
                         Action Type
                       </Text>
 
@@ -951,10 +948,10 @@ export default function CreateAutomation() {
                                   onChange={() => setAction("send_email")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Send Email
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Send a templated email to the customer
                                   </Text>
                                 </BlockStack>
@@ -973,10 +970,10 @@ export default function CreateAutomation() {
                                   onChange={() => setAction("add_tag")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Add Customer Tag
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Add a tag to the customer in Shopify
                                   </Text>
                                 </BlockStack>
@@ -995,10 +992,10 @@ export default function CreateAutomation() {
                                   onChange={() => setAction("award_points")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Award Bonus Points
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Give the customer bonus loyalty points
                                   </Text>
                                 </BlockStack>
@@ -1017,10 +1014,10 @@ export default function CreateAutomation() {
                                   onChange={() => setAction("create_discount")}
                                 />
                                 <BlockStack gap="200">
-                                  <Text variant="headingSm" fontWeight="semibold">
+                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
                                     Create Discount Code
                                   </Text>
-                                  <Text variant="bodySm" tone="subdued">
+                                  <Text variant="bodySm" as="span" tone="subdued">
                                     Generate a unique discount code for the customer
                                   </Text>
                                 </BlockStack>
@@ -1034,7 +1031,7 @@ export default function CreateAutomation() {
 
                       {action === "send_email" && (
                         <BlockStack gap="400">
-                          <Text variant="headingMd" as="h3">
+                          <Text variant="headingMd" as="h2">
                             Email Settings
                           </Text>
 
@@ -1060,7 +1057,7 @@ export default function CreateAutomation() {
 
                       <Divider />
 
-                      <Text variant="headingMd" as="h3">
+                      <Text variant="headingMd" as="h2">
                         Timing & Delivery
                       </Text>
 
@@ -1105,11 +1102,11 @@ export default function CreateAutomation() {
                         <Text variant="headingLg" as="h2">
                           Review & Activate
                         </Text>
-                        <Text variant="bodyMd" tone="subdued">
+                        <Text variant="bodyMd" as="span" tone="subdued">
                           Step 4 of 4
                         </Text>
                       </InlineStack>
-                      <Text variant="bodyMd" tone="subdued">
+                      <Text variant="bodyMd" as="span" tone="subdued">
                         Review your automation settings before activating
                       </Text>
                     </BlockStack>
@@ -1119,19 +1116,19 @@ export default function CreateAutomation() {
                     <BlockStack gap="400">
                       <Card>
                         <BlockStack gap="300">
-                          <Text variant="headingMd" as="h3">
+                          <Text variant="headingMd" as="h2">
                             Basic Information
                           </Text>
                           <InlineStack gap="200" blockAlign="center">
-                            <Text variant="bodyMd" tone="subdued">Name:</Text>
-                            <Text variant="bodyMd" fontWeight="semibold">
+                            <Text variant="bodyMd" as="span" tone="subdued">Name:</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold">
                               {automationName || "Untitled Automation"}
                             </Text>
                           </InlineStack>
                           {description && (
                             <InlineStack gap="200" blockAlign="start">
-                              <Text variant="bodyMd" tone="subdued">Description:</Text>
-                              <Text variant="bodyMd">{description}</Text>
+                              <Text variant="bodyMd" as="span" tone="subdued">Description:</Text>
+                              <Text variant="bodyMd" as="span">{description}</Text>
                             </InlineStack>
                           )}
                         </BlockStack>
@@ -1139,12 +1136,12 @@ export default function CreateAutomation() {
 
                       <Card>
                         <BlockStack gap="300">
-                          <Text variant="headingMd" as="h3">
+                          <Text variant="headingMd" as="h2">
                             Trigger
                           </Text>
                           <InlineStack gap="200" blockAlign="center">
-                            <Text variant="bodyMd" tone="subdued">Event:</Text>
-                            <Text variant="bodyMd" fontWeight="semibold">
+                            <Text variant="bodyMd" as="span" tone="subdued">Event:</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold">
                               {trigger === "tier_change" && "Tier Change"}
                               {trigger === "purchase" && "Purchase Made"}
                               {trigger === "birthday" && "Customer Birthday"}
@@ -1167,7 +1164,7 @@ export default function CreateAutomation() {
                           </InlineStack>
                           {tierFilter && (
                             <InlineStack gap="200" blockAlign="center">
-                              <Text variant="bodyMd" tone="subdued">Tier Filter:</Text>
+                              <Text variant="bodyMd" as="span" tone="subdued">Tier Filter:</Text>
                               <Badge>
                                 {data.tiers.find(t => t.id === tierFilter)?.name || tierFilter}
                               </Badge>
@@ -1175,8 +1172,8 @@ export default function CreateAutomation() {
                           )}
                           {minSpend && (
                             <InlineStack gap="200" blockAlign="center">
-                              <Text variant="bodyMd" tone="subdued">Minimum Spend:</Text>
-                              <Text variant="bodyMd" fontWeight="semibold">${minSpend}</Text>
+                              <Text variant="bodyMd" as="span" tone="subdued">Minimum Spend:</Text>
+                              <Text variant="bodyMd" as="span" fontWeight="semibold">${minSpend}</Text>
                             </InlineStack>
                           )}
                         </BlockStack>
@@ -1184,12 +1181,12 @@ export default function CreateAutomation() {
 
                       <Card>
                         <BlockStack gap="300">
-                          <Text variant="headingMd" as="h3">
+                          <Text variant="headingMd" as="h2">
                             Action
                           </Text>
                           <InlineStack gap="200" blockAlign="center">
-                            <Text variant="bodyMd" tone="subdued">Type:</Text>
-                            <Text variant="bodyMd" fontWeight="semibold">
+                            <Text variant="bodyMd" as="span" tone="subdued">Type:</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold">
                               {action === "send_email" && "Send Email"}
                               {action === "add_tag" && "Add Customer Tag"}
                               {action === "award_points" && "Award Bonus Points"}
@@ -1198,13 +1195,13 @@ export default function CreateAutomation() {
                           </InlineStack>
                           {action === "send_email" && template && (
                             <InlineStack gap="200" blockAlign="center">
-                              <Text variant="bodyMd" tone="subdued">Template:</Text>
+                              <Text variant="bodyMd" as="span" tone="subdued">Template:</Text>
                               <Badge tone="info">{template}</Badge>
                             </InlineStack>
                           )}
                           <InlineStack gap="200" blockAlign="center">
-                            <Text variant="bodyMd" tone="subdued">Delay:</Text>
-                            <Text variant="bodyMd">
+                            <Text variant="bodyMd" as="span" tone="subdued">Delay:</Text>
+                            <Text variant="bodyMd" as="span">
                               {delay === "immediate" && "Immediately"}
                               {delay === "1h" && "1 hour"}
                               {delay === "24h" && "24 hours"}
@@ -1231,20 +1228,20 @@ export default function CreateAutomation() {
 
                       <Card background="bg-surface-success-subdued">
                         <BlockStack gap="200">
-                          <Text variant="headingSm" fontWeight="semibold">
+                          <Text variant="headingSm" as="h3" fontWeight="semibold">
                             Estimated Impact
                           </Text>
-                          <Text variant="bodySm" tone="subdued">
+                          <Text variant="bodySm" as="span" tone="subdued">
                             Based on your current customer base and activity:
                           </Text>
                           <InlineStack gap="400">
                             <BlockStack gap="100">
-                              <Text variant="bodySm" tone="subdued">Estimated Reach</Text>
-                              <Text variant="headingMd" fontWeight="bold">~150 customers/month</Text>
+                              <Text variant="bodySm" as="span" tone="subdued">Estimated Reach</Text>
+                              <Text variant="headingMd" as="h2" fontWeight="bold">~150 customers/month</Text>
                             </BlockStack>
                             <BlockStack gap="100">
-                              <Text variant="bodySm" tone="subdued">Potential Engagement</Text>
-                              <Text variant="headingMd" fontWeight="bold">~45 actions/month</Text>
+                              <Text variant="bodySm" as="span" tone="subdued">Potential Engagement</Text>
+                              <Text variant="headingMd" as="h2" fontWeight="bold">~45 actions/month</Text>
                             </BlockStack>
                           </InlineStack>
                         </BlockStack>
@@ -1257,7 +1254,7 @@ export default function CreateAutomation() {
               {/* Navigation */}
               <Divider />
               <InlineStack align="space-between">
-                <Text variant="bodyMd" tone="subdued">
+                <Text variant="bodyMd" as="span" tone="subdued">
                   {currentStep} of 4 steps completed
                 </Text>
                 <InlineStack gap="300">

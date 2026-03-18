@@ -17,22 +17,16 @@ import {
   Grid,
   Banner,
   TextField,
-  FormLayout,
   DataTable,
   Icon,
   Divider,
   Select,
-  ButtonGroup,
 } from '@shopify/polaris';
 import {
-  CheckCircleIcon,
-  AlertCircleIcon,
-  InfoIcon,
   PersonIcon,
   CashDollarIcon,
   ChartLineIcon,
   StarIcon,
-  ClockIcon,
 } from '@shopify/polaris-icons';
 
 /**
@@ -56,7 +50,7 @@ export function GoodVisualHierarchy() {
           </Text>
           
           {/* Supporting details - smallest and subdued */}
-          <Text variant="bodySm" tone="subdued" as="p" alignment="center">
+          <Text variant="bodySm" as="span" tone="subdued" as="p" alignment="center">
             Last 30 days • Updated 5 min ago
           </Text>
           
@@ -78,10 +72,10 @@ export function BadVisualHierarchy() {
       <Box padding="600">
         <BlockStack gap="400">
           {/* Everything same size - no focal point */}
-          <Text variant="bodyMd" as="p">$124,567</Text>
-          <Text variant="bodyMd" as="p">Total Revenue</Text>
-          <Text variant="bodyMd" as="p">Last 30 days</Text>
-          <Text variant="bodyMd" as="p">Updated 5 min ago</Text>
+          <Text variant="bodyMd" as="span">$124,567</Text>
+          <Text variant="bodyMd" as="span">Total Revenue</Text>
+          <Text variant="bodyMd" as="span">Last 30 days</Text>
+          <Text variant="bodyMd" as="span">Updated 5 min ago</Text>
           
           {/* Multiple primary buttons - confusing */}
           <InlineStack gap="300">
@@ -110,19 +104,19 @@ export function GoodColorBalance() {
               <BlockStack gap="400">
                 {/* 30% - Text and UI chrome */}
                 <Text variant="headingLg" as="h2">Order Summary</Text>
-                <Text variant="bodyMd" as="p">Review your recent orders</Text>
+                <Text variant="bodyMd" as="span">Review your recent orders</Text>
                 
                 <Divider />
                 
                 <InlineStack align="space-between">
-                  <Text>Status</Text>
+                  <Text as="span">Status</Text>
                   {/* 10% - Accent colors for important info */}
                   <Badge tone="success">Completed</Badge>
                 </InlineStack>
                 
                 <InlineStack align="space-between">
-                  <Text>Total</Text>
-                  <Text fontWeight="bold" tone="success">$1,234.56</Text>
+                  <Text as="span">Total</Text>
+                  <Text as="span" fontWeight="bold" tone="success">$1,234.56</Text>
                 </InlineStack>
                 
                 {/* Primary action gets accent color */}
@@ -195,22 +189,22 @@ export function GoodTypography() {
           
           <BlockStack gap="400">
             <Text variant="headingLg" as="h2">Account Overview</Text>
-            <Text variant="bodyMd" as="p">
+            <Text variant="bodyMd" as="span">
               Manage your customer information and preferences.
             </Text>
           </BlockStack>
           
           <BlockStack gap="300">
-            <Text variant="headingMd" as="h3">Recent Activity</Text>
+            <Text variant="headingMd" as="h2">Recent Activity</Text>
             <BlockStack gap="200">
-              <Text variant="bodyMd" as="p">Order #1234 - Delivered</Text>
-              <Text variant="bodySm" tone="subdued" as="p">2 days ago</Text>
+              <Text variant="bodyMd" as="span">Order #1234 - Delivered</Text>
+              <Text variant="bodySm" as="span" tone="subdued" as="p">2 days ago</Text>
             </BlockStack>
           </BlockStack>
           
           {/* Proper line height for readability */}
           <Box maxWidth="600px">
-            <Text variant="bodyMd" as="p">
+            <Text variant="bodyMd" as="span">
               This paragraph demonstrates proper line height for optimal readability. 
               When text spans multiple lines, adequate spacing between lines (typically 
               1.4-1.6× the font size) ensures comfortable reading without strain.
@@ -229,12 +223,12 @@ export function BadTypography() {
       <Box padding="600">
         <BlockStack gap="200">
           {/* Everything same size - no hierarchy */}
-          <Text>Customer Dashboard</Text>
-          <Text>Account Overview</Text>
-          <Text>Manage your customer information</Text>
-          <Text>Recent Activity</Text>
-          <Text>Order #1234</Text>
-          <Text>2 days ago</Text>
+          <Text as="span">Customer Dashboard</Text>
+          <Text as="span">Account Overview</Text>
+          <Text as="span">Manage your customer information</Text>
+          <Text as="span">Recent Activity</Text>
+          <Text as="span">Order #1234</Text>
+          <Text as="span">2 days ago</Text>
         </BlockStack>
       </Box>
     </Card>
@@ -244,15 +238,6 @@ export function BadTypography() {
 // Modular scale demonstration
 export function ModularScaleExample() {
   // Using approximately 1.25× scale (Major Third)
-  const scaleExample = {
-    xs: '12px',    // Caption
-    sm: '14px',    // Body
-    md: '16px',    // Large body (base × 1.14)
-    lg: '20px',    // Heading (base × 1.43)
-    xl: '24px',    // Large heading (base × 1.71)
-    '2xl': '32px', // Display (base × 2.29)
-  };
-  
   return (
     <Card>
       <Box padding="400">
@@ -260,9 +245,9 @@ export function ModularScaleExample() {
           <Text variant="heading2xl" as="h1">32px Display Text</Text>
           <Text variant="headingXl" as="h2">24px Large Heading</Text>
           <Text variant="headingLg" as="h3">20px Regular Heading</Text>
-          <Text variant="bodyLg" as="p">16px Large Body Text</Text>
-          <Text variant="bodyMd" as="p">14px Regular Body Text</Text>
-          <Text variant="bodySm" as="p">12px Small Text</Text>
+          <Text variant="bodyLg" as="span">16px Large Body Text</Text>
+          <Text variant="bodyMd" as="span">14px Regular Body Text</Text>
+          <Text variant="bodySm" as="span">12px Small Text</Text>
         </BlockStack>
       </Box>
     </Card>
@@ -287,7 +272,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={PersonIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">245</Text>
-                    <Text variant="bodySm" tone="subdued" as="p">Customers</Text>
+                    <Text variant="bodySm" as="span" tone="subdued" as="p">Customers</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -299,7 +284,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={CashDollarIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">$12.5k</Text>
-                    <Text variant="bodySm" tone="subdued" as="p">Revenue</Text>
+                    <Text variant="bodySm" as="span" tone="subdued" as="p">Revenue</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -311,7 +296,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={ChartLineIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">18%</Text>
-                    <Text variant="bodySm" tone="subdued" as="p">Growth</Text>
+                    <Text variant="bodySm" as="span" tone="subdued" as="p">Growth</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -323,7 +308,7 @@ export function GoodSpatialComposition() {
                   <BlockStack gap="200" align="center">
                     <Icon source={StarIcon} tone="base" />
                     <Text variant="heading2xl" as="h3">4.8</Text>
-                    <Text variant="bodySm" tone="subdued" as="p">Rating</Text>
+                    <Text variant="bodySm" as="span" tone="subdued" as="p">Rating</Text>
                   </BlockStack>
                 </Box>
               </Card>
@@ -340,7 +325,7 @@ export function GoodSpatialComposition() {
             <Card>
               <Box padding="400">
                 <BlockStack gap="300">
-                  <Text variant="headingMd" as="h3">Filters</Text>
+                  <Text variant="headingMd" as="h2">Filters</Text>
                   <Select
                     label="Status"
                     options={[
@@ -387,19 +372,19 @@ export function BadSpatialComposition() {
       {/* Inconsistent, arbitrary spacing */}
       <Card style={{marginBottom: '7px'}}>
         <div style={{padding: '3px'}}>
-          <Text>Cramped content</Text>
+          <Text as="span">Cramped content</Text>
         </div>
       </Card>
       
       <Card style={{marginBottom: '23px', marginLeft: '11px'}}>
         <div style={{padding: '5px'}}>
-          <Text>Misaligned element</Text>
+          <Text as="span">Misaligned element</Text>
         </div>
       </Card>
       
       <Card style={{marginTop: '45px'}}>
         <div style={{padding: '2px'}}>
-          <Text>Random spacing</Text>
+          <Text as="span">Random spacing</Text>
         </div>
       </Card>
     </div>
@@ -415,7 +400,7 @@ export function ProximityPrinciple() {
           
           {/* Group 1: Tightly related items */}
           <BlockStack gap="200">  {/* Small gap within group */}
-            <Text variant="headingMd" as="h3">Billing Information</Text>
+            <Text variant="headingMd" as="h2">Billing Information</Text>
             <TextField label="Card Number" />
             <InlineStack gap="200">
               <TextField label="Expiry" />
@@ -425,7 +410,7 @@ export function ProximityPrinciple() {
           
           {/* Group 2: Another related set */}
           <BlockStack gap="200">
-            <Text variant="headingMd" as="h3">Shipping Address</Text>
+            <Text variant="headingMd" as="h2">Shipping Address</Text>
             <TextField label="Street Address" />
             <InlineStack gap="200">
               <TextField label="City" />
@@ -472,7 +457,7 @@ export function CompleteVisualExample() {
                       <Text variant="heading2xl" as="h2" fontWeight="bold">
                         {metric.value}
                       </Text>
-                      <Text variant="bodySm" tone="subdued" as="p">
+                      <Text variant="bodySm" as="span" tone="subdued" as="p">
                         {metric.label}
                       </Text>
                       {/* Semantic color usage */}
@@ -521,7 +506,7 @@ export function CompleteVisualExample() {
               <Card>
                 <Box padding="400">
                   <BlockStack gap="300">
-                    <Text variant="headingMd" as="h3">Quick Actions</Text>
+                    <Text variant="headingMd" as="h2">Quick Actions</Text>
                     <BlockStack gap="200">
                       {/* Clear button hierarchy */}
                       <Button fullWidth variant="primary">Create Report</Button>
@@ -535,7 +520,7 @@ export function CompleteVisualExample() {
               <Card>
                 <Box padding="400">
                   <BlockStack gap="300">
-                    <Text variant="headingMd" as="h3">Period</Text>
+                    <Text variant="headingMd" as="h2">Period</Text>
                     <Select
                       options={[
                         {label: 'Last 7 days', value: '7d'},

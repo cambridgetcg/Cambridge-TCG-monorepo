@@ -2004,10 +2004,11 @@ export function createDataAPIPrismaClient() {
     $transaction: async <T>(fn: (tx: any) => Promise<T>): Promise<T> => {
       return client.executeTransaction(async (execute) => {
         // Create a transaction-aware client that uses the transaction's execute function
-        const txAuroraClient = {
-          ...client,
-          executeStatement: execute  // Override executeStatement to use transaction
-        };
+        const txAuroraClient = Object.assign(
+          Object.create(Object.getPrototypeOf(client)),
+          client,
+          { executeStatement: execute }  // Override executeStatement to use transaction
+        ) as AuroraDataAPI;
 
         // Create transaction context with all model proxies using the transaction client
         const txClient = {

@@ -1,8 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigate, useFetcher, useNavigation, useRouteError, isRouteErrorResponse } from "@remix-run/react";
+import { useLoaderData, useNavigate, useFetcher, useRouteError, isRouteErrorResponse } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
-import { StaggerChildren, PageLoader, usePageAnimation } from "../components/PageAnimation";
 import { useAnalytics } from "~/hooks/useAnalytics";
 import { useToast } from "~/hooks/useToast";
 
@@ -20,7 +19,6 @@ import {
   Toast,
   Frame,
   Divider,
-  ProgressBar,
   Banner,
   Button,
 } from "@shopify/polaris";
@@ -32,13 +30,12 @@ import {
   DatabaseIcon,
   RefreshIcon,
   CheckCircleIcon,
-  AlertCircleIcon,
   CreditCardIcon,
 } from "~/utils/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import db from "../db.server";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
-import { measureQuery, getDatabaseHealth, formatResponseTime } from "~/utils/database-health.server";
+import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -642,36 +639,12 @@ export default function Dashboard() {
 
   const data = useLoaderData<typeof loader>() as DashboardData;
 
-  // Validate data exists
-  if (!data) {
-    console.error('[Dashboard] CRITICAL: No loader data received!');
-    return (
-      <Frame>
-        <Page title="Dashboard">
-          <Banner title="Loading Error" tone="critical">
-            <p>Failed to load dashboard data. Please refresh the page.</p>
-          </Banner>
-        </Page>
-      </Frame>
-    );
-  }
-
-  console.log('[Dashboard] Loader data received:', {
-    shop: data.shop,
-    hasShopSettings: !!data.shopSettings,
-    hasWidgetStatus: !!data.widgetStatus,
-    hasWebhookStats: !!data.webhookStats,
-    hasDatabaseHealth: !!data.databaseHealth,
-    hasMonthlyOrderUsage: !!data.monthlyOrderUsage,
-    hasActiveSubscription: !!data.activeSubscription,
-  });
-
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
   // Review banner state: 'idle' | 'leaving' | 'claimed'
   const [reviewBannerState, setReviewBannerState] = useState<'idle' | 'leaving' | 'claimed'>('idle');
-  const [reviewBannerVisible, setReviewBannerVisible] = useState(!data.reviewBannerDismissed);
+  const [reviewBannerVisible, setReviewBannerVisible] = useState(!data?.reviewBannerDismissed);
   const reviewFetcher = useFetcher();
 
   const handleLeaveReview = useCallback(() => {
@@ -783,6 +756,19 @@ export default function Dashboard() {
     }
   }, [fetcher.state, fetcher.data, showSuccess, showError]);
 
+  // Validate data exists (after all hooks to satisfy rules-of-hooks)
+  if (!data) {
+    return (
+      <Frame>
+        <Page title="Dashboard">
+          <Banner title="Loading Error" tone="critical">
+            <p>Failed to load dashboard data. Please refresh the page.</p>
+          </Banner>
+        </Page>
+      </Frame>
+    );
+  }
+
   // Toast markup
   const toastMarkup = toast.active ? (
     <Toast
@@ -836,10 +822,10 @@ export default function Dashboard() {
                   <InlineStack gap="400" blockAlign="center">
                     <div style={{ fontSize: '32px' }}>🎉</div>
                     <BlockStack gap="100">
-                      <Text variant="headingMd" as="h3" fontWeight="bold">
+                      <Text variant="headingMd" as="h2" fontWeight="bold">
                         <span style={{ color: '#ffffff' }}>Thank you! Setting up your 3 months of Pro…</span>
                       </Text>
-                      <Text variant="bodySm" as="p">
+                      <Text variant="bodySm" as="span">
                         <span style={{ color: 'rgba(255,255,255,0.65)' }}>
                           You'll be redirected to confirm the plan — it's free for 90 days, then $39/mo.
                         </span>
@@ -853,10 +839,10 @@ export default function Dashboard() {
                   <InlineStack gap="400" blockAlign="center">
                     <div style={{ fontSize: '28px' }}>⭐</div>
                     <BlockStack gap="100">
-                      <Text variant="headingMd" as="h3" fontWeight="bold">
+                      <Text variant="headingMd" as="h2" fontWeight="bold">
                         <span style={{ color: '#ffffff' }}>Done writing your review?</span>
                       </Text>
-                      <Text variant="bodySm" as="p">
+                      <Text variant="bodySm" as="span">
                         <span style={{ color: 'rgba(255,255,255,0.65)' }}>
                           Once you've submitted it, click below and we'll activate 3 months of Pro for you.
                         </span>
@@ -905,10 +891,10 @@ export default function Dashboard() {
                       <span style={{ fontSize: '26px' }}>⭐</span>
                     </div>
                     <BlockStack gap="050">
-                      <Text variant="headingMd" as="h3" fontWeight="bold">
+                      <Text variant="headingMd" as="h2" fontWeight="bold">
                         <span style={{ color: '#ffffff' }}>Enjoying Rewards Pro? Leave us a review.</span>
                       </Text>
-                      <Text variant="bodySm" as="p">
+                      <Text variant="bodySm" as="span">
                         <span style={{ color: 'rgba(255,255,255,0.65)' }}>
                           Share your experience on the Shopify App Store and we'll give you{' '}
                           <span style={{ color: '#FFD700', fontWeight: '600' }}>3 months of Pro, free</span>
@@ -973,12 +959,12 @@ export default function Dashboard() {
                 <InlineStack gap="400" blockAlign="center" wrap={false}>
                   <InlineStack gap="200" blockAlign="center">
                     <Icon source={CheckCircleIcon} tone="success" />
-                    <Text variant="bodyMd" fontWeight="semibold">All Systems Operational</Text>
+                    <Text variant="bodyMd" as="span" fontWeight="semibold">All Systems Operational</Text>
                   </InlineStack>
-                  <Text variant="bodySm" tone="subdued">•</Text>
-                  <Text variant="bodySm" tone="subdued">Uptime: 99.9%</Text>
-                  <Text variant="bodySm" tone="subdued">•</Text>
-                  <Text variant="bodySm" tone="subdued">0 active incidents</Text>
+                  <Text variant="bodySm" as="span" tone="subdued">•</Text>
+                  <Text variant="bodySm" as="span" tone="subdued">Uptime: 99.9%</Text>
+                  <Text variant="bodySm" as="span" tone="subdued">•</Text>
+                  <Text variant="bodySm" as="span" tone="subdued">0 active incidents</Text>
                 </InlineStack>
               </Banner>
 
@@ -1004,26 +990,26 @@ export default function Dashboard() {
 
                     <BlockStack gap="100">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Orders Used:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Orders Used:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.monthlyOrderUsage?.orderCount || 0} / {data.monthlyOrderUsage?.planLimit || MANAGED_PLANS["RewardsPro Free"].ordersIncluded}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Usage:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Usage:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.monthlyOrderUsage ? Math.round((data.monthlyOrderUsage.orderCount / data.monthlyOrderUsage.planLimit) * 100) : 0}%
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Cycle:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Cycle:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.daysRemaining || 0}d remaining
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.activeSubscription?.status || 'Free'}
                         </Text>
                       </InlineStack>
@@ -1032,7 +1018,7 @@ export default function Dashboard() {
                     <Divider />
 
                     <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodySm" tone="subdued">
+                      <Text variant="bodySm" as="span" tone="subdued">
                         Subscription plan
                       </Text>
                       <Button size="slim" variant="plain" onClick={() => navigate('/app/billing')}>
@@ -1068,8 +1054,8 @@ export default function Dashboard() {
 
                     <BlockStack gap="100">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Response:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Response:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.databaseHealth.responseTime === 0
                             ? 'Measuring...'
                             : data.databaseHealth.responseTime < 1000
@@ -1079,14 +1065,14 @@ export default function Dashboard() {
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Uptime:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Uptime:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.databaseHealth.uptime}%
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.databaseHealth.status === 'connected' ? 'Connected' :
                            data.databaseHealth.status === 'degraded' ? 'Slow' : 'Disconnected'}
                         </Text>
@@ -1095,7 +1081,7 @@ export default function Dashboard() {
 
                     <Divider />
 
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       PostgreSQL database storing all customer data, tiers, and transactions
                     </Text>
                   </BlockStack>
@@ -1127,20 +1113,20 @@ export default function Dashboard() {
 
                     <BlockStack gap="100">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Processed:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Processed:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.webhookStats.processedLast24h.toLocaleString()} (24h)
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Success Rate:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Success Rate:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.webhookStats.successRate.toFixed(1)}%
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.webhookStats.status === 'healthy' ? 'Healthy' :
                            data.webhookStats.status === 'degraded' ? 'Degraded' : 'Critical'}
                         </Text>
@@ -1149,7 +1135,7 @@ export default function Dashboard() {
 
                     <Divider />
 
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       {data.webhookStats.status === 'healthy'
                         ? 'Receiving and processing Shopify order events'
                         : data.webhookStats.errorsLastHour > 0
@@ -1185,22 +1171,22 @@ export default function Dashboard() {
 
                     <BlockStack gap="100">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Tiers:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Tiers:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.loyaltyEngine.tierCount > 0
                             ? `${data.loyaltyEngine.tierCount} Tier${data.loyaltyEngine.tierCount !== 1 ? 's' : ''}`
                             : 'Not Configured'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Cashback:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Cashback:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.loyaltyEngine.cashbackEnabled ? 'Enabled' : 'Disabled'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Currency:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Currency:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.loyaltyEngine.currency}
                         </Text>
                       </InlineStack>
@@ -1208,7 +1194,7 @@ export default function Dashboard() {
 
                     <Divider />
 
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       Tier calculations and cashback rewards processing
                     </Text>
                   </BlockStack>
@@ -1242,15 +1228,15 @@ export default function Dashboard() {
 
                     <BlockStack gap="100">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Database:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Database:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.databaseHealth.status === 'connected' ? 'Connected' :
                            data.databaseHealth.status === 'degraded' ? 'Slow' : 'Disconnected'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Customers:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Customers:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.dataSyncHealth.customerSync.status === 'running' ? 'Syncing...' :
                            data.dataSyncHealth.customerSync.status === 'failed' ? 'Failed' :
                            data.dataSyncHealth.customerSync.status === 'never_run' ? 'Not Synced' :
@@ -1258,8 +1244,8 @@ export default function Dashboard() {
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Webhooks:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Webhooks:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.dataSyncHealth.webhookHealth === 'healthy' ? 'Healthy' :
                            data.dataSyncHealth.webhookHealth === 'degraded' ? 'Degraded' : 'Critical'}
                         </Text>
@@ -1268,7 +1254,7 @@ export default function Dashboard() {
 
                     <Divider />
 
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       Real-time synchronization with Shopify store
                     </Text>
                   </BlockStack>
@@ -1300,21 +1286,21 @@ export default function Dashboard() {
 
                     <BlockStack gap="100">
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Theme:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Theme:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.widgetStatus.themeName || 'Unknown'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Block:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Block:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.widgetStatus.blockType === 'app_embed' ? 'App Embed' :
                            data.widgetStatus.blockType === 'section' ? 'Section' : 'Not Found'}
                         </Text>
                       </InlineStack>
                       <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" fontWeight="medium">
+                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
+                        <Text variant="bodySm" as="span" fontWeight="medium">
                           {data.widgetStatus.status === 'active' ? 'Visible' :
                            data.widgetStatus.status === 'inactive' ? 'Disabled' : 'Not Enabled'}
                         </Text>
@@ -1323,7 +1309,7 @@ export default function Dashboard() {
 
                     <Divider />
 
-                    <Text variant="bodySm" tone="subdued">
+                    <Text variant="bodySm" as="span" tone="subdued">
                       {data.widgetStatus.isActive
                         ? 'Widget is showing on your storefront'
                         : 'Enable in Theme Editor → App embeds'}
@@ -1352,7 +1338,7 @@ export default function Dashboard() {
                 </Badge>
               </InlineStack>
 
-              <Text variant="bodyMd" tone="subdued" as="p">
+              <Text variant="bodyMd" as="span" tone="subdued" as="p">
                 Enable or disable specific features for your store. Changes take effect immediately.
               </Text>
 
@@ -1384,8 +1370,8 @@ export default function Dashboard() {
                             <Icon source={ChartVerticalIcon} tone={isEnabled ? 'success' : 'subdued'} />
                           </div>
                           <BlockStack gap="050">
-                            <Text variant="bodyMd" fontWeight="semibold" as="span">Advanced Analytics</Text>
-                            <Text variant="bodySm" tone="subdued" as="span">Analytics and reporting features</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">Advanced Analytics</Text>
+                            <Text variant="bodySm" as="span" tone="subdued" as="span">Analytics and reporting features</Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="300" blockAlign="center">
@@ -1448,8 +1434,8 @@ export default function Dashboard() {
                             <Icon source={CashDollarIcon} tone={isEnabled ? 'success' : 'subdued'} />
                           </div>
                           <BlockStack gap="050">
-                            <Text variant="bodyMd" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
-                            <Text variant="bodySm" tone="subdued" as="span">Process rewards automatically for orders</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">Automatic Cashback Processing</Text>
+                            <Text variant="bodySm" as="span" tone="subdued" as="span">Process rewards automatically for orders</Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="300" blockAlign="center">
@@ -1514,8 +1500,8 @@ export default function Dashboard() {
                             <Icon source={DatabaseIcon} tone={isEnabled ? 'success' : 'subdued'} />
                           </div>
                           <BlockStack gap="050">
-                            <Text variant="bodyMd" fontWeight="semibold" as="span">Membership Tiers Module</Text>
-                            <Text variant="bodySm" tone="subdued" as="span">Tiered loyalty program with benefits</Text>
+                            <Text variant="bodyMd" as="span" fontWeight="semibold" as="span">Membership Tiers Module</Text>
+                            <Text variant="bodySm" as="span" tone="subdued" as="span">Tiered loyalty program with benefits</Text>
                           </BlockStack>
                         </InlineStack>
                         <InlineStack gap="300" blockAlign="center">

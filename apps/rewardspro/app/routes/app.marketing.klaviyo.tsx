@@ -37,10 +37,6 @@ import {
 } from "@shopify/polaris";
 import {
   CheckCircleIcon,
-  XCircleIcon,
-  RefreshIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import db from "~/db.server";
@@ -588,7 +584,7 @@ export default function KlaviyoSettings() {
             <Card>
               <BlockStack gap="400">
                 <InlineStack align="space-between" blockAlign="center">
-                  <Text variant="headingMd" as="h3">
+                  <Text variant="headingMd" as="h2">
                     Connection Status
                   </Text>
                   {data.emailSettings?.klaviyoOAuthConnected ? (
@@ -602,17 +598,17 @@ export default function KlaviyoSettings() {
 
                 <InlineStack gap="400">
                   <BlockStack gap="100">
-                    <Text variant="bodySm" tone="subdued">Profiles Synced</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">Profiles Synced</Text>
                     <Text variant="headingLg" as="p">{data.profileCount.toLocaleString()}</Text>
                   </BlockStack>
                   <BlockStack gap="100">
-                    <Text variant="bodySm" tone="subdued">Events Sent</Text>
+                    <Text variant="bodySm" as="span" tone="subdued">Events Sent</Text>
                     <Text variant="headingLg" as="p">{data.eventCount.toLocaleString()}</Text>
                   </BlockStack>
                   {data.emailSettings?.klaviyoLastSyncAt && (
                     <BlockStack gap="100">
-                      <Text variant="bodySm" tone="subdued">Last Sync</Text>
-                      <Text variant="bodyMd" as="p">
+                      <Text variant="bodySm" as="span" tone="subdued">Last Sync</Text>
+                      <Text variant="bodyMd" as="span">
                         {new Date(data.emailSettings.klaviyoLastSyncAt).toLocaleDateString()}
                       </Text>
                     </BlockStack>
@@ -626,7 +622,7 @@ export default function KlaviyoSettings() {
           <Layout.Section>
             <Card>
               <BlockStack gap="400">
-                <Text variant="headingMd" as="h3">
+                <Text variant="headingMd" as="h2">
                   Connection Settings
                 </Text>
 
@@ -645,7 +641,7 @@ export default function KlaviyoSettings() {
                       {data.isOAuthConfigured && (
                         <Box paddingBlockEnd="400">
                           <BlockStack gap="300">
-                            <Text variant="headingSm" as="h4">
+                            <Text variant="headingSm" as="h3">
                               Connect with OAuth (Recommended)
                             </Text>
                             {data.emailSettings?.klaviyoOAuthConnected ? (
@@ -694,7 +690,7 @@ export default function KlaviyoSettings() {
                       {/* API Key (Legacy/Fallback) */}
                       {!data.emailSettings?.klaviyoOAuthConnected && (
                         <>
-                          <Text variant="headingSm" as="h4">
+                          <Text variant="headingSm" as="h3">
                             {data.isOAuthConfigured ? "Or use API Key (Legacy)" : "API Key Connection"}
                           </Text>
                           <TextField
@@ -763,7 +759,7 @@ export default function KlaviyoSettings() {
               <Card>
                 <BlockStack gap="400">
                   <InlineStack align="space-between" blockAlign="center">
-                    <Text variant="headingMd" as="h3">
+                    <Text variant="headingMd" as="h2">
                       Automation Events
                     </Text>
                     <Checkbox
@@ -784,7 +780,7 @@ export default function KlaviyoSettings() {
 
                       {eventGroups.map((group) => (
                         <BlockStack gap="200" key={group.title}>
-                          <Text variant="headingSm" as="h4">
+                          <Text variant="headingSm" as="h3">
                             {group.title}
                           </Text>
                           <InlineStack gap="400" wrap>
@@ -923,7 +919,7 @@ export default function KlaviyoSettings() {
           <Layout.Section>
             <Card>
               <BlockStack gap="400">
-                <Text variant="headingMd" as="h3">
+                <Text variant="headingMd" as="h2">
                   Setting Up Klaviyo Flows
                 </Text>
 

@@ -22,21 +22,11 @@ import {
   Modal,
   Spinner,
   Divider,
-  Tooltip,
   SkeletonBodyText,
   Toast,
   Frame,
-  Filters,
-  ChoiceList,
-  RangeSlider,
-  DatePicker,
-  Popover,
-  LegacyCard,
-  Tabs,
   DescriptionList,
-  Thumbnail,
   ButtonGroup,
-  ActionList,
   ProgressBar,
   useIndexResourceState,
 } from "@shopify/polaris";
@@ -48,17 +38,6 @@ import {
   CheckCircleIcon,
   AlertTriangleIcon,
   InfoIcon,
-  ExportIcon,
-  ImportIcon,
-  CalendarIcon,
-  ReceiptRefundIcon,
-  OrderIcon,
-  PersonIcon,
-  ClockIcon,
-  CheckIcon,
-  XIcon,
-  EditIcon,
-  ViewIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
@@ -230,7 +209,7 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     console.log('[Orders Loader] ========== START ==========');
-    const { session, admin } = await authenticate.admin(request);
+    const { session } = await authenticate.admin(request);
 
     if (!session?.shop) {
       throw new Response("Unauthorized", { status: 401 });
@@ -646,7 +625,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         const currency = shopSettings?.storeCurrency || order.currency || "USD";
-        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
 
         // Use the store credit service to add credit
         const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
@@ -2166,7 +2144,7 @@ export default function OrdersPage() {
                 <BlockStack gap="400">
                   <InlineStack align="space-between" blockAlign="center">
                     <InlineStack gap="200" align="start" blockAlign="center">
-                      <Text variant="headingMd" as="h3">
+                      <Text variant="headingMd" as="h2">
                         Orders
                       </Text>
                       <Badge>
@@ -2411,7 +2389,7 @@ export default function OrdersPage() {
               <BlockStack gap="600">
                 {/* Order Summary */}
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h3">Order Summary</Text>
+                  <Text variant="headingMd" as="h2">Order Summary</Text>
                   <DescriptionList
                     items={[
                       {
@@ -2454,7 +2432,7 @@ export default function OrdersPage() {
 
                 {/* Cashback Information */}
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h3">Cashback Information</Text>
+                  <Text variant="headingMd" as="h2">Cashback Information</Text>
                   <DescriptionList
                     items={[
                       {
@@ -2498,7 +2476,7 @@ export default function OrdersPage() {
                 {selectedOrder?.lineItems?.length > 0 && (
                   <BlockStack gap="400">
                     <Divider />
-                    <Text variant="headingMd" as="h3">Line Items</Text>
+                    <Text variant="headingMd" as="h2">Line Items</Text>
                     <BlockStack gap="200">
                       {selectedOrder.lineItems?.map((item) => (
                         <InlineStack key={item.id} align="space-between">
@@ -2521,7 +2499,7 @@ export default function OrdersPage() {
                 {selectedOrder?.refunds?.length > 0 && (
                   <BlockStack gap="400">
                     <Divider />
-                    <Text variant="headingMd" as="h3">Refunds</Text>
+                    <Text variant="headingMd" as="h2">Refunds</Text>
                     <BlockStack gap="300">
                       {selectedOrder.refunds?.map((refund) => (
                         <Card key={refund.id}>
@@ -2564,7 +2542,7 @@ export default function OrdersPage() {
                 {selectedOrder?.creditLedgerEntries?.length > 0 && (
                   <BlockStack gap="400">
                     <Divider />
-                    <Text variant="headingMd" as="h3">Credit Ledger Entries</Text>
+                    <Text variant="headingMd" as="h2">Credit Ledger Entries</Text>
                     <BlockStack gap="200">
                       {selectedOrder.creditLedgerEntries?.map((entry) => (
                         <InlineStack key={entry.id} align="space-between">
@@ -2576,7 +2554,7 @@ export default function OrdersPage() {
                               {new Date(entry.createdAt).toLocaleString()}
                             </Text>
                           </InlineStack>
-                          <Text variant="bodyMd" fontWeight="semibold">
+                          <Text variant="bodyMd" as="span" fontWeight="semibold">
                             {Number(entry.amount) > 0 ? "+" : ""}
                             {formatCurrency(Number(entry.amount), shopSettings)}
                           </Text>
