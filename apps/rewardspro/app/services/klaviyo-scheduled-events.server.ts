@@ -22,7 +22,7 @@ import {
   calculateCustomerSegment,
   type CustomerSegment,
 } from "./klaviyo-events.server";
-import type { Customer, Tier, KlaviyoAutomationSettings } from "@prisma/client";
+import type { KlaviyoAutomationSettings } from "@prisma/client";
 
 // ============================================
 // TYPES
@@ -114,7 +114,7 @@ export async function processPointsExpiringForShop(
     const customers = await db.customer.findMany({
       where: {
         shop,
-        cashbackBalance: { gt: 0 },
+        storeCredit: { gt: 0 },
         // You may need to add a pointsExpiryDate field to Customer model
         // For now, we'll use a simple balance check
       },
@@ -151,7 +151,7 @@ export async function processPointsExpiringForShop(
         await trackPointsExpiring(
           shop,
           customerWithTier,
-          customer.cashbackBalance,
+          customer.storeCredit,
           expiryDate,
           daysUntilExpiry
         );
@@ -204,8 +204,8 @@ export async function processWinBackForShop(
     const customers = await db.customer.findMany({
       where: {
         shop,
-        ordersCount: { gt: 0 }, // Has ordered before
-        lastOrderAt: {
+        orderCount: { gt: 0 }, // Has ordered before
+        lastOrderDate: {
           lte: targetDate,
         },
       },
@@ -236,9 +236,9 @@ export async function processWinBackForShop(
         const customerWithTier = { ...customer, currentTier };
 
         // Calculate actual days since last order
-        const actualDaysSinceOrder = customer.lastOrderAt
+        const actualDaysSinceOrder = customer.lastOrderDate
           ? Math.floor(
-              (Date.now() - customer.lastOrderAt.getTime()) /
+              (Date.now() - customer.lastOrderDate.getTime()) /
                 (1000 * 60 * 60 * 24)
             )
           : daysSinceOrder;
@@ -296,8 +296,8 @@ export async function processBalanceRemindersForShop(
   const customers = await db.customer.findMany({
     where: {
       shop,
-      cashbackBalance: { gt: 0 }, // Has cashback to use
-      lastOrderAt: {
+      storeCredit: { gt: 0 }, // Has cashback to use
+      lastOrderDate: {
         lte: targetDate,
       },
     },
@@ -328,9 +328,9 @@ export async function processBalanceRemindersForShop(
       const customerWithTier = { ...customer, currentTier };
 
       // Calculate days since last order
-      const daysSinceOrder = customer.lastOrderAt
+      const daysSinceOrder = customer.lastOrderDate
         ? Math.floor(
-            (Date.now() - customer.lastOrderAt.getTime()) /
+            (Date.now() - customer.lastOrderDate.getTime()) /
               (1000 * 60 * 60 * 24)
           )
         : reminderDays;
@@ -390,7 +390,7 @@ export async function processTierNudgesForShop(
     where: {
       shop,
       currentTierId: { not: null },
-      ordersCount: { gt: 0 },
+      orderCount: { gt: 0 },
     },
     take: 100, // Process in batches
   });
@@ -418,7 +418,7 @@ export async function processTierNudgesForShop(
       // Calculate progress to next tier
       const progressPercent = Math.min(
         100,
-        Math.round((customer.lifetimeSpend / nextTier.minSpend) * 100)
+        Math.round((customer.totalSpent / nextTier.minSpend) * 100)
       );
 
       // Check if above threshold
@@ -443,7 +443,7 @@ export async function processTierNudgesForShop(
       // Calculate spend remaining
       const spendRemaining = Math.max(
         0,
-        nextTier.minSpend - customer.lifetimeSpend
+        nextTier.minSpend - customer.totalSpent
       );
 
       // Sync profile first

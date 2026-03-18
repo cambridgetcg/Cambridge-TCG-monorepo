@@ -17,14 +17,11 @@ import {
   Tooltip,
 } from '@shopify/polaris';
 import {
-  CashDollarIcon,
   CalendarIcon,
   InfoIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   CheckCircleIcon,
-  AlertCircleIcon,
-  ReceiptRefundIcon,
 } from '@shopify/polaris-icons';
 
 export interface SubscriptionOption {
@@ -474,7 +471,7 @@ export function SubscriptionOptionsManager({
                                 </Text>
                                 {pricingData.quarterly.savings && (
                                   <Badge tone="success">
-                                    Save {parseFloat(options.quarterlyDiscount)}%
+                                    {`Save ${parseFloat(options.quarterlyDiscount)}%`}
                                   </Badge>
                                 )}
                               </InlineStack>
@@ -497,7 +494,7 @@ export function SubscriptionOptionsManager({
                                 </Text>
                                 {pricingData.annual.savings && (
                                   <Badge tone="attention">
-                                    Save {parseFloat(options.annualDiscount)}%
+                                    {`Save ${parseFloat(options.annualDiscount)}%`}
                                   </Badge>
                                 )}
                               </InlineStack>

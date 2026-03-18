@@ -83,7 +83,7 @@ export function InsightWidget({
         {insights.length > maxItems && (
           <div style={{ textAlign: 'center' }}>
             <Button variant="plain">
-              View all {insights.length} insights
+              View all {insights.length.toString()} insights
             </Button>
           </div>
         )}

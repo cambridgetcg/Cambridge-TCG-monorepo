@@ -498,9 +498,9 @@ function calculateSegment(
   customer: Customer & { currentTier?: Tier | null },
   tiers?: Tier[]
 ): CustomerSegment {
-  const daysSinceOrder = customer.lastOrderAt
+  const daysSinceOrder = customer.lastOrderDate
     ? Math.floor(
-        (Date.now() - customer.lastOrderAt.getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)
       )
     : null;
 
@@ -517,7 +517,7 @@ function calculateSegment(
 
   // Loyal: 3+ orders + active in last 60 days
   if (
-    customer.ordersCount >= 3 &&
+    customer.orderCount >= 3 &&
     daysSinceOrder !== null &&
     daysSinceOrder <= 60
   ) {
@@ -531,7 +531,7 @@ function calculateSegment(
 
   // At-Risk: 2+ orders but inactive 45-89 days
   if (
-    customer.ordersCount >= 2 &&
+    customer.orderCount >= 2 &&
     daysSinceOrder !== null &&
     daysSinceOrder >= 45 &&
     daysSinceOrder < 90
@@ -559,9 +559,9 @@ export function buildProfileProperties(
   const tier = customer.currentTier;
 
   // Calculate days since last order
-  const daysSinceLastOrder = customer.lastOrderAt
+  const daysSinceLastOrder = customer.lastOrderDate
     ? Math.floor(
-        (Date.now() - customer.lastOrderAt.getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)
       )
     : null;
 
@@ -580,10 +580,10 @@ export function buildProfileProperties(
     const currentIndex = sortedTiers.findIndex((t) => t.id === tier.id);
     if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
       nextTier = sortedTiers[currentIndex + 1];
-      spendToNextTier = nextTier.minSpend - customer.lifetimeSpend;
+      spendToNextTier = nextTier.minSpend - customer.totalSpent;
       progressToNextTier = Math.min(
         100,
-        Math.round((customer.lifetimeSpend / nextTier.minSpend) * 100)
+        Math.round((customer.totalSpent / nextTier.minSpend) * 100)
       );
     }
   }
@@ -625,18 +625,18 @@ export function buildProfileProperties(
     rewardspro_tier_rank: tierRank,
 
     // Balances
-    rewardspro_cashback_balance: customer.cashbackBalance,
+    rewardspro_cashback_balance: customer.storeCredit,
     rewardspro_points_balance: customer.pointsBalance || 0,
-    rewardspro_has_redeemable_balance: customer.cashbackBalance > 0,
+    rewardspro_has_redeemable_balance: customer.storeCredit > 0,
 
     // Spending & Activity
-    rewardspro_lifetime_spend: customer.lifetimeSpend,
-    rewardspro_orders_count: customer.ordersCount,
+    rewardspro_lifetime_spend: customer.totalSpent,
+    rewardspro_orders_count: customer.orderCount,
     rewardspro_average_order_value:
-      customer.ordersCount > 0
-        ? customer.lifetimeSpend / customer.ordersCount
+      customer.orderCount > 0
+        ? customer.totalSpent / customer.orderCount
         : 0,
-    rewardspro_last_order_date: customer.lastOrderAt?.toISOString().split("T")[0] || null,
+    rewardspro_last_order_date: customer.lastOrderDate?.toISOString().split("T")[0] || null,
     rewardspro_days_since_last_order: daysSinceLastOrder,
 
     // Cashback Metrics
@@ -695,11 +695,11 @@ export function buildProfileProperties(
     // If not provided, defaults are used. Full data comes from buildExtendedProfileProperties.
 
     // Store Credit (uses existing cashback fields as baseline)
-    rewardspro_store_credit_balance: customer.storeCredit || customer.cashbackBalance,
+    rewardspro_store_credit_balance: customer.storeCredit || customer.storeCredit,
     rewardspro_total_store_credit_earned: customer.totalCashbackEarned || 0,
     rewardspro_total_store_credit_spent: customer.totalCashbackRedeemed || 0,
     rewardspro_store_credit_earned_30d: 0, // Requires aggregation query
-    rewardspro_store_credit_conversion_available: (customer.storeCredit || customer.cashbackBalance) > 0,
+    rewardspro_store_credit_conversion_available: (customer.storeCredit || customer.storeCredit) > 0,
     rewardspro_last_store_credit_earned_date: null, // Requires ledger query
     rewardspro_last_store_credit_spent_date: null, // Requires ledger query
 
@@ -731,9 +731,9 @@ function calculateEngagementScore(
   score += Math.min(20, Math.floor(pointsBalance / 50));
 
   // Order frequency (max 30 points)
-  if (customer.ordersCount >= 10) score += 30;
-  else if (customer.ordersCount >= 5) score += 20;
-  else if (customer.ordersCount >= 2) score += 10;
+  if (customer.orderCount >= 10) score += 30;
+  else if (customer.orderCount >= 5) score += 20;
+  else if (customer.orderCount >= 2) score += 10;
 
   // Recency (max 30 points)
   if (daysSinceLastOrder !== null) {
@@ -744,9 +744,9 @@ function calculateEngagementScore(
   }
 
   // Lifetime spend (max 20 points)
-  if (customer.lifetimeSpend >= 1000) score += 20;
-  else if (customer.lifetimeSpend >= 500) score += 15;
-  else if (customer.lifetimeSpend >= 100) score += 10;
+  if (customer.totalSpent >= 1000) score += 20;
+  else if (customer.totalSpent >= 500) score += 15;
+  else if (customer.totalSpent >= 100) score += 10;
 
   return Math.min(100, score);
 }
@@ -760,9 +760,9 @@ function getEngagementLevel(
 ): "HIGH" | "MEDIUM" | "LOW" | "DORMANT" {
   const hasPoints = (customer.pointsBalance || 0) > 0;
   const hasRecentActivity = daysSinceLastOrder !== null && daysSinceLastOrder <= 30;
-  const hasOrders = customer.ordersCount > 0;
+  const hasOrders = customer.orderCount > 0;
 
-  if (hasRecentActivity && hasPoints && customer.ordersCount >= 3) {
+  if (hasRecentActivity && hasPoints && customer.orderCount >= 3) {
     return "HIGH";
   }
   if (hasRecentActivity || (hasPoints && hasOrders)) {

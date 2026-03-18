@@ -12,11 +12,9 @@ import {
   InlineStack,
   Text,
   Badge,
-  Box,
   BlockStack,
   Card,
 } from "@shopify/polaris";
-import { CheckIcon, XIcon } from "~/utils/polaris-icons";
 
 export type FeatureType = 'raffles' | 'mysteryBoxes' | 'challenges' | 'spinWheel' | 'scratchCards';
 
@@ -238,7 +236,7 @@ export function FeatureActivationSummary({
         <InlineStack align="space-between" blockAlign="center">
           <Text variant="headingMd" as="h3">Customer Features</Text>
           <Badge tone={enabledCount === totalCount ? 'success' : 'info'}>
-            {enabledCount}/{totalCount} Active
+            {`${enabledCount}/${totalCount} Active`}
           </Badge>
         </InlineStack>
         <BlockStack gap="200">

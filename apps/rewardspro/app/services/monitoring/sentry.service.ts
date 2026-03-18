@@ -756,11 +756,13 @@ export function createSentryLogger(
  */
 export function createSmartSampler(defaultRate = 0.2) {
   return (samplingContext: {
-    name: string;
+    transactionContext: { name?: string; [key: string]: unknown };
     parentSampled?: boolean;
-    attributes?: Record<string, unknown>;
+    [key: string]: unknown;
   }): number => {
-    const { name, parentSampled, attributes } = samplingContext;
+    const name = samplingContext.transactionContext?.name || '';
+    const { parentSampled } = samplingContext;
+    const attributes = (samplingContext.transactionContext?.data || {}) as Record<string, unknown>;
 
     // Inherit parent decision if available
     if (typeof parentSampled === 'boolean') {

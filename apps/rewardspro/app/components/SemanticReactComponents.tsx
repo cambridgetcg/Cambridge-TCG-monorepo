@@ -10,7 +10,6 @@ import React, {
   useState, 
   useCallback, 
   useEffect,
-  useRef,
   useMemo
 } from 'react';
 import {
@@ -24,8 +23,6 @@ import {
   Box,
   Banner,
   ProgressBar,
-  Tooltip,
-  Modal,
   TextField,
   FormLayout,
   SkeletonBodyText,
@@ -43,9 +40,7 @@ import {
   ClockIcon,
   // TrophyIcon doesn't exist, using StarFilledIcon instead
   StarFilledIcon as TrophyIcon,
-  StarFilledIcon,
   ChevronUpIcon,
-  ChevronDownIcon,
   ArrowUpIcon,
   ArrowDownIcon,
 } from '@shopify/polaris-icons';
@@ -155,11 +150,6 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   };
 
   const config = statusConfig[status];
-  const sizeMap = {
-    small: 12,
-    medium: 16,
-    large: 20,
-  };
 
   return (
     <InlineStack gap="200" align="center">
@@ -334,7 +324,7 @@ export const DateDisplay: React.FC<DateDisplayProps> = ({
   showTime = false,
   showIcon = false,
 }) => {
-  const { locale, timezone, dateFormat } = useSemanticContext();
+  const { locale, timezone } = useSemanticContext();
   
   const formattedDate = useMemo(() => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -447,7 +437,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
         )}
         
         {status === 'vip' && (
-          <Box
+          <div
             style={{
               position: 'absolute',
               top: -4,
@@ -455,7 +445,7 @@ export const CustomerAvatar: React.FC<CustomerAvatarProps> = ({
             }}
           >
             <Icon source={StarIcon} tone="warning" />
-          </Box>
+          </div>
         )}
       </Box>
       
@@ -507,8 +497,7 @@ export const SemanticField: React.FC<SemanticFieldProps> = ({
   step,
 }) => {
   const { currency } = useSemanticContext();
-  const inputRef = useRef<HTMLInputElement>(null);
-  
+
   const getInputMode = () => {
     switch (type) {
       case 'number':

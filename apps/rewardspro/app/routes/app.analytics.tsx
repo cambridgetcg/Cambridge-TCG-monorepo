@@ -1,18 +1,14 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useNavigation, useNavigate, useSearchParams, useFetcher } from "@remix-run/react";
+import { useLoaderData, useNavigate, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { StaggerChildren, PageLoader, usePageAnimation } from "../components/PageAnimation";
-import { SubscriptionCard } from "../components/Billing/UpgradePrompt";
 import {
   Page,
   Layout,
   Card,
-  Grid,
   Text,
   Badge,
   Button,
-  Select,
   Tabs,
   BlockStack,
   InlineStack,
@@ -22,9 +18,6 @@ import {
   DataTable,
   ProgressBar,
   EmptyState,
-  SkeletonBodyText,
-  SkeletonDisplayText,
-  ButtonGroup,
   TextField,
   FormLayout,
 } from "@shopify/polaris";
@@ -44,39 +37,9 @@ import {
   type ChartOptions,
 } from 'chart.js';
 import { Line, Bar, Doughnut, Radar } from 'react-chartjs-2';
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  RadialLinearScale,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
-import {
-  MetricCard,
-  StatsOverview,
-  EnhancedDataTable,
-  LoadingSkeleton,
-  ActionBanner,
-} from "../components/DesignSystem";
-import {
-  ChartVerticalIcon,
-  PersonIcon,
-  CashDollarIcon,
-  RewardIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-} from "~/utils/polaris-icons";
-import { TierBadge, TierIndicator, TierProgress } from "../components/TierBadge";
+import { TierBadge } from "../components/TierBadge";
 import { TierPerformanceChart } from "../components/analytics/TierPerformanceChart";
-import { getTierStyle, sortTiersByPriority, formatTierName } from "../utils/tier-styles";
+import { sortTiersByPriority } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
@@ -94,11 +57,8 @@ import {
   type ProgramImpactMetrics,
   type MonthlyImpactData
 } from "~/services/program-impact.server";
-import { formatPercentageChange, getBadgeTone } from "~/utils/analytics-formatters";
 import { getCohortAnalysis, type CohortAnalysis } from "~/services/cohort-analysis.server";
 import { getCustomerBehaviourData, type CustomerBehaviourData } from "~/services/rfm-segmentation.server";
-
-// New Analytics Improvements
 import {
   createInsightEngine,
   type AnalyticsInsight,
@@ -112,8 +72,6 @@ import {
   createNarrativeGenerator,
   type ExecutiveSummary as ExecutiveSummaryType,
 } from "~/services/analytics/narrative-generator.server";
-
-// New Analytics UI Components
 import { ExecutiveSummary } from "~/components/analytics/ExecutiveSummary";
 import {
   InsightWidget,
@@ -121,6 +79,21 @@ import {
   ComparisonWidget,
   type ComparisonData,
 } from "~/components/analytics/widgets";
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  RadialLinearScale,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 // ============================================
 // TYPE DEFINITIONS
@@ -367,17 +340,6 @@ interface TrendData {
   label?: string;
 }
 
-interface Insight {
-  id: string;
-  type: 'opportunity' | 'warning' | 'success' | 'info';
-  title: string;
-  description: string;
-  metric?: string;
-  priority: 'high' | 'medium' | 'low';
-  action?: string;
-  impact?: string;
-}
-
 // ============================================
 // LOADER - Fetch and calculate analytics
 // ============================================
@@ -407,7 +369,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   try {
     // Fetch minimal data for UI structure, recommendations, and entitlements
-    const [shopSettings, tiers, entitlements] = await Promise.all([
+    const [shopSettings, , entitlements] = await Promise.all([
       db.shopSettings.findUnique({ where: { shop } }),
       db.tier.findMany({
         where: { shop },
@@ -886,168 +848,6 @@ const getShopifyChartOptions = (yAxisConfig?: {
   },
 });
 
-const getShopifyBarChartOptions = (isHorizontal = false): ChartOptions<'bar'> => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  indexAxis: isHorizontal ? 'y' : 'x',
-  plugins: {
-    legend: {
-      display: false,
-    },
-    tooltip: {
-      mode: 'index',
-      intersect: false,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      padding: 12,
-      cornerRadius: 4,
-      titleColor: '#fff',
-      bodyColor: '#fff',
-      borderColor: 'rgba(255, 255, 255, 0.1)',
-      borderWidth: 1,
-    },
-  },
-  scales: {
-    x: {
-      grid: {
-        display: !isHorizontal,
-        color: '#e3e5e7',
-        lineWidth: 0.5,
-      },
-      ticks: {
-        color: '#8c9196',
-        font: {
-          size: 12,
-        },
-      },
-      border: {
-        display: false,
-      },
-    },
-    y: {
-      beginAtZero: true,
-      grid: {
-        display: isHorizontal,
-        color: '#e3e5e7',
-        lineWidth: 0.5,
-      },
-      ticks: {
-        color: '#8c9196',
-        font: {
-          size: 12,
-        },
-      },
-      border: {
-        display: false,
-      },
-    },
-  },
-});
-
-// ============================================
-// COMPONENTS
-// ============================================
-
-function AnalyticsMetricCard({ 
-  title, 
-  value, 
-  change, 
-  trend, 
-  loading, 
-  delay = 0 
-}: {
-  title: string;
-  value: string | number;
-  change?: number;
-  trend?: 'up' | 'down' | 'neutral';
-  loading?: boolean;
-  delay?: number;
-}) {
-  if (loading) {
-    return <LoadingSkeleton type="card" lines={3} />;
-  }
-
-  const getTrendIcon = () => {
-    if (trend === 'up') return ArrowUpIcon;
-    if (trend === 'down') return ArrowDownIcon;
-    return ChartVerticalIcon;
-  };
-
-  const getTone = () => {
-    if (trend === 'up') return 'success';
-    if (trend === 'down') return 'critical';
-    return 'default';
-  };
-
-  return (
-    <MetricCard
-      title={title}
-      value={value.toString()}
-      change={change}
-      icon={getTrendIcon()}
-      tone={getTone() as any}
-    />
-  );
-}
-
-
-function InsightCard({ insight }: { insight: Insight }) {
-
-  const getTone = () => {
-    switch (insight.type) {
-      case 'opportunity': return 'magic';
-      case 'warning': return 'warning';
-      case 'success': return 'success';
-      default: return 'info';
-    }
-  };
-
-  return (
-    <Box 
-      padding="400" 
-      background={`bg-surface-${getTone()}-subdued` as any}
-      borderInlineStartWidth="025"
-      borderColor={`border-${getTone()}` as any}
-      borderRadius="200"
-    >
-      <BlockStack gap="300">
-        <InlineStack align="space-between">
-          <Text variant="headingSm" as="h4">
-            {insight.title}
-          </Text>
-          {insight.priority && (
-            <Badge tone="critical">
-              {`${insight.priority} priority`}
-            </Badge>
-          )}
-        </InlineStack>
-        
-        <Text variant="bodyMd" as="p">
-          {insight.description}
-        </Text>
-        
-        {insight.metric && (
-          <Text variant="headingLg" as="p" tone={getTone() as any}>
-            {insight.metric}
-          </Text>
-        )}
-        
-        {insight.action && (
-          <InlineStack gap="200">
-            <Button size="slim" tone={getTone() as any}>
-              {insight.action}
-            </Button>
-            {insight.impact && (
-              <Text variant="bodySm" tone="subdued" as="span">
-                {insight.impact}
-              </Text>
-            )}
-          </InlineStack>
-        )}
-      </BlockStack>
-    </Box>
-  );
-}
-
 // ============================================
 // MARGIN RECALIBRATION FORM COMPONENT
 // ============================================
@@ -1114,9 +914,9 @@ function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetr
             onChange={handleChange('averageProfitMargin')}
             helpText="e.g., 45 for 45% profit margin"
             autoComplete="off"
-            min="0"
-            max="100"
-            step="0.01"
+            min={0}
+            max={100}
+            step={0.01}
           />
           <TextField
             label="Average Shipping Cost"
@@ -1125,8 +925,8 @@ function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetr
             onChange={handleChange('averageShippingCost')}
             helpText="Average cost per order in your currency"
             autoComplete="off"
-            min="0"
-            step="0.01"
+            min={0}
+            step={0.01}
           />
         </FormLayout.Group>
 
@@ -1138,9 +938,9 @@ function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetr
             onChange={handleChange('averageTransactionFee')}
             helpText="Payment processing fees (e.g., 2.9 for 2.9%)"
             autoComplete="off"
-            min="0"
-            max="100"
-            step="0.01"
+            min={0}
+            max={100}
+            step={0.01}
           />
           <TextField
             label="Average Return/Refund Rate (%)"
@@ -1149,9 +949,9 @@ function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetr
             onChange={handleChange('averageReturnRate')}
             helpText="% of orders that get returned or refunded"
             autoComplete="off"
-            min="0"
-            max="100"
-            step="0.01"
+            min={0}
+            max={100}
+            step={0.01}
           />
         </FormLayout.Group>
 
@@ -1220,18 +1020,11 @@ function MarginRecalibrationForm({ initialValues, currentAOV, autoCalculatedMetr
 
 export default function AnalyticsPage() {
   const data = useLoaderData<typeof loader>();
-  const navigation = useNavigation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-
   // Check if advanced analytics is enabled via Feature Manager toggle
   const hasAdvancedAnalytics = data.shopSettings?.advancedAnalyticsEnabled ?? false;
 
   const [selectedTab, setSelectedTab] = useState(0);
-  const [selectedDateRange, setSelectedDateRange] = useState(
-    searchParams.get('range') || '30days'
-  );
-
   // Reset to Overview tab if user doesn't have advanced analytics access
   useEffect(() => {
     if (!hasAdvancedAnalytics && selectedTab > 0) {
@@ -1239,46 +1032,11 @@ export default function AnalyticsPage() {
     }
   }, [hasAdvancedAnalytics, selectedTab]);
 
-  const isLoading = navigation.state === "loading";
-  
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
   }, [data.shopSettings]);
   
-  // Handle date range selection
-  const handleDateRangeSelect = useCallback((range: string) => {
-    setSelectedDateRange(range);
-
-    // Navigate with the new date range parameter
-    navigate(`?range=${range}`);
-  }, [navigate]);
-  
-  // Get date range display text
-  const getDateRangeText = useCallback(() => {
-    const now = new Date();
-    switch (selectedDateRange) {
-      case 'today':
-        return `Today (${now.toLocaleDateString()})`;
-      case '7days':
-        const week = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return `Last 7 Days (${week.toLocaleDateString()} - ${now.toLocaleDateString()})`;
-      case '30days':
-        const month = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        return `Last 30 Days (${month.toLocaleDateString()} - ${now.toLocaleDateString()})`;
-      case 'quarter':
-        const quarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        return `Last Quarter (${quarter.toLocaleDateString()} - ${now.toLocaleDateString()})`;
-      case 'year':
-        const year = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        return `Last Year (${year.toLocaleDateString()} - ${now.toLocaleDateString()})`;
-      case 'all':
-        return 'All Time';
-      default:
-        return 'Last 30 Days';
-    }
-  }, [selectedDateRange]);
-
   // Build tabs based on feature access - Overview is always visible
   // Advanced tabs require Advanced Analytics feature (from Feature Manager toggle)
   const tabs = useMemo(() => {

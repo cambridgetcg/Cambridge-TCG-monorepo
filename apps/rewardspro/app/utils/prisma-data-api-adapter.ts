@@ -28,6 +28,7 @@ export class DataAPIModelProxy<T = any> {
     orderBy?: Record<string, "asc" | "desc">;
     include?: Record<string, any>;
     select?: Record<string, any>;
+    distinct?: string | string[];
     _count?: { select?: Record<string, boolean> };
   }): Promise<T[]> {
     let sql = `SELECT * FROM "${this.tableName}"`;
@@ -470,6 +471,7 @@ export class DataAPIModelProxy<T = any> {
   async findUnique(args: {
     where: Record<string, any>;
     select?: Record<string, any>;
+    include?: Record<string, any>;
   }): Promise<T | null> {
     // Handle composite unique constraints
     // Prisma may pass composite keys as "field1_field2" with a combined value
@@ -627,6 +629,7 @@ export class DataAPIModelProxy<T = any> {
    */
   async create(args: {
     data: Record<string, any>;
+    include?: Record<string, any>;
   }): Promise<T> {
     // Auto-generate UUID for id field if not provided
     // This mimics Prisma's @default(uuid()) behavior
@@ -1203,6 +1206,7 @@ export class DataAPIModelProxy<T = any> {
   async update(args: {
     where: Record<string, any>;
     data: Record<string, any>;
+    include?: Record<string, any>;
   }): Promise<T> {
     // Auto-update updatedAt timestamp
     // This mimics Prisma's @updatedAt behavior

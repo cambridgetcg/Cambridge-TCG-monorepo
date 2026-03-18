@@ -1334,11 +1334,11 @@ export default function Dashboard() {
                   <Text variant="headingMd" as="h2">Feature Manager</Text>
                 </InlineStack>
                 <Badge tone={activeFeaturesCount === totalAccessibleFeatures ? 'success' : activeFeaturesCount >= Math.ceil(totalAccessibleFeatures / 2) ? 'info' : 'warning'}>
-                  {activeFeaturesCount}/{totalAccessibleFeatures} Active
+                  {`${activeFeaturesCount}/${totalAccessibleFeatures} Active`}
                 </Badge>
               </InlineStack>
 
-              <Text variant="bodyMd" as="span" tone="subdued" as="p">
+              <Text variant="bodyMd" as="p" tone="subdued">
                 Enable or disable specific features for your store. Changes take effect immediately.
               </Text>
 

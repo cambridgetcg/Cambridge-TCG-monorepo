@@ -59,8 +59,8 @@ export async function processRewardsDormancy(
         shop,
         pointsBalance: { gt: 0 },
         OR: [
-          { lastOrderAt: { lt: dormancyCutoff } },
-          { lastOrderAt: null },
+          { lastOrderDate: { lt: dormancyCutoff } },
+          { lastOrderDate: null },
         ],
         email: { not: null },
       },
@@ -78,8 +78,8 @@ export async function processRewardsDormancy(
     for (const customer of dormantCustomers) {
       result.customersProcessed++;
 
-      const daysSinceActivity = customer.lastOrderAt
-        ? Math.floor((Date.now() - customer.lastOrderAt.getTime()) / (1000 * 60 * 60 * 24))
+      const daysSinceActivity = customer.lastOrderDate
+        ? Math.floor((Date.now() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24))
         : dormancyDays;
 
       try {

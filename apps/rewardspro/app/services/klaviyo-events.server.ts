@@ -10,12 +10,11 @@
 import { v4 as uuidv4 } from "uuid";
 import db from "~/db.server";
 import {
-  KlaviyoService,
   getKlaviyoService,
   buildProfileProperties,
   hashProfileData,
 } from "./klaviyo.server";
-import type { Customer, Tier, Order } from "@prisma/client";
+import type { Customer, Tier } from "@prisma/client";
 
 // ============================================
 // EVENT NAMES (Metric Names in Klaviyo)
@@ -426,10 +425,10 @@ export async function trackOrderPlaced(
     if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
       const nextTier = sortedTiers[currentIndex + 1];
       nextTierName = nextTier.name;
-      spendToNextTier = Math.max(0, nextTier.minSpend - customer.lifetimeSpend);
+      spendToNextTier = Math.max(0, nextTier.minSpend - customer.totalSpent);
       progressToNextTier = Math.min(
         100,
-        Math.round((customer.lifetimeSpend / nextTier.minSpend) * 100)
+        Math.round((customer.totalSpent / nextTier.minSpend) * 100)
       );
     }
   }
@@ -455,9 +454,9 @@ export async function trackOrderPlaced(
       // Customer status
       current_tier: customer.currentTier?.name || "None",
       tier_id: customer.currentTier?.id || null,
-      cashback_balance_after: customer.cashbackBalance,
-      lifetime_spend: customer.lifetimeSpend,
-      orders_count: customer.ordersCount,
+      cashback_balance_after: customer.storeCredit,
+      lifetime_spend: customer.totalSpent,
+      orders_count: customer.orderCount,
 
       // Progress tracking
       spend_to_next_tier: spendToNextTier,
@@ -504,7 +503,7 @@ export async function trackTierUpgraded(
     if (currentIndex >= 0 && currentIndex < sortedTiers.length - 1) {
       const nextTier = sortedTiers[currentIndex + 1];
       nextTierName = nextTier.name;
-      spendToNextTier = nextTier.minSpend - customer.lifetimeSpend;
+      spendToNextTier = nextTier.minSpend - customer.totalSpent;
     }
   }
 
@@ -538,7 +537,7 @@ export async function trackTierUpgraded(
       cashback_increase: newTier.cashbackPercent - (previousTier?.cashbackPercent || 0),
 
       // Achievement context
-      lifetime_spend: customer.lifetimeSpend,
+      lifetime_spend: customer.totalSpent,
       qualifying_order_id: qualifyingOrderId,
       time_to_achieve: timeToAchieve,
 
@@ -562,8 +561,8 @@ export async function trackTierUpgraded(
       properties: {
         tier_name: newTier.name,
         cashback_percent: newTier.cashbackPercent,
-        lifetime_spend: customer.lifetimeSpend,
-        orders_count: customer.ordersCount,
+        lifetime_spend: customer.totalSpent,
+        orders_count: customer.orderCount,
         time_to_achieve: timeToAchieve,
       },
     });
@@ -598,9 +597,9 @@ export async function trackTierDowngraded(
 
       cashback_decrease: previousTier.cashbackPercent - newTier.cashbackPercent,
 
-      lifetime_spend: customer.lifetimeSpend,
-      orders_count: customer.ordersCount,
-      cashback_balance: customer.cashbackBalance,
+      lifetime_spend: customer.totalSpent,
+      orders_count: customer.orderCount,
+      cashback_balance: customer.storeCredit,
     },
   });
 }
@@ -630,7 +629,7 @@ export async function trackCashbackEarned(
       order_number: orderNumber,
       current_tier: customer.currentTier?.name || "None",
       cashback_percent: customer.currentTier?.cashbackPercent || 0,
-      new_balance: customer.cashbackBalance,
+      new_balance: customer.storeCredit,
       total_earned: customer.totalCashbackEarned,
     },
   });
@@ -659,7 +658,7 @@ export async function trackCashbackRedeemed(
       cashback_amount: amount,
       order_id: orderId,
       order_number: orderNumber,
-      remaining_balance: customer.cashbackBalance,
+      remaining_balance: customer.storeCredit,
       total_redeemed: customer.totalCashbackRedeemed,
       current_tier: customer.currentTier?.name || "None",
     },
@@ -684,10 +683,10 @@ export async function trackPointsExpiring(
     uniqueId: `points_expiry_${customer.id}_${daysUntilExpiry}d`,
     properties: {
       points_expiring: pointsExpiring,
-      cashback_expiring: customer.cashbackBalance, // Assuming points = cashback for simplicity
+      cashback_expiring: customer.storeCredit, // Assuming points = cashback for simplicity
       expiry_date: expiryDate.toISOString().split("T")[0],
       days_until_expiry: daysUntilExpiry,
-      total_cashback_balance: customer.cashbackBalance,
+      total_cashback_balance: customer.storeCredit,
       current_tier: customer.currentTier?.name || "None",
       redeem_url: `https://${shop}/account/rewards`,
     },
@@ -715,11 +714,11 @@ export async function trackWinBackNeeded(
     uniqueId: `winback_${customer.id}_${daysSinceLastOrder}d`,
     properties: {
       days_since_last_order: daysSinceLastOrder,
-      last_order_date: customer.lastOrderAt?.toISOString().split("T")[0],
-      cashback_balance: customer.cashbackBalance,
+      last_order_date: customer.lastOrderDate?.toISOString().split("T")[0],
+      cashback_balance: customer.storeCredit,
       current_tier: customer.currentTier?.name || "None",
-      lifetime_spend: customer.lifetimeSpend,
-      total_orders: customer.ordersCount,
+      lifetime_spend: customer.totalSpent,
+      total_orders: customer.orderCount,
       risk_level: riskLevel,
       win_back_code: winBackCode,
       offer_expires: offerExpires?.toISOString().split("T")[0],
@@ -742,12 +741,12 @@ export async function trackBalanceReminder(
     customerId: customer.id,
     uniqueId: `balance_reminder_${customer.id}_${daysSinceLastOrder}d`,
     properties: {
-      cashback_balance: customer.cashbackBalance,
+      cashback_balance: customer.storeCredit,
       days_since_last_order: daysSinceLastOrder,
-      last_order_date: customer.lastOrderAt?.toISOString().split("T")[0],
+      last_order_date: customer.lastOrderDate?.toISOString().split("T")[0],
       current_tier: customer.currentTier?.name || "None",
-      lifetime_spend: customer.lifetimeSpend,
-      orders_count: customer.ordersCount,
+      lifetime_spend: customer.totalSpent,
+      orders_count: customer.orderCount,
     },
   });
 }
@@ -778,7 +777,7 @@ export async function trackTierUpgradeNear(
       spend_to_next_tier: spendRemaining,
       progress_percent: progressPercent,
       cashback_increase: nextTier.cashbackPercent - (customer.currentTier?.cashbackPercent || 0),
-      lifetime_spend: customer.lifetimeSpend,
+      lifetime_spend: customer.totalSpent,
     },
   });
 }
@@ -818,8 +817,8 @@ export async function trackCashbackAdjusted(
       new_balance: adjustment.newBalance,
       current_tier: customer.currentTier?.name || "None",
       cashback_percent: customer.currentTier?.cashbackPercent || 0,
-      lifetime_spend: customer.lifetimeSpend,
-      orders_count: customer.ordersCount,
+      lifetime_spend: customer.totalSpent,
+      orders_count: customer.orderCount,
     },
   });
 }
@@ -847,15 +846,11 @@ export function calculateCustomerSegment(
   customer: Customer & { currentTier?: Tier | null },
   tiers?: Tier[]
 ): CustomerSegment {
-  const daysSinceOrder = customer.lastOrderAt
+  const daysSinceOrder = customer.lastOrderDate
     ? Math.floor(
-        (Date.now() - customer.lastOrderAt.getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)
       )
     : null;
-
-  const daysAsMember = Math.floor(
-    (Date.now() - customer.createdAt.getTime()) / (1000 * 60 * 60 * 24)
-  );
 
   // Check if customer is VIP (highest tier)
   const isVip =
@@ -870,7 +865,7 @@ export function calculateCustomerSegment(
 
   // Loyal: 3+ orders + active in last 60 days
   if (
-    customer.ordersCount >= 3 &&
+    customer.orderCount >= 3 &&
     daysSinceOrder !== null &&
     daysSinceOrder <= 60
   ) {
@@ -884,7 +879,7 @@ export function calculateCustomerSegment(
 
   // At-Risk: 2+ orders but inactive 45-89 days
   if (
-    customer.ordersCount >= 2 &&
+    customer.orderCount >= 2 &&
     daysSinceOrder !== null &&
     daysSinceOrder >= 45 &&
     daysSinceOrder < 90
@@ -926,9 +921,9 @@ export async function trackSegmentChanged(
     return false;
   }
 
-  const daysSinceOrder = customer.lastOrderAt
+  const daysSinceOrder = customer.lastOrderDate
     ? Math.floor(
-        (Date.now() - customer.lastOrderAt.getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - customer.lastOrderDate.getTime()) / (1000 * 60 * 60 * 24)
       )
     : null;
 
@@ -941,11 +936,11 @@ export async function trackSegmentChanged(
     properties: {
       previous_segment: previousSegment,
       new_segment: newSegment,
-      orders_count: customer.ordersCount,
-      lifetime_spend: customer.lifetimeSpend,
+      orders_count: customer.orderCount,
+      lifetime_spend: customer.totalSpent,
       days_since_last_order: daysSinceOrder,
       current_tier: customer.currentTier?.name || "None",
-      cashback_balance: customer.cashbackBalance,
+      cashback_balance: customer.storeCredit,
       cashback_percent: customer.currentTier?.cashbackPercent || 0,
     },
   });

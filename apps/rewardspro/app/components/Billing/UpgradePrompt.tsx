@@ -21,6 +21,7 @@ import {
   Badge,
   Icon,
   ProgressBar,
+  Modal,
 } from '@shopify/polaris';
 import {
   LockIcon,
@@ -614,7 +615,6 @@ export function LimitHint({
   const percentage = limit > 0 ? Math.min((current / limit) * 100, 100) : 0;
   const isApproaching = percentage >= showThreshold;
   const isAtLimit = current >= limit;
-  const hasRoom = current < limit;
   const remaining = Math.max(limit - current, 0);
 
   // Don't show if under threshold and not forced
@@ -667,7 +667,7 @@ export function LimitHint({
             }} />
           </div>
           <Text as="span" variant={compact ? 'bodySm' : 'bodyMd'} tone="subdued">
-            {current}/{limit} {resource}{limit !== 1 ? 's' : ''}
+            {`${current}/${limit}`} {resource}{limit !== 1 ? 's' : ''}
           </Text>
           {isAtLimit && (
             <Button
@@ -691,7 +691,7 @@ export function LimitHint({
     return (
       <InlineStack gap="200" blockAlign="center">
         <Badge tone={getTone()}>
-          {current}/{limit}
+          {`${current}/${limit}`}
         </Badge>
         {isAtLimit && (
           <Button
@@ -736,7 +736,7 @@ export function LimitHint({
               </Text>
             </InlineStack>
             <Badge tone={getTone()}>
-              {remaining} left
+              {`${remaining} left`}
             </Badge>
           </InlineStack>
 
@@ -773,7 +773,7 @@ export function LimitHint({
         title={`${current}/${limit} ${resource}s used`}
       />
       <Text as="span" variant="bodySm" tone="subdued">
-        {current}/{limit}
+        {`${current}/${limit}`}
       </Text>
     </InlineStack>
   );
@@ -850,7 +850,7 @@ export function PageLimitStatus({
           variant="plain"
           onClick={() => navigate('/app/billing')}
         >
-          {nextTierName} allows {nextTierLimit}
+          {`${nextTierName} allows ${nextTierLimit}`}
         </Button>
       )}
     </InlineStack>
@@ -932,8 +932,6 @@ export function LimitAwareButton({
 // ============================================
 // LIMIT EXCEEDED MODAL
 // ============================================
-
-import { Modal } from '@shopify/polaris';
 
 export interface LimitExceededModalProps {
   /** Whether the modal is open */

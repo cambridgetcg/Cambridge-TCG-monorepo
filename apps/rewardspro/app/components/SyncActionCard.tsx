@@ -18,6 +18,7 @@ import {
   ProgressBar,
   Spinner,
   Badge,
+  Banner,
 } from "@shopify/polaris";
 import { RefreshIcon } from "@shopify/polaris-icons";
 import type { ReactNode } from "react";
@@ -58,7 +59,7 @@ export interface SyncActionCardProps {
   /** Whether to show detailed progress stats (created, updated, etc.) */
   showDetailedStats?: boolean;
   /** Custom icon for the button */
-  icon?: ReactNode;
+  icon?: React.ReactElement | React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
   /** Optional badge to show next to title */
   statusBadge?: ReactNode;
   /** Size variant - 'compact' for settings page, 'full' for dedicated sync pages */
@@ -82,7 +83,6 @@ export function SyncActionCard({
   statusBadge,
   variant = 'compact',
 }: SyncActionCardProps) {
-  const isLoading = isStarting || isSyncing;
   const showProgress = isSyncing && progress;
   const progressPercent = progress?.percentComplete || 0;
 
@@ -198,7 +198,6 @@ export function SyncActionCard({
  * SyncStatusBanner - Unified sync status banner component
  * Shows success, error, or warning messages after sync completes
  */
-import { Banner } from "@shopify/polaris";
 
 export type SyncStatus = 'idle' | 'syncing' | 'completed' | 'failed' | 'cancelled';
 

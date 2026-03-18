@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, Link } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -13,7 +13,6 @@ import {
   Button,
   Grid,
   Divider,
-  Select,
   Tabs,
   DataTable,
   EmptyState,
@@ -167,9 +166,8 @@ function TierDistributionChart({ data }: { data: Array<{ tier: string; customers
 }
 
 export default function AnalyticsPage() {
-  const data = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>() as unknown as LoaderData;
   const [selectedTab, setSelectedTab] = useState(0);
-  const [dateRange, setDateRange] = useState('30days');
 
   // Real-time metrics (optional)
   const realtimeData = useRealtimeMetrics('/app/analytics/realtime');

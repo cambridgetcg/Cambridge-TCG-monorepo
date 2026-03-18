@@ -462,7 +462,7 @@ export function CompleteVisualExample() {
                       </Text>
                       {/* Semantic color usage */}
                       <Badge tone={metric.trend > 0 ? 'success' : 'critical'}>
-                        {metric.trend > 0 ? '+' : ''}{metric.trend}%
+                        {`${metric.trend > 0 ? '+' : ''}${metric.trend}%`}
                       </Badge>
                     </BlockStack>
                   </Box>
