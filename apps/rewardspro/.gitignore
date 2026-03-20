@@ -55,6 +55,7 @@ APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
 !LICENSE.md
 !PRODUCT_VISION.md
 !CLAUDE.md
+!DEPLOY.md
 
 # Exclude CLAUDE.md files (AI context files)
 CLAUDE.md
