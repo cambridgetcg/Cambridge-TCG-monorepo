@@ -7,6 +7,13 @@ module.exports = {
     "@remix-run/eslint-config/jest-testing-library",
     "prettier",
   ],
+  rules: {
+    "@typescript-eslint/no-unused-vars": ["error", {
+      argsIgnorePattern: "^_",
+      varsIgnorePattern: "^_",
+      destructuredArrayIgnorePattern: "^_",
+    }],
+  },
   globals: {
     shopify: "readonly"
   },

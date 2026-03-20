@@ -3,13 +3,9 @@ import { json, defer } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useFetcher, useActionData, useSearchParams } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useToast } from "~/hooks/useToast";
-import { StaggerChildren, PageLoader, usePageAnimation } from "~/components/PageAnimation";
-import { SubscriptionCard } from "~/components/Billing/UpgradePrompt";
-import * as crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import {
   Page,
-  Layout,
   Card,
   IndexTable,
   TextField,
@@ -23,11 +19,8 @@ import {
   Banner,
   Box,
   EmptyState,
-  ProgressBar,
   Modal,
-  Spinner,
   Divider,
-  Grid,
   Tooltip,
   Avatar,
   SkeletonBodyText,
@@ -38,72 +31,42 @@ import {
   Checkbox,
   ChoiceList,
   InlineGrid,
-  SkeletonThumbnail,
   Popover,
-  ActionList,
-  LegacyFilters,
   Tag,
-  RangeSlider,
 } from "@shopify/polaris";
 import {
   SearchIcon,
   PersonIcon,
   RefreshIcon,
   ChartVerticalIcon,
-  RewardIcon,
-  CashDollarIcon,
-  CheckCircleIcon,
   AlertTriangleIcon,
   InfoIcon,
   StarIcon,
-  CheckIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  PlusIcon,
-  EditIcon,
-  DeleteIcon,
-  CalendarIcon,
-  ImportIcon,
   ExportIcon,
   FilterIcon,
 } from "~/utils/polaris-icons";
-import {
-  MetricCard,
-  CustomerCard,
-  TierProgressCard,
-  LoadingSkeleton,
-} from "../components/DesignSystem";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import {
-  calculateCustomerTier,
-  calculateTiersForCustomers,
   calculateAllCustomerTiers
 } from "../services/tier-calculation.server";
 import {
   assignCustomerToTier,
   hasManualOverride,
-  getTierHistory
 } from "../services/manual-tier-assignment.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { syncCustomersInBackground } from "../services/background-customer-sync.server";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
-import { TierBadge } from "../components/TierBadge";
 import { StoreCreditDisplay } from "../components/StoreCredit";
 import {
   getTierStyle,
-  formatTierName,
-  getTierEmoji,
-  getTierGradientCSS,
-  getTierTextColor
 } from "../utils/tier-styles";
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings, getShopTiers } from "../services/shop-data-provider.server";
 import { trackCashbackAdjusted } from "../services/klaviyo-events.server";
 import {
   getCustomerOrderSummariesBatch,
-  type CustomerOrderSummary,
   type ActivityStatus,
 } from "../services/customer-order-summary.server";
 
@@ -151,7 +114,7 @@ interface Customer {
   } | null;
 }
 
-interface LoaderData {
+interface _LoaderData {
   // IMMEDIATE: Page shell + essential customers (renders instantly!)
   tiers: Array<{
     id: string;
@@ -223,7 +186,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       id: customer.id,
       shopifyCustomerId: customer.shopifyCustomerId,
       email: customer.email,
-      storeCredit: parseFloat(customer.storeCredit.toString()),
+      storeCredit: parseFloat(String(customer.storeCredit ?? 0)),
       currentTier: customer.currentTier ? {
         id: customer.currentTier.id,
         name: customer.currentTier.name,
@@ -396,22 +359,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Execute both queries in parallel for maximum efficiency
-    const [customers, totalCount] = await Promise.all([
-      // Fetch only the customers for current page (using take/skip)
-      db.customer.findMany({
-        where: whereClause,
-        include: { currentTier: true },
-        orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
-        take: pageSize,
-        skip: offset,
-      }),
-      // Get total count for pagination (single COUNT query)
-      db.customer.count({
-        where: whereClause,
-      }),
-    ]);
+    try {
+      const [customers, totalCount] = await Promise.all([
+        // Fetch only the customers for current page (using take/skip)
+        db.customer.findMany({
+          where: whereClause,
+          include: { currentTier: true },
+          orderBy: { [sortKey]: sortDirection as 'asc' | 'desc' },
+          take: pageSize,
+          skip: offset,
+        }),
+        // Get total count for pagination (single COUNT query)
+        db.customer.count({
+          where: whereClause,
+        }),
+      ]);
 
-    return { customers, totalCount };
+      return { customers, totalCount };
+    } catch (error) {
+      console.error('[Members Search] Query failed:', error);
+      console.error('[Members Search] Where clause:', JSON.stringify(whereClause, null, 2));
+      return { customers: [], totalCount: 0 };
+    }
   }
 
   /**
@@ -673,7 +642,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Serialize dates for tiers
     const serializedTiers = tiers.map(tier => ({
       ...tier,
-      evaluationPeriod: (tier as any).evaluationPeriod || "ANNUAL" as "ANNUAL",
+      evaluationPeriod: ((tier as any).evaluationPeriod || "ANNUAL") as const,
       createdAt: tier.createdAt instanceof Date
         ? tier.createdAt.toISOString()
         : tier.createdAt,
@@ -1053,7 +1022,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         });
 
         const currency = shopSettings?.storeCurrency || "USD";
-        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
+        const _gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
 
         // Perform the credit/debit operation in Shopify
         if (actionType === "add") {
@@ -1298,7 +1267,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         try {
           if (customer.email) {
             const { getCurrencyBranding } = await import("~/services/points-config.server");
-            const { sendPointsEarnedEmail, sendPointsRedeemedEmail } = await import("~/services/email-notifications.server");
+            const { sendPointsEarnedEmail, sendPointsRedeemedEmail: _sendPointsRedeemedEmail } = await import("~/services/email-notifications.server");
             const branding = await getCurrencyBranding(session.shop);
 
             if (actionType === "add") {
@@ -2142,7 +2111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // HELPER COMPONENTS
 // ============================================
 
-function TierIcon({ tierName }: { tierName: string }) {
+function _TierIcon({ tierName }: { tierName: string }) {
   const style = getTierStyle(tierName);
   return (
     <div style={{
@@ -2160,7 +2129,7 @@ function TierIcon({ tierName }: { tierName: string }) {
   );
 }
 
-function CustomerAvatar({ email }: { email: string }) {
+function _CustomerAvatar({ email }: { email: string }) {
   const initials = email.substring(0, 2).toUpperCase();
   return (
     <Avatar customer size="md" initials={initials} />
@@ -2171,7 +2140,7 @@ function CustomerAvatar({ email }: { email: string }) {
 // SKELETON LOADING STATE
 // ============================================
 
-function CustomersTableSkeleton() {
+function _CustomersTableSkeleton() {
   return (
     <Box padding="400">
       <BlockStack gap="400">
@@ -2191,12 +2160,12 @@ function CustomersTableContent({
   customers,
   pagination,
   shopSettings,
-  tiers,
+  tiers: _tiers,
   isCalculating,
   calculatingCustomerId,
   handleViewCustomer,
   handleManualTierAssignment,
-  handleCalculateSingle,
+  handleCalculateSingle: _handleCalculateSingle,
   selectedResources,
   onSelectionChange,
   onBulkTierAssignment,
@@ -2260,7 +2229,7 @@ function CustomersTableContent({
 
   const rowMarkup = customers.map((customer, index) => {
     const isVisible = visibleRows.includes(index);
-    const isProcessing = calculatingCustomerId === customer.id;
+    const _isProcessing = calculatingCustomerId === customer.id;
 
     return (
       <IndexTable.Row
@@ -2479,21 +2448,21 @@ export default function Customers() {
   const data = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
-  const navigation = useNavigation();
+  const _navigation = useNavigation();
   const fetcher = useFetcher();
   const [searchParams, setSearchParams] = useSearchParams();
   
   // State - Initialize from URL params
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+  const [_searchQuery, _setSearchQuery] = useState(searchParams.get("search") || "");
   const [tierFilter, setTierFilter] = useState(searchParams.get("tier") || "all");
   const [queryValue, setQueryValue] = useState(searchParams.get("search") || "");
   const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "25"));
-  const [isCalculating, setIsCalculating] = useState(false);
+  const [isCalculating, _setIsCalculating] = useState(false);
   const [calculatingCustomerId, setCalculatingCustomerId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState(0);
-  const [visibleRows, setVisibleRows] = useState<number[]>([]);
+  const [_visibleRows, _setVisibleRows] = useState<number[]>([]);
   const { toast, showInfo, showSuccess, showError, hideToast } = useToast();
 
   // Tier management states
@@ -2545,11 +2514,11 @@ export default function Customers() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Animation refs
-  const tableRef = useRef<HTMLDivElement>(null);
-  const isFirstRender = useRef(true);
+  const _tableRef = useRef<HTMLDivElement>(null);
+  const _isFirstRender = useRef(true);
 
   // Get current page from URL params
-  const currentPage = parseInt(searchParams.get("page") || "1");
+  const _currentPage = parseInt(searchParams.get("page") || "1");
 
   // Use enhanced customers if loaded, otherwise fall back to base customers
   // NOTE: Must be defined before callbacks that use it (handleSelectionChange)
@@ -2558,7 +2527,7 @@ export default function Customers() {
     : (data.customersData?.customers || []);
 
   // Format currency helper
-  const formatAmount = useCallback((amount: number) => {
+  const _formatAmount = useCallback((amount: number) => {
     return formatCurrency(amount, data.shopSettings as any);
   }, [data.shopSettings]);
 
@@ -2678,7 +2647,7 @@ export default function Customers() {
 
 
   // Calculate all tiers - fire and forget pattern
-  const handleCalculateAll = useCallback(() => {
+  const _handleCalculateAll = useCallback(() => {
     // Show immediate feedback without blocking UI
     showInfo("Tier calculation started for all customers. This runs in the background.");
 
@@ -2868,7 +2837,7 @@ export default function Customers() {
   }, [bulkCreditAmount, bulkCreditOperation, selectedResources, submit, showError]);
 
   // Clear selection
-  const handleClearSelection = useCallback(() => {
+  const _handleClearSelection = useCallback(() => {
     setSelectedResources([]);
   }, []);
 
@@ -3163,7 +3132,7 @@ export default function Customers() {
                   {statsLoaded && statsData && data.tiers.length > 0 && (
                     <Box paddingBlockStart="100">
                       <InlineStack gap="100" wrap={false}>
-                        {data.tiers.slice(0, 4).map((tier, index) => {
+                        {data.tiers.slice(0, 4).map((tier, _index) => {
                           const count = statsData.tierDistribution[tier.id] || 0;
                           const percentage = statsData.totalCustomers > 0
                             ? Math.round((count / statsData.totalCustomers) * 100)
