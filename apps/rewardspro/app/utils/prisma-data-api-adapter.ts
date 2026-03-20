@@ -74,9 +74,9 @@ export class DataAPIModelProxy<T = any> {
                   const searchVal = orValue.contains;
                   const searchMode = (orValue as any).mode || 'sensitive';
                   if (searchMode === 'insensitive') {
-                    orConditions.push(`LOWER("${orKey}") LIKE LOWER(:${paramName})`);
+                    orConditions.push(`LOWER(COALESCE("${orKey}", '')) LIKE LOWER(:${paramName})`);
                   } else {
-                    orConditions.push(`"${orKey}" LIKE :${paramName}`);
+                    orConditions.push(`COALESCE("${orKey}", '') LIKE :${paramName}`);
                   }
                   params.push(AuroraDataAPI.buildParameter(paramName, `%${searchVal}%`));
                 } else {
@@ -104,62 +104,34 @@ export class DataAPIModelProxy<T = any> {
           conditions.push(`"${key}" IS NOT NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'contains' in value) {
           // Handle { contains: 'text', mode: 'insensitive' }
+          // COALESCE handles nullable fields — prevents NULL LIKE returning NULL
           const searchValue = value.contains;
           const mode = value.mode || 'sensitive';
           if (mode === 'insensitive') {
-            conditions.push(`LOWER("${key}") LIKE LOWER(:param${index})`);
+            conditions.push(`LOWER(COALESCE("${key}", '')) LIKE LOWER(:param${index})`);
           } else {
-            conditions.push(`"${key}" LIKE :param${index}`);
+            conditions.push(`COALESCE("${key}", '') LIKE :param${index}`);
           }
           params.push(AuroraDataAPI.buildParameter(`param${index}`, `%${searchValue}%`));
-        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
-          // Handle { gte: value } (greater than or equal)
-          // STRATEGY 1: Remove SQL casting, rely on Data API type hints only
-          conditions.push(`"${key}" >= :param${index}`);
-
-          // Check if this is a timestamp field to pass hint to buildParameter
+        } else if (value !== undefined && typeof value === 'object' && ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)) {
+          // Handle comparison operators — process ALL present operators on same field
+          // Fixes bug where { gte: X, lte: Y } only processed gte due to else-if chain
+          const compOps: Record<string, string> = { gte: '>=', lte: '<=', gt: '>', lt: '<' };
           const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
             'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
             'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
 
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte, { isTimestamp: isTimestampField }));
-        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
-          // Handle { lte: value } (less than or equal)
-          // STRATEGY 1: Remove SQL casting, rely on Data API type hints only
-          conditions.push(`"${key}" <= :param${index}`);
-
-          // Check if this is a timestamp field to pass hint to buildParameter
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
-            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
-
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte, { isTimestamp: isTimestampField }));
-        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
-          // Handle { gt: value } (greater than)
-          // Check if this is a timestamp field that needs casting
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
-            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
-          
-          if (isTimestampField) {
-            conditions.push(`"${key}" > :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" > :param${index}`);
+          for (const [op, sqlOp] of Object.entries(compOps)) {
+            if (op in value) {
+              const paramName = `param${index}_${op}`;
+              if (isTimestampField && (op === 'gt' || op === 'lt')) {
+                conditions.push(`"${key}" ${sqlOp} :${paramName}::timestamp`);
+              } else {
+                conditions.push(`"${key}" ${sqlOp} :${paramName}`);
+              }
+              params.push(AuroraDataAPI.buildParameter(paramName, value[op], { isTimestamp: isTimestampField }));
+            }
           }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
-        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
-          // Handle { lt: value } (less than)
-          // Check if this is a timestamp field that needs casting
-          const isTimestampField = ['createdAt', 'updatedAt', 'expires', 'processedAt',
-            'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
-            'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt'].includes(key);
-          
-          if (isTimestampField) {
-            conditions.push(`"${key}" < :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" < :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
         } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
           // Handle { in: [...] } (IN clause)
           const inValues = value.in;
@@ -1473,51 +1445,105 @@ export class DataAPIModelProxy<T = any> {
     const conditions: string[] = [];
 
     if (args?.where) {
+      const timestampFields = ['createdAt', 'updatedAt', 'expires', 'processedAt', 'endDate',
+        'currentPeriodStart', 'currentPeriodEnd', 'lastCapAlert', 'shopifyCreatedAt',
+        'shopifyUpdatedAt', 'syncedAt', 'lastOrderDate', 'cancelledAt', 'startedAt', 'finishedAt'];
+      const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
+        'evaluationPeriod', 'financialStatus', 'fulfillmentStatus', 'status',
+        'purchaseType', 'duration', 'currency', 'billingInterval', 'deliveryInterval',
+        'lastPaymentStatus', 'discountType', 'eventType'];
+
       Object.entries(args.where).forEach(([key, value], index) => {
+        // Handle OR condition
+        if (key === 'OR' && Array.isArray(value)) {
+          const orConditions: string[] = [];
+          value.forEach((orClause: any, orIndex: number) => {
+            Object.entries(orClause).forEach(([orKey, orValue]: [string, any]) => {
+              const paramName = `or${orIndex}_${orKey}`;
+              if (orValue === null) {
+                orConditions.push(`"${orKey}" IS NULL`);
+              } else if (orValue !== undefined && typeof orValue === 'object') {
+                if ('contains' in orValue) {
+                  const searchMode = (orValue as any).mode || 'sensitive';
+                  if (searchMode === 'insensitive') {
+                    orConditions.push(`LOWER(COALESCE("${orKey}", '')) LIKE LOWER(:${paramName})`);
+                  } else {
+                    orConditions.push(`COALESCE("${orKey}", '') LIKE :${paramName}`);
+                  }
+                  params.push(AuroraDataAPI.buildParameter(paramName, `%${orValue.contains}%`));
+                } else if ('gte' in orValue) {
+                  orConditions.push(`"${orKey}" >= :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue.gte, { isTimestamp: timestampFields.includes(orKey) }));
+                } else if ('lte' in orValue) {
+                  orConditions.push(`"${orKey}" <= :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue.lte, { isTimestamp: timestampFields.includes(orKey) }));
+                } else {
+                  orConditions.push(`"${orKey}" = :${paramName}`);
+                  params.push(AuroraDataAPI.buildParameter(paramName, orValue));
+                }
+              } else if (orValue !== undefined) {
+                orConditions.push(`"${orKey}" = :${paramName}`);
+                params.push(AuroraDataAPI.buildParameter(paramName, orValue));
+              }
+            });
+          });
+          if (orConditions.length > 0) {
+            conditions.push(`(${orConditions.join(' OR ')})`);
+          }
+          return;
+        }
+
         if (value === null) {
           conditions.push(`"${key}" IS NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
           conditions.push(`"${key}" IS NOT NULL`);
-        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
-          conditions.push(`"${key}" >= :param${index}`);
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
-        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
-          conditions.push(`"${key}" <= :param${index}`);
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
-        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
-          conditions.push(`"${key}" > :param${index}`);
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
-        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
-          conditions.push(`"${key}" < :param${index}`);
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
+        } else if (value !== undefined && typeof value === 'object' && 'contains' in value) {
+          const mode = value.mode || 'sensitive';
+          if (mode === 'insensitive') {
+            conditions.push(`LOWER(COALESCE("${key}", '')) LIKE LOWER(:param${index})`);
+          } else {
+            conditions.push(`COALESCE("${key}", '') LIKE :param${index}`);
+          }
+          params.push(AuroraDataAPI.buildParameter(`param${index}`, `%${value.contains}%`));
         } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
           const inValues = value.in;
           if (Array.isArray(inValues) && inValues.length > 0) {
-            const placeholders = inValues.map((_, i) => `:param${index}_${i}`);
-            // Check if this field is an enum type that needs casting
-            // Must include 'status' for RaffleStatus, MysteryBoxStatus, etc.
-            const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
-                               'evaluationPeriod', 'financialStatus', 'fulfillmentStatus', 'status',
-                               'purchaseType', 'duration', 'currency', 'billingInterval', 'deliveryInterval',
-                               'lastPaymentStatus', 'discountType', 'eventType'];
+            const placeholders = inValues.map((_: any, i: number) => `:param${index}_${i}`);
             if (enumFields.includes(key)) {
-              // Cast enum types explicitly for PostgreSQL
               conditions.push(`"${key}"::text IN (${placeholders.join(', ')})`);
             } else {
               conditions.push(`"${key}" IN (${placeholders.join(', ')})`);
             }
-            inValues.forEach((val, i) => {
+            inValues.forEach((val: any, i: number) => {
               params.push(AuroraDataAPI.buildParameter(`param${index}_${i}`, val));
             });
           }
+        } else if (value !== undefined && typeof value === 'object') {
+          // Handle comparison operators — process ALL present operators on same field
+          // This correctly handles combined conditions like { gte: 10, lte: 100 }
+          const compOps: Record<string, string> = { gte: '>=', lte: '<=', gt: '>', lt: '<' };
+          const isTimestamp = timestampFields.includes(key);
+          let handled = false;
+
+          for (const [op, sqlOp] of Object.entries(compOps)) {
+            if (op in value) {
+              const paramName = `param${index}_${op}`;
+              conditions.push(`"${key}" ${sqlOp} :${paramName}`);
+              params.push(AuroraDataAPI.buildParameter(paramName, value[op], { isTimestamp: isTimestamp }));
+              handled = true;
+            }
+          }
+
+          if (!handled) {
+            if (enumFields.includes(key)) {
+              conditions.push(`"${key}"::text = :param${index}`);
+            } else {
+              conditions.push(`"${key}" = :param${index}`);
+            }
+            params.push(AuroraDataAPI.buildParameter(`param${index}`, value));
+          }
         } else if (value !== undefined) {
-          // Check if this field is an enum type that needs casting
-          const enumFields = ['type', 'changeType', 'triggerType', 'storeCurrency', 'currencyDisplayType',
-                             'evaluationPeriod', 'purchaseType', 'duration', 'currency', 'status',
-                             'billingInterval', 'deliveryInterval', 'financialStatus', 'fulfillmentStatus',
-                             'lastPaymentStatus', 'discountType', 'eventType'];
           if (enumFields.includes(key)) {
-            // Cast enum types explicitly for PostgreSQL
             conditions.push(`"${key}"::text = :param${index}`);
           } else {
             conditions.push(`"${key}" = :param${index}`);
@@ -1531,8 +1557,15 @@ export class DataAPIModelProxy<T = any> {
       }
     }
 
-    const result = await this.client.executeStatement(sql, params);
-    return result.records[0]?.count || 0;
+    try {
+      const result = await this.client.executeStatement(sql, params);
+      return result.records[0]?.count || 0;
+    } catch (error: any) {
+      console.error(`[DataAPI] Error in count for ${this.tableName}:`, error);
+      console.error(`[DataAPI] SQL: ${sql}`);
+      console.error(`[DataAPI] Params:`, params);
+      throw new Error(`Database count query failed: ${error.message}`);
+    }
   }
 
   /**
@@ -1588,38 +1621,21 @@ export class DataAPIModelProxy<T = any> {
           conditions.push(`"${key}" IS NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
           conditions.push(`"${key}" IS NOT NULL`);
-        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" >= :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" >= :param${index}`);
+        } else if (value !== undefined && typeof value === 'object' && ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)) {
+          // Handle comparison operators — process ALL present operators on same field
+          const compOps: Record<string, string> = { gte: '>=', lte: '<=', gt: '>', lt: '<' };
+
+          for (const [op, sqlOp] of Object.entries(compOps)) {
+            if (op in value) {
+              const paramName = `param${index}_${op}`;
+              if (isTimestampField) {
+                conditions.push(`"${key}" ${sqlOp} :${paramName}::timestamp`);
+              } else {
+                conditions.push(`"${key}" ${sqlOp} :${paramName}`);
+              }
+              params.push(AuroraDataAPI.buildParameter(paramName, value[op]));
+            }
           }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
-        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" <= :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" <= :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
-        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" > :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" > :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
-        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" < :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" < :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
         } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
           const inValues = value.in;
           if (Array.isArray(inValues) && inValues.length > 0) {
@@ -1774,38 +1790,21 @@ export class DataAPIModelProxy<T = any> {
           conditions.push(`"${key}" IS NULL`);
         } else if (value !== undefined && typeof value === 'object' && 'not' in value) {
           conditions.push(`"${key}" IS NOT NULL`);
-        } else if (value !== undefined && typeof value === 'object' && 'gte' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" >= :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" >= :param${index}`);
+        } else if (value !== undefined && typeof value === 'object' && ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)) {
+          // Handle comparison operators — process ALL present operators on same field
+          const compOps: Record<string, string> = { gte: '>=', lte: '<=', gt: '>', lt: '<' };
+
+          for (const [op, sqlOp] of Object.entries(compOps)) {
+            if (op in value) {
+              const paramName = `param${index}_${op}`;
+              if (isTimestampField) {
+                conditions.push(`"${key}" ${sqlOp} :${paramName}::timestamp`);
+              } else {
+                conditions.push(`"${key}" ${sqlOp} :${paramName}`);
+              }
+              params.push(AuroraDataAPI.buildParameter(paramName, value[op]));
+            }
           }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gte));
-        } else if (value !== undefined && typeof value === 'object' && 'lte' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" <= :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" <= :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lte));
-        } else if (value !== undefined && typeof value === 'object' && 'gt' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" > :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" > :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.gt));
-        } else if (value !== undefined && typeof value === 'object' && 'lt' in value) {
-          // Apply timestamp casting for timestamp fields
-          if (isTimestampField) {
-            conditions.push(`"${key}" < :param${index}::timestamp`);
-          } else {
-            conditions.push(`"${key}" < :param${index}`);
-          }
-          params.push(AuroraDataAPI.buildParameter(`param${index}`, value.lt));
         } else if (value !== undefined && typeof value === 'object' && 'in' in value) {
           const inValues = value.in;
           if (Array.isArray(inValues) && inValues.length > 0) {
