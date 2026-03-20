@@ -1230,13 +1230,18 @@
 
     /**
      * Load expanded state from localStorage
+     * On mobile (<768px), default to collapsed for better UX
      */
     loadExpandedState() {
       try {
         const stored = localStorage.getItem('rp-widget-expanded');
-        return stored !== 'false'; // Default to true
+        if (stored !== null) {
+          return stored !== 'false';
+        }
+        // No stored preference — default to collapsed on mobile
+        return window.innerWidth >= 768;
       } catch {
-        return true;
+        return window.innerWidth >= 768;
       }
     }
 

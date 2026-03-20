@@ -984,9 +984,9 @@
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .rp-widget-root {
-    left: 20px;
-    right: 20px;
-    bottom: 20px;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
   }
 
   .rp-widget {
@@ -1004,10 +1004,29 @@
 
   .rp-widget__body {
     padding: 14px;
+    max-height: 60vh;
   }
 
   .rp-widget__tier {
     font-size: 14px;
+  }
+
+  /* Mobile collapsed: compact header-only bar */
+  .rp-widget--collapsed {
+    border-radius: 8px;
+  }
+
+  .rp-widget--collapsed .rp-widget__header {
+    padding: 8px 12px;
+    border-radius: 8px;
+  }
+
+  .rp-widget--collapsed .rp-widget__tier {
+    font-size: 13px;
+  }
+
+  .rp-widget--collapsed .rp-widget__cashback {
+    font-size: 11px;
   }
 }
 
