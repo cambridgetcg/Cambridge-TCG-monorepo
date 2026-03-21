@@ -6,17 +6,39 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
 
 ## 🔴 Critical Bugs (fix before demo)
 
-### BUG-001: Members search function crash
+### ✅ BUG-001: Members search function crash (FIXED — commit f4239ea)
 - **Symptom:** Search/filter on Members page crashes the app
 - **Route:** `app.members._index.tsx` — `fetchPaginatedCustomers()` (line ~268)
 - **Priority:** P0 — core admin feature, will be visible in any demo
 - **Action:** Debug the search query builder, test with various filter combinations (search + tier + sort + pagination)
 
-### BUG-002: Mobile widget too large / not collapsed
+### ✅ BUG-002: Mobile widget too large / not collapsed (FIXED — commit f9a9a73)
 - **Symptom:** Storefront membership widget renders too large on mobile, doesn't collapse
 - **Files:** `extensions/theme-app-extension-rewardspro/blocks/membership_widget.liquid` + `assets/membership-widget.css`
 - **Priority:** P0 — Judy's family business customers will see this on phones
 - **Action:** Add responsive breakpoints, implement collapsed/expandable state for mobile, test across viewport sizes
+
+---
+
+## 🔵 Infrastructure — Verify Loop
+
+### INFRA-001: Recursive deploy-verify loop
+- **WHY:** Code changes that build locally can still break in production. Vercel logs, runtime errors, and actual app behaviour must be checked *after* every deploy — not just before. The gap between "it builds" and "it works" is where bugs hide.
+- **Design:** A recursive loop that:
+  1. **Push** — deploy change to Vercel
+  2. **Watch** — poll Vercel build logs for success/failure
+  3. **Probe** — hit key app endpoints, check for 200s, errors, expected behaviour
+  4. **Compare** — compare actual behaviour against intended design (defined per-change)
+  5. **Diagnose** — if mismatch: read Vercel function logs, identify error
+  6. **Fix** — apply fix, commit, return to step 1
+  7. **Confirm** — loop exits only when actual outcome matches intended design
+- **Intended design spec:** Each change must declare its expected outcome (e.g. "Members search returns results without crash", "Mobile widget collapses below 768px")
+- **Tooling needed:**
+  - Vercel API integration (build status, function logs)
+  - Endpoint health probe script
+  - Intended-vs-actual comparator
+  - Max iteration guard (prevent infinite loops — cap at 5 cycles, escalate to human)
+- **Priority:** High — build before Judy demo so we have confidence in every deploy
 
 ---
 
