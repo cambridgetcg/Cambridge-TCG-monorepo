@@ -44,7 +44,7 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
   - `raffles.liquid` — Fixed: quantity buttons 28→40px, header stacks on mobile, enter button min-height 44px
   - `gift_cards.liquid` — Fixed: buttons min-height 44px, header stacks, issued cards wrap, text overflow handled
 
-### DEMO-003: Walkthrough script
+### ✅ DEMO-003: Walkthrough script (DONE — 2026-03-22)
 - Prepare a demo flow for Judy: install → configure tiers → view customer → show widget → show analytics
 
 ---
