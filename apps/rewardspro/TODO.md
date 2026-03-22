@@ -31,9 +31,14 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
 
 ## 🟡 Demo Readiness
 
-### DEMO-001: E2E test suite for all app functions
-- Create comprehensive e2e testing covering all merchant-facing features
-- See **Testing Plan** below
+### ✅ DEMO-001: E2E test suite for P0 routes (DONE — 2026-03-22)
+- Created Vitest route-level tests for P0 and High priority routes:
+  - `app.members._index` — 14 tests: load, search, filter, pagination, BUG-001 null storeCredit, sort whitelist, pageSize cap
+  - `app.members.tiers` — 10 tests: load, tier names + cashback %, distribution, product coverage, null handling
+  - `app._index` (dashboard) — 10 tests: health indicators, widget status, loyalty engine states, webhook health, sync status
+  - `app.analytics` — 11 tests: overview metrics, safeQuery fallback, insights, cohort, date range, null handling
+- Total: 45 tests, all passing
+- See **Testing Plan** below for remaining coverage
 
 ### ✅ DEMO-002: Storefront widget mobile review (DONE — 2026-03-22)
 - All 6 storefront blocks reviewed and fixed:

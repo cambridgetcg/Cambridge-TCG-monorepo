@@ -7,6 +7,9 @@ module.exports = {
     "@remix-run/eslint-config/jest-testing-library",
     "prettier",
   ],
+  settings: {
+    jest: { version: 29 },
+  },
   rules: {
     "@typescript-eslint/no-unused-vars": ["error", {
       argsIgnorePattern: "^_",
@@ -18,6 +21,13 @@ module.exports = {
     shopify: "readonly"
   },
   overrides: [
+    {
+      // Test files — vi.mock() must come before imports (Vitest pattern)
+      files: ["test/**/*.{ts,tsx}"],
+      rules: {
+        "import/first": "off",
+      },
+    },
     {
       // Theme extension JS files — browser context, no modules
       files: ["extensions/**/assets/*.js"],
