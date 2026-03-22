@@ -22,23 +22,10 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
 
 ## 🔵 Infrastructure — Verify Loop
 
-### INFRA-001: Recursive deploy-verify loop
-- **WHY:** Code changes that build locally can still break in production. Vercel logs, runtime errors, and actual app behaviour must be checked *after* every deploy — not just before. The gap between "it builds" and "it works" is where bugs hide.
-- **Design:** A recursive loop that:
-  1. **Push** — deploy change to Vercel
-  2. **Watch** — poll Vercel build logs for success/failure
-  3. **Probe** — hit key app endpoints, check for 200s, errors, expected behaviour
-  4. **Compare** — compare actual behaviour against intended design (defined per-change)
-  5. **Diagnose** — if mismatch: read Vercel function logs, identify error
-  6. **Fix** — apply fix, commit, return to step 1
-  7. **Confirm** — loop exits only when actual outcome matches intended design
-- **Intended design spec:** Each change must declare its expected outcome (e.g. "Members search returns results without crash", "Mobile widget collapses below 768px")
-- **Tooling needed:**
-  - Vercel API integration (build status, function logs)
-  - Endpoint health probe script
-  - Intended-vs-actual comparator
-  - Max iteration guard (prevent infinite loops — cap at 5 cycles, escalate to human)
-- **Priority:** High — build before Judy demo so we have confidence in every deploy
+### ✅ INFRA-001: Recursive deploy-verify loop (DONE — 2026-03-22)
+- **Script:** `scripts/deploy-verify.mjs`
+- **Usage:** `node scripts/deploy-verify.mjs [--dry-run] [--probe-url URL] [--expected-status N]`
+- **Implements:** Push → Watch (poll Vercel) → Probe (HTTP endpoints) → Compare → Diagnose (fetch logs) → max 5 iterations → escalate
 
 ---
 
