@@ -1504,6 +1504,29 @@
   .rp-raffle__prizes-list {
     max-height: 120px;
   }
+
+  .rp-raffles__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rp-raffle__quantity-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    touch-action: manipulation;
+  }
+
+  .rp-raffle__enter-btn,
+  .rp-raffle__free-entry {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .rp-raffle__description {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
 }
 
 /* Tablet: 2 columns */

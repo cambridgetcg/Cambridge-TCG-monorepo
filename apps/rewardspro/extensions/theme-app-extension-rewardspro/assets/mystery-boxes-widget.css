@@ -907,6 +907,26 @@
   .rp-mb-rarity__label {
     width: 64px;
   }
+
+  .rp-mb-btn {
+    min-height: 44px;
+    padding: var(--rp-space-md) var(--rp-space-xl);
+    touch-action: manipulation;
+  }
+
+  .rp-mb-modal__actions {
+    flex-direction: column;
+  }
+
+  .rp-mb-reveal__desc {
+    max-width: min(300px, 90vw);
+  }
+
+  .rp-mb-reveal__close {
+    min-height: 48px;
+    padding: var(--rp-space-md) var(--rp-space-2xl);
+    font-size: var(--rp-font-lg);
+  }
 }
 
 /* ============================================

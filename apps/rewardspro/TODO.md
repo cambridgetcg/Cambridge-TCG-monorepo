@@ -35,14 +35,14 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
 - Create comprehensive e2e testing covering all merchant-facing features
 - See **Testing Plan** below
 
-### DEMO-002: Storefront widget review
-- All 6 storefront blocks need mobile testing:
-  - `membership_widget.liquid` ← BUG-002
-  - `missions_widget.liquid`
-  - `missions_section.liquid`
-  - `mystery_boxes.liquid`
-  - `raffles.liquid`
-  - `gift_cards.liquid`
+### ✅ DEMO-002: Storefront widget mobile review (DONE — 2026-03-22)
+- All 6 storefront blocks reviewed and fixed:
+  - `membership_widget.liquid` — Already excellent (BUG-002 fixed, 4 breakpoints, 44px targets)
+  - `missions_widget.liquid` — Fixed: level badge 40→44px, tabs/buttons min-height 44px, text overflow
+  - `missions_section.liquid` — Fixed: section padding reduced on mobile, CTA min-height 44px, wrapper max-width 100%
+  - `mystery_boxes.liquid` — Fixed: buttons min-height 44px, modal actions stack on mobile, reveal close sized
+  - `raffles.liquid` — Fixed: quantity buttons 28→40px, header stacks on mobile, enter button min-height 44px
+  - `gift_cards.liquid` — Fixed: buttons min-height 44px, header stacks, issued cards wrap, text overflow handled
 
 ### DEMO-003: Walkthrough script
 - Prepare a demo flow for Judy: install → configure tiers → view customer → show widget → show analytics

@@ -58,7 +58,44 @@
   .rp-gc-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
-  .rp-gc-grid { grid-template-columns: 1fr; }
+  .rp-gc-grid {
+    grid-template-columns: 1fr;
+    gap: var(--rp-space-md, 12px);
+  }
+
+  .rp-gc-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rp-gc-title {
+    font-size: var(--rp-font-lg, 16px);
+  }
+
+  .rp-gc-btn {
+    min-height: 44px;
+    padding: 12px 18px;
+    touch-action: manipulation;
+  }
+
+  .rp-gc-issued-card {
+    flex-wrap: wrap;
+  }
+
+  .rp-gc-issued-code {
+    overflow-wrap: break-word;
+    word-break: break-all;
+  }
+
+  .rp-gc-bundle-name,
+  .rp-gc-bundle-desc {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .rp-gc-guest {
+    padding: var(--rp-space-xl, 24px) var(--rp-space-md, 12px);
+  }
 }
 
 /* ─── Bundle card ────────────────────────────────────────────────────────── */

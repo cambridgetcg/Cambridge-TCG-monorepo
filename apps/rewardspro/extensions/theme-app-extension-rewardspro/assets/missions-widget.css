@@ -1076,8 +1076,8 @@
   }
 
   .rp-missions-stats__level-badge {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
 
   .rp-missions-stats__level-num {
@@ -1100,6 +1100,27 @@
   .rp-missions-tab {
     padding: var(--rp-space-sm) var(--rp-space-md);
     font-size: var(--rp-font-sm);
+    min-height: 44px;
+  }
+
+  .rp-missions-btn,
+  .rp-missions-btn--primary,
+  .rp-missions-btn--claim {
+    min-height: 44px;
+    padding: 10px 16px;
+    touch-action: manipulation;
+  }
+
+  .rp-missions-card__name {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .rp-missions-card__time {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
   }
 }
 
@@ -1352,4 +1373,34 @@
 .rp-missions-section-root[data-state="authenticated"] .rp-missions-widget {
   max-width: 680px;
   margin: 0 auto;
+}
+
+/* ─── Missions Section mobile fixes ─────────────────────────────────────── */
+@media (max-width: 480px) {
+  .rp-missions-section-root {
+    padding: 24px 0;
+  }
+
+  .rp-missions-section-guest__wrap {
+    max-width: 100%;
+  }
+
+  .rp-missions-section-guest__title {
+    font-size: 20px;
+  }
+
+  .rp-missions-section-guest__cta {
+    min-height: 44px;
+    padding: 12px 24px;
+    touch-action: manipulation;
+  }
+
+  .rp-missions-section-guest__card {
+    gap: 12px;
+    padding: 14px 12px;
+  }
+
+  .rp-missions-section-guest__card-xp {
+    padding-right: 28px;
+  }
 }
