@@ -1639,9 +1639,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/Users/yu/Desktop/rewardspro/app",
+    "appDirectory": "/Users/yournameisai/Desktop/rewardspro/app",
     "basename": "/",
-    "buildDirectory": "/Users/yu/Desktop/rewardspro/build",
+    "buildDirectory": "/Users/yournameisai/Desktop/rewardspro/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,

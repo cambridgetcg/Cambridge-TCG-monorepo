@@ -36,6 +36,7 @@ import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUA
 import prisma from "../db.server";
 import { MANAGED_PLANS } from "~/constants/billing.constants";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
+import { FeatureTogglesList } from "~/components/DesignSystem";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -448,7 +449,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Update the cached status in database if it changed
       const currentCachedStatus = shopSettings?.widgetIsActive ?? false;
       if (detection.isEnabled !== currentCachedStatus) {
-        await updateWidgetStatusCache(db, shop, detection.isEnabled);
+        await updateWidgetStatusCache(prisma, shop, detection.isEnabled);
       }
     } catch (error) {
       console.error("[Dashboard] Error detecting widget status:", error);
@@ -634,9 +635,6 @@ export function shouldRevalidate({
 // ============================================
 
 export default function Dashboard() {
-  // Debug logging - track component lifecycle
-  console.log('[Dashboard] Component function called');
-
   const data = useLoaderData<typeof loader>() as DashboardData;
 
   const navigate = useNavigate();
@@ -790,773 +788,188 @@ export default function Dashboard() {
   const activeFeaturesCount = allFeatures.filter(Boolean).length;
   const totalAccessibleFeatures = allFeatures.length;
 
+  // Compute system health summary for compact status row
+  const systemComponents = [
+    { label: 'Database', ok: data.databaseHealth.status === 'connected' },
+    { label: 'Webhooks', ok: data.webhookStats.status === 'healthy' },
+    { label: 'Sync', ok: data.dataSyncHealth.status === 'operational' || data.dataSyncHealth.status === 'syncing' },
+    { label: 'Widget', ok: data.widgetStatus.status === 'active' },
+    { label: 'Engine', ok: data.loyaltyEngine.status === 'operational' },
+  ];
+  const healthyCount = systemComponents.filter(c => c.ok).length;
+  const allHealthy = healthyCount === systemComponents.length;
+
+  const usagePercent = data.monthlyOrderUsage
+    ? Math.round((data.monthlyOrderUsage.orderCount / data.monthlyOrderUsage.planLimit) * 100)
+    : 0;
+
   return (
     <Frame>
       <Page title="Dashboard">
       <Layout>
-        {/* Review Request Banner */}
+        {/* Review Banner — compact */}
         {reviewBannerVisible && (
           <Layout.Section>
-            <div style={{
-              background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-              borderRadius: '12px',
-              padding: '24px 28px',
-              position: 'relative',
-              overflow: 'hidden',
-            }}>
-              {/* Decorative star accents */}
-              <div style={{
-                position: 'absolute', top: '-20px', right: '-20px',
-                width: '120px', height: '120px', borderRadius: '50%',
-                background: 'rgba(255,215,0,0.08)', pointerEvents: 'none'
-              }} />
-              <div style={{
-                position: 'absolute', bottom: '-30px', right: '100px',
-                width: '80px', height: '80px', borderRadius: '50%',
-                background: 'rgba(255,215,0,0.05)', pointerEvents: 'none'
-              }} />
-
-              {reviewBannerState === 'claimed' ? (
-                /* Thank-you / redirect state */
-                <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                  <InlineStack gap="400" blockAlign="center">
-                    <div style={{ fontSize: '32px' }}>🎉</div>
-                    <BlockStack gap="100">
-                      <Text variant="headingMd" as="h2" fontWeight="bold">
-                        <span style={{ color: '#ffffff' }}>Thank you! Setting up your 3 months of Pro…</span>
-                      </Text>
-                      <Text variant="bodySm" as="span">
-                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
-                          You'll be redirected to confirm the plan — it's free for 90 days, then $39/mo.
-                        </span>
-                      </Text>
-                    </BlockStack>
-                  </InlineStack>
-                </InlineStack>
-              ) : reviewBannerState === 'leaving' ? (
-                /* Confirmation step — after opening App Store */
-                <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                  <InlineStack gap="400" blockAlign="center">
-                    <div style={{ fontSize: '28px' }}>⭐</div>
-                    <BlockStack gap="100">
-                      <Text variant="headingMd" as="h2" fontWeight="bold">
-                        <span style={{ color: '#ffffff' }}>Done writing your review?</span>
-                      </Text>
-                      <Text variant="bodySm" as="span">
-                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
-                          Once you've submitted it, click below and we'll activate 3 months of Pro for you.
-                        </span>
-                      </Text>
-                    </BlockStack>
-                  </InlineStack>
-                  <InlineStack gap="300" blockAlign="center">
-                    <div
-                      onClick={handleDismissReviewBanner}
-                      style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}
-                    >
-                      Not yet
-                    </div>
-                    <div
-                      onClick={handleReviewClaimed}
-                      style={{
-                        background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-                        borderRadius: '8px',
-                        padding: '10px 20px',
-                        cursor: 'pointer',
-                        fontWeight: '700',
-                        fontSize: '14px',
-                        color: '#1a1a2e',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 4px 12px rgba(255,215,0,0.3)',
-                      }}
-                    >
-                      ✓ I've left my review
-                    </div>
-                  </InlineStack>
-                </InlineStack>
-              ) : (
-                /* Default state */
-                <InlineStack align="space-between" blockAlign="center" wrap={false}>
-                  <InlineStack gap="400" blockAlign="center">
-                    <div style={{
-                      background: 'rgba(255,215,0,0.15)',
-                      borderRadius: '12px',
-                      width: '52px',
-                      height: '52px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <span style={{ fontSize: '26px' }}>⭐</span>
-                    </div>
-                    <BlockStack gap="050">
-                      <Text variant="headingMd" as="h2" fontWeight="bold">
-                        <span style={{ color: '#ffffff' }}>Enjoying Rewards Pro? Leave us a review.</span>
-                      </Text>
-                      <Text variant="bodySm" as="span">
-                        <span style={{ color: 'rgba(255,255,255,0.65)' }}>
-                          Share your experience on the Shopify App Store and we'll give you{' '}
-                          <span style={{ color: '#FFD700', fontWeight: '600' }}>3 months of Pro, free</span>
-                          {' '}— as a thank you.
-                        </span>
-                      </Text>
-                    </BlockStack>
-                  </InlineStack>
-                  <InlineStack gap="300" blockAlign="center">
-                    <div
-                      onClick={handleDismissReviewBanner}
-                      style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.45)', fontSize: '13px' }}
-                    >
-                      Maybe later
-                    </div>
-                    <div
-                      onClick={handleLeaveReview}
-                      style={{
-                        background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-                        borderRadius: '8px',
-                        padding: '10px 22px',
-                        cursor: 'pointer',
-                        fontWeight: '700',
-                        fontSize: '14px',
-                        color: '#1a1a2e',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 4px 16px rgba(255,215,0,0.35)',
-                        transition: 'transform 0.1s ease, box-shadow 0.1s ease',
-                      }}
-                    >
-                      ⭐ Leave a Review
-                    </div>
-                  </InlineStack>
-                </InlineStack>
+            <Banner
+              title={
+                reviewBannerState === 'claimed'
+                  ? 'Thank you! Setting up 3 months of Pro…'
+                  : reviewBannerState === 'leaving'
+                    ? 'Done writing your review?'
+                    : 'Enjoying Rewards Pro? Get 3 months of Pro free.'
+              }
+              tone="info"
+              action={
+                reviewBannerState === 'claimed'
+                  ? undefined
+                  : reviewBannerState === 'leaving'
+                    ? { content: "I've left my review", onAction: handleReviewClaimed }
+                    : { content: '⭐ Leave a Review', onAction: handleLeaveReview }
+              }
+              secondaryAction={
+                reviewBannerState === 'idle'
+                  ? { content: 'Maybe later', onAction: handleDismissReviewBanner }
+                  : reviewBannerState === 'leaving'
+                    ? { content: 'Not yet', onAction: handleDismissReviewBanner }
+                    : undefined
+              }
+              onDismiss={reviewBannerState !== 'claimed' ? handleDismissReviewBanner : undefined}
+            >
+              {reviewBannerState === 'idle' && (
+                <Text as="p" variant="bodySm">
+                  Share your experience on the Shopify App Store and we'll upgrade you for free.
+                </Text>
               )}
-            </div>
+            </Banner>
           </Layout.Section>
         )}
 
-        {/* System Status - Full Width */}
+        {/* Plan + Usage — the hero section */}
         <Layout.Section>
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <Card>
-                  <BlockStack gap="400">
-              {/* Header */}
+          <Card>
+            <BlockStack gap="300">
               <InlineStack align="space-between" blockAlign="center">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={StatusActiveIcon} tone="base" />
-                  <Text variant="headingMd" as="h2">System Status</Text>
-                </InlineStack>
-                <Badge tone="success" children={`${data.shopifyMetrics?.source !== 'unavailable' ? '100%' : '99%'} Health`} />
+                <BlockStack gap="050">
+                  <Text variant="headingLg" as="h2" fontWeight="bold">
+                    {data.activeSubscription?.name
+                      ? data.activeSubscription.name.replace('RewardsPro ', '')
+                      : 'Free Plan'}
+                  </Text>
+                  <Text variant="bodySm" as="span" tone="subdued">
+                    {data.currentMonth} • {data.daysRemaining}d remaining in cycle
+                  </Text>
+                </BlockStack>
+                <Button variant="plain" onClick={() => navigate('/app/billing')}>
+                  {data.activeSubscription?.name?.includes('Ultra') ? 'Manage Plan' : 'Upgrade'}
+                </Button>
               </InlineStack>
 
               <Divider />
 
-              {/* Overall Status Banner */}
-              <Banner tone="success">
-                <InlineStack gap="400" blockAlign="center" wrap={false}>
-                  <InlineStack gap="200" blockAlign="center">
-                    <Icon source={CheckCircleIcon} tone="success" />
-                    <Text variant="bodyMd" as="span" fontWeight="semibold">All Systems Operational</Text>
-                  </InlineStack>
-                  <Text variant="bodySm" as="span" tone="subdued">•</Text>
-                  <Text variant="bodySm" as="span" tone="subdued">Uptime: 99.9%</Text>
-                  <Text variant="bodySm" as="span" tone="subdued">•</Text>
-                  <Text variant="bodySm" as="span" tone="subdued">0 active incidents</Text>
-                </InlineStack>
-              </Banner>
-
-              {/* Component Cards Grid */}
-              <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="400">
-                {/* Subscription Component */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" blockAlign="start">
-                      <Box
-                        padding="200"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <Icon source={CreditCardIcon} tone="base" />
-                      </Box>
-                      <Badge tone="success">Active</Badge>
-                    </InlineStack>
-
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      {data.activeSubscription?.name ? data.activeSubscription.name.replace('RewardsPro', 'Rewards') : 'Rewards Free'}
-                    </Text>
-
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Orders Used:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.monthlyOrderUsage?.orderCount || 0} / {data.monthlyOrderUsage?.planLimit || MANAGED_PLANS["RewardsPro Free"].ordersIncluded}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Usage:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.monthlyOrderUsage ? Math.round((data.monthlyOrderUsage.orderCount / data.monthlyOrderUsage.planLimit) * 100) : 0}%
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Cycle:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.daysRemaining || 0}d remaining
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.activeSubscription?.status || 'Free'}
-                        </Text>
-                      </InlineStack>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <InlineStack align="space-between" blockAlign="center">
-                      <Text variant="bodySm" as="span" tone="subdued">
-                        Subscription plan
-                      </Text>
-                      <Button size="slim" variant="plain" onClick={() => navigate('/app/billing')}>
-                        {data.activeSubscription?.name?.includes('Ultra') ? 'Manage' : 'Upgrade'}
-                      </Button>
-                    </InlineStack>
-                  </BlockStack>
-                </Card>
-
-                {/* Database Component */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" blockAlign="start">
-                      <Box
-                        padding="200"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <Icon source={DatabaseIcon} tone="base" />
-                      </Box>
-                      <Badge tone={
-                        data.databaseHealth.status === 'connected' ? 'success' :
-                        data.databaseHealth.status === 'degraded' ? 'warning' : 'critical'
-                      }>
-                        {data.databaseHealth.status === 'connected' ? 'Operational' :
-                         data.databaseHealth.status === 'degraded' ? 'Degraded' : 'Disconnected'}
-                      </Badge>
-                    </InlineStack>
-
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Database
-                    </Text>
-
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Response:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.databaseHealth.responseTime === 0
-                            ? 'Measuring...'
-                            : data.databaseHealth.responseTime < 1000
-                              ? `${Math.round(data.databaseHealth.responseTime)}ms`
-                              : `${(data.databaseHealth.responseTime / 1000).toFixed(2)}s`
-                          }
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Uptime:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.databaseHealth.uptime}%
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.databaseHealth.status === 'connected' ? 'Connected' :
-                           data.databaseHealth.status === 'degraded' ? 'Slow' : 'Disconnected'}
-                        </Text>
-                      </InlineStack>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <Text variant="bodySm" as="span" tone="subdued">
-                      PostgreSQL database storing all customer data, tiers, and transactions
-                    </Text>
-                  </BlockStack>
-                </Card>
-
-                {/* Webhook Processing Component */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" blockAlign="start">
-                      <Box
-                        padding="200"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <Icon source={RefreshIcon} tone="base" />
-                      </Box>
-                      <Badge tone={
-                        data.webhookStats.status === 'healthy' ? 'success' :
-                        data.webhookStats.status === 'degraded' ? 'warning' : 'critical'
-                      }>
-                        {data.webhookStats.status === 'healthy' ? 'Operational' :
-                         data.webhookStats.status === 'degraded' ? 'Degraded' : 'Critical'}
-                      </Badge>
-                    </InlineStack>
-
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Webhook Processing
-                    </Text>
-
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Processed:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.webhookStats.processedLast24h.toLocaleString()} (24h)
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Success Rate:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.webhookStats.successRate.toFixed(1)}%
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.webhookStats.status === 'healthy' ? 'Healthy' :
-                           data.webhookStats.status === 'degraded' ? 'Degraded' : 'Critical'}
-                        </Text>
-                      </InlineStack>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <Text variant="bodySm" as="span" tone="subdued">
-                      {data.webhookStats.status === 'healthy'
-                        ? 'Receiving and processing Shopify order events'
-                        : data.webhookStats.errorsLastHour > 0
-                          ? `${data.webhookStats.errorsLastHour} errors in the last hour`
-                          : 'Webhook processing experiencing issues'}
-                    </Text>
-                  </BlockStack>
-                </Card>
-
-                {/* Loyalty Engine Component */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" blockAlign="start">
-                      <Box
-                        padding="200"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <Icon source={ChartVerticalIcon} tone="base" />
-                      </Box>
-                      <Badge tone={
-                        data.loyaltyEngine.status === 'operational' ? 'success' :
-                        data.loyaltyEngine.status === 'degraded' ? 'warning' : 'attention'
-                      }>
-                        {data.loyaltyEngine.status === 'operational' ? 'Operational' :
-                         data.loyaltyEngine.status === 'degraded' ? 'Degraded' : 'Needs Setup'}
-                      </Badge>
-                    </InlineStack>
-
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Loyalty Engine
-                    </Text>
-
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Tiers:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.loyaltyEngine.tierCount > 0
-                            ? `${data.loyaltyEngine.tierCount} Tier${data.loyaltyEngine.tierCount !== 1 ? 's' : ''}`
-                            : 'Not Configured'}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Cashback:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.loyaltyEngine.cashbackEnabled ? 'Enabled' : 'Disabled'}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Currency:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.loyaltyEngine.currency}
-                        </Text>
-                      </InlineStack>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <Text variant="bodySm" as="span" tone="subdued">
-                      Tier calculations and cashback rewards processing
-                    </Text>
-                  </BlockStack>
-                </Card>
-
-                {/* Data Sync Component */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" blockAlign="start">
-                      <Box
-                        padding="200"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <Icon source={RefreshIcon} tone="base" />
-                      </Box>
-                      <Badge tone={
-                        data.dataSyncHealth.status === 'operational' ? 'success' :
-                        data.dataSyncHealth.status === 'syncing' ? 'info' :
-                        data.dataSyncHealth.status === 'degraded' ? 'warning' : 'critical'
-                      }>
-                        {data.dataSyncHealth.status === 'operational' ? 'Operational' :
-                         data.dataSyncHealth.status === 'syncing' ? 'Syncing' :
-                         data.dataSyncHealth.status === 'degraded' ? 'Degraded' : 'Failed'}
-                      </Badge>
-                    </InlineStack>
-
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Data Sync
-                    </Text>
-
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Database:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.databaseHealth.status === 'connected' ? 'Connected' :
-                           data.databaseHealth.status === 'degraded' ? 'Slow' : 'Disconnected'}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Customers:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.dataSyncHealth.customerSync.status === 'running' ? 'Syncing...' :
-                           data.dataSyncHealth.customerSync.status === 'failed' ? 'Failed' :
-                           data.dataSyncHealth.customerSync.status === 'never_run' ? 'Not Synced' :
-                           formatTimeAgo(data.dataSyncHealth.customerSync.lastSyncAt)}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Webhooks:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.dataSyncHealth.webhookHealth === 'healthy' ? 'Healthy' :
-                           data.dataSyncHealth.webhookHealth === 'degraded' ? 'Degraded' : 'Critical'}
-                        </Text>
-                      </InlineStack>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <Text variant="bodySm" as="span" tone="subdued">
-                      Real-time synchronization with Shopify store
-                    </Text>
-                  </BlockStack>
-                </Card>
-
-                {/* Widget Embed Component */}
-                <Card>
-                  <BlockStack gap="300">
-                    <InlineStack align="space-between" blockAlign="start">
-                      <Box
-                        padding="200"
-                        background="bg-surface-secondary"
-                        borderRadius="200"
-                      >
-                        <Icon source={StatusActiveIcon} tone="base" />
-                      </Box>
-                      <Badge tone={
-                        data.widgetStatus.status === 'active' ? 'success' :
-                        data.widgetStatus.status === 'inactive' ? 'warning' : 'attention'
-                      }>
-                        {data.widgetStatus.status === 'active' ? 'Active' :
-                         data.widgetStatus.status === 'inactive' ? 'Inactive' : 'Not Setup'}
-                      </Badge>
-                    </InlineStack>
-
-                    <Text variant="headingSm" as="h3" fontWeight="semibold">
-                      Widget Embed
-                    </Text>
-
-                    <BlockStack gap="100">
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Theme:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.widgetStatus.themeName || 'Unknown'}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Block:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.widgetStatus.blockType === 'app_embed' ? 'App Embed' :
-                           data.widgetStatus.blockType === 'section' ? 'Section' : 'Not Found'}
-                        </Text>
-                      </InlineStack>
-                      <InlineStack gap="200" blockAlign="center">
-                        <Text variant="bodySm" as="span" tone="subdued">Status:</Text>
-                        <Text variant="bodySm" as="span" fontWeight="medium">
-                          {data.widgetStatus.status === 'active' ? 'Visible' :
-                           data.widgetStatus.status === 'inactive' ? 'Disabled' : 'Not Enabled'}
-                        </Text>
-                      </InlineStack>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <Text variant="bodySm" as="span" tone="subdued">
-                      {data.widgetStatus.isActive
-                        ? 'Widget is showing on your storefront'
-                        : 'Enable in Theme Editor → App embeds'}
-                    </Text>
-                  </BlockStack>
-                </Card>
+              <InlineGrid columns={{ xs: 2, sm: 4 }} gap="300">
+                <BlockStack gap="050">
+                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                    {data.monthlyOrderUsage?.orderCount || 0}
+                  </Text>
+                  <Text variant="bodySm" as="span" tone="subdued">
+                    Orders this month
+                  </Text>
+                </BlockStack>
+                <BlockStack gap="050">
+                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                    {data.monthlyOrderUsage?.planLimit || 100}
+                  </Text>
+                  <Text variant="bodySm" as="span" tone="subdued">
+                    Plan limit
+                  </Text>
+                </BlockStack>
+                <BlockStack gap="050">
+                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                    {usagePercent}%
+                  </Text>
+                  <Text variant="bodySm" as="span" tone="subdued">
+                    Usage
+                  </Text>
+                </BlockStack>
+                <BlockStack gap="050">
+                  <Text variant="heading2xl" as="p" fontWeight="bold">
+                    {`${activeFeaturesCount}/${totalAccessibleFeatures}`}
+                  </Text>
+                  <Text variant="bodySm" as="span" tone="subdued">
+                    Features active
+                  </Text>
+                </BlockStack>
               </InlineGrid>
             </BlockStack>
-                </Card>
-              </div>
-            </div>
-          </div>
+          </Card>
         </Layout.Section>
 
-        {/* Feature Manager */}
+        {/* System Health — one compact row */}
         <Layout.Section>
           <Card>
-            <BlockStack gap="400">
+            <InlineStack align="space-between" blockAlign="center">
+              <InlineStack gap="200" blockAlign="center">
+                <Icon source={allHealthy ? CheckCircleIcon : StatusActiveIcon} tone={allHealthy ? 'success' : 'warning'} />
+                <Text variant="bodyMd" as="span" fontWeight="semibold">
+                  {allHealthy ? 'All Systems Operational' : `${healthyCount}/${systemComponents.length} Systems Healthy`}
+                </Text>
+              </InlineStack>
+              <InlineStack gap="300">
+                {systemComponents.map((c) => (
+                  <Badge key={c.label} tone={c.ok ? 'success' : 'warning'}>
+                    {c.label}
+                  </Badge>
+                ))}
+              </InlineStack>
+            </InlineStack>
+          </Card>
+        </Layout.Section>
+
+        {/* Feature Manager — using DesignSystem FeatureToggleCard */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="300">
               <InlineStack align="space-between" blockAlign="center">
                 <InlineStack gap="200" blockAlign="center">
                   <Icon source={SettingsIcon} tone="base" />
-                  <Text variant="headingMd" as="h2">Feature Manager</Text>
+                  <Text variant="headingMd" as="h2">Features</Text>
                 </InlineStack>
-                <Badge tone={activeFeaturesCount === totalAccessibleFeatures ? 'success' : activeFeaturesCount >= Math.ceil(totalAccessibleFeatures / 2) ? 'info' : 'warning'}>
+                <Badge tone={activeFeaturesCount === totalAccessibleFeatures ? 'success' : 'info'}>
                   {`${activeFeaturesCount}/${totalAccessibleFeatures} Active`}
                 </Badge>
               </InlineStack>
 
-              <Text variant="bodyMd" as="p" tone="subdued">
-                Enable or disable specific features for your store. Changes take effect immediately.
-              </Text>
-
-              <Divider />
-
-              <BlockStack gap="200">
-                {/* Analytics Row - Available to all tiers */}
-                {(() => {
-                  const isEnabled = getFeatureState('advancedAnalyticsEnabled', data.shopSettings?.advancedAnalyticsEnabled);
-                  return (
-                    <div style={{
-                      padding: '12px 16px',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '8px',
-                      border: '1px solid #e1e3e5'
-                    }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '8px',
-                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'background-color 0.15s ease'
-                          }}>
-                            <Icon source={ChartVerticalIcon} tone={isEnabled ? 'success' : 'subdued'} />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text variant="bodyMd" as="span" fontWeight="semibold">Advanced Analytics</Text>
-                            <Text variant="bodySm" as="span" tone="subdued">Analytics and reporting features</Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <InlineStack gap="300" blockAlign="center">
-                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
-                            {isEnabled ? 'Enabled' : 'Disabled'}
-                          </Badge>
-                          <div
-                            style={{
-                              width: '52px',
-                              height: '28px',
-                              borderRadius: '14px',
-                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
-                              position: 'relative',
-                              cursor: 'pointer',
-                              transition: 'background-color 0.15s ease'
-                            }}
-                            onClick={() => handleToggleFeature('advancedAnalyticsEnabled', !isEnabled)}
-                          >
-                            <div style={{
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              backgroundColor: 'white',
-                              position: 'absolute',
-                              top: '2px',
-                              left: isEnabled ? '26px' : '2px',
-                              transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                              pointerEvents: 'none'
-                            }} />
-                          </div>
-                        </InlineStack>
-                      </InlineStack>
-                    </div>
-                  );
-                })()}
-
-                {/* Cashback Row - Available to all tiers */}
-                {(() => {
-                  const isEnabled = getFeatureState('autoCashbackProcessingEnabled', data.shopSettings?.autoCashbackProcessingEnabled);
-                  return (
-                    <div style={{
-                      padding: '12px 16px',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '8px',
-                      border: '1px solid #e1e3e5'
-                    }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '8px',
-                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'background-color 0.15s ease'
-                          }}>
-                            <Icon source={CashDollarIcon} tone={isEnabled ? 'success' : 'subdued'} />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text variant="bodyMd" as="span" fontWeight="semibold">Automatic Cashback Processing</Text>
-                            <Text variant="bodySm" as="span" tone="subdued">Process rewards automatically for orders</Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <InlineStack gap="300" blockAlign="center">
-                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
-                            {isEnabled ? 'Enabled' : 'Disabled'}
-                          </Badge>
-                          <div
-                            style={{
-                              width: '52px',
-                              height: '28px',
-                              borderRadius: '14px',
-                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
-                              position: 'relative',
-                              cursor: 'pointer',
-                              transition: 'background-color 0.15s ease'
-                            }}
-                            onClick={() => handleToggleFeature('autoCashbackProcessingEnabled', !isEnabled)}
-                          >
-                            <div style={{
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              backgroundColor: 'white',
-                              position: 'absolute',
-                              top: '2px',
-                              left: isEnabled ? '26px' : '2px',
-                              transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                              pointerEvents: 'none'
-                            }} />
-                          </div>
-                        </InlineStack>
-                      </InlineStack>
-                    </div>
-                  );
-                })()}
-
-                {/* Email Marketing Row - Hidden until feature is ready */}
-
-                {/* Membership Tiers Row - OPTIMISTIC UI */}
-                {(() => {
-                  const isEnabled = getFeatureState('tierProductsEnabled', data.shopSettings?.tierProductsEnabled);
-                  return (
-                    <div style={{
-                      padding: '12px 16px',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '8px',
-                      border: '1px solid #e1e3e5'
-                    }}>
-                      <InlineStack align="space-between" blockAlign="center">
-                        <InlineStack gap="300" blockAlign="center">
-                          <div style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '8px',
-                            backgroundColor: isEnabled ? '#e3f1df' : '#f1f1f1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'background-color 0.15s ease'
-                          }}>
-                            <Icon source={DatabaseIcon} tone={isEnabled ? 'success' : 'subdued'} />
-                          </div>
-                          <BlockStack gap="050">
-                            <Text variant="bodyMd" as="span" fontWeight="semibold">Membership Tiers Module</Text>
-                            <Text variant="bodySm" as="span" tone="subdued">Tiered loyalty program with benefits</Text>
-                          </BlockStack>
-                        </InlineStack>
-                        <InlineStack gap="300" blockAlign="center">
-                          <Badge tone={isEnabled ? 'success' : 'enabled'}>
-                            {isEnabled ? 'Enabled' : 'Disabled'}
-                          </Badge>
-                          <div
-                            style={{
-                              width: '52px',
-                              height: '28px',
-                              borderRadius: '14px',
-                              backgroundColor: isEnabled ? '#008060' : '#8c9196',
-                              position: 'relative',
-                              cursor: 'pointer',
-                              transition: 'background-color 0.15s ease'
-                            }}
-                            onClick={() => handleToggleFeature('tierProductsEnabled', !isEnabled)}
-                          >
-                            <div style={{
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              backgroundColor: 'white',
-                              position: 'absolute',
-                              top: '2px',
-                              left: isEnabled ? '26px' : '2px',
-                              transition: 'left 0.15s ease',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                              pointerEvents: 'none'
-                            }} />
-                          </div>
-                        </InlineStack>
-                      </InlineStack>
-                    </div>
-                  );
-                })()}
-              </BlockStack>
+              <FeatureTogglesList
+                toggles={[
+                  {
+                    id: 'analytics',
+                    icon: ChartVerticalIcon,
+                    title: 'Advanced Analytics',
+                    description: 'Analytics and reporting features',
+                    enabled: analyticsEnabled,
+                    onChange: (enabled) => handleToggleFeature('advancedAnalyticsEnabled', enabled),
+                  },
+                  {
+                    id: 'cashback',
+                    icon: CashDollarIcon,
+                    title: 'Automatic Cashback',
+                    description: 'Process rewards automatically for orders',
+                    enabled: cashbackEnabled,
+                    onChange: (enabled) => handleToggleFeature('autoCashbackProcessingEnabled', enabled),
+                  },
+                  {
+                    id: 'tiers',
+                    icon: DatabaseIcon,
+                    title: 'Membership Tiers',
+                    description: 'Tiered loyalty program with benefits',
+                    enabled: tiersEnabled,
+                    onChange: (enabled) => handleToggleFeature('tierProductsEnabled', enabled),
+                  },
+                ]}
+              />
             </BlockStack>
           </Card>
         </Layout.Section>
-
-        {/* OLD SYSTEM STATUS - COMMENTED OUT FOR REVIEW
-        <Layout.Section variant="twoThirds">
-          <Card>
-            <BlockStack gap="400">
-              <InlineStack align="space-between" blockAlign="center">
-                <InlineStack gap="200" blockAlign="center">
-                  <Icon source={StatusActiveIcon} tone="base" />
-                  <Text variant="headingMd" as="h2">System Status (OLD)</Text>
-                </InlineStack>
-                <Badge tone="success">All Systems Operational</Badge>
-              </InlineStack>
-              ... rest of old code ...
-            </BlockStack>
-          </Card>
-        </Layout.Section>
-        END OF OLD SYSTEM STATUS */}
       </Layout>
     </Page>
     {toastMarkup}
